@@ -150,44 +150,108 @@ export const getAttendanceSummary = withTenant(
 );
 
 // ─── Kiosk actions (public) ───
-// Error messages are intentionally generic to prevent employee code enumeration.
+// Auth failures stay generic (anti-enumeration). Operational messages are safe to surface.
 // Rate limited per (IP + employeeCode): 5 attempts per 5 minutes.
 
 const KIOSK_RATE_LIMIT = 5;
 const KIOSK_RATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
-export const kioskClockIn = withTenant(
-  async function kioskClockIn(employeeCode: string, pin: string, workShiftId: string) {
+/** Business messages that do not leak whether a code/PIN exists. */
+function mapKioskError(error: unknown): string {
+  if (!(error instanceof Error)) return 'Kode atau PIN tidak valid';
+  const msg = error.message;
+
+  if (msg.startsWith('Masih belum clock-out')) return msg;
+  if (msg === 'Sudah absen shift ini hari ini') return msg;
+  if (msg === 'Tidak ada sesi absensi yang masih terbuka') return msg;
+  if (msg === 'Shift tidak aktif') return 'Shift tidak aktif';
+  if (msg === 'Data absensi tidak lengkap' || msg === 'Foto absensi tidak valid') {
+    return 'Ambil selfie terlebih dahulu';
+  }
+
+  // Karyawan tidak ditemukan / PIN salah / tidak aktif → generic
+  return 'Kode atau PIN tidak valid';
+}
+
+export type KioskEmployeeOption = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+/** Minimal ACTIVE employee list for kiosk name search — never exposes pin/rates. */
+export const listKioskEmployees = withTenant(
+  async function listKioskEmployees() {
     try {
-      const ip = getClientIp();
+      const employees = await db.employee.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, name: true, code: true },
+        orderBy: { name: 'asc' },
+      });
+      return { success: true, data: employees as KioskEmployeeOption[] };
+    } catch (error) {
+      logger.error('List kiosk employees failed', { error, module: 'AttendanceActions' });
+      return { success: false, error: 'Gagal memuat daftar karyawan' };
+    }
+  }
+);
+
+export const kioskClockIn = withTenant(
+  async function kioskClockIn(
+    employeeCode: string,
+    pin: string,
+    workShiftId: string,
+    clockInPhotoUrl: string,
+  ) {
+    try {
+      const ip = await getClientIp();
       const { success } = rateLimit(`kiosk:${ip}:${employeeCode}`, KIOSK_RATE_LIMIT, KIOSK_RATE_WINDOW_MS);
       if (!success) {
         return { success: false, error: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.' };
       }
 
-      const result = await AttendanceService.clockIn(db, { employeeCode, pin, workShiftId });
+      if (!clockInPhotoUrl?.trim()) {
+        return { success: false, error: 'Ambil selfie terlebih dahulu' };
+      }
+
+      const result = await AttendanceService.clockIn(db, {
+        employeeCode,
+        pin,
+        workShiftId,
+        clockInPhotoUrl: clockInPhotoUrl.trim(),
+      });
       revalidatePath('/kiosk/attendance');
+      revalidatePath('/hrd/attendance');
       return { success: true, data: result };
-    } catch {
-      return { success: false, error: 'Kode atau PIN tidak valid' };
+    } catch (error) {
+      return { success: false, error: mapKioskError(error) };
     }
   }
 );
 
 export const kioskClockOut = withTenant(
-  async function kioskClockOut(employeeCode: string, pin: string) {
+  async function kioskClockOut(
+    employeeCode: string,
+    pin: string,
+    clockOutPhotoUrl?: string,
+  ) {
     try {
-      const ip = getClientIp();
+      const ip = await getClientIp();
       const { success } = rateLimit(`kiosk:${ip}:${employeeCode}`, KIOSK_RATE_LIMIT, KIOSK_RATE_WINDOW_MS);
       if (!success) {
         return { success: false, error: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.' };
       }
 
-      const result = await AttendanceService.clockOut(db, { employeeCode, pin });
+      const result = await AttendanceService.clockOut(db, {
+        employeeCode,
+        pin,
+        clockOutPhotoUrl: clockOutPhotoUrl?.trim() || undefined,
+      });
       revalidatePath('/kiosk/attendance');
+      revalidatePath('/hrd/attendance');
       return { success: true, data: result };
-    } catch {
-      return { success: false, error: 'Kode atau PIN tidak valid' };
+    } catch (error) {
+      return { success: false, error: mapKioskError(error) };
     }
   }
 );

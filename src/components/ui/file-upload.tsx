@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { compressImageForUpload } from "@/lib/media/compress-image";
 
 interface FileUploadProps {
   value?: string;
@@ -26,8 +27,10 @@ export function FileUpload({
   const handleUpload = async (file: File) => {
     setIsUploading(true);
     try {
+      const compressed = await compressImageForUpload(file);
+
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressed);
       if (customerId) {
         formData.append("customerId", customerId);
       }
@@ -118,9 +121,9 @@ export function FileUpload({
             <ImageIcon className="h-8 w-8" />
           )}
           <span className="text-sm">
-            {isUploading ? "Mengupload..." : "Klik untuk upload foto"}
+            {isUploading ? "Mengompres & upload..." : "Klik untuk upload foto"}
           </span>
-          <span className="text-xs">JPG, PNG, atau WebP (maks. 5MB)</span>
+          <span className="text-xs">JPG, PNG, atau WebP — di-compress otomatis</span>
         </button>
       )}
       <input

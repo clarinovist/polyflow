@@ -2207,6 +2207,8 @@ model AttendanceRecord {
   notes                String?
   source               AttendanceSource @default(KIOSK)
   createdById          String?
+  clockInPhotoUrl      String?          @db.Text
+  clockOutPhotoUrl     String?          @db.Text
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 

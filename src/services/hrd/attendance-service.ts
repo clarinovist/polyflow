@@ -3,6 +3,7 @@ import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { verifyPin } from './pin-helpers';
 import { resolveWorkDate, getEffectivePlannedHours, calcActualHours, calcOvertimeHours } from './shift-window';
 import { Prisma } from '@prisma/client';
+import { isValidAttendancePhotoUrl } from '@/lib/media/attendance-photo-url';
 
 // ─── Input types ───
 
@@ -10,12 +11,16 @@ export interface KioskClockInInput {
   employeeCode: string;
   pin: string;
   workShiftId: string;
+  /** Required when source is KIOSK (default). */
+  clockInPhotoUrl?: string;
   source?: AttendanceSource;
 }
 
 export interface KioskClockOutInput {
   employeeCode: string;
   pin: string;
+  /** Optional evidence photo on clock-out. */
+  clockOutPhotoUrl?: string;
 }
 
 /** Input for admin manual operations — no PIN required. */
@@ -51,6 +56,8 @@ export interface AttendanceRecordResult {
   dailyEarnings: number;
   overtimeEarnings: number;
   totalEarnings: number;
+  clockInPhotoUrl: string | null;
+  clockOutPhotoUrl: string | null;
 }
 
 export interface DailySummary {
@@ -82,6 +89,7 @@ type RecordWithRelations = {
   plannedHours: Prisma.Decimal | null; actualHours: Prisma.Decimal | null; regularHours: Prisma.Decimal | null; overtimeHours: Prisma.Decimal | null;
   standardDayHours: Prisma.Decimal | null; dailyRateSnapshot: Prisma.Decimal | null; overtimeRateSnapshot: Prisma.Decimal | null;
   dailyEarnings: Prisma.Decimal | null; overtimeEarnings: Prisma.Decimal | null; totalEarnings: Prisma.Decimal | null;
+  clockInPhotoUrl: string | null; clockOutPhotoUrl: string | null;
   employee: { name: string; code: string };
   workShift: ShiftSelect;
 };
@@ -175,6 +183,8 @@ function buildRecordResult(record: RecordWithRelations): AttendanceRecordResult 
     dailyEarnings,
     overtimeEarnings,
     totalEarnings: dailyEarnings + overtimeEarnings,
+    clockInPhotoUrl: record.clockInPhotoUrl ?? null,
+    clockOutPhotoUrl: record.clockOutPhotoUrl ?? null,
   };
 }
 
@@ -255,6 +265,16 @@ export const AttendanceService = {
     const pinValid = await verifyPin(input.pin, employee.pinHash);
     if (!pinValid) throw new BusinessRuleError('PIN salah');
 
+    const source = input.source ?? 'KIOSK';
+    if (source === 'KIOSK') {
+      if (!input.clockInPhotoUrl?.trim()) {
+        throw new BusinessRuleError('Data absensi tidak lengkap');
+      }
+      if (!isValidAttendancePhotoUrl(input.clockInPhotoUrl)) {
+        throw new BusinessRuleError('Foto absensi tidak valid');
+      }
+    }
+
     const shift = await findShift(db, input.workShiftId);
     if (!shift) throw new NotFoundError('Shift tidak ditemukan');
     if (shift.status !== 'ACTIVE') throw new BusinessRuleError('Shift tidak aktif');
@@ -292,8 +312,9 @@ export const AttendanceService = {
         workShiftId: input.workShiftId,
         clockInAt: now,
         isOvertimeShift: sameDayCount > 0,
-        source: input.source ?? 'KIOSK',
+        source,
         status: 'PRESENT',
+        clockInPhotoUrl: input.clockInPhotoUrl?.trim() || null,
         plannedHours: new Prisma.Decimal(planned),
         standardDayHours: new Prisma.Decimal(rates.standardDayHours),
         dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
@@ -328,10 +349,19 @@ export const AttendanceService = {
     });
     if (!openRecord) throw new BusinessRuleError('Tidak ada sesi absensi yang masih terbuka');
 
+    if (input.clockOutPhotoUrl?.trim() && !isValidAttendancePhotoUrl(input.clockOutPhotoUrl)) {
+      throw new BusinessRuleError('Foto absensi tidak valid');
+    }
+
     const now = new Date();
     const updated = await db.attendanceRecord.update({
       where: { id: openRecord.id },
-      data: { clockOutAt: now },
+      data: {
+        clockOutAt: now,
+        ...(input.clockOutPhotoUrl?.trim()
+          ? { clockOutPhotoUrl: input.clockOutPhotoUrl.trim() }
+          : {}),
+      },
       include: includeRelations,
     });
 

@@ -2,37 +2,69 @@
 
 import { useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, X } from 'lucide-react';
+import { Camera, X, Loader2 } from 'lucide-react';
+import { compressImageForUpload } from '@/lib/media/compress-image';
 
 interface CameraCaptureProps {
   onCapture: (file: File) => void;
   onRemove?: () => void;
   disabled?: boolean;
   previewUrl?: string | null;
+  /** Longest side after compress. Default 1280 (production evidence). */
+  maxSide?: number;
+  /** JPEG quality 0–1. Default 0.75. */
+  quality?: number;
+  buttonLabel?: string;
 }
 
-export function CameraCapture({ onCapture, onRemove, disabled, previewUrl }: CameraCaptureProps) {
+export function CameraCapture({
+  onCapture,
+  onRemove,
+  disabled,
+  previewUrl,
+  maxSide = 1280,
+  quality = 0.75,
+  buttonLabel = 'Ambil Foto (Opsional)',
+}: CameraCaptureProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [capturedPreview, setCapturedPreview] = useState<string | null>(previewUrl || null);
+  const [compressing, setCompressing] = useState(false);
 
   const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      setCapturedPreview(URL.createObjectURL(file));
-      onCapture(file);
+      setCompressing(true);
+      try {
+        const out = await compressImageForUpload(file, {
+          maxSide,
+          quality,
+          mimeType: 'image/jpeg',
+          fileName: `capture-${Date.now()}.jpg`,
+        });
 
-      // Reset input so same file can be selected again
-      e.target.value = '';
+        if (capturedPreview?.startsWith('blob:')) {
+          URL.revokeObjectURL(capturedPreview);
+        }
+        setCapturedPreview(URL.createObjectURL(out));
+        onCapture(out);
+      } finally {
+        setCompressing(false);
+        // Reset input so same file can be selected again
+        e.target.value = '';
+      }
     },
-    [onCapture],
+    [capturedPreview, maxSide, onCapture, quality],
   );
 
   const handleRemove = useCallback(() => {
+    if (capturedPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(capturedPreview);
+    }
     setCapturedPreview(null);
     onRemove?.();
-  }, [onRemove]);
+  }, [capturedPreview, onRemove]);
 
   const openCamera = useCallback(() => {
     fileInputRef.current?.click();
@@ -43,7 +75,11 @@ export function CameraCapture({ onCapture, onRemove, disabled, previewUrl }: Cam
     return (
       <div className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={capturedPreview} alt="Foto hasil produksi" className="w-full max-h-64 object-contain rounded-lg border-2 border-emerald-500/30" />
+        <img
+          src={capturedPreview}
+          alt="Foto hasil produksi"
+          className="w-full max-h-64 object-contain rounded-lg border-2 border-emerald-500/30"
+        />
         {!disabled && (
           <div className="flex gap-2 mt-2">
             <Button
@@ -52,8 +88,14 @@ export function CameraCapture({ onCapture, onRemove, disabled, previewUrl }: Cam
               size="sm"
               className="flex-1"
               onClick={openCamera}
+              disabled={compressing}
             >
-              <Camera className="mr-2 h-4 w-4" /> Ambil Ulang
+              {compressing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="mr-2 h-4 w-4" />
+              )}
+              Ambil Ulang
             </Button>
             <Button
               type="button"
@@ -61,6 +103,7 @@ export function CameraCapture({ onCapture, onRemove, disabled, previewUrl }: Cam
               size="sm"
               className="flex-1"
               onClick={handleRemove}
+              disabled={compressing}
             >
               <X className="mr-2 h-4 w-4" /> Hapus
             </Button>
@@ -78,18 +121,28 @@ export function CameraCapture({ onCapture, onRemove, disabled, previewUrl }: Cam
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={handleFileChange}
+        onChange={(e) => void handleFileChange(e)}
         className="hidden"
+        disabled={disabled || compressing}
       />
       <Button
         type="button"
         variant="outline"
         className="w-full h-16 border-2 border-dashed text-muted-foreground"
         onClick={openCamera}
-        disabled={disabled}
+        disabled={disabled || compressing}
       >
-        <Camera className="mr-2 h-5 w-5" />
-        Ambil Foto (Opsional)
+        {compressing ? (
+          <>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Mengompres foto…
+          </>
+        ) : (
+          <>
+            <Camera className="mr-2 h-5 w-5" />
+            {buttonLabel}
+          </>
+        )}
       </Button>
     </div>
   );

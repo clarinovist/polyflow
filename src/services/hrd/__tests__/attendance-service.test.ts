@@ -60,18 +60,23 @@ describe('AttendanceService', () => {
         standardDayHours: activeEmployee.standardDayHours,
         dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
         plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
         employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
       } as any);
 
       const result = await AttendanceService.clockIn(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
       });
 
       expect(result.employeeName).toBe('Budi');
       expect(result.isOvertimeShift).toBe(false);
       expect(mockDb.attendanceRecord.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ isOvertimeShift: false }),
+          data: expect.objectContaining({
+            isOvertimeShift: false,
+            clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          }),
         }),
       );
     });
@@ -92,14 +97,37 @@ describe('AttendanceService', () => {
         standardDayHours: activeEmployee.standardDayHours,
         dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
         plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
         employee: { name: 'Budi', code: 'EMP-001' }, workShift: { ...activeShift, id: 'shift-2', name: 'Siang-8' },
       } as any);
 
       const result = await AttendanceService.clockIn(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-2',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
       });
 
       expect(result.isOvertimeShift).toBe(true);
+    });
+
+    it('rejects kiosk clock-in without selfie photo', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+        }),
+      ).rejects.toThrow('Data absensi tidak lengkap');
+    });
+
+    it('rejects kiosk clock-in with external photo URL', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: 'https://evil.com/selfie.jpg',
+        }),
+      ).rejects.toThrow('Foto absensi tidak valid');
     });
 
     it('rejects when employee not found', async () => {
@@ -107,6 +135,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-999', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
         }),
       ).rejects.toThrow('Karyawan tidak ditemukan');
     });
@@ -117,6 +146,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '9999', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
         }),
       ).rejects.toThrow('PIN salah');
     });
@@ -132,6 +162,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-2',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
         }),
       ).rejects.toThrow('Masih belum clock-out');
     });
@@ -146,6 +177,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
         }),
       ).rejects.toThrow('Sudah absen shift ini hari ini');
     });

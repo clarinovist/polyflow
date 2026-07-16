@@ -89,6 +89,22 @@ export function buildProductionPhotoKey(
 }
 
 /**
+ * Build R2 key for attendance selfies.
+ * Format: {tenant}/attendance/{employeeId}/{kind}-{timestamp}.{ext}
+ * kind: clock_in | clock_out
+ */
+export function buildAttendancePhotoKey(
+  tenant: string,
+  employeeId: string,
+  kind: "clock_in" | "clock_out",
+  filename: string,
+): string {
+  const ext = filename.split(".").pop() || "jpg";
+  const timestamp = Date.now();
+  return `${tenant}/attendance/${employeeId}/${kind}-${timestamp}.${ext}`;
+}
+
+/**
  * Build R2 key for customer photos.
  * Format: {tenant}/customers/{customerId}/{timestamp}.{ext}
  */

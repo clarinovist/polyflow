@@ -31,6 +31,7 @@ import { EditDeliveryPricingDialog } from '@/components/sales/EditDeliveryPricin
 import { toast } from 'sonner';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { type CompanyConfig } from '@/lib/config/company';
+import { compressImageForUpload } from '@/lib/media/compress-image';
 
 
 interface DeliveryOrderVehicle {
@@ -141,9 +142,13 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
         const setUploading = photoType === 'vehicle' ? setUploadingVehicle : setUploadingPOD;
         setUploading(true);
         try {
+            const compressed = await compressImageForUpload(file, {
+                fileName: `delivery-${photoType}-${Date.now()}.jpg`,
+            });
+
             // 1. Upload to R2
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', compressed);
             formData.append('deliveryOrderId', order.id);
             formData.append('photoType', photoType);
 

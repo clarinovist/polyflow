@@ -38,6 +38,8 @@ interface AttendanceRecord {
   isOvertimeShift: boolean;
   status: string;
   source: string;
+  clockInPhotoUrl?: string | null;
+  clockOutPhotoUrl?: string | null;
 }
 
 interface DailySummary {
@@ -82,6 +84,7 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
   const [correcting, setCorrecting] = useState<AttendanceRecord | null>(null);
   const [correctData, setCorrectData] = useState({ clockInAt: '', clockOutAt: '', notes: '' });
   const [actionLoading, setActionLoading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
 
   const updateParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams.toString());
@@ -195,6 +198,7 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
             <TableRow>
               <TableHead className="font-semibold text-muted-foreground">Kode</TableHead>
               <TableHead className="font-semibold text-muted-foreground">Nama</TableHead>
+              <TableHead className="font-semibold text-muted-foreground">Foto</TableHead>
               <TableHead className="font-semibold text-muted-foreground">Shift</TableHead>
               <TableHead className="font-semibold text-muted-foreground">Rencana</TableHead>
               <TableHead className="font-semibold text-muted-foreground">Masuk</TableHead>
@@ -209,7 +213,7 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
           <TableBody>
             {records.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={12} className="h-32 text-center text-muted-foreground">
                   Tidak ada data absensi untuk tanggal ini
                 </TableCell>
               </TableRow>
@@ -218,6 +222,52 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
                 <TableRow key={r.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{r.employeeCode}</TableCell>
                   <TableCell>{r.employeeName}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {r.clockInPhotoUrl ? (
+                        <button
+                          type="button"
+                          className="h-9 w-9 rounded-md overflow-hidden border border-border hover:ring-2 hover:ring-primary/40"
+                          onClick={() =>
+                            setPhotoPreview({
+                              url: r.clockInPhotoUrl!,
+                              title: `${r.employeeName} — Masuk`,
+                            })
+                          }
+                          title="Selfie masuk"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={r.clockInPhotoUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                      {r.clockOutPhotoUrl && (
+                        <button
+                          type="button"
+                          className="h-9 w-9 rounded-md overflow-hidden border border-border hover:ring-2 hover:ring-primary/40 opacity-90"
+                          onClick={() =>
+                            setPhotoPreview({
+                              url: r.clockOutPhotoUrl!,
+                              title: `${r.employeeName} — Pulang`,
+                            })
+                          }
+                          title="Selfie pulang"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={r.clockOutPhotoUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{r.shiftName}</TableCell>
                   <TableCell>{formatHours(r.plannedHours)}</TableCell>
                   <TableCell>{formatTime(r.clockInAt)}</TableCell>
@@ -263,6 +313,23 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
           </TableBody>
         </Table>
       </div>
+
+      {/* Selfie lightbox */}
+      <Dialog open={!!photoPreview} onOpenChange={(open) => !open && setPhotoPreview(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{photoPreview?.title ?? 'Selfie'}</DialogTitle>
+          </DialogHeader>
+          {photoPreview && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoPreview.url}
+              alt={photoPreview.title}
+              className="w-full max-h-[70vh] object-contain rounded-lg bg-black"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Correct Attendance Dialog */}
       <Dialog open={!!correcting} onOpenChange={(open) => !open && setCorrecting(null)}>

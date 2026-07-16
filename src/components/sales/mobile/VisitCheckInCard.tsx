@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { MapPin, Play, Square, AlertTriangle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { compressImageForUpload, fileToDataUrl } from "@/lib/media/compress-image";
 
 type VisitCheckInCardProps = {
   customerId: string;
@@ -66,15 +67,25 @@ export function VisitCheckInCard({
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [tempVisitData, setTempVisitData] = useState<ActiveVisit | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [compressingPhoto, setCompressingPhoto] = useState(false);
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    e.target.value = "";
+    if (!file) return;
+
+    setCompressingPhoto(true);
+    setError(null);
+    try {
+      const compressed = await compressImageForUpload(file, {
+        fileName: `visit-${Date.now()}.jpg`,
+      });
+      const dataUrl = await fileToDataUrl(compressed);
+      setPhotoUrl(dataUrl);
+    } catch {
+      setError("Gagal memproses foto. Coba ambil ulang.");
+    } finally {
+      setCompressingPhoto(false);
     }
   };
 
@@ -358,15 +369,24 @@ export function VisitCheckInCard({
                   capture="environment"
                   className="hidden"
                   id="visit-photo-capture"
-                  onChange={handlePhotoCapture}
+                  onChange={(ev) => void handlePhotoCapture(ev)}
+                  disabled={compressingPhoto}
                 />
                 <Button
                   type="button"
                   variant="outline"
+                  disabled={compressingPhoto}
                   onClick={() => document.getElementById("visit-photo-capture")?.click()}
                   className="h-10 text-xs font-semibold rounded-xl border-primary/30 text-primary hover:bg-primary/5 bg-transparent"
                 >
-                  📸 Ambil Foto Bukti Toko
+                  {compressingPhoto ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      Mengompres…
+                    </>
+                  ) : (
+                    "📸 Ambil Foto Bukti Toko"
+                  )}
                 </Button>
                 <p className="text-[10px] text-muted-foreground mt-1.5">Wajib ambil foto bukti kunjungan fisik</p>
               </div>
