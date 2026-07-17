@@ -137,6 +137,37 @@ export const addProductionOutput = withTenant(
         return null;
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;
+
+        // Catch Prisma foreign key constraint violation (P2003)
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "P2003"
+        ) {
+          const errMsg = "message" in error ? String(error.message) : "";
+          if (errMsg.includes("ProductionExecution_shiftId_fkey")) {
+            throw new BusinessRuleError(
+              "Gagal menyimpan: Shift yang Anda pilih tidak valid untuk SPK ini. Harap pastikan Anda telah membuat/menambahkan Shift tersebut di dalam detail Surat Perintah Kerja (SPK) terlebih dahulu.",
+            );
+          }
+          if (errMsg.includes("ProductionExecution_productionOrderId_fkey")) {
+            throw new BusinessRuleError(
+              "Gagal menyimpan: Surat Perintah Kerja (SPK) tidak ditemukan. Mungkin telah dihapus.",
+            );
+          }
+          if (errMsg.includes("ProductionExecution_operatorId_fkey")) {
+            throw new BusinessRuleError(
+              "Gagal menyimpan: Operator yang dipilih tidak ditemukan atau sudah tidak aktif.",
+            );
+          }
+          if (errMsg.includes("ProductionExecution_machineId_fkey")) {
+            throw new BusinessRuleError(
+              "Gagal menyimpan: Mesin yang dipilih tidak terdaftar atau sudah dinonaktifkan.",
+            );
+          }
+        }
+
         throw new BusinessRuleError(
           error instanceof Error ? error.message : "An unknown error occurred",
         );
