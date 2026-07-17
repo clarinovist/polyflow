@@ -15,7 +15,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils/utils";
 import { format } from 'date-fns';
 import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
+import { AdHocMaterialUsageDialog } from '@/components/production/order-detail/AdHocMaterialUsageDialog';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
+import { warehouseLabels } from '@/lib/labels';
 
 /**
  * Shorten an order number by showing only the last 3 dash-separated segments.
@@ -63,16 +65,22 @@ export default function WarehouseRefreshWrapper({
             <Card className="h-full flex flex-col min-h-0 shadow-sm">
                 <CardContent className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center pb-2 border-b dark:border-slate-800">
-                            <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-                                <Clock className="w-4 h-4 text-amber-500" /> Antrean SPK Aktif
-                            </h2>
-                            <Button
-                                onClick={() => setIsConsolDialogOpen(true)}
-                                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 gap-1.5"
-                            >
-                                <ClipboardList className="w-3.5 h-3.5" /> Gabungkan Pengambilan
-                            </Button>
+                        <div className="flex flex-col gap-2 pb-2 border-b dark:border-slate-800">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                                    <Clock className="w-4 h-4 text-amber-500" /> {warehouseLabels.openActiveSpkQueue}
+                                </h2>
+                                <Button
+                                    onClick={() => setIsConsolDialogOpen(true)}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 gap-1.5"
+                                >
+                                    <ClipboardList className="w-3.5 h-3.5" /> Gabungkan Pengambilan
+                                </Button>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed max-w-3xl">
+                                <span className="font-semibold text-foreground/80">{warehouseLabels.pathATitle}. </span>
+                                {warehouseLabels.pathAHelp}
+                            </p>
                         </div>
 
                         <Accordion type="single" collapsible className="w-full space-y-2">
@@ -190,11 +198,21 @@ export default function WarehouseRefreshWrapper({
                                                 </div>
 
                                                 <div className="flex flex-col gap-2">
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                                                        {warehouseLabels.warehouseActions}
+                                                    </p>
                                                     <BatchIssueMaterialDialog
                                                         order={order}
                                                         locations={formData.locations}
                                                         rawMaterials={formData.rawMaterials}
                                                     />
+                                                    {(order.status === 'RELEASED' || order.status === 'IN_PROGRESS') && (
+                                                        <AdHocMaterialUsageDialog
+                                                            order={order}
+                                                            locations={formData.locations}
+                                                            rawMaterials={formData.rawMaterials}
+                                                        />
+                                                    )}
                                                     <Button variant="outline" size="sm" className="w-full text-xs" disabled>
                                                         Print Pick List
                                                     </Button>

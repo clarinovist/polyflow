@@ -134,15 +134,28 @@ export const productionComponentLabels = {
   removeRequirement: 'Hapus Kebutuhan',
   warningTargetWarehouse: 'Peringatan: Target kemungkinan Gudang. Pastikan Pesanan ini diatur ke Lokasi Produksi.',
 
-  // Ad-Hoc Material Usage Dialog
+  // Ad-Hoc Material Usage Dialog (Path A — ideally from Warehouse)
   recordAdHocUsage: 'Catat Pemakaian Bahan',
-  adHocUsageHelp: 'Stok langsung berkurang dan masuk HPP WO. Tidak perlu transfer / nunggu output.',
+  adHocUsageHelp:
+    'Untuk bahan dari gudang RM (mis. pelembab). Stok langsung berkurang & masuk HPP WO. Idealnya dicatat oleh gudang di modul Warehouse.',
   adHocMaterial: 'Bahan Ad-Hoc',
   selectAdHocMaterial: 'Pilih bahan...',
   adHocReason: 'Alasan (opsional)',
   adHocReasonPlaceholder: 'contoh: pelembab tambahan saat produksi',
   recording: 'Mencatat...',
-  nonPlanBlockedInExtrusi: 'Bahan di luar plan tidak boleh ditransfer langsung. Gunakan Catat Pemakaian Bahan agar stok & HPP langsung benar.',
+  nonPlanBlockedInExtrusi:
+    'Bahan di luar plan (biasanya dari gudang RM): gunakan Catat Pemakaian Bahan di modul Gudang agar stok & HPP langsung benar. Jangan transfer staging seperti Mixing HD.',
+
+  // Dual-path ownership callouts on production Materials tab
+  materialPathFloorTitle: 'Jalur lantai (WIP)',
+  materialPathFloorHelp:
+    'Compound/roll antar proses dikelola produksi. Transfer Material di sini untuk staging Mixing→Extru/Packing. Tidak perlu pengajuan gudang RM per stage.',
+  materialPathWarehouseTitle: 'Jalur gudang (bahan baku)',
+  materialPathWarehouseHelp:
+    'Resin, pelembab, dan bahan dari gudang RM dikeluarkan oleh gudang di modul Warehouse. Produksi melihat kebutuhan di sini; pengiriman RM lewat antrean gudang.',
+  openWarehouseForRm: 'Buka modul Gudang (kirim RM / pelembab)',
+  materialPathAdHocHint:
+    'Pelembab atau additive dari gudang RM: catat di Gudang → Catat Pemakaian Bahan (bukan transfer WIP).',
 
   // Manual Procurement Dialog
   procureMaterials: 'Pengadaan Material',

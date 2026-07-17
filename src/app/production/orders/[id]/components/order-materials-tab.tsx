@@ -1,15 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { Location, ProductVariant } from "@prisma/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils/utils";
 import { ExtendedProductionOrder } from "@/components/production/order-detail/types";
 import { ChildOrderList } from "@/components/production/order-detail/ChildOrderList";
 import { ManualProcurementDialog } from "@/components/production/order-detail/ManualProcurementDialog";
 import { BatchIssueMaterialDialog } from "@/components/production/order-detail/BatchIssueMaterialDialog";
-import { AdHocMaterialUsageDialog } from "@/components/production/order-detail/AdHocMaterialUsageDialog";
+import { productionComponentLabels } from "@/lib/labels";
+import { ExternalLink, Info } from "lucide-react";
 
 interface OrderMaterialsTabProps {
   order: ExtendedProductionOrder;
@@ -19,31 +22,85 @@ interface OrderMaterialsTabProps {
   };
 }
 
+/** Path B: WIP floor moves. Path A: RM warehouse feed. */
+function resolveMaterialPath(category?: string | null): "floor" | "warehouse_rm" {
+  if (category === "MIXING") return "warehouse_rm";
+  if (
+    category === "EXTRUSION" ||
+    category === "PACKING" ||
+    category === "REWORK"
+  ) {
+    return "floor";
+  }
+  // STANDARD / unknown: treat as warehouse-first for RM safety
+  return "warehouse_rm";
+}
+
 export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
   const plannedQty = Number(order.plannedQuantity);
+  const category = order.bom?.category || "";
+  const materialPath = resolveMaterialPath(category);
+  const isActive =
+    order.status === "IN_PROGRESS" || order.status === "RELEASED";
 
   return (
     <div className="space-y-6">
       {/* Sub-Orders Handling */}
       <ChildOrderList order={order} />
 
+      {isActive && (
+        <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-2">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+            <div className="space-y-1.5">
+              {materialPath === "floor" ? (
+                <>
+                  <p className="font-medium">
+                    {productionComponentLabels.materialPathFloorTitle}
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {productionComponentLabels.materialPathFloorHelp}
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {productionComponentLabels.materialPathAdHocHint}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">
+                    {productionComponentLabels.materialPathWarehouseTitle}
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {productionComponentLabels.materialPathWarehouseHelp}
+                  </p>
+                </>
+              )}
+              <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                <Link href="/warehouse" className="inline-flex items-center gap-1">
+                  {productionComponentLabels.openWarehouseForRm}
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Material Requirements</h3>
         <div className="flex items-center gap-2">
           <ManualProcurementDialog order={order} />
-          {(order.status === "IN_PROGRESS" || order.status === "RELEASED") && (
-            <>
-              <AdHocMaterialUsageDialog
-                order={order}
-                locations={formData.locations}
-                rawMaterials={formData.rawMaterials || []}
-              />
-              <BatchIssueMaterialDialog
-                order={order}
-                locations={formData.locations}
-                rawMaterials={formData.rawMaterials || []}
-              />
-            </>
+          {/*
+            Path B (Extrusion/Packing/Rework): production may stage WIP (e.g. Mixing HD).
+            Path A (Mixing / standard): RM issue lives on Warehouse — no transfer CTA here.
+            Ad-hoc RM additives (pelembab): Warehouse only.
+          */}
+          {isActive && materialPath === "floor" && (
+            <BatchIssueMaterialDialog
+              order={order}
+              locations={formData.locations}
+              rawMaterials={formData.rawMaterials || []}
+            />
           )}
         </div>
       </div>

@@ -1,6 +1,30 @@
 # Production Module Business Logistics & Rules
 
-**Last Updated**: June 26, 2026
+**Last Updated**: July 17, 2026
+
+## 0. Material Ownership (Dual Path)
+
+Not every stock move goes through the formal RM warehouse desk. Continuous plastic flow uses two paths:
+
+### Path A — Warehouse-controlled (RM / FG gate)
+
+| Move | Owner | Typical UI |
+|------|--------|------------|
+| Supplier → RM warehouse | Warehouse | Goods receipt / incoming |
+| RM → Mixing (resin, pelembab, pigment, …) | **Warehouse** | `/warehouse` transfer / issue |
+| Ad-hoc additive mid-run from RM (e.g. pelembab on Extrusion) | **Warehouse** | `/warehouse` **Catat Pemakaian Bahan** |
+| FG store & ship | Warehouse | Outgoing / inventory |
+
+### Path B — Floor-controlled (WIP between stages)
+
+| Move | Owner | Typical UI |
+|------|--------|------------|
+| Mixing output → Mixing Area stock | Production (output) | Kiosk / output entry + backflush |
+| Mixing Area → Extrusion (compound / Mixing HD) | **Production floor** | WO Extrusion Materials **Transfer Material** (staging) or backflush |
+| Extrusion → Packing (rolls) | Production floor | Transfer / backflush on Packing WO |
+| In-process consumption on output | System | Backflush on output |
+
+**Rule of thumb:** Warehouse owns **raw materials and finished goods**. Production owns **WIP moving between machines**. Do **not** require a formal RM warehouse request for every Mixing→Extrusion→Packing hop.
 
 ## 1. Production Start & Execution
 
