@@ -13,6 +13,8 @@ import {
   BatchMaterialIssueValues,
   consolidatedBatchMaterialIssueSchema,
   ConsolidatedBatchMaterialIssueValues,
+  adHocMaterialUsageSchema,
+  AdHocMaterialUsageValues,
 } from "@/lib/schemas/production";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
@@ -176,6 +178,38 @@ export const consolidatedBatchIssueMaterials = withTenant(
         });
         throw new BusinessRuleError(
           error instanceof Error ? error.message : "Failed to consolidated batch issue materials. Please try again.",
+        );
+      }
+    });
+  },
+);
+
+export const recordAdHocMaterialUsage = withTenant(
+  async function recordAdHocMaterialUsage(data: AdHocMaterialUsageValues) {
+    return safeAction(async () => {
+      const result = adHocMaterialUsageSchema.safeParse(data);
+      if (!result.success) {
+        throw new BusinessRuleError(result.error.issues[0].message);
+      }
+
+      try {
+        const session = await requireAuth();
+
+        const { issueId, idempotent } = await ProductionService.recordAdHocMaterialUsage({
+          ...result.data,
+          userId: session?.user?.id,
+        });
+
+        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
+        return { issueId, idempotent };
+      } catch (error) {
+        if (error instanceof BusinessRuleError) throw error;
+        logger.error("Failed to record ad-hoc material usage", {
+          error,
+          module: "ProductionActions",
+        });
+        throw new BusinessRuleError(
+          error instanceof Error ? error.message : "Gagal mencatat pemakaian bahan. Silakan coba lagi.",
         );
       }
     });

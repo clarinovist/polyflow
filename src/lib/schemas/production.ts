@@ -92,6 +92,17 @@ export type BatchMaterialIssueValues = z.infer<typeof batchMaterialIssueSchema>;
 export type ScrapRecordValues = z.infer<typeof scrapRecordSchema>;
 export type QualityInspectionValues = z.infer<typeof qualityInspectionSchema>;
 
+export const adHocMaterialUsageSchema = z.object({
+    productionOrderId: z.string().min(1, "Production Order ID is required"),
+    productVariantId: z.string().min(1, "Material variant is required"),
+    locationId: z.string().min(1, "Source location is required"),
+    quantity: z.coerce.number().positive("Quantity must be positive"),
+    reason: z.string().max(500).optional(),
+    requestId: z.string().optional(),
+});
+
+export type AdHocMaterialUsageValues = z.infer<typeof adHocMaterialUsageSchema>;
+
 export const consolidatedBatchMaterialIssueSchema = z.object({
     productionOrderIds: z.array(z.string().min(1)).min(1, "At least one Production Order is required"),
     locationId: z.string().min(1, "Source location is required"),

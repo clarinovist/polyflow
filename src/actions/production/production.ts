@@ -29,6 +29,7 @@ export {
   batchIssueMaterials,
   consolidatedBatchIssueMaterials,
   recordMaterialIssue,
+  recordAdHocMaterialUsage,
   deleteMaterialIssue,
   recordScrap,
   deleteScrap,

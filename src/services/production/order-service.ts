@@ -58,7 +58,7 @@ export class ProductionOrderService {
       prisma.productVariant.findMany({
         where: {
           product: {
-            productType: "RAW_MATERIAL",
+            productType: { in: ["RAW_MATERIAL", "PACKAGING"] },
           },
         },
         include: {

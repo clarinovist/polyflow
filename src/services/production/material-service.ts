@@ -3,6 +3,7 @@ import {
     BatchMaterialIssueValues,
     ConsolidatedBatchMaterialIssueValues,
     MaterialIssueValues,
+    AdHocMaterialUsageValues,
     ScrapRecordValues,
     QualityInspectionValues
 } from '@/lib/schemas/production';
@@ -569,7 +570,7 @@ export class ProductionMaterialService {
                     fromLocationId: locationId,
                     quantity,
                     cost: wacCost,
-                    reference: `Production Consumption: ${order?.orderNumber || 'UNKNOWN'}`,
+                    reference: `PROD-ISSUE-${order?.orderNumber || 'UNKNOWN'}`,
                     createdById: userId,
                     batchId: batchId,
                     productionOrderId: productionOrderId // Add structured relation
@@ -592,6 +593,123 @@ export class ProductionMaterialService {
         // if (issueId) {
         //     await AutoJournalService.handleMaterialIssue(issueId);
         // }
+    }
+
+    /**
+     * Record ad-hoc material usage mid-run.
+     * Deducts stock from source location directly (no transfer to FG/staging).
+     * Reference uses PROD-ISSUE- prefix so backflush guard skips this variant.
+     * Auto-upserts ProductionMaterial for plan visibility.
+     */
+    static async recordAdHocMaterialUsage(data: AdHocMaterialUsageValues & { userId?: string }) {
+        const { productionOrderId, productVariantId, locationId, quantity, userId, requestId } = data;
+
+        let issueId: string = '';
+        let idempotent = false;
+
+        await prisma.$transaction(async (tx) => {
+            // 1. Idempotency check
+            if (requestId) {
+                const existing = await tx.stockMovement.findFirst({
+                    where: { reference: { contains: `REQ:${requestId}` } }
+                });
+                if (existing) {
+                    console.log(`Idempotency: Ad-hoc request ${requestId} already processed. Skipping.`);
+                    // Find the existing issue for this order+variant to return its ID
+                    const existingIssue = await tx.materialIssue.findFirst({
+                        where: { productionOrderId, productVariantId },
+                        orderBy: { issuedAt: 'desc' },
+                    });
+                    issueId = existingIssue?.id || '';
+                    idempotent = true;
+                    return;
+                }
+            }
+
+            // 2. Load order + validate status
+            const order = await tx.productionOrder.findUniqueOrThrow({
+                where: { id: productionOrderId },
+                include: {
+                    plannedMaterials: true,
+                },
+            });
+
+            if (order.status !== 'RELEASED' && order.status !== 'IN_PROGRESS') {
+                throw new ProductionRuleViolationError(
+                    `Tidak bisa issue bahan ad-hoc ke order berstatus ${order.status}. Harus RELEASED atau IN_PROGRESS.`
+                );
+            }
+
+            // 3. Read WAC before deduct (cost may change after deduction)
+            const unitCost = await this.getIssueUnitCost(tx, locationId, productVariantId);
+
+            // 4. Validate + deduct stock
+            await InventoryCoreService.validateAndLockStock(tx, locationId, productVariantId, quantity);
+            await InventoryCoreService.deductStock(tx, locationId, productVariantId, quantity);
+
+            // 5. Create StockMovement OUT (clean reference — no free-text user input)
+            const refSuffix = requestId ? ` REQ:${requestId}` : '';
+            const movement = await tx.stockMovement.create({
+                data: {
+                    type: MovementType.OUT,
+                    productVariantId,
+                    fromLocationId: locationId,
+                    toLocationId: null,
+                    quantity,
+                    cost: unitCost,
+                    reference: `PROD-ISSUE-${order.orderNumber}${refSuffix}`,
+                    createdById: userId,
+                    productionOrderId,
+                }
+            });
+            await AccountingService.recordInventoryMovement(movement, tx);
+
+            // 6. Create MaterialIssue
+            const newIssue = await tx.materialIssue.create({
+                data: {
+                    productionOrderId,
+                    productVariantId,
+                    quantity,
+                    locationId,
+                    createdById: userId,
+                }
+            });
+            issueId = newIssue.id;
+
+            // 7. Upsert ProductionMaterial for visibility
+            const totalIssuedNonVoided = (
+                await tx.materialIssue.findMany({
+                    where: {
+                        productionOrderId,
+                        productVariantId,
+                        status: { not: 'VOIDED' },
+                    },
+                    select: { quantity: true },
+                })
+            ).reduce((sum, mi) => sum + Number(mi.quantity), 0);
+
+            const existingPlan = order.plannedMaterials.find(
+                pm => pm.productVariantId === productVariantId
+            );
+
+            if (existingPlan) {
+                const newPlanQty = Math.max(Number(existingPlan.quantity), totalIssuedNonVoided);
+                await tx.productionMaterial.update({
+                    where: { id: existingPlan.id },
+                    data: { quantity: newPlanQty },
+                });
+            } else {
+                await tx.productionMaterial.create({
+                    data: {
+                        productionOrderId,
+                        productVariantId,
+                        quantity: totalIssuedNonVoided,
+                    },
+                });
+            }
+        });
+
+        return { issueId, idempotent };
     }
 
     static async deleteMaterialIssue(issueId: string, productionOrderId: string) {

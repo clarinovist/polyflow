@@ -35,6 +35,7 @@ export class ProductionService {
   static consolidatedBatchIssueMaterials =
     ProductionMaterialService.consolidatedBatchIssueMaterials;
   static recordMaterialIssue = ProductionMaterialService.recordMaterialIssue;
+  static recordAdHocMaterialUsage = ProductionMaterialService.recordAdHocMaterialUsage;
   static deleteMaterialIssue = ProductionMaterialService.deleteMaterialIssue;
   static recordScrap = ProductionMaterialService.recordScrap;
   static deleteScrap = ProductionMaterialService.deleteScrap;

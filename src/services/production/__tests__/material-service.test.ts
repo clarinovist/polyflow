@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ProductionMaterialService } from "../material-service";
 import { prisma } from "@/lib/core/prisma";
+import { InventoryCoreService } from "@/services/inventory/core-service";
 
 // Mock prisma
 vi.mock("@/lib/core/prisma", () => ({
@@ -537,6 +538,230 @@ describe("ProductionMaterialService", () => {
             quantity: 35.0865,
           }),
         })
+      );
+    });
+  });
+
+  describe("recordAdHocMaterialUsage", () => {
+    const mockOrderInProgress = {
+      id: "po-1",
+      orderNumber: "WO-001",
+      status: "IN_PROGRESS",
+      plannedMaterials: [],
+      materialIssues: [],
+    };
+
+    it("should deduct inventory and create MaterialIssue + StockMovement with PROD-ISSUE- prefix", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue(
+        mockOrderInProgress as any,
+      );
+      vi.mocked(prisma.materialIssue.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.materialIssue.create).mockResolvedValue({
+        id: "issue-adhoc-1",
+      } as any);
+      vi.mocked(prisma.stockMovement.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({
+        averageCost: decimal(15),
+      } as any);
+
+      const result = await ProductionMaterialService.recordAdHocMaterialUsage({
+        productionOrderId: "po-1",
+        productVariantId: "pv-pelembab",
+        locationId: "loc-rm",
+        quantity: 4.5,
+        userId: "user-1",
+      });
+
+      expect(result.issueId).toBe("issue-adhoc-1");
+      expect(result.idempotent).toBe(false);
+      expect(InventoryCoreService.validateAndLockStock).toHaveBeenCalledWith(
+        expect.anything(),
+        "loc-rm",
+        "pv-pelembab",
+        4.5,
+      );
+      expect(InventoryCoreService.deductStock).toHaveBeenCalled();
+      expect(prisma.materialIssue.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productionOrderId: "po-1",
+            productVariantId: "pv-pelembab",
+            quantity: 4.5,
+            locationId: "loc-rm",
+          }),
+        }),
+      );
+      // StockMovement reference must start with PROD-ISSUE-
+      expect(prisma.stockMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reference: expect.stringMatching(/^PROD-ISSUE-WO-001/),
+            productionOrderId: "po-1",
+          }),
+        }),
+      );
+    });
+
+    it("should reject COMPLETED order", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        ...mockOrderInProgress,
+        status: "COMPLETED",
+      } as any);
+
+      await expect(
+        ProductionMaterialService.recordAdHocMaterialUsage({
+          productionOrderId: "po-1",
+          productVariantId: "pv-pelembab",
+          locationId: "loc-rm",
+          quantity: 4.5,
+          userId: "user-1",
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("should reject CANCELLED order", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        ...mockOrderInProgress,
+        status: "CANCELLED",
+      } as any);
+
+      await expect(
+        ProductionMaterialService.recordAdHocMaterialUsage({
+          productionOrderId: "po-1",
+          productVariantId: "pv-pelembab",
+          locationId: "loc-rm",
+          quantity: 4.5,
+          userId: "user-1",
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("should accept RELEASED order", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        ...mockOrderInProgress,
+        status: "RELEASED",
+      } as any);
+      vi.mocked(prisma.materialIssue.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.materialIssue.create).mockResolvedValue({
+        id: "issue-adhoc-2",
+      } as any);
+      vi.mocked(prisma.stockMovement.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({
+        averageCost: decimal(10),
+      } as any);
+
+      const result = await ProductionMaterialService.recordAdHocMaterialUsage({
+        productionOrderId: "po-1",
+        productVariantId: "pv-1",
+        locationId: "loc-1",
+        quantity: 10,
+        userId: "user-1",
+      });
+
+      expect(result.issueId).toBe("issue-adhoc-2");
+    });
+
+    it("should skip when requestId already processed (idempotent)", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue({
+        id: "existing-movement",
+        reference: "REQ:req-abc",
+      } as any);
+      vi.mocked(prisma.materialIssue.findFirst).mockResolvedValue({
+        id: "existing-issue",
+      } as any);
+
+      const result = await ProductionMaterialService.recordAdHocMaterialUsage({
+        productionOrderId: "po-1",
+        productVariantId: "pv-1",
+        locationId: "loc-1",
+        quantity: 5,
+        userId: "user-1",
+        requestId: "req-abc",
+      });
+
+      expect(result.idempotent).toBe(true);
+      expect(result.issueId).toBe("existing-issue");
+      expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+    });
+
+    it("should upsert ProductionMaterial when variant not in plan", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        ...mockOrderInProgress,
+        plannedMaterials: [],
+      } as any);
+      // Return the newly-created issue so totalIssuedNonVoided = 4.5
+      vi.mocked(prisma.materialIssue.findMany).mockResolvedValue([
+        { quantity: decimal(4.5) },
+      ] as any);
+      vi.mocked(prisma.materialIssue.create).mockResolvedValue({
+        id: "issue-adhoc-3",
+      } as any);
+      vi.mocked(prisma.stockMovement.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.productionMaterial.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({
+        averageCost: decimal(20),
+      } as any);
+
+      await ProductionMaterialService.recordAdHocMaterialUsage({
+        productionOrderId: "po-1",
+        productVariantId: "pv-pelembab",
+        locationId: "loc-1",
+        quantity: 4.5,
+        userId: "user-1",
+      });
+
+      // Should create new ProductionMaterial
+      expect(prisma.productionMaterial.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productionOrderId: "po-1",
+            productVariantId: "pv-pelembab",
+            quantity: 4.5,
+          }),
+        }),
+      );
+    });
+
+    it("should upsert ProductionMaterial with max(plan, issued) when variant is in plan", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        ...mockOrderInProgress,
+        plannedMaterials: [
+          { id: "pm-1", productVariantId: "pv-pelembab", quantity: decimal(2) },
+        ],
+      } as any);
+      // Return the newly-created issue so totalIssuedNonVoided = 4.5
+      vi.mocked(prisma.materialIssue.findMany).mockResolvedValue([
+        { quantity: decimal(4.5) },
+      ] as any);
+      vi.mocked(prisma.materialIssue.create).mockResolvedValue({
+        id: "issue-adhoc-4",
+      } as any);
+      vi.mocked(prisma.stockMovement.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.productionMaterial.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({
+        averageCost: decimal(20),
+      } as any);
+
+      await ProductionMaterialService.recordAdHocMaterialUsage({
+        productionOrderId: "po-1",
+        productVariantId: "pv-pelembab",
+        locationId: "loc-1",
+        quantity: 4.5,
+        userId: "user-1",
+      });
+
+      // Plan was 2, issued = 4.5 → new plan = max(2, 4.5) = 4.5
+      expect(prisma.productionMaterial.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "pm-1" },
+          data: { quantity: 4.5 },
+        }),
       );
     });
   });

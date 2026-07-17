@@ -134,6 +134,16 @@ export const productionComponentLabels = {
   removeRequirement: 'Hapus Kebutuhan',
   warningTargetWarehouse: 'Peringatan: Target kemungkinan Gudang. Pastikan Pesanan ini diatur ke Lokasi Produksi.',
 
+  // Ad-Hoc Material Usage Dialog
+  recordAdHocUsage: 'Catat Pemakaian Bahan',
+  adHocUsageHelp: 'Stok langsung berkurang dan masuk HPP WO. Tidak perlu transfer / nunggu output.',
+  adHocMaterial: 'Bahan Ad-Hoc',
+  selectAdHocMaterial: 'Pilih bahan...',
+  adHocReason: 'Alasan (opsional)',
+  adHocReasonPlaceholder: 'contoh: pelembab tambahan saat produksi',
+  recording: 'Mencatat...',
+  nonPlanBlockedInExtrusi: 'Bahan di luar plan tidak boleh ditransfer langsung. Gunakan Catat Pemakaian Bahan agar stok & HPP langsung benar.',
+
   // Manual Procurement Dialog
   procureMaterials: 'Pengadaan Material',
   selectMaterialsDescription: 'Pilih material dari SPK ini untuk membuat Permintaan Pembelian.',

@@ -235,6 +235,23 @@ export function BatchIssueMaterialDialog({
                     setLoading(false);
                     return;
                 }
+
+                // Harden: block non-plan items in EXTRUSION/PACKING transfer — use ad-hoc dialog instead
+                const isExtrusionOrPacking = ['EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
+                if (isExtrusionOrPacking) {
+                    const nonPlanItems = validItems.filter(i => !i.isPlanned);
+                    const nonPlanPlanned = addedPlannedMaterials.filter(
+                        ap => !order.plannedMaterials?.some(pm => pm.productVariantId === ap.productVariantId)
+                    );
+                    if (nonPlanItems.length > 0 || nonPlanPlanned.length > 0) {
+                        toast.error(productionComponentLabels.nonPlanBlockedInExtrusi, {
+                            duration: 6000,
+                        });
+                        setLoading(false);
+                        return;
+                    }
+                }
+
                 // TRANSFER MODE: Transfer Stock Logic, grouping by source locations
                 const transfersByLocation = validItems.reduce((acc, item) => {
                     const loc = item.sourceLocationId || selectedLocation;

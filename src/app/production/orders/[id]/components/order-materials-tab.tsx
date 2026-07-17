@@ -9,6 +9,7 @@ import { ExtendedProductionOrder } from "@/components/production/order-detail/ty
 import { ChildOrderList } from "@/components/production/order-detail/ChildOrderList";
 import { ManualProcurementDialog } from "@/components/production/order-detail/ManualProcurementDialog";
 import { BatchIssueMaterialDialog } from "@/components/production/order-detail/BatchIssueMaterialDialog";
+import { AdHocMaterialUsageDialog } from "@/components/production/order-detail/AdHocMaterialUsageDialog";
 
 interface OrderMaterialsTabProps {
   order: ExtendedProductionOrder;
@@ -31,11 +32,18 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
         <div className="flex items-center gap-2">
           <ManualProcurementDialog order={order} />
           {(order.status === "IN_PROGRESS" || order.status === "RELEASED") && (
-            <BatchIssueMaterialDialog
-              order={order}
-              locations={formData.locations}
-              rawMaterials={formData.rawMaterials || []}
-            />
+            <>
+              <AdHocMaterialUsageDialog
+                order={order}
+                locations={formData.locations}
+                rawMaterials={formData.rawMaterials || []}
+              />
+              <BatchIssueMaterialDialog
+                order={order}
+                locations={formData.locations}
+                rawMaterials={formData.rawMaterials || []}
+              />
+            </>
           )}
         </div>
       </div>
