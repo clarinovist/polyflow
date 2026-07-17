@@ -26,6 +26,18 @@ Not every stock move goes through the formal RM warehouse desk. Continuous plast
 
 **Rule of thumb:** Warehouse owns **raw materials and finished goods**. Production owns **WIP moving between machines**. Do **not** require a formal RM warehouse request for every Mixing→Extrusion→Packing hop.
 
+### Server role gates (Phase 2)
+
+| Action | Path | Allowed roles |
+|--------|------|----------------|
+| `recordAdHocMaterialUsage` | A (RM ad-hoc) | `WAREHOUSE`, `ADMIN` |
+| `recordMaterialIssue` / `deleteMaterialIssue` | A | `WAREHOUSE`, `ADMIN` |
+| `consolidatedBatchIssueMaterials` | A | `WAREHOUSE`, `ADMIN` |
+| `batchIssueMaterials` on MIXING/STANDARD | A | `WAREHOUSE`, `ADMIN` |
+| `batchIssueMaterials` on EXTRUSION/PACKING/REWORK | B (floor) | `PRODUCTION`, `PLANNING`, `WAREHOUSE`, `ADMIN` |
+
+Helper: `src/lib/production/material-path.ts` + `requireMaterialPathRole` / `requireWarehouseStockRole`.
+
 ## 1. Production Start & Execution
 
 - **Trigger:** Button "START JOB" on Kiosk/Operator Interface.

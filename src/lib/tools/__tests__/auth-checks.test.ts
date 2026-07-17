@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { requireAuth, requireRole } from '../auth-checks';
+import {
+    requireAuth,
+    requireRole,
+    requireWarehouseStockRole,
+    requireMaterialPathRole,
+} from '../auth-checks';
 import { Role } from '@prisma/client';
 
 // Mock dependencies
@@ -176,5 +181,65 @@ describe('requireRole', () => {
         await expect(requireRole([Role.ADMIN, Role.FINANCE])).rejects.toThrow(
             'Unauthorized: Insufficient permissions. Required: ADMIN or FINANCE'
         );
+    });
+});
+
+describe('requireWarehouseStockRole', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('allows WAREHOUSE', async () => {
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        const mockSession = { user: { id: 'user-1', role: 'WAREHOUSE' } };
+        vi.mocked(auth).mockResolvedValue(mockSession as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-1' } as any);
+
+        await expect(requireWarehouseStockRole()).resolves.toEqual(mockSession);
+    });
+
+    it('allows ADMIN', async () => {
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        const mockSession = { user: { id: 'user-1', role: 'ADMIN' } };
+        vi.mocked(auth).mockResolvedValue(mockSession as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-1' } as any);
+
+        await expect(requireWarehouseStockRole()).resolves.toEqual(mockSession);
+    });
+
+    it('rejects PRODUCTION', async () => {
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        vi.mocked(auth).mockResolvedValue({ user: { id: 'user-1', role: 'PRODUCTION' } } as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-1' } as any);
+
+        await expect(requireWarehouseStockRole()).rejects.toThrow(/gudang atau admin/i);
+    });
+});
+
+describe('requireMaterialPathRole', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('floor_wip allows PRODUCTION', async () => {
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        const mockSession = { user: { id: 'user-1', role: 'PRODUCTION' } };
+        vi.mocked(auth).mockResolvedValue(mockSession as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-1' } as any);
+
+        await expect(requireMaterialPathRole('floor_wip')).resolves.toEqual(mockSession);
+    });
+
+    it('warehouse_rm rejects PRODUCTION', async () => {
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        vi.mocked(auth).mockResolvedValue({ user: { id: 'user-1', role: 'PRODUCTION' } } as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-1' } as any);
+
+        await expect(requireMaterialPathRole('warehouse_rm')).rejects.toThrow(/gudang atau admin/i);
     });
 });

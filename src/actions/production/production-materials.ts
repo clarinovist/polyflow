@@ -3,7 +3,11 @@
 import { withTenant } from "@/lib/core/tenant";
 import { logger } from "@/lib/config/logger";
 import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
-import { requireAuth } from "@/lib/tools/auth-checks";
+import {
+  requireAuth,
+  requireMaterialPathRole,
+  requireWarehouseStockRole,
+} from "@/lib/tools/auth-checks";
 import {
   materialIssueSchema,
   MaterialIssueValues,
@@ -18,6 +22,19 @@ import {
 } from "@/lib/schemas/production";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
+import { resolveMaterialPath } from "@/lib/production/material-path";
+import { prisma } from "@/lib/core/prisma";
+
+async function resolveOrderMaterialPath(productionOrderId: string) {
+  const order = await prisma.productionOrder.findUnique({
+    where: { id: productionOrderId },
+    select: { bom: { select: { category: true } } },
+  });
+  if (!order) {
+    throw new BusinessRuleError("Work order tidak ditemukan.");
+  }
+  return resolveMaterialPath(order.bom?.category);
+}
 
 export const batchIssueMaterials = withTenant(
   async function batchIssueMaterials(data: BatchMaterialIssueValues) {
@@ -28,7 +45,10 @@ export const batchIssueMaterials = withTenant(
       }
 
       try {
-        const session = await requireAuth();
+        const path = await resolveOrderMaterialPath(
+          result.data.productionOrderId,
+        );
+        const session = await requireMaterialPathRole(path);
 
         await ProductionService.batchIssueMaterials({
           ...result.data,
@@ -36,6 +56,7 @@ export const batchIssueMaterials = withTenant(
         });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
+        revalidatePath("/warehouse");
         return null;
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;
@@ -60,7 +81,8 @@ export const recordMaterialIssue = withTenant(
       }
 
       try {
-        const session = await requireAuth();
+        // Single-line issue treated as Path A (warehouse RM)
+        const session = await requireWarehouseStockRole();
 
         await ProductionService.recordMaterialIssue({
           ...result.data,
@@ -68,6 +90,7 @@ export const recordMaterialIssue = withTenant(
         });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
+        revalidatePath("/warehouse");
         return null;
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;
@@ -86,11 +109,12 @@ export const deleteMaterialIssue = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        await requireAuth();
+        await requireWarehouseStockRole();
 
         await ProductionService.deleteMaterialIssue(issueId, productionOrderId);
 
         revalidatePath(`/production/orders/${productionOrderId}`);
+        revalidatePath("/warehouse");
         return null;
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;
@@ -160,7 +184,8 @@ export const consolidatedBatchIssueMaterials = withTenant(
       }
 
       try {
-        const session = await requireAuth();
+        // Consolidated pick list = Path A warehouse
+        const session = await requireWarehouseStockRole();
 
         const issueIds = await ProductionService.consolidatedBatchIssueMaterials({
           ...result.data,
@@ -193,7 +218,8 @@ export const recordAdHocMaterialUsage = withTenant(
       }
 
       try {
-        const session = await requireAuth();
+        // Ad-hoc additives from RM (pelembab, etc.) = Path A warehouse only
+        const session = await requireWarehouseStockRole();
 
         const { issueId, idempotent } = await ProductionService.recordAdHocMaterialUsage({
           ...result.data,
@@ -201,6 +227,7 @@ export const recordAdHocMaterialUsage = withTenant(
         });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
+        revalidatePath("/warehouse");
         return { issueId, idempotent };
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;

@@ -13,6 +13,7 @@ import { ManualProcurementDialog } from "@/components/production/order-detail/Ma
 import { BatchIssueMaterialDialog } from "@/components/production/order-detail/BatchIssueMaterialDialog";
 import { productionComponentLabels } from "@/lib/labels";
 import { ExternalLink, Info } from "lucide-react";
+import { resolveMaterialPath } from "@/lib/production/material-path";
 
 interface OrderMaterialsTabProps {
   order: ExtendedProductionOrder;
@@ -22,26 +23,13 @@ interface OrderMaterialsTabProps {
   };
 }
 
-/** Path B: WIP floor moves. Path A: RM warehouse feed. */
-function resolveMaterialPath(category?: string | null): "floor" | "warehouse_rm" {
-  if (category === "MIXING") return "warehouse_rm";
-  if (
-    category === "EXTRUSION" ||
-    category === "PACKING" ||
-    category === "REWORK"
-  ) {
-    return "floor";
-  }
-  // STANDARD / unknown: treat as warehouse-first for RM safety
-  return "warehouse_rm";
-}
-
 export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
   const plannedQty = Number(order.plannedQuantity);
   const category = order.bom?.category || "";
   const materialPath = resolveMaterialPath(category);
   const isActive =
     order.status === "IN_PROGRESS" || order.status === "RELEASED";
+  const isFloorPath = materialPath === "floor_wip";
 
   return (
     <div className="space-y-6">
@@ -53,7 +41,7 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
             <div className="space-y-1.5">
-              {materialPath === "floor" ? (
+              {isFloorPath ? (
                 <>
                   <p className="font-medium">
                     {productionComponentLabels.materialPathFloorTitle}
@@ -95,7 +83,7 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
             Path A (Mixing / standard): RM issue lives on Warehouse — no transfer CTA here.
             Ad-hoc RM additives (pelembab): Warehouse only.
           */}
-          {isActive && materialPath === "floor" && (
+          {isActive && isFloorPath && (
             <BatchIssueMaterialDialog
               order={order}
               locations={formData.locations}

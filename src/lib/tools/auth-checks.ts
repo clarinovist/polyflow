@@ -117,3 +117,45 @@ export async function requireProductionLeaderRole() {
 
   return session;
 }
+
+/**
+ * Path A — warehouse-controlled stock (RM issue, ad-hoc pelembab, consolidated pick).
+ * ADMIN always allowed via hasAnyRole.
+ */
+export async function requireWarehouseStockRole() {
+  const session = await requireAuth();
+  if (!hasAnyRole(session.user, ["WAREHOUSE", "ADMIN"])) {
+    throw new BusinessRuleError(
+      "Hanya gudang atau admin yang dapat mengeluarkan bahan baku / mencatat pemakaian ad-hoc dari gudang RM.",
+    );
+  }
+  return session;
+}
+
+/**
+ * Material issue/transfer by dual-path ownership.
+ * - warehouse_rm: WAREHOUSE | ADMIN
+ * - floor_wip: PRODUCTION | PLANNING | WAREHOUSE | ADMIN
+ */
+export async function requireMaterialPathRole(
+  path: "warehouse_rm" | "floor_wip",
+) {
+  if (path === "warehouse_rm") {
+    return requireWarehouseStockRole();
+  }
+
+  const session = await requireAuth();
+  if (
+    !hasAnyRole(session.user, [
+      "PRODUCTION",
+      "PLANNING",
+      "WAREHOUSE",
+      "ADMIN",
+    ])
+  ) {
+    throw new BusinessRuleError(
+      "Tidak diizinkan mentransfer material WIP di lantai produksi.",
+    );
+  }
+  return session;
+}

@@ -21,7 +21,9 @@ export default async function WarehousePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">{warehouseLabels.warehouse}</h1>
-                    <p className="text-muted-foreground">Kelola stok, pengambilan bahan, dan penerimaan barang.</p>
+                    <p className="text-muted-foreground">
+                        Kelola stok RM/FG, keluarkan bahan ke Mixing, catat pelembab ad-hoc, dan bantu antrean SPK.
+                    </p>
                 </div>
             </div>
 

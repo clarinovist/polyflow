@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { Clock, MapPin, CheckCircle2, Copy, ClipboardList } from 'lucide-react';
@@ -18,6 +18,7 @@ import { BatchIssueMaterialDialog } from '@/components/production/order-detail/B
 import { AdHocMaterialUsageDialog } from '@/components/production/order-detail/AdHocMaterialUsageDialog';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { warehouseLabels } from '@/lib/labels';
+import { resolveMaterialPath } from '@/lib/production/material-path';
 
 /**
  * Shorten an order number by showing only the last 3 dash-separated segments.
@@ -28,6 +29,12 @@ function shortOrderId(orderNumber: string): string {
     const segments = orderNumber.split('-');
     if (segments.length <= 4) return orderNumber;
     return segments.slice(-3).join('-');
+}
+
+type QueueFilter = 'all' | 'rm' | 'wip';
+
+function orderPath(order: ExtendedProductionOrder): 'warehouse_rm' | 'floor_wip' {
+    return resolveMaterialPath(order.bom?.category);
 }
 
 interface WarehouseRefreshWrapperProps {
@@ -48,6 +55,7 @@ export default function WarehouseRefreshWrapper({
 }: WarehouseRefreshWrapperProps) {
     const router = useRouter();
     const [isConsolDialogOpen, setIsConsolDialogOpen] = useState(false);
+    const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
@@ -57,7 +65,32 @@ export default function WarehouseRefreshWrapper({
         return () => clearInterval(interval);
     }, [router]);
 
-    const filteredOrders = initialOrders;
+    const counts = useMemo(() => {
+        let rm = 0;
+        let wip = 0;
+        for (const o of initialOrders) {
+            if (orderPath(o) === 'warehouse_rm') rm += 1;
+            else wip += 1;
+        }
+        return { all: initialOrders.length, rm, wip };
+    }, [initialOrders]);
+
+    const filteredOrders = useMemo(() => {
+        if (queueFilter === 'rm') {
+            return initialOrders.filter((o) => orderPath(o) === 'warehouse_rm');
+        }
+        if (queueFilter === 'wip') {
+            return initialOrders.filter((o) => orderPath(o) === 'floor_wip');
+        }
+        return initialOrders;
+    }, [initialOrders, queueFilter]);
+
+    const emptyMessage =
+        queueFilter === 'rm'
+            ? warehouseLabels.filterEmptyRm
+            : queueFilter === 'wip'
+              ? warehouseLabels.filterEmptyWip
+              : warehouseLabels.filterEmptyAll;
 
     // --- Main Content UI ---
     return (
@@ -81,10 +114,51 @@ export default function WarehouseRefreshWrapper({
                                 <span className="font-semibold text-foreground/80">{warehouseLabels.pathATitle}. </span>
                                 {warehouseLabels.pathAHelp}
                             </p>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                {(
+                                    [
+                                        { id: 'all' as const, label: warehouseLabels.filterAll, count: counts.all },
+                                        { id: 'rm' as const, label: warehouseLabels.filterRm, count: counts.rm },
+                                        { id: 'wip' as const, label: warehouseLabels.filterWip, count: counts.wip },
+                                    ] as const
+                                ).map((chip) => (
+                                    <Button
+                                        key={chip.id}
+                                        type="button"
+                                        size="sm"
+                                        variant={queueFilter === chip.id ? 'default' : 'outline'}
+                                        className={cn(
+                                            'h-7 text-xs gap-1.5',
+                                            queueFilter === chip.id && chip.id === 'rm' && 'bg-amber-600 hover:bg-amber-700',
+                                            queueFilter === chip.id && chip.id === 'wip' && 'bg-sky-600 hover:bg-sky-700',
+                                        )}
+                                        onClick={() => setQueueFilter(chip.id)}
+                                    >
+                                        {chip.label}
+                                        <Badge
+                                            variant="secondary"
+                                            className={cn(
+                                                'h-5 min-w-5 px-1.5 text-[10px] font-bold',
+                                                queueFilter === chip.id && 'bg-white/20 text-white hover:bg-white/20',
+                                            )}
+                                        >
+                                            {chip.count}
+                                        </Badge>
+                                    </Button>
+                                ))}
+                            </div>
                         </div>
+
+                        {filteredOrders.length === 0 ? (
+                            <p className="text-sm text-muted-foreground italic py-8 text-center">
+                                {emptyMessage}
+                            </p>
+                        ) : null}
 
                         <Accordion type="single" collapsible className="w-full space-y-2">
                         {filteredOrders.map(order => {
+                            const path = orderPath(order);
+                            const isRmPath = path === 'warehouse_rm';
                             const plannedMaterials = order.plannedMaterials || [];
                             const materialIssues = order.materialIssues || [];
 
@@ -143,6 +217,27 @@ export default function WarehouseRefreshWrapper({
                                                 <Badge variant="outline" className="text-[10px] font-normal h-5">
                                                     {order.bom.productVariant.name}
                                                 </Badge>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                'text-[10px] font-bold h-5 shrink-0',
+                                                                isRmPath
+                                                                    ? 'border-amber-300 text-amber-700 bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:bg-amber-950/40'
+                                                                    : 'border-sky-300 text-sky-700 bg-sky-50 dark:border-sky-700 dark:text-sky-300 dark:bg-sky-950/40',
+                                                            )}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {isRmPath ? warehouseLabels.badgeRm : warehouseLabels.badgeWip}
+                                                        </Badge>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" className="max-w-xs text-xs">
+                                                        {isRmPath
+                                                            ? warehouseLabels.pathBadgeRmHelp
+                                                            : warehouseLabels.pathBadgeWipHelp}
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             </span>
 
                                             {/* Machine */}
