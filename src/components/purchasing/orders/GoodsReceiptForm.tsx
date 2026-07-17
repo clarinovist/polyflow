@@ -74,6 +74,7 @@ export function GoodsReceiptForm({
             const result = await createGoodsReceipt(data);
             if (!result.success) {
                 toast.error(result.error || 'Gagal memproses penerimaan barang. Silakan coba lagi.');
+                setIsLoading(false);
                 return;
             }
             toast.success('Penerimaan Barang berhasil dicatat');
@@ -81,7 +82,6 @@ export function GoodsReceiptForm({
             router.refresh();
         } catch (_error) {
             toast.error('Gagal memproses penerimaan barang. Silakan coba lagi.');
-        } finally {
             setIsLoading(false);
         }
     };
@@ -224,6 +224,23 @@ export function GoodsReceiptForm({
                                              </Select>
                                              <FormMessage />
                                          </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="receivedDate"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel className="text-xs font-bold">Tanggal Penerimaan</FormLabel>
+                                            <Input
+                                                type="date"
+                                                value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                                onChange={e => field.onChange(new Date(e.target.value))}
+                                                className="h-10"
+                                            />
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
 

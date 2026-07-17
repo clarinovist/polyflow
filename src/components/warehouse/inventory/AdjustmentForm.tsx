@@ -83,7 +83,6 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
     // Reset items if location changes
     useEffect(() => {
         form.setValue('items', []);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setNewItem({
             productVariantId: '',
             type: 'ADJUSTMENT_IN',

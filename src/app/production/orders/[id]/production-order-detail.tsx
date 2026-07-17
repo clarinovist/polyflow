@@ -75,7 +75,6 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
 
   useEffect(() => {
     if (activeTab === "costing" && !costingData) {
-      // eslint-disable-next-line
       setLoadingCosting(true);
       getOrderCosting(order.id)
         .then(setCostingData)

@@ -6,7 +6,6 @@ export function ClockDisplay() {
     const [time, setTime] = useState<Date | null>(null);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTime(new Date());
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);

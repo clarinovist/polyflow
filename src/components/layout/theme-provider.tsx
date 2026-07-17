@@ -20,7 +20,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         // Load theme from localStorage on mount
         const stored = localStorage.getItem('theme') as Theme | null;
         if (stored) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setThemeState(stored);
         }
     }, []);
@@ -38,7 +37,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             actualTheme = theme;
         }
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setResolvedTheme(actualTheme);
 
         // Apply theme

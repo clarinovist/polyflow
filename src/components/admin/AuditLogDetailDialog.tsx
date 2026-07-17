@@ -43,7 +43,6 @@ export default function AuditLogDetailDialog({
     useEffect(() => {
         let mounted = true;
         if (logId && open) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(true);
             getAuditLogDetail(logId).then(data => {
                 if (mounted) {

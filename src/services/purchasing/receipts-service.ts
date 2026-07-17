@@ -2,12 +2,43 @@ import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
-import { MovementType, PurchaseOrderStatus, Prisma } from '@prisma/client';
+import { MovementType, NotificationType, PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError } from '@/lib/errors/errors';
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
+
+async function notifyFinanceOfGoodsReceipt(
+    receiptId: string,
+    purchaseOrderId: string,
+    items: CreateGoodsReceiptValues['items'],
+) {
+    const [{ NotificationService }, purchaseOrder, financeUsers] = await Promise.all([
+        import('@/services/core/notification-service'),
+        prisma.purchaseOrder.findUnique({
+            where: { id: purchaseOrderId },
+            select: { orderNumber: true, supplier: { select: { name: true } } },
+        }),
+        prisma.user.findMany({
+            where: { role: 'FINANCE', isActive: true },
+            select: { id: true },
+        }),
+    ]);
+
+    if (!purchaseOrder || financeUsers.length === 0) return;
+
+    const totalAmount = items.reduce((total, item) => total + item.receivedQty * item.unitCost, 0);
+    await NotificationService.createBulkNotifications(financeUsers.map(user => ({
+        userId: user.id,
+        type: NotificationType.GOODS_RECEIPT_POSTED,
+        title: 'Penerimaan Barang Baru',
+        message: `GR untuk ${purchaseOrder.orderNumber} dari ${purchaseOrder.supplier.name} sudah dicatat. Nilai: Rp ${totalAmount.toLocaleString('id-ID')}. Silakan cek jurnal dan invoice.`,
+        link: `/warehouse/incoming/${receiptId}`,
+        entityType: 'GoodsReceipt',
+        entityId: receiptId,
+    })));
+}
 
 export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId: string) {
     const year = new Date().getFullYear();
@@ -26,7 +57,58 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
     }
     const receiptNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
+    if (data.purchaseOrderId && !data.isMaklon) {
+        const recentReceipts = await prisma.goodsReceipt.findMany({
+            where: {
+                purchaseOrderId: data.purchaseOrderId,
+                createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+            },
+            include: { items: true },
+        });
+        const isDuplicate = recentReceipts.some(receipt =>
+            receipt.items.length === data.items.length &&
+            data.items.every(item => receipt.items.some(receiptItem =>
+                receiptItem.productVariantId === item.productVariantId &&
+                Number(receiptItem.receivedQty) === item.receivedQty &&
+                Number(receiptItem.unitCost) === item.unitCost
+            ))
+        );
+
+        if (isDuplicate) {
+            throw new BusinessRuleError(
+                'GR yang sama sudah dibuat dalam 5 menit terakhir. Pastikan bukan input ganda.',
+                undefined,
+                'DUPLICATE_RECEIPT'
+            );
+        }
+    }
+
     const receipt = await prisma.$transaction(async (tx) => {
+        if (data.purchaseOrderId) {
+            for (const item of data.items) {
+                const poItem = await tx.purchaseOrderItem.findFirst({
+                    where: {
+                        purchaseOrderId: data.purchaseOrderId,
+                        productVariantId: item.productVariantId,
+                    },
+                });
+
+                if (poItem) {
+                    const existingReceived = poItem.receivedQty.toNumber();
+                    const poQty = poItem.quantity.toNumber();
+                    const wouldReceive = existingReceived + item.receivedQty;
+
+                    if (wouldReceive > poQty) {
+                        throw new BusinessRuleError(
+                            `Qty diterima (${wouldReceive}) melebihi qty PO (${poQty}).`,
+                            { productVariantId: item.productVariantId, existingReceived, poQty, attempting: item.receivedQty },
+                            'OVER_RECEIVING'
+                        );
+                    }
+                }
+            }
+        }
+
         const receiptTx = await tx.goodsReceipt.create({
             data: {
                 receiptNumber,
@@ -172,10 +254,14 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
         return receiptTx;
     });
 
-    // Auto-generate draft bill after GR transaction commits (Only for non-maklon)
+    // Auto-generate draft bill and notify Finance after the GR transaction commits.
     if (data.purchaseOrderId) {
         await createDraftBillFromPo(data.purchaseOrderId, userId).catch(err => {
             logger.error("Failed to auto-generate draft bill after GR", { error: err, module: 'ReceiptsService' });
+        });
+
+        await notifyFinanceOfGoodsReceipt(receipt.id, data.purchaseOrderId, data.items).catch(err => {
+            logger.error("Failed to notify Finance after goods receipt", { error: err, module: 'ReceiptsService' });
         });
     }
 

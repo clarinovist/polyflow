@@ -11,6 +11,7 @@ import { InventoryCoreService } from "@/services/inventory/core-service";
 import { AccountingService } from "@/services/accounting/accounting-service";
 import { logActivity } from "@/lib/tools/audit";
 import { createDraftBillFromPo } from "@/services/purchasing/invoices-service";
+import { NotificationService } from "@/services/core/notification-service";
 import { logger } from "@/lib/config/logger";
 import { MovementType, PurchaseOrderStatus } from "@prisma/client";
 
@@ -32,6 +33,9 @@ const { mockPrisma } = vi.hoisted(() => ({
       findFirst: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+    },
+    user: {
+      findMany: vi.fn().mockResolvedValue([]),
     },
     purchaseOrderItem: {
       findFirst: vi.fn(),
@@ -102,6 +106,12 @@ vi.mock("@/services/accounting/accounting-service", () => ({
 // Mock invoices-service
 vi.mock("@/services/purchasing/invoices-service", () => ({
   createDraftBillFromPo: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/services/core/notification-service", () => ({
+  NotificationService: {
+    createBulkNotifications: vi.fn().mockResolvedValue({ count: 0 }),
+  },
 }));
 
 // Mock FixedAssetService (only called for FIXED_ASSET products)
@@ -679,13 +689,13 @@ describe("receipts-service", () => {
             findFirst: vi.fn().mockResolvedValue({
               id: "poi-1",
               receivedQty: { toNumber: () => 5 },
-              quantity: { toNumber: () => 10 },
+              quantity: { toNumber: () => 15 },
             }),
             update: mockPoItemUpdate,
             findMany: vi.fn().mockResolvedValue([
               {
                 receivedQty: { toNumber: () => 15 },
-                quantity: { toNumber: () => 10 },
+                quantity: { toNumber: () => 15 },
               },
             ]),
           },
@@ -1031,6 +1041,11 @@ describe("receipts-service", () => {
       // Arrange
       const data = { ...baseData, purchaseOrderId: "po-1" };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({
+        orderNumber: "PO-001",
+        supplier: { name: "Supplier A" },
+      } as any);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: "finance-1" }] as any);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
@@ -1064,6 +1079,14 @@ describe("receipts-service", () => {
         "po-1",
         userId,
       );
+      expect(vi.mocked(NotificationService.createBulkNotifications)).toHaveBeenCalledWith([
+        expect.objectContaining({
+          userId: "finance-1",
+          type: "GOODS_RECEIPT_POSTED",
+          entityType: "GoodsReceipt",
+          entityId: "gr-1",
+        }),
+      ]);
     });
 
     it("should not call createDraftBillFromPo when purchaseOrderId is not provided", async () => {
@@ -1380,7 +1403,11 @@ describe("receipts-service", () => {
           },
           stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
           purchaseOrderItem: {
-            findFirst: vi.fn().mockResolvedValue({ id: "poi-1" }),
+            findFirst: vi.fn().mockResolvedValue({
+              id: "poi-1",
+              receivedQty: { toNumber: () => 0 },
+              quantity: { toNumber: () => 10 },
+            }),
             update: vi.fn(),
             findMany: vi.fn().mockResolvedValue([
               {
@@ -1547,6 +1574,36 @@ describe("receipts-service", () => {
       expect(
         vi.mocked(InventoryCoreService.incrementStockWithCost),
       ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-2", 15, 2500);
+    });
+    it("rejects over-receiving beyond PO quantity", async () => {
+      const data = { ...baseData, purchaseOrderId: "po-1", items: [{ ...baseData.items[0], receivedQty: 3 }] };
+      vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.goodsReceipt.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb({
+        productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL" } }) },
+        goodsReceipt: { create: vi.fn().mockResolvedValue({ id: "gr-1" }) },
+        purchaseOrderItem: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: "poi-1",
+            receivedQty: { toNumber: () => 8 },
+            quantity: { toNumber: () => 10 },
+          }),
+        },
+      }));
+
+      await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/melebihi.*PO/i);
+    });
+
+    it("rejects identical recent GR submissions", async () => {
+      const data = { ...baseData, purchaseOrderId: "po-1" };
+      vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.goodsReceipt.findMany).mockResolvedValue([{
+        receiptNumber: "GR-2026-0001",
+        createdAt: new Date(),
+        items: [{ productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 }],
+      }] as any);
+
+      await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/sudah dibuat|input ganda/i);
     });
   });
 

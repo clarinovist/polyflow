@@ -23,7 +23,6 @@ export function ChangelogBannerClient({ version, notesHtml }: ChangelogBannerCli
     useEffect(() => {
         const dismissed = localStorage.getItem(`dismissed_changelog_${version}`);
         if (!dismissed) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsVisible(true);
         }
     }, [version]);
