@@ -37,18 +37,6 @@ export default async function DailyProductionPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const machines = (allMachines as any[]).filter((m: any) => m.status === 'ACTIVE');
 
-  // Aggregate stats
-  const stats = {
-    total: orders.length,
-    running: orders.filter((o) => o.status === ProductionStatus.IN_PROGRESS)
-      .length,
-    released: orders.filter((o) => o.status === ProductionStatus.RELEASED)
-      .length,
-    waiting: orders.filter(
-      (o) => o.status === ProductionStatus.WAITING_MATERIAL,
-    ).length,
-  };
-
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -56,7 +44,7 @@ export default async function DailyProductionPage() {
           Produksi Aktif
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Kelola produksi yang sedang berjalan — termasuk yang terbawa dari hari sebelumnya.
+          Board per proses — order aktif termasuk yang terbawa dari hari sebelumnya.
         </p>
       </div>
 
@@ -64,7 +52,6 @@ export default async function DailyProductionPage() {
         orders={serializeData(orders) as unknown as Order[]}
         boms={serializeData(boms) as unknown as Bom[]}
         machines={serializeData(machines) as unknown as Machine[]}
-        stats={stats}
         userId={session?.user?.id}
       />
     </div>

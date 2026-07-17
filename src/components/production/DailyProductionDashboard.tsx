@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { QuickProduceDialog } from "./QuickProduceDialog";
+import { cn } from "@/lib/utils/utils";
 
 export type Order = {
   id: string;
@@ -94,80 +95,112 @@ const STATUS_CONFIG: Record<
   DRAFT: { label: "Draft", variant: "secondary", icon: Clock },
 };
 
+/** Process columns left→right. Unknown categories fall into OTHER. */
+const PROCESS_COLUMNS: Array<{
+  key: string;
+  label: string;
+  categories: string[];
+  accent: string;
+}> = [
+  {
+    key: "MIXING",
+    label: "MIXING",
+    categories: ["MIXING"],
+    accent: "bg-violet-500",
+  },
+  {
+    key: "EXTRUSION",
+    label: "EXTRUSION",
+    categories: ["EXTRUSION"],
+    accent: "bg-emerald-500",
+  },
+  {
+    key: "PACKING",
+    label: "PACKING",
+    categories: ["PACKING"],
+    accent: "bg-blue-500",
+  },
+  {
+    key: "OTHER",
+    label: "REWORK / LAINNYA",
+    categories: ["REWORK", "STANDARD"],
+    accent: "bg-muted-foreground",
+  },
+];
+
+const STATUS_FILTERS: Array<{ key: string; label: string }> = [
+  { key: "all", label: "Semua status" },
+  { key: "IN_PROGRESS", label: "Sedang Jalan" },
+  { key: "RELEASED", label: "Siap Produksi" },
+  { key: "WAITING_MATERIAL", label: "Tunggu Bahan" },
+];
+
+function columnKeyForCategory(category: string): string {
+  const upper = (category || "").toUpperCase();
+  for (const col of PROCESS_COLUMNS) {
+    if (col.categories.includes(upper)) return col.key;
+  }
+  return "OTHER";
+}
+
 export function DailyProductionDashboard({
   orders,
   boms,
   machines,
-  stats,
 }: {
   orders: Order[];
   boms: Bom[];
   machines: Machine[];
-  stats: { total: number; running: number; released: number; waiting: number };
+  /** @deprecated unused — process board replaces status KPI cards */
+  stats?: { total: number; running: number; released: number; waiting: number };
   userId?: string;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const filteredOrders = useMemo(() => {
+    if (statusFilter === "all") return orders;
+    return orders.filter((o) => o.status === statusFilter);
+  }, [orders, statusFilter]);
+
+  const columns = useMemo(() => {
+    const buckets: Record<string, Order[]> = {};
+    for (const col of PROCESS_COLUMNS) buckets[col.key] = [];
+    for (const order of filteredOrders) {
+      buckets[columnKeyForCategory(order.bom.category)].push(order);
+    }
+    return PROCESS_COLUMNS.map((col) => ({
+      ...col,
+      orders: buckets[col.key] ?? [],
+    }));
+  }, [filteredOrders]);
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="shadow-sm border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Produk</CardTitle>
-            <Factory className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Semua order aktif
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-l-4 border-l-emerald-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sedang Jalan</CardTitle>
-            <Factory className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.running}</div>
-            <p className="text-xs text-muted-foreground mt-1">Produksi aktif</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Siap Produksi</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.released}</div>
-            <p className="text-xs text-muted-foreground mt-1">Menunggu mulai</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-l-4 border-l-red-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tunggu Bahan</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.waiting}</div>
-            <p className="text-xs text-muted-foreground mt-1">Stok kurang</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Action bar */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">
-          Daftar Produksi
-        </h2>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {STATUS_FILTERS.map((f) => (
+            <Button
+              key={f.key}
+              type="button"
+              size="sm"
+              variant={statusFilter === f.key ? "default" : "outline"}
+              className={cn(
+                "rounded-full h-8",
+                statusFilter === f.key ? "" : "text-muted-foreground",
+              )}
+              onClick={() => setStatusFilter(f.key)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
         <Button onClick={() => setDialogOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
           Tambah Produk
         </Button>
       </div>
 
-      {/* Order cards */}
       {orders.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -189,14 +222,41 @@ export function DailyProductionDashboard({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {orders.map((order) => (
-            <OrderCard key={order.id} order={order} />
+        <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 items-start overflow-x-auto">
+          {columns.map((col) => (
+            <section
+              key={col.key}
+              className="rounded-xl border bg-card/60 min-h-[320px] flex flex-col"
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/90 backdrop-blur-sm px-3 py-2.5 rounded-t-xl">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={cn("h-2 w-2 rounded-full shrink-0", col.accent)}
+                  />
+                  <h2 className="text-xs font-bold tracking-wide truncate">
+                    {col.label}
+                  </h2>
+                </div>
+                <span className="text-[11px] font-mono text-muted-foreground border rounded-full px-2 py-0.5">
+                  {col.orders.length}
+                </span>
+              </div>
+              <div className="p-2.5 flex flex-col gap-2.5 flex-1">
+                {col.orders.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center border border-dashed rounded-lg px-3 py-8 text-center text-xs text-muted-foreground">
+                    Tidak ada order di proses ini
+                  </div>
+                ) : (
+                  col.orders.map((order) => (
+                    <OrderCard key={order.id} order={order} />
+                  ))
+                )}
+              </div>
+            </section>
           ))}
         </div>
       )}
 
-      {/* Quick Produce Dialog */}
       <QuickProduceDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -233,23 +293,22 @@ function OrderCard({ order }: { order: Order }) {
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <CardTitle className="text-base font-semibold truncate">
               {order.bom.productVariant.name}
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {order.bom.category} • {order.bom.name}
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {order.bom.name}
             </p>
           </div>
-          <Badge variant={statusConfig.variant} className="ml-2 shrink-0 gap-1">
+          <Badge variant={statusConfig.variant} className="ml-1 shrink-0 gap-1">
             <StatusIcon className="h-3 w-3" />
             {statusConfig.label}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Machine */}
         {order.machine && (
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Mesin:</span>
@@ -257,7 +316,6 @@ function OrderCard({ order }: { order: Order }) {
           </div>
         )}
 
-        {/* Progress */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Output</span>
@@ -270,7 +328,6 @@ function OrderCard({ order }: { order: Order }) {
           <Progress value={progress} className="h-2" />
         </div>
 
-        {/* Execution stats */}
         {(order.executions ?? []).length > 0 && (
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>{(order.executions ?? []).length} eksekusi</span>
@@ -283,7 +340,6 @@ function OrderCard({ order }: { order: Order }) {
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex items-center gap-2 pt-1">
           <Link href={`/production/orders/${order.id}`} className="flex-1">
             <Button variant="outline" size="sm" className="w-full gap-1.5">
