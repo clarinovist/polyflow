@@ -1783,6 +1783,7 @@ model PurchaseReturnItem {
 model Tenant {
   id        String       @id @default(cuid())
   name      String
+  slug      String?      // URL-friendly identifier, e.g., 'kiyowo', 'melindo'
   subdomain String       @unique // e.g., 'pt-abc'
   dbUrl     String // PostgreSQL connection string
   status    TenantStatus @default(ACTIVE)

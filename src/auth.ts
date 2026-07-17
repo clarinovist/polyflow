@@ -54,8 +54,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                     if (subdomain) {
                         try {
-                            const { getTenantDb, tenantContext } = await import('@/lib/core/prisma');
-                            const tenant = await prisma.tenant.findUnique({
+                            const { getTenantDb, getMainPrisma, tenantContext } = await import('@/lib/core/prisma');
+                            // CRITICAL: Use getMainPrisma() — the prisma proxy leaks tenant context
+                            // from previous requests, routing this query to the wrong DB.
+                            const mainPrisma = getMainPrisma();
+                            const tenant = await mainPrisma.tenant.findUnique({
                                 where: { subdomain }
                             });
 
