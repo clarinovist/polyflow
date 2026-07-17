@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "Tenant" ADD COLUMN "slug" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "slug" TEXT;
