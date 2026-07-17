@@ -86,3 +86,6 @@ graphify-out/
 /docs/plans/
 /docs/marketing/
 .gstack/
+
+# throwaway HTML UI sketches (local only)
+/sketches/
