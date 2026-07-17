@@ -11,7 +11,7 @@ import {
   Unit,
 } from "@prisma/client";
 import { logger } from "@/lib/config/logger";
-import { BusinessRuleError } from "@/lib/errors/errors";
+import { logActivity } from "@/lib/tools/audit";
 
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
@@ -201,26 +201,147 @@ describe("confirmOrder", () => {
     ).rejects.toThrow("Maklon Jasa orders must use a customer-owned warehouse");
   });
 
-  it("surfaces missing default BOM as BusinessRuleError (so UI gets the real message)", async () => {
-    // No inventory / reservations → full shortage for the order qty
+  it("shortage + missing BOM → confirms (MTS), warnings MISSING_DEFAULT_BOM, no WO created", async () => {
+    // Setup: MTS order, no inventory, no BOM
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 100 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 } as never,
+          productVariant: { product: { productType: "PHYSICAL" } },
+        },
+      ],
+    } as never);
     vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
     vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
-    vi.mocked(prisma.bom.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([]); // No BOM
     vi.mocked(prisma.productVariant.findMany).mockResolvedValue([
-      { name: "Rafia Hitam KW 0,95 (10)" },
+      { id: "pv-1", name: "Rafia Hitam KW 0,95 (10)" },
     ] as never);
 
-    await expect(confirmOrder("so-1", "user-1")).rejects.toSatisfy(
-      (err: unknown) =>
-        err instanceof BusinessRuleError &&
-        err.code === "MISSING_DEFAULT_BOM" &&
-        err.message.includes("Default BOM not found") &&
-        err.message.includes("Rafia Hitam KW 0,95 (10)"),
+    const result = await confirmOrder("so-1", "user-1");
+
+    // Should confirm successfully (not throw)
+    expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].code).toBe("MISSING_DEFAULT_BOM");
+    expect(result.warnings[0].productNames).toContain("Rafia Hitam KW 0,95 (10)");
+    expect(result.productionOrdersCreated).toBe(0);
+    // WO should NOT be created for missing-BOM variant
+    expect(ProductionService.createOrderFromSales).not.toHaveBeenCalled();
+  });
+
+  it("shortage + has BOM → auto-create WO, status IN_PRODUCTION", async () => {
+    // Setup: MTO order, no inventory, BOM exists
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_ORDER,
+      totalAmount: { toNumber: () => 100 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 } as never,
+          productVariant: { product: { productType: "PHYSICAL" } },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([
+      { productVariantId: "pv-1" },
+    ] as never);
+
+    const result = await confirmOrder("so-1", "user-1");
+
+    expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
+    expect(result.warnings).toHaveLength(0);
+    expect(ProductionService.createOrderFromSales).toHaveBeenCalledWith(
+      "so-1",
+      "pv-1",
+      10,
     );
   });
 
-  it("should catch and log an error if ProductionService.createOrderFromSales throws synchronously", async () => {
-    // Mock ProductionService to throw synchronously
+  it("partial: 2 shortages, 1 BOM missing → WO only for BOM-present, warning for missing", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 200 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 } as never,
+          productVariant: { product: { productType: "PHYSICAL" } },
+        },
+        {
+          id: "item-2",
+          productVariantId: "pv-2",
+          quantity: { toNumber: () => 5 } as never,
+          productVariant: { product: { productType: "PHYSICAL" } },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    // Only pv-1 has BOM
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([
+      { productVariantId: "pv-1" },
+    ] as never);
+    vi.mocked(prisma.productVariant.findMany).mockResolvedValue([
+      { id: "pv-2", name: "Sedotan Bening Super" },
+    ] as never);
+
+    const result = await confirmOrder("so-1", "user-1");
+
+    // Has at least 1 creatable → IN_PRODUCTION
+    expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].code).toBe("MISSING_DEFAULT_BOM");
+    expect(result.warnings[0].productNames).toContain("Sedotan Bening Super");
+    // WO only for pv-1 (has BOM)
+    expect(ProductionService.createOrderFromSales).toHaveBeenCalledTimes(1);
+    expect(ProductionService.createOrderFromSales).toHaveBeenCalledWith(
+      "so-1",
+      "pv-1",
+      10,
+    );
+  });
+
+  it("full stock → CONFIRMED, no warnings, no BOM query", async () => {
+    // Full stock available → no shortage → no BOM check at all
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+      { productVariantId: "pv-1", quantity: { toNumber: () => 100 } as never },
+    ] as never);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+
+    const result = await confirmOrder("so-1", "user-1");
+
+    expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION); // MTO default
+    expect(result.warnings).toHaveLength(0);
+    expect(result.shortageCount).toBe(0);
+    // bom.findMany should not be called (no shortages)
+    expect(prisma.bom.findMany).not.toHaveBeenCalled();
+  });
+
+  it("WO create throws sync → still logged, confirm returns warnings", async () => {
     const loggerErrorSpy = vi
       .spyOn(logger, "error")
       .mockImplementation(() => {});
@@ -230,16 +351,83 @@ describe("confirmOrder", () => {
       throw mockError;
     });
 
-    // Act
-    await confirmOrder("so-1", "user-1");
+    const result = await confirmOrder("so-1", "user-1");
 
-    // Assert
+    // Confirm should succeed despite WO failure
+    expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
+    expect(result.productionOrdersCreated).toBe(0);
+    expect(result.warnings.some((w) => w.code === "WO_CREATE_FAILED")).toBe(true);
     expect(loggerErrorSpy).toHaveBeenCalledWith(
       "Unexpected error in WO auto-creation",
       expect.objectContaining({ error: mockError }),
     );
 
-    // Cleanup
+    loggerErrorSpy.mockRestore();
+  });
+
+  it("MTS + BOM exists + all WO rejected → post-adjust to CONFIRMED", async () => {
+    // Silence expected logger.error noise for rejected auto-WO path
+    const loggerErrorSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => {});
+
+    // MTS order, shortage exists, BOM present, but WO creation rejects
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 100 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 } as never,
+          productVariant: { product: { productType: "PHYSICAL" }, name: "Sedotan Bening" },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([
+      { productVariantId: "pv-1" },
+    ] as never);
+
+    // WO creation rejects via Promise (not sync throw)
+    vi.mocked(ProductionService.createOrderFromSales).mockRejectedValue(
+      new Error("WO creation failed"),
+    );
+
+    const result = await confirmOrder("so-1", "user-1");
+
+    // MTS: had creatable shortage → initially IN_PRODUCTION → but 0 WO succeeded → post-adjust to CONFIRMED
+    expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
+    expect(result.productionOrdersCreated).toBe(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].code).toBe("WO_CREATE_FAILED");
+    expect(result.warnings[0].productNames).toContain("Sedotan Bening");
+    expect(result.warnings[0].message).toContain("Sedotan Bening");
+
+    // Audit trail: confirm log + post-adjust status log
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CONFIRM_SALES",
+        entityId: "so-1",
+        details: expect.stringContaining("Status: IN_PRODUCTION"),
+      }),
+    );
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CONFIRM_SALES",
+        entityId: "so-1",
+        details:
+          "Status adjusted to CONFIRMED: no production orders created (all auto-WO failed or skipped).",
+      }),
+    );
+    expect(loggerErrorSpy).toHaveBeenCalled();
+
     loggerErrorSpy.mockRestore();
   });
 

@@ -86,7 +86,8 @@ export function SalesOrderDetailClient({
 
   const handleAction = async (
     action: string,
-    handler: (id: string) => Promise<{ success: boolean; error?: string }>,
+    handler: (id: string) => Promise<{ success: boolean; error?: string; data?: unknown }>,
+    onSuccess?: (data: unknown) => void,
   ) => {
     setIsLoading(true);
     try {
@@ -99,6 +100,9 @@ export function SalesOrderDetailClient({
               ? "dibatalkan"
               : "diproses";
         toast.success(`Pesanan berhasil ${actionText}`);
+        if (onSuccess) {
+          onSuccess(result.data);
+        }
         router.refresh();
       } else {
         toast.error(
@@ -281,7 +285,23 @@ export function SalesOrderDetailClient({
               </AlertDialog>
 
               <Button
-                onClick={() => handleAction("confirmed", confirmSalesOrder)}
+                onClick={() =>
+                  handleAction(
+                    "confirmed",
+                    confirmSalesOrder,
+                    (data) => {
+                      const result = data as {
+                        warnings?: { message: string }[];
+                      } | undefined;
+                      const warnings = result?.warnings ?? [];
+                      if (warnings.length > 0) {
+                        toast.warning(
+                          warnings.map((w) => w.message).join(" "),
+                        );
+                      }
+                    },
+                  )
+                }
                 disabled={isLoading || isLegacyInternalOrder}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >

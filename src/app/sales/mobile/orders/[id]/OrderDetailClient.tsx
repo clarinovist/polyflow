@@ -142,13 +142,17 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
 
   const handleAction = async (
     actionLabel: string,
-    handler: () => Promise<{ success: boolean; error?: string }>,
+    handler: () => Promise<{ success: boolean; error?: string; data?: unknown }>,
+    onSuccess?: (data: unknown) => void,
   ) => {
     setIsLoading(true);
     try {
       const result = await handler();
       if (result.success) {
         toast.success(`${actionLabel} berhasil`);
+        if (onSuccess) {
+          onSuccess(result.data);
+        }
         router.refresh();
       } else {
         toast.error(result.error || `Gagal ${actionLabel.toLowerCase()}`);
@@ -473,11 +477,25 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
                   className="flex-1 rounded-xl h-11 text-sm font-semibold"
                   disabled={isLoading}
                   onClick={() =>
-                    handleAction("Konfirmasi", () =>
-                      confirmSalesOrder(order.id).then((r) => ({
-                        success: r.success ?? false,
-                        error: "error" in r ? r.error : undefined,
-                      })),
+                    handleAction(
+                      "Konfirmasi",
+                      () =>
+                        confirmSalesOrder(order.id).then((r) => ({
+                          success: r.success ?? false,
+                          error: "error" in r ? r.error : undefined,
+                          data: "data" in r ? r.data : undefined,
+                        })),
+                      (data) => {
+                        const result = data as {
+                          warnings?: { message: string }[];
+                        } | undefined;
+                        const warnings = result?.warnings ?? [];
+                        if (warnings.length > 0) {
+                          toast.warning(
+                            warnings.map((w) => w.message).join(" "),
+                          );
+                        }
+                      },
                     )
                   }
                 >

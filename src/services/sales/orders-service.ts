@@ -23,6 +23,22 @@ import {
   NotFoundError,
 } from "@/lib/errors/errors";
 
+// ── Confirm Order types ──────────────────────────────────────────────
+export type ConfirmOrderWarning = {
+  code: "MISSING_DEFAULT_BOM" | "WO_CREATE_FAILED";
+  productVariantIds: string[];
+  productNames: string[];
+  message: string;
+};
+
+export type ConfirmOrderResult = {
+  orderId: string;
+  status: SalesOrderStatus;
+  shortageCount: number;
+  productionOrdersCreated: number;
+  warnings: ConfirmOrderWarning[];
+};
+
 async function validateMaklonSourceLocation(
   sourceLocationId: string,
   orderType: SalesOrderType,
@@ -436,7 +452,10 @@ export async function updateOrder(
   });
 }
 
-export async function confirmOrder(id: string, userId: string) {
+export async function confirmOrder(
+  id: string,
+  userId: string,
+): Promise<ConfirmOrderResult> {
   const order = await prisma.salesOrder.findUnique({
     where: { id },
     include: {
@@ -472,6 +491,9 @@ export async function confirmOrder(id: string, userId: string) {
     await checkCreditLimit(order.customerId, Number(order.totalAmount || 0));
   }
 
+  // ── Default status by order type ──────────────────────────────
+  // MTS: CONFIRMED (upgraded to IN_PRODUCTION only when WO is created)
+  // MTO / Maklon: IN_PRODUCTION (production-led by design)
   let nextStatus =
     order.orderType === SalesOrderType.MAKE_TO_ORDER ||
     order.orderType === SalesOrderType.MAKLON_JASA
@@ -479,6 +501,9 @@ export async function confirmOrder(id: string, userId: string) {
       : SalesOrderStatus.CONFIRMED;
 
   const shortages: { productVariantId: string; quantity: number }[] = [];
+  const warnings: ConfirmOrderWarning[] = [];
+  // Track whether we had creatable shortages (for MTS status upgrade)
+  let hadCreatableShortage = false;
 
   await prisma.$transaction(async (tx) => {
     if (order.sourceLocationId) {
@@ -561,8 +586,8 @@ export async function confirmOrder(id: string, userId: string) {
       }
     }
 
+    // ── Soft BOM check: split creatable vs missing ──────────────
     if (shortages.length > 0) {
-      nextStatus = SalesOrderStatus.IN_PRODUCTION;
       const shortageVariantIds = shortages.map((s) => s.productVariantId);
 
       const boms = await tx.bom.findMany({
@@ -575,22 +600,38 @@ export async function confirmOrder(id: string, userId: string) {
       });
       const bomVariantIds = new Set(boms.map((b) => b.productVariantId));
 
-      const missingBoms = shortageVariantIds.filter(
-        (id) => !bomVariantIds.has(id),
+      const missingBomVariantIds = shortageVariantIds.filter(
+        (vid) => !bomVariantIds.has(vid),
       );
-      if (missingBoms.length > 0) {
+
+      // Missing BOM → warning (not throw)
+      if (missingBomVariantIds.length > 0) {
         const variants = await tx.productVariant.findMany({
-          where: { id: { in: missingBoms } },
-          select: { name: true },
+          where: { id: { in: missingBomVariantIds } },
+          select: { id: true, name: true },
         });
-        const names = variants.map((v) => v.name).join(", ");
-        // Must be BusinessRuleError so safeAction surfaces the message to the UI
-        // instead of masking it as "An unexpected error occurred".
-        throw new BusinessRuleError(
-          `Cannot confirm order: Default BOM not found for products: ${names}. Please create a BOM first.`,
-          { productVariantIds: missingBoms },
-          "MISSING_DEFAULT_BOM",
-        );
+        const names = variants.map((v) => v.name);
+        warnings.push({
+          code: "MISSING_DEFAULT_BOM",
+          productVariantIds: missingBomVariantIds,
+          productNames: names,
+          message: `Order dikonfirmasi. Perintah produksi tidak dibuat otomatis karena BOM default belum ada untuk: ${names.join(", ")}. Tim produksi/PPIC perlu membuat BOM lalu buat WO manual.`,
+        });
+      }
+
+      // Creatable shortages (have BOM) → will auto-create WO
+      const creatableVariantIds = shortageVariantIds.filter((vid) =>
+        bomVariantIds.has(vid),
+      );
+      hadCreatableShortage = creatableVariantIds.length > 0;
+
+      // Upgrade to IN_PRODUCTION when there are creatable shortages
+      // (MTS default is CONFIRMED; MTO/Maklon already IN_PRODUCTION)
+      if (hadCreatableShortage) {
+        nextStatus = SalesOrderStatus.IN_PRODUCTION;
+      } else if (order.orderType === SalesOrderType.MAKE_TO_STOCK) {
+        // MTS + only missing-BOM shortages → stay CONFIRMED
+        nextStatus = SalesOrderStatus.CONFIRMED;
       }
     }
 
@@ -599,44 +640,125 @@ export async function confirmOrder(id: string, userId: string) {
       data: { status: nextStatus },
     });
 
+    const warningSummary =
+      warnings.length > 0
+        ? `. Warnings: ${warnings.map((w) => w.code).join(", ")}`
+        : "";
     await logActivity({
       userId,
       action: "CONFIRM_SALES",
       entityType: "SalesOrder",
       entityId: id,
-      details: `Sales Order ${order.orderNumber} confirmed. Status: ${nextStatus}. Shortages matched: ${shortages.length}`,
+      details: `Sales Order ${order.orderNumber} confirmed. Status: ${nextStatus}. Shortages: ${shortages.length}${warningSummary}`,
       tx,
     });
   });
 
-  if (shortages.length > 0) {
-    try {
-      const results = await Promise.allSettled(
-        shortages.map((shortage) =>
-          ProductionService.createOrderFromSales(
-            order.id,
-            shortage.productVariantId,
-            shortage.quantity,
-          ),
-        ),
-      );
+  // ── Auto-create WO only for creatable (BOM-present) shortages ──
+  let productionOrdersCreated = 0;
 
-      results.forEach((res, idx) => {
-        if (res.status === "rejected") {
-          logger.error(
-            `Failed to auto-create WO for item ${shortages[idx].productVariantId}`,
-            { error: res.reason, module: "SalesOrderService" },
-          );
-        }
+  // Build name map from order items for friendly warning messages
+  const variantNameMap = new Map(
+    order.items.map((item) => [item.productVariantId, item.productVariant.name]),
+  );
+
+  if (shortages.length > 0) {
+    const shortageVariantIds = shortages.map((s) => s.productVariantId);
+
+    // Re-query which variants have BOM (could have been created between tx and now)
+    const bomsNow = await prisma.bom.findMany({
+      where: {
+        productVariantId: { in: shortageVariantIds },
+        isDefault: true,
+        isActive: true,
+      },
+      select: { productVariantId: true },
+    });
+    const bomNowIds = new Set(bomsNow.map((b) => b.productVariantId));
+
+    // Only attempt WO creation for shortages that currently have a BOM
+    const creatableShortages = shortages.filter((s) =>
+      bomNowIds.has(s.productVariantId),
+    );
+
+    if (creatableShortages.length > 0) {
+      try {
+        const results = await Promise.allSettled(
+          creatableShortages.map((shortage) =>
+            ProductionService.createOrderFromSales(
+              order.id,
+              shortage.productVariantId,
+              shortage.quantity,
+            ),
+          ),
+        );
+
+        results.forEach((res, idx) => {
+          if (res.status === "fulfilled") {
+            productionOrdersCreated++;
+          } else {
+            const variantId = creatableShortages[idx].productVariantId;
+            const name = variantNameMap.get(variantId) || variantId;
+            logger.error(
+              `Failed to auto-create WO for item ${variantId}`,
+              { error: res.reason, module: "SalesOrderService" },
+            );
+            warnings.push({
+              code: "WO_CREATE_FAILED",
+              productVariantIds: [variantId],
+              productNames: [name],
+              message: `Gagal membuat perintah produksi otomatis untuk: ${name}.`,
+            });
+          }
+        });
+      } catch (error) {
+        logger.error("Unexpected error in WO auto-creation", {
+          error,
+          orderId: id,
+          module: "SalesOrderService",
+        });
+        const names = creatableShortages.map(
+          (s) => variantNameMap.get(s.productVariantId) || s.productVariantId,
+        );
+        warnings.push({
+          code: "WO_CREATE_FAILED",
+          productVariantIds: creatableShortages.map((s) => s.productVariantId),
+          productNames: names,
+          message: `Gagal membuat perintah produksi otomatis secara tak terduga untuk: ${names.join(", ")}.`,
+        });
+      }
+    }
+
+    // MTS post-adjust: if no WO was actually created, downgrade back to CONFIRMED
+    if (
+      order.orderType === SalesOrderType.MAKE_TO_STOCK &&
+      productionOrdersCreated === 0 &&
+      nextStatus === SalesOrderStatus.IN_PRODUCTION
+    ) {
+      await prisma.salesOrder.update({
+        where: { id },
+        data: { status: SalesOrderStatus.CONFIRMED },
       });
-    } catch (error) {
-      logger.error("Unexpected error in WO auto-creation", {
-        error,
-        orderId: id,
-        module: "SalesOrderService",
+      nextStatus = SalesOrderStatus.CONFIRMED;
+
+      // Append activity log noting the status adjustment
+      await logActivity({
+        userId,
+        action: "CONFIRM_SALES",
+        entityType: "SalesOrder",
+        entityId: id,
+        details: `Status adjusted to CONFIRMED: no production orders created (all auto-WO failed or skipped).`,
       });
     }
   }
+
+  return {
+    orderId: id,
+    status: nextStatus,
+    shortageCount: shortages.length,
+    productionOrdersCreated,
+    warnings,
+  };
 }
 
 export async function cancelOrder(id: string, userId: string) {

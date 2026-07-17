@@ -147,10 +147,10 @@ export const confirmSalesOrder = withTenant(async function confirmSalesOrder(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
-    await SalesService.confirmOrder(id, session.user.id);
+    const result = await SalesService.confirmOrder(id, session.user.id);
     revalidatePath("/sales");
     revalidatePath(`/sales/orders/${id}`);
-    return true;
+    return result;
   });
 });
 

@@ -7,7 +7,8 @@ import {
     updateOrder,
     confirmOrder,
     cancelOrder,
-    deleteOrder
+    deleteOrder,
+    type ConfirmOrderResult,
 } from '@/services/sales/orders-service';
 import { markReadyToShip, shipOrder, deliverOrder } from '@/services/sales/fulfillment-service';
 
@@ -45,7 +46,7 @@ export class SalesService {
         return updateOrder(data, _userId);
     }
 
-    static async confirmOrder(id: string, userId: string) {
+    static async confirmOrder(id: string, userId: string): Promise<ConfirmOrderResult> {
         return confirmOrder(id, userId);
     }
 
