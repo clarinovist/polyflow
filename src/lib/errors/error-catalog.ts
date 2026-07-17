@@ -1,12 +1,14 @@
 /**
  * PolyFlow Error Message Catalog
- * 
+ *
  * Centralized error messages for consistent UX across the application.
- * Format: [Action] [Object] gagal: [Reason]. [Solution]
- * 
+ *
  * Usage:
- *   import { errorMessage } from '@/lib/errors/error-catalog'
- *   toast.error(errorMessage.saveFailed('produk', 'kode sudah digunakan'))
+ *   import { ErrorCatalog } from '@/lib/errors/error-catalog'
+ *   // Use ErrorCatalog.DUPLICATE_ENTRY, ErrorCatalog.NOT_FOUND, etc.
+ *
+ * Prisma error mapping is handled by mapPrismaError() in prisma-error-map.ts.
+ * Domain-specific messages are thrown as ApplicationError subclasses.
  */
 
 // ─── Error Categories ──────────────────────────────────────────────
@@ -62,149 +64,10 @@ export const ErrorCatalog = {
   // System
   SYSTEM_ERROR: 'Terjadi kesalahan sistem. Silakan coba lagi beberapa saat.',
   MAINTENANCE: 'Sistem sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+
+  // Database / Prisma mapped
+  DB_TIMEOUT: 'Koneksi ke database timeout. Silakan coba lagi beberapa saat.',
+  VALUE_TOO_LONG: 'Teks terlalu panjang untuk salah satu field. Perpendek input lalu coba lagi.',
+  NULL_CONSTRAINT: 'Field wajib tidak boleh kosong. Periksa formulir lalu coba lagi.',
+  FOREIGN_KEY: 'Operasi ditolak karena relasi data. Data terkait tidak ditemukan, atau masih dipakai entitas lain.',
 } as const;
-
-// ─── Dynamic Error Messages ────────────────────────────────────────
-
-/**
- * Create a dynamic error message with context
- * Format: [Action] [Object] gagal: [Reason]
- */
-export function createErrorMessage(
-  action: string,
-  object: string,
-  reason?: string,
-  solution?: string
-): string {
-  let message = `Gagal ${action} ${object}`;
-  if (reason) {
-    message += `: ${reason}`;
-  }
-  if (solution) {
-    message += `. ${solution}`;
-  }
-  return message;
-}
-
-/**
- * Common error message builders
- */
-export const errorMessage = {
-  // Generic
-  generic: (action: string, object: string) => 
-    `Gagal ${action} ${object}. Silakan coba lagi.`,
-  
-  // CRUD
-  saveFailed: (object: string, reason?: string) =>
-    createErrorMessage('menyimpan', object, reason, 'Silakan coba lagi.'),
-  
-  updateFailed: (object: string, reason?: string) =>
-    createErrorMessage('memperbarui', object, reason, 'Silakan coba lagi.'),
-  
-  deleteFailed: (object: string, reason?: string) =>
-    createErrorMessage('menghapus', object, reason),
-  
-  loadFailed: (object: string) =>
-    `Gagal memuat ${object}. Silakan muat ulang halaman.`,
-  
-  createFailed: (object: string, reason?: string) =>
-    createErrorMessage('membuat', object, reason, 'Silakan coba lagi.'),
-  
-  // Duplicate
-  duplicate: (object: string, field: string = 'kode') =>
-    `${object.charAt(0).toUpperCase() + object.slice(1)} dengan ${field} yang sama sudah ada. Gunakan ${field} lain.`,
-  
-  // Not Found
-  notFound: (object: string) =>
-    `${object.charAt(0).toUpperCase() + object.slice(1)} tidak ditemukan atau telah dihapus.`,
-  
-  // Validation
-  validation: (field: string, reason: string) =>
-    `${field}: ${reason}`,
-  
-  // State
-  invalidState: (object: string, requiredState: string) =>
-    `${object} harus dalam status "${requiredState}" untuk melakukan operasi ini.`,
-  
-  // Stock
-  insufficientStock: (item: string, available: number, required: number) =>
-    `Stok ${item} tidak mencukupi. Tersedia: ${available}, Diperlukan: ${required}.`,
-} as const;
-
-// ─── Prisma Error Translation ──────────────────────────────────────
-
-/**
- * Translate Prisma/technical errors to user-friendly messages
- */
-export function translatePrismaError(error: unknown): string {
-  if (!(error instanceof Error)) {
-    return ErrorCatalog.GENERIC;
-  }
-  
-  const message = error.message.toLowerCase();
-  
-  // Unique constraint violation
-  if (message.includes('unique constraint') || message.includes('p2002')) {
-    return ErrorCatalog.DUPLICATE_ENTRY;
-  }
-  
-  // Foreign key violation
-  if (message.includes('foreign key') || message.includes('p2003')) {
-    return 'Data ini masih digunakan oleh data lain. Hapus data terkait terlebih dahulu.';
-  }
-  
-  // Record not found
-  if (message.includes('record to update not found') || message.includes('p2025')) {
-    return ErrorCatalog.NOT_FOUND;
-  }
-  
-  // Connection error
-  if (message.includes('connection') || message.includes('timeout')) {
-    return ErrorCatalog.NETWORK;
-  }
-  
-  // Default
-  return ErrorCatalog.GENERIC;
-}
-
-/**
- * Translate error to user-friendly message
- * Handles both ApplicationError and generic errors
- */
-export function translateError(error: unknown): string {
-  // ApplicationError with code
-  if (error && typeof error === 'object' && 'code' in error) {
-    const appError = error as { code: string; message: string };
-    
-    // Map known codes to catalog messages
-    const codeMap: Record<string, string> = {
-      'VALIDATION_ERROR': ErrorCatalog.VALIDATION_ERROR,
-      'NOT_FOUND': ErrorCatalog.NOT_FOUND,
-      'CONFLICT': ErrorCatalog.DUPLICATE_ENTRY,
-      'UNAUTHORIZED': ErrorCatalog.AUTH_EXPIRED,
-      'FORBIDDEN': ErrorCatalog.AUTH_FORBIDDEN,
-      'INTERNAL_ERROR': ErrorCatalog.GENERIC_UNEXPECTED,
-    };
-    
-    if (codeMap[appError.code]) {
-      return codeMap[appError.code];
-    }
-    
-    // Use the error message if it exists and is user-friendly
-    if (appError.message && !appError.message.includes('Error:')) {
-      return appError.message;
-    }
-  }
-  
-  // Error instance
-  if (error instanceof Error) {
-    return translatePrismaError(error);
-  }
-  
-  // String error
-  if (typeof error === 'string') {
-    return error;
-  }
-  
-  return ErrorCatalog.GENERIC;
-}

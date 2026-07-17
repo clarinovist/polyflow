@@ -12,6 +12,7 @@ export type ActionResponse<T = unknown> = {
 
 import { ApplicationError } from './errors';
 import { AppError } from './error-map';
+import { mapPrismaError } from './prisma-error-map';
 
 /**
  * Normalizes various error types into a consistent ActionResponse format.
@@ -29,35 +30,31 @@ export function handleError(error: unknown): ActionResponse {
         };
     }
 
-    // Prisma Database Errors
+    // Prisma Database Errors → centralized mapper (DRY with safeAction)
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        switch (error.code) {
-            case "P2002": // Unique constraint
-                const target = (error.meta?.target as string[])?.join(", ") || "field";
-                return {
-                    success: false,
-                    error: `Record with this ${target} already exists.`,
-                    code: "UNIQUE_CONSTRAINT",
-                };
-            case "P2003": // Foreign key constraint
-                return {
-                    success: false,
-                    error: "Related record not found or cannot be deleted due to dependencies.",
-                    code: "FOREIGN_KEY_CONSTRAINT",
-                };
-            case "P2025": // Record not found
-                return {
-                    success: false,
-                    error: "The requested record was not found.",
-                    code: "NOT_FOUND",
-                };
-            default:
-                return {
-                    success: false,
-                    error: `Database error: ${error.message}`,
-                    code: `PRISMA_${error.code}`,
-                };
+        const mapped = mapPrismaError(error);
+        if (mapped) {
+            console.error('[handleError] Prisma mapped:', {
+                code: mapped.code,
+                details: mapped.details,
+            });
+            return {
+                success: false,
+                error: mapped.message,
+                code: mapped.code,
+            };
         }
+        // Unknown Prisma code — log full error, return generic (never leak raw message)
+        console.error('[handleError] Unmapped Prisma error:', {
+            code: error.code,
+            meta: error.meta,
+            message: error.message,
+        });
+        return {
+            success: false,
+            error: "Terjadi kesalahan database. Silakan coba lagi.",
+            code: "INTERNAL_ERROR",
+        };
     }
 
     // Custom Application Errors from errors.ts

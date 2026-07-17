@@ -7,6 +7,8 @@
  * Use these instead of generic `throw new Error(...)` in services.
  */
 
+import { mapPrismaError } from './prisma-error-map';
+
 export class ApplicationError extends Error {
     public readonly code: string;
     public readonly statusCode: number;
@@ -152,6 +154,21 @@ export async function safeAction<T>(
         if (error instanceof ApplicationError) {
             return { success: false, error: error.message, code: error.code };
         }
+
+        // Prisma known errors → mapped ApplicationError with user-friendly message
+        const prismaMapped = mapPrismaError(error);
+        if (prismaMapped) {
+            console.error('[safeAction] Prisma mapped:', {
+                code: prismaMapped.code,
+                details: prismaMapped.details,
+            });
+            return {
+                success: false,
+                error: prismaMapped.message,
+                code: prismaMapped.code,
+            };
+        }
+
         // Unknown error — log and return generic message
         console.error('[safeAction] Unexpected error:', error);
         return { success: false, error: 'An unexpected error occurred', code: 'INTERNAL_ERROR' };
