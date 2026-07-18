@@ -799,10 +799,12 @@ describe("reports-service", () => {
       expect(result.totalLiabilitiesAndEquity).toBe(0);
     });
 
-    it("sets endOfDay to 23:59:59.999 for the given date", async () => {
+    it("filters up to the WIB end-of-day of the as-of business date", async () => {
       vi.mocked(prisma.account.findMany).mockResolvedValue([] as never);
 
-      await getBalanceSheet(new Date("2026-06-15"));
+      // 2026-06-15T00:00:00Z → WIB business date 2026-06-15 → WIB 23:59:59.999
+      // = 2026-06-15T16:59:59.999Z. TZ-independent assertion.
+      await getBalanceSheet(new Date("2026-06-15T00:00:00.000Z"));
 
       expect(prisma.account.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -820,14 +822,10 @@ describe("reports-service", () => {
         }),
       );
 
-      // Verify the lte date is end of day
       const call = vi.mocked(prisma.account.findMany).mock.calls[0][0] as any;
       const lteDate =
-        call.include.journalLines.where.journalEntry.entryDate.lte;
-      expect(lteDate.getHours()).toBe(23);
-      expect(lteDate.getMinutes()).toBe(59);
-      expect(lteDate.getSeconds()).toBe(59);
-      expect(lteDate.getMilliseconds()).toBe(999);
+        call.include.journalLines.where.journalEntry.entryDate.lte as Date;
+      expect(lteDate.toISOString()).toBe("2026-06-15T16:59:59.999Z");
     });
 
     it("groups liabilities and equity separately", async () => {
