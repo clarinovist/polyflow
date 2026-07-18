@@ -115,7 +115,7 @@ describe('Access Policy Helpers', () => {
 
   describe('getDefaultRedirectForUser', () => {
     it('returns correct redirect target per role', () => {
-      expect(getDefaultRedirectForUser({ role: 'ADMIN', isSuperAdmin: true })).toBe('/dashboard');
+      expect(getDefaultRedirectForUser({ role: 'ADMIN', isSuperAdmin: true })).toBe('/super-admin');
       expect(getDefaultRedirectForUser({ role: 'WAREHOUSE' })).toBe('/warehouse');
       expect(getDefaultRedirectForUser({ role: 'PRODUCTION' })).toBe('/production');
       expect(getDefaultRedirectForUser({ role: 'FINANCE' })).toBe('/dashboard');

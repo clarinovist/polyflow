@@ -78,14 +78,14 @@ export const authConfig = {
                     // Short URL alias for the superadmin panel. proxy.ts rewrites this
                     // (internally, URL unchanged) to /admin/super-admin once this
                     // callback allows it through.
-                    const isDashboardAlias = pathname === '/dashboard';
+                    const isSuperAdminAlias = pathname === '/super-admin';
 
                     if (isLoginPage) {
-                        // Already logged in as SuperAdmin → go to dashboard
+                        // Already logged in as SuperAdmin → go to the panel
                         if (isLoggedIn) {
                             const user = auth.user as { isSuperAdmin?: boolean };
                             if (user.isSuperAdmin) {
-                                return Response.redirect(new URL('/dashboard', nextUrl));
+                                return Response.redirect(new URL('/super-admin', nextUrl));
                             }
                         }
                         return true; // Show admin login page
@@ -102,12 +102,12 @@ export const authConfig = {
                     }
 
                     // admin.polyflow.uk only serves the superadmin panel
-                    // (/dashboard alias + /admin/*). Tenant/ERP routes like
-                    // /warehouse, /production don't belong here — without this,
-                    // navigating to an ERP path would render it against the main
-                    // DB instead of the superadmin panel.
-                    if (!isDashboardAlias && !pathname.startsWith('/admin')) {
-                        return Response.redirect(new URL('/dashboard', nextUrl));
+                    // (/super-admin alias + /admin/*). Tenant/ERP routes like
+                    // /dashboard, /warehouse, /production don't belong here —
+                    // without this, navigating to an ERP path would render it
+                    // against the main DB instead of the superadmin panel.
+                    if (!isSuperAdminAlias && !pathname.startsWith('/admin')) {
+                        return Response.redirect(new URL('/super-admin', nextUrl));
                     }
 
                     return true;
@@ -181,7 +181,7 @@ export const authConfig = {
                     if (isLoggedIn) {
                         const user = auth.user as { isSuperAdmin?: boolean };
                         if (user.isSuperAdmin) {
-                            return Response.redirect(new URL(`https://admin.${rootDomain}/dashboard`, nextUrl));
+                            return Response.redirect(new URL(`https://admin.${rootDomain}/super-admin`, nextUrl));
                         }
                     }
                     return Response.redirect(new URL('/', nextUrl));

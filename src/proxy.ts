@@ -55,12 +55,15 @@ const handler = auth((req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Short URL for the superadmin panel: admin.polyflow.uk/dashboard shows the
+  // Short URL for the superadmin panel: admin.polyflow.uk/super-admin shows the
   // real content at /admin/super-admin, rewritten internally so the browser
-  // address bar keeps the short path. authConfig.callbacks.authorized() is
-  // what actually gates access (must be logged-in superadmin) before this
-  // rewrite ever runs.
-  if (isAdminSubdomain && req.nextUrl.pathname === "/dashboard") {
+  // address bar keeps the short path. We use /super-admin (which has NO real
+  // route of its own) rather than /dashboard, because /dashboard has a real ERP
+  // page — rewriting onto an existing route is unreliable in the App Router
+  // (client-side navigation renders the real route, not the rewrite target).
+  // authConfig.callbacks.authorized() gates access (logged-in superadmin) before
+  // this rewrite ever runs.
+  if (isAdminSubdomain && req.nextUrl.pathname === "/super-admin") {
     return NextResponse.rewrite(new URL("/admin/super-admin", req.url), {
       request: { headers: requestHeaders },
     });

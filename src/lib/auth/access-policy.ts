@@ -145,9 +145,9 @@ export function getDefaultRedirectForUser(user: {
   const activeRole = user.role?.toUpperCase();
   const isSuperAdmin = !!user.isSuperAdmin;
 
-  // Short URL alias: admin.polyflow.uk/dashboard is rewritten (internally, by
+  // Short URL alias: admin.polyflow.uk/super-admin is rewritten (internally, by
   // proxy.ts) to /admin/super-admin. Redirecting here keeps the address bar short.
-  if (isSuperAdmin) return "/dashboard";
+  if (isSuperAdmin) return "/super-admin";
   // Active role drives post-login landing (selected at login)
   if (activeRole === "WAREHOUSE") return "/warehouse";
   if (activeRole === "PRODUCTION") return "/production";
