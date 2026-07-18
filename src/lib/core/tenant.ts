@@ -2,52 +2,16 @@ import { getTenantDb, tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { PrismaClient } from '@prisma/client';
 import { headers } from 'next/headers';
 
+// Subdomain parsing lives in a client-safe module (no server-only imports) so
+// it can be shared with client components like login-form.tsx. Imported here
+// (and re-exported) for backward compatibility with existing server-side callers.
+import { extractSubdomain, RESERVED_SUBDOMAINS } from '@/lib/core/subdomain';
+export { extractSubdomain, RESERVED_SUBDOMAINS };
+
 export type TenantResolutionResult =
     | { type: 'NONE' }
     | { type: 'NOT_FOUND'; subdomain: string }
     | { type: 'RESOLVED'; tenantDb: PrismaClient; tenantId: string; subdomain: string };
-
-/**
- * Reserved subdomains that are NOT tenants. Requests on these hosts resolve
- * against the main DB (e.g. superadmin portal at admin.polyflow.uk), not a
- * tenant DB.
- */
-const RESERVED_SUBDOMAINS = new Set(['admin', 'www', 'app', 'api', 'auth', 'static', 'assets']);
-
-/**
- * Robust utility to extract tenant subdomain from a host string.
- * Supports both standard PROD domains (e.g., tenant.polyflow.uk) 
- * and local dev environments (e.g., tenant.localhost:3000)
- *
- * Returns null for reserved subdomains (e.g. admin, www) so those hosts
- * resolve against the main DB instead of being treated as a tenant.
- */
-export function extractSubdomain(host: string): string | null {
-    if (!host) return null;
-
-    // Remove port if present
-    const hostname = host.split(':')[0];
-
-    let subdomain: string | null = null;
-
-    // Check local dev mode first
-    if (hostname.endsWith('.localhost')) {
-        subdomain = hostname.replace('.localhost', '');
-    } else {
-        // Production/Staging base domain extraction
-        const baseDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
-        if (hostname.endsWith(`.${baseDomain}`)) {
-            subdomain = hostname.replace(`.${baseDomain}`, '');
-        }
-    }
-
-    if (!subdomain) return null;
-
-    // Reserved subdomains are not tenants (resolve against main DB).
-    if (RESERVED_SUBDOMAINS.has(subdomain.toLowerCase())) return null;
-
-    return subdomain;
-}
 
 /**
  * Unified helper to resolve tenant DB target from standard HTTP Headers.

@@ -10,6 +10,7 @@ import { AlertCircle, Loader2, Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide
 import PolyFlowLogo from './polyflow-logo';
 import { RoleType } from './role-selection';
 import { loginFormLabels as L } from '@/lib/labels/auth';
+import { extractSubdomain } from '@/lib/core/subdomain';
 
 interface LoginFormProps {
     selectedRole: RoleType;
@@ -52,8 +53,10 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
             <form action={formAction} className="space-y-5">
                 {/* Hidden Role field */}
                 <input type="hidden" name="role" value={selectedRole} />
-                {/* Hidden Subdomain field — needed for tenant resolution in NextAuth authorize */}
-                <input type="hidden" name="subdomain" value={typeof window !== 'undefined' ? (window.location.hostname.split('.')[0] || '') : ''} />
+                {/* Hidden Subdomain field — needed for tenant resolution in NextAuth authorize.
+                    Uses the shared extractSubdomain() so reserved subdomains (admin, www, ...)
+                    resolve to '' → superadmin/main-DB login instead of a bogus tenant lookup. */}
+                <input type="hidden" name="subdomain" value={typeof window !== 'undefined' ? (extractSubdomain(window.location.host) || '') : ''} />
 
                 {/* Email Field */}
                 <div className="space-y-2">
