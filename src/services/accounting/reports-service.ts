@@ -3,16 +3,14 @@ import { Prisma } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
 import { resolveAccount } from './account-resolver';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
-import { toBusinessDateString } from '@/lib/utils/timezone';
+import { toBusinessDateString, getWibDayBounds, businessDateToEntryDate, wibRangeBounds } from '@/lib/utils/timezone';
 
 export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     const accounts = await prisma.account.findMany({
         orderBy: { code: 'asc' }
     });
 
-    const entryDate: Prisma.DateTimeFilter = {};
-    if (startDate) entryDate.gte = startDate;
-    if (endDate) entryDate.lte = endDate;
+    const entryDate: Prisma.DateTimeFilter = wibRangeBounds(startDate, endDate);
 
     const where: Prisma.JournalLineWhereInput = {
         journalEntry: {
@@ -54,6 +52,7 @@ export async function getTrialBalance(startDate?: Date, endDate?: Date) {
 }
 
 export async function getIncomeStatement(startDate: Date, endDate: Date) {
+    const entryDate = wibRangeBounds(startDate, endDate);
     const accounts = await prisma.account.findMany({
         where: {
             type: { in: ['REVENUE', 'EXPENSE'] }
@@ -63,7 +62,7 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
             journalLines: {
                 where: {
                     journalEntry: {
-                        entryDate: { gte: startDate, lte: endDate },
+                        entryDate,
                         status: 'POSTED',
                         NOT: {
                             reference: { startsWith: 'CLOSING-' }
@@ -254,9 +253,8 @@ function groupAccountsByParent(
 }
 
 export async function getBalanceSheet(asOfDate: Date) {
-    // Ensure we include everything up to the very end of the selected day
-    const endOfDay = new Date(asOfDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Include everything up to the very end of the selected WIB business day.
+    const endOfDay = getWibDayBounds(toBusinessDateString(asOfDate)).endOfDay;
 
     const accounts = await prisma.account.findMany({
         where: {
@@ -338,10 +336,11 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
         throw new BusinessRuleError(`Closing entry already exists for ${periodRef} (JE: ${existing.entryNumber}). Void it first if you want to re-close.`, { periodRef, existingEntryNumber: existing.entryNumber, existingId: existing.id });
     }
 
-    // Period: start of month to end of periodEndDate
-    const startDate = new Date(year, month - 1, 1);
-    const endOfDay = new Date(periodEndDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Period: WIB start-of-month to end of the WIB business day of periodEndDate.
+    const startDate = businessDateToEntryDate(
+        `${year}-${String(month).padStart(2, '0')}-01`,
+    );
+    const endOfDay = getWibDayBounds(dateStr).endOfDay;
 
     // Get all REVENUE and EXPENSE accounts with balances in the period
     const accounts = await prisma.account.findMany({
@@ -424,9 +423,9 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
         });
     }
 
-    // Create the closing journal entry
+    // Create the closing journal entry, anchored to the period-end WIB business day.
     const entry = await createJournalEntry({
-        entryDate: endOfDay,
+        entryDate: businessDateToEntryDate(dateStr),
         description: `Period Closing Entry ${periodRef}`,
         reference: periodRef,
         referenceType: 'MANUAL_ENTRY',
@@ -447,9 +446,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
 }
 
 export async function getAccountBalance(accountId: string, startDate?: Date, endDate?: Date) {
-    const entryDate: Prisma.DateTimeFilter = {};
-    if (startDate) entryDate.gte = startDate;
-    if (endDate) entryDate.lte = endDate;
+    const entryDate: Prisma.DateTimeFilter = wibRangeBounds(startDate, endDate);
 
     const where: Prisma.JournalLineWhereInput = {
         accountId,
@@ -478,6 +475,7 @@ export async function getAccountBalance(accountId: string, startDate?: Date, end
 }
 
 export async function getClosingBalances(startDate: Date, endDate: Date) {
+    const entryDate = wibRangeBounds(startDate, endDate);
     const accounts = await prisma.account.findMany({
         where: {
             type: { in: ['REVENUE', 'EXPENSE'] }
@@ -486,7 +484,7 @@ export async function getClosingBalances(startDate: Date, endDate: Date) {
             journalLines: {
                 where: {
                     journalEntry: {
-                        entryDate: { gte: startDate, lte: endDate },
+                        entryDate,
                         status: 'POSTED',
                         NOT: {
                             reference: { startsWith: 'CLOSING-' }
@@ -533,13 +531,16 @@ export async function getCashFlowStatement(startDate: Date, endDate: Date) {
     
     const cashAccountIds = cashAccounts.map(a => a.id);
 
-    // Calculate beginning balance (all entries BEFORE startDate)
+    // Interpret the range as WIB business days for consistent period boundaries.
+    const period = wibRangeBounds(startDate, endDate);
+
+    // Calculate beginning balance (all entries BEFORE the WIB start-of-period)
     const beginningBalanceRaw = await prisma.journalLine.aggregate({
         where: {
             accountId: { in: cashAccountIds },
             journalEntry: {
                 status: 'POSTED',
-                entryDate: { lt: startDate }
+                entryDate: { lt: period.gte }
             }
         },
         _sum: {
@@ -554,7 +555,7 @@ export async function getCashFlowStatement(startDate: Date, endDate: Date) {
     const entries = await prisma.journalEntry.findMany({
         where: {
             status: 'POSTED',
-            entryDate: { gte: startDate, lte: endDate },
+            entryDate: period,
             lines: {
                 some: {
                     accountId: { in: cashAccountIds }

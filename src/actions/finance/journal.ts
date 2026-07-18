@@ -20,6 +20,7 @@ import {
   BusinessRuleError,
   ValidationError,
 } from "@/lib/errors/errors";
+import { normalizeToBusinessDay } from "@/lib/utils/timezone";
 
 export const createBulkJournals = withTenant(async function createBulkJournals(
   entries: {
@@ -71,7 +72,7 @@ export const createManualJournal = withTenant(
 
       try {
         const result = await AccountingService.createJournalEntry({
-          entryDate: data.entryDate,
+          entryDate: normalizeToBusinessDay(data.entryDate),
           description: data.description,
           reference: data.reference ?? "",
           referenceType: ReferenceType.MANUAL_ENTRY,
@@ -241,7 +242,7 @@ export const updateManualJournal = withTenant(
         const result = await AccountingService.updateDraftJournal(
           id,
           {
-            entryDate: data.entryDate,
+            entryDate: normalizeToBusinessDay(data.entryDate),
             description: data.description,
             reference: data.reference ?? "",
             lines: data.lines.map((l) => ({
@@ -302,7 +303,7 @@ export const createDirectLaborJournalAction = withTenant(
       try {
         const result = await AccountingService.createDirectLaborJournal(
           {
-            entryDate: data.entryDate,
+            entryDate: normalizeToBusinessDay(data.entryDate),
             description: data.description,
             reference: data.reference ?? "",
             debitAccountId: data.debitAccountId,
@@ -364,7 +365,7 @@ export const updateDirectLaborJournalAction = withTenant(
         const result = await AccountingService.updateDirectLaborJournal(
           id,
           {
-            entryDate: data.entryDate,
+            entryDate: normalizeToBusinessDay(data.entryDate),
             description: data.description,
             reference: data.reference ?? "",
             debitAccountId: data.debitAccountId,
@@ -427,7 +428,7 @@ export const createDetailJournalAction = withTenant(
         const result = await AccountingService.createDetailJournal(
           {
             type: data.type,
-            entryDate: data.entryDate,
+            entryDate: normalizeToBusinessDay(data.entryDate),
             description: data.description,
             reference: data.reference ?? "",
             primaryAccountId: data.primaryAccountId,
@@ -491,7 +492,7 @@ export const updateDetailJournalAction = withTenant(
           id,
           {
             type: data.type,
-            entryDate: data.entryDate,
+            entryDate: normalizeToBusinessDay(data.entryDate),
             description: data.description,
             reference: data.reference ?? "",
             primaryAccountId: data.primaryAccountId,

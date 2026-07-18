@@ -131,6 +131,45 @@ export function businessDateToEntryDate(dateStr: string): Date {
 }
 
 /**
+ * Convert an optional report date range (Date objects, typically browser-WIB
+ * picker values serialized to instants) into inclusive WIB business-day bounds
+ * for Prisma `entryDate` filters. The start snaps to WIB 00:00 of its day and
+ * the end snaps to WIB 23:59:59.999 of its day, so filtering stays consistent
+ * with WIB-midnight entryDate storage regardless of process timezone.
+ */
+export function wibRangeBounds(
+  startDate?: Date | null,
+  endDate?: Date | null,
+): { gte?: Date; lte?: Date } {
+  const out: { gte?: Date; lte?: Date } = {};
+  if (startDate) {
+    out.gte = getWibDayBounds(toBusinessDateString(startDate)).startOfDay;
+  }
+  if (endDate) {
+    out.lte = getWibDayBounds(toBusinessDateString(endDate)).endOfDay;
+  }
+  return out;
+}
+
+/**
+ * Normalize any Date to a stable WIB-midnight UTC instant suitable for storage
+ * as a business-day entryDate. Use on write-paths where a date picker supplies
+ * a Date that may be browser-local (or server-local) midnight.
+ *
+ * The calendar day is interpreted in WIB, then anchored to WIB 00:00 of that day.
+ * This guarantees the stored instant falls inside the intended WIB business day
+ * regardless of the process timezone, so a picker set to "2 Jul" never leaks into
+ * "1 Jul" reports on a UTC server.
+ *
+ * e.g. new Date('2026-07-02T00:00:00+07:00') → Date('2026-07-01T17:00:00.000Z')
+ *      new Date('2026-07-01T20:00:00.000Z')  → Date('2026-07-01T17:00:00.000Z')
+ */
+export function normalizeToBusinessDay(date: Date | string): Date {
+  const businessDate = toBusinessDateString(date);
+  return businessDateToEntryDate(businessDate);
+}
+
+/**
  * Format an instant as date-only in WIB with the given pattern.
  * Default pattern: 'dd MMM yyyy' → '02 Jul 2026'
  *

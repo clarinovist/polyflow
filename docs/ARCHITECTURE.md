@@ -622,6 +622,31 @@ polyflow/
 
 **Recommendation**: Use Server Actions for internal operations, create API routes if external API access is needed.
 
+### Business Dates & Timezone (WIB)
+
+PolyFlow serves a single business timezone: **`Asia/Jakarta` (WIB, UTC+7)**. The database stores every timestamp in **UTC**, but all _business_ dates (journal `entryDate`, petty-cash dates, report ranges) must be reasoned about as WIB calendar days.
+
+**Canonical rule** — a "business day D" is the half-open range `[D 00:00:00 WIB .. D 23:59:59.999 WIB]`, anchored to a stable UTC instant.
+
+**Why it matters**: production servers run in UTC. A naive `new Date('2026-07-02')` or `setHours(23,59,59,999)` on such a server silently shifts a day, so a "2 July" entry can leak into "1 July" reports (the real "Feby" incident).
+
+**Helpers** — always use `src/lib/utils/timezone.ts`; never `setHours()` or raw `new Date(y,m,d)` for business dates:
+
+| Concern | Helper |
+|---------|--------|
+| Store a date-picker value as `entryDate` | `normalizeToBusinessDay(date)` → WIB-midnight UTC instant |
+| Convert a `YYYY-MM-DD` string to `entryDate` | `businessDateToEntryDate(str)` |
+| Inclusive day filter for a single day | `getWibDayBounds(str)` → `{ startOfDay, endOfDay }` |
+| Inclusive filter for a report range | `wibRangeBounds(start?, end?)` → `{ gte?, lte? }` |
+| Extract the WIB `YYYY-MM-DD` from an instant | `toBusinessDateString(date)` |
+| Display an instant as a WIB date | `formatWibDate(date)` / `formatWIB(date, pattern)` |
+
+**Conventions**:
+
+- **Write-path**: normalize incoming picker dates in the Server Action (finance journals) or the entry-point service (`PettyCashService.createExpense`) before persisting — so downstream journals inherit the correct `entryDate`.
+- **Read-path / reports**: build `entryDate` filters from `wibRangeBounds()` (or `getWibDayBounds()`), not raw dates, so ranges stay WIB-consistent with stored instants (`getTrialBalance`, `getIncomeStatement`, `getGeneralLedger`, `getBalanceSheet`, `getCashFlowStatement`, `closePeriod`).
+- Browser components may use `date-fns` `startOfDay`/`endOfDay` because the browser already runs in the user's WIB timezone; the WIB helpers exist specifically for **server-side** paths.
+
 ---
 
 ## 🛠️ Logic Layer: Service Pattern

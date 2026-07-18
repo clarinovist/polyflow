@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma, AccountType } from '@prisma/client';
+import { wibRangeBounds } from '@/lib/utils/timezone';
 
 export interface GeneralLedgerEntry {
     date: Date;
@@ -38,13 +39,12 @@ export async function getGeneralLedger(
     startDate?: Date,
     endDate?: Date
 ): Promise<GeneralLedgerData> {
-    const entryDate: Prisma.DateTimeFilter = {};
-    if (startDate) entryDate.gte = startDate;
-    if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        entryDate.lte = endOfDay;
-    }
+    // Interpret the incoming date range as WIB business days. Using WIB bounds
+    // keeps GL filtering consistent with how entryDate is stored (WIB-midnight
+    // UTC) and avoids server-timezone drift from setHours().
+    const bounds = wibRangeBounds(startDate, endDate);
+    const rangeStart = bounds.gte;
+    const entryDate: Prisma.DateTimeFilter = { ...bounds };
 
     const where: Prisma.JournalLineWhereInput = {
         journalEntry: {
@@ -92,13 +92,13 @@ export async function getGeneralLedger(
 
     // Calculate beginning balances only for relevant accounts (optimization)
     const beginningBalances = new Map<string, number>();
-    if (startDate && relevantAccountIds.size > 0) {
+    if (rangeStart && relevantAccountIds.size > 0) {
         const preLines = await prisma.journalLine.findMany({
             where: {
                 accountId: { in: Array.from(relevantAccountIds) },
                 journalEntry: {
                     status: 'POSTED',
-                    entryDate: { lt: startDate }
+                    entryDate: { lt: rangeStart }
                 }
             },
             include: {

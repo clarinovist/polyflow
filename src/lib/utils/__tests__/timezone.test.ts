@@ -11,7 +11,9 @@ import {
   getWibDayBounds,
   toBusinessDateString,
   businessDateToEntryDate,
+  normalizeToBusinessDay,
   formatWibDate,
+  wibRangeBounds,
   BUSINESS_TIMEZONE,
 } from '../timezone';
 
@@ -169,6 +171,98 @@ describe('timezone utilities', () => {
     it('year boundary works', () => {
       const result = businessDateToEntryDate('2026-01-01');
       expect(result.toISOString()).toBe('2025-12-31T17:00:00.000Z');
+    });
+  });
+
+  describe('normalizeToBusinessDay (write-path)', () => {
+    it('anchors a WIB-midnight picker Date to the same WIB business day', () => {
+      // Date picker in a WIB browser produces Jul 2 00:00 WIB = Jul 1 17:00 UTC
+      const picker = new Date('2026-07-01T17:00:00.000Z');
+      const result = normalizeToBusinessDay(picker);
+      expect(result.toISOString()).toBe('2026-07-01T17:00:00.000Z');
+      expect(toBusinessDateString(result)).toBe('2026-07-02');
+    });
+
+    it('Feby case: a Jul 2 picker never lands on Jul 1 bounds on a UTC server', () => {
+      // The bug: server stored the raw Date; a Jul 2 entry leaked into Jul 1 reports.
+      const picker = new Date('2026-07-02T00:00:00+07:00'); // 2 Jul WIB
+      const stored = normalizeToBusinessDay(picker);
+
+      const jul1 = getWibDayBounds('2026-07-01');
+      const jul2 = getWibDayBounds('2026-07-02');
+
+      // Must NOT be in Jul 1
+      expect(stored < jul1.startOfDay || stored > jul1.endOfDay).toBe(true);
+      // Must be in Jul 2
+      expect(stored >= jul2.startOfDay).toBe(true);
+      expect(stored <= jul2.endOfDay).toBe(true);
+    });
+
+    it('normalizes a server-local (UTC) midnight Date to the correct WIB day', () => {
+      // A naive `new Date('2026-07-02')` on a UTC server = Jul 2 00:00 UTC = Jul 2 07:00 WIB
+      const naive = new Date('2026-07-02T00:00:00.000Z');
+      const stored = normalizeToBusinessDay(naive);
+      // Jul 2 07:00 WIB is still Jul 2 → anchored to Jul 2 00:00 WIB
+      expect(stored.toISOString()).toBe('2026-07-01T17:00:00.000Z');
+      expect(toBusinessDateString(stored)).toBe('2026-07-02');
+    });
+
+    it('accepts an ISO string input', () => {
+      expect(normalizeToBusinessDay('2026-07-01T17:00:00.000Z').toISOString()).toBe(
+        '2026-07-01T17:00:00.000Z',
+      );
+    });
+
+    it('is idempotent', () => {
+      const once = normalizeToBusinessDay(new Date('2026-07-02T10:00:00.000Z'));
+      const twice = normalizeToBusinessDay(once);
+      expect(twice.toISOString()).toBe(once.toISOString());
+    });
+
+    it('handles year boundary', () => {
+      const picker = new Date('2026-01-01T00:00:00+07:00');
+      const stored = normalizeToBusinessDay(picker);
+      expect(stored.toISOString()).toBe('2025-12-31T17:00:00.000Z');
+      expect(toBusinessDateString(stored)).toBe('2026-01-01');
+    });
+  });
+
+  describe('wibRangeBounds (report filters)', () => {
+    it('snaps a range to WIB start-of-day .. end-of-day', () => {
+      const start = new Date('2026-06-01T00:00:00+07:00'); // 1 Jun WIB
+      const end = new Date('2026-06-30T00:00:00+07:00'); // 30 Jun WIB
+      const { gte, lte } = wibRangeBounds(start, end);
+      expect(gte!.toISOString()).toBe('2026-05-31T17:00:00.000Z');
+      expect(lte!.toISOString()).toBe('2026-06-30T16:59:59.999Z');
+    });
+
+    it('an entry stored at WIB midnight of the end day is inside the range', () => {
+      const { gte, lte } = wibRangeBounds(
+        new Date('2026-06-01T00:00:00+07:00'),
+        new Date('2026-06-30T00:00:00+07:00'),
+      );
+      const entry = businessDateToEntryDate('2026-06-30'); // 30 Jun 00:00 WIB
+      expect(entry >= gte!).toBe(true);
+      expect(entry <= lte!).toBe(true);
+    });
+
+    it('an entry on 1 Jul is excluded from a range ending 30 Jun', () => {
+      const { lte } = wibRangeBounds(
+        new Date('2026-06-01T00:00:00+07:00'),
+        new Date('2026-06-30T00:00:00+07:00'),
+      );
+      const jul1 = businessDateToEntryDate('2026-07-01');
+      expect(jul1 > lte!).toBe(true);
+    });
+
+    it('returns empty object when both dates are omitted', () => {
+      expect(wibRangeBounds()).toEqual({});
+      expect(wibRangeBounds(null, null)).toEqual({});
+    });
+
+    it('supports open-ended ranges', () => {
+      expect(wibRangeBounds(new Date('2026-06-01T00:00:00+07:00')).lte).toBeUndefined();
+      expect(wibRangeBounds(undefined, new Date('2026-06-30T00:00:00+07:00')).gte).toBeUndefined();
     });
   });
 

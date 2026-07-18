@@ -7,6 +7,7 @@ import {
   postJournal,
 } from "@/services/accounting/journals-service";
 import { resolveAccount } from "@/services/accounting/account-resolver";
+import { normalizeToBusinessDay } from "@/lib/utils/timezone";
 
 export interface CreatePettyCashValues {
   date: Date;
@@ -79,7 +80,7 @@ export class PettyCashService {
         return await prisma.pettyCashTransaction.create({
           data: {
             voucherNumber,
-            date: data.date,
+            date: normalizeToBusinessDay(data.date),
             description: data.description,
             amount: data.amount,
             type: "EXPENSE",

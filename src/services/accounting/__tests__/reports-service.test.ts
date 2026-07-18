@@ -1484,7 +1484,7 @@ describe("reports-service", () => {
       expect(result.period).toBe("CLOSING-2026-06");
     });
 
-    it("sets endOfDay to 23:59:59.999 on periodEndDate", async () => {
+    it("anchors the closing entryDate to WIB midnight of the period-end business day", async () => {
       vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.account.findMany).mockResolvedValue([
         {
@@ -1511,15 +1511,14 @@ describe("reports-service", () => {
         entryNumber: "JE-CL-007",
       } as never);
 
-      await closePeriod(new Date("2026-06-15"), "user1");
+      // 2026-06-15T00:00:00Z → WIB business date 2026-06-15 → WIB midnight
+      // = 2026-06-14T17:00:00.000Z. TZ-independent assertion.
+      await closePeriod(new Date("2026-06-15T00:00:00.000Z"), "user1");
 
       const journalEntryCall = vi.mocked(createJournalEntry).mock
         .calls[0][0] as any;
-      const entryDate = journalEntryCall.entryDate;
-      expect(entryDate.getHours()).toBe(23);
-      expect(entryDate.getMinutes()).toBe(59);
-      expect(entryDate.getSeconds()).toBe(59);
-      expect(entryDate.getMilliseconds()).toBe(999);
+      const entryDate = journalEntryCall.entryDate as Date;
+      expect(entryDate.toISOString()).toBe("2026-06-14T17:00:00.000Z");
     });
 
     it("excludes closing entries when computing period balances", async () => {

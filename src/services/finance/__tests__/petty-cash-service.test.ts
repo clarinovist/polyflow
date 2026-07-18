@@ -162,6 +162,23 @@ describe('PettyCashService', () => {
             expect(prisma.pettyCashTransaction.create).toHaveBeenCalled();
         });
 
+        it('should normalize the expense date to WIB business-day midnight', async () => {
+            // A picker Date for 15 Jan 2024 00:00 WIB = 14 Jan 2024 17:00 UTC
+            const picker = new Date('2024-01-14T17:00:00.000Z');
+
+            vi.mocked(prisma.pettyCashTransaction.count).mockResolvedValue(0);
+            vi.mocked(prisma.pettyCashTransaction.create).mockResolvedValue({ id: '1' } as any);
+
+            await PettyCashService.createExpense(
+                { date: picker, description: 'Office supplies', amount: 100 },
+                'user-1'
+            );
+
+            const createArg = vi.mocked(prisma.pettyCashTransaction.create).mock.calls[0][0];
+            // Stored date must be anchored to WIB midnight (15 Jan 2024 00:00 WIB)
+            expect((createArg.data.date as Date).toISOString()).toBe('2024-01-14T17:00:00.000Z');
+        });
+
         it('should increment voucher number based on existing count', async () => {
             // Arrange
             const mockCreatedTransaction = {
