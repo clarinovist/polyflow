@@ -22,13 +22,50 @@ export const getAssets = withTenant(async function getAssets() {
           assetAccount: true,
           accumDepreciationAccount: true,
           depreciationExpenseAccount: true,
+          location: { select: { name: true } },
         },
         orderBy: { createdAt: "desc" },
       });
+
+      // Resolve source PO/GR numbers in a single batched lookup each.
+      // FixedAsset stores purchaseOrderId/goodsReceiptId as scalars (no relation),
+      // so we map ids -> human-readable numbers here for display/traceability.
+      const poIds = [
+        ...new Set(assets.map((a) => a.purchaseOrderId).filter(Boolean) as string[]),
+      ];
+      const grIds = [
+        ...new Set(assets.map((a) => a.goodsReceiptId).filter(Boolean) as string[]),
+      ];
+
+      const [pos, grs] = await Promise.all([
+        poIds.length
+          ? db.purchaseOrder.findMany({
+              where: { id: { in: poIds } },
+              select: { id: true, orderNumber: true },
+            })
+          : Promise.resolve([]),
+        grIds.length
+          ? db.goodsReceipt.findMany({
+              where: { id: { in: grIds } },
+              select: { id: true, receiptNumber: true },
+            })
+          : Promise.resolve([]),
+      ]);
+
+      const poMap = new Map(pos.map((p) => [p.id, p.orderNumber]));
+      const grMap = new Map(grs.map((g) => [g.id, g.receiptNumber]));
+
       return assets.map((a) => ({
         ...a,
         purchaseValue: Number(a.purchaseValue),
         scrapValue: Number(a.scrapValue),
+        purchaseOrderNumber: a.purchaseOrderId
+          ? poMap.get(a.purchaseOrderId) ?? null
+          : null,
+        goodsReceiptNumber: a.goodsReceiptId
+          ? grMap.get(a.goodsReceiptId) ?? null
+          : null,
+        locationName: a.location?.name ?? null,
       }));
     } catch (error) {
       logger.error("Failed to fetch assets", { error, module: "AssetActions" });

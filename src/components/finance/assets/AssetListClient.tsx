@@ -40,6 +40,8 @@ import {
   DollarSign,
   TrendingDown,
   CheckCircle,
+  FileText,
+  PackageCheck,
 } from "lucide-react";
 import { formatRupiah, cn } from "@/lib/utils/utils";
 import { DataTableSortIcon } from "@/components/ui/data-table-sort-icon";
@@ -59,6 +61,9 @@ type AssetWithAccounts = FixedAsset & {
   assetAccount: Account;
   accumDepreciationAccount: Account;
   depreciationExpenseAccount: Account;
+  purchaseOrderNumber?: string | null;
+  goodsReceiptNumber?: string | null;
+  locationName?: string | null;
 };
 
 interface AssetListClientProps {
@@ -187,6 +192,32 @@ export function AssetListClient({
       cell: ({ row }) => (
         <Badge variant="outline">{row.getValue("status")}</Badge>
       ),
+    },
+    {
+      id: "source",
+      header: "Sumber",
+      cell: ({ row }) => {
+        const { purchaseOrderNumber, goodsReceiptNumber } = row.original;
+        if (!purchaseOrderNumber && !goodsReceiptNumber) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        return (
+          <div className="flex flex-col gap-0.5 text-xs">
+            {purchaseOrderNumber && (
+              <span className="flex items-center gap-1">
+                <FileText className="h-3 w-3 text-muted-foreground" />
+                PO {purchaseOrderNumber}
+              </span>
+            )}
+            {goodsReceiptNumber && (
+              <span className="flex items-center gap-1">
+                <PackageCheck className="h-3 w-3 text-muted-foreground" />
+                GR {goodsReceiptNumber}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "actions",
