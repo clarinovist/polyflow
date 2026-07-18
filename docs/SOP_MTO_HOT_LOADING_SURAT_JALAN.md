@@ -72,5 +72,6 @@ Untuk hot-loading Melindo, **lebih disarankan** alur Buat SJ → cetak → Tanda
 
 ## Referensi teknis
 
-- Plan: `docs/plans/2026-07-11-do-stock-decouple.md`
+- Plan historis: `docs/plans/archive/2026-07-11-do-stock-decouple.md`
+- Backlog aktif: `docs/plans/POLYFLOW_MASTER_PLAN.md`
 - Service: `src/services/sales/delivery-fulfillment-service.ts`
