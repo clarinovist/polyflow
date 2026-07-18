@@ -204,7 +204,7 @@ function GroupRow({
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       {exec.endTime
-                        ? formatWIB(exec.endTime, "DD MMM HH:mm")
+                        ? formatWIB(exec.endTime, "dd MMM HH:mm")
                         : "-"}
                     </div>
                     {exec.operator && (

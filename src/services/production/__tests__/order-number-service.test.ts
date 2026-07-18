@@ -13,13 +13,13 @@ describe('order-number-service', () => {
     });
 
     describe('createProductionOrderWithGeneratedNumber', () => {
-        it('should create production order with generated order number', async () => {
+        it('should create production order with sequential order number', async () => {
             // Arrange
             const mockTx = {
                 productionOrder: {
+                    findFirst: vi.fn().mockResolvedValue(null),
                     create: vi.fn().mockResolvedValue({
                         id: 'po-1',
-                        orderNumber: 'WO-ABC123',
                         status: 'DRAFT',
                     }),
                 },
@@ -36,16 +36,39 @@ describe('order-number-service', () => {
             // Assert
             expect(result).toBeDefined();
             expect(result.id).toBe('po-1');
-            expect(mockTx.productionOrder.create).toHaveBeenCalled();
+            const createCall = mockTx.productionOrder.create.mock.calls[0][0];
+            expect(createCall.data.orderNumber).toMatch(/^WO-\d{6}-001$/);
+        });
+
+        it('should increment daily sequence from the last order number', async () => {
+            // Arrange
+            const mockTx = {
+                productionOrder: {
+                    findFirst: vi.fn().mockImplementation(({ where }: any) => {
+                        const prefix = where.orderNumber.startsWith as string;
+                        return Promise.resolve({ orderNumber: `${prefix}041` });
+                    }),
+                    create: vi.fn().mockResolvedValue({ id: 'po-1' }),
+                },
+            };
+
+            const data = { status: 'DRAFT' as const } as any;
+
+            // Act
+            await createProductionOrderWithGeneratedNumber(mockTx as any, data);
+
+            // Assert
+            const createCall = mockTx.productionOrder.create.mock.calls[0][0];
+            expect(createCall.data.orderNumber).toMatch(/^WO-\d{6}-042$/);
         });
 
         it('should use custom prefix when provided', async () => {
             // Arrange
             const mockTx = {
                 productionOrder: {
+                    findFirst: vi.fn().mockResolvedValue(null),
                     create: vi.fn().mockResolvedValue({
                         id: 'po-1',
-                        orderNumber: 'PROD-ABC123',
                     }),
                 },
             };
@@ -61,32 +84,7 @@ describe('order-number-service', () => {
 
             // Assert
             const createCall = mockTx.productionOrder.create.mock.calls[0][0];
-            expect(createCall.data.orderNumber).toMatch(/^PROD-/);
-        });
-
-        it('should include product variant ID in order number when provided', async () => {
-            // Arrange
-            const mockTx = {
-                productionOrder: {
-                    create: vi.fn().mockResolvedValue({
-                        id: 'po-1',
-                        orderNumber: 'WO-ABCD-123XYZ',
-                    }),
-                },
-            };
-
-            const data = {
-                status: 'DRAFT' as const,
-            } as any;
-
-            // Act
-            await createProductionOrderWithGeneratedNumber(mockTx as any, data, {
-                productVariantId: 'abcd-1234-5678',
-            });
-
-            // Assert
-            const createCall = mockTx.productionOrder.create.mock.calls[0][0];
-            expect(createCall.data.orderNumber).toMatch(/^WO-ABCD-/);
+            expect(createCall.data.orderNumber).toMatch(/^PROD-\d{6}-001$/);
         });
 
         it('should retry on unique constraint violation', async () => {
@@ -102,11 +100,11 @@ describe('order-number-service', () => {
 
             const mockTx = {
                 productionOrder: {
+                    findFirst: vi.fn().mockResolvedValue(null),
                     create: vi.fn()
                         .mockRejectedValueOnce(prismaError)
                         .mockResolvedValueOnce({
                             id: 'po-1',
-                            orderNumber: 'WO-ABC123',
                         }),
                 },
             };
@@ -136,6 +134,7 @@ describe('order-number-service', () => {
 
             const mockTx = {
                 productionOrder: {
+                    findFirst: vi.fn().mockResolvedValue(null),
                     create: vi.fn().mockRejectedValue(prismaError),
                 },
             };
@@ -157,6 +156,7 @@ describe('order-number-service', () => {
             const dbError = new Error('Database connection failed');
             const mockTx = {
                 productionOrder: {
+                    findFirst: vi.fn().mockResolvedValue(null),
                     create: vi.fn().mockRejectedValue(dbError),
                 },
             };

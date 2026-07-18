@@ -1,14 +1,36 @@
 import { Prisma } from '@prisma/client';
 import { ConflictError } from '@/lib/errors/errors';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
-function buildOrderNumber(prefix: string, productVariantId?: string): string {
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const variantPart = productVariantId?.slice(0, 4).toUpperCase();
+/**
+ * Build a sequential, human-readable order number per WIB business day.
+ * Format: `<prefix>-<YYMMDD>-<NNN>` e.g. `WO-260718-001`.
+ *
+ * The daily sequence is derived from the highest existing number that shares
+ * the same date prefix within the current transaction, so numbers stay stable
+ * and easy for admins to scan. Uniqueness is still enforced by the DB, and the
+ * caller retries on the rare P2002 collision (concurrent create in the same ms).
+ */
+async function buildOrderNumber(
+    tx: Prisma.TransactionClient,
+    prefix: string,
+): Promise<string> {
+    const datePart = toBusinessDateString(new Date()).slice(2).replace(/-/g, '');
+    const dailyPrefix = `${prefix}-${datePart}-`;
 
-    return variantPart
-        ? `${prefix}-${variantPart}-${timestamp}${randomPart}`
-        : `${prefix}-${timestamp}${randomPart}`;
+    const lastOrder = await tx.productionOrder.findFirst({
+        where: { orderNumber: { startsWith: dailyPrefix } },
+        orderBy: { orderNumber: 'desc' },
+        select: { orderNumber: true },
+    });
+
+    let nextNumber = 1;
+    if (lastOrder?.orderNumber) {
+        const numPart = parseInt(lastOrder.orderNumber.slice(dailyPrefix.length), 10);
+        if (!isNaN(numPart)) nextNumber = numPart + 1;
+    }
+
+    return `${dailyPrefix}${nextNumber.toString().padStart(3, '0')}`;
 }
 
 function isOrderNumberUniqueViolation(error: unknown): boolean {
@@ -23,7 +45,6 @@ export async function createProductionOrderWithGeneratedNumber(
     data: Omit<Prisma.ProductionOrderCreateInput, 'orderNumber'>,
     options?: {
         prefix?: string;
-        productVariantId?: string;
         maxAttempts?: number;
     }
 ) {
@@ -35,7 +56,7 @@ export async function createProductionOrderWithGeneratedNumber(
             return await tx.productionOrder.create({
                 data: {
                     ...data,
-                    orderNumber: buildOrderNumber(prefix, options?.productVariantId),
+                    orderNumber: await buildOrderNumber(tx, prefix),
                 }
             });
         } catch (error) {

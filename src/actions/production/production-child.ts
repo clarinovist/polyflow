@@ -54,7 +54,6 @@ export const createChildProductionOrder = withTenant(
             },
             {
               prefix: "SWO",
-              productVariantId,
             },
           );
 

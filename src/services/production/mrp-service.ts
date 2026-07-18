@@ -235,7 +235,6 @@ export class MrpService {
             },
             {
                 prefix,
-                productVariantId,
             }
         );
         createdOrders.push(po);
