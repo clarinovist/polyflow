@@ -97,6 +97,16 @@ export const authConfig = {
                         return Response.redirect(new URL('/login', nextUrl));
                     }
 
+                    // admin.polyflow.uk only serves the superadmin panel (/admin/*).
+                    // Tenant/ERP routes like /dashboard, /warehouse, /production don't
+                    // belong here — without this, the post-login redirect('/dashboard')
+                    // in authenticate() renders the ERP dashboard against the main DB
+                    // (which can contain leftover tenant-shaped data), looking exactly
+                    // like a real tenant workspace instead of the superadmin panel.
+                    if (!pathname.startsWith('/admin')) {
+                        return Response.redirect(new URL('/admin/super-admin', nextUrl));
+                    }
+
                     return true;
                 }
 
