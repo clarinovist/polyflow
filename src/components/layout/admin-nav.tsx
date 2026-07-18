@@ -9,6 +9,8 @@ import {
     Sun,
     Menu,
     X,
+    ScrollText,
+    Activity,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -28,8 +30,9 @@ interface AdminNavProps {
 
 const adminLinks = [
     { title: "Tenants", href: "/admin/super-admin", icon: Building2 },
+    { title: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
+    { title: "System Health", href: "/admin/system-health", icon: Activity },
     { title: "AI Assistant", href: "/admin/database-assistant", icon: Sparkles },
-    // Add more admin-only tools here in the future like global logs or server health
 ];
 
 export function AdminNav({ user }: AdminNavProps) {
