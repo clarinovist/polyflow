@@ -1,3 +1,13 @@
+// NOTE: THIS is the active Next.js middleware in production (see `config.matcher`
+// at the bottom). A stale `middleware.ts` also exists at the repo root but is NOT
+// what runs — debug auth/routing here, not there.
+//
+// Tenant subdomain detection MUST go through the shared `extractSubdomain()`
+// helper below (single source of truth for RESERVED_SUBDOMAINS: admin, www,
+// app, ...). Do NOT reintroduce an inline host-parsing block with a partial
+// exclusion list — doing so previously made admin.polyflow.uk emit
+// `x-tenant-subdomain: admin`, which `auth.ts` prioritizes over the Host header,
+// breaking superadmin login with TenantNotFound.
 import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
