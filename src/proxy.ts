@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/api/rate-limit";
+import { extractSubdomain } from "@/lib/core/tenant";
 
 const { auth } = NextAuth(authConfig);
 
@@ -16,16 +17,9 @@ const handler = auth((req) => {
   // SECURITY: Always clear any client-provided x-tenant-subdomain header to prevent tenant spoofing
   requestHeaders.delete("x-tenant-subdomain");
 
-  // Extract tenant subdomain
-  // Handle specific localhost format (e.g. tenant.localhost) or staging/prod domains
-  let tenant = null;
-
-  // Check if it's a localhost testing environment like `kiyowo.localhost`
-  if (hostname.endsWith(".localhost")) {
-    tenant = hostname.replace(".localhost", "");
-  } else if (hostname.endsWith(`.${BASE_DOMAIN}`)) {
-    tenant = hostname.replace(`.${BASE_DOMAIN}`, "");
-  }
+  // Extract tenant subdomain. Uses the shared helper so reserved subdomains
+  // (admin, www, app, ...) are consistently NOT treated as tenants.
+  const tenant = extractSubdomain(host);
 
   // Detect admin subdomain (admin.polyflow.uk)
   const isAdminSubdomain = hostname === `admin.${BASE_DOMAIN}`;
@@ -34,7 +28,10 @@ const handler = auth((req) => {
     requestHeaders.set("x-admin-subdomain", "true");
   }
 
-  if (tenant && tenant !== "www" && tenant !== "app") {
+  // Only set the tenant header for real tenants (reserved subdomains resolve
+  // against the main DB). This prevents admin.polyflow.uk from being routed to
+  // a non-existent tenant DB during superadmin login.
+  if (tenant) {
     requestHeaders.set("x-tenant-subdomain", tenant);
   }
 
@@ -44,12 +41,7 @@ const handler = auth((req) => {
   }
 
   // Tenant subdomain root → redirect to login
-  if (
-    tenant &&
-    tenant !== "www" &&
-    tenant !== "app" &&
-    req.nextUrl.pathname === "/"
-  ) {
+  if (tenant && req.nextUrl.pathname === "/") {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
