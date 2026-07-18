@@ -48,6 +48,16 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         subdomain = extractSubdomain(host);
                     }
 
+                    // TEMP DEBUG — remove after diagnosing admin login issue
+                    console.error('[AUTH_DEBUG]', {
+                        email,
+                        formSubdomain,
+                        xTenantSubdomainHeader: request?.headers?.get('x-tenant-subdomain'),
+                        hostHeader: request?.headers?.get('host'),
+                        xForwardedHostHeader: request?.headers?.get('x-forwarded-host'),
+                        resolvedSubdomain: subdomain,
+                    });
+
                     let user;
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     let tenantDbRef: any = null;
