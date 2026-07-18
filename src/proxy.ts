@@ -55,6 +55,17 @@ const handler = auth((req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
+  // Short URL for the superadmin panel: admin.polyflow.uk/dashboard shows the
+  // real content at /admin/super-admin, rewritten internally so the browser
+  // address bar keeps the short path. authConfig.callbacks.authorized() is
+  // what actually gates access (must be logged-in superadmin) before this
+  // rewrite ever runs.
+  if (isAdminSubdomain && req.nextUrl.pathname === "/dashboard") {
+    return NextResponse.rewrite(new URL("/admin/super-admin", req.url), {
+      request: { headers: requestHeaders },
+    });
+  }
+
   // Rate Limiting for API routes only (not navigation)
   if (req.nextUrl.pathname.startsWith("/api/")) {
     const forwardedFor =

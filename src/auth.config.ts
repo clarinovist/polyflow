@@ -75,13 +75,17 @@ export const authConfig = {
                 // === ADMIN SUBDOMAIN (admin.polyflow.uk) ===
                 if (isAdminSubdomain) {
                     const isLoginPage = pathname === '/login';
+                    // Short URL alias for the superadmin panel. proxy.ts rewrites this
+                    // (internally, URL unchanged) to /admin/super-admin once this
+                    // callback allows it through.
+                    const isDashboardAlias = pathname === '/dashboard';
 
                     if (isLoginPage) {
                         // Already logged in as SuperAdmin → go to dashboard
                         if (isLoggedIn) {
                             const user = auth.user as { isSuperAdmin?: boolean };
                             if (user.isSuperAdmin) {
-                                return Response.redirect(new URL('/admin/super-admin', nextUrl));
+                                return Response.redirect(new URL('/dashboard', nextUrl));
                             }
                         }
                         return true; // Show admin login page
@@ -97,14 +101,13 @@ export const authConfig = {
                         return Response.redirect(new URL('/login', nextUrl));
                     }
 
-                    // admin.polyflow.uk only serves the superadmin panel (/admin/*).
-                    // Tenant/ERP routes like /dashboard, /warehouse, /production don't
-                    // belong here — without this, the post-login redirect('/dashboard')
-                    // in authenticate() renders the ERP dashboard against the main DB
-                    // (which can contain leftover tenant-shaped data), looking exactly
-                    // like a real tenant workspace instead of the superadmin panel.
-                    if (!pathname.startsWith('/admin')) {
-                        return Response.redirect(new URL('/admin/super-admin', nextUrl));
+                    // admin.polyflow.uk only serves the superadmin panel
+                    // (/dashboard alias + /admin/*). Tenant/ERP routes like
+                    // /warehouse, /production don't belong here — without this,
+                    // navigating to an ERP path would render it against the main
+                    // DB instead of the superadmin panel.
+                    if (!isDashboardAlias && !pathname.startsWith('/admin')) {
+                        return Response.redirect(new URL('/dashboard', nextUrl));
                     }
 
                     return true;
@@ -178,7 +181,7 @@ export const authConfig = {
                     if (isLoggedIn) {
                         const user = auth.user as { isSuperAdmin?: boolean };
                         if (user.isSuperAdmin) {
-                            return Response.redirect(new URL(`https://admin.${rootDomain}/admin/super-admin`, nextUrl));
+                            return Response.redirect(new URL(`https://admin.${rootDomain}/dashboard`, nextUrl));
                         }
                     }
                     return Response.redirect(new URL('/', nextUrl));
