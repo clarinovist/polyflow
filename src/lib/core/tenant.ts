@@ -8,9 +8,19 @@ export type TenantResolutionResult =
     | { type: 'RESOLVED'; tenantDb: PrismaClient; tenantId: string; subdomain: string };
 
 /**
+ * Reserved subdomains that are NOT tenants. Requests on these hosts resolve
+ * against the main DB (e.g. superadmin portal at admin.polyflow.uk), not a
+ * tenant DB.
+ */
+const RESERVED_SUBDOMAINS = new Set(['admin', 'www', 'app', 'api', 'auth', 'static', 'assets']);
+
+/**
  * Robust utility to extract tenant subdomain from a host string.
  * Supports both standard PROD domains (e.g., tenant.polyflow.uk) 
  * and local dev environments (e.g., tenant.localhost:3000)
+ *
+ * Returns null for reserved subdomains (e.g. admin, www) so those hosts
+ * resolve against the main DB instead of being treated as a tenant.
  */
 export function extractSubdomain(host: string): string | null {
     if (!host) return null;
@@ -18,18 +28,25 @@ export function extractSubdomain(host: string): string | null {
     // Remove port if present
     const hostname = host.split(':')[0];
 
+    let subdomain: string | null = null;
+
     // Check local dev mode first
     if (hostname.endsWith('.localhost')) {
-        return hostname.replace('.localhost', '');
+        subdomain = hostname.replace('.localhost', '');
+    } else {
+        // Production/Staging base domain extraction
+        const baseDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
+        if (hostname.endsWith(`.${baseDomain}`)) {
+            subdomain = hostname.replace(`.${baseDomain}`, '');
+        }
     }
 
-    // Production/Staging base domain extraction
-    const baseDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
-    if (hostname.endsWith(`.${baseDomain}`)) {
-        return hostname.replace(`.${baseDomain}`, '');
-    }
+    if (!subdomain) return null;
 
-    return null;
+    // Reserved subdomains are not tenants (resolve against main DB).
+    if (RESERVED_SUBDOMAINS.has(subdomain.toLowerCase())) return null;
+
+    return subdomain;
 }
 
 /**

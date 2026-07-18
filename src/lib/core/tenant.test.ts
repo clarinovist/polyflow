@@ -56,6 +56,13 @@ describe('extractSubdomain', () => {
         expect(extractSubdomain('localhost:3000')).toBeNull();
         expect(extractSubdomain('')).toBeNull();
     });
+
+    it('returns null for reserved subdomains (resolve against main DB)', () => {
+        delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+        expect(extractSubdomain('admin.polyflow.uk')).toBeNull();
+        expect(extractSubdomain('www.polyflow.uk')).toBeNull();
+        expect(extractSubdomain('Admin.polyflow.uk')).toBeNull();
+    });
 });
 
 describe('resolveTenantContext', () => {
