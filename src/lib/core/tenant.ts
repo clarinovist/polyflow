@@ -33,6 +33,15 @@ export async function resolveTenantContext(
         }
     }
 
+    // TEMP DEBUG — remove after diagnosing admin.polyflow.uk tenant-leak issue
+    console.error('[RESOLVE_TENANT_DEBUG]', {
+        xTenantSubdomainHeader: reqHeaders.get('x-tenant-subdomain'),
+        hostHeader: reqHeaders.get('host'),
+        xForwardedHostHeader: reqHeaders.get('x-forwarded-host'),
+        resolvedSubdomain: subdomain,
+        activeContextLeaked: !!tenantContext.getStore(),
+    });
+
     if (!subdomain) {
         return { type: 'NONE' };
     }
