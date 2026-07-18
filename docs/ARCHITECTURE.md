@@ -325,6 +325,54 @@ app/dashboard/inventory/transfer/page.tsx (Server Component)
 
 ---
 
+## 🏢 Multi-Tenancy & Subdomain Routing
+
+PolyFlow is **multi-tenant with database-per-tenant** isolation.
+
+- **Main / platform DB** (`polyflow`): holds only platform-level tables —
+  `User` (superadmins), `Tenant` registry, `RolePermission`, `TenantAccountRole`,
+  etc. It must **not** contain business/ERP data.
+- **Tenant DBs** (e.g. `kiyowo`, `melindo_rafia`): each tenant has its own
+  separate database, referenced by `Tenant.dbUrl` in the main DB.
+
+**Routing** (`src/proxy.ts` — the active Next.js middleware; a stale
+`middleware.ts` at the repo root is **not** used):
+
+- Subdomain is parsed by the shared, single-source-of-truth
+  `extractSubdomain()` in `src/lib/core/subdomain.ts`. It returns `null` for
+  reserved subdomains (`admin`, `www`, `app`, `api`, `auth`, `static`,
+  `assets`) so those resolve against the main DB, never a tenant DB.
+- `proxy.ts` sets the `x-tenant-subdomain` header (real tenants only) and
+  `x-admin-subdomain` (for `admin.*`). It always deletes any client-supplied
+  `x-tenant-subdomain` to prevent tenant spoofing.
+- Server actions/pages resolve the tenant DB via `withTenant()` /
+  `withTenantPage()` (`src/lib/core/tenant.ts`), which run the work inside an
+  `AsyncLocalStorage` context. The global `prisma` proxy
+  (`src/lib/core/prisma.ts`) routes queries to the tenant DB when a context is
+  present, else the main DB.
+
+**Hosts**:
+
+| Host                     | Purpose                                             |
+| ------------------------ | --------------------------------------------------- |
+| `polyflow.uk`            | Public landing page (no login form)                 |
+| `<tenant>.polyflow.uk`   | Tenant ERP workspace (e.g. `kiyowo.polyflow.uk`)    |
+| `admin.polyflow.uk`      | Superadmin panel only                               |
+
+**Superadmin panel**: served on `admin.polyflow.uk`. The short URL
+`admin.polyflow.uk/super-admin` is rewritten internally (by `proxy.ts`) to the
+real route `/admin/super-admin`; `/super-admin` is used (not `/dashboard`)
+because `/dashboard` has a real ERP route and rewriting onto an existing route
+is unreliable in the App Router. Any non-`/admin`, non-`/super-admin` path on
+the admin subdomain redirects an authenticated superadmin back to
+`/super-admin`.
+
+**Auth host trust**: because tenants live on many subdomains, `NEXTAUTH_URL` is
+**not** pinned; `AUTH_TRUST_HOST=true` makes Auth.js trust the reverse proxy's
+`Host`/`X-Forwarded-*` headers. See `docs/ENV.md`.
+
+---
+
 ## 📊 State Management
 
 ### Current Approach
@@ -449,7 +497,10 @@ graph LR
 ```env
 DATABASE_URL=postgresql://polyflow:password@polyflow-db:5432/polyflow
 AUTH_SECRET=...
-NEXTAUTH_URL=https://your-domain.com
+# Multi-tenant: do NOT pin NEXTAUTH_URL/AUTH_URL to one domain — it breaks auth
+# on the other tenant subdomains. Trust the reverse-proxy host headers instead.
+AUTH_TRUST_HOST=true
+NEXTAUTH_URL_INTERNAL=http://localhost:3000
 POSTGRES_PASSWORD=...
 ```
 

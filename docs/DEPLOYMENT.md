@@ -15,34 +15,44 @@
     ```bash
     openssl rand -base64 32
     ```
-  **Critical**: Set `NEXTAUTH_URL` to your canonical public domain (especially for VPS):
+  **Critical (multi-tenant)**: This app serves each tenant on its own subdomain
+  (e.g. `kiyowo.polyflow.uk`) and the superadmin on `admin.polyflow.uk`. Do
+  **not** pin `NEXTAUTH_URL`/`AUTH_URL` to a single domain — it breaks auth on
+  the other hosts. Instead set `AUTH_TRUST_HOST=true` so Auth.js trusts the
+  reverse proxy's `Host`/`X-Forwarded-*` headers:
     ```bash
-  NEXTAUTH_URL=https://your-domain.com # e.g. https://polyflow.uk
+    AUTH_TRUST_HOST=true
+    NEXTAUTH_URL_INTERNAL=http://localhost:3000 # internal container calls only
     ```
-    
+    Ensure nginx forwards `Host $host` and `X-Forwarded-Proto $scheme` for every
+    subdomain.
+
     Update `DATABASE_URL` if you are using an external database. If using the included Postgres service, use the internal container port 5432:
     `DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5432/polyflow`
 
 ## CI/CD Pipeline (GitHub Actions)
 
-This project includes a **GitHub Actions** workflow (`.github/workflows/build.yml`) that automatically builds and pushes a Docker image to the **GitHub Container Registry (GHCR)** whenever changes are pushed to the `main` branch.
+This project includes a **GitHub Actions** workflow (`.github/workflows/production.yml`) that automatically builds, pushes a Docker image to the **GitHub Container Registry (GHCR)**, and **deploys to the VPS via SSH** whenever changes are pushed to the `main` branch.
 
 ### Prerequisites
 
 To enable this workflow, you must verify the following in your repository settings:
 
 1.  **Actions Secrets**:
-    *   `CR_PAT`: A **Personal Access Token (Classic)** with `write:packages` and `read:packages` scopes. This is used as the password to log in to GHCR.
-    
+    *   `CR_PAT`: A **Personal Access Token (Classic)** with `write:packages` and `read:packages` scopes. Used to log in to GHCR (build push + VPS pull).
+    *   `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`: Used by the deploy job to SSH into the VPS and roll out the new image.
+
 2.  **Workflow Permissions**:
-    *   The workflow requires `packages: write` and `contents: read` permissions, which are configured in the `build.yml` file itself.
+    *   The workflow requires `packages: write` and `contents: read` permissions, which are configured in the `production.yml` file itself.
 
 ### How it Works
 
 1.  **Trigger**: Pushing to `main`.
-2.  **Build**: Docker image is built using `docker build`.
-3.  **Cache**: Utilizes Docker Buildx cache (`type=registry`) stored in GHCR (`:buildcache` tag) to speed up subsequent builds.
-4.  **Push**: The final image is pushed to `ghcr.io/clarinovist/polyflow:latest`.
+2.  **Test & Validate**: Lint, typecheck, and unit tests run first (a failure blocks the deploy).
+3.  **Build**: Docker image is built using `docker build`.
+4.  **Cache**: Utilizes Docker Buildx cache (`type=registry`) stored in GHCR (`:buildcache` tag) to speed up subsequent builds.
+5.  **Push**: The final image is pushed to `ghcr.io/clarinovist/polyflow:latest`.
+6.  **Deploy**: The deploy job SSHes into the VPS, runs `git reset --hard origin/main` in `/root/polyflow`, `docker compose pull polyflow`, and recreates the container. `.env` is git-ignored, so server-only settings (e.g. `AUTH_TRUST_HOST`) survive the reset.
 
 ### Usage in Production
 

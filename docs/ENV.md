@@ -4,12 +4,20 @@ Source of truth: `.env.example`
 
 ## Required Variables
 
-| Variable          | Description                   | Example                                                  |
-| ----------------- | ----------------------------- | -------------------------------------------------------- |
-| `DATABASE_URL`    | PostgreSQL connection string  | `postgresql://polyflow:polyflow@localhost:5434/polyflow` |
-| `AUTH_SECRET`     | NextAuth.js session secret    | Generate: `openssl rand -base64 32`                      |
-| `NEXTAUTH_SECRET` | NextAuth.js encryption secret | Generate: `openssl rand -base64 32`                      |
-| `NEXTAUTH_URL`    | Canonical app URL             | `https://polyflow.uk`                                    |
+| Variable            | Description                   | Example                                                  |
+| ------------------- | ----------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`      | PostgreSQL connection string  | `postgresql://polyflow:polyflow@localhost:5434/polyflow` |
+| `AUTH_SECRET`       | NextAuth.js session secret    | Generate: `openssl rand -base64 32`                      |
+| `NEXTAUTH_SECRET`   | NextAuth.js encryption secret | Generate: `openssl rand -base64 32`                      |
+| `AUTH_TRUST_HOST`   | Trust reverse-proxy host headers (required behind nginx, multi-tenant) | `true`                          |
+
+> **Multi-tenant note:** Do **not** set `NEXTAUTH_URL`/`AUTH_URL` to a single
+> canonical domain. This app is multi-tenant (each tenant is served on its own
+> subdomain, e.g. `kiyowo.polyflow.uk`, and superadmin on `admin.polyflow.uk`).
+> Pinning `NEXTAUTH_URL` to one host breaks auth on the other hosts. Instead set
+> `AUTH_TRUST_HOST=true` so Auth.js trusts the `Host`/`X-Forwarded-*` headers the
+> reverse proxy forwards. Only `NEXTAUTH_URL_INTERNAL=http://localhost:3000` is
+> used (for internal container calls).
 
 ## Database (Docker Compose)
 

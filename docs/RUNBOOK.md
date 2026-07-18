@@ -130,8 +130,25 @@ docker compose exec polyflow node prisma/seed.js
 
 ## Initial Login
 
-- **URL**: `http://your-server-ip:3002/login`
-- **Email**: `admin@polyflow.com`
-- **Password**: `admin123`
+Superadmin logs in on the dedicated admin subdomain (not a tenant subdomain,
+not the raw server IP/port — that's only for internal debugging behind nginx):
 
-> Change this password immediately after first login.
+- **URL**: `https://admin.polyflow.uk/login`
+- **Email**: seed value from `prisma/seed.js` (default seeded as
+  `superadmin@polyflow.uk` — verify against the actual seed script)
+- **Password**: seed value — **change immediately after first login**
+
+After login you land on `admin.polyflow.uk/super-admin` (short URL, internally
+rewritten to `/admin/super-admin`). See `docs/ARCHITECTURE.md` → "Multi-Tenancy
+& Subdomain Routing" for how tenant vs. admin subdomains are resolved.
+
+If the password is lost, it **cannot be recovered** (bcrypt hash, one-way) —
+reset it directly in the DB:
+
+```bash
+docker exec polyflow-db psql -U polyflow -d polyflow -c \
+  "UPDATE \"User\" SET password = '<new-bcrypt-hash>' WHERE email = 'superadmin@polyflow.uk';"
+```
+
+Generate a matching bcrypt hash (e.g. via Python `bcrypt.hashpw(...)`, cost
+factor 10) before running the update.
