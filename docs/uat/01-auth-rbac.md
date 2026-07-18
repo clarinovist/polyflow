@@ -5,7 +5,7 @@
 | Field | Detail |
 |-------|--------|
 | **Modul** | Autentikasi & Role-Based Access Control |
-| **Halaman Terkait** | `/login`, `/register`, `/logout`, `/admin-login` |
+| **Halaman Terkait** | `/login`, `/register`, `/logout` (Super Admin via subdomain `admin.<domain>/login`) |
 | **Tanggal UAT** | ____/____/________ |
 | **Nama Tester** | _________________________ |
 | **Versi Aplikasi** | _________________________ |
@@ -333,7 +333,7 @@
 
 **Langkah-langkah:**
 
-1. Login dengan akun **Super Admin** (via `/admin-login` atau `/login`)
+1. Login dengan akun **Super Admin** (via subdomain `admin.<domain>/login`)
 2. Setelah login, coba akses `/dashboard`
 3. Coba akses `/warehouse`
 4. Coba akses `/production`

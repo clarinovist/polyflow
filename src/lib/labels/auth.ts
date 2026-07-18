@@ -11,7 +11,38 @@ export const loginFormLabels = {
   hidePassword: 'Sembunyikan kata sandi',
   showPassword: 'Tampilkan kata sandi',
   rememberMe: 'Ingat saya',
-  signingIn: 'Sedang masuk...',
+} as const;
+
+/** Role selection labels (nama role dibiarkan English sebagai istilah standar ERP) */
+export const roleSelectionLabels = {
+  heading: 'Siapa Anda?',
+  subtitle: 'Pilih workspace Anda untuk melanjutkan ke dashboard.',
+  roles: {
+    ADMIN: {
+      title: 'Administrator',
+      description: 'Akses penuh ke pengaturan dan manajemen sistem.',
+    },
+    WAREHOUSE: {
+      title: 'Warehouse',
+      description: 'Inventaris, pergerakan stok, dan pengeluaran material.',
+    },
+    PRODUCTION: {
+      title: 'Production',
+      description: 'Perintah kerja dan pelacakan eksekusi.',
+    },
+    PLANNING: {
+      title: 'Planning',
+      description: 'Perencanaan produksi dan kontrol inventaris.',
+    },
+    SALES: {
+      title: 'Sales',
+      description: 'Pesanan penjualan, penawaran, dan pelanggan.',
+    },
+    FINANCE: {
+      title: 'Finance',
+      description: 'Faktur, tagihan, dan akuntansi keuangan.',
+    },
+  },
 } as const;
 
 /** Workspace discovery labels */

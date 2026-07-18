@@ -10,60 +10,25 @@ import {
     ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
+import { roleSelectionLabels as L } from '@/lib/labels/auth';
 
 export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PLANNING' | 'SALES' | 'FINANCE' | 'KIOSK';
 
+type SelectableRole = keyof typeof L.roles;
+
 interface RoleOption {
-    id: RoleType;
-    titleKey: string;
-    descriptionKey: string;
+    id: SelectableRole;
     icon: React.ElementType;
     color: string;
 }
 
 const roles: RoleOption[] = [
-    {
-        id: 'ADMIN',
-        titleKey: 'Administrator',
-        descriptionKey: 'Full access to system settings and management.',
-        icon: ShieldCheck,
-        color: 'text-blue-500 bg-blue-500/10'
-    },
-    {
-        id: 'WAREHOUSE',
-        titleKey: 'Warehouse',
-        descriptionKey: 'Inventory, stock movements, and material issues.',
-        icon: Warehouse,
-        color: 'text-amber-500 bg-amber-500/10'
-    },
-    {
-        id: 'PRODUCTION',
-        titleKey: 'Production',
-        descriptionKey: 'Work orders and execution tracking.',
-        icon: Factory,
-        color: 'text-emerald-500 bg-emerald-500/10'
-    },
-    {
-        id: 'PLANNING',
-        titleKey: 'Planning',
-        descriptionKey: 'Production planning and inventory control.',
-        icon: ClipboardList,
-        color: 'text-purple-500 bg-purple-500/10'
-    },
-    {
-        id: 'SALES',
-        titleKey: 'Sales',
-        descriptionKey: 'Sales orders, quotations, and customers.',
-        icon: TrendingUp,
-        color: 'text-rose-500 bg-rose-500/10'
-    },
-    {
-        id: 'FINANCE',
-        titleKey: 'Finance',
-        descriptionKey: 'Invoices, bills, and financial accounting.',
-        icon: Receipt,
-        color: 'text-cyan-500 bg-cyan-500/10'
-    }
+    { id: 'ADMIN', icon: ShieldCheck, color: 'text-blue-500 bg-blue-500/10' },
+    { id: 'WAREHOUSE', icon: Warehouse, color: 'text-amber-500 bg-amber-500/10' },
+    { id: 'PRODUCTION', icon: Factory, color: 'text-emerald-500 bg-emerald-500/10' },
+    { id: 'PLANNING', icon: ClipboardList, color: 'text-purple-500 bg-purple-500/10' },
+    { id: 'SALES', icon: TrendingUp, color: 'text-rose-500 bg-rose-500/10' },
+    { id: 'FINANCE', icon: Receipt, color: 'text-cyan-500 bg-cyan-500/10' },
 ];
 
 interface RoleSelectionProps {
@@ -75,10 +40,10 @@ export default function RoleSelection({ onSelectRole }: RoleSelectionProps) {
         <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
             <div className="mb-6 sm:mb-10 text-center">
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 sm:mb-3">
-                    Who are you?
+                    {L.heading}
                 </h1>
                 <p className="text-sm sm:text-base text-muted-foreground">
-                    Select your workspace to continue to your dashboard.
+                    {L.subtitle}
                 </p>
             </div>
 
@@ -94,10 +59,10 @@ export default function RoleSelection({ onSelectRole }: RoleSelectionProps) {
                         </div>
                         <div className="flex-1">
                             <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">
-                                {role.titleKey}
+                                {L.roles[role.id].title}
                             </h3>
                             <p className="text-sm text-muted-foreground leading-snug mt-1">
-                                {role.descriptionKey}
+                                {L.roles[role.id].description}
                             </p>
                         </div>
                         <ArrowRight className="h-5 w-5 text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-1 transition-all" />

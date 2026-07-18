@@ -1,77 +1,14 @@
 'use client';
 
 import PolyFlowLogo from './polyflow-logo';
+import BrandDecoration from './brand-decoration';
 import { brandPanelLabels as L } from '@/lib/labels/auth';
 
 export default function BrandPanel({ subdomain }: { subdomain?: string | null }) {
 
     return (
         <div className="hidden lg:flex lg:w-1/2 bg-zinc-950 relative overflow-hidden flex-col justify-between p-10">
-            {/* Decorative 3D Logo Background - positioned top-right */}
-            <div className="absolute -top-10 -right-20 pointer-events-none opacity-15">
-                <div className="relative w-[350px] h-[350px]">
-                    {/* Layer 1 - Back */}
-                    <div className="absolute inset-0 transform translate-x-6 translate-y-6">
-                        <svg viewBox="0 0 200 200" className="w-full h-full">
-                            <path
-                                d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60"
-                                stroke="#4a4a4a"
-                                strokeWidth="16"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                fill="none"
-                            />
-                        </svg>
-                    </div>
-                    {/* Layer 2 - Middle */}
-                    <div className="absolute inset-0 transform translate-x-3 translate-y-3">
-                        <svg viewBox="0 0 200 200" className="w-full h-full">
-                            <path
-                                d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60"
-                                stroke="#555555"
-                                strokeWidth="16"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                fill="none"
-                            />
-                        </svg>
-                    </div>
-                    {/* Layer 3 - Front */}
-                    <div className="absolute inset-0">
-                        <svg viewBox="0 0 200 200" className="w-full h-full">
-                            <path
-                                d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60"
-                                stroke="#666666"
-                                strokeWidth="16"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                fill="none"
-                            />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-
-            {/* Accent triangle - positioned separately */}
-            <div className="absolute top-20 right-10 w-24 h-24 opacity-30 pointer-events-none">
-                <svg viewBox="0 0 100 100" className="w-full h-full">
-                    <polygon
-                        points="50,10 90,90 10,90"
-                        fill="none"
-                        stroke="#555"
-                        strokeWidth="2"
-                    />
-                </svg>
-            </div>
-
-            {/* Decorative diagonal lines */}
-            <div className="absolute top-0 right-0 w-64 h-64 pointer-events-none">
-                <svg viewBox="0 0 100 100" className="w-full h-full opacity-20">
-                    <line x1="20" y1="0" x2="100" y2="80" stroke="#555" strokeWidth="0.5" />
-                    <line x1="40" y1="0" x2="100" y2="60" stroke="#555" strokeWidth="0.5" />
-                    <line x1="60" y1="0" x2="100" y2="40" stroke="#555" strokeWidth="0.5" />
-                </svg>
-            </div>
+            <BrandDecoration />
 
             {/* Content */}
             <div className="relative z-10 flex-1 flex flex-col justify-center max-w-md mx-auto">

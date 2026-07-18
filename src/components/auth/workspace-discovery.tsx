@@ -63,7 +63,7 @@ export default function WorkspaceDiscovery() {
                 <div className="mx-auto w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
                     <Building2 className="w-6 h-6 text-primary" />
                 </div>
-                <h1 className="text-2xl sm:3xl font-bold text-foreground mb-3">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
                     {L.signInToWorkspace}
                 </h1>
                 <p className="text-muted-foreground">

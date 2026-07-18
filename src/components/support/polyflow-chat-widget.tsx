@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PolyflowChatPanel } from '@/components/support/polyflow-chat-panel';
 
-const HIDDEN_PATH_PREFIXES = ['/login', '/register', '/admin-login', '/kiosk'];
+const HIDDEN_PATH_PREFIXES = ['/login', '/register', '/kiosk'];
 const ENABLED_PATH_PREFIXES = ['/dashboard', '/warehouse', '/production', '/sales', '/finance', '/planning', '/production', '/support'];
 
 export function PolyflowChatWidget() {
