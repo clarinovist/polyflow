@@ -5,7 +5,7 @@ import { createJournalEntry, postJournal } from '@/services/accounting/journals-
 import { resolveAccount, type AccountRole } from '@/services/accounting/account-resolver';
 import { resolveAccountCode } from '@/services/accounting/account-mapping-policy';
 import { BusinessRuleError } from '@/lib/errors/errors';
-import { toBusinessDateString } from '@/lib/utils/timezone';
+import { toBusinessDateString, normalizeToBusinessDay, businessDateToEntryDate } from '@/lib/utils/timezone';
 
 /** Map AssetCategory → resolver roles for asset account, depreciation, accumulated depreciation */
 const ASSET_CATEGORY_ROLES: Record<string, { assetRole: string; deprRole: string; accumRole: string; defaultLifeMonths: number }> = {
@@ -140,7 +140,7 @@ export class FixedAssetService {
         const totalAmount = params.unitCost * qty;
 
         await createJournalEntry({
-            entryDate: params.receivedDate,
+            entryDate: normalizeToBusinessDay(params.receivedDate),
             description: `GR Pembelian Aset Tetap - ${product.name} (x${qty})`,
             reference: `GR-${params.goodsReceiptId.slice(0, 8)}`,
             referenceType: ReferenceType.GOODS_RECEIPT,
@@ -183,7 +183,10 @@ export class FixedAssetService {
      * Run monthly depreciation for all active assets
      */
     static async runDepreciation(year: number, month: number, userId: string) {
-        const firstDayOfMonth = new Date(year, month - 1, 1);
+        // WIB start-of-month instant for the "already depreciated this month" guard.
+        const firstDayOfMonth = businessDateToEntryDate(
+            `${year}-${String(month).padStart(2, '0')}-01`,
+        );
         const now = new Date();
 
         // Find all active assets that haven't been depreciated this month
@@ -214,7 +217,7 @@ export class FixedAssetService {
                 if (monthlyDepreciation <= 0) continue; // Already fully depreciated or invalid
 
                 const journalData: CreateJournalEntryInput = {
-                    entryDate: new Date(),
+                    entryDate: normalizeToBusinessDay(new Date()),
                     description: `Monthly Depreciation for Asset: ${asset.assetCode} - ${asset.name}`,
                     reference: asset.assetCode,
                     referenceType: ReferenceType.MANUAL_ENTRY,
