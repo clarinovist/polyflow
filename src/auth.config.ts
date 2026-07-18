@@ -60,6 +60,12 @@ export const authConfig = {
                     hostname !== `admin.${rootDomain}` &&
                     hostname.endsWith(`.${rootDomain}`);
 
+                // Auth.js endpoints (csrf, callback, providers, session, etc.)
+                // must always be reachable — they power the login form itself.
+                // Blocking them (e.g. redirecting /api/auth/csrf to /login) makes
+                // login impossible because the form can never fetch a CSRF token.
+                if (pathname.startsWith('/api/auth')) return true;
+
                 const isOnKiosk = pathname.startsWith('/kiosk');
                 const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register';
 
