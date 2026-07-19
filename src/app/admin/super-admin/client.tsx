@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword } from "@/actions/admin/admin-actions";
-import { Edit, KeyRound } from "lucide-react";
+import type { TenantStats } from "@/actions/admin/tenant-observability";
+import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle } from "lucide-react";
 
 function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -68,7 +69,7 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ACTIVE">Active</SelectItem>
-                                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                <SelectItem value="TRIAL">Trial</SelectItem>
                                 <SelectItem value="SUSPENDED">Suspended</SelectItem>
                             </SelectContent>
                         </Select>
@@ -141,7 +142,30 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
     );
 }
 
-export function SuperAdminClient({ initialTenants }: { initialTenants: Tenant[] }) {
+function formatBytes(bytes: number | null): string {
+    if (bytes == null) return "—";
+    if (bytes === 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatRelativeTime(iso: string | null): string {
+    if (!iso) return "No activity";
+    const then = new Date(iso).getTime();
+    const diffMs = Date.now() - then;
+    const sec = Math.floor(diffMs / 1000);
+    if (sec < 60) return "just now";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `${day}d ago`;
+    return new Date(iso).toLocaleDateString();
+}
+
+export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Tenant[]; stats: Record<string, TenantStats> }) {
     const [tenants] = useState(initialTenants);
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -226,30 +250,58 @@ export function SuperAdminClient({ initialTenants }: { initialTenants: Tenant[] 
                             <TableHead>Tenant Name</TableHead>
                             <TableHead>Subdomain</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead>Created</TableHead>
-                            <TableHead className="text-right">Database URL</TableHead>
+                            <TableHead>Users</TableHead>
+                            <TableHead>DB Size</TableHead>
+                            <TableHead>Last Activity</TableHead>
                             <TableHead className="text-right w-[100px]">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {tenants.map(t => (
-                            <TableRow key={t.id}>
-                                <TableCell className="font-medium">{t.name}</TableCell>
-                                <TableCell><code>{t.subdomain}</code></TableCell>
-                                <TableCell>{t.status}</TableCell>
-                                <TableCell>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
-                                <TableCell className="text-right max-w-[200px] truncate" title={t.dbUrl}>
-                                    <span className="text-xs text-muted-foreground font-mono">{t.dbUrl}</span>
-                                </TableCell>
-                                <TableCell className="text-right flex items-center justify-end gap-2 pr-4">
-                                    <ResetPasswordDialog tenant={t} />
-                                    <EditTenantDialog tenant={t} onUpdated={() => window.location.reload()} />
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {tenants.map(t => {
+                            const s = stats[t.id];
+                            return (
+                                <TableRow key={t.id}>
+                                    <TableCell className="font-medium">{t.name}</TableCell>
+                                    <TableCell><code>{t.subdomain}</code></TableCell>
+                                    <TableCell>{t.status}</TableCell>
+                                    {!s || !s.online ? (
+                                        <TableCell colSpan={3}>
+                                            <span className="inline-flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400" title={s?.error ?? "No stats"}>
+                                                <AlertTriangle className="h-3.5 w-3.5" /> DB unreachable
+                                            </span>
+                                        </TableCell>
+                                    ) : (
+                                        <>
+                                            <TableCell>
+                                                <span className="inline-flex items-center gap-1.5 text-sm">
+                                                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                                    {s.activeUserCount}/{s.userCount}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="inline-flex items-center gap-1.5 text-sm">
+                                                    <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                                                    {formatBytes(s.dbSizeBytes)}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    {formatRelativeTime(s.lastActivityAt)}
+                                                </span>
+                                            </TableCell>
+                                        </>
+                                    )}
+                                    <TableCell className="text-right flex items-center justify-end gap-2 pr-4">
+                                        <ResetPasswordDialog tenant={t} />
+                                        <EditTenantDialog tenant={t} onUpdated={() => window.location.reload()} />
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                         {tenants.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                                     Tidak ada tenant ditemukan. Mulai onboarding!
                                 </TableCell>
                             </TableRow>

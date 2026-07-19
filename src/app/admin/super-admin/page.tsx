@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/core/prisma";
 import { redirect } from "next/navigation";
 import { SuperAdminClient } from "./client";
+import { getAllTenantStats } from "@/actions/admin/tenant-observability";
 
 export default async function SuperAdminPage() {
     const session = await auth();
@@ -16,6 +17,10 @@ export default async function SuperAdminPage() {
         orderBy: { createdAt: "desc" },
     });
 
+    // Per-tenant observability stats (queries each tenant DB in parallel;
+    // a failing tenant DB is reported as offline, not fatal).
+    const stats = await getAllTenantStats();
+
     return (
         <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
             <div>
@@ -25,7 +30,7 @@ export default async function SuperAdminPage() {
                 </p>
             </div>
 
-            <SuperAdminClient initialTenants={tenants} />
+            <SuperAdminClient initialTenants={tenants} stats={stats} />
         </div>
     );
 }
