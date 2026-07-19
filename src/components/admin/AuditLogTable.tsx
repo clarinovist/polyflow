@@ -27,6 +27,12 @@ export interface AuditLogClientData {
         name: string | null;
         email: string | null;
     } | null;
+    // Cross-tenant fields (only populated in superadmin cross-tenant view).
+    // Optional so this interface also fits the tenant-side (single-tenant)
+    // audit log viewer without breaking it.
+    source?: 'main' | 'tenant';
+    tenantName?: string | null;
+    tenantSubdomain?: string | null;
 }
 
 interface AuditLogTableProps {
@@ -65,13 +71,14 @@ export default function AuditLogTable({
                             <TableHead>User</TableHead>
                             <TableHead>Action</TableHead>
                             <TableHead>Entity</TableHead>
+                            <TableHead className="w-[120px]">Source</TableHead>
                             <TableHead className="w-[100px] text-center">View</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {logs.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center justify-center space-y-2">
                                         <Clock className="h-6 w-6 text-gray-400 dark:text-gray-500" />
                                         <span>Tidak ada log audit yang cocok dengan kriteria.</span>
@@ -102,6 +109,19 @@ export default function AuditLogTable({
                                                 ID: {log.entityId}
                                             </span>
                                         </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {log.source === 'main' ? (
+                                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 font-mono text-[10px]">
+                                                Platform
+                                            </Badge>
+                                        ) : log.tenantName ? (
+                                            <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 font-mono text-[10px]" title={log.tenantSubdomain ?? ''}>
+                                                {log.tenantName}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">—</span>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-center">
                                         <Button

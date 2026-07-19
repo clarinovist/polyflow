@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
 import { logger } from "@/lib/config/logger";
 import { safeAction, AuthorizationError, BusinessRuleError } from "@/lib/errors/errors";
+import { logActivity } from "@/lib/tools/audit";
 
 const execPromise = util.promisify(exec);
 
@@ -117,7 +118,7 @@ export async function createAndProvisionTenant(formData: FormData) {
 
             // 5. Register in Main DB
             console.log(`[SuperAdmin] Registering tenant: ${name}`);
-            await prisma.tenant.create({
+            const newTenant = await prisma.tenant.create({
                 data: {
                     name,
                     subdomain,
@@ -125,6 +126,15 @@ export async function createAndProvisionTenant(formData: FormData) {
                     status: 'ACTIVE',
                     plan: 'TRIAL',
                 }
+            });
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'TENANT_PROVISIONED',
+                entityType: 'Tenant',
+                entityId: newTenant.id,
+                details: `Provisioned tenant "${name}" (subdomain: ${subdomain}, db: ${dbName}, admin: ${adminEmail})`,
+                changes: { name, subdomain, dbName, adminEmail },
             });
 
             return null;
@@ -183,6 +193,8 @@ export async function updateTenant(tenantId: string, formData: FormData) {
                 throw new BusinessRuleError("Subdomain is already used by another tenant.");
             }
 
+            const before = await prisma.tenant.findUnique({ where: { id: tenantId } });
+
             await prisma.tenant.update({
                 where: { id: tenantId },
                 data: {
@@ -191,6 +203,18 @@ export async function updateTenant(tenantId: string, formData: FormData) {
                     status: status as import("@prisma/client").TenantStatus,
                     dbUrl: dbUrl || undefined,
                 }
+            });
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'TENANT_UPDATED',
+                entityType: 'Tenant',
+                entityId: tenantId,
+                details: `Updated tenant "${name}" (subdomain: ${subdomain}, status: ${status})`,
+                changes: {
+                    before: before ? { name: before.name, subdomain: before.subdomain, status: before.status, dbUrl: before.dbUrl } : null,
+                    after: { name, subdomain, status, dbUrl: dbUrl || undefined },
+                },
             });
 
             return null;
@@ -244,9 +268,18 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
                     data: { password: passwordHash }
                 });
 
-                return null;
+                return adminUser.id;
                 })
             );
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'TENANT_ADMIN_PASSWORD_RESET',
+                entityType: 'Tenant',
+                entityId: tenantId,
+                details: `Reset admin password for tenant "${tenant.name}" (admin userId: ${result})`,
+                changes: { tenantId, tenantName: tenant.name, adminUserId: result },
+            });
 
             return result;
         } catch (e: unknown) {
