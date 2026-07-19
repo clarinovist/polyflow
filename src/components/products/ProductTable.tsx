@@ -7,7 +7,7 @@ import { ProductType, Unit, Prisma } from '@prisma/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Info, Package, Search } from 'lucide-react';
+import { Edit, Trash2, Info, Package, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
 import { deleteVariant } from '@/actions/product';
 import { toast } from 'sonner';
@@ -66,6 +66,14 @@ interface ProductTableProps {
     showPrices?: boolean;
 }
 
+type SortKey = 'name' | 'stock' | 'currentCost' | 'standardCost' | 'buyPrice' | 'price';
+type SortDirection = 'asc' | 'desc';
+
+interface SortConfig {
+    key: SortKey;
+    direction: SortDirection;
+}
+
 const productTypeBadgeColors: Record<ProductType, string> = {
     RAW_MATERIAL: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/10 hover:bg-blue-500/20',
     FINISHED_GOOD: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/10 hover:bg-green-500/20',
@@ -84,7 +92,16 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
     const [variantToDelete, setVariantToDelete] = useState<ProductVariant | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
     const router = useRouter();
+
+    const handleSort = (key: SortKey) => {
+        setSortConfig((prev) => {
+            if (prev?.key !== key) return { key, direction: 'desc' };
+            if (prev.direction === 'desc') return { key, direction: 'asc' };
+            return null;
+        });
+    };
 
     // Flatten products into variants
     const flattenedVariants = useMemo(() => {
@@ -108,6 +125,48 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
             v.skuCode.toLowerCase().includes(q)
         );
     }, [flattenedVariants, searchQuery]);
+
+    // Sort variants by selected column
+    const sortedVariants = useMemo(() => {
+        if (!sortConfig) return filteredVariants;
+
+        const getValue = (v: ProductVariant): string | number => {
+            switch (sortConfig.key) {
+                case 'name':
+                    return (v.name || v.productName).toLowerCase();
+                case 'stock':
+                    return v.stock ?? 0;
+                case 'currentCost':
+                    return Number(v.currentCost) || 0;
+                case 'standardCost':
+                    return Number(v.standardCost) || 0;
+                case 'buyPrice':
+                    return Number(v.buyPrice) || 0;
+                case 'price':
+                    return Number(v.price) || 0;
+                default:
+                    return 0;
+            }
+        };
+
+        return [...filteredVariants].sort((a, b) => {
+            const aVal = getValue(a);
+            const bVal = getValue(b);
+            const compare = typeof aVal === 'string'
+                ? aVal.localeCompare(bVal as string)
+                : (aVal as number) - (bVal as number);
+            return sortConfig.direction === 'asc' ? compare : -compare;
+        });
+    }, [filteredVariants, sortConfig]);
+
+    const renderSortIcon = (key: SortKey) => {
+        if (sortConfig?.key !== key) {
+            return <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />;
+        }
+        return sortConfig.direction === 'asc'
+            ? <ArrowUp className="h-3 w-3 text-primary" />
+            : <ArrowDown className="h-3 w-3 text-primary" />;
+    };
 
     const handleDeleteClick = (variant: ProductVariant) => {
         setVariantToDelete(variant);
@@ -183,13 +242,29 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                     <Table>
                         <TableHeader className="bg-muted/30">
                             <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
-                                <TableHead className="pl-6">{productTableLabels.catalogItem}</TableHead>
+                                <TableHead className="pl-6">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSort('name')}
+                                        className="flex items-center gap-1 hover:text-primary transition-colors"
+                                    >
+                                        {productTableLabels.catalogItem}
+                                        {renderSortIcon('name')}
+                                    </button>
+                                </TableHead>
                                 <TableHead>{productTableLabels.skuCode}</TableHead>
                                 <TableHead>{productTableLabels.type}</TableHead>
                                 <TableHead>{productTableLabels.unit}</TableHead>
                                 <TableHead className="text-right">
                                     <div className="flex items-center justify-end gap-1">
-                                        {productTableLabels.stockLevel}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSort('stock')}
+                                            className="flex items-center gap-1 hover:text-primary transition-colors"
+                                        >
+                                            {productTableLabels.stockLevel}
+                                            {renderSortIcon('stock')}
+                                        </button>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
@@ -206,7 +281,14 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                     <>
                                         <TableHead className="text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1">
-                                                {productTableLabels.currentCost}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('currentCost')}
+                                                    className="flex items-center gap-1 hover:text-primary transition-colors"
+                                                >
+                                                    {productTableLabels.currentCost}
+                                                    {renderSortIcon('currentCost')}
+                                                </button>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
@@ -221,7 +303,14 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                         </TableHead>
                                         <TableHead className="text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1">
-                                                {productTableLabels.standardCost}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('standardCost')}
+                                                    className="flex items-center gap-1 hover:text-primary transition-colors"
+                                                >
+                                                    {productTableLabels.standardCost}
+                                                    {renderSortIcon('standardCost')}
+                                                </button>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
@@ -234,15 +323,33 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                                 </Tooltip>
                                             </div>
                                         </TableHead>
-                                        <TableHead className="text-right whitespace-nowrap">{productTableLabels.buyPrice}</TableHead>
-                                        <TableHead className="text-right whitespace-nowrap">{productTableLabels.catalog}</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSort('buyPrice')}
+                                                className="flex items-center gap-1 justify-end w-full hover:text-primary transition-colors"
+                                            >
+                                                {productTableLabels.buyPrice}
+                                                {renderSortIcon('buyPrice')}
+                                            </button>
+                                        </TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSort('price')}
+                                                className="flex items-center gap-1 justify-end w-full hover:text-primary transition-colors"
+                                            >
+                                                {productTableLabels.catalog}
+                                                {renderSortIcon('price')}
+                                            </button>
+                                        </TableHead>
                                     </>
                                 )}
                                 <TableHead className="text-right pr-6">{productTableLabels.actions}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredVariants.map((variant) => (
+                            {sortedVariants.map((variant) => (
                                 <TableRow key={variant.id} className="group border-white/5 hover:bg-primary/[0.02] transition-colors">
                                     <TableCell className="pl-6 py-4">
                                         <div className="flex flex-col">
