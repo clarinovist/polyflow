@@ -122,6 +122,13 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
         dailyRate: initialData?.dailyRate ? Number(initialData.dailyRate) : 0,
         overtimeHourlyRate: initialData?.overtimeHourlyRate ? Number(initialData.overtimeHourlyRate) : 0,
         standardDayHours: initialData?.standardDayHours ? Number(initialData.standardDayHours) : 8,
+        // Fase 5: MONTHLY
+        monthlySalary: initialData?.monthlySalary ? Number(initialData.monthlySalary) : 0,
+        bpjsParticipant: initialData?.bpjsParticipant ?? false,
+        bpjsEmployeeDeduction: initialData?.bpjsEmployeeDeduction ? Number(initialData.bpjsEmployeeDeduction) : 0,
+        bpjsEmployerCost: initialData?.bpjsEmployerCost ? Number(initialData.bpjsEmployerCost) : 0,
+        bpjsKesehatanNo: initialData?.bpjsKesehatanNo || '',
+        bpjsKetenagakerjaanNo: initialData?.bpjsKetenagakerjaanNo || '',
     });
 
     // Fase 2: personal/HR master data
@@ -335,7 +342,7 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                     <RadioGroup
                         value={formData.payType}
                         onValueChange={(v) => setFormData({ ...formData, payType: v as EmployeePayType })}
-                        className="grid grid-cols-2 gap-2"
+                        className="grid grid-cols-3 gap-2"
                     >
                         <label htmlFor="pay-daily" className={cn(
                             "flex items-center gap-2 rounded-lg border p-3 cursor-pointer",
@@ -357,10 +364,104 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                                 <div className="text-[11px] text-muted-foreground">Tarif per proses mesin</div>
                             </div>
                         </label>
+                        <label htmlFor="pay-monthly" className={cn(
+                            "flex items-center gap-2 rounded-lg border p-3 cursor-pointer",
+                            formData.payType === ('MONTHLY' as EmployeePayType) ? "border-primary bg-primary/5" : "border-border"
+                        )}>
+                            <RadioGroupItem value="MONTHLY" id="pay-monthly" />
+                            <div>
+                                <div className="text-sm font-medium">Bulanan</div>
+                                <div className="text-[11px] text-muted-foreground">Karyawan kantor</div>
+                            </div>
+                        </label>
                     </RadioGroup>
                 </div>
 
-                {formData.payType === 'DAILY' ? (
+                {formData.payType === ('MONTHLY' as EmployeePayType) ? (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                    <p className="text-sm font-semibold">Gaji Bulanan — Karyawan Kantor</p>
+                    <div className="space-y-2">
+                        <Label htmlFor="monthlySalary" className="text-xs font-semibold">Gaji Pokok Bulanan (IDR)</Label>
+                        <Input
+                            id="monthlySalary"
+                            type="number"
+                            min="0"
+                            step="100000"
+                            value={formData.monthlySalary}
+                            onChange={(e) => {
+                                const num = Number(e.target.value.replace(',', '.'));
+                                setFormData({ ...formData, monthlySalary: isNaN(num) ? 0 : num });
+                            }}
+                            placeholder="e.g. 5000000"
+                            className="bg-background/50"
+                        />
+                    </div>
+
+                    <div className="rounded-md border border-white/5 bg-muted/20 p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                            <div>
+                                <Label className="text-xs font-semibold">Peserta BPJS</Label>
+                                <p className="text-[10px] text-muted-foreground">Aktifkan jika karyawan ikut BPJS.</p>
+                            </div>
+                            <Switch
+                                checked={formData.bpjsParticipant}
+                                onCheckedChange={(v) => setFormData({ ...formData, bpjsParticipant: v })}
+                            />
+                        </div>
+                        {formData.bpjsParticipant && (
+                            <div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-semibold">Potongan Karyawan /bln (IDR)</Label>
+                                        <Input
+                                            type="number" min="0" step="1000"
+                                            value={formData.bpjsEmployeeDeduction}
+                                            onChange={(e) => {
+                                                const num = Number(e.target.value.replace(',', '.'));
+                                                setFormData({ ...formData, bpjsEmployeeDeduction: isNaN(num) ? 0 : num });
+                                            }}
+                                            className="h-9 bg-background/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-semibold">Beban Perusahaan /bln (IDR)</Label>
+                                        <Input
+                                            type="number" min="0" step="1000"
+                                            value={formData.bpjsEmployerCost}
+                                            onChange={(e) => {
+                                                const num = Number(e.target.value.replace(',', '.'));
+                                                setFormData({ ...formData, bpjsEmployerCost: isNaN(num) ? 0 : num });
+                                            }}
+                                            className="h-9 bg-background/50"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-semibold">No. Kartu BPJS Kesehatan</Label>
+                                        <Input
+                                            value={formData.bpjsKesehatanNo}
+                                            onChange={(e) => setFormData({ ...formData, bpjsKesehatanNo: e.target.value })}
+                                            className="h-9 bg-background/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-semibold">No. BPJS Ketenagakerjaan</Label>
+                                        <Input
+                                            value={formData.bpjsKetenagakerjaanNo}
+                                            onChange={(e) => setFormData({ ...formData, bpjsKetenagakerjaanNo: e.target.value })}
+                                            className="h-9 bg-background/50"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground italic">
+                        Tunjangan tetap (transport, makan, dst) dikelola di daftar karyawan MONTHLY atau via menu Kasbon / Gaji Bulanan.
+                    </p>
+                </div>
+                ) : formData.payType === 'DAILY' ? (
                 <>
                 <div className="space-y-2">
                     <Label htmlFor="dailyRate" className="text-sm font-semibold tracking-tight">Upah Harian / Daily Rate (IDR)</Label>

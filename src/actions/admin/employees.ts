@@ -103,10 +103,16 @@ async function createEmployee(data: {
     code: string;
     role: string;
     status?: EmployeeStatus;
-    payType?: 'DAILY' | 'PIECE';
+    payType?: 'DAILY' | 'PIECE' | 'MONTHLY';
     dailyRate?: number;
     overtimeHourlyRate?: number;
     standardDayHours?: number;
+    monthlySalary?: number;
+    bpjsParticipant?: boolean;
+    bpjsEmployeeDeduction?: number;
+    bpjsEmployerCost?: number;
+    bpjsKesehatanNo?: string;
+    bpjsKetenagakerjaanNo?: string;
     personal?: EmployeePersonalData;
 }) {
     return safeAction(async () => {
@@ -122,6 +128,14 @@ async function createEmployee(data: {
                     dailyRate: data.dailyRate || 0,
                     overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
                     standardDayHours: data.standardDayHours ?? 8,
+                    ...(data.payType === 'MONTHLY' ? {
+                        monthlySalary: data.monthlySalary ?? null,
+                        bpjsParticipant: data.bpjsParticipant ?? false,
+                        bpjsEmployeeDeduction: data.bpjsEmployeeDeduction ?? null,
+                        bpjsEmployerCost: data.bpjsEmployerCost ?? null,
+                        bpjsKesehatanNo: data.bpjsKesehatanNo ?? null,
+                        bpjsKetenagakerjaanNo: data.bpjsKetenagakerjaanNo ?? null,
+                    } : {}),
                     ...toPersonalDb(data.personal),
                 },
             });
@@ -151,10 +165,16 @@ async function updateEmployee(
         code?: string;
         role?: string;
         status?: EmployeeStatus;
-        payType?: 'DAILY' | 'PIECE';
+        payType?: 'DAILY' | 'PIECE' | 'MONTHLY';
         dailyRate?: number;
         overtimeHourlyRate?: number;
         standardDayHours?: number;
+        monthlySalary?: number;
+        bpjsParticipant?: boolean;
+        bpjsEmployeeDeduction?: number;
+        bpjsEmployerCost?: number;
+        bpjsKesehatanNo?: string;
+        bpjsKetenagakerjaanNo?: string;
         personal?: EmployeePersonalData;
     }
 ) {
@@ -176,6 +196,12 @@ async function updateEmployee(
                     ...coreData,
                     overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
                     standardDayHours: data.standardDayHours && data.standardDayHours > 0 ? data.standardDayHours : 8,
+                    ...(data.monthlySalary !== undefined ? { monthlySalary: data.monthlySalary } : {}),
+                    ...(data.bpjsParticipant !== undefined ? { bpjsParticipant: data.bpjsParticipant } : {}),
+                    ...(data.bpjsEmployeeDeduction !== undefined ? { bpjsEmployeeDeduction: data.bpjsEmployeeDeduction } : {}),
+                    ...(data.bpjsEmployerCost !== undefined ? { bpjsEmployerCost: data.bpjsEmployerCost } : {}),
+                    ...(data.bpjsKesehatanNo !== undefined ? { bpjsKesehatanNo: data.bpjsKesehatanNo || null } : {}),
+                    ...(data.bpjsKetenagakerjaanNo !== undefined ? { bpjsKetenagakerjaanNo: data.bpjsKetenagakerjaanNo || null } : {}),
                     ...toPersonalDb(_p1),
                 },
             });
