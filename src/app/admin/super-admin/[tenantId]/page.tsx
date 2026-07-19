@@ -29,13 +29,14 @@ function statusBadge(status: Tenant["status"]) {
     return <Badge className={cls}>{status}</Badge>;
 }
 
-export default async function TenantDetailPage({ params }: { params: { tenantId: string } }) {
+export default async function TenantDetailPage({ params }: { params: Promise<{ tenantId: string }> }) {
     const session = await auth();
     if (!session?.user || !session.user.isSuperAdmin) {
         redirect("/super-admin");
     }
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: params.tenantId } });
+    const { tenantId } = await params;
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) notFound();
 
     const [statsMap, backups, auditResult] = await Promise.all([
