@@ -5,21 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { safeAction, AuthenticationError } from '@/lib/errors/errors';
-
-/**
- * In-app notification categories the user can toggle. Stored as a JSON map on
- * User.notificationPrefs. Absence of a key means "enabled" (opt-out model).
- */
-export const NOTIFICATION_CATEGORIES = [
-    { key: 'stock', label: 'Stok & Inventaris' },
-    { key: 'purchasing', label: 'Pembelian' },
-    { key: 'sales', label: 'Penjualan' },
-    { key: 'production', label: 'Produksi' },
-    { key: 'finance', label: 'Keuangan' },
-    { key: 'system', label: 'Sistem' },
-] as const;
-
-export type NotificationPrefs = Record<string, boolean>;
+import { NOTIFICATION_CATEGORIES, type NotificationPrefs } from '@/lib/settings/notification-categories';
 
 async function requireUserId(): Promise<string> {
     const session = await auth();

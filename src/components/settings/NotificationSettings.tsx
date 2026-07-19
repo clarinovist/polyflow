@@ -6,12 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-    NOTIFICATION_CATEGORIES,
-    getNotificationPrefs,
-    updateNotificationPrefs,
-    type NotificationPrefs,
-} from '@/actions/settings/notification-actions';
+import { getNotificationPrefs, updateNotificationPrefs } from '@/actions/settings/notification-actions';
+import { NOTIFICATION_CATEGORIES, type NotificationPrefs } from '@/lib/settings/notification-categories';
 
 export function NotificationSettings() {
     const [prefs, setPrefs] = useState<NotificationPrefs>({});
