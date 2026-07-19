@@ -27,7 +27,7 @@ import {
   deactivateCustomerProductPrice,
   upsertCustomerProductPrice,
 } from "@/actions/sales/customer-product-prices";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Download, Upload } from "lucide-react";
 
 type SerializedProductVariant = Omit<
   ProductVariant,
@@ -145,6 +145,93 @@ export function CustomerProductPricesManager({
     setNotes(price.notes || "");
   }
 
+  function handleExportCSV() {
+    const headers = ["SKU", "Nama Produk", "Harga Customer", "Catatan"];
+    const rows = prices
+      .filter((p) => p.isActive)
+      .map((p) => [
+        p.productVariant.skuCode,
+        productLabel(p.productVariant),
+        String(p.unitPrice),
+        p.notes || "",
+      ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `harga-customer-${customerId.slice(0, 8)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV berhasil diunduh");
+  }
+
+  async function handleImportCSV(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const lines = text.split("\n").filter((l) => l.trim());
+    if (lines.length < 2) {
+      toast.error("CSV kosong atau hanya berisi header");
+      return;
+    }
+
+    const header = lines[0].toLowerCase();
+    if (!header.includes("sku") || !header.includes("harga")) {
+      toast.error("Format CSV tidak valid. Header harus: SKU, Nama Produk, Harga Customer, Catatan");
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",").map((c) => c.replace(/^"|"$/g, "").replace('""', '"').trim());
+      const sku = cols[0];
+      const priceStr = cols[2];
+      const note = cols[3] || "";
+
+      if (!sku || !priceStr) {
+        errorCount++;
+        continue;
+      }
+
+      const parsedPrice = Number(priceStr);
+      if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+        errorCount++;
+        continue;
+      }
+
+      const product = products.find((p) => p.skuCode === sku);
+      if (!product) {
+        errorCount++;
+        continue;
+      }
+
+      const result = await upsertCustomerProductPrice({
+        customerId,
+        productVariantId: product.id,
+        unitPrice: parsedPrice,
+        isActive: true,
+        notes: note || undefined,
+      });
+
+      if (result.success) {
+        successCount++;
+      } else {
+        errorCount++;
+      }
+    }
+
+    event.target.value = "";
+    if (successCount > 0) {
+      toast.success(`${successCount} harga berhasil diimpor${errorCount > 0 ? `, ${errorCount} gagal` : ""}`);
+    } else {
+      toast.error(`Semua ${errorCount} baris gagal diimpor. Periksa SKU dan format harga.`);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border p-4 space-y-4 bg-muted/20">
@@ -215,6 +302,26 @@ export function CustomerProductPricesManager({
             )}
             Simpan Harga
           </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">Daftar Harga Khusus</h3>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={handleExportCSV}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Export CSV
+          </Button>
+          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+            <Upload className="h-3.5 w-3.5" />
+            Import CSV
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleImportCSV}
+            />
+          </label>
         </div>
       </div>
 

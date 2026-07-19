@@ -28,6 +28,8 @@ type VisitLog = {
   checkInTime: string;
   checkOutTime: string;
   durationSeconds: number;
+  latitude: number;
+  longitude: number;
   distance: number;
   notes: string;
   photoUrl: string | null;
@@ -211,6 +213,8 @@ export function VisitCheckInCard({
       checkInTime: activeVisit.checkInTime,
       checkOutTime,
       durationSeconds,
+      latitude: activeVisit.latitude,
+      longitude: activeVisit.longitude,
       distance: activeVisit.distance,
       notes,
       photoUrl,

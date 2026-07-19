@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,29 +48,29 @@ export function LeaveRequestsManager() {
     });
     const [docFile, setDocFile] = useState<File | null>(null);
 
-    const loadEmployees = async () => {
+    const loadEmployees = useCallback(async () => {
         const res = await getEmployees();
         if (res.success && Array.isArray(res.data)) {
             setEmployees(res.data.map((e: { id: string; name: string; code: string }) => ({ id: e.id, name: e.name, code: e.code })));
         }
-    };
+    }, []);
 
-    const loadRequests = async () => {
+    const loadRequests = useCallback(async () => {
         setLoading(true);
         const filters = filterStatus === 'ALL' ? undefined : { status: filterStatus as LeaveStatus };
         const res = await listLeaveRequests(filters);
         setRequests(res.success ? res.data ?? [] : []);
         setLoading(false);
-    };
+    }, [filterStatus]);
 
     useEffect(() => {
         loadEmployees();
         loadRequests();
-    }, []);
+    }, [loadEmployees, loadRequests]);
 
     useEffect(() => {
         loadRequests();
-    }, [filterStatus]);
+    }, [loadRequests]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

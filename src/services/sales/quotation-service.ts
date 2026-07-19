@@ -7,6 +7,7 @@ import {
     NotFoundError,
     ValidationError,
 } from "@/lib/errors/errors";
+import { logActivity } from "@/lib/tools/audit";
 
 type QuotationLineInput = {
     productVariantId: string;
@@ -405,6 +406,15 @@ export class QuotationService {
             await tx.salesQuotation.update({
                 where: { id: quotationId },
                 data: { status: SalesQuotationStatus.CONVERTED }
+            });
+
+            await logActivity({
+                userId,
+                action: 'QUOTATION_ACCEPTED',
+                entityType: 'SalesQuotation',
+                entityId: quotationId,
+                details: `Quotation ${quotation.quotationNumber} accepted and converted to Sales Order ${orderNumber}`,
+                tx,
             });
 
             return salesOrder;

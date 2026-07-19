@@ -323,6 +323,61 @@
 
 ---
 
+## H. Credit Limit (Batas Kredit) — Gelombang A
+
+### TC-CR-001: Credit Limit Hard Block
+| **ID** | TC-CR-001 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Prasyarat:** Customer dengan credit limit Rp 10.000.000, exposure saat ini Rp 9.000.000
+
+**Langkah:**
+1. Buat SO baru untuk customer tersebut dengan total Rp 2.000.000
+2. Klik Confirm
+
+**Diharapkan:** Confirm gagal, pesan error Bahasa Indonesia: "Batas kredit terlampaui. Limit: Rp 10.000.000, Exposure: Rp 9.000.000, Baru: Rp 2.000.000"
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-CR-002: Credit Exposure Banner
+| **ID** | TC-CR-002 | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Buka form buat/edit SO
+2. Pilih customer yang memiliki credit limit
+
+**Diharapkan:**
+- Banner informasi kredit muncul dengan: Limit, Piutang belum lunas, SO aktif tanpa invoice, Exposure saat ini, Sisa headroom
+- Warna hijau jika aman, kuning jika mendekati batas, merah jika akan melebihi
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+## I. Customer Directory — Gelombang A
+
+### TC-CU-001: Search & Filter Customer
+| **ID** | TC-CU-001 | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Buka `/sales/customers`
+2. Ketik nama customer di search
+3. Klik filter "Aktif", "Over Limit", "Punya Limit"
+
+**Diharapkan:**
+- Search memfilter customer berdasarkan nama/kode/telepon
+- Filter menampilkan jumlah yang sesuai
+- Badge "Over Limit" terlihat untuk customer yang melebihi batas kredit
+- Badge "Mendekati Limit" untuk customer yang headroom < 10%
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
 ## Ringkasan Hasil
 
 | Bagian | TC | Lulus | Gagal | Sebagian |
@@ -333,6 +388,8 @@
 | Jadwal Kirim | 6 | | | |
 | Invoice & Payment | 3 | | | |
 | Return & Lainnya | 3 | | | |
-| **TOTAL** | **21** | | | |
+| Credit Limit | 2 | | | |
+| Customer Directory | 1 | | | |
+| **TOTAL** | **24** | | | |
 
 **Tanda Tangan Tester:** _________________________ **Tanggal:** ____/____/________

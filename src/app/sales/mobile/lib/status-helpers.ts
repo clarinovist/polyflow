@@ -6,12 +6,12 @@
 export const STATUS_OPTIONS = [
   { value: "ALL", label: "Semua" },
   { value: "DRAFT", label: "Draft" },
-  { value: "CONFIRMED", label: "Dikonfirmasi" },
-  { value: "IN_PRODUCTION", label: "Produksi" },
+  { value: "CONFIRMED", label: "Terkonfirmasi" },
+  { value: "IN_PRODUCTION", label: "Dalam Produksi" },
   { value: "READY_TO_SHIP", label: "Siap Kirim" },
   { value: "SHIPPED", label: "Dikirim" },
   { value: "DELIVERED", label: "Terkirim" },
-  { value: "CANCELLED", label: "Batal" },
+  { value: "CANCELLED", label: "Dibatalkan" },
 ] as const;
 
 export type StatusFilter = (typeof STATUS_OPTIONS)[number]["value"];

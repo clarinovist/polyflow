@@ -19,6 +19,7 @@ import {
   Tags,
 } from "lucide-react";
 import Link from "next/link";
+import { formatRupiah } from "@/lib/utils/utils";
 import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { SalesOrderTable } from "@/components/sales/SalesOrderTable";
 import { CustomerProductPricesManager } from "@/components/customers/CustomerProductPricesManager";
@@ -292,7 +293,7 @@ export function CustomerDetailClient({
                       <DollarSign className="w-3 h-3" /> Credit Limit
                     </p>
                     <p className="font-medium">
-                      {customer.creditLimit ? `$${customer.creditLimit}` : "-"}
+                      {customer.creditLimit ? formatRupiah(customer.creditLimit) : "-"}
                     </p>
                   </div>
                   <div>

@@ -260,7 +260,7 @@ export async function createOrder(
   const shippingCost = data.shippingCost || 0;
   const finalTotal = totalAmount + shippingCost;
 
-  return await prisma.salesOrder.create({
+  const order = await prisma.salesOrder.create({
     data: {
       orderNumber,
       customerId: data.customerId ? data.customerId : undefined,
@@ -295,6 +295,16 @@ export async function createOrder(
     },
     include: { items: true },
   });
+
+  await logActivity({
+    userId,
+    action: 'SALES_ORDER_CREATED',
+    entityType: 'SalesOrder',
+    entityId: order.id,
+    details: `Sales Order ${orderNumber} created. Total: ${finalTotal}`,
+  });
+
+  return order;
 }
 
 export async function updateOrder(
@@ -646,7 +656,7 @@ export async function confirmOrder(
         : "";
     await logActivity({
       userId,
-      action: "CONFIRM_SALES",
+      action: "SALES_ORDER_CONFIRMED",
       entityType: "SalesOrder",
       entityId: id,
       details: `Sales Order ${order.orderNumber} confirmed. Status: ${nextStatus}. Shortages: ${shortages.length}${warningSummary}`,
@@ -744,7 +754,7 @@ export async function confirmOrder(
       // Append activity log noting the status adjustment
       await logActivity({
         userId,
-        action: "CONFIRM_SALES",
+        action: "SALES_ORDER_CONFIRMED",
         entityType: "SalesOrder",
         entityId: id,
         details: `Status adjusted to CONFIRMED: no production orders created (all auto-WO failed or skipped).`,
@@ -823,7 +833,7 @@ export async function cancelOrder(id: string, userId: string) {
 
     await logActivity({
       userId,
-      action: "CANCEL_SALES",
+      action: "SALES_ORDER_CANCELLED",
       entityType: "SalesOrder",
       entityId: id,
       details: `Sales Order ${order.orderNumber} cancelled`,

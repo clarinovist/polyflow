@@ -59,6 +59,7 @@ import { CalendarIcon, Plus, Trash2, Loader2, Check, Info, Settings } from "luci
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import type { CreditExposure } from "@/services/sales/credit-service";
 
 import {
   Command,
@@ -354,6 +355,36 @@ export function SalesOrderForm({
   const watchItems = useWatch({ control: form.control, name: "items" });
   const watchShippingCost =
     useWatch({ control: form.control, name: "shippingCost" }) || 0;
+  const watchCustomerId = useWatch({ control: form.control, name: "customerId" });
+
+  // Credit exposure state
+  const [creditExposure, setCreditExposure] = useState<CreditExposure | null>(null);
+  const [loadingExposure, setLoadingExposure] = useState(false);
+
+  // Fetch credit exposure when customer changes
+  useEffect(() => {
+    if (!watchCustomerId) {
+      setCreditExposure(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingExposure(true);
+    import("@/actions/sales/customer").then(({ getCustomerCreditExposureAction }) => {
+      getCustomerCreditExposureAction(watchCustomerId).then((result) => {
+        if (!cancelled) {
+          const data = result && typeof result === 'object' && 'data' in result ? (result as { data: CreditExposure | null }).data : null;
+          setCreditExposure(data ?? null);
+          setLoadingExposure(false);
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setCreditExposure(null);
+          setLoadingExposure(false);
+        }
+      });
+    });
+    return () => { cancelled = true; };
+  }, [watchCustomerId]);
 
   // Check if shipping cost is driven by fleet delivery orders
   const deliveryOrders = (initialData as Record<string, unknown>)?.deliveryOrders as
@@ -617,6 +648,13 @@ export function SalesOrderForm({
 
   const totals = computeOrderTotals(watchItems || []);
 
+  // Derived credit state
+  const proposedTotal = totals.net + watchShippingCost;
+  const hasExposure = creditExposure !== null;
+  const isOverLimit = hasExposure && proposedTotal > creditExposure!.headroom;
+  const isNearLimit = hasExposure && !isOverLimit && creditExposure!.headroom > 0 && proposedTotal > creditExposure!.headroom * 0.9;
+  const headroomAfterProposal = hasExposure ? creditExposure!.headroom - proposedTotal : null;
+
   const {
     execute: submitAction,
     isPending: isSubmitting,
@@ -736,13 +774,6 @@ export function SalesOrderForm({
             control={form.control}
             name="customerId"
             render={({ field }) => {
-              const selectedCustomer = customers.find(
-                (c) => c.id === field.value,
-              );
-              const isOverLimit =
-                selectedCustomer?.creditLimit &&
-                selectedCustomer.creditLimit < totals.net;
-
               return (
                 <FormItem className="flex flex-col">
                   <FormLabel>{salesLabels.customer}</FormLabel>
@@ -820,26 +851,67 @@ export function SalesOrderForm({
                   <FormDescription>
                     Wajib diisi untuk Sales Order customer.
                   </FormDescription>
-                  {!!selectedCustomer?.creditLimit && (
-                    <div
-                      className={cn(
-                        "text-xs flex justify-between",
-                        isOverLimit
-                          ? "text-red-500 font-medium"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      <span>
-                        Limit: {formatRupiah(selectedCustomer.creditLimit)}
-                      </span>
-                      {isOverLimit && <span>Exceeds Limit!</span>}
-                    </div>
-                  )}
                   <FormMessage />
                 </FormItem>
               );
             }}
           />
+
+          {/* Credit Exposure Banner */}
+          {watchCustomerId && loadingExposure && (
+            <div className="col-span-full flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Memeriksa limit kredit...
+            </div>
+          )}
+          {creditExposure && !loadingExposure && (
+            <div className="col-span-full">
+              <Alert
+                className={cn(
+                  isOverLimit
+                    ? "border-red-300 bg-red-50 text-red-900"
+                    : isNearLimit
+                      ? "border-amber-300 bg-amber-50 text-amber-900"
+                      : "border-green-300 bg-green-50 text-green-900",
+                )}
+              >
+                <Info className="h-4 w-4" />
+                <AlertTitle className="text-sm font-medium">
+                  {isOverLimit
+                    ? "Batas kredit akan terlampaui"
+                    : isNearLimit
+                      ? "Kredit mendekati batas"
+                      : "Informasi kredit"}
+                </AlertTitle>
+                <AlertDescription className="text-xs mt-1">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <span>Limit:</span>
+                    <span className="font-medium">{formatRupiah(creditExposure.creditLimit)}</span>
+                    <span>Piutang belum lunas:</span>
+                    <span className="font-medium">{formatRupiah(creditExposure.unpaidInvoiceBalance)}</span>
+                    <span>SO aktif tanpa invoice:</span>
+                    <span className="font-medium">{formatRupiah(creditExposure.openOrderWithoutInvoice)}</span>
+                    <span>Exposure saat ini:</span>
+                    <span className="font-medium">{formatRupiah(creditExposure.currentExposure)}</span>
+                    <span>Sisa headroom:</span>
+                    <span className={cn("font-medium", creditExposure.headroom <= 0 && "text-red-600")}>
+                      {formatRupiah(creditExposure.headroom)}
+                    </span>
+                  </div>
+                  {isOverLimit && (
+                    <p className="mt-2 text-xs font-medium">
+                      Konfirmasi akan gagal — total melebihi limit kredit.
+                    </p>
+                  )}
+                  {!isOverLimit && headroomAfterProposal !== null && headroomAfterProposal < creditExposure.creditLimit * 0.1 && (
+                    <p className="mt-2 text-xs">
+                      Akan melebihi jika confirm: sisa setelah proposal {formatRupiah(headroomAfterProposal)}
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
 
           {/* Source Location */}
           <FormField

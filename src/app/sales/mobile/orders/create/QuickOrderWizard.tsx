@@ -474,10 +474,13 @@ export function QuickOrderWizard({
             ) : (
               <>
                 {displayProducts.map((p) => {
-                  const stock = p.inventories.reduce(
+                  const totalStock = p.inventories.reduce(
                     (sum, inv) => sum + inv.quantity,
                     0,
                   );
+                  const locationStock = locationId
+                    ? p.inventories.find((inv) => inv.locationId === locationId)?.quantity ?? 0
+                    : null;
                   return (
                     <button
                       key={p.id}
@@ -501,7 +504,9 @@ export function QuickOrderWizard({
                             {p.sellPrice ? formatRupiah(p.sellPrice) : "-"}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            Stok: {stock}
+                            {locationStock !== null
+                              ? `Stok gudang: ${locationStock} (total: ${totalStock})`
+                              : `Stok: ${totalStock}`}
                           </p>
                         </div>
                       </div>

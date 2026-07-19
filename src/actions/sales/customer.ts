@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { getCustomerCreditExposure, getCustomersWithCreditSummary } from '@/services/sales/credit-service';
 
 export const getCustomers = withTenant(
 async function getCustomers() {
@@ -193,6 +194,24 @@ async function deleteCustomer(id: string) {
             logger.error('Failed to delete customer', { error, customerId: id, module: 'CustomerActions' });
             throw new BusinessRuleError('Failed to delete customer');
         }
+    });
+}
+);
+
+export const getCustomerCreditExposureAction = withTenant(
+async function getCustomerCreditExposureAction(customerId: string) {
+    return safeAction(async () => {
+        await requireAuth();
+        return getCustomerCreditExposure(customerId);
+    });
+}
+);
+
+export const getCustomersWithCreditSummaryAction = withTenant(
+async function getCustomersWithCreditSummaryAction() {
+    return safeAction(async () => {
+        await requireAuth();
+        return getCustomersWithCreditSummary();
     });
 }
 );

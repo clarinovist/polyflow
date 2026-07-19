@@ -31,7 +31,7 @@ describe("checkOverdueSalesInvoices", () => {
     expect(NotificationService.createBulkNotifications).not.toHaveBeenCalled();
   });
 
-  it("returns early when no admin users", async () => {
+  it("returns early when no target users (admin or sales)", async () => {
     vi.mocked(prisma.invoice.findMany).mockResolvedValue([
       {
         id: "inv-1",
@@ -39,7 +39,7 @@ describe("checkOverdueSalesInvoices", () => {
         dueDate: new Date("2026-01-01"),
         totalAmount: { toNumber: () => 1000 },
         paidAmount: { toNumber: () => 0 },
-        salesOrder: { orderNumber: "SO-001" },
+        salesOrder: { orderNumber: "SO-001", createdById: "sales-1" },
       },
     ] as never);
     vi.mocked(prisma.user.findMany).mockResolvedValue([]);
@@ -49,7 +49,7 @@ describe("checkOverdueSalesInvoices", () => {
     expect(NotificationService.createBulkNotifications).not.toHaveBeenCalled();
   });
 
-  it("creates bulk notifications for overdue invoices", async () => {
+  it("creates notifications for admin users", async () => {
     vi.mocked(prisma.invoice.findMany).mockResolvedValue([
       {
         id: "inv-1",
@@ -57,19 +57,26 @@ describe("checkOverdueSalesInvoices", () => {
         dueDate: new Date("2026-01-01"),
         totalAmount: { toNumber: () => 1000 },
         paidAmount: { toNumber: () => 200 },
-        salesOrder: { orderNumber: "SO-001" },
+        salesOrder: { orderNumber: "SO-001", createdById: "sales-1" },
       },
     ] as never);
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: "user-1" },
-    ] as never);
+    // First call: admin users, second call: sales users
+    vi.mocked(prisma.user.findMany)
+      .mockResolvedValueOnce([{ id: "admin-1" }] as never)
+      .mockResolvedValueOnce([{ id: "sales-1" }] as never);
 
     await checkOverdueSalesInvoices();
 
     expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
-          userId: "user-1",
+          userId: "admin-1",
+          type: "OVERDUE_AR",
+          entityType: "Invoice",
+          entityId: "inv-1",
+        }),
+        expect.objectContaining({
+          userId: "sales-1",
           type: "OVERDUE_AR",
           entityType: "Invoice",
           entityId: "inv-1",
@@ -78,38 +85,54 @@ describe("checkOverdueSalesInvoices", () => {
     );
   });
 
-  it("creates notifications for multiple invoices and users", async () => {
+  it("deduplicates admin who also owns overdue orders", async () => {
     vi.mocked(prisma.invoice.findMany).mockResolvedValue([
       {
         id: "inv-1",
         invoiceNumber: "INV-001",
         dueDate: new Date("2026-01-01"),
-        totalAmount: { toNumber: () => 500 },
+        totalAmount: { toNumber: () => 1000 },
         paidAmount: { toNumber: () => 0 },
-        salesOrder: { orderNumber: "SO-001" },
+        salesOrder: { orderNumber: "SO-001", createdById: "admin-1" },
       },
+    ] as never);
+    // admin-1 is both ADMIN and the sales person
+    vi.mocked(prisma.user.findMany)
+      .mockResolvedValueOnce([{ id: "admin-1" }] as never)
+      .mockResolvedValueOnce([{ id: "admin-1" }] as never);
+
+    await checkOverdueSalesInvoices();
+
+    // Should only create ONE notification for admin-1, not two
+    const calls = vi.mocked(NotificationService.createBulkNotifications).mock.calls[0][0];
+    const adminNotifications = calls.filter((n: { userId: string }) => n.userId === "admin-1");
+    expect(adminNotifications).toHaveLength(1);
+  });
+
+  it("uses Indonesian message and sales link", async () => {
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([
       {
-        id: "inv-2",
-        invoiceNumber: "INV-002",
-        dueDate: new Date("2026-01-05"),
-        totalAmount: { toNumber: () => 800 },
-        paidAmount: { toNumber: () => 100 },
-        salesOrder: { orderNumber: "SO-002" },
+        id: "inv-1",
+        invoiceNumber: "INV-001",
+        dueDate: new Date("2026-01-15"),
+        totalAmount: { toNumber: () => 5000000 },
+        paidAmount: { toNumber: () => 1000000 },
+        salesOrder: { orderNumber: "SO-001", createdById: "sales-1" },
       },
     ] as never);
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: "user-1" },
-      { id: "user-2" },
-    ] as never);
+    vi.mocked(prisma.user.findMany)
+      .mockResolvedValueOnce([{ id: "admin-1" }] as never)
+      .mockResolvedValueOnce([{ id: "sales-1" }] as never);
 
     await checkOverdueSalesInvoices();
 
     expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ entityId: "inv-1", userId: "user-1" }),
-        expect.objectContaining({ entityId: "inv-1", userId: "user-2" }),
-        expect.objectContaining({ entityId: "inv-2", userId: "user-1" }),
-        expect.objectContaining({ entityId: "inv-2", userId: "user-2" }),
+        expect.objectContaining({
+          title: "Invoice Jatuh Tempo",
+          link: "/sales/invoices/inv-1",
+          message: expect.stringContaining("INV-001"),
+        }),
       ]),
     );
   });

@@ -10,33 +10,64 @@ export async function checkOverdueSalesInvoices() {
             dueDate: { lt: new Date() },
             status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL] }
         },
-        include: { salesOrder: { select: { orderNumber: true } } }
+        include: {
+            salesOrder: {
+                select: {
+                    orderNumber: true,
+                    createdById: true,
+                }
+            }
+        }
     });
 
     if (overdueInvoices.length === 0) {
         return;
     }
 
-    const targetUsers = await prisma.user.findMany({
+    // Notify ADMIN + the sales person who created the order
+    const adminUsers = await prisma.user.findMany({
         where: { role: 'ADMIN' },
         select: { id: true }
     });
 
-    if (targetUsers.length === 0) {
+    const salesUserIds = new Set(
+        overdueInvoices
+            .map(inv => inv.salesOrder?.createdById)
+            .filter((id): id is string => !!id)
+    );
+
+    const salesUsers = salesUserIds.size > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: Array.from(salesUserIds) } },
+            select: { id: true }
+        })
+        : [];
+
+    // Deduplicate (ADMIN who also owns orders)
+    const allUserIds = new Set([
+        ...adminUsers.map(u => u.id),
+        ...salesUsers.map(u => u.id),
+    ]);
+
+    if (allUserIds.size === 0) {
         return;
     }
 
-    const inputs = overdueInvoices.flatMap(invoice =>
-        targetUsers.map(user => ({
-            userId: user.id,
+    const inputs = overdueInvoices.flatMap(invoice => {
+        const outstanding = invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber();
+        const dueDateStr = invoice.dueDate?.toLocaleDateString('id-ID') || 'tidak diketahui';
+        const soNumber = invoice.salesOrder?.orderNumber || '-';
+
+        return Array.from(allUserIds).map(userId => ({
+            userId,
             type: 'OVERDUE_AR' as NotificationType,
-            title: 'Overdue Sales Invoice',
-            message: `Customer Invoice ${invoice.invoiceNumber} is overdue since ${invoice.dueDate?.toLocaleDateString() || 'Unknown'}. Outstanding: ${invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber()}`,
-            link: `/admin/sales/invoices/${invoice.id}`,
+            title: 'Invoice Jatuh Tempo',
+            message: `Invoice ${invoice.invoiceNumber} (SO: ${soNumber}) jatuh tempo sejak ${dueDateStr}. Sisa tagihan: Rp ${outstanding.toLocaleString('id-ID')}`,
+            link: `/sales/invoices/${invoice.id}`,
             entityType: 'Invoice',
             entityId: invoice.id
-        }))
-    );
+        }));
+    });
 
     await NotificationService.createBulkNotifications(inputs);
 }

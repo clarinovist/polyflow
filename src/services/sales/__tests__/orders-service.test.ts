@@ -413,14 +413,14 @@ describe("confirmOrder", () => {
     // Audit trail: confirm log + post-adjust status log
     expect(logActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "CONFIRM_SALES",
+        action: "SALES_ORDER_CONFIRMED",
         entityId: "so-1",
         details: expect.stringContaining("Status: IN_PRODUCTION"),
       }),
     );
     expect(logActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "CONFIRM_SALES",
+        action: "SALES_ORDER_CONFIRMED",
         entityId: "so-1",
         details:
           "Status adjusted to CONFIRMED: no production orders created (all auto-WO failed or skipped).",

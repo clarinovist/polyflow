@@ -54,6 +54,7 @@ const salesLinks = [
         heading: 'Laporan',
         items: [
             { href: '/sales/reports/shipping-cost', icon: BarChart3, label: 'Biaya Pengiriman' },
+            { href: '/sales/reports/sales-performance', icon: BarChart3, label: 'Performa Penjualan' },
         ],
     },
     {

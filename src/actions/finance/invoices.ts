@@ -119,9 +119,33 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats() {
       },
     });
 
+    // 3. Partial count
+    const partialCount = await prisma.invoice.count({
+      where: {
+        status: "PARTIAL",
+      },
+    });
+
+    // 4. Paid count (current period)
+    const paidCount = await prisma.invoice.count({
+      where: {
+        status: "PAID",
+      },
+    });
+
+    // 5. Unpaid count
+    const unpaidCount = await prisma.invoice.count({
+      where: {
+        status: "UNPAID",
+      },
+    });
+
     return {
       totalOutstanding,
       overdueCount,
+      partialCount,
+      paidCount,
+      unpaidCount,
     };
   });
 });

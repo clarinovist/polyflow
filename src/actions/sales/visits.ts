@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { safeAction } from '@/lib/errors/errors';
 import { Decimal } from "@prisma/client/runtime/library";
+import { logActivity } from "@/lib/tools/audit";
 
 type VisitLogInput = {
   customerId: string;
@@ -43,6 +44,17 @@ export const syncVisitLogsAction = withTenant(
           })
         )
       );
+
+      // Audit log for synced visits
+      for (const visit of createdVisits) {
+        await logActivity({
+          userId,
+          action: "VISIT_SYNCED",
+          entityType: "SalesVisit",
+          entityId: visit.id,
+          details: `Kunjungan ke customer ${visit.customerId} disinkronisasi (${visit.durationSeconds}s)`,
+        });
+      }
 
       return { count: createdVisits.length };
     });

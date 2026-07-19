@@ -60,26 +60,33 @@ export function SalesQuotationPrint({
   const items = quotation.items ?? [];
 
   return (
-    <div className="p-8 text-black bg-white font-sans max-w-4xl mx-auto" style={{ fontSize: "13px", lineHeight: "1.6" }}>
+    <div className="p-8 text-black bg-white font-sans max-w-4xl mx-auto print:p-0 print:max-w-none" style={{ fontSize: "13px", lineHeight: "1.6" }}>
       {/* Styles for printing */}
       <style>{`
         @media print {
-          body {
-            background: white !important;
-            color: black !important;
-          }
-          .no-print {
-            display: none !important;
-          }
+          body { background: white !important; color: black !important; margin: 0; }
+          .no-print { display: none !important; }
+          .print-break-before { page-break-before: always; }
+          .print-avoid-break { page-break-inside: avoid; }
+          .print-table { page-break-inside: avoid; }
+          .print-table thead { display: table-header-group; }
+          .print-table tr { page-break-inside: avoid; }
         }
+        @page { margin: 15mm; size: A4; }
       `}</style>
 
       {/* Header Kop Surat */}
-      <div className="flex items-start gap-4 border-b-2 border-black pb-4 mb-6">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold uppercase tracking-wider text-gray-800">{COMPANY.name}</h1>
-          <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed mt-1">{COMPANY.address}</p>
-          <p className="text-xs text-gray-600 mt-1">Telp: {COMPANY.phone} | Email: {COMPANY.email}</p>
+      <div className="flex items-start gap-4 border-b-2 border-black pb-4 mb-6 print-avoid-break">
+        <div className="flex items-center gap-3 flex-1">
+          {COMPANY.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={COMPANY.logoUrl} alt={COMPANY.name} className="h-12 w-auto object-contain print:h-10" />
+          )}
+          <div>
+            <h1 className="text-xl font-bold uppercase tracking-wider text-gray-800">{COMPANY.name}</h1>
+            <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed mt-1">{COMPANY.address}</p>
+            <p className="text-xs text-gray-600 mt-1">Telp: {COMPANY.phone} | Email: {COMPANY.email}</p>
+          </div>
         </div>
         <div className="text-right">
           <div className="text-xs text-gray-500 font-semibold uppercase">Surat Penawaran Harga</div>
@@ -90,7 +97,7 @@ export function SalesQuotationPrint({
       </div>
 
       {/* Letter Meta (Nomor, Hal, Lampiran) & Customer Destination */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 mb-6 print-avoid-break">
         <div>
           <table className="w-full text-xs border-none self-start">
             <tbody>
@@ -131,7 +138,7 @@ export function SalesQuotationPrint({
       </div>
 
       {/* Items Table */}
-      <table className="w-full text-xs border-collapse mb-6">
+      <table className="w-full text-xs border-collapse mb-6 print-table">
         <thead>
           <tr className="border-y-2 border-black bg-gray-50 font-semibold">
             <th className="py-2 text-left px-2">Nama Produk / Varian</th>
@@ -176,7 +183,7 @@ export function SalesQuotationPrint({
       </table>
 
       {/* Summary and Terms */}
-      <div className="grid grid-cols-2 gap-8 items-start mb-6">
+      <div className="grid grid-cols-2 gap-8 items-start mb-6 print-avoid-break">
         {/* Terms & Conditions Column */}
         <div className="text-xs space-y-2">
           <p className="font-semibold text-gray-700 uppercase tracking-wider">Syarat & Ketentuan Penawaran:</p>
@@ -232,7 +239,7 @@ export function SalesQuotationPrint({
       </div>
 
       {/* Closing Letter Text */}
-      <div className="mb-8 text-justify">
+      <div className="mb-8 text-justify print-avoid-break">
         <p>
           Demikian surat penawaran harga ini kami sampaikan. Besar harapan kami untuk dapat menerima kabar baik serta menjalin kerja sama kemitraan yang saling menguntungkan dengan pihak Bapak/Ibu di masa mendatang. Atas perhatian dan kerjasamanya, kami ucapkan terima kasih.
         </p>
