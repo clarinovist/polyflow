@@ -12,6 +12,55 @@ import { logActivity } from '@/lib/tools/audit';
 // Fields whose change is compliance-critical (gai/payType) — old/new captured in audit log.
 const SALARY_FIELDS = ['dailyRate', 'overtimeHourlyRate', 'standardDayHours', 'payType'] as const;
 
+// Fase 2: optional personal/HR master data block. All fields optional.
+export interface EmployeePersonalData {
+    employmentStatus?: 'PROBATION' | 'PERMANENT' | 'CONTRACT' | 'RESIGNED' | 'TERMINATED';
+    joinDate?: string;
+    probationEndDate?: string;
+    contractEndDate?: string;
+    nik?: string;
+    npwp?: string;
+    birthDate?: string;
+    birthPlace?: string;
+    gender?: 'MALE' | 'FEMALE';
+    maritalStatus?: 'SINGLE' | 'MARRIED' | 'DIVORCED' | 'WIDOWED';
+    address?: string;
+    phone?: string;
+    photoUrl?: string;
+    bankName?: string;
+    bankAccountNo?: string;
+    bankAccountName?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    emergencyContactRelation?: string;
+}
+
+// Convert personal data block to prisma create/update payload. Drops undefined keys.
+function toPersonalDb(d?: EmployeePersonalData) {
+    if (!d) return {};
+    const out: Record<string, unknown> = {};
+    if (d.employmentStatus) out.employmentStatus = d.employmentStatus;
+    if (d.joinDate) out.joinDate = new Date(d.joinDate);
+    if (d.probationEndDate) out.probationEndDate = new Date(d.probationEndDate);
+    if (d.contractEndDate) out.contractEndDate = new Date(d.contractEndDate);
+    if (d.nik !== undefined) out.nik = d.nik || null;
+    if (d.npwp !== undefined) out.npwp = d.npwp || null;
+    if (d.birthDate) out.birthDate = new Date(d.birthDate);
+    if (d.birthPlace !== undefined) out.birthPlace = d.birthPlace || null;
+    if (d.gender !== undefined) out.gender = d.gender || null;
+    if (d.maritalStatus !== undefined) out.maritalStatus = d.maritalStatus || null;
+    if (d.address !== undefined) out.address = d.address || null;
+    if (d.phone !== undefined) out.phone = d.phone || null;
+    if (d.photoUrl !== undefined) out.photoUrl = d.photoUrl || null;
+    if (d.bankName !== undefined) out.bankName = d.bankName || null;
+    if (d.bankAccountNo !== undefined) out.bankAccountNo = d.bankAccountNo || null;
+    if (d.bankAccountName !== undefined) out.bankAccountName = d.bankAccountName || null;
+    if (d.emergencyContactName !== undefined) out.emergencyContactName = d.emergencyContactName || null;
+    if (d.emergencyContactPhone !== undefined) out.emergencyContactPhone = d.emergencyContactPhone || null;
+    if (d.emergencyContactRelation !== undefined) out.emergencyContactRelation = d.emergencyContactRelation || null;
+    return out;
+}
+
 export const getEmployees = withTenant(
 async function getEmployees() {
     return safeAction(async () => {
@@ -58,6 +107,7 @@ async function createEmployee(data: {
     dailyRate?: number;
     overtimeHourlyRate?: number;
     standardDayHours?: number;
+    personal?: EmployeePersonalData;
 }) {
     return safeAction(async () => {
         try {
@@ -72,6 +122,7 @@ async function createEmployee(data: {
                     dailyRate: data.dailyRate || 0,
                     overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
                     standardDayHours: data.standardDayHours ?? 8,
+                    ...toPersonalDb(data.personal),
                 },
             });
             await logActivity({
@@ -104,6 +155,7 @@ async function updateEmployee(
         dailyRate?: number;
         overtimeHourlyRate?: number;
         standardDayHours?: number;
+        personal?: EmployeePersonalData;
     }
 ) {
     return safeAction(async () => {
@@ -117,12 +169,14 @@ async function updateEmployee(
             if (!before) {
                 throw new BusinessRuleError('Employee not found');
             }
+            const { personal: _p1, ...coreData } = data;
             const employee = await prisma.employee.update({
                 where: { id },
                 data: {
-                    ...data,
+                    ...coreData,
                     overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
                     standardDayHours: data.standardDayHours && data.standardDayHours > 0 ? data.standardDayHours : 8,
+                    ...toPersonalDb(_p1),
                 },
             });
             // Capture changes only for salary-critical fields.

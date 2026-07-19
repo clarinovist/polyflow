@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Employee, EmployeeStatus, EmployeePayType } from '@prisma/client';
 import { createEmployee, updateEmployee, generateNextEmployeeCode } from '@/actions/admin/employees';
 import { getJobRoles, createJobRole } from '@/actions/admin/roles';
@@ -12,7 +14,7 @@ import { setEmployeePin, clearEmployeePin } from '@/actions/admin/attendance';
 import { useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -22,6 +24,80 @@ import { productionComponentLabels } from '@/lib/labels';
 interface EmployeeFormProps {
     initialData?: Employee;
     hasPin?: boolean;
+}
+
+type PersonalData = {
+    employmentStatus: 'PROBATION' | 'PERMANENT' | 'CONTRACT' | 'RESIGNED' | 'TERMINATED';
+    joinDate: string;
+    probationEndDate: string;
+    contractEndDate: string;
+    nik: string;
+    npwp: string;
+    birthDate: string;
+    birthPlace: string;
+    gender: 'MALE' | 'FEMALE' | '';
+    maritalStatus: 'SINGLE' | 'MARRIED' | 'DIVORCED' | 'WIDOWED' | '';
+    address: string;
+    phone: string;
+    bankName: string;
+    bankAccountNo: string;
+    bankAccountName: string;
+    emergencyContactName: string;
+    emergencyContactPhone: string;
+    emergencyContactRelation: string;
+};
+
+const EMPTY_PERSONAL: PersonalData = {
+    employmentStatus: 'PROBATION',
+    joinDate: '', probationEndDate: '', contractEndDate: '',
+    nik: '', npwp: '', birthDate: '', birthPlace: '',
+    gender: '', maritalStatus: '',
+    address: '', phone: '',
+    bankName: '', bankAccountNo: '', bankAccountName: '',
+    emergencyContactName: '', emergencyContactPhone: '', emergencyContactRelation: '',
+};
+
+function toPersonalFromEmployee(e?: Employee): PersonalData {
+    if (!e) return { ...EMPTY_PERSONAL };
+    return {
+        employmentStatus: (e.employmentStatus as PersonalData['employmentStatus']) || 'PROBATION',
+        joinDate: e.joinDate ? new Date(e.joinDate).toISOString().slice(0, 10) : '',
+        probationEndDate: e.probationEndDate ? new Date(e.probationEndDate).toISOString().slice(0, 10) : '',
+        contractEndDate: e.contractEndDate ? new Date(e.contractEndDate).toISOString().slice(0, 10) : '',
+        nik: e.nik || '', npwp: e.npwp || '',
+        birthDate: e.birthDate ? new Date(e.birthDate).toISOString().slice(0, 10) : '',
+        birthPlace: e.birthPlace || '',
+        gender: (e.gender as PersonalData['gender']) || '',
+        maritalStatus: (e.maritalStatus as PersonalData['maritalStatus']) || '',
+        address: e.address || '', phone: e.phone || '',
+        bankName: e.bankName || '', bankAccountNo: e.bankAccountNo || '', bankAccountName: e.bankAccountName || '',
+        emergencyContactName: e.emergencyContactName || '',
+        emergencyContactPhone: e.emergencyContactPhone || '',
+        emergencyContactRelation: e.emergencyContactRelation || '',
+    };
+}
+
+function toPersonalPayload(p: PersonalData) {
+    return {
+        employmentStatus: p.employmentStatus || undefined,
+        joinDate: p.joinDate || undefined,
+        probationEndDate: p.probationEndDate || undefined,
+        contractEndDate: p.contractEndDate || undefined,
+        nik: p.nik || undefined,
+        npwp: p.npwp || undefined,
+        birthDate: p.birthDate || undefined,
+        birthPlace: p.birthPlace || undefined,
+        gender: (p.gender || undefined) as 'MALE' | 'FEMALE' | undefined,
+        maritalStatus: (p.maritalStatus || undefined) as 'SINGLE' | 'MARRIED' | 'DIVORCED' | 'WIDOWED' | undefined,
+        address: p.address || undefined,
+        phone: p.phone || undefined,
+        bankName: p.bankName || undefined,
+        bankAccountNo: p.bankAccountNo || undefined,
+        bankAccountName: p.bankAccountName || undefined,
+        emergencyContactName: p.emergencyContactName || undefined,
+        emergencyContactPhone: p.emergencyContactPhone || undefined,
+        emergencyContactRelation: p.emergencyContactRelation || undefined,
+    };
 }
 
 export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFormProps) {
@@ -47,6 +123,10 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
         overtimeHourlyRate: initialData?.overtimeHourlyRate ? Number(initialData.overtimeHourlyRate) : 0,
         standardDayHours: initialData?.standardDayHours ? Number(initialData.standardDayHours) : 8,
     });
+
+    // Fase 2: personal/HR master data
+    const [personal, setPersonal] = useState<PersonalData>(() => toPersonalFromEmployee(initialData));
+    const [showPersonal, setShowPersonal] = useState<boolean>(() => initialData?.payType === ('MONTHLY' as EmployeePayType) || false);
 
     useEffect(() => {
         const fetchRoles = async () => {
@@ -130,9 +210,9 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
         try {
             let res;
             if (initialData) {
-                res = await updateEmployee(initialData.id, formData);
+                res = await updateEmployee(initialData.id, { ...formData, personal: toPersonalPayload(personal) });
             } else {
-                res = await createEmployee(formData);
+                res = await createEmployee({ ...formData, personal: toPersonalPayload(personal) });
             }
 
             if (res.success) {
@@ -364,6 +444,134 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                         </Label>
                         <span className="text-[10px] text-muted-foreground">Allow operator to be assigned to work orders.</span>
                     </div>
+                </div>
+
+                {/* Fase 2 — Data Pribadi & HR (opsional, collapsible) */}
+                <div className="rounded-lg border border-dashed">
+                    <button
+                        type="button"
+                        onClick={() => setShowPersonal(s => !s)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-left bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            {showPersonal ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            <span className="text-sm font-semibold tracking-tight">Data Pribadi &amp; Kepegawaian</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">Opsional — isi bertahap</span>
+                    </button>
+                    {showPersonal && (
+                        <div className="p-3 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Status Kepegawaian</Label>
+                                    <Select
+                                        value={personal.employmentStatus}
+                                        onValueChange={(v) => setPersonal({ ...personal, employmentStatus: v as PersonalData['employmentStatus'] })}
+                                    >
+                                        <SelectTrigger className="h-9 bg-background/50"><SelectValue placeholder="Pilih status" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="PROBATION">Probation</SelectItem>
+                                            <SelectItem value="PERMANENT">Tetap</SelectItem>
+                                            <SelectItem value="CONTRACT">Kontrak</SelectItem>
+                                            <SelectItem value="RESIGNED">Resign</SelectItem>
+                                            <SelectItem value="TERMINATED">PHK</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Tanggal Masuk</Label>
+                                    <Input type="date" value={personal.joinDate} onChange={(e) => setPersonal({ ...personal, joinDate: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Akhir Probation</Label>
+                                    <Input type="date" value={personal.probationEndDate} onChange={(e) => setPersonal({ ...personal, probationEndDate: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Akhir Kontrak</Label>
+                                    <Input type="date" value={personal.contractEndDate} onChange={(e) => setPersonal({ ...personal, contractEndDate: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">NIK</Label>
+                                    <Input value={personal.nik} onChange={(e) => setPersonal({ ...personal, nik: e.target.value })} maxLength={16} placeholder="16 digit" className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">NPWP</Label>
+                                    <Input value={personal.npwp} onChange={(e) => setPersonal({ ...personal, npwp: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Tanggal Lahir</Label>
+                                    <Input type="date" value={personal.birthDate} onChange={(e) => setPersonal({ ...personal, birthDate: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Tempat Lahir</Label>
+                                    <Input value={personal.birthPlace} onChange={(e) => setPersonal({ ...personal, birthPlace: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Jenis Kelamin</Label>
+                                    <Select value={personal.gender} onValueChange={(v) => setPersonal({ ...personal, gender: v as PersonalData['gender'] })}>
+                                        <SelectTrigger className="h-9 bg-background/50"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="MALE">Laki-laki</SelectItem>
+                                            <SelectItem value="FEMALE">Perempuan</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Status Pernikahan</Label>
+                                    <Select value={personal.maritalStatus} onValueChange={(v) => setPersonal({ ...personal, maritalStatus: v as PersonalData['maritalStatus'] })}>
+                                        <SelectTrigger className="h-9 bg-background/50"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="SINGLE">Belum Menikah</SelectItem>
+                                            <SelectItem value="MARRIED">Menikah</SelectItem>
+                                            <SelectItem value="DIVORCED">Cerai</SelectItem>
+                                            <SelectItem value="WIDOWED">Janda/Duda</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Alamat</Label>
+                                <Textarea value={personal.address} onChange={(e) => setPersonal({ ...personal, address: e.target.value })} rows={2} className="bg-background/50" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">No. HP</Label>
+                                    <Input value={personal.phone} onChange={(e) => setPersonal({ ...personal, phone: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Bank</Label>
+                                    <Input value={personal.bankName} onChange={(e) => setPersonal({ ...personal, bankName: e.target.value })} placeholder="BCA / Mandiri / dll" className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">No. Rekening</Label>
+                                    <Input value={personal.bankAccountNo} onChange={(e) => setPersonal({ ...personal, bankAccountNo: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Nama Pemilik Rekening</Label>
+                                    <Input value={personal.bankAccountName} onChange={(e) => setPersonal({ ...personal, bankAccountName: e.target.value })} className="h-9 bg-background/50" />
+                                </div>
+                            </div>
+                            <div className="rounded-md bg-muted/20 p-2 space-y-2">
+                                <div className="text-xs font-semibold text-muted-foreground">Kontak Darurat</div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-semibold">Nama</Label>
+                                        <Input value={personal.emergencyContactName} onChange={(e) => setPersonal({ ...personal, emergencyContactName: e.target.value })} className="h-9 bg-background/50" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-semibold">No. HP</Label>
+                                        <Input value={personal.emergencyContactPhone} onChange={(e) => setPersonal({ ...personal, emergencyContactPhone: e.target.value })} className="h-9 bg-background/50" />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Hubungan</Label>
+                                    <Input value={personal.emergencyContactRelation} onChange={(e) => setPersonal({ ...personal, emergencyContactRelation: e.target.value })} placeholder="Istri / Orang Tua / dll" className="h-9 bg-background/50" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* PIN Management — edit mode only */}
