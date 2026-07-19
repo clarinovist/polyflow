@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword, setTenantStatus } from "@/actions/admin/admin-actions";
 import { globalUserSearch, type GlobalUserResult } from "@/actions/admin/global-search";
+import { backupTenant, listTenantBackups, getTenantBackupDownloadUrl, deleteTenant } from "@/actions/admin/tenant-backup";
 import type { TenantStats } from "@/actions/admin/tenant-observability";
-import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink } from "lucide-react";
+import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink, Database, Trash2, Download } from "lucide-react";
 
 function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -82,6 +83,173 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
                         </Button>
                     </DialogFooter>
                 </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
+    const [isBackingUp, setIsBackingUp] = useState(false);
+    const [showBackups, setShowBackups] = useState(false);
+    const [backups, setBackups] = useState<{ id: string; r2Key: string; sizeBytes: number; createdAt: Date; triggeredBy: string }[]>([]);
+    const [loadingBackups, setLoadingBackups] = useState(false);
+    const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+    async function onBackup() {
+        setIsBackingUp(true);
+        try {
+            const result = await backupTenant(tenant.id);
+            if (!result.success) throw new Error("failed");
+            toast.success(`Backup tenant "${tenant.name}" tersimpan di R2 (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB).`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Gagal backup.");
+        } finally {
+            setIsBackingUp(false);
+        }
+    }
+
+    async function loadBackups() {
+        setLoadingBackups(true);
+        try {
+            const list = await listTenantBackups(tenant.id);
+            setBackups(list);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Gagal memuat daftar backup.");
+        } finally {
+            setLoadingBackups(false);
+        }
+    }
+
+    async function download(backupId: string) {
+        setDownloadingId(backupId);
+        try {
+            const url = await getTenantBackupDownloadUrl(backupId);
+            window.open(url, "_blank");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Gagal membuat link download.");
+        } finally {
+            setDownloadingId(null);
+        }
+    }
+
+    function formatBytes(n: number) {
+        if (n === 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB"];
+        const i = Math.floor(Math.log(n) / Math.log(1024));
+        return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+    }
+
+    return (
+        <>
+            <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2" onClick={onBackup} disabled={isBackingUp}>
+                {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                Backup
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2" onClick={() => { setShowBackups(true); loadBackups(); }} title="Daftar backup di R2">
+                <Database className="h-4 w-4" />
+            </Button>
+
+            <Dialog open={showBackups} onOpenChange={setShowBackups}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Backups: {tenant.name}</DialogTitle>
+                        <DialogDescription>Daftar backup tersimpan di R2.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2 max-h-[60vh] overflow-auto">
+                        {loadingBackups ? (
+                            <div className="text-center py-6 text-muted-foreground">Memuat…</div>
+                        ) : backups.length === 0 ? (
+                            <div className="text-center py-6 text-muted-foreground">Belum ada backup.</div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Created</TableHead>
+                                        <TableHead>Size</TableHead>
+                                        <TableHead>Trigger</TableHead>
+                                        <TableHead></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {backups.map(b => (
+                                        <TableRow key={b.id}>
+                                            <TableCell className="text-xs">{new Date(b.createdAt).toLocaleString()}</TableCell>
+                                            <TableCell className="text-xs">{formatBytes(b.sizeBytes)}</TableCell>
+                                            <TableCell className="text-xs">{b.triggeredBy}</TableCell>
+                                            <TableCell>
+                                                <Button variant="ghost" size="sm" className="h-7" onClick={() => download(b.id)} disabled={downloadingId === b.id}>
+                                                    {downloadingId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
+function DeleteTenantDialog({ tenant, onChanged }: { tenant: Tenant; onChanged: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [confirmText, setConfirmText] = useState("");
+    const [isDeleting, setIsDeleting] = useState(false);
+    const isSuspended = tenant.status === "SUSPENDED";
+    const canSubmit = confirmText === tenant.subdomain && isSuspended;
+
+    async function onConfirm() {
+        if (!canSubmit) return;
+        setIsDeleting(true);
+        try {
+            const result = await deleteTenant(tenant.id, confirmText);
+            if (!result.success) throw new Error("failed");
+            toast.success(`Tenant "${tenant.name}" permanently deleted. Pre-delete backup saved to R2.`);
+            setIsOpen(false);
+            onChanged();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Gagal menghapus tenant.");
+        } finally {
+            setIsDeleting(false);
+        }
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) setConfirmText(""); }}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 hover:dark:bg-red-900/30" disabled={!isSuspended} title={isSuspended ? "Delete tenant permanently" : "Suspend tenant first (cooling period)"}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle className="text-red-600 dark:text-red-400">Delete Tenant: {tenant.name}</DialogTitle>
+                    <DialogDescription>
+                        This is <strong>irreversible</strong>. The tenant&apos;s database will be dropped permanently.
+                        A pre-delete backup will be saved to R2 first — if that backup fails, the deletion is aborted.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                    <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-300">
+                        <p>Type the tenant subdomain <code className="font-mono font-bold">{tenant.subdomain}</code> to confirm:</p>
+                    </div>
+                    <Input
+                        type="text"
+                        value={confirmText}
+                        onChange={(e) => setConfirmText(e.target.value)}
+                        placeholder={tenant.subdomain}
+                        className="font-mono"
+                        autoFocus
+                    />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isDeleting}>Cancel</Button>
+                    <Button type="button" variant="destructive" onClick={onConfirm} disabled={!canSubmit || isDeleting}>
+                        {isDeleting ? "Deleting (backup in progress)…" : "Delete Permanently"}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -466,6 +634,8 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
                                         <SuspendToggleDialog tenant={t} onChanged={() => window.location.reload()} />
                                         <ResetPasswordDialog tenant={t} />
                                         <EditTenantDialog tenant={t} onUpdated={() => window.location.reload()} />
+                                        <BackupActions tenant={t} onChanged={() => window.location.reload()} />
+                                        <DeleteTenantDialog tenant={t} onChanged={() => window.location.reload()} />
                                     </TableCell>
                                 </TableRow>
                             );

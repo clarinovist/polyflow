@@ -1792,6 +1792,22 @@ model Tenant {
 
   accountRoles TenantAccountRole[]
   revenueRules TenantRevenueRule[]
+  backups      TenantBackup[]
+}
+
+model TenantBackup {
+  id        String   @id @default(cuid())
+  tenantId  String
+  r2Key     String   // object key in R2 bucket, e.g. "backups/tenants/{tenantId}/{timestamp}.dump"
+  sizeBytes BigInt
+  format    String   @default("custom") // pg_dump -Fc | "plain" for -Fp
+  triggeredBy String // "manual" | "pre-delete"
+  createdBy String   // superadmin userId
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
 }
 
 model TenantAccountRole {
