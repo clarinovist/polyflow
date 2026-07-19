@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword, setTenantStatus } from "@/actions/admin/admin-actions";
+import { globalUserSearch, type GlobalUserResult } from "@/actions/admin/global-search";
 import type { TenantStats } from "@/actions/admin/tenant-observability";
-import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle } from "lucide-react";
+import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink } from "lucide-react";
 
 function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -227,6 +228,111 @@ function formatRelativeTime(iso: string | null): string {
     return new Date(iso).toLocaleDateString();
 }
 
+function GlobalUserSearchBar() {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<GlobalUserResult[] | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    async function onSearch(e: React.FormEvent) {
+        e.preventDefault();
+        if (query.trim().length < 2) return;
+        setLoading(true);
+        setResults(null);
+        try {
+            const r = await globalUserSearch(query);
+            setResults(r);
+            if (r.length === 0) toast.info("Tidak ada user yang cocok.");
+        } catch {
+            toast.error("Gagal mencari. Silakan coba lagi.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                    <Search className="h-4 w-4" /> Global User Search
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                    Cari user berdasarkan email atau nama di semua tenant (main DB + tenant DB).
+                </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <form onSubmit={onSearch} className="flex gap-2">
+                    <Input
+                        type="text"
+                        placeholder="Email atau nama user…"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="max-w-md"
+                    />
+                    <Button type="submit" disabled={loading || query.trim().length < 2}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        Cari
+                    </Button>
+                </form>
+
+                {results && results.length > 0 && (
+                    <div className="rounded-md border overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead>Source / Tenant</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="w-[80px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {results.map((u) => (
+                                    <TableRow key={`${u.source}-${u.tenantId ?? "main"}-${u.id}`}>
+                                        <TableCell className="font-medium">{u.name || "—"}</TableCell>
+                                        <TableCell className="font-mono text-xs">{u.email}</TableCell>
+                                        <TableCell>{u.role}</TableCell>
+                                        <TableCell>
+                                            {u.source === "main" ? (
+                                                <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded">Platform</span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 px-2 py-0.5 rounded">
+                                                    {u.tenantName}
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {u.isActive ? (
+                                                <span className="text-xs text-emerald-600 dark:text-emerald-400">active</span>
+                                            ) : (
+                                                <span className="text-xs text-red-600 dark:text-red-400">inactive</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {u.tenantSubdomain ? (
+                                                <a
+                                                    href={`https://${u.tenantSubdomain}.polyflow.uk/login`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                    title={`Buka ${u.tenantSubdomain}.polyflow.uk`}
+                                                >
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            ) : null}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Tenant[]; stats: Record<string, TenantStats> }) {
     const [tenants] = useState(initialTenants);
     const [isOpen, setIsOpen] = useState(false);
@@ -255,6 +361,8 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
     }
 
     return (
+        <div className="space-y-6">
+            <GlobalUserSearchBar />
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Registered Tenants</CardTitle>
@@ -373,5 +481,6 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
                 </Table>
             </CardContent>
         </Card>
+        </div>
     );
 }
