@@ -1790,6 +1790,17 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
+  // Cached observability stats (refreshed by getAllTenantStats; read by
+  // getTenantStatsCached without hitting tenant DBs). Stale by design — the
+  // page can show a "last refreshed" timestamp and a manual Refresh button.
+  cachedUserCount        Int?     // total users
+  cachedActiveUserCount  Int?     // active users
+  cachedDbSizeBytes      BigInt?  // pg_database_size at last refresh
+  cachedLastActivityAt   DateTime? // MAX(AuditLog.createdAt) at last refresh
+  cachedOnline           Boolean? // last known DB connectivity
+  cachedStatsError       String?  // populated when cachedOnline=false
+  cachedStatsAt          DateTime? // when the cache was last refreshed
+
   accountRoles TenantAccountRole[]
   revenueRules TenantRevenueRule[]
   backups      TenantBackup[]

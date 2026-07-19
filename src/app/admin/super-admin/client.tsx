@@ -13,9 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword, setTenantStatus } from "@/actions/admin/admin-actions";
 import { globalUserSearch, type GlobalUserResult } from "@/actions/admin/global-search";
-import { backupTenant, listTenantBackups, getTenantBackupDownloadUrl, deleteTenant } from "@/actions/admin/tenant-backup";
+import { getAllTenantStats } from "@/actions/admin/tenant-observability";
+import { backupTenant, listTenantBackups, getTenantBackupDownloadUrl, deleteTenant, restoreTenantBackup } from "@/actions/admin/tenant-backup";
 import type { TenantStats } from "@/actions/admin/tenant-observability";
-import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink, Database, Trash2, Download } from "lucide-react";
+import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink, Database, Trash2, Download, RefreshCw, RotateCcw } from "lucide-react";
 
 function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -95,6 +96,9 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
     const [backups, setBackups] = useState<{ id: string; r2Key: string; sizeBytes: number; createdAt: Date; triggeredBy: string }[]>([]);
     const [loadingBackups, setLoadingBackups] = useState(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [restoringId, setRestoringId] = useState<string | null>(null);
+    const [restoreConfirm, setRestoreConfirm] = useState<{ backupId: string } | null>(null);
+    const [restoreConfirmText, setRestoreConfirmText] = useState("");
 
     async function onBackup() {
         setIsBackingUp(true);
@@ -130,6 +134,22 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
             toast.error(err instanceof Error ? err.message : "Gagal membuat link download.");
         } finally {
             setDownloadingId(null);
+        }
+    }
+
+    async function onRestore() {
+        if (!restoreConfirm || restoreConfirmText !== tenant.subdomain) return;
+        setRestoringId(restoreConfirm.backupId);
+        try {
+            const result = await restoreTenantBackup(restoreConfirm.backupId, restoreConfirmText);
+            if (!result.success) throw new Error("failed");
+            toast.success(`Tenant "${tenant.name}" berhasil di-restore dari backup (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB).`);
+            setRestoreConfirm(null);
+            setRestoreConfirmText("");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Gagal melakukan restore.");
+        } finally {
+            setRestoringId(null);
         }
     }
 
@@ -177,9 +197,12 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
                                             <TableCell className="text-xs">{new Date(b.createdAt).toLocaleString()}</TableCell>
                                             <TableCell className="text-xs">{formatBytes(b.sizeBytes)}</TableCell>
                                             <TableCell className="text-xs">{b.triggeredBy}</TableCell>
-                                            <TableCell>
-                                                <Button variant="ghost" size="sm" className="h-7" onClick={() => download(b.id)} disabled={downloadingId === b.id}>
+                                            <TableCell className="flex gap-1">
+                                                <Button variant="ghost" size="sm" className="h-7" onClick={() => download(b.id)} disabled={downloadingId === b.id} title="Download">
                                                     {downloadingId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-7 text-orange-600 hover:bg-orange-50 hover:dark:bg-orange-900/30" onClick={() => { setRestoreConfirm({ backupId: b.id }); setRestoreConfirmText(""); }} disabled={restoringId === b.id} title="Restore (destructive)">
+                                                    {restoringId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -188,6 +211,37 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
                             </Table>
                         )}
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Restore confirmation */}
+            <Dialog open={!!restoreConfirm} onOpenChange={(o) => { if (!o) { setRestoreConfirm(null); setRestoreConfirmText(""); } }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-orange-600 dark:text-orange-400">Restore Tenant: {tenant.name}</DialogTitle>
+                        <DialogDescription>
+                            This <strong>overwrites</strong> the current tenant database with the backup. All data created after the backup will be lost.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div className="rounded-md bg-orange-50 dark:bg-orange-900/20 p-3 border border-orange-200 dark:border-orange-800 text-sm text-orange-800 dark:text-orange-300">
+                            <p>Type the tenant subdomain <code className="font-mono font-bold">{tenant.subdomain}</code> to confirm:</p>
+                        </div>
+                        <Input
+                            type="text"
+                            value={restoreConfirmText}
+                            onChange={(e) => setRestoreConfirmText(e.target.value)}
+                            placeholder={tenant.subdomain}
+                            className="font-mono"
+                            autoFocus
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => { setRestoreConfirm(null); setRestoreConfirmText(""); }} disabled={!!restoringId}>Cancel</Button>
+                        <Button type="button" variant="destructive" onClick={onRestore} disabled={restoreConfirmText !== tenant.subdomain || !!restoringId}>
+                            {restoringId ? "Restoring…" : "Restore Now"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
@@ -534,11 +588,31 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
             <GlobalUserSearchBar />
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Registered Tenants</CardTitle>
-                <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogTrigger asChild>
-                        <Button>+ Onboard New Tenant</Button>
-                    </DialogTrigger>
+                <div className="flex items-center gap-3">
+                    <CardTitle>Registered Tenants</CardTitle>
+                    {stats && Object.values(stats)[0]?.cachedAt && (
+                        <span className="text-xs text-muted-foreground">
+                            cached {(new Date(Object.values(stats)[0].cachedAt!).toLocaleString())}
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={async () => {
+                        toast.loading("Refreshing stats…", { id: "stats-refresh" });
+                        try {
+                            await getAllTenantStats();
+                            toast.success("Stats refreshed.", { id: "stats-refresh" });
+                            window.location.reload();
+                        } catch {
+                            toast.error("Failed to refresh stats.", { id: "stats-refresh" });
+                        }
+                    }}>
+                        <RefreshCw className="h-4 w-4" /> Refresh
+                    </Button>
+                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                        <DialogTrigger asChild>
+                            <Button>+ Onboard New Tenant</Button>
+                        </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Onboard New Tenant</DialogTitle>
@@ -581,6 +655,7 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
                         </form>
                     </DialogContent>
                 </Dialog>
+                </div>
             </CardHeader>
             <CardContent>
                 <Table>

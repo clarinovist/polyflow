@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/core/prisma";
 import { redirect } from "next/navigation";
 import { SuperAdminClient } from "./client";
-import { getAllTenantStats } from "@/actions/admin/tenant-observability";
+import { getTenantStatsCached } from "@/actions/admin/tenant-observability";
 
 export default async function SuperAdminPage() {
     const session = await auth();
@@ -17,9 +17,10 @@ export default async function SuperAdminPage() {
         orderBy: { createdAt: "desc" },
     });
 
-    // Per-tenant observability stats (queries each tenant DB in parallel;
-    // a failing tenant DB is reported as offline, not fatal).
-    const stats = await getAllTenantStats();
+    // Per-tenant stats — read from cache (denormalized columns on Tenant) so
+    // page load is fast and doesn't hit every tenant DB. A "Refresh" button in
+    // the client invokes getAllTenantStats (live) which updates the cache.
+    const stats = await getTenantStatsCached();
 
     return (
         <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">

@@ -230,3 +230,92 @@ export async function deleteTenant(
 
     return { success: true as const };
 }
+
+/**
+ * Restore a tenant DB from a backup stored in R2.
+ *
+ * Strategy: download the dump file from R2 to a temp file, then run
+ * `pg_restore --clean --if-exists` against the tenant's dbUrl. --clean drops
+ * objects before recreating them; --if-exists avoids errors when an object
+ * doesn't exist yet. This preserves the schema from the backup (which is what
+ * we want for a true restore — the alternative, DROP DATABASE + recreate +
+ * pg_restore, requires connecting to the 'postgres' maintenance DB and is more
+ * fragile during a running app). --clean also means any new columns/tables
+ * added since the backup will be dropped, which is the correct semantics for
+ * "restore to this backup moment".
+ *
+ * This is DESTRUCTIVE — it overwrites the current tenant DB. UI must confirm
+ * by typing the tenant subdomain.
+ */
+export async function restoreTenantBackup(
+    backupId: string,
+    confirmSubdomain: string
+) {
+    const session = await requireSuperAdmin();
+
+    const backup = await prisma.tenantBackup.findUnique({
+        where: { id: backupId },
+        include: { tenant: true },
+    });
+    if (!backup || !backup.tenant) {
+        throw new BusinessRuleError("Backup not found.");
+    }
+    const tenant = backup.tenant;
+
+    if (confirmSubdomain !== tenant.subdomain) {
+        throw new BusinessRuleError("Confirmation subdomain does not match.");
+    }
+
+    const tmpDir = await mkdtemp(join(tmpdir(), "pf-restore-"));
+    const tmpFile = join(tmpDir, `${backup.id}.dump`);
+
+    try {
+        // 1. Download backup from R2 to temp file
+        const s3 = makeR2Client();
+        const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+        const resp = await s3.send(new GetObjectCommand({
+            Bucket: BUCKET,
+            Key: backup.r2Key,
+        }));
+        if (!resp.Body) throw new BusinessRuleError("Backup file empty in R2.");
+        // Collect stream body into a buffer, then write to temp file.
+        const chunks: Uint8Array[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for await (const chunk of resp.Body as any) {
+            chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+        }
+        const buf = Buffer.concat(chunks);
+        await import("fs/promises").then(fs => fs.writeFile(tmpFile, buf));
+
+        // 2. Run pg_restore. --clean --if-exists drops+recreates objects (true
+        // restore semantics). --no-owner avoids role-mismatch errors (the role
+        // that owns objects in the dump may not exist in the target DB).
+        const { stderr } = await execAsync(
+            `pg_restore "${tenant.dbUrl}" --clean --if-exists --no-owner -d "${new URL(tenant.dbUrl).pathname.replace(/^\//, "")}" < "${tmpFile}"`,
+            { maxBuffer: 1024 * 1024 * 1024 }
+        );
+        // pg_restore prints "errors" to stderr for any object dropped before the
+        // --clean --if-exists takes effect, etc. — most are warnings, not
+        // fatal. Treat the command exit code (handled by execAsync which throws
+        // on non-zero) as the authoritative failure signal.
+        if (stderr) console.warn("[restoreTenantBackup] pg_restore stderr:", stderr.slice(0, 500));
+
+        // 3. Audit log
+        await logActivity({
+            userId: session.user.id,
+            action: "TENANT_RESTORED",
+            entityType: "TenantBackup",
+            entityId: backup.id,
+            details: `Restored tenant "${tenant.name}" from backup (created ${new Date(backup.createdAt).toISOString()})`,
+            changes: { tenantId: tenant.id, backupId: backup.id, r2Key: backup.r2Key, sizeBytes: Number(backup.sizeBytes) },
+        });
+
+        return { success: true as const, sizeBytes: Number(backup.sizeBytes) };
+    } catch (err) {
+        console.error("[restoreTenantBackup] failed:", err);
+        throw new BusinessRuleError(`Restore failed: ${err instanceof Error ? err.message : "unknown error"}`);
+    } finally {
+        try { await unlink(tmpFile); } catch {}
+    }
+}
+

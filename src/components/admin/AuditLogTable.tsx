@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ export interface AuditLogClientData {
     // Optional so this interface also fits the tenant-side (single-tenant)
     // audit log viewer without breaking it.
     source?: 'main' | 'tenant';
+    tenantId?: string;
     tenantName?: string | null;
     tenantSubdomain?: string | null;
 }
@@ -117,9 +119,11 @@ export default function AuditLogTable({
                                                 Platform
                                             </Badge>
                                         ) : log.tenantName ? (
-                                            <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 font-mono text-[10px]" title={log.tenantSubdomain ?? ''}>
-                                                {log.tenantName}
-                                            </Badge>
+                                            <Link href={`/admin/super-admin/${log.tenantId}`} title={`Open ${log.tenantName} detail`}>
+                                                <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 font-mono text-[10px] cursor-pointer hover:underline" title={log.tenantSubdomain ?? ''}>
+                                                    {log.tenantName}
+                                                </Badge>
+                                            </Link>
                                         ) : (
                                             <span className="text-xs text-muted-foreground">—</span>
                                         )}
