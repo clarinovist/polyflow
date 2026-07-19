@@ -518,4 +518,41 @@ describe('AttendanceService', () => {
       expect(budi.totalEarnings).toBe(237500);
     });
   });
+
+  // ─── Gelombang A1 ───
+  describe('getMonthlySummary', () => {
+    it('counts PRESENT/ABSENT/ON_LEAVE and multi-shift days per employee', async () => {
+      const records = [
+        // emp-1: 2 PRESENT days (Jul 15 + Jul 16), 1 ABSENT (Jul 17), multi-shift on Jul 15 (2 records)
+        { employeeId: 'emp-1', workDate: new Date('2026-07-15'), status: 'PRESENT', actualHours: dec(8), overtimeHours: dec(2), employee: { name: 'Budi', code: 'EMP-001' } },
+        { employeeId: 'emp-1', workDate: new Date('2026-07-15'), status: 'PRESENT', actualHours: dec(4), overtimeHours: dec(0), employee: { name: 'Budi', code: 'EMP-001' } },
+        { employeeId: 'emp-1', workDate: new Date('2026-07-16'), status: 'PRESENT', actualHours: dec(8), overtimeHours: dec(0), employee: { name: 'Budi', code: 'EMP-001' } },
+        { employeeId: 'emp-1', workDate: new Date('2026-07-17'), status: 'ABSENT', actualHours: null, overtimeHours: null, employee: { name: 'Budi', code: 'EMP-001' } },
+        // emp-2: 1 ON_LEAVE
+        { employeeId: 'emp-2', workDate: new Date('2026-07-15'), status: 'ON_LEAVE', actualHours: null, overtimeHours: null, employee: { name: 'Sari', code: 'EMP-002' } },
+      ];
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue(records as any);
+
+      const summary = await AttendanceService.getMonthlySummary(mockDb as any, 2026, 7);
+      expect(summary).toHaveLength(2);
+
+      const budi = summary.find(s => s.employeeId === 'emp-1')!;
+      expect(budi.daysPresent).toBe(2); // 2 unique PRESENT dates (Jul 15 + Jul 16)
+      expect(budi.daysAbsent).toBe(1);
+      expect(budi.daysOnLeave).toBe(0);
+      expect(budi.totalActualHours).toBe(20); // 8+4+8
+      expect(budi.totalOvertimeHours).toBe(2);
+      expect(budi.multiShiftDays).toBe(1); // Jul 15 has 2 records
+
+      const sari = summary.find(s => s.employeeId === 'emp-2')!;
+      expect(sari.daysOnLeave).toBe(1);
+      expect(sari.daysPresent).toBe(0);
+    });
+
+    it('returns empty array for month with no records', async () => {
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([]);
+      const summary = await AttendanceService.getMonthlySummary(mockDb as any, 2026, 12);
+      expect(summary).toEqual([]);
+    });
+  });
 });

@@ -348,3 +348,116 @@ describe('PayrollMonthlyService.updateDraft', () => {
         );
     });
 });
+
+describe('PayrollMonthlyService.unfinalize', () => {
+    it('FINALIZED + 1 loan payment full → PAID_OFF: unfinalize → DRAFT, payment gone, remaining restored, loan ACTIVE', async () => {
+        const mockDb: any = {
+            payslip: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'ps1',
+                    status: 'FINALIZED',
+                    payrollPeriod: { status: 'OPEN' },
+                    loanPayments: [
+                        { id: 'lp1', amount: dec(500_000), loan: { id: 'loan1', remainingBalance: dec(0), status: 'PAID_OFF' } },
+                    ],
+                }),
+                update: vi.fn().mockResolvedValue({ id: 'ps1', status: 'DRAFT', employeeId: 'e1' }),
+            },
+            employeeLoan: { update: vi.fn() },
+            employeeLoanPayment: { delete: vi.fn() },
+            $transaction: vi.fn(async (fn: (tx: any) => Promise<unknown>) => fn(mockDb)),
+        };
+
+        const result = await PayrollMonthlyService.unfinalize(mockDb, 'ps1');
+        expect(result.status).toBe('DRAFT');
+        expect(mockDb.employeeLoan.update).toHaveBeenCalledWith(
+            expect.objectContaining({ data: expect.objectContaining({ remainingBalance: 500_000, status: 'ACTIVE' }) }),
+        );
+        expect(mockDb.employeeLoanPayment.delete).toHaveBeenCalledWith({ where: { id: 'lp1' } });
+    });
+
+    it('FINALIZED partial installment: remaining naik sebesar payment', async () => {
+        const mockDb: any = {
+            payslip: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'ps2',
+                    status: 'FINALIZED',
+                    payrollPeriod: { status: 'OPEN' },
+                    loanPayments: [
+                        { id: 'lp2', amount: dec(300_000), loan: { id: 'loan2', remainingBalance: dec(700_000), status: 'ACTIVE' } },
+                    ],
+                }),
+                update: vi.fn().mockResolvedValue({ id: 'ps2', status: 'DRAFT', employeeId: 'e2' }),
+            },
+            employeeLoan: { update: vi.fn() },
+            employeeLoanPayment: { delete: vi.fn() },
+            $transaction: vi.fn(async (fn: (tx: any) => Promise<unknown>) => fn(mockDb)),
+        };
+
+        await PayrollMonthlyService.unfinalize(mockDb, 'ps2');
+        expect(mockDb.employeeLoan.update).toHaveBeenCalledWith(
+            expect.objectContaining({ data: expect.objectContaining({ remainingBalance: 1_000_000 }) }),
+        );
+    });
+
+    it('PAID: throw', async () => {
+        const mockDb: any = {
+            payslip: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'ps3', status: 'PAID', payrollPeriod: { status: 'OPEN' }, loanPayments: [],
+                }),
+            },
+        };
+        await expect(PayrollMonthlyService.unfinalize(mockDb, 'ps3')).rejects.toThrow(/PAID/i);
+    });
+
+    it('Period CLOSED: throw', async () => {
+        const mockDb: any = {
+            payslip: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'ps4', status: 'FINALIZED', payrollPeriod: { status: 'CLOSED' }, loanPayments: [],
+                }),
+            },
+        };
+        await expect(PayrollMonthlyService.unfinalize(mockDb, 'ps4')).rejects.toThrow(/CLOSED/i);
+    });
+
+    it('DRAFT: throw', async () => {
+        const mockDb: any = {
+            payslip: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'ps5', status: 'DRAFT', payrollPeriod: { status: 'OPEN' }, loanPayments: [],
+                }),
+            },
+        };
+        await expect(PayrollMonthlyService.unfinalize(mockDb, 'ps5')).rejects.toThrow(/DRAFT/i);
+    });
+
+    it('DEFAULTED loan + payment: balance reverse, status tetap DEFAULTED', async () => {
+        const mockDb: any = {
+            payslip: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'ps6',
+                    status: 'FINALIZED',
+                    payrollPeriod: { status: 'OPEN' },
+                    loanPayments: [
+                        { id: 'lp6', amount: dec(200_000), loan: { id: 'loan3', remainingBalance: dec(0), status: 'DEFAULTED' } },
+                    ],
+                }),
+                update: vi.fn().mockResolvedValue({ id: 'ps6', status: 'DRAFT', employeeId: 'e3' }),
+            },
+            employeeLoan: { update: vi.fn() },
+            employeeLoanPayment: { delete: vi.fn() },
+            $transaction: vi.fn(async (fn: (tx: any) => Promise<unknown>) => fn(mockDb)),
+        };
+
+        await PayrollMonthlyService.unfinalize(mockDb, 'ps6');
+        // Balance reversed but status stays DEFAULTED
+        expect(mockDb.employeeLoan.update).toHaveBeenCalledWith(
+            expect.objectContaining({ data: expect.objectContaining({ remainingBalance: 200_000 }) }),
+        );
+        // Status should NOT be set to ACTIVE — only remainingBalance updated
+        const updateCall = mockDb.employeeLoan.update.mock.calls[0][0];
+        expect(updateCall.data.status).toBeUndefined();
+    });
+});

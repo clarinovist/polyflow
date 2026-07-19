@@ -86,6 +86,19 @@ export interface WeeklyEmployeeSummary {
   totalEarnings: number;
 }
 
+// Gelombang A1 — per-employee aggregate for monthly recap.
+export interface MonthlyEmployeeSummary {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  daysPresent: number;
+  daysAbsent: number;
+  daysOnLeave: number;
+  totalActualHours: number;
+  totalOvertimeHours: number;
+  multiShiftDays: number;
+}
+
 export interface ListFilters {
   workShiftId?: string;
   overtimeOnly?: boolean;
@@ -665,5 +678,81 @@ export const AttendanceService = {
       totalOvertimeEarnings: round2(s.totalOvertimeEarnings),
       totalEarnings: round2(s.totalEarnings),
     }));
+  },
+
+  /**
+   * Monthly summary — aggregate per employee for a calendar month.
+   * Counts PRESENT / ABSENT / ON_LEAVE records and multi-shift days.
+   * Gelombang A1.
+   */
+  async getMonthlySummary(db: PrismaClient, year: number, month: number): Promise<MonthlyEmployeeSummary[]> {
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 0));
+
+    const records = await db.attendanceRecord.findMany({
+      where: { workDate: { gte: monthStart, lte: monthEnd } },
+      select: {
+        employeeId: true,
+        workDate: true,
+        status: true,
+        actualHours: true,
+        overtimeHours: true,
+        employee: { select: { name: true, code: true } },
+      },
+      orderBy: [{ employeeId: 'asc' }, { workDate: 'asc' }],
+    });
+
+    const byEmployee = new Map<string, MonthlyEmployeeSummary & { _dateCounts: Map<string, number>; _presentDates: Set<string>; _absentDates: Set<string>; _leaveDates: Set<string> }>();
+    for (const r of records) {
+      let entry = byEmployee.get(r.employeeId);
+      if (!entry) {
+        entry = {
+          employeeId: r.employeeId,
+          employeeCode: r.employee.code,
+          employeeName: r.employee.name,
+          daysPresent: 0,
+          daysAbsent: 0,
+          daysOnLeave: 0,
+          totalActualHours: 0,
+          totalOvertimeHours: 0,
+          multiShiftDays: 0,
+          _dateCounts: new Map(),
+          _presentDates: new Set(),
+          _absentDates: new Set(),
+          _leaveDates: new Set(),
+        };
+        byEmployee.set(r.employeeId, entry);
+      }
+
+      const dateKey = r.workDate.toISOString().slice(0, 10);
+      const prevCount = entry._dateCounts.get(dateKey) ?? 0;
+      entry._dateCounts.set(dateKey, prevCount + 1);
+
+      if (r.status === 'PRESENT') {
+        entry._presentDates.add(dateKey);
+        entry.totalActualHours += r.actualHours ? Number(r.actualHours) : 0;
+        entry.totalOvertimeHours += r.overtimeHours ? Number(r.overtimeHours) : 0;
+      } else if (r.status === 'ABSENT') {
+        entry._absentDates.add(dateKey);
+      } else if (r.status === 'ON_LEAVE') {
+        entry._leaveDates.add(dateKey);
+      }
+    }
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    return Array.from(byEmployee.values()).map(s => {
+      const multiShiftDays = Array.from(s._dateCounts.values()).filter(c => c > 1).length;
+      return {
+        employeeId: s.employeeId,
+        employeeCode: s.employeeCode,
+        employeeName: s.employeeName,
+        daysPresent: s._presentDates.size,
+        daysAbsent: s._absentDates.size,
+        daysOnLeave: s._leaveDates.size,
+        totalActualHours: round2(s.totalActualHours),
+        totalOvertimeHours: round2(s.totalOvertimeHours),
+        multiShiftDays,
+      };
+    });
   },
 };

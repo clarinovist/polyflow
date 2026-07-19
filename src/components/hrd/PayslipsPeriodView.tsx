@@ -62,6 +62,7 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
         notes: '',
     });
     const [saving, setSaving] = useState(false);
+    const [unfinalizing, setUnfinalizing] = useState(false);
 
     const load = async () => {
         setLoading(true);
@@ -111,6 +112,20 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
             load();
         } else toast.error(res.error || 'Gagal');
     };
+    const handleUnfinalize = async (id: string) => {
+        if (!confirm('Batalkan finalize? Potongan kasbon akan dikembalikan.')) return;
+        setUnfinalizing(true);
+        try {
+            const { unfinalizePayslip } = await import('@/actions/hrd/payroll-monthly');
+            const res = await unfinalizePayslip(id);
+            if (res.success) {
+                toast.success('Payslip dikembalikan ke DRAFT');
+                load();
+            } else toast.error(res.error || 'Gagal');
+        } finally {
+            setUnfinalizing(false);
+        }
+    };
     const handleClose = async () => {
         if (!confirm('Tutup periode? Hanya bisa jika semua payslip PAID.')) return;
         const res = await closePayrollPeriod(periodId);
@@ -151,9 +166,27 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                 <Link href="/hrd/payroll-monthly" className="text-xs text-muted-foreground hover:underline">
                     ← Daftar periode
                 </Link>
-                <Button size="sm" variant="outline" onClick={handleClose} disabled={!allPaid}>
-                    Tutup Periode
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.location.href = `/api/hrd/payroll-monthly/export?periodId=${periodId}`}
+                        disabled={payslips.length === 0}
+                    >
+                        Export CSV
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(`/hrd/payroll-monthly/${periodId}/print`, '_blank')}
+                        disabled={payslips.length === 0}
+                    >
+                        Print
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleClose} disabled={!allPaid}>
+                        Tutup Periode
+                    </Button>
+                </div>
             </div>
 
             <div className="rounded-lg border overflow-x-auto">
@@ -224,14 +257,25 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                         </Button>
                                     )}
                                     {p.status === 'FINALIZED' && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-7 text-xs"
-                                            onClick={() => handlePaid(p.id)}
-                                        >
-                                            Tandai Paid
-                                        </Button>
+                                        <div className="flex gap-1">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs"
+                                                onClick={() => handlePaid(p.id)}
+                                            >
+                                                Paid
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs text-amber-600"
+                                                onClick={() => handleUnfinalize(p.id)}
+                                                disabled={unfinalizing}
+                                            >
+                                                Unfinalize
+                                            </Button>
+                                        </div>
                                     )}
                                 </td>
                             </tr>
@@ -255,9 +299,19 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                 <div className="rounded-lg border p-4 bg-card max-w-lg space-y-3">
                     <div className="flex items-center justify-between">
                         <h3 className="text-sm font-bold">Detail Payslip</h3>
-                        <Button size="sm" variant="ghost" className="h-7" onClick={() => setSelected(null)}>
-                            ×
-                        </Button>
+                        <div className="flex gap-1">
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => window.open(`/hrd/payroll-monthly/${periodId}/print?payslipId=${selected.id}`, '_blank')}
+                            >
+                                Print
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7" onClick={() => setSelected(null)}>
+                                ×
+                            </Button>
+                        </div>
                     </div>
                     <div className="text-xs space-y-1">
                         <div className="flex justify-between">

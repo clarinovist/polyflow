@@ -221,6 +221,20 @@ export const getAttendanceWeeklySummary = withTenant(
   }
 );
 
+// ─── Gelombang A1: monthly recap ───
+
+export const getAttendanceMonthlySummary = withTenant(
+  async function getAttendanceMonthlySummary(year: number, month: number) {
+    try {
+      const summary = await AttendanceService.getMonthlySummary(db, year, month);
+      return { success: true, data: summary };
+    } catch (error) {
+      logger.error('Get monthly summary failed', { error, year, month, module: 'AttendanceActions' });
+      return { success: false, error: 'Gagal memuat rekap bulanan' };
+    }
+  }
+);
+
 // ─── Kiosk actions (public) ───
 // Auth failures stay generic (anti-enumeration). Operational messages are safe to surface.
 // Rate limited per (IP + employeeCode): 5 attempts per 5 minutes.

@@ -180,6 +180,25 @@ export const markPayslipPaid = withTenant(
     },
 );
 
+// ─── Gelombang A2: Un-finalize ───
+
+export const unfinalizePayslip = withTenant(
+    async function unfinalizePayslip(payslipId: string) {
+        return safeAction(async () => {
+            const session = await requireHrdApprover();
+            const slip = await PayrollMonthlyService.unfinalize(prisma, payslipId);
+            await logActivity({
+                userId: session.user.id,
+                action: 'PAYSLIP_UNFINALIZED',
+                entityType: 'Payslip',
+                entityId: payslipId,
+                details: `Un-finalized payslip for employee=${slip.employeeId}, reverted to DRAFT`,
+            });
+            return slip;
+        });
+    },
+);
+
 export const closePayrollPeriod = withTenant(
     async function closePayrollPeriod(periodId: string) {
         return safeAction(async () => {

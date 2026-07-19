@@ -594,6 +594,67 @@ export const PayrollMonthlyService = {
         return db.payslip.update({ where: { id: payslipId }, data: { status: 'PAID' } });
     },
 
+    /**
+     * Gelombang A2: Un-finalize a FINALIZED payslip back to DRAFT.
+     * Reverses all EmployeeLoanPayment rows linked to this payslip.
+     * - PAID payslips: rejected
+     * - Period CLOSED: rejected
+     * - DEFAULTED loan: balance reversed, status stays DEFAULTED
+     */
+    async unfinalize(db: PrismaClient, payslipId: string) {
+        const payslip = await db.payslip.findUnique({
+            where: { id: payslipId },
+            include: {
+                payrollPeriod: true,
+                loanPayments: { include: { loan: true } },
+            },
+        });
+        if (!payslip) throw new NotFoundError('Payslip tidak ditemukan');
+        if (payslip.status === 'DRAFT') throw new BusinessRuleError('Payslip sudah DRAFT');
+        if (payslip.status === 'PAID') throw new BusinessRuleError('Payslip PAID tidak bisa di-unfinalize');
+        if (payslip.payrollPeriod.status === 'CLOSED') throw new BusinessRuleError('Periode sudah CLOSED');
+        if (payslip.status !== 'FINALIZED') throw new BusinessRuleError('Status tidak valid untuk unfinalize');
+
+        return db.$transaction(async (tx) => {
+            // Reverse each loan payment
+            for (const payment of payslip.loanPayments) {
+                const loan = payment.loan;
+                const paymentAmount = Number(payment.amount);
+                const newRemaining = round2(Number(loan.remainingBalance) + paymentAmount);
+
+                // Update loan: restore balance
+                const updateData: { remainingBalance: number; status?: 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED' } = {
+                    remainingBalance: newRemaining,
+                };
+
+                // If loan was PAID_OFF due to this payment, reactivate it
+                // But if loan is DEFAULTED, keep it DEFAULTED (per plan §3.2)
+                if (loan.status === 'PAID_OFF' && newRemaining > 0) {
+                    updateData.status = 'ACTIVE';
+                }
+
+                await tx.employeeLoan.update({
+                    where: { id: loan.id },
+                    data: updateData,
+                });
+
+                // Delete the payment row
+                await tx.employeeLoanPayment.delete({
+                    where: { id: payment.id },
+                });
+            }
+
+            // Set payslip back to DRAFT
+            return tx.payslip.update({
+                where: { id: payslipId },
+                data: { status: 'DRAFT' },
+                include: {
+                    employee: { select: { id: true, name: true, code: true } },
+                },
+            });
+        });
+    },
+
     async closePeriod(db: PrismaClient, periodId: string, closedById: string) {
         const period = await db.payrollPeriod.findUnique({
             where: { id: periodId },

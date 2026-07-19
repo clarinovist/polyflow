@@ -19,9 +19,10 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { setAbsent, correctAttendance } from '@/actions/admin/attendance';
+import { setAbsent, correctAttendance, getAttendanceMonthlySummary } from '@/actions/admin/attendance';
+import Link from 'next/link';
 
 interface AttendanceRecord {
   id: string;
@@ -58,6 +59,20 @@ interface WorkShift {
   status?: string;
 }
 
+type ViewMode = 'daily' | 'weekly' | 'monthly';
+
+interface MonthlySummary {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  daysPresent: number;
+  daysAbsent: number;
+  daysOnLeave: number;
+  totalActualHours: number;
+  totalOvertimeHours: number;
+  multiShiftDays: number;
+}
+
 interface Props {
   records: AttendanceRecord[];
   summary: DailySummary | null;
@@ -78,6 +93,8 @@ function formatHours(h: number | null): string {
   return `${h.toFixed(1)}j`;
 }
 
+const MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
 export function AttendanceRecap({ records, summary, shifts, currentDate, currentShift, overtimeOnly }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -86,12 +103,57 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
   const [actionLoading, setActionLoading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
 
+  const modeParam = searchParams.get('mode');
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    modeParam === 'monthly' ? 'monthly' : modeParam === 'weekly' ? 'weekly' : 'daily'
+  );
+
+  const currentYear = Number(searchParams.get('year') || currentDate.slice(0, 4));
+  const currentMonth = Number(searchParams.get('month') || currentDate.slice(5, 7));
+
+  const [monthlyData, setMonthlyData] = useState<MonthlySummary[]>([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+
   const updateParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams.toString());
     if (value) sp.set(key, value);
     else sp.delete(key);
     router.push(`/hrd/attendance?${sp.toString()}`);
   };
+
+  const switchMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set('mode', mode);
+    if (mode === 'daily') {
+      sp.delete('year');
+      sp.delete('month');
+    } else if (mode === 'monthly') {
+      sp.set('year', String(currentYear));
+      sp.set('month', String(currentMonth));
+    }
+    router.push(`/hrd/attendance?${sp.toString()}`);
+  };
+
+  const loadMonthly = async (year: number, month: number) => {
+    setMonthlyLoading(true);
+    try {
+      const res = await getAttendanceMonthlySummary(year, month);
+      if (res.success) {
+        setMonthlyData(res.data ?? []);
+      } else {
+        toast.error(res.error || 'Gagal memuat rekap bulanan');
+      }
+    } finally {
+      setMonthlyLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === 'monthly') {
+      loadMonthly(currentYear, currentMonth);
+    }
+  }, [viewMode, currentYear, currentMonth]);
 
   const handleSetAbsent = async (r: AttendanceRecord) => {
     setActionLoading(true);
@@ -146,42 +208,168 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center bg-card p-4 rounded-xl border">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Tanggal</label>
-          <Input
-            type="date"
-            value={currentDate}
-            onChange={(e) => updateParam('date', e.target.value)}
-            className="w-[180px]"
-          />
+        <div className="flex items-center bg-muted rounded-lg p-0.5">
+          {(['daily', 'weekly', 'monthly'] as ViewMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                viewMode === m ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => switchMode(m)}
+            >
+              {m === 'daily' ? 'Harian' : m === 'weekly' ? 'Mingguan' : 'Bulanan'}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Shift</label>
-          <Select value={currentShift || '__all__'} onValueChange={(v) => updateParam('shift', v === '__all__' ? null : v)}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Semua shift" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Semua shift</SelectItem>
-              {shifts.filter(s => s.status === 'ACTIVE').map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button
-          variant={overtimeOnly ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => updateParam('ot', overtimeOnly ? null : '1')}
-          className="gap-1"
-        >
-          <ArrowUpDown className="h-3.5 w-3.5" />
-          {overtimeOnly ? 'Lembur ON' : 'Filter Lembur'}
-        </Button>
+
+        {viewMode === 'daily' && (
+          <>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Tanggal</label>
+              <Input
+                type="date"
+                value={currentDate}
+                onChange={(e) => updateParam('date', e.target.value)}
+                className="w-[180px]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Shift</label>
+              <Select value={currentShift || '__all__'} onValueChange={(v) => updateParam('shift', v === '__all__' ? null : v)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Semua shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Semua shift</SelectItem>
+                  {shifts.filter(s => s.status === 'ACTIVE').map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant={overtimeOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => updateParam('ot', overtimeOnly ? null : '1')}
+              className="gap-1"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {overtimeOnly ? 'Lembur ON' : 'Filter Lembur'}
+            </Button>
+          </>
+        )}
+
+        {viewMode === 'monthly' && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Periode</label>
+            <Select
+              value={String(currentMonth)}
+              onValueChange={(v) => {
+                const sp = new URLSearchParams(searchParams.toString());
+                sp.set('month', v);
+                sp.set('year', String(currentYear));
+                router.push(`/hrd/attendance?${sp.toString()}`);
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTH_NAMES.map((name, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(currentYear)}
+              onValueChange={(v) => {
+                const sp = new URLSearchParams(searchParams.toString());
+                sp.set('year', v);
+                sp.set('month', String(currentMonth));
+                router.push(`/hrd/attendance?${sp.toString()}`);
+              }}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[2025, 2026, 2027].map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Link
+              href={`/hrd/payroll-monthly`}
+              className="text-xs text-muted-foreground hover:underline ml-2"
+            >
+              → Gaji Bulanan
+            </Link>
+          </div>
+        )}
       </div>
 
-      {/* Summary cards */}
-      {summary && (
+      {/* Monthly summary view */}
+      {viewMode === 'monthly' && (
+        <div className="space-y-4">
+          {monthlyLoading ? (
+            <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Memuat…</div>
+          ) : monthlyData.length === 0 ? (
+            <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
+              Tidak ada data absensi untuk {MONTH_NAMES[currentMonth - 1]} {currentYear}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <SummaryCard icon={<Users className="h-4 w-4" />} label="Karyawan" value={`${monthlyData.length} orang`} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Total Hadir" value={`${monthlyData.reduce((s, r) => s + r.daysPresent, 0)} hari`} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Total Absent" value={`${monthlyData.reduce((s, r) => s + r.daysAbsent, 0)} hari`} accent={monthlyData.some(r => r.daysAbsent > 0)} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Total Jam" value={`${monthlyData.reduce((s, r) => s + r.totalActualHours, 0).toFixed(1)}j`} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Total OT" value={`${monthlyData.reduce((s, r) => s + r.totalOvertimeHours, 0).toFixed(1)}j`} accent={monthlyData.some(r => r.totalOvertimeHours > 0)} />
+              </div>
+              <div className="bg-card rounded-xl border overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="font-semibold text-muted-foreground">Kode</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground">Nama</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-center">Hadir</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-center">Absent</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-center">Cuti</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-center">Multi-Shift</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-right">Jam Aktual</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-right">Jam OT</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyData.map((r) => (
+                      <TableRow key={r.employeeId} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">{r.employeeCode}</TableCell>
+                        <TableCell>{r.employeeName}</TableCell>
+                        <TableCell className="text-center">{r.daysPresent}</TableCell>
+                        <TableCell className="text-center">
+                          {r.daysAbsent > 0 ? (
+                            <Badge variant="destructive" className="text-xs">{r.daysAbsent}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">{r.daysOnLeave}</TableCell>
+                        <TableCell className="text-center">{r.multiShiftDays}</TableCell>
+                        <TableCell className="text-right">{r.totalActualHours.toFixed(1)}j</TableCell>
+                        <TableCell className="text-right">{r.totalOvertimeHours.toFixed(1)}j</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Summary cards (daily/weekly) */}
+      {viewMode !== 'monthly' && summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <SummaryCard icon={<Users className="h-4 w-4" />} label="Hadir" value={`${summary.totalEmployees} orang`} />
           <SummaryCard icon={<ArrowUpDown className="h-4 w-4" />} label="Record" value={`${summary.totalRecords} shift`} />
@@ -191,7 +379,8 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
         </div>
       )}
 
-      {/* Table */}
+      {/* Table (daily/weekly) */}
+      {viewMode !== 'monthly' && (
       <div className="bg-card rounded-xl border overflow-x-auto">
         <Table>
           <TableHeader className="bg-muted/50">
@@ -313,6 +502,7 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
           </TableBody>
         </Table>
       </div>
+      )}
 
       {/* Selfie lightbox */}
       <Dialog open={!!photoPreview} onOpenChange={(open) => !open && setPhotoPreview(null)}>

@@ -562,6 +562,55 @@ A robust foundation for industrial financial management:
 
 ---
 
+## 👥 HRD (Human Resources)
+
+### Attendance System (`/hrd/attendance`)
+
+- **Kiosk clock-in/out** with selfie photo evidence (KIOSK source)
+- **Admin manual clock-in/out** (MANUAL source) — no PIN required
+- **Multi-shift support** with overtime detection (2nd+ shift same day)
+- **Daily view**: per-record table with photo preview, shift filter, overtime filter
+- **Weekly summary**: per-employee aggregate (days present, hours, earnings)
+- **Monthly summary**: per-employee PRESENT/ABSENT/ON_LEAVE counts, multi-shift days
+
+### Payroll — Weekly (`/hrd/payroll`)
+
+- Auto-calculate daily + overtime + piece-rate earnings
+- Export CSV weekly payroll
+
+### Payroll — Monthly (`/hrd/payroll-monthly`)
+
+- **Generate draft payslips** for all active MONTHLY employees
+- **Proration**: explicit ABSENT records deducted from gross
+- **BPJS deduction** for participants
+- **Employee allowances** (configurable per employee)
+- **THR amount** (manual input per payslip)
+- **Finalize**: creates loan payment deductions from ACTIVE kasbon
+- **Mark paid**: FINALIZED → PAID
+- **Close period**: all PAID → CLOSED
+- **Un-finalize**: FINALIZED → DRAFT (reverses loan payments, restores remaining balance)
+- **Export CSV**: download per-period payroll breakdown
+- **Print payslip**: print-friendly page for 1 or all payslips (browser print)
+
+### Kasbon (Employee Loans)
+
+- Create loan with INSTALLMENT or FULL_NEXT_MONTH repayment
+- Active loan check (only 1 ACTIVE per employee)
+- Auto-deduction during finalize
+- Loan status: ACTIVE → PAID_OFF → (optionally) DEFAULTED
+- Un-finalize reverses payments and restores balance
+
+### Leave & Disciplinary
+
+- Leave request approval workflow
+- Disciplinary action tracking (SP)
+
+### Plans
+
+- [HRD Gelombang A — Hardening](./plans/2026-07-19-hrd-gelombang-a-hardening.md) — monthly recap, un-finalize, CSV export, print, docs
+
+---
+
 ## 🌍 Localization (i18n)
 
 PolyFlow supports multi-language interfaces through `next-intl`:
@@ -603,6 +652,11 @@ PolyFlow supports multi-language interfaces through `next-intl`:
 25. ✅ **Fixed Assets** - Tracking and depreciation management
 26. ✅ **Localization** - Support for Bahasa Indonesia
 27. ✅ **Executive KPIs** - Yield rate, scrap kg, and machine monitoring
+28. ✅ **HRD Attendance** - Kiosk + admin clock-in/out, daily/weekly/monthly recap
+29. ✅ **HRD Monthly Payroll** - Generate, edit, finalize, un-finalize, mark paid, close period
+30. ✅ **HRD Kasbon** - Loan management with auto-deduction on finalize
+31. ✅ **HRD CSV Export** - Weekly and monthly payroll export
+32. ✅ **HRD Payslip Print** - Print-friendly payslip view via browser
 
 ### 🚧 Planned Features
 
