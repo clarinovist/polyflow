@@ -27,13 +27,16 @@ export async function GET() {
         // Redis is not actively pinged here assuming it is handled via Next.js cache 
         // OR we can leave it pending actual implementation.
         
-        // Environment Completeness Check
+        // Environment Completeness Check.
+        // NOTE: We intentionally do NOT check NEXTAUTH_URL — this app is
+        // multi-tenant and pins host trust via AUTH_TRUST_HOST instead
+        // (setting NEXTAUTH_URL to one domain breaks auth on other subdomains).
+        // Sentry keys were removed: Sentry is not integrated in this project.
         const envKeys = [
             'DATABASE_URL',
+            'AUTH_SECRET',
             'NEXTAUTH_SECRET',
-            'NEXTAUTH_URL',
-            'SENTRY_DSN',
-            'SENTRY_AUTH_TOKEN'
+            'AUTH_TRUST_HOST',
         ];
         
         const envCompleteness = envKeys.map(key => ({
