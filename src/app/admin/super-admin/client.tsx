@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Tenant } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -599,7 +600,9 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
                             const s = stats[t.id];
                             return (
                                 <TableRow key={t.id}>
-                                    <TableCell className="font-medium">{t.name}</TableCell>
+                                    <TableCell className="font-medium">
+                                        <Link href={`/admin/super-admin/${t.id}`} className="hover:underline">{t.name}</Link>
+                                    </TableCell>
                                     <TableCell><code>{t.subdomain}</code></TableCell>
                                     <TableCell>{t.status}</TableCell>
                                     {!s || !s.online ? (
