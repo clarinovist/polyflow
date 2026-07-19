@@ -34,7 +34,16 @@ export async function authenticate(
 
     } catch (error) {
         if (error instanceof AuthError) {
-            // Hide exact reason to prevent user enumeration
+            // Auth.js wraps errors thrown from authorize() as CredentialsSignin;
+            // the original Error message is available on `.cause?.err?.message`.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const causeMessage = (error as any)?.cause?.err?.message as string | undefined;
+
+            if (causeMessage === 'TenantSuspended') {
+                return 'Akun tenant ini telah dinonaktifkan (suspended). Silakan hubungi administrator.';
+            }
+
+            // Hide exact reason for all other cases to prevent user enumeration
             return 'Invalid email or password.';
         }
 

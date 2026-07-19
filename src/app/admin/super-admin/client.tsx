@@ -10,9 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword } from "@/actions/admin/admin-actions";
+import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword, setTenantStatus } from "@/actions/admin/admin-actions";
 import type { TenantStats } from "@/actions/admin/tenant-observability";
-import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle } from "lucide-react";
+import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle } from "lucide-react";
 
 function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -81,6 +81,68 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
                         </Button>
                     </DialogFooter>
                 </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function SuspendToggleDialog({ tenant, onChanged }: { tenant: Tenant; onChanged: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSuspended = tenant.status === "SUSPENDED";
+    const nextStatus = isSuspended ? "ACTIVE" : "SUSPENDED";
+
+    async function onConfirm() {
+        setIsSubmitting(true);
+        const result = await setTenantStatus(tenant.id, nextStatus);
+
+        if (!result.success) {
+            toast.error(result.error || "Gagal memproses. Silakan coba lagi.");
+        } else {
+            toast.success(
+                isSuspended
+                    ? `${tenant.name} diaktifkan kembali. Login sudah diizinkan.`
+                    : `${tenant.name} disuspend. Semua login pada subdomain ini akan diblokir.`
+            );
+            setIsOpen(false);
+            onChanged();
+        }
+        setIsSubmitting(false);
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                {isSuspended ? (
+                    <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 hover:dark:bg-emerald-900/30">
+                        <PlayCircle className="h-4 w-4" /> Activate
+                    </Button>
+                ) : (
+                    <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 hover:dark:bg-red-900/30">
+                        <Ban className="h-4 w-4" /> Suspend
+                    </Button>
+                )}
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{isSuspended ? "Reactivate" : "Suspend"} Tenant: {tenant.name}</DialogTitle>
+                    <DialogDescription>
+                        {isSuspended
+                            ? "This restores login access for all users on this tenant's subdomain."
+                            : "This immediately blocks ALL logins on this tenant's subdomain. Existing sessions will remain valid until they expire or the user is signed out — this only prevents new logins."}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                    <Button
+                        type="button"
+                        variant={isSuspended ? "default" : "destructive"}
+                        onClick={onConfirm}
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? "Processing..." : isSuspended ? "Confirm Reactivate" : "Confirm Suspend"}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -293,6 +355,7 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
                                         </>
                                     )}
                                     <TableCell className="text-right flex items-center justify-end gap-2 pr-4">
+                                        <SuspendToggleDialog tenant={t} onChanged={() => window.location.reload()} />
                                         <ResetPasswordDialog tenant={t} />
                                         <EditTenantDialog tenant={t} onUpdated={() => window.location.reload()} />
                                     </TableCell>

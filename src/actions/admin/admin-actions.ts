@@ -226,6 +226,47 @@ export async function updateTenant(tenantId: string, formData: FormData) {
     });
 }
 
+/**
+ * Suspend or reactivate a tenant. Suspending blocks ALL logins on that tenant's
+ * subdomain (enforced in auth.ts authorize()). Reactivating restores access.
+ */
+export async function setTenantStatus(
+    tenantId: string,
+    status: 'ACTIVE' | 'SUSPENDED' | 'TRIAL'
+) {
+    return safeAction(async () => {
+        const session = await auth();
+        if (session?.user?.role !== Role.ADMIN) {
+            throw new AuthorizationError("Unauthorized: Super Admin access required.");
+        }
+
+        if (!['ACTIVE', 'SUSPENDED', 'TRIAL'].includes(status)) {
+            throw new BusinessRuleError("Invalid tenant status.");
+        }
+
+        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenant) {
+            throw new BusinessRuleError("Tenant not found.");
+        }
+
+        await prisma.tenant.update({
+            where: { id: tenantId },
+            data: { status: status as import("@prisma/client").TenantStatus },
+        });
+
+        await logActivity({
+            userId: session.user.id,
+            action: status === 'SUSPENDED' ? 'TENANT_SUSPENDED' : 'TENANT_STATUS_CHANGED',
+            entityType: 'Tenant',
+            entityId: tenantId,
+            details: `Tenant "${tenant.name}" status: ${tenant.status} -> ${status}`,
+            changes: { before: tenant.status, after: status },
+        });
+
+        return null;
+    });
+}
+
 export async function resetTenantAdminPassword(tenantId: string, formData: FormData) {
     return safeAction(async () => {
         const session = await auth();

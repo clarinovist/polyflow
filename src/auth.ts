@@ -62,6 +62,14 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                                 where: { subdomain }
                             });
 
+                            // Block login entirely for suspended tenants. Thrown
+                            // as a distinct error so the login form can show a
+                            // clear "tenant suspended" message. Must be checked
+                            // BEFORE resolving the user so no session is issued.
+                            if (tenant?.status === 'SUSPENDED') {
+                                throw new Error('TenantSuspended');
+                            }
+
                             if (tenant?.dbUrl) {
                                 tenantDbRef = getTenantDb(tenant.dbUrl);
                                 const { tenantIdContext } = await import('@/lib/core/prisma');
@@ -72,6 +80,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                                 throw new Error('TenantNotFound');
                             }
                         } catch (error) {
+                            // Preserve the suspended signal — don't collapse it
+                            // into the generic TenantResolutionFailed.
+                            if (error instanceof Error && error.message === 'TenantSuspended') {
+                                throw error;
+                            }
                             console.error('[NEXTAUTH] Tenant resolution error:', error);
                             throw new Error('TenantResolutionFailed');
                         }
