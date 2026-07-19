@@ -6,6 +6,11 @@ import { EmployeeStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { requireAuth } from '@/lib/tools/auth-checks';
+import { logActivity } from '@/lib/tools/audit';
+
+// Fields whose change is compliance-critical (gai/payType) — old/new captured in audit log.
+const SALARY_FIELDS = ['dailyRate', 'overtimeHourlyRate', 'standardDayHours', 'payType'] as const;
 
 export const getEmployees = withTenant(
 async function getEmployees() {
@@ -56,6 +61,7 @@ async function createEmployee(data: {
 }) {
     return safeAction(async () => {
         try {
+            const session = await requireAuth();
             const employee = await prisma.employee.create({
                 data: {
                     name: data.name,
@@ -67,6 +73,13 @@ async function createEmployee(data: {
                     overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
                     standardDayHours: data.standardDayHours ?? 8,
                 },
+            });
+            await logActivity({
+                userId: session.user.id,
+                action: 'EMPLOYEE_CREATED',
+                entityType: 'Employee',
+                entityId: employee.id,
+                details: `Created employee ${employee.code} — ${employee.name} (role=${employee.role}, payType=${employee.payType}, dailyRate=${employee.dailyRate})`,
             });
             revalidatePath('/dashboard/employees');
             revalidatePath('/production/resources');
@@ -95,6 +108,15 @@ async function updateEmployee(
 ) {
     return safeAction(async () => {
         try {
+            const session = await requireAuth();
+            // Snapshot old values for salary-critical fields (compliance audit).
+            const before = await prisma.employee.findUnique({
+                where: { id },
+                select: { id: true, code: true, name: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true, payType: true, status: true, role: true },
+            });
+            if (!before) {
+                throw new BusinessRuleError('Employee not found');
+            }
             const employee = await prisma.employee.update({
                 where: { id },
                 data: {
@@ -102,6 +124,23 @@ async function updateEmployee(
                     overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
                     standardDayHours: data.standardDayHours && data.standardDayHours > 0 ? data.standardDayHours : 8,
                 },
+            });
+            // Capture changes only for salary-critical fields.
+            const changes: Record<string, { from: unknown; to: unknown }> = {};
+            for (const f of SALARY_FIELDS) {
+                const oldV = (before as Record<string, unknown>)[f];
+                const newV = (employee as Record<string, unknown>)[f];
+                if (oldV?.toString() !== newV?.toString()) {
+                    changes[f] = { from: oldV, to: newV };
+                }
+            }
+            await logActivity({
+                userId: session.user.id,
+                action: 'EMPLOYEE_UPDATED',
+                entityType: 'Employee',
+                entityId: employee.id,
+                details: `Updated employee ${employee.code} — ${employee.name}`,
+                changes: Object.keys(changes).length > 0 ? changes : undefined,
             });
             revalidatePath('/dashboard/employees');
             revalidatePath('/production/resources');
@@ -118,8 +157,20 @@ export const deleteEmployee = withTenant(
 async function deleteEmployee(id: string) {
     return safeAction(async () => {
         try {
+            const session = await requireAuth();
+            const before = await prisma.employee.findUnique({
+                where: { id },
+                select: { id: true, code: true, name: true, role: true, payType: true },
+            });
             await prisma.employee.delete({
                 where: { id },
+            });
+            await logActivity({
+                userId: session.user.id,
+                action: 'EMPLOYEE_DELETED',
+                entityType: 'Employee',
+                entityId: id,
+                details: before ? `Deleted employee ${before.code} — ${before.name} (role=${before.role}, payType=${before.payType})` : `Deleted employee ${id}`,
             });
             revalidatePath('/dashboard/employees');
             revalidatePath('/production/resources');
