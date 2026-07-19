@@ -4,6 +4,8 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getAllTenantStats, type TenantStats } from "@/actions/admin/tenant-observability";
 import { listTenantBackups } from "@/actions/admin/tenant-backup";
+import { listTenantUsers } from "@/actions/admin/tenant-users";
+import TenantUsersClient from "./TenantUsersClient";
 import { getCrossTenantAuditLogs } from "@/actions/admin/cross-tenant-audit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,10 +41,11 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ t
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) notFound();
 
-    const [statsMap, backups, auditResult] = await Promise.all([
+    const [statsMap, backups, auditResult, users] = await Promise.all([
         getAllTenantStats(),
         listTenantBackups(tenant.id),
         getCrossTenantAuditLogs({ page: 1, limit: 25, tenantId: tenant.id }),
+        listTenantUsers(tenant.id),
     ]);
     const stats: TenantStats | undefined = statsMap[tenant.id];
     const auditLogs = auditResult.logs;
@@ -161,6 +164,9 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ t
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Users management */}
+            <TenantUsersClient tenantId={tenant.id} initialUsers={users} />
 
             {/* Backups */}
             <Card>
