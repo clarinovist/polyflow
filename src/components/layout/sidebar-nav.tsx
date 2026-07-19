@@ -24,6 +24,8 @@ import {
   Clock,
   Wallet,
   Scale,
+  CalendarDays,
+  Gavel,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -113,6 +115,8 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
       { title: "Absensi", href: "/hrd/attendance", icon: Clock },
       { title: "Gaji Mingguan", href: "/hrd/payroll", icon: Wallet },
       { title: "Tarif Borongan", href: "/hrd/piece-rates", icon: Scale },
+      { title: "Cuti & Izin", href: "/hrd/leave", icon: CalendarDays },
+      { title: "Sanksi Disiplin", href: "/hrd/disciplinary", icon: Gavel },
     ],
   },
 ];

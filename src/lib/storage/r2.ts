@@ -119,6 +119,21 @@ export function buildCustomerPhotoKey(
 }
 
 /**
+ * Build R2 key for HRD documents (disciplinary SP scans, leave sick letters).
+ * Format: {tenant}/hrd-docs/{category}/{entityId}/{timestamp}.{ext}
+ */
+export function buildHrdDocKey(
+  tenant: string,
+  category: 'disciplinary' | 'leave',
+  entityId: string,
+  filename: string,
+): string {
+  const ext = filename.split('.').pop() || 'pdf';
+  const timestamp = Date.now();
+  return `${tenant}/hrd-docs/${category}/${entityId}/${timestamp}.${ext}`;
+}
+
+/**
  * Build R2 key for database backups.
  * Format: {tenant}/backups/{database}/{date}.sql.gz
  */
