@@ -15,6 +15,7 @@ import {
   FileText,
   DollarSign,
   Briefcase,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -207,6 +208,14 @@ export default async function FinanceDashboardPage({
                 className="w-full justify-between dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 Payment History <ArrowDownRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+            <Link href="/finance/payment-banks">
+              <Button
+                variant="ghost"
+                className="w-full justify-between dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Rekening Bank Pembayaran <Landmark className="h-4 w-4 ml-2" />
               </Button>
             </Link>
           </CardContent>

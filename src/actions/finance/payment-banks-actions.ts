@@ -41,7 +41,7 @@ export const updatePaymentBanks = withTenant(async function updatePaymentBanks(
     const session = await requireRole(WRITE_ROLES);
     try {
       const saved = await savePaymentBanksSetting(banks, session.user.id);
-      revalidatePath('/dashboard/settings');
+      revalidatePath('/finance/payment-banks');
       revalidatePath('/finance/payments/received');
       revalidatePath('/finance/payments/sent');
       return saved;

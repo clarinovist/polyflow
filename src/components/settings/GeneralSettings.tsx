@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-import { PaymentBanksSettings } from '@/components/settings/PaymentBanksSettings';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { ThemeSettings } from '@/components/settings/ThemeSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
@@ -14,14 +13,12 @@ export function GeneralSettings({
     userEmail,
     userLocale,
     userAvatarUrl,
-    canEditPaymentBanks = false,
 }: {
     tenantName?: string;
     userName?: string;
     userEmail?: string;
     userLocale?: string;
     userAvatarUrl?: string | null;
-    canEditPaymentBanks?: boolean;
 }) {
     return (
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
@@ -46,8 +43,6 @@ export function GeneralSettings({
                     </div>
                 </CardContent>
             </Card>
-
-            <PaymentBanksSettings canEdit={canEditPaymentBanks} />
 
             <ProfileSettings
                 userName={userName}

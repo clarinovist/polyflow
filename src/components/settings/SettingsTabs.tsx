@@ -44,8 +44,6 @@ export function SettingsTabs({
     environment,
 }: SettingsTabsProps) {
     const isAdmin = currentUserRole === 'ADMIN';
-    const canEditPaymentBanks =
-        currentUserRole === 'ADMIN' || currentUserRole === 'FINANCE';
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
@@ -80,7 +78,6 @@ export function SettingsTabs({
                         userEmail={currentUserEmail}
                         userLocale={currentUserLocale}
                         userAvatarUrl={currentUserAvatarUrl}
-                        canEditPaymentBanks={canEditPaymentBanks}
                     />
                 );
             case 'notifications':

@@ -16,7 +16,7 @@ import { Building2, Loader2, Save } from 'lucide-react';
 import {
   getPaymentBanks,
   updatePaymentBanks,
-} from '@/actions/settings/payment-banks-actions';
+} from '@/actions/finance/payment-banks-actions';
 import type { TenantPaymentBanks } from '@/lib/finance/payment-methods';
 
 interface PaymentBanksSettingsProps {
@@ -95,7 +95,7 @@ export function PaymentBanksSettings({ canEdit }: PaymentBanksSettingsProps) {
   };
 
   return (
-    <Card className="col-span-1 lg:col-span-2">
+    <Card className="max-w-4xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
