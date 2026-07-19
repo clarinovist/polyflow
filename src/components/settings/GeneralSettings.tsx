@@ -2,21 +2,25 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
-import { toast } from 'sonner';
 import { PaymentBanksSettings } from '@/components/settings/PaymentBanksSettings';
+import { ProfileSettings } from '@/components/settings/ProfileSettings';
+import { ThemeSettings } from '@/components/settings/ThemeSettings';
+import { SecuritySettings } from '@/components/settings/SecuritySettings';
 
 export function GeneralSettings({
     tenantName,
     userName,
     userEmail,
+    userLocale,
+    userAvatarUrl,
     canEditPaymentBanks = false,
 }: {
     tenantName?: string;
     userName?: string;
     userEmail?: string;
+    userLocale?: string;
+    userAvatarUrl?: string | null;
     canEditPaymentBanks?: boolean;
 }) {
     return (
@@ -45,53 +49,16 @@ export function GeneralSettings({
 
             <PaymentBanksSettings canEdit={canEditPaymentBanks} />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Informasi Profil</CardTitle>
-                    <CardDescription>
-                        Perbarui informasi profil dan alamat email akun Anda.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">Nama</Label>
-                        <Input id="name" placeholder="Nama Anda" defaultValue={userName || ''} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="Alamat email" defaultValue={userEmail || ''} />
-                    </div>
-                    <div className="flex justify-end">
-                        <Button
-                            onClick={() => toast.success('Profil berhasil diperbarui.')}
-                        >
-                            Simpan Perubahan
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+            <ProfileSettings
+                userName={userName}
+                userEmail={userEmail}
+                userLocale={userLocale}
+                userAvatarUrl={userAvatarUrl}
+            />
 
-            <Card className="flex flex-col">
-                <CardHeader>
-                    <CardTitle>Tampilan</CardTitle>
-                    <CardDescription>
-                        Sesuaikan tampilan dan nuansa aplikasi.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="space-y-0.5">
-                            <h3 className="text-base font-medium">Preferensi Tema</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Beralih antara mode terang dan gelap.
-                            </p>
-                        </div>
-                        <Button variant="outline" disabled>
-                            Dikelola via ThemeProvider
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+            <ThemeSettings />
+
+            <SecuritySettings />
         </div>
     );
 }

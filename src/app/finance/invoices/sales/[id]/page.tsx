@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCompanyConfigAsync } from "@/lib/config/company";
+import { getCompanyConfigWithOverridesAsync } from "@/lib/config/company-settings";
 import type { ComponentProps } from 'react';
 
 interface PageProps {
@@ -17,7 +17,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
     const { id } = await params;
     const [invoiceResult, companyConfig] = await Promise.all([
         getInvoiceById(id),
-        getCompanyConfigAsync(),
+        getCompanyConfigWithOverridesAsync(),
     ]);
 
     if (!invoiceResult.success) {

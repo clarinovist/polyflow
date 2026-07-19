@@ -2,7 +2,7 @@ import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
 import { DeliveryOrderDetail, type DeliveryOrderDetailData } from '@/components/sales/DeliveryOrderDetail';
 import { notFound } from 'next/navigation';
 import { serializeData } from '@/lib/utils/utils';
-import { getCompanyConfigAsync } from '@/lib/config/company';
+import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
 
 interface DeliveryOrderPageProps {
     params: Promise<{ id: string }>;
@@ -12,7 +12,7 @@ export default async function DeliveryOrderPage({ params }: DeliveryOrderPagePro
     const { id } = await params;
     const [order, companyConfig] = await Promise.all([
         getDeliveryOrderById(id),
-        getCompanyConfigAsync(),
+        getCompanyConfigWithOverridesAsync(),
     ]);
 
     if (!order) {

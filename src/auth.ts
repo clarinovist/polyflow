@@ -165,6 +165,12 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             rememberMe: remember,
                             isSuperAdmin: user.isSuperAdmin,
                             allowedResources,
+                            // Snapshot at login time; compared against the DB value in
+                            // dashboard/layout.tsx to support "log out of all devices"
+                            // (incrementing User.tokenVersion invalidates older JWTs).
+                            // Deliberately NOT verified in the Edge middleware (auth.config.ts)
+                            // to avoid a Prisma query on every request in that runtime.
+                            tokenVersion: user.tokenVersion,
                             // Only set during impersonation — absence = normal login.
                             impersonatedBy: isImpersonation ? impersonationBy : undefined,
                             impersonationExpiresAt: isImpersonation ? impersonationExpiresAt : undefined,

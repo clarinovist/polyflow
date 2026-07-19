@@ -62,15 +62,16 @@ export function AccessControlTab() {
                 });
             });
 
-            // Fetch for each role
-            for (const role of ROLES) {
-                const result = await getRolePermissions(role);
+            // Fetch all roles in parallel instead of sequentially.
+            const results = await Promise.all(ROLES.map(role => getRolePermissions(role)));
+            results.forEach((result, i) => {
+                const role = ROLES[i];
                 if (result.success && result.data) {
                     result.data.forEach(p => {
                         newState[role][p.resource] = p.canAccess;
                     });
                 }
-            }
+            });
 
             setPermissions(newState);
             setLoading(false);

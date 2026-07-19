@@ -24,6 +24,9 @@ model User {
   updatedAt                      DateTime               @updatedAt
   locale                         String                 @default("en")
   isSuperAdmin                   Boolean                @default(false)
+  avatarUrl                      String?
+  tokenVersion                   Int                    @default(0)
+  notificationPrefs              String?                @db.Text
   auditLogs                      AuditLog[]
   deliveryOrders                 DeliveryOrder[]        @relation("DeliveryCreator")
   goodsReceipts                  GoodsReceipt[]         @relation("GoodsReceiptCreator")

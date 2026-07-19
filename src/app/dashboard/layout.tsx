@@ -5,6 +5,7 @@ import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { prisma } from '@/lib/core/prisma';
 
 export default async function DashboardLayout({
     children,
@@ -15,6 +16,28 @@ export default async function DashboardLayout({
 
     if (!session) {
         redirect('/login');
+    }
+
+    // "Log out of all devices" support: the JWT carries a tokenVersion snapshot
+    // from login. If the user has since incremented it (via settings), older
+    // tokens are stale and must be signed out. Checked here in the Node runtime
+    // (not in the Edge middleware) to keep Prisma out of the edge callbacks.
+    const sessionUserId = (session.user as { id?: string })?.id;
+    const sessionTokenVersion = (session.user as { tokenVersion?: number })?.tokenVersion;
+    if (sessionUserId && typeof sessionTokenVersion === 'number') {
+        try {
+            const dbUser = await prisma.user.findUnique({
+                where: { id: sessionUserId },
+                select: { tokenVersion: true },
+            });
+            if (dbUser && dbUser.tokenVersion !== sessionTokenVersion) {
+                redirect('/logout');
+            }
+        } catch (err) {
+            // Never hard-fail navigation on a transient DB hiccup; redirect() throws
+            // NEXT_REDIRECT which must propagate.
+            if (err && typeof err === 'object' && 'digest' in err) throw err;
+        }
     }
 
     const user = {

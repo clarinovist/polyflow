@@ -1,6 +1,6 @@
 import { getWorkShifts } from '@/actions/admin/work-shifts';
-import { ShiftList } from '@/components/settings/ShiftList';
-import { ShiftPageHeader } from '@/components/settings/ShiftPageHeader';
+import { ShiftList } from '@/components/production/ShiftList';
+import { ShiftPageHeader } from '@/components/production/ShiftPageHeader';
 
 export default async function ShiftsPage() {
     const result = await getWorkShifts();

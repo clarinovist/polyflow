@@ -2,7 +2,7 @@ import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
 import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
-import { getCompanyConfigAsync } from '@/lib/config/company';
+import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
 import type { ComponentProps } from 'react';
 
 interface PrintPageProps {
@@ -13,7 +13,7 @@ export default async function SuratJalanPrintPage({ params }: PrintPageProps) {
   const { id } = await params;
   const [result, companyConfig] = await Promise.all([
     getDeliveryOrderById(id),
-    getCompanyConfigAsync(),
+    getCompanyConfigWithOverridesAsync(),
   ]);
 
   if (!result.success) {

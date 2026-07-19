@@ -1,7 +1,7 @@
 import { getInvoiceById } from '@/actions/finance/invoice';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
 import { notFound } from 'next/navigation';
-import { getCompanyConfigAsync } from "@/lib/config/company";
+import { getCompanyConfigWithOverridesAsync } from "@/lib/config/company-settings";
 import type { ComponentProps } from 'react';
 
 interface PrintPageProps {
@@ -12,7 +12,7 @@ export default async function InvoicePrintPage({ params }: PrintPageProps) {
   const { id } = await params;
   const [result, companyConfig] = await Promise.all([
     getInvoiceById(id),
-    getCompanyConfigAsync(),
+    getCompanyConfigWithOverridesAsync(),
   ]);
 
   if (!result.success) {

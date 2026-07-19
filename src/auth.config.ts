@@ -217,6 +217,7 @@ export const authConfig = {
                     rememberMe?: boolean;
                     isSuperAdmin?: boolean;
                     allowedResources?: string[];
+                    tokenVersion?: number;
                     impersonatedBy?: string;
                     impersonationExpiresAt?: number;
                 };
@@ -226,6 +227,7 @@ export const authConfig = {
                 token.rememberMe = u.rememberMe;
                 token.isSuperAdmin = u.isSuperAdmin;
                 token.allowedResources = u.allowedResources;
+                token.tokenVersion = u.tokenVersion;
                 token.lastActive = Math.floor(Date.now() / 1000);
                 // Impersonation claims — only present on sessions started via
                 // impersonateTenant(). Propagate to token so session()/authorized()
@@ -262,6 +264,7 @@ export const authConfig = {
                 (session.user as { id?: unknown }).id = token.id;
                 (session.user as { isSuperAdmin?: unknown }).isSuperAdmin = token.isSuperAdmin;
                 (session.user as { allowedResources?: unknown }).allowedResources = token.allowedResources;
+                (session.user as { tokenVersion?: unknown }).tokenVersion = token.tokenVersion;
                 (session.user as { impersonatedBy?: unknown }).impersonatedBy = token.impersonatedBy;
                 (session.user as { impersonationExpiresAt?: unknown }).impersonationExpiresAt = token.impersonationExpiresAt;
             }

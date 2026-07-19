@@ -3,6 +3,10 @@ export const settingsLabels = {
   // Tabs
   general: 'Umum',
   generalDesc: 'Kelola profil dan preferensi Anda',
+  notifications: 'Notifikasi',
+  notificationsDesc: 'Kelola preferensi notifikasi in-app',
+  company: 'Perusahaan',
+  companyDesc: 'Info perusahaan untuk dokumen cetak',
   users: 'Pengguna',
   usersDesc: 'Kelola pengguna sistem dan role',
   accessControl: 'Kontrol Akses',

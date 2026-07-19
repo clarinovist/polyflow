@@ -1,25 +1,30 @@
 'use client';
 
-import { WorkShift, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { GeneralSettings } from './GeneralSettings';
 import { UsersTab } from './UsersTab';
 import { AccessControlTab } from './AccessControlTab';
+import { CompanySettings } from './CompanySettings';
+import { NotificationSettings } from './NotificationSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings as SettingsIcon, User, Users, Lock, Monitor, LucideIcon } from 'lucide-react';
+import { Settings as SettingsIcon, User, Users, Lock, Monitor, Building2, Bell, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { settingsLabels } from '@/lib/labels';
 
 interface SettingsTabsProps {
-    shifts?: WorkShift[];
     currentUserRole: Role;
     tenantName?: string;
     currentUserName?: string;
     currentUserEmail?: string;
+    currentUserLocale?: string;
+    currentUserAvatarUrl?: string | null;
+    appVersion?: string;
+    environment?: string;
 }
 
-type TabValue = 'general' | 'production' | 'users' | 'access' | 'system';
+type TabValue = 'general' | 'company' | 'notifications' | 'users' | 'access' | 'system';
 
 interface TabItem {
     value: TabValue;
@@ -28,7 +33,16 @@ interface TabItem {
     description: string;
 }
 
-export function SettingsTabs({ currentUserRole, tenantName, currentUserName, currentUserEmail }: Omit<SettingsTabsProps, 'shifts'>) {
+export function SettingsTabs({
+    currentUserRole,
+    tenantName,
+    currentUserName,
+    currentUserEmail,
+    currentUserLocale,
+    currentUserAvatarUrl,
+    appVersion,
+    environment,
+}: SettingsTabsProps) {
     const isAdmin = currentUserRole === 'ADMIN';
     const canEditPaymentBanks =
         currentUserRole === 'ADMIN' || currentUserRole === 'FINANCE';
@@ -47,7 +61,9 @@ export function SettingsTabs({ currentUserRole, tenantName, currentUserName, cur
 
     const tabs: TabItem[] = [
         { value: 'general', label: settingsLabels.general, icon: User, description: settingsLabels.generalDesc },
+        { value: 'notifications', label: settingsLabels.notifications, icon: Bell, description: settingsLabels.notificationsDesc },
         ...(isAdmin ? [
+            { value: 'company', label: settingsLabels.company, icon: Building2, description: settingsLabels.companyDesc } as TabItem,
             { value: 'users', label: settingsLabels.users, icon: Users, description: settingsLabels.usersDesc } as TabItem,
             { value: 'access', label: settingsLabels.accessControl, icon: Lock, description: settingsLabels.accessControlDesc } as TabItem,
         ] : []),
@@ -62,9 +78,15 @@ export function SettingsTabs({ currentUserRole, tenantName, currentUserName, cur
                         tenantName={tenantName}
                         userName={currentUserName}
                         userEmail={currentUserEmail}
+                        userLocale={currentUserLocale}
+                        userAvatarUrl={currentUserAvatarUrl}
                         canEditPaymentBanks={canEditPaymentBanks}
                     />
                 );
+            case 'notifications':
+                return <NotificationSettings />;
+            case 'company':
+                return isAdmin ? <CompanySettings /> : null;
             case 'users':
                 return isAdmin ? (
                     <UsersTab />
@@ -85,11 +107,15 @@ export function SettingsTabs({ currentUserRole, tenantName, currentUserName, cur
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 py-2 border-b">
                                 <span className="text-sm font-medium">{settingsLabels.erpVersion}</span>
-                                <span className="text-sm text-muted-foreground text-right">0.1.5-beta</span>
+                                <span className="text-sm text-muted-foreground text-right">
+                                    {appVersion ? `v${appVersion}` : '—'}
+                                </span>
                             </div>
                             <div className="grid grid-cols-2 gap-4 py-2 border-b">
                                 <span className="text-sm font-medium">{settingsLabels.environment}</span>
-                                <span className="text-sm text-muted-foreground text-right">{settingsLabels.development}</span>
+                                <span className="text-sm text-muted-foreground text-right capitalize">
+                                    {environment || '—'}
+                                </span>
                             </div>
                             <div className="grid grid-cols-2 gap-4 py-2">
                                 <span className="text-sm font-medium">{settingsLabels.serverStatus}</span>

@@ -68,6 +68,16 @@ export function getLogoForSubdomain(subdomain: string | null): string | null {
  * Tenant-aware company config (async, uses headers()).
  * Call from Server Components to get correct logo per tenant.
  */
+/**
+ * NOTE: this file is imported by some 'use client' print components (for the
+ * sync getCompanyConfig() fallback + CompanyConfig type), so it must stay
+ * free of any server-only imports (Prisma, etc.) — even behind a dynamic
+ * import — or Next's client bundler will fail trying to resolve them.
+ *
+ * Per-tenant AppSetting overrides (set via /dashboard/settings → Perusahaan)
+ * are applied in getCompanyConfigAsync() in ./company-settings.ts instead,
+ * which is only ever imported by server components / route handlers.
+ */
 export async function getCompanyConfigAsync(): Promise<CompanyConfig> {
   try {
     const { headers } = await import('next/headers');

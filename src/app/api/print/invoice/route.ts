@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withTenantRoute } from '@/lib/core/tenant';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { prisma } from '@/lib/core/prisma';
-import { getCompanyConfig } from '@/lib/config/company';
+import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
 import {
     generateEscpInvoice,
     toUint8Array,
@@ -76,7 +76,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         const rawSubtotal = subtotal + discountAmount - taxAmount;
 
         const isPPN = taxAmount > 0;
-        const company = getCompanyConfig();
+        const company = await getCompanyConfigWithOverridesAsync();
         const bankAccounts = isPPN ? company.bankAccountsPPN : company.bankAccountsNonPPN;
         const bankAcc = bankAccounts[0];
 
