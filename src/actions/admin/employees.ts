@@ -8,6 +8,7 @@ import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from '@/lib/tools/audit';
+import { buildSalaryChanges, createSalaryHistory } from '@/lib/hrd/salary-history';
 
 // Fields whose change is compliance-critical (gaji/payType/BPJS) — old/new captured in audit log.
 const SALARY_FIELDS = [
@@ -245,6 +246,11 @@ async function updateEmployee(
                 details: `Updated employee ${employee.code} — ${employee.name}`,
                 changes: Object.keys(changes).length > 0 ? changes : undefined,
             });
+            // Gelombang B3: create salary history snapshot if salary fields changed
+            const salaryChanges = buildSalaryChanges(before as Record<string, unknown>, employee as Record<string, unknown>);
+            if (salaryChanges) {
+                await createSalaryHistory(prisma, employee.id, employee as Record<string, unknown>, salaryChanges, session.user.id);
+            }
             revalidatePath('/dashboard/employees');
             revalidatePath('/production/resources');
             return employee;

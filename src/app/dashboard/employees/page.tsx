@@ -21,8 +21,8 @@ export default async function EmployeesPage({
         <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
           {result.error}
         </p>
-        <Button variant="outline" className="mt-6" onClick={() => window.location.reload()}>
-          Coba Lagi
+        <Button variant="outline" className="mt-6" asChild>
+          <Link href="/dashboard/employees">Coba Lagi</Link>
         </Button>
       </div>
     );

@@ -124,7 +124,7 @@ export function buildCustomerPhotoKey(
  */
 export function buildHrdDocKey(
   tenant: string,
-  category: 'disciplinary' | 'leave' | 'loan',
+  category: 'disciplinary' | 'leave' | 'loan' | 'employee',
   entityId: string,
   filename: string,
 ): string {

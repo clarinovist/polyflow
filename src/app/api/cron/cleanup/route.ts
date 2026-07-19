@@ -73,6 +73,12 @@ export async function GET(req: Request) {
 
       // 3. Trigger Overdue AR (Sales Invoices)
       await InvoiceService.checkOverdueSalesInvoices();
+
+      // 4. HRD: probation / contract expiring (idempotent per day)
+      const { dispatchReminders } = await import(
+        "@/lib/hrd/employment-reminder"
+      );
+      await dispatchReminders(prisma);
     } catch (subErr) {
       console.error(
         "Failed to trigger subsystem notifications during cron: ",

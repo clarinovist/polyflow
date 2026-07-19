@@ -28,17 +28,20 @@ export const EmployeeDocumentService = {
   },
 
   async create(db: PrismaClient, data: CreateDocumentInput) {
+    const title = data.name?.trim();
+    if (!title) throw new BusinessRuleError('Judul dokumen wajib diisi');
+    if (!data.fileUrl?.trim()) throw new BusinessRuleError('File dokumen wajib diunggah');
     const employee = await db.employee.findUnique({ where: { id: data.employeeId }, select: { id: true } });
     if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
     return db.employeeDocument.create({
       data: {
         employeeId: data.employeeId,
         category: data.category as never,
-        name: data.name,
+        name: title,
         fileUrl: data.fileUrl,
         fileSize: data.fileSize ?? null,
         mimeType: data.mimeType ?? null,
-        notes: data.notes ?? null,
+        notes: data.notes?.trim() || null,
         uploadedById: data.uploadedById ?? null,
       },
     });
