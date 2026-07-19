@@ -106,7 +106,10 @@ export const authConfig = {
                     // /dashboard, /warehouse, /production don't belong here —
                     // without this, navigating to an ERP path would render it
                     // against the main DB instead of the superadmin panel.
-                    if (!isSuperAdminAlias && !pathname.startsWith('/admin')) {
+                    // /api/* is exempt — /api/admin/* endpoints (diagnostics,
+                    // virtual-cs-metrics, etc.) are fetched by the admin UI and
+                    // a redirect here would break System Health & other tools.
+                    if (!isSuperAdminAlias && !pathname.startsWith('/admin') && !pathname.startsWith('/api/')) {
                         return Response.redirect(new URL('/super-admin', nextUrl));
                     }
 
