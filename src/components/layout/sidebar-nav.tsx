@@ -28,6 +28,7 @@ import {
   Gavel,
   HandCoins,
   CalendarRange,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -121,6 +122,7 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
       { title: "Kasbon Karyawan", href: "/hrd/loans", icon: HandCoins },
       { title: "Cuti & Izin", href: "/hrd/leave", icon: CalendarDays },
       { title: "Sanksi Disiplin", href: "/hrd/disciplinary", icon: Gavel },
+      { title: "Peringatan HR", href: "/hrd/alerts", icon: AlertTriangle },
     ],
   },
 ];

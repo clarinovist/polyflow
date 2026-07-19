@@ -5,9 +5,9 @@ export default function CreateEmployeePage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Onboard New Staff</h1>
-                <p className="text-muted-foreground mt-1">
-                    Fill in the details to register a new production worker.
+                <h1 className="text-2xl font-black tracking-tight uppercase">Tambah Karyawan</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Isi data untuk mendaftarkan karyawan baru.
                 </p>
             </div>
 

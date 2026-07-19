@@ -8,7 +8,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2, Banknote } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Banknote, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { deleteEmployee } from '@/actions/admin/employees';
 import { toast } from 'sonner';
@@ -23,26 +23,26 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { productionComponentLabels } from '@/lib/labels';
 
 interface EmployeeActionsProps {
     id: string;
     name: string;
+    payType?: 'DAILY' | 'PIECE' | 'MONTHLY';
 }
 
-export function EmployeeActions({ id, name }: EmployeeActionsProps) {
+export function EmployeeActions({ id, name, payType }: EmployeeActionsProps) {
     const [open, setOpen] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
     async function handleDelete() {
         const result = await deleteEmployee(id);
         if (result.success) {
-            toast.success('Data personel berhasil dihapus.', {
+            toast.success('Karyawan berhasil dihapus.', {
                 description: `${name} telah dihapus dari direktori.`
             });
         } else {
             toast.error('Gagal menghapus', {
-                description: result.error || 'Tidak dapat menghapus data personel. Pastikan data tersebut tidak terhubung ke order produksi aktif.'
+                description: result.error || 'Tidak dapat menghapus data karyawan. Pastikan data tersebut tidak terhubung ke order produksi aktif.'
             });
         }
     }
@@ -56,25 +56,35 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>{productionComponentLabels.actions}</DropdownMenuLabel>
+                    <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                     <Link href={`/dashboard/employees/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
-                            {productionComponentLabels.editDetails}
+                            Edit
                         </DropdownMenuItem>
                     </Link>
-                    <Link href={`/dashboard/employees/${id}/payroll`}>
-                        <DropdownMenuItem>
-                            <Banknote className="mr-2 h-4 w-4" />
-                            Gaji Mingguan
-                        </DropdownMenuItem>
-                    </Link>
+                    {(payType === 'DAILY' || payType === 'PIECE') && (
+                        <Link href={`/dashboard/employees/${id}/payroll`}>
+                            <DropdownMenuItem>
+                                <Banknote className="mr-2 h-4 w-4" />
+                                Gaji mingguan
+                            </DropdownMenuItem>
+                        </Link>
+                    )}
+                    {payType === 'MONTHLY' && (
+                        <Link href="/hrd/payroll-monthly">
+                            <DropdownMenuItem>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Lihat gaji bulanan
+                            </DropdownMenuItem>
+                        </Link>
+                    )}
                     <DropdownMenuItem
                         onClick={() => setShowDeleteDialog(true)}
                         className="text-destructive focus:text-destructive focus:bg-destructive/10"
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        {productionComponentLabels.delete}
+                        Hapus
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
@@ -82,9 +92,9 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
+                        <AlertDialogTitle>Hapus karyawan?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Ini akan menghapus permanen data staff <strong>{name}</strong>.
+                            Ini akan menghapus permanen data karyawan <strong>{name}</strong>.
                             Tindakan ini tidak dapat dibatalkan.
                         </AlertDialogDescription>
                     </AlertDialogHeader>

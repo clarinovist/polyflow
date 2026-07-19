@@ -33,9 +33,9 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Edit Staff Details</h1>
-                <p className="text-muted-foreground mt-1">
-                    Update the information for {employee.name}.
+                <h1 className="text-2xl font-black tracking-tight uppercase">Edit Karyawan — {employee.name}</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Perbarui data karyawan.
                 </p>
             </div>
 

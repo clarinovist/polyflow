@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react';
 import { listDisciplinaryActions, listLeaveRequests } from '@/actions/hrd/disciplinary-leave';
 import { listLoans } from '@/actions/hrd/payroll-monthly';
+import { listSalaryHistory } from '@/actions/hrd/salary-history';
+import { listEmployeeDocuments, archiveEmployeeDocument, restoreEmployeeDocument } from '@/actions/hrd/employee-document';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { toast } from 'sonner';
 
-type Tab = 'disciplinary' | 'leave' | 'loans';
+type Tab = 'disciplinary' | 'leave' | 'loans' | 'salary' | 'documents';
 
 export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
     const [tab, setTab] = useState<Tab>('disciplinary');
@@ -41,22 +44,60 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
             date: string | Date;
         }>
     >([]);
+    const [salaryHistory, setSalaryHistory] = useState<
+        Array<{
+            id: string;
+            changedAt: string | Date;
+            payType: string | null;
+            dailyRate: number | null;
+            monthlySalary: number | null;
+            changes: Record<string, { from: unknown; to: unknown }> | null;
+            changedBy: { name: string | null } | null;
+        }>
+    >([]);
+    const [documents, setDocuments] = useState<
+        Array<{
+            id: string;
+            category: string;
+            name: string;
+            fileUrl: string;
+            status: string;
+            createdAt: string | Date;
+        }>
+    >([]);
+    const [showArchived, setShowArchived] = useState(false);
+
+    const loadDocs = async (archived = false) => {
+        const sRes = await listEmployeeDocuments(employeeId, archived);
+        setDocuments(sRes.success ? (sRes.data ?? []) : []);
+    };
 
     useEffect(() => {
         const load = async () => {
             setLoading(true);
-            const [dRes, lRes, kRes] = await Promise.all([
+            const [dRes, lRes, kRes, sRes] = await Promise.all([
                 listDisciplinaryActions(employeeId),
                 listLeaveRequests({ employeeId }),
                 listLoans({ employeeId }),
+                listSalaryHistory(employeeId),
             ]);
             setDisciplinary(dRes.success ? (dRes.data ?? []) : []);
             setLeaves(lRes.success ? (lRes.data ?? []) : []);
             setLoans(kRes.success ? (kRes.data ?? []) : []);
+            setSalaryHistory((sRes.success ? (sRes.data ?? []) : []).map((s: Record<string, unknown>) => ({
+                id: s.id as string,
+                changedAt: s.changedAt as string | Date,
+                payType: (s.payType as string) ?? null,
+                dailyRate: s.dailyRate != null ? Number(s.dailyRate) : null,
+                monthlySalary: s.monthlySalary != null ? Number(s.monthlySalary) : null,
+                changes: (s.changes as Record<string, { from: unknown; to: unknown }>) ?? null,
+                changedBy: (s.changedBy as { name: string | null }) ?? null,
+            })));
+            await loadDocs();
             setLoading(false);
         };
         load();
-    }, [employeeId]);
+    }, [employeeId, loadDocs]);
 
     const toN = (v: number | { toNumber(): number }) => (typeof v === 'number' ? v : v.toNumber());
     const fmt = (d: string | Date) => format(new Date(d), 'dd MMM yyyy', { locale: id });
@@ -65,6 +106,8 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
         { id: 'disciplinary', label: 'Riwayat Disiplin' },
         { id: 'leave', label: 'Riwayat Cuti' },
         { id: 'loans', label: 'Kasbon' },
+        { id: 'salary', label: 'Riwayat Gaji' },
+        { id: 'documents', label: 'Dokumen' },
     ];
 
     return (
@@ -143,6 +186,92 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                             <div className="text-right text-xs">
                                 <div>Pokok: {toN(k.principalAmount).toLocaleString('id-ID')}</div>
                                 <div>Sisa: {toN(k.remainingBalance).toLocaleString('id-ID')}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {!loading && tab === 'salary' && (
+                <div className="space-y-2 text-sm">
+                    {salaryHistory.length === 0 && <p className="text-xs text-muted-foreground">Belum ada riwayat perubahan gaji.</p>}
+                    {salaryHistory.map((s) => (
+                        <div key={s.id} className="border-b border-border/50 py-2">
+                            <div className="flex justify-between items-start">
+                                <div className="font-medium">{fmt(s.changedAt)}</div>
+                                {s.changedBy && <span className="text-xs text-muted-foreground">oleh {s.changedBy.name}</span>}
+                            </div>
+                            {s.changes && (
+                                <div className="mt-1 space-y-0.5">
+                                    {Object.entries(s.changes).map(([field, diff]) => (
+                                        <div key={field} className="text-xs text-muted-foreground">
+                                            <span className="font-medium">{field}:</span>{' '}
+                                            <span className="line-through">{String(diff.from ?? '—')}</span>
+                                            {' → '}
+                                            <span>{String(diff.to ?? '—')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {!loading && tab === 'documents' && (
+                <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                            {documents.length === 0 ? 'Belum ada dokumen.' : `${documents.length} dokumen`}
+                        </p>
+                        <button
+                            type="button"
+                            className="text-xs underline text-muted-foreground"
+                            onClick={async () => {
+                                const next = !showArchived;
+                                setShowArchived(next);
+                                await loadDocs(next);
+                            }}
+                        >
+                            {showArchived ? 'Sembunyikan arsip' : 'Tampilkan arsip'}
+                        </button>
+                    </div>
+                    {documents.map((d) => (
+                        <div key={d.id} className="border-b border-border/50 py-2 flex items-start justify-between gap-2">
+                            <div>
+                                <div className="font-medium">
+                                    <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-muted/50 mr-1.5">{d.category}</span>
+                                    {d.name}
+                                </div>
+                                <div className="text-xs text-muted-foreground">{fmt(d.createdAt)}</div>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                                <a href={d.fileUrl} target="_blank" rel="noreferrer" className="text-xs underline text-primary">Buka</a>
+                                {d.status === 'ACTIVE' ? (
+                                    <button
+                                        type="button"
+                                        className="text-xs text-muted-foreground hover:text-foreground"
+                                        onClick={async () => {
+                                            const res = await archiveEmployeeDocument(d.id);
+                                            if (res.success) { toast.success('Dokumen diarsipkan'); await loadDocs(showArchived); }
+                                            else toast.error(res.error || 'Gagal');
+                                        }}
+                                    >
+                                        Arsip
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary hover:underline"
+                                        onClick={async () => {
+                                            const res = await restoreEmployeeDocument(d.id);
+                                            if (res.success) { toast.success('Dokumen dipulihkan'); await loadDocs(showArchived); }
+                                            else toast.error(res.error || 'Gagal');
+                                        }}
+                                    >
+                                        Pulihkan
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
