@@ -1,15 +1,128 @@
-'use server';
-
 /**
- * Kasbon (EmployeeLoan) service + payroll monthly service.
- * Plan §1-7. Two-service pattern: this is the additive file (kasbon first, payroll below).
+ * Kasbon (EmployeeLoan) + payroll bulanan + employee allowances.
+ * Plan §1-7 / Fase 5 — pure service (no 'use server').
  */
 
 import type { PrismaClient, Prisma } from '@prisma/client';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 
 // ───────────────────────────────────────────────────
-// KASBON — employee-loan-service.ts (kept in one file for Fase 5)
+// Pure helpers (unit-testable)
+// ───────────────────────────────────────────────────
+
+export const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Count Mon–Sat days in [start, end] inclusive (UTC). Sundays excluded. */
+export function countMonToSat(start: Date, end: Date): number {
+    let count = 0;
+    const d = new Date(start);
+    while (d <= end) {
+        const day = d.getUTCDay(); // 0=Sun
+        if (day !== 0) count++;
+        d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return count;
+}
+
+/** Year-month as YYYYMM number for comparison. */
+export function yearMonthKey(year: number, month: number): number {
+    return year * 100 + month;
+}
+
+export function dateToYearMonth(date: Date): { year: number; month: number } {
+    return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
+}
+
+/**
+ * FULL_NEXT_MONTH is only deductible starting the calendar month *after* the loan date.
+ * INSTALLMENT is deductible in any open payroll once ACTIVE.
+ */
+export function isLoanDeductibleInPeriod(
+    loan: { repaymentType: 'INSTALLMENT' | 'FULL_NEXT_MONTH'; date: Date },
+    periodYear: number,
+    periodMonth: number,
+): boolean {
+    if (loan.repaymentType === 'INSTALLMENT') return true;
+    const { year, month } = dateToYearMonth(new Date(loan.date));
+    return yearMonthKey(periodYear, periodMonth) > yearMonthKey(year, month);
+}
+
+export function nextDeductionAmount(
+    loan: {
+        repaymentType: 'INSTALLMENT' | 'FULL_NEXT_MONTH';
+        installmentAmount: Prisma.Decimal | number | null;
+        remainingBalance: Prisma.Decimal | number;
+        date?: Date;
+    },
+    periodYear?: number,
+    periodMonth?: number,
+): number {
+    if (
+        loan.repaymentType === 'FULL_NEXT_MONTH' &&
+        loan.date &&
+        periodYear != null &&
+        periodMonth != null &&
+        !isLoanDeductibleInPeriod(
+            { repaymentType: loan.repaymentType, date: loan.date },
+            periodYear,
+            periodMonth,
+        )
+    ) {
+        return 0;
+    }
+    const remaining = Number(loan.remainingBalance);
+    if (remaining <= 0) return 0;
+    if (loan.repaymentType === 'FULL_NEXT_MONTH') return remaining;
+    const inst = Number(loan.installmentAmount ?? 0);
+    if (inst <= 0) return 0;
+    return Math.min(inst, remaining);
+}
+
+export interface ComputePayslipInput {
+    baseSalary: number;
+    allowanceTotal: number;
+    thrAmount: number;
+    prorationDeduction: number;
+    bpjsDeduction: number;
+    loanDeduction: number;
+    otherDeductions: number;
+}
+
+/**
+ * Plan §4:
+ *   grossPay = base + allowance + thr
+ *   deductionTotal = bpjs + loan + other + proration
+ *   netPay = gross − deductions
+ */
+export function computePayslipAmounts(input: ComputePayslipInput) {
+    const baseSalary = round2(Math.max(0, input.baseSalary));
+    const allowanceTotal = round2(Math.max(0, input.allowanceTotal));
+    const thrAmount = round2(Math.max(0, input.thrAmount));
+    const prorationDeduction = round2(Math.max(0, input.prorationDeduction));
+    const bpjsDeduction = round2(Math.max(0, input.bpjsDeduction));
+    const loanDeduction = round2(Math.max(0, input.loanDeduction));
+    const otherDeductions = round2(Math.max(0, input.otherDeductions));
+
+    const grossPay = round2(baseSalary + allowanceTotal + thrAmount);
+    const deductionTotal = round2(bpjsDeduction + loanDeduction + otherDeductions + prorationDeduction);
+    const netPay = round2(grossPay - deductionTotal);
+
+    return {
+        baseSalary,
+        allowanceTotal,
+        thrAmount,
+        prorationDeduction,
+        bpjsDeduction,
+        loanDeduction,
+        otherDeductions,
+        grossPay,
+        deductionTotal,
+        netPay,
+    };
+}
+
+// ───────────────────────────────────────────────────
+// KASBON
 // ───────────────────────────────────────────────────
 
 export interface CreateLoanInput {
@@ -24,8 +137,24 @@ export interface CreateLoanInput {
     approvedById?: string;
 }
 
+type TxClient = Prisma.TransactionClient;
+
+async function nextLoanNumberInTx(tx: TxClient, year: number): Promise<string> {
+    const prefix = `KSB-${year}-`;
+    const last = await tx.employeeLoan.findFirst({
+        where: { loanNumber: { startsWith: prefix } },
+        orderBy: { loanNumber: 'desc' },
+        select: { loanNumber: true },
+    });
+    let next = 1;
+    if (last) {
+        const m = last.loanNumber.match(/KSB-\d{4}-(\d+)/);
+        if (m) next = parseInt(m[1], 10) + 1;
+    }
+    return `${prefix}${String(next).padStart(4, '0')}`;
+}
+
 export const EmployeeLoanService = {
-    /** List loans with optional employee filter. */
     async list(db: PrismaClient, filters?: { employeeId?: string; status?: 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED' }) {
         const where: Prisma.EmployeeLoanWhereInput = {};
         if (filters?.employeeId) where.employeeId = filters.employeeId;
@@ -40,20 +169,8 @@ export const EmployeeLoanService = {
         });
     },
 
-    /** Generate next loan number KSB-YYYY-NNNN. */
     async nextLoanNumber(db: PrismaClient, year: number): Promise<string> {
-        const prefix = `KSB-${year}-`;
-        const last = await db.employeeLoan.findFirst({
-            where: { loanNumber: { startsWith: prefix } },
-            orderBy: { loanNumber: 'desc' },
-            select: { loanNumber: true },
-        });
-        let next = 1;
-        if (last) {
-            const m = last.loanNumber.match(/KSB-\d{4}-(\d+)/);
-            if (m) next = parseInt(m[1], 10) + 1;
-        }
-        return `${prefix}${String(next).padStart(4, '0')}`;
+        return nextLoanNumberInTx(db, year);
     },
 
     async create(db: PrismaClient, data: CreateLoanInput) {
@@ -67,47 +184,47 @@ export const EmployeeLoanService = {
             }
         }
 
-        // Guard: only 1 ACTIVE loan per employee (DB-side partial unique index is the safety net,
-        // but service-side guard gives a friendly error first).
-        const active = await db.employeeLoan.findFirst({
-            where: { employeeId: data.employeeId, status: 'ACTIVE' },
-            select: { id: true, loanNumber: true },
-        });
-        if (active) {
-            throw new BusinessRuleError(
-                `Karyawan masih punya kasbon aktif (${active.loanNumber}). Lunasi dulu sebelum mengajukan baru.`,
-            );
-        }
-
         const employee = await db.employee.findUnique({
             where: { id: data.employeeId },
             select: { id: true, name: true, code: true },
         });
         if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
 
-        const year = data.date.getUTCFullYear();
-        const loanNumber = await this.nextLoanNumber(db, year);
+        // Serialize create + number gen + active-loan check inside a transaction.
+        return db.$transaction(async (tx) => {
+            const active = await tx.employeeLoan.findFirst({
+                where: { employeeId: data.employeeId, status: 'ACTIVE' },
+                select: { id: true, loanNumber: true },
+            });
+            if (active) {
+                throw new BusinessRuleError(
+                    `Karyawan masih punya kasbon aktif (${active.loanNumber}). Lunasi dulu sebelum mengajukan baru.`,
+                );
+            }
 
-        return db.employeeLoan.create({
-            data: {
-                loanNumber,
-                employeeId: data.employeeId,
-                date: data.date,
-                principalAmount: data.principalAmount,
-                reason: data.reason?.trim() || null,
-                repaymentType: data.repaymentType,
-                installmentAmount: data.repaymentType === 'INSTALLMENT' ? (data.installmentAmount ?? null) : null,
-                remainingBalance: data.principalAmount,
-                status: 'ACTIVE',
-                collateralDescription: data.collateralDescription?.trim() || null,
-                collateralPhotoUrl: data.collateralPhotoUrl ?? null,
-                approvedById: data.approvedById ?? null,
-            },
-            include: { employee: { select: { id: true, name: true, code: true } } },
+            const year = data.date.getUTCFullYear();
+            const loanNumber = await nextLoanNumberInTx(tx, year);
+
+            return tx.employeeLoan.create({
+                data: {
+                    loanNumber,
+                    employeeId: data.employeeId,
+                    date: data.date,
+                    principalAmount: data.principalAmount,
+                    reason: data.reason?.trim() || null,
+                    repaymentType: data.repaymentType,
+                    installmentAmount: data.repaymentType === 'INSTALLMENT' ? (data.installmentAmount ?? null) : null,
+                    remainingBalance: data.principalAmount,
+                    status: 'ACTIVE',
+                    collateralDescription: data.collateralDescription?.trim() || null,
+                    collateralPhotoUrl: data.collateralPhotoUrl ?? null,
+                    approvedById: data.approvedById ?? null,
+                },
+                include: { employee: { select: { id: true, name: true, code: true } } },
+            });
         });
     },
 
-    /** Mark loan as DEFAULTED (manual, e.g. karyawan resign with sisa). */
     async markDefaulted(db: PrismaClient, id: string) {
         const loan = await db.employeeLoan.findUnique({ where: { id } });
         if (!loan) throw new NotFoundError('Kasbon tidak ditemukan');
@@ -115,14 +232,89 @@ export const EmployeeLoanService = {
         return db.employeeLoan.update({ where: { id }, data: { status: 'DEFAULTED' } });
     },
 
-    /** Amount to deduct in next payroll run, given the current loan state. */
-    nextDeductionAmount(loan: { repaymentType: 'INSTALLMENT' | 'FULL_NEXT_MONTH'; installmentAmount: Prisma.Decimal | null; remainingBalance: Prisma.Decimal }): number {
-        const remaining = Number(loan.remainingBalance);
-        if (remaining <= 0) return 0;
-        if (loan.repaymentType === 'FULL_NEXT_MONTH') return remaining;
-        const inst = Number(loan.installmentAmount ?? 0);
-        if (inst <= 0) return 0;
-        return Math.min(inst, remaining);
+    nextDeductionAmount,
+};
+
+// ───────────────────────────────────────────────────
+// EMPLOYEE ALLOWANCES
+// ───────────────────────────────────────────────────
+
+export interface AllowanceInput {
+    name: string;
+    amount: number;
+    isActive?: boolean;
+}
+
+export const EmployeeAllowanceService = {
+    async list(db: PrismaClient, employeeId: string) {
+        return db.employeeAllowance.findMany({
+            where: { employeeId },
+            orderBy: { createdAt: 'asc' },
+        });
+    },
+
+    /**
+     * Replace active set of allowances for an employee.
+     * - Updates existing by id when provided
+     * - Creates new rows without id
+     * - Soft-deactivates rows not present in the payload (isActive=false)
+     */
+    async replaceForEmployee(db: PrismaClient, employeeId: string, items: Array<AllowanceInput & { id?: string }>) {
+        const employee = await db.employee.findUnique({ where: { id: employeeId }, select: { id: true } });
+        if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
+
+        for (const item of items) {
+            if (!item.name.trim()) throw new BusinessRuleError('Nama tunjangan wajib diisi');
+            if (item.amount < 0) throw new BusinessRuleError('Nominal tunjangan tidak boleh negatif');
+        }
+
+        return db.$transaction(async (tx) => {
+            const existing = await tx.employeeAllowance.findMany({ where: { employeeId } });
+            const keepIds = new Set(items.map((i) => i.id).filter(Boolean) as string[]);
+
+            // Soft-deactivate removed
+            for (const row of existing) {
+                if (!keepIds.has(row.id)) {
+                    await tx.employeeAllowance.update({
+                        where: { id: row.id },
+                        data: { isActive: false },
+                    });
+                }
+            }
+
+            const results = [];
+            for (const item of items) {
+                if (item.id) {
+                    const updated = await tx.employeeAllowance.update({
+                        where: { id: item.id },
+                        data: {
+                            name: item.name.trim(),
+                            amount: item.amount,
+                            isActive: item.isActive ?? true,
+                        },
+                    });
+                    results.push(updated);
+                } else {
+                    const created = await tx.employeeAllowance.create({
+                        data: {
+                            employeeId,
+                            name: item.name.trim(),
+                            amount: item.amount,
+                            isActive: item.isActive ?? true,
+                        },
+                    });
+                    results.push(created);
+                }
+            }
+            return results;
+        });
+    },
+
+    async remove(db: PrismaClient, id: string) {
+        const row = await db.employeeAllowance.findUnique({ where: { id } });
+        if (!row) throw new NotFoundError('Tunjangan tidak ditemukan');
+        // Soft-delete to preserve history references in payslip snapshots (snapshots copy name/amount).
+        return db.employeeAllowance.update({ where: { id }, data: { isActive: false } });
     },
 };
 
@@ -135,25 +327,14 @@ export interface GeneratePayslipsInput {
     month: number; // 1-12
 }
 
-export interface PayslipResult {
-    id: string;
-    employeeId: string;
-    employeeName: string;
-    employeeCode: string;
-    baseSalary: number;
-    allowanceTotal: number;
-    thrAmount: number;
-    prorationDeduction: number;
-    grossPay: number;
-    bpjsDeduction: number;
-    loanDeduction: number;
-    otherDeductions: number;
-    deductionTotal: number;
-    netPay: number;
-    status: 'DRAFT' | 'FINALIZED' | 'PAID';
+export interface UpdateDraftPayslipInput {
+    thrAmount?: number;
+    prorationDeduction?: number;
+    bpjsDeduction?: number;
+    loanDeduction?: number;
+    otherDeductions?: number;
+    notes?: string | null;
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const PayrollMonthlyService = {
     async listPeriods(db: PrismaClient) {
@@ -171,13 +352,10 @@ export const PayrollMonthlyService = {
 
     /**
      * Generate draft payslips for all active MONTHLY employees in this period.
-     * Idempotent: re-running finds existing drafts and skips creating duplicates
-     * (relies on @@unique([payrollPeriodId, employeeId])).
+     * Idempotent for existing payslips (skipped). Employees without salary skipped.
      *
-     * Proration policy (§1): default full month. Deduct proportional to days ABSENT
-     * (tanpa keterangan) in [periodStart, periodEnd]. ON_LEAVE ber-keterangan tidak
-     * dipotong otomatis. Pembagi = jumlah hari kerja efektif (Senin–Sabtu) di bulan itu,
-     * supaya gaji 1 hari = monthlySalary / hariKerjaEfektif.
+     * Proration: only explicit AttendanceRecord.status = ABSENT counts.
+     * Days with no record are NOT treated as absent (admin must mark alpa).
      */
     async generateDrafts(db: PrismaClient, input: GeneratePayslipsInput): Promise<{ created: number; skipped: number; periodId: string }> {
         const period = await this.getOrCreatePeriod(db, input.year, input.month);
@@ -185,13 +363,15 @@ export const PayrollMonthlyService = {
             throw new BusinessRuleError(`Periode ${input.year}-${String(input.month).padStart(2, '0')} sudah CLOSED`);
         }
 
-        // Period date range (UTC, .db.Date stored as date-only).
         const periodStart = new Date(Date.UTC(input.year, input.month - 1, 1));
-        const periodEnd = new Date(Date.UTC(input.year, input.month, 0)); // last day of month
+        const periodEnd = new Date(Date.UTC(input.year, input.month, 0));
 
         const employees = await db.employee.findMany({
             where: { payType: 'MONTHLY', status: 'ACTIVE' },
-            include: { allowances: { where: { isActive: true } }, loans: { where: { status: 'ACTIVE' } } },
+            include: {
+                allowances: { where: { isActive: true } },
+                loans: { where: { status: 'ACTIVE' } },
+            },
         });
 
         let created = 0;
@@ -200,59 +380,73 @@ export const PayrollMonthlyService = {
             const existing = await db.payslip.findUnique({
                 where: { payrollPeriodId_employeeId: { payrollPeriodId: period.id, employeeId: emp.id } },
             });
-            if (existing) { skipped++; continue; }
+            if (existing) {
+                skipped++;
+                continue;
+            }
 
             const monthlySalary = Number(emp.monthlySalary ?? 0);
-            if (monthlySalary <= 0) { skipped++; continue; }
+            if (monthlySalary <= 0) {
+                skipped++;
+                continue;
+            }
 
-            // Allowance snapshot.
             const allowanceTotal = round2(emp.allowances.reduce((s, a) => s + Number(a.amount), 0));
 
-            // Proration — count ABSENT days in period (no record at all OR explicit ABSENT).
-            // We only count records that are explicitly ABSENT; days with NO record are also
-            // treated as ABSENT for proration. Simplest: count ABSENT records in range.
             const absentCount = await db.attendanceRecord.count({
-                where: { employeeId: emp.id, workDate: { gte: periodStart, lte: periodEnd }, status: 'ABSENT' },
+                where: {
+                    employeeId: emp.id,
+                    workDate: { gte: periodStart, lte: periodEnd },
+                    status: 'ABSENT',
+                },
             });
-            // Effective working days = number of Mon-Sat in the month.
             const effectiveDays = countMonToSat(periodStart, periodEnd);
             const dailyRateEquivalent = effectiveDays > 0 ? monthlySalary / effectiveDays : 0;
             const prorationDeduction = round2(dailyRateEquivalent * absentCount);
 
-            const grossPay = round2(monthlySalary + allowanceTotal + 0 /* thrAmount=0 default */ - prorationDeduction);
+            const bpjsDeduction = emp.bpjsParticipant
+                ? round2(Number(emp.bpjsEmployeeDeduction ?? 0))
+                : 0;
 
-            // BPJS snapshot.
-            const bpjsDeduction = round2(Number(emp.bpjsEmployeeDeduction ?? 0));
-
-            // Loan deduction — auto from active loans.
             let loanDeduction = 0;
             for (const loan of emp.loans) {
-                loanDeduction += EmployeeLoanService.nextDeductionAmount({
-                    repaymentType: loan.repaymentType,
-                    installmentAmount: loan.installmentAmount,
-                    remainingBalance: loan.remainingBalance,
-                });
+                loanDeduction += nextDeductionAmount(
+                    {
+                        repaymentType: loan.repaymentType,
+                        installmentAmount: loan.installmentAmount,
+                        remainingBalance: loan.remainingBalance,
+                        date: loan.date,
+                    },
+                    input.year,
+                    input.month,
+                );
             }
             loanDeduction = round2(loanDeduction);
 
-            const otherDeductions = 0;
-            const deductionTotal = round2(bpjsDeduction + loanDeduction + otherDeductions);
-            const netPay = round2(grossPay - deductionTotal);
+            const amounts = computePayslipAmounts({
+                baseSalary: monthlySalary,
+                allowanceTotal,
+                thrAmount: 0,
+                prorationDeduction,
+                bpjsDeduction,
+                loanDeduction,
+                otherDeductions: 0,
+            });
 
             await db.payslip.create({
                 data: {
                     payrollPeriodId: period.id,
                     employeeId: emp.id,
-                    baseSalary: monthlySalary,
-                    allowanceTotal,
-                    thrAmount: 0,
-                    prorationDeduction,
-                    grossPay,
-                    bpjsDeduction,
-                    loanDeduction,
-                    otherDeductions,
-                    deductionTotal,
-                    netPay,
+                    baseSalary: amounts.baseSalary,
+                    allowanceTotal: amounts.allowanceTotal,
+                    thrAmount: amounts.thrAmount,
+                    prorationDeduction: amounts.prorationDeduction,
+                    grossPay: amounts.grossPay,
+                    bpjsDeduction: amounts.bpjsDeduction,
+                    loanDeduction: amounts.loanDeduction,
+                    otherDeductions: amounts.otherDeductions,
+                    deductionTotal: amounts.deductionTotal,
+                    netPay: amounts.netPay,
                     status: 'DRAFT',
                     allowances: {
                         create: emp.allowances.map((a) => ({ name: a.name, amount: Number(a.amount) })),
@@ -277,13 +471,61 @@ export const PayrollMonthlyService = {
     },
 
     /**
+     * Manual correction of a DRAFT payslip (THR, overrides, other deductions).
+     * Recomputes gross/deduction/net from baseSalary + allowanceTotal (frozen at generate)
+     * plus editable fields.
+     */
+    async updateDraft(db: PrismaClient, payslipId: string, patch: UpdateDraftPayslipInput) {
+        const payslip = await db.payslip.findUnique({ where: { id: payslipId } });
+        if (!payslip) throw new NotFoundError('Payslip tidak ditemukan');
+        if (payslip.status !== 'DRAFT') {
+            throw new BusinessRuleError('Hanya payslip DRAFT yang bisa diedit');
+        }
+
+        const amounts = computePayslipAmounts({
+            baseSalary: Number(payslip.baseSalary),
+            allowanceTotal: Number(payslip.allowanceTotal),
+            thrAmount: patch.thrAmount !== undefined ? patch.thrAmount : Number(payslip.thrAmount),
+            prorationDeduction:
+                patch.prorationDeduction !== undefined
+                    ? patch.prorationDeduction
+                    : Number(payslip.prorationDeduction),
+            bpjsDeduction:
+                patch.bpjsDeduction !== undefined ? patch.bpjsDeduction : Number(payslip.bpjsDeduction),
+            loanDeduction:
+                patch.loanDeduction !== undefined ? patch.loanDeduction : Number(payslip.loanDeduction),
+            otherDeductions:
+                patch.otherDeductions !== undefined
+                    ? patch.otherDeductions
+                    : Number(payslip.otherDeductions),
+        });
+
+        return db.payslip.update({
+            where: { id: payslipId },
+            data: {
+                thrAmount: amounts.thrAmount,
+                prorationDeduction: amounts.prorationDeduction,
+                bpjsDeduction: amounts.bpjsDeduction,
+                loanDeduction: amounts.loanDeduction,
+                otherDeductions: amounts.otherDeductions,
+                grossPay: amounts.grossPay,
+                deductionTotal: amounts.deductionTotal,
+                netPay: amounts.netPay,
+                ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
+            },
+            include: {
+                employee: { select: { id: true, name: true, code: true } },
+                allowances: true,
+                loanPayments: { include: { loan: { select: { loanNumber: true } } } },
+            },
+        });
+    },
+
+    /**
      * Finalize a single payslip:
-     * - Status: DRAFT → FINALIZED
-     * - Apply loan deduction: create EmployeeLoanPayment per active loan proportional to
-     *   what was charged on this payslip, then decrement loan.remainingBalance.
-     *   When remaining hits 0 → status = PAID_OFF.
-     * - Best-effort: if loanDeduction was overridden manually, apply it proportionally
-     *   across active loans by remaining balance weighting.
+     * - Status DRAFT → FINALIZED
+     * - Apply loanDeduction across ACTIVE loans (weighted by remaining balance)
+     * - Create EmployeeLoanPayment rows; mark PAID_OFF when remaining hits 0
      */
     async finalize(db: PrismaClient, payslipId: string) {
         const payslip = await db.payslip.findUnique({
@@ -294,7 +536,6 @@ export const PayrollMonthlyService = {
         if (payslip.status !== 'DRAFT') throw new BusinessRuleError('Payslip sudah difinalize');
 
         return db.$transaction(async (tx) => {
-            // Distribute loanDeduction across active loans weighted by remaining balance.
             const activeLoans = payslip.employee.loans;
             const totalRemaining = activeLoans.reduce((s, l) => s + Number(l.remainingBalance), 0);
             const deduction = Number(payslip.loanDeduction);
@@ -306,12 +547,13 @@ export const PayrollMonthlyService = {
                     const isLast = i === activeLoans.length - 1;
                     let amount: number;
                     if (isLast) {
-                        // Rounding remainder to last loan to avoid leftover cents.
                         amount = round2(deduction - allocated);
                     } else {
                         amount = round2((Number(loan.remainingBalance) / totalRemaining) * deduction);
                         allocated = round2(allocated + amount);
                     }
+                    // Cap by remaining balance to avoid negative.
+                    amount = Math.min(amount, Number(loan.remainingBalance));
                     if (amount <= 0) continue;
                     const remaining = Math.max(0, round2(Number(loan.remainingBalance) - amount));
                     await tx.employeeLoanPayment.create({
@@ -336,6 +578,9 @@ export const PayrollMonthlyService = {
             return tx.payslip.update({
                 where: { id: payslipId },
                 data: { status: 'FINALIZED' },
+                include: {
+                    employee: { select: { id: true, name: true, code: true } },
+                },
             });
         });
     },
@@ -366,18 +611,3 @@ export const PayrollMonthlyService = {
         });
     },
 };
-
-/**
- * Count Mon-Sat days in [start, end] inclusive (UTC). Effective working days for proration.
- * (Sundays excluded per local convention.)
- */
-function countMonToSat(start: Date, end: Date): number {
-    let count = 0;
-    const d = new Date(start);
-    while (d <= end) {
-        const day = d.getUTCDay(); // 0=Sun, 6=Sat
-        if (day !== 0) count++;
-        d.setUTCDate(d.getUTCDate() + 1);
-    }
-    return count;
-}

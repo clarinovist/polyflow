@@ -9,8 +9,17 @@ import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from '@/lib/tools/audit';
 
-// Fields whose change is compliance-critical (gai/payType) — old/new captured in audit log.
-const SALARY_FIELDS = ['dailyRate', 'overtimeHourlyRate', 'standardDayHours', 'payType'] as const;
+// Fields whose change is compliance-critical (gaji/payType/BPJS) — old/new captured in audit log.
+const SALARY_FIELDS = [
+    'dailyRate',
+    'overtimeHourlyRate',
+    'standardDayHours',
+    'payType',
+    'monthlySalary',
+    'bpjsParticipant',
+    'bpjsEmployeeDeduction',
+    'bpjsEmployerCost',
+] as const;
 
 // Fase 2: optional personal/HR master data block. All fields optional.
 export interface EmployeePersonalData {
@@ -184,7 +193,21 @@ async function updateEmployee(
             // Snapshot old values for salary-critical fields (compliance audit).
             const before = await prisma.employee.findUnique({
                 where: { id },
-                select: { id: true, code: true, name: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true, payType: true, status: true, role: true },
+                select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    dailyRate: true,
+                    overtimeHourlyRate: true,
+                    standardDayHours: true,
+                    payType: true,
+                    status: true,
+                    role: true,
+                    monthlySalary: true,
+                    bpjsParticipant: true,
+                    bpjsEmployeeDeduction: true,
+                    bpjsEmployerCost: true,
+                },
             });
             if (!before) {
                 throw new BusinessRuleError('Employee not found');

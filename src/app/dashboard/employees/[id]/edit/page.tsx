@@ -1,5 +1,6 @@
 import { getEmployeeById } from '@/actions/admin/employees';
 import { EmployeeForm } from '@/components/production/EmployeeForm';
+import { EmployeeHrHistory } from '@/components/hrd/EmployeeHrHistory';
 import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
 import { Employee } from '@prisma/client';
@@ -43,6 +44,11 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
                     <EmployeeForm initialData={formData as unknown as Employee} hasPin={hasPin} />
                 </CardContent>
             </Card>
+
+            <div>
+                <h2 className="text-lg font-semibold tracking-tight mb-3">Riwayat HRD</h2>
+                <EmployeeHrHistory employeeId={employee.id} />
+            </div>
         </div>
     );
 }

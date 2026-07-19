@@ -46,6 +46,7 @@ export function LeaveRequestsManager() {
         endDate: '',
         reason: '',
     });
+    const [docFile, setDocFile] = useState<File | null>(null);
 
     const loadEmployees = async () => {
         const res = await getEmployees();
@@ -78,16 +79,32 @@ export function LeaveRequestsManager() {
             return;
         }
         try {
+            let documentUrl: string | undefined;
+            if (docFile) {
+                const fd = new FormData();
+                fd.append('file', docFile);
+                fd.append('entityId', form.employeeId);
+                fd.append('category', 'leave');
+                const up = await fetch('/api/upload/hrd-doc', { method: 'POST', body: fd });
+                if (!up.ok) {
+                    toast.error('Gagal upload dokumen cuti');
+                    return;
+                }
+                const json = (await up.json()) as { publicUrl?: string };
+                documentUrl = json.publicUrl;
+            }
             const res = await createLeaveRequest({
                 employeeId: form.employeeId,
                 type: form.type,
                 startDate: new Date(form.startDate),
                 endDate: new Date(form.endDate),
                 reason: form.reason,
+                documentUrl,
             });
             if (res.success) {
                 toast.success('Pengajuan cuti dibuat');
                 setForm({ employeeId: '', type: 'ANNUAL', startDate: '', endDate: '', reason: '' });
+                setDocFile(null);
                 loadRequests();
             } else {
                 toast.error(res.error || 'Gagal membuat pengajuan');
@@ -159,6 +176,15 @@ export function LeaveRequestsManager() {
                     <div className="space-y-1">
                         <Label className="text-xs font-semibold">Alasan</Label>
                         <Textarea rows={2} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Dokumen (surat sakit/izin, opsional)</Label>
+                        <Input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="h-9 text-xs"
+                            onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                        />
                     </div>
                     <Button type="submit" size="sm" disabled={!form.employeeId}>Ajukan</Button>
                 </form>

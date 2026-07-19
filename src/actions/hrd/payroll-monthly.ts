@@ -6,10 +6,13 @@ import { safeAction } from '@/lib/errors/errors';
 import { requireHrdApprover, requireHrdFinance } from '@/lib/auth/hrd-access';
 import { logActivity } from '@/lib/tools/audit';
 import {
+    EmployeeAllowanceService,
     EmployeeLoanService,
     PayrollMonthlyService,
+    type AllowanceInput,
     type CreateLoanInput,
     type GeneratePayslipsInput,
+    type UpdateDraftPayslipInput,
 } from '@/services/hrd/payroll-monthly-service';
 
 // ─── KASBON ───
@@ -58,6 +61,37 @@ export const markLoanDefaulted = withTenant(
     },
 );
 
+// ─── ALLOWANCES ───
+
+export const listEmployeeAllowances = withTenant(
+    async function listEmployeeAllowances(employeeId: string) {
+        return safeAction(async () => {
+            await requireHrdFinance();
+            return EmployeeAllowanceService.list(prisma, employeeId);
+        });
+    },
+);
+
+export const replaceEmployeeAllowances = withTenant(
+    async function replaceEmployeeAllowances(
+        employeeId: string,
+        items: Array<AllowanceInput & { id?: string }>,
+    ) {
+        return safeAction(async () => {
+            const session = await requireHrdApprover();
+            const result = await EmployeeAllowanceService.replaceForEmployee(prisma, employeeId, items);
+            await logActivity({
+                userId: session.user.id,
+                action: 'EMPLOYEE_ALLOWANCES_UPDATED',
+                entityType: 'Employee',
+                entityId: employeeId,
+                details: `Replaced allowances (${result.length} active rows)`,
+            });
+            return result;
+        });
+    },
+);
+
 // ─── PAYROLL BULANAN ───
 
 export const listPayrollPeriods = withTenant(
@@ -91,6 +125,23 @@ export const listPayslipsForPeriod = withTenant(
         return safeAction(async () => {
             await requireHrdFinance();
             return PayrollMonthlyService.listPayslips(prisma, periodId);
+        });
+    },
+);
+
+export const updateDraftPayslip = withTenant(
+    async function updateDraftPayslip(payslipId: string, patch: UpdateDraftPayslipInput) {
+        return safeAction(async () => {
+            const session = await requireHrdApprover();
+            const slip = await PayrollMonthlyService.updateDraft(prisma, payslipId, patch);
+            await logActivity({
+                userId: session.user.id,
+                action: 'PAYSLIP_DRAFT_UPDATED',
+                entityType: 'Payslip',
+                entityId: payslipId,
+                details: `Updated draft payslip thr=${slip.thrAmount} bpjs=${slip.bpjsDeduction} loan=${slip.loanDeduction} other=${slip.otherDeductions} prorata=${slip.prorationDeduction} net=${slip.netPay}`,
+            });
+            return slip;
         });
     },
 );

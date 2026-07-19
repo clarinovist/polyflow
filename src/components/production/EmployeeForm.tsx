@@ -11,15 +11,18 @@ import { Employee, EmployeeStatus, EmployeePayType } from '@prisma/client';
 import { createEmployee, updateEmployee, generateNextEmployeeCode } from '@/actions/admin/employees';
 import { getJobRoles, createJobRole } from '@/actions/admin/roles';
 import { setEmployeePin, clearEmployeePin } from '@/actions/admin/attendance';
+import { listEmployeeAllowances, replaceEmployeeAllowances } from '@/actions/hrd/payroll-monthly';
 import { useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
+
+type AllowanceRow = { id?: string; name: string; amount: string; isActive: boolean };
 
 interface EmployeeFormProps {
     initialData?: Employee;
@@ -135,6 +138,10 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
     const [personal, setPersonal] = useState<PersonalData>(() => toPersonalFromEmployee(initialData));
     const [showPersonal, setShowPersonal] = useState<boolean>(() => initialData?.payType === ('MONTHLY' as EmployeePayType) || false);
 
+    // Fase 5: fixed allowances (edit mode only — need employee id)
+    const [allowances, setAllowances] = useState<AllowanceRow[]>([]);
+    const [allowancesLoading, setAllowancesLoading] = useState(false);
+
     useEffect(() => {
         const fetchRoles = async () => {
             const res = await getJobRoles();
@@ -143,6 +150,26 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
             }
         };
         fetchRoles();
+
+        const fetchAllowances = async () => {
+            if (!initialData?.id) return;
+            setAllowancesLoading(true);
+            const res = await listEmployeeAllowances(initialData.id);
+            if (res.success && res.data) {
+                setAllowances(
+                    res.data
+                        .filter((a: { isActive: boolean }) => a.isActive)
+                        .map((a: { id: string; name: string; amount: number | { toNumber(): number }; isActive: boolean }) => ({
+                            id: a.id,
+                            name: a.name,
+                            amount: String(typeof a.amount === 'number' ? a.amount : a.amount.toNumber()),
+                            isActive: a.isActive,
+                        })),
+                );
+            }
+            setAllowancesLoading(false);
+        };
+        fetchAllowances();
 
         const fetchCode = async () => {
             if (!initialData) {
@@ -223,6 +250,23 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
             }
 
             if (res.success) {
+                // Save allowances only for existing MONTHLY employees (need stable id).
+                if (initialData && formData.payType === ('MONTHLY' as EmployeePayType)) {
+                    const allowancePayload = allowances
+                        .filter((a) => a.name.trim())
+                        .map((a) => ({
+                            id: a.id,
+                            name: a.name.trim(),
+                            amount: Number(a.amount) || 0,
+                            isActive: true,
+                        }));
+                    const allRes = await replaceEmployeeAllowances(initialData.id, allowancePayload);
+                    if (!allRes.success) {
+                        toast.error(allRes.error || 'Gaji tersimpan, tapi tunjangan gagal disimpan');
+                        setLoading(false);
+                        return;
+                    }
+                }
                 toast.success(initialData ? 'Data personel berhasil diperbarui.' : 'Personel baru berhasil ditambahkan.', {
                     description: `${formData.name} telah berhasil disimpan.`
                 });
@@ -457,9 +501,81 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                             </div>
                         )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground italic">
-                        Tunjangan tetap (transport, makan, dst) dikelola di daftar karyawan MONTHLY atau via menu Kasbon / Gaji Bulanan.
-                    </p>
+                    <div className="space-y-2 border-t border-white/10 pt-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold">Tunjangan tetap</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                    {initialData
+                                        ? 'Transport, makan, dll — ikut snapshot ke payslip saat generate.'
+                                        : 'Simpan karyawan dulu, lalu edit ulang untuk menambah tunjangan.'}
+                                </p>
+                            </div>
+                            {initialData && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs"
+                                    onClick={() =>
+                                        setAllowances((rows) => [
+                                            ...rows,
+                                            { name: '', amount: '', isActive: true },
+                                        ])
+                                    }
+                                >
+                                    <Plus className="h-3 w-3 mr-1" /> Tambah
+                                </Button>
+                            )}
+                        </div>
+                        {initialData && allowancesLoading && (
+                            <p className="text-[11px] text-muted-foreground">Memuat tunjangan…</p>
+                        )}
+                        {initialData &&
+                            allowances.map((row, idx) => (
+                                <div key={row.id ?? `new-${idx}`} className="grid grid-cols-[1fr_120px_auto] gap-2 items-end">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px]">Nama</Label>
+                                        <Input
+                                            className="h-8 text-xs bg-background/50"
+                                            value={row.name}
+                                            placeholder="Tunjangan Transport"
+                                            onChange={(e) => {
+                                                const next = [...allowances];
+                                                next[idx] = { ...row, name: e.target.value };
+                                                setAllowances(next);
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px]">Nominal</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            className="h-8 text-xs bg-background/50"
+                                            value={row.amount}
+                                            onChange={(e) => {
+                                                const next = [...allowances];
+                                                next[idx] = { ...row, amount: e.target.value };
+                                                setAllowances(next);
+                                            }}
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 p-0 text-red-600"
+                                        onClick={() => setAllowances(allowances.filter((_, i) => i !== idx))}
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            ))}
+                        {initialData && !allowancesLoading && allowances.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground italic">Belum ada tunjangan.</p>
+                        )}
+                    </div>
                 </div>
                 ) : formData.payType === 'DAILY' ? (
                 <>

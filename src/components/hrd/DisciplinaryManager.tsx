@@ -31,6 +31,7 @@ export function DisciplinaryManager() {
         id: string; employee?: { code: string; name: string };
         type: 'VERBAL_WARNING' | 'SP1' | 'SP2' | 'SP3' | 'SUSPENSION' | 'OTHER';
         reason: string; effectiveDate: string | Date; expiryDate: string | Date | null;
+        documentUrl?: string | null;
     }>>([]);
     const [loading, setLoading] = useState(false);
 
@@ -42,6 +43,7 @@ export function DisciplinaryManager() {
         expiryDate: '',
         notes: '',
     });
+    const [docFile, setDocFile] = useState<File | null>(null);
 
     const load = async () => {
         setLoading(true);
@@ -65,6 +67,20 @@ export function DisciplinaryManager() {
             return;
         }
         try {
+            let documentUrl: string | undefined;
+            if (docFile) {
+                const fd = new FormData();
+                fd.append('file', docFile);
+                fd.append('entityId', form.employeeId);
+                fd.append('category', 'disciplinary');
+                const up = await fetch('/api/upload/hrd-doc', { method: 'POST', body: fd });
+                if (!up.ok) {
+                    toast.error('Gagal upload dokumen sanksi');
+                    return;
+                }
+                const json = (await up.json()) as { publicUrl?: string };
+                documentUrl = json.publicUrl;
+            }
             const res = await createDisciplinaryAction({
                 employeeId: form.employeeId,
                 type: form.type,
@@ -72,10 +88,12 @@ export function DisciplinaryManager() {
                 effectiveDate: new Date(form.effectiveDate),
                 expiryDate: form.expiryDate ? new Date(form.expiryDate) : undefined,
                 notes: form.notes || undefined,
+                documentUrl,
             });
             if (res.success) {
                 toast.success('Sanksi disiplin dibuat');
                 setForm({ employeeId: '', type: 'SP1', reason: '', effectiveDate: '', expiryDate: '', notes: '' });
+                setDocFile(null);
                 load();
             } else {
                 toast.error(res.error || 'Gagal');
@@ -130,6 +148,15 @@ export function DisciplinaryManager() {
                         <Label className="text-xs font-semibold">Catatan (opsional)</Label>
                         <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                     </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Dokumen SP (PDF/foto, opsional)</Label>
+                        <Input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="h-9 text-xs"
+                            onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                        />
+                    </div>
                     <Button type="submit" size="sm" disabled={!form.employeeId || !form.reason || !form.effectiveDate}>Simpan</Button>
                 </form>
             </div>
@@ -168,7 +195,17 @@ export function DisciplinaryManager() {
                                                 {active ? 'Aktif' : 'Hangus'}
                                             </span>
                                         </td>
-                                        <td className="p-2 text-xs text-muted-foreground max-w-[260px] truncate" title={a.reason}>{a.reason}</td>
+                                        <td className="p-2 text-xs text-muted-foreground max-w-[260px] truncate" title={a.reason}>
+                                            {a.reason}
+                                            {a.documentUrl ? (
+                                                <>
+                                                    {' · '}
+                                                    <a href={a.documentUrl} target="_blank" rel="noreferrer" className="underline">
+                                                        Dokumen
+                                                    </a>
+                                                </>
+                                            ) : null}
+                                        </td>
                                     </tr>
                                 );
                             })}

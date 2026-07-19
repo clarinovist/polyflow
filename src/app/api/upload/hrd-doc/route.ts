@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
         const file = formData.get('file') as File | null;
         const entityId = formData.get('entityId') as string | null;
         const categoryRaw = (formData.get('category') as string | null) ?? 'disciplinary';
-        const category: 'disciplinary' | 'leave' =
-            categoryRaw === 'leave' ? 'leave' : 'disciplinary';
+        const category: 'disciplinary' | 'leave' | 'loan' =
+            categoryRaw === 'leave' ? 'leave' : categoryRaw === 'loan' ? 'loan' : 'disciplinary';
 
         if (!file || !entityId) {
             return NextResponse.json({ error: 'file and entityId are required' }, { status: 400 });
