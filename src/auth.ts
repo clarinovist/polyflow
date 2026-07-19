@@ -34,11 +34,18 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         role: z.string().optional(),
                         remember: z.coerce.boolean().optional(),
                         subdomain: z.string().optional(),
+                        // Internal-only: set when a superadmin impersonates a tenant
+                        // user via impersonateTenant(). authorize() uses this to
+                        // skip the password check and tag the session with the
+                        // superadmin actor. Never exposed to the login form.
+                        impersonationBy: z.string().optional(),
+                        impersonationExpiresAt: z.number().optional(),
                     })
                     .safeParse(credentials);
 
                 if (parsedCredentials.success) {
-                    const { email, password, role, remember, subdomain: formSubdomain } = parsedCredentials.data;
+                    const { email, password, role, remember, subdomain: formSubdomain, impersonationBy, impersonationExpiresAt } = parsedCredentials.data;
+                    const isImpersonation = !!impersonationBy;
 
                     // Resolve subdomain: prefer form field (from hidden input) > x-tenant-subdomain header > Host header
                     let subdomain = formSubdomain || request?.headers?.get('x-tenant-subdomain') || null;
@@ -101,7 +108,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         throw new Error('UserInactive');
                     }
 
-                    const passwordsMatch = await bcrypt.compare(password, user.password);
+                    const passwordsMatch = isImpersonation || await bcrypt.compare(password, user.password);
 
                     if (passwordsMatch) {
                         // Load ALL assigned roles for this user
@@ -158,6 +165,9 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             rememberMe: remember,
                             isSuperAdmin: user.isSuperAdmin,
                             allowedResources,
+                            // Only set during impersonation — absence = normal login.
+                            impersonatedBy: isImpersonation ? impersonationBy : undefined,
+                            impersonationExpiresAt: isImpersonation ? impersonationExpiresAt : undefined,
                         };
                     }
                 }

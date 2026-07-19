@@ -96,21 +96,33 @@ export const authConfig = {
                         return Response.redirect(new URL('/login', nextUrl));
                     }
 
-                    const user = auth.user as { isSuperAdmin?: boolean };
-                    if (!user.isSuperAdmin) {
+                    const user = auth.user as { isSuperAdmin?: boolean; impersonatedBy?: string };
+                    // Allow impersonation sessions (tagged with impersonatedBy)
+                    // to reach /admin/impersonate even though they're not
+                    // superadmins — they're superadmin-acted-as-tenant-user.
+                    const isImpersonating = !!user.impersonatedBy;
+                    if (!user.isSuperAdmin && !isImpersonating) {
                         return Response.redirect(new URL('/login', nextUrl));
                     }
 
                     // admin.polyflow.uk only serves the superadmin panel
-                    // (/super-admin alias + /admin/*). Tenant/ERP routes like
-                    // /dashboard, /warehouse, /production don't belong here —
-                    // without this, navigating to an ERP path would render it
-                    // against the main DB instead of the superadmin panel.
+                    // (/super-admin alias + /admin/*), OR the impersonation
+                    // view for sessions that are actively impersonating.
+                    // Tenant/ERP routes like /dashboard, /warehouse,
+                    // /production don't belong here — without this, navigating
+                    // to an ERP path would render it against the main DB
+                    // instead of the superadmin panel.
                     // /api/* is exempt — /api/admin/* endpoints (diagnostics,
                     // virtual-cs-metrics, etc.) are fetched by the admin UI and
                     // a redirect here would break System Health & other tools.
-                    if (!isSuperAdminAlias && !pathname.startsWith('/admin') && !pathname.startsWith('/api/')) {
+                    const isImpersonateView = pathname.startsWith('/admin/impersonate');
+                    if (!isImpersonating && !isSuperAdminAlias && !pathname.startsWith('/admin') && !pathname.startsWith('/api/')) {
                         return Response.redirect(new URL('/super-admin', nextUrl));
+                    }
+                    // Impersonation sessions can ONLY access /admin/impersonate —
+                    // everywhere else on admin.* they get bounced back there.
+                    if (isImpersonating && !isImpersonateView) {
+                        return Response.redirect(new URL('/admin/impersonate', nextUrl));
                     }
 
                     return true;
@@ -205,6 +217,8 @@ export const authConfig = {
                     rememberMe?: boolean;
                     isSuperAdmin?: boolean;
                     allowedResources?: string[];
+                    impersonatedBy?: string;
+                    impersonationExpiresAt?: number;
                 };
                 token.role = u.role;
                 token.roles = u.roles;
@@ -213,9 +227,22 @@ export const authConfig = {
                 token.isSuperAdmin = u.isSuperAdmin;
                 token.allowedResources = u.allowedResources;
                 token.lastActive = Math.floor(Date.now() / 1000);
+                // Impersonation claims — only present on sessions started via
+                // impersonateTenant(). Propagate to token so session()/authorized()
+                // can read them.
+                if (u.impersonatedBy) {
+                    token.impersonatedBy = u.impersonatedBy;
+                    token.impersonationExpiresAt = u.impersonationExpiresAt;
+                }
             }
 
             const now = Math.floor(Date.now() / 1000);
+
+            // Impersonation hard-expiry (30 min): kill session past expiry.
+            // Checked on every JWT read.
+            if (token.impersonationExpiresAt && now > (token.impersonationExpiresAt as number)) {
+                return null;
+            }
 
             // Check for idle timeout if not "Remember Me"
             if (!token.rememberMe) {
@@ -235,6 +262,8 @@ export const authConfig = {
                 (session.user as { id?: unknown }).id = token.id;
                 (session.user as { isSuperAdmin?: unknown }).isSuperAdmin = token.isSuperAdmin;
                 (session.user as { allowedResources?: unknown }).allowedResources = token.allowedResources;
+                (session.user as { impersonatedBy?: unknown }).impersonatedBy = token.impersonatedBy;
+                (session.user as { impersonationExpiresAt?: unknown }).impersonationExpiresAt = token.impersonationExpiresAt;
             }
             return session;
         },

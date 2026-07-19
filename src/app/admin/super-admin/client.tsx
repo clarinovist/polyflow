@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword, setTenantStatus } from "@/actions/admin/admin-actions";
 import { globalUserSearch, type GlobalUserResult } from "@/actions/admin/global-search";
+import { impersonateTenant } from "@/actions/admin/impersonate";
 import { getAllTenantStats } from "@/actions/admin/tenant-observability";
 import { backupTenant, listTenantBackups, getTenantBackupDownloadUrl, deleteTenant, restoreTenantBackup } from "@/actions/admin/tenant-backup";
 import type { TenantStats } from "@/actions/admin/tenant-observability";
-import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink, Database, Trash2, Download, RefreshCw, RotateCcw } from "lucide-react";
+import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink, Database, Trash2, Download, RefreshCw, RotateCcw, UserRound } from "lucide-react";
 
 function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -85,6 +86,49 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
                         </Button>
                     </DialogFooter>
                 </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ImpersonateButton({ tenant }: { tenant: Tenant }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isStarting, setIsStarting] = useState(false);
+
+    async function onConfirm() {
+        setIsStarting(true);
+        try {
+            await impersonateTenant(tenant.id);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Gagal mulai impersonation.");
+            setIsStarting(false);
+            setIsOpen(false);
+        }
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2" title="Login as tenant admin (impersonate)" disabled={tenant.status === "SUSPENDED"}>
+                    <UserRound className="h-4 w-4" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Impersonate: {tenant.name}</DialogTitle>
+                    <DialogDescription>
+                        You will be logged in as the primary ADMIN user of this tenant.
+                        Read-only default, 30-minute session. All actions are audit-logged
+                        under your superadmin ID.
+                        {tenant.status === "SUSPENDED" && " Note: suspended tenants cannot be impersonated."}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isStarting}>Cancel</Button>
+                    <Button type="button" onClick={onConfirm} disabled={isStarting || tenant.status === "SUSPENDED"}>
+                        {isStarting ? "Starting…" : "Start Impersonation"}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -714,6 +758,7 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
                                         <EditTenantDialog tenant={t} onUpdated={() => window.location.reload()} />
                                         <BackupActions tenant={t} onChanged={() => window.location.reload()} />
                                         <DeleteTenantDialog tenant={t} onChanged={() => window.location.reload()} />
+                                        <ImpersonateButton tenant={t} />
                                     </TableCell>
                                 </TableRow>
                             );
