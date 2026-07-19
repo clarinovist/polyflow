@@ -22,6 +22,7 @@ export interface AuditLogClientData {
     entityType: string;
     entityId: string;
     details: string | null;
+    changes: unknown; // Prisma Json? field — raw object/string from DB
     createdAt: Date;
     user: {
         name: string | null;
@@ -50,7 +51,7 @@ export default function AuditLogTable({
     limit,
     onPageChange
 }: AuditLogTableProps) {
-    const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+    const [selectedLog, setSelectedLog] = useState<AuditLogClientData | null>(null);
     const totalPages = Math.ceil(total / limit);
 
     const getActionColor = (action: string) => {
@@ -128,7 +129,7 @@ export default function AuditLogTable({
                                             variant="ghost"
                                             size="sm"
                                             className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                            onClick={() => setSelectedLogId(log.id)}
+                                            onClick={() => setSelectedLog(log)}
                                         >
                                             <Eye className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                                         </Button>
@@ -171,9 +172,9 @@ export default function AuditLogTable({
 
             {/* Detail Dialog */}
             <AuditLogDetailDialog 
-                logId={selectedLogId} 
-                open={!!selectedLogId} 
-                onOpenChange={(open: boolean) => !open && setSelectedLogId(null)} 
+                log={selectedLog}
+                open={!!selectedLog} 
+                onOpenChange={(open: boolean) => !open && setSelectedLog(null)} 
             />
         </div>
     );
