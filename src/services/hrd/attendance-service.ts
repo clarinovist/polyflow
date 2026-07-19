@@ -73,6 +73,19 @@ export interface DailySummary {
   records: AttendanceRecordResult[];
 }
 
+// Fase 3 — per-employee aggregate for weekly recap.
+export interface WeeklyEmployeeSummary {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  daysPresent: number;
+  totalActualHours: number;
+  totalOvertimeHours: number;
+  totalDailyEarnings: number;
+  totalOvertimeEarnings: number;
+  totalEarnings: number;
+}
+
 export interface ListFilters {
   workShiftId?: string;
   overtimeOnly?: boolean;
@@ -580,5 +593,77 @@ export const AttendanceService = {
       include: includeRelations,
     });
     return buildRecordResult(finalized as unknown as RecordWithRelations);
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // Fase 3: range methods (used by weekly attendance recap + monthly payroll §5)
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * List attendance records in a date range [from, to] inclusive.
+   * Reuses same filters as listByDate minus the single-date where.
+   */
+  async listByRange(db: PrismaClient, from: Date, to: Date, filters?: ListFilters): Promise<AttendanceRecordResult[]> {
+    const where: Record<string, unknown> = {
+      workDate: { gte: from, lte: to },
+    };
+    if (filters?.workShiftId) where.workShiftId = filters.workShiftId;
+
+    const records = await db.attendanceRecord.findMany({
+      where: where as never,
+      include: includeRelations,
+      orderBy: [{ employee: { code: 'asc' } }, { workDate: 'asc' }, { clockInAt: 'asc' }],
+    });
+
+    let results = records.map(r => buildRecordResult(r as unknown as RecordWithRelations));
+    if (filters?.overtimeOnly) {
+      results = results.filter(r => r.isOvertimeShift || r.overtimeHours > 0);
+    }
+    return results;
+  },
+
+  /**
+   * Weekly summary — aggregate per employee within [weekStart, weekEnd].
+   * Used by /hrd/attendance weekly toggle (and also reusable for payroll monthly §5).
+   */
+  async getWeeklySummary(db: PrismaClient, weekStart: Date, weekEnd: Date): Promise<WeeklyEmployeeSummary[]> {
+    const records = await db.attendanceRecord.findMany({
+      where: { workDate: { gte: weekStart, lte: weekEnd }, status: 'PRESENT' },
+      include: includeRelations,
+    });
+    const results = records.map(r => buildRecordResult(r as unknown as RecordWithRelations));
+
+    const byEmployee = new Map<string, WeeklyEmployeeSummary>();
+    for (const r of results) {
+      const key = r.employeeId;
+      const existing = byEmployee.get(key) ?? {
+        employeeId: r.employeeId,
+        employeeCode: r.employeeCode,
+        employeeName: r.employeeName,
+        daysPresent: 0,
+        totalActualHours: 0,
+        totalOvertimeHours: 0,
+        totalDailyEarnings: 0,
+        totalOvertimeEarnings: 0,
+        totalEarnings: 0,
+      };
+      existing.daysPresent += 1;
+      existing.totalActualHours += r.actualHours ?? 0;
+      existing.totalOvertimeHours += r.overtimeHours ?? 0;
+      existing.totalDailyEarnings += r.dailyEarnings ?? 0;
+      existing.totalOvertimeEarnings += r.overtimeEarnings ?? 0;
+      existing.totalEarnings += r.totalEarnings ?? 0;
+      byEmployee.set(key, existing);
+    }
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    return Array.from(byEmployee.values()).map(s => ({
+      ...s,
+      totalActualHours: round2(s.totalActualHours),
+      totalOvertimeHours: round2(s.totalOvertimeHours),
+      totalDailyEarnings: round2(s.totalDailyEarnings),
+      totalOvertimeEarnings: round2(s.totalOvertimeEarnings),
+      totalEarnings: round2(s.totalEarnings),
+    }));
   },
 };

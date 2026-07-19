@@ -195,6 +195,32 @@ export const getAttendanceSummary = withTenant(
   }
 );
 
+// ─── Fase 3: range/weekly actions (additive) ───
+
+export const listAttendanceRange = withTenant(
+  async function listAttendanceRange(from: string, to: string, filters?: ListFilters) {
+    try {
+      const records = await AttendanceService.listByRange(db, new Date(from), new Date(to), filters);
+      return { success: true, data: records };
+    } catch (error) {
+      logger.error('List attendance range failed', { error, from, to, module: 'AttendanceActions' });
+      return { success: false, error: 'Gagal memuat data absensi rentang' };
+    }
+  }
+);
+
+export const getAttendanceWeeklySummary = withTenant(
+  async function getAttendanceWeeklySummary(weekStart: string, weekEnd: string) {
+    try {
+      const summary = await AttendanceService.getWeeklySummary(db, new Date(weekStart), new Date(weekEnd));
+      return { success: true, data: summary };
+    } catch (error) {
+      logger.error('Get weekly summary failed', { error, weekStart, weekEnd, module: 'AttendanceActions' });
+      return { success: false, error: 'Gagal memuat rekap mingguan' };
+    }
+  }
+);
+
 // ─── Kiosk actions (public) ───
 // Auth failures stay generic (anti-enumeration). Operational messages are safe to surface.
 // Rate limited per (IP + employeeCode): 5 attempts per 5 minutes.

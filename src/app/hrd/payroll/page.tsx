@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import Link from 'next/link';
+import { UrlWeekPicker } from '@/components/common/url-week-picker';
+import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 
 function formatIdr(n: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
@@ -21,8 +23,10 @@ export default async function PayrollPage({
   const params = await searchParams;
   const res = await getAllWeeklyPayroll(params.date);
   const rows = res.success && res.data ? res.data : [];
-  const weekStart = rows[0]?.weekStart;
-  const weekEnd = rows[0]?.weekEnd;
+  // Fase 3: derive current picker date explicitly (was implicit from rows[0]).
+  const baseDate = params.date ? new Date(params.date) : new Date();
+  const weekStart = rows[0]?.weekStart ?? startOfWeek(baseDate).toISOString();
+  const weekEnd = rows[0]?.weekEnd ?? endOfWeek(baseDate).toISOString();
 
   return (
     <div className="space-y-6">
@@ -35,21 +39,7 @@ export default async function PayrollPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <form className="flex items-center gap-2">
-            <label className="text-sm text-muted-foreground" htmlFor="date">
-              Minggu berisi tanggal
-            </label>
-            <input
-              id="date"
-              name="date"
-              type="date"
-              defaultValue={params.date || ''}
-              className="rounded-md border bg-background px-2 py-1 text-sm"
-            />
-            <button type="submit" className="rounded-md bg-primary px-3 py-1 text-sm text-primary-foreground">
-              Lihat
-            </button>
-          </form>
+          <UrlWeekPicker currentDate={baseDate} />
           {rows.length > 0 && (
             <form action="/api/hrd/payroll/export" method="GET">
               <input type="hidden" name="date" value={params.date || ''} />

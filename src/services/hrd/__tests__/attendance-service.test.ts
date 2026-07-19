@@ -456,4 +456,66 @@ describe('AttendanceService', () => {
       ).rejects.toThrow('Tidak ada sesi absensi yang masih terbuka');
     });
   });
+
+  // ─── Fase 3 ───
+  describe('listByRange', () => {
+    it('queries records by workDate range', async () => {
+      const findMany = vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([] as any);
+      await AttendanceService.listByRange(mockDb as any, new Date('2026-07-13'), new Date('2026-07-19'));
+      expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          workDate: { gte: new Date('2026-07-13'), lte: new Date('2026-07-19') },
+        }),
+        include: expect.any(Object),
+        orderBy: expect.any(Array),
+      }));
+    });
+  });
+
+  describe('getWeeklySummary', () => {
+    it('aggregates per employee', async () => {
+      const rec = (id: string, empId: string, empCode: string, empName: string, actualH: number, otH: number) => ({
+        id, employeeId: empId, workDate: new Date('2026-07-15'),
+        workShiftId: 'shift-1', clockInAt: new Date('2026-07-15T06:00:00Z'),
+        clockOutAt: new Date('2026-07-15T06:00:00Z'), // 0 hours; but we'll override computed fields below
+        isOvertimeShift: false, status: 'PRESENT', source: 'KIOSK',
+        dailyRateSnapshot: dec(0), overtimeRateSnapshot: dec(0),
+        standardDayHours: dec(8),
+        plannedHours: dec(8), actualHours: dec(actualH), regularHours: dec(actualH), overtimeHours: dec(otH),
+        dailyEarnings: dec(actualH * 12500), overtimeEarnings: dec(otH * 18750),
+        totalEarnings: dec(actualH * 12500 + otH * 18750),
+        employee: { name: empName, code: empCode }, workShift: activeShift,
+      });
+      // Set explicit clockOutAt to produce actual hours; better — set actual directly:
+      const makeRec = (id: string, empId: string, empCode: string, empName: string, actualH: number, otH: number) => {
+        const r = rec(id, empId, empCode, empName, actualH, otH);
+        // Make actualHours computed: actual = regular + OT.
+        const start = new Date('2026-07-15T06:00:00Z');
+        const end = new Date(start.getTime() + (actualH + otH) * 3600_000);
+        r.clockInAt = start; r.clockOutAt = end;
+        // Set snapshots so computeEarnings produces the expected dailyEarnings & OT earnings.
+        // dailyRate=100000/8h → regular(8h)=100000; OT rate=18750/2h=37500.
+        r.dailyRateSnapshot = dec(100000);
+        r.overtimeRateSnapshot = dec(18750);
+        // plannedHours=8 → regular=10h when actual=10 → computeEarnings sets regular=8, OT=2
+        return r;
+      };
+
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        makeRec('r1', 'emp-1', 'EMP-001', 'Budi', 8, 2),
+        makeRec('r2', 'emp-1', 'EMP-001', 'Budi', 8, 0),
+        makeRec('r3', 'emp-2', 'EMP-002', 'Sari', 6, 0),
+      ] as any);
+
+      const summary = await AttendanceService.getWeeklySummary(mockDb as any, new Date('2026-07-13'), new Date('2026-07-19'));
+      expect(summary).toHaveLength(2);
+      const budi = summary.find(s => s.employeeId === 'emp-1')!;
+      expect(budi.daysPresent).toBe(2);
+      expect(budi.totalActualHours).toBe(18); // 10 + 8 (actual = regular + OT)
+      expect(budi.totalOvertimeHours).toBe(2);
+      expect(budi.totalDailyEarnings).toBe(200000); // 100000 computed daily for each (regular=8, dailyRate=100000)
+      expect(budi.totalOvertimeEarnings).toBe(37500);
+      expect(budi.totalEarnings).toBe(237500);
+    });
+  });
 });
