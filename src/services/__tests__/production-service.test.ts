@@ -35,6 +35,8 @@ vi.mock("@/lib/core/prisma", () => {
     },
     materialIssue: {
       create: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
     },
     scrapRecord: {
       create: vi.fn(),
