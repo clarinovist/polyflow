@@ -30,7 +30,6 @@ const PATH_LABELS: Record<string, string> = {
   boms: "BOM / Formula",
   machines: "Mesin (Master)",
   employees: "Karyawan",
-  maklon: "Maklon",
   receipts: "Penerimaan",
   returns: "Retur",
   settings: "Pengaturan",
