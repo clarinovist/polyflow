@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isInactiveLocation,
+  isRiskyOutputLocation,
   resolveLocationByRole,
   resolveOutputLocationId,
   resolveSourceLocationId,
@@ -89,5 +90,14 @@ describe("resolveTransferSourceLocationId", () => {
   it("maps BOM category to source role", () => {
     expect(resolveTransferSourceLocationId(melindo, "MIXING")).toBe("rm-m");
     expect(resolveTransferSourceLocationId(melindo, "EXTRUSION")).toBe("wip-m");
+  });
+});
+
+describe("isRiskyOutputLocation", () => {
+  it("flags RM and inactive as risky for WO output", () => {
+    expect(isRiskyOutputLocation(melindo[0])).toBe(true); // RM
+    expect(isRiskyOutputLocation(melindo[5])).toBe(true); // inactive
+    expect(isRiskyOutputLocation(melindo[1])).toBe(false); // WIP
+    expect(isRiskyOutputLocation(kiyowo[1])).toBe(false); // mixing area
   });
 });

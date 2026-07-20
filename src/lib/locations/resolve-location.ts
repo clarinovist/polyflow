@@ -80,6 +80,40 @@ export function isInactiveLocation(loc: LocationLike): boolean {
   );
 }
 
+/**
+ * Output locations that are risky for WO staging (RM warehouse or inactive).
+ * Used for create-SPK guardrails and transfer destination warnings.
+ */
+export function isRiskyOutputLocation(loc: LocationLike | null | undefined): boolean {
+  if (!loc) return true;
+  if (isInactiveLocation(loc)) return true;
+  if (loc.locationPurpose === "RAW_MATERIAL") return true;
+  const slug = (loc.slug || "").toLowerCase();
+  if (
+    slug === WAREHOUSE_SLUGS.RAW_MATERIAL ||
+    slug === "gudang-bahan-baku" ||
+    slug.includes("bahan-baku")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function stageLabelId(stage: ProductionStage): string {
+  if (stage === "mixing") return "Mixing (Adonan)";
+  if (stage === "extrusion") return "Extrusion";
+  if (stage === "packing") return "Packing";
+  return "Rework";
+}
+
+/** Human-readable default output role for a stage (for form hints). */
+export function recommendedOutputHint(stage: ProductionStage): string {
+  if (stage === "mixing") return "Gudang WIP / Mixing Area";
+  if (stage === "extrusion") return "Gudang Barang Jadi (FG)";
+  if (stage === "packing") return "Packing Area / FG";
+  return "Gudang Barang Jadi (FG)";
+}
+
 function activeLocations(locations: LocationLike[]): LocationLike[] {
   return locations.filter((l) => !isInactiveLocation(l));
 }

@@ -1,6 +1,6 @@
 # Rencana: UX Transfer Material — Sumber vs Tujuan & Multi-Sumber
 
-> **Status:** ✅ Implemented 2026-07-20 (TAHAP 0–2) — commit pending  
+> **Status:** ✅ Implemented 2026-07-20 (TAHAP 0–2 + UX create SPK reform)  
 > **Date:** 2026-07-20  
 > **Plan path:** `docs/plans/2026-07-20-batch-transfer-source-destination-ux.md`  
 > **Komponen:** `BatchIssueMaterialDialog`, create SPK form, quick create, `resolve-location`  
@@ -326,6 +326,8 @@ Manual (Melindo staging / local):
 | Collapse per-item source (hilangkan redundant “Lokasi Default”) | ✅ TAHAP 1 |
 | Fix assign lokasi WO saat create (resolver slug+purpose) | ✅ TAHAP 2 — `src/lib/locations/resolve-location.ts` |
 | Remap mesin Melindo inactive → WIP/FG (data ops) | ✅ 2026-07-20 on `melindo_rafia` (see runbook) |
+| Create SPK: Alur material visible, smart default, edit + warning RM | ✅ UX reform form |
+| Transfer: tujuan read-only + link “Ubah di SPK” | ✅ |
 
 ---
 

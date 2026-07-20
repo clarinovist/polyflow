@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -386,6 +387,13 @@ export function BatchIssueMaterialDialog({
                                             </div>
                                             <p className="text-[10px] text-muted-foreground leading-snug">
                                                 {productionComponentLabels.destinationFromOrder}
+                                                {' · '}
+                                                <Link
+                                                    href={`/production/orders/${order.id}`}
+                                                    className="underline underline-offset-2 text-primary hover:text-primary/80"
+                                                >
+                                                    {productionComponentLabels.editOrderLocation}
+                                                </Link>
                                             </p>
                                         </div>
                                     </div>
@@ -393,7 +401,16 @@ export function BatchIssueMaterialDialog({
                                     {selectedLocation === order.location.id && (
                                         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                                             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                            <span>{productionComponentLabels.sourceDestinationSame}</span>
+                                            <span>
+                                                {productionComponentLabels.sourceDestinationSame}
+                                                {' '}
+                                                <Link
+                                                    href={`/production/orders/${order.id}`}
+                                                    className="underline font-semibold"
+                                                >
+                                                    {productionComponentLabels.editOrderLocation}
+                                                </Link>
+                                            </span>
                                         </div>
                                     )}
 
@@ -404,7 +421,8 @@ export function BatchIssueMaterialDialog({
                                             <p>{productionComponentLabels.backflushConsumeHint}</p>
                                             {!order.location.name.toLowerCase().includes('production') &&
                                                 !order.location.name.toLowerCase().includes('staging') &&
-                                                !order.location.name.toLowerCase().includes('produksi') && (
+                                                !order.location.name.toLowerCase().includes('produksi') &&
+                                                !order.location.name.toLowerCase().includes('wip') && (
                                                     <p className="font-bold text-red-600">
                                                         {productionComponentLabels.warningTargetWarehouse}
                                                     </p>

@@ -118,6 +118,7 @@ export const productionComponentLabels = {
   sourceLocation: 'Lokasi Sumber (Asal)',
   destinationLocation: 'Lokasi Tujuan',
   destinationFromOrder: 'Dari lokasi pesanan (WO)',
+  editOrderLocation: 'Ubah di SPK',
   transferDirectionHint:
     'Stok dipindah dari sumber → tujuan. Tujuan mengikuti lokasi WO; ubah lokasi WO jika target salah.',
   backflushConsumeHint:

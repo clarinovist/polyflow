@@ -4,8 +4,12 @@ import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createProductionOrderSchema } from "@/lib/schemas/production";
 import {
+  isInactiveLocation,
+  isRiskyOutputLocation,
+  recommendedOutputHint,
   resolveOutputLocationId as resolveOutputLoc,
   resolveSourceLocationId as resolveSourceLoc,
+  stageLabelId,
   type LocationLike,
   type ProductionStage,
 } from "@/lib/locations/resolve-location";
@@ -27,10 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, AlertCircle, Factory } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, AlertCircle, Factory, ArrowRightLeft } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useState, useMemo, useEffect } from "react";
+import { cn } from "@/lib/utils/utils";
 import { format } from "date-fns";
 import {
   createProductionOrder,
@@ -59,7 +65,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { z } from "zod";
 
 export interface ProductionOrderFormProps {
-  locations: { id: string; slug: string; name: string }[];
+  locations: {
+    id: string;
+    slug: string;
+    name: string;
+    locationPurpose?: string | null;
+  }[];
   machines: { id: string; name: string; type: string }[];
   boms: {
     id: string;
@@ -213,6 +224,36 @@ export function ProductionOrderForm({
   });
   const watchItems = useWatch({ control: form.control, name: "items" });
   const watchIsMaklon = useWatch({ control: form.control, name: "isMaklon" });
+  const watchLocationId = useWatch({
+    control: form.control,
+    name: "locationId",
+  });
+
+  const recommendedOutputId = useMemo(
+    () => resolveOutputLoc(locationLikes, processType, !!watchIsMaklon),
+    [locationLikes, processType, watchIsMaklon],
+  );
+
+  const activeLocations = useMemo(
+    () => locationLikes.filter((l) => !isInactiveLocation(l)),
+    [locationLikes],
+  );
+
+  const selectedOutputLoc = useMemo(
+    () => locationLikes.find((l) => l.id === watchLocationId),
+    [locationLikes, watchLocationId],
+  );
+  const outputIsRisky = isRiskyOutputLocation(selectedOutputLoc);
+  const outputIsRecommended =
+    !!watchLocationId &&
+    !!recommendedOutputId &&
+    watchLocationId === recommendedOutputId;
+
+  const sourceLocationName =
+    locations.find((l) => l.id === materialSourceLocationId)?.name || "—";
+  const recommendedOutputName =
+    locations.find((l) => l.id === recommendedOutputId)?.name ||
+    recommendedOutputHint(processType);
 
   const [planningMode, setPlanningMode] = useState<
     "weight" | "sales" | "batch"
@@ -256,6 +297,8 @@ export function ProductionOrderForm({
 
   const [materialSourceLocationId, setMaterialSourceLocationId] =
     useState<string>(() => resolveSourceLoc(locationLikes, "mixing", false));
+  const [outputManuallyOverridden, setOutputManuallyOverridden] =
+    useState(false);
   const [suggestedSource, setSuggestedSource] = useState<{
     id: string;
     name: string;
@@ -385,12 +428,13 @@ export function ProductionOrderForm({
   ) => {
     setProcessType(nextStage);
     setMaterialSourceLocationId(
-      resolveSourceLocationId(nextStage, watchIsMaklon),
+      resolveSourceLocationId(nextStage, !!watchIsMaklon),
     );
     form.setValue(
       "locationId",
-      resolveOutputLocationId(nextStage, watchIsMaklon),
+      resolveOutputLocationId(nextStage, !!watchIsMaklon),
     );
+    setOutputManuallyOverridden(false);
     setSelectedProductVariantId("");
     form.setValue("items", []);
     form.setValue("bomId", "");
@@ -400,6 +444,14 @@ export function ProductionOrderForm({
     form.setValue("machineId", "");
     setMaterialInfo({});
     setSuggestedSource(null);
+  };
+
+  const applyRecommendedOutput = () => {
+    const id = resolveOutputLocationId(processType, !!watchIsMaklon);
+    if (id) {
+      form.setValue("locationId", id);
+      setOutputManuallyOverridden(false);
+    }
   };
 
   async function onSubmit(data: FormValues) {
@@ -459,15 +511,14 @@ export function ProductionOrderForm({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Specifications & Logistics */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Card 1: Production Specification */}
+            {/* Card 1: Stage + recipe + machine */}
             <Card>
               <CardHeader>
-                <CardTitle>Production Specification</CardTitle>
+                <CardTitle>Spesifikasi Produksi</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Stage Selection */}
                 <div className="space-y-3">
-                  <FormLabel>Production Stage</FormLabel>
+                  <FormLabel>Stage Produksi</FormLabel>
                   <div className="flex rounded-md shadow-sm">
                     <Button
                       type="button"
@@ -506,11 +557,16 @@ export function ProductionOrderForm({
                       Rework
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Stage: <span className="font-medium text-foreground">{stageLabelId(processType)}</span>
+                    {" · "}
+                    Default output: {recommendedOutputHint(processType)}
+                  </p>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Product */}
                   <FormItem>
-                    <FormLabel>Product</FormLabel>
+                    <FormLabel>Produk</FormLabel>
                     <Select
                       value={selectedProductVariantId}
                       onValueChange={(value) => {
@@ -522,7 +578,7 @@ export function ProductionOrderForm({
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Product" />
+                          <SelectValue placeholder="Pilih produk" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -535,13 +591,12 @@ export function ProductionOrderForm({
                     </Select>
                   </FormItem>
 
-                  {/* BOM */}
                   <FormField
                     control={form.control}
                     name="bomId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Recipe</FormLabel>
+                        <FormLabel>Resep / BOM</FormLabel>
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value);
@@ -565,8 +620,8 @@ export function ProductionOrderForm({
                               <SelectValue
                                 placeholder={
                                   !selectedProductVariantId
-                                    ? "Select product first"
-                                    : "Select Recipe"
+                                    ? "Pilih produk dulu"
+                                    : "Pilih resep"
                                 }
                               />
                             </SelectTrigger>
@@ -592,20 +647,19 @@ export function ProductionOrderForm({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Machine Selection */}
                   <FormField
                     control={form.control}
                     name="machineId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Work Center / Machine</FormLabel>
+                        <FormLabel>Mesin / Work Center</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select Machine" />
+                              <SelectValue placeholder="Pilih mesin" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -621,13 +675,12 @@ export function ProductionOrderForm({
                     )}
                   />
 
-                  {/* Start Date */}
                   <FormField
                     control={form.control}
                     name="plannedStartDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Start Date</FormLabel>
+                        <FormLabel>Tanggal Mulai</FormLabel>
                         <FormControl>
                           <Input
                             type="date"
@@ -645,6 +698,117 @@ export function ProductionOrderForm({
                       </FormItem>
                     )}
                   />
+                </div>
+
+                {/* Material flow: source (info) → output (editable) */}
+                <div
+                  className={cn(
+                    "rounded-lg border p-4 space-y-3",
+                    outputIsRisky
+                      ? "border-destructive/40 bg-destructive/5"
+                      : "border-border bg-muted/30",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Alur material</h3>
+                    {outputIsRecommended ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Disarankan
+                      </Badge>
+                    ) : outputManuallyOverridden || !outputIsRecommended ? (
+                      <Badge variant="outline" className="text-[10px]">
+                        Diubah manual
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        Asal bahan (cek stok)
+                      </Label>
+                      <div className="flex h-10 items-center rounded-md border bg-background px-3 text-sm">
+                        {sourceLocationName}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Dipakai untuk cek ketersediaan material. Bukan tujuan transfer staging.
+                      </p>
+                    </div>
+                    <div className="hidden sm:flex items-center justify-center pb-6 text-muted-foreground">
+                      <ArrowRightLeft className="h-4 w-4" />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="locationId"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1.5">
+                          <FormLabel className="text-xs">
+                            Output / staging (lokasi WO)
+                          </FormLabel>
+                          <Select
+                            value={field.value || ""}
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              setOutputManuallyOverridden(
+                                val !== recommendedOutputId,
+                              );
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger
+                                className={cn(
+                                  outputIsRisky &&
+                                    "border-destructive text-destructive focus:ring-destructive",
+                                )}
+                              >
+                                <SelectValue placeholder="Pilih lokasi output" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {activeLocations.map((l) => (
+                                <SelectItem key={l.id} value={l.id}>
+                                  {l.name}
+                                  {l.id === recommendedOutputId
+                                    ? " · disarankan"
+                                    : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription className="text-[10px]">
+                            Default stage {stageLabelId(processType)}:{" "}
+                            <span className="font-medium text-foreground">
+                              {recommendedOutputName}
+                            </span>
+                            {!outputIsRecommended && recommendedOutputId && (
+                              <>
+                                {" · "}
+                                <button
+                                  type="button"
+                                  className="underline underline-offset-2 text-primary"
+                                  onClick={applyRecommendedOutput}
+                                >
+                                  Kembalikan ke default
+                                </button>
+                              </>
+                            )}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {outputIsRisky && (
+                    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>
+                        Lokasi output ini gudang bahan baku atau nonaktif.
+                        Transfer material staging akan gagal (asal = tujuan) dan
+                        backflush bisa salah. Pilih WIP / FG / packing area.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -820,6 +984,7 @@ export function ProductionOrderForm({
                                   "locationId",
                                   resolveOutputLocationId(processType, checked),
                                 );
+                                setOutputManuallyOverridden(false);
                                 setSuggestedSource(null);
                               }}
                             />
@@ -949,43 +1114,6 @@ export function ProductionOrderForm({
               </Button>
             </div>
 
-            {/* Output location — was hidden; wrong defaults on Melindo were invisible */}
-            <FormField
-              control={form.control}
-              name="locationId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Lokasi Output (Tujuan FG/WIP)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih lokasi output" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {locations
-                        .filter(
-                          (l) =>
-                            !l.slug?.startsWith("inactive-") &&
-                            !String(l.name || "")
-                              .toLowerCase()
-                              .includes("[nonaktif]"),
-                        )
-                        .map((l) => (
-                          <SelectItem key={l.id} value={l.id}>
-                            {l.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Lokasi stok hasil / staging WO. Mixing → WIP; Extrusi → FG.
-                    Bukan gudang bahan baku.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
 
           {/* Right Column: Material Requirements (Sticky) */}
