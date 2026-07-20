@@ -348,18 +348,34 @@ export function BatchIssueMaterialDialog({
                     </DialogHeader>
 
                     <div className="space-y-6">
-                        <div className="bg-muted/40 p-4 rounded-lg border relative space-y-3">
-                            <Button variant="ghost" size="sm" onClick={checkStocks} disabled={checkingStock} className="h-6 text-xs absolute top-2 right-2">
-                                <RefreshCw className={cn("w-3 h-3 mr-1", checkingStock && "animate-spin")} /> {productionComponentLabels.refreshStock}
-                            </Button>
+                        <div className="bg-muted/40 p-4 rounded-lg border space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                    {isTransferMode ? 'Alur transfer' : productionComponentLabels.sourceLocation}
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={checkStocks}
+                                    disabled={checkingStock}
+                                    className="h-7 shrink-0 text-xs"
+                                >
+                                    <RefreshCw className={cn("w-3 h-3 mr-1", checkingStock && "animate-spin")} />
+                                    {productionComponentLabels.refreshStock}
+                                </Button>
+                            </div>
 
                             {isTransferMode ? (
                                 <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end pr-24 sm:pr-28">
-                                        <div className="space-y-2">
-                                            <Label>{productionComponentLabels.sourceLocation}</Label>
+                                    {/* Stacked layout: long warehouse names never collide */}
+                                    <div className="space-y-3">
+                                        <div className="space-y-1.5 min-w-0">
+                                            <Label className="text-xs text-muted-foreground">
+                                                {productionComponentLabels.sourceLocation}
+                                            </Label>
                                             <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -369,39 +385,44 @@ export function BatchIssueMaterialDialog({
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <div className="hidden sm:flex items-center justify-center pb-2 text-muted-foreground" aria-hidden>
-                                            <ArrowRightLeft className="w-4 h-4" />
+
+                                        <div className="flex items-center gap-2 text-muted-foreground px-0.5">
+                                            <div className="h-px flex-1 bg-border" />
+                                            <ArrowRightLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                            <div className="h-px flex-1 bg-border" />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>{productionComponentLabels.destinationLocation}</Label>
+
+                                        <div className="space-y-1.5 min-w-0">
+                                            <Label className="text-xs text-muted-foreground">
+                                                {productionComponentLabels.destinationLocation}
+                                            </Label>
                                             <div
                                                 className={cn(
-                                                    "flex h-10 w-full items-center rounded-md border px-3 text-sm font-medium",
+                                                    "w-full min-w-0 rounded-md border px-3 py-2.5 text-sm font-medium leading-snug break-words",
                                                     selectedLocation === order.location.id
                                                         ? "border-destructive/50 bg-destructive/10 text-destructive"
                                                         : "border-input bg-background"
                                                 )}
-                                                title={productionComponentLabels.destinationFromOrder}
                                             >
                                                 {order.location.name}
                                             </div>
-                                            <p className="text-[10px] text-muted-foreground leading-snug">
-                                                {productionComponentLabels.destinationFromOrder}
-                                                {' · '}
+                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                                                <span>{productionComponentLabels.destinationFromOrder}</span>
+                                                <span className="text-border" aria-hidden>·</span>
                                                 <Link
                                                     href={`/production/orders/${order.id}`}
-                                                    className="underline underline-offset-2 text-primary hover:text-primary/80"
+                                                    className="underline underline-offset-2 text-primary hover:text-primary/80 shrink-0"
                                                 >
                                                     {productionComponentLabels.editOrderLocation}
                                                 </Link>
-                                            </p>
+                                            </div>
                                         </div>
                                     </div>
 
                                     {selectedLocation === order.location.id && (
-                                        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                            <span>
+                                        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+                                            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                            <span className="min-w-0 leading-relaxed">
                                                 {productionComponentLabels.sourceDestinationSame}
                                                 {' '}
                                                 <Link
@@ -414,16 +435,18 @@ export function BatchIssueMaterialDialog({
                                         </div>
                                     )}
 
-                                    <div className="text-amber-700 dark:text-amber-500 flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 p-2 rounded text-xs">
-                                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                        <div className="text-left space-y-1">
+                                    <div className="text-amber-800 dark:text-amber-400 flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 p-2.5 rounded-md text-xs">
+                                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                        <div className="min-w-0 text-left space-y-1 leading-relaxed">
                                             <p>{productionComponentLabels.transferDirectionHint}</p>
-                                            <p>{productionComponentLabels.backflushConsumeHint}</p>
+                                            <p className="text-amber-700/90 dark:text-amber-500/90">
+                                                {productionComponentLabels.backflushConsumeHint}
+                                            </p>
                                             {!order.location.name.toLowerCase().includes('production') &&
                                                 !order.location.name.toLowerCase().includes('staging') &&
                                                 !order.location.name.toLowerCase().includes('produksi') &&
                                                 !order.location.name.toLowerCase().includes('wip') && (
-                                                    <p className="font-bold text-red-600">
+                                                    <p className="font-semibold text-red-600 dark:text-red-400">
                                                         {productionComponentLabels.warningTargetWarehouse}
                                                     </p>
                                                 )}
@@ -431,11 +454,13 @@ export function BatchIssueMaterialDialog({
                                     </div>
                                 </>
                             ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-24 sm:pr-28">
-                                    <div className="space-y-2">
-                                        <Label>{productionComponentLabels.sourceLocation}</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5 min-w-0">
+                                        <Label className="text-xs text-muted-foreground">
+                                            {productionComponentLabels.sourceLocation}
+                                        </Label>
                                         <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="w-full">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -445,13 +470,11 @@ export function BatchIssueMaterialDialog({
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="flex items-end pb-1">
-                                        <div className="text-muted-foreground flex items-start gap-2 w-full">
-                                            <AlertCircle className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
-                                            <span className="text-xs text-left">
-                                                {productionComponentLabels.editingRowsWarning}
-                                            </span>
-                                        </div>
+                                    <div className="flex items-start gap-2 text-muted-foreground sm:pt-6">
+                                        <AlertCircle className="w-4 h-4 mt-0.5 text-blue-500 shrink-0" />
+                                        <span className="text-xs text-left leading-relaxed">
+                                            {productionComponentLabels.editingRowsWarning}
+                                        </span>
                                     </div>
                                 </div>
                             )}
