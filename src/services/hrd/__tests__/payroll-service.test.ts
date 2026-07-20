@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { calcPieceEarnings } from '../piece-rate-helpers';
 import { PayrollService } from '../payroll-service';
+import { isLastWeekOfMonth, monthEndContainedInWeek } from '../week-range';
 
 function dec(n: number) {
   return { toNumber: () => n, valueOf: () => n } as any;
@@ -15,6 +16,30 @@ describe('calcPieceEarnings', () => {
   it('returns 0 for non-positive inputs', () => {
     expect(calcPieceEarnings(0, 150)).toBe(0);
     expect(calcPieceEarnings(10, 0)).toBe(0);
+  });
+});
+
+describe('isLastWeekOfMonth / monthEndContainedInWeek', () => {
+  it('detects week containing month-end (Jul 27–Aug 2 contains Jul 31)', () => {
+    const start = new Date('2026-07-27T00:00:00.000Z');
+    const end = new Date('2026-08-02T23:59:59.999Z');
+    expect(isLastWeekOfMonth(start, end)).toBe(true);
+    expect(monthEndContainedInWeek(start, end)).toEqual({ year: 2026, month: 7 });
+  });
+
+  it('returns false for mid-month week', () => {
+    const start = new Date('2026-07-13T00:00:00.000Z');
+    const end = new Date('2026-07-19T23:59:59.999Z');
+    expect(isLastWeekOfMonth(start, end)).toBe(false);
+    expect(monthEndContainedInWeek(start, end)).toBeNull();
+  });
+
+  it('detects last full week of August 2026 (Aug 24–30 contains Aug 31? no; Aug 31–Sep 6 does)', () => {
+    // Aug 31 2026 is Monday → week Aug 31 – Sep 6
+    const start = new Date('2026-08-31T00:00:00.000Z');
+    const end = new Date('2026-09-06T23:59:59.999Z');
+    expect(isLastWeekOfMonth(start, end)).toBe(true);
+    expect(monthEndContainedInWeek(start, end)).toEqual({ year: 2026, month: 8 });
   });
 });
 
@@ -35,6 +60,7 @@ describe('PayrollService dual pay', () => {
   it('DAILY: sums attendance earnings, ignores production', async () => {
     vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
       id: 'emp-1', name: 'Budi', code: 'EMP-001', payType: 'DAILY',
+      bpjsParticipant: false, bpjsEmployeeDeduction: null,
     } as any);
     vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
       {
@@ -54,12 +80,77 @@ describe('PayrollService dual pay', () => {
     expect(result.payType).toBe('DAILY');
     expect(result.totalEarnings).toBe(100000);
     expect(result.totalPieceEarnings).toBe(0);
+    expect(result.bpjsDeduction).toBe(0);
+    expect(result.isBpjsWeek).toBe(false);
+    expect(result.netPay).toBe(100000);
     expect(mockDb.productionExecution.findMany).not.toHaveBeenCalled();
+  });
+
+  it('DAILY: deducts full monthly BPJS on last week of month only', async () => {
+    // Week containing Jul 31 2026 (Fri) → Mon Jul 27 – Sun Aug 2
+    const lastWeekStart = new Date('2026-07-27T00:00:00.000Z');
+    const lastWeekEnd = new Date('2026-08-02T23:59:59.999Z');
+    vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
+      id: 'emp-1', name: 'Budi', code: 'EMP-001', payType: 'DAILY',
+      bpjsParticipant: true, bpjsEmployeeDeduction: dec(150_000),
+    } as any);
+    vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+      {
+        workDate: new Date('2026-07-28T00:00:00.000Z'),
+        status: 'PRESENT',
+        actualHours: dec(8),
+        overtimeHours: dec(0),
+        dailyEarnings: dec(500_000),
+        overtimeEarnings: dec(0),
+        totalEarnings: dec(500_000),
+        workShift: { name: 'Pagi-8' },
+      },
+    ] as any);
+
+    const result = await PayrollService.getWeeklyPayroll(
+      mockDb as any, 'emp-1', lastWeekStart, lastWeekEnd,
+    );
+
+    expect(result.isBpjsWeek).toBe(true);
+    expect(result.bpjsDeduction).toBe(150_000);
+    expect(result.totalEarnings).toBe(500_000);
+    expect(result.netPay).toBe(350_000);
+  });
+
+  it('DAILY: no BPJS mid-month even if participant', async () => {
+    vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
+      id: 'emp-1', name: 'Budi', code: 'EMP-001', payType: 'DAILY',
+      bpjsParticipant: true, bpjsEmployeeDeduction: dec(150_000),
+    } as any);
+    vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([] as any);
+
+    const result = await PayrollService.getWeeklyPayroll(mockDb as any, 'emp-1', weekStart, weekEnd);
+
+    expect(result.isBpjsWeek).toBe(false);
+    expect(result.bpjsDeduction).toBe(0);
+  });
+
+  it('MONTHLY: never deducts BPJS on weekly payroll', async () => {
+    const lastWeekStart = new Date('2026-07-27T00:00:00.000Z');
+    const lastWeekEnd = new Date('2026-08-02T23:59:59.999Z');
+    vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
+      id: 'emp-m', name: 'Sari', code: 'EMP-M', payType: 'MONTHLY',
+      bpjsParticipant: true, bpjsEmployeeDeduction: dec(200_000),
+    } as any);
+    vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([] as any);
+
+    const result = await PayrollService.getWeeklyPayroll(
+      mockDb as any, 'emp-m', lastWeekStart, lastWeekEnd,
+    );
+
+    expect(result.isBpjsWeek).toBe(true);
+    expect(result.bpjsDeduction).toBe(0);
   });
 
   it('PIECE: pays only when PRESENT same day + rate present', async () => {
     vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
       id: 'emp-2', name: 'Ani', code: 'EMP-002', payType: 'PIECE',
+      bpjsParticipant: false, bpjsEmployeeDeduction: null,
     } as any);
     // PRESENT on 14 Jul only
     vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([

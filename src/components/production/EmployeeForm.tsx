@@ -430,76 +430,15 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                             id="monthlySalary"
                             type="number"
                             min="0"
-                            step="100000"
+                            step="any"
                             value={formData.monthlySalary}
                             onChange={(e) => {
                                 const num = Number(e.target.value.replace(',', '.'));
                                 setFormData({ ...formData, monthlySalary: isNaN(num) ? 0 : num });
                             }}
-                            placeholder="e.g. 5000000"
+                            placeholder="e.g. 2750000"
                             className="bg-background/50"
                         />
-                    </div>
-
-                    <div className="rounded-md border border-white/5 bg-muted/20 p-3 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                            <div>
-                                <Label className="text-xs font-semibold">Peserta BPJS</Label>
-                                <p className="text-[10px] text-muted-foreground">Aktifkan jika karyawan ikut BPJS.</p>
-                            </div>
-                            <Switch
-                                checked={formData.bpjsParticipant}
-                                onCheckedChange={(v) => setFormData({ ...formData, bpjsParticipant: v })}
-                            />
-                        </div>
-                        {formData.bpjsParticipant && (
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-semibold">Potongan Karyawan /bln (IDR)</Label>
-                                        <Input
-                                            type="number" min="0" step="1000"
-                                            value={formData.bpjsEmployeeDeduction}
-                                            onChange={(e) => {
-                                                const num = Number(e.target.value.replace(',', '.'));
-                                                setFormData({ ...formData, bpjsEmployeeDeduction: isNaN(num) ? 0 : num });
-                                            }}
-                                            className="h-9 bg-background/50"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-semibold">Beban Perusahaan /bln (IDR)</Label>
-                                        <Input
-                                            type="number" min="0" step="1000"
-                                            value={formData.bpjsEmployerCost}
-                                            onChange={(e) => {
-                                                const num = Number(e.target.value.replace(',', '.'));
-                                                setFormData({ ...formData, bpjsEmployerCost: isNaN(num) ? 0 : num });
-                                            }}
-                                            className="h-9 bg-background/50"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-semibold">No. Kartu BPJS Kesehatan</Label>
-                                        <Input
-                                            value={formData.bpjsKesehatanNo}
-                                            onChange={(e) => setFormData({ ...formData, bpjsKesehatanNo: e.target.value })}
-                                            className="h-9 bg-background/50"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-semibold">No. BPJS Ketenagakerjaan</Label>
-                                        <Input
-                                            value={formData.bpjsKetenagakerjaanNo}
-                                            onChange={(e) => setFormData({ ...formData, bpjsKetenagakerjaanNo: e.target.value })}
-                                            className="h-9 bg-background/50"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                     <div className="space-y-2 border-t border-white/10 pt-3">
                         <div className="flex items-center justify-between">
@@ -552,6 +491,7 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                                         <Input
                                             type="number"
                                             min="0"
+                                            step="any"
                                             className="h-8 text-xs bg-background/50"
                                             value={row.amount}
                                             onChange={(e) => {
@@ -585,7 +525,7 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                         id="dailyRate"
                         type="number"
                         min="0"
-                        step="1000"
+                        step="any"
                         value={formData.dailyRate}
                         onChange={(e) => {
                                 const normalized = e.target.value.replace(',', '.');
@@ -604,7 +544,7 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                         id="overtimeHourlyRate"
                         type="number"
                         min="0"
-                        step="1000"
+                        step="any"
                         value={formData.overtimeHourlyRate}
                         onChange={(e) => {
                                 const normalized = e.target.value.replace(',', '.');
@@ -646,6 +586,72 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                     </p>
                 </div>
                 )}
+
+                {/* BPJS — tersedia untuk semua skema gaji */}
+                <div className="rounded-md border border-white/10 bg-muted/20 p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <div>
+                            <Label className="text-xs font-semibold">Peserta BPJS</Label>
+                            <p className="text-[10px] text-muted-foreground">
+                                {formData.payType === ('MONTHLY' as EmployeePayType)
+                                    ? 'Dipotong di payslip bulanan.'
+                                    : 'Dipotong sekali sebulan di payroll minggu terakhir bulan berjalan.'}
+                            </p>
+                        </div>
+                        <Switch
+                            checked={formData.bpjsParticipant}
+                            onCheckedChange={(v) => setFormData({ ...formData, bpjsParticipant: v })}
+                        />
+                    </div>
+                    {formData.bpjsParticipant && (
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Potongan Karyawan /bln (IDR)</Label>
+                                    <Input
+                                        type="number" min="0" step="any"
+                                        value={formData.bpjsEmployeeDeduction}
+                                        onChange={(e) => {
+                                            const num = Number(e.target.value.replace(',', '.'));
+                                            setFormData({ ...formData, bpjsEmployeeDeduction: isNaN(num) ? 0 : num });
+                                        }}
+                                        className="h-9 bg-background/50"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">Beban Perusahaan /bln (IDR)</Label>
+                                    <Input
+                                        type="number" min="0" step="any"
+                                        value={formData.bpjsEmployerCost}
+                                        onChange={(e) => {
+                                            const num = Number(e.target.value.replace(',', '.'));
+                                            setFormData({ ...formData, bpjsEmployerCost: isNaN(num) ? 0 : num });
+                                        }}
+                                        className="h-9 bg-background/50"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">No. Kartu BPJS Kesehatan</Label>
+                                    <Input
+                                        value={formData.bpjsKesehatanNo}
+                                        onChange={(e) => setFormData({ ...formData, bpjsKesehatanNo: e.target.value })}
+                                        className="h-9 bg-background/50"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-semibold">No. BPJS Ketenagakerjaan</Label>
+                                    <Input
+                                        value={formData.bpjsKetenagakerjaanNo}
+                                        onChange={(e) => setFormData({ ...formData, bpjsKetenagakerjaanNo: e.target.value })}
+                                        className="h-9 bg-background/50"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex items-center space-x-3 bg-muted/30 p-3 rounded-lg border border-white/5">
                     <Switch

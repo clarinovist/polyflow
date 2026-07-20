@@ -26,3 +26,49 @@ export function weekQueryRange(weekStart: Date, weekEnd: Date) {
   to.setUTCHours(23, 59, 59, 999);
   return { from, to };
 }
+
+/**
+ * True if this Mon–Sun week contains the last calendar day of any month.
+ * Used for once-per-month BPJS deduction on weekly payroll (last week of month).
+ * Dates compared as UTC calendar days (same convention as startOfWeek/endOfWeek).
+ */
+export function isLastWeekOfMonth(weekStart: Date, weekEnd: Date): boolean {
+  return monthEndContainedInWeek(weekStart, weekEnd) != null;
+}
+
+/**
+ * If the week contains a month-end day, returns { year, month (1–12) } for that month.
+ * A 7-day week can contain at most one month-end.
+ */
+export function monthEndContainedInWeek(
+  weekStart: Date,
+  weekEnd: Date,
+): { year: number; month: number } | null {
+  const startMs = Date.UTC(
+    weekStart.getUTCFullYear(),
+    weekStart.getUTCMonth(),
+    weekStart.getUTCDate(),
+  );
+  const endMs = Date.UTC(
+    weekEnd.getUTCFullYear(),
+    weekEnd.getUTCMonth(),
+    weekEnd.getUTCDate(),
+  );
+
+  // Candidate months: month of weekStart and month of weekEnd (usually same or adjacent)
+  const candidates = new Set<string>();
+  candidates.add(`${weekStart.getUTCFullYear()}-${weekStart.getUTCMonth()}`);
+  candidates.add(`${weekEnd.getUTCFullYear()}-${weekEnd.getUTCMonth()}`);
+
+  for (const key of candidates) {
+    const [yStr, mStr] = key.split('-');
+    const y = Number(yStr);
+    const m = Number(mStr); // 0-indexed
+    // Last day of month m: day 0 of next month
+    const lastDayMs = Date.UTC(y, m + 1, 0);
+    if (lastDayMs >= startMs && lastDayMs <= endMs) {
+      return { year: y, month: m + 1 };
+    }
+  }
+  return null;
+}

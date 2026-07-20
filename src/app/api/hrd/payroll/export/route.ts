@@ -25,13 +25,13 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
 
   const header = [
     'Kode', 'Nama', 'Basis', 'Hadir', 'Jam', 'Kg dibayar', 'Kg exception',
-    'Daily', 'OT', 'Piece', 'Total',
+    'Daily', 'OT', 'Piece', 'Bruto', 'BPJS', 'Netto', 'Minggu BPJS',
   ];
   const lines = rows.map((r) =>
     [
       r.employeeCode,
       r.employeeName,
-      r.payType === 'PIECE' ? 'Borongan' : 'Harian',
+      r.payType === 'PIECE' ? 'Borongan' : r.payType === 'MONTHLY' ? 'Bulanan' : 'Harian',
       r.daysWorked,
       r.totalActualHours,
       r.totalKgPaid,
@@ -40,6 +40,9 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
       r.totalOvertimeEarnings,
       r.totalPieceEarnings,
       r.totalEarnings,
+      r.bpjsDeduction,
+      r.netPay,
+      r.isBpjsWeek ? 'Ya' : 'Tidak',
     ].map(csvEscape).join(',')
   );
   const csv = [header.join(','), ...lines].join('\n');

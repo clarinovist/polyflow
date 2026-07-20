@@ -34,7 +34,7 @@ export default async function PayrollPage({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gaji Mingguan</h1>
           <p className="text-muted-foreground mt-1">
-            Harian dari absensi · Borongan dari output operator (gate absensi)
+            Harian dari absensi · Borongan dari output operator (gate absensi) · BPJS dipotong di minggu terakhir bulan
             {weekStart && weekEnd ? ` · ${weekLabel(new Date(weekStart), new Date(weekEnd))}` : ''}
           </p>
         </div>
@@ -70,13 +70,15 @@ export default async function PayrollPage({
                   <th className="p-3 text-right">Daily</th>
                   <th className="p-3 text-right">OT</th>
                   <th className="p-3 text-right">Piece</th>
-                  <th className="p-3 text-right">Total</th>
+                  <th className="p-3 text-right">Bruto</th>
+                  <th className="p-3 text-right">BPJS</th>
+                  <th className="p-3 text-right">Netto</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="p-6 text-center text-muted-foreground">
+                    <td colSpan={13} className="p-6 text-center text-muted-foreground">
                       Tidak ada data
                     </td>
                   </tr>
@@ -87,7 +89,7 @@ export default async function PayrollPage({
                     <td className="p-3">{r.employeeName}</td>
                     <td className="p-3">
                       <span className={r.payType === 'PIECE' ? 'text-amber-600 font-medium' : 'text-muted-foreground'}>
-                        {r.payType === 'PIECE' ? 'Borongan' : 'Harian'}
+                        {r.payType === 'PIECE' ? 'Borongan' : r.payType === 'MONTHLY' ? 'Bulanan' : 'Harian'}
                       </span>
                     </td>
                     <td className="p-3 text-right">{r.daysWorked}</td>
@@ -103,14 +105,25 @@ export default async function PayrollPage({
                     <td className="p-3 text-right">{formatIdr(r.totalDailyEarnings)}</td>
                     <td className="p-3 text-right">{formatIdr(r.totalOvertimeEarnings)}</td>
                     <td className="p-3 text-right">{formatIdr(r.totalPieceEarnings)}</td>
-                    <td className="p-3 text-right font-semibold">{formatIdr(r.totalEarnings)}</td>
+                    <td className="p-3 text-right">{formatIdr(r.totalEarnings)}</td>
+                    <td className="p-3 text-right">
+                      {r.bpjsDeduction > 0 ? (
+                        <span className="text-red-600">-{formatIdr(r.bpjsDeduction)}</span>
+                      ) : r.isBpjsWeek ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">bukan mgg akhir</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-semibold">{formatIdr(r.netPay)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="p-3 text-xs text-muted-foreground border-t">
-            Exception kg = output tanpa absensi PRESENT di hari yang sama, atau rate proses belum di-set.{' '}
+            Exception kg = output tanpa absensi PRESENT di hari yang sama, atau rate proses belum di-set.
+            BPJS potongan bulanan penuh hanya di minggu yang memuat akhir bulan (harian/borongan).{' '}
             <Link href="/hrd/piece-rates" className="underline">
               Atur tarif borongan
             </Link>

@@ -140,12 +140,13 @@ async function createEmployee(data: {
                     standardDayHours: data.standardDayHours ?? 8,
                     ...(data.payType === 'MONTHLY' ? {
                         monthlySalary: data.monthlySalary ?? null,
-                        bpjsParticipant: data.bpjsParticipant ?? false,
-                        bpjsEmployeeDeduction: data.bpjsEmployeeDeduction ?? null,
-                        bpjsEmployerCost: data.bpjsEmployerCost ?? null,
-                        bpjsKesehatanNo: data.bpjsKesehatanNo ?? null,
-                        bpjsKetenagakerjaanNo: data.bpjsKetenagakerjaanNo ?? null,
                     } : {}),
+                    // BPJS tersedia untuk semua skema (DAILY / PIECE / MONTHLY)
+                    bpjsParticipant: data.bpjsParticipant ?? false,
+                    bpjsEmployeeDeduction: data.bpjsEmployeeDeduction ?? null,
+                    bpjsEmployerCost: data.bpjsEmployerCost ?? null,
+                    bpjsKesehatanNo: data.bpjsKesehatanNo ?? null,
+                    bpjsKetenagakerjaanNo: data.bpjsKetenagakerjaanNo ?? null,
                     ...toPersonalDb(data.personal),
                 },
             });

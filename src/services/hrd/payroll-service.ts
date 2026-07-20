@@ -1,7 +1,7 @@
 import { EmployeePayType, PrismaClient } from '@prisma/client';
 import { NotFoundError } from '@/lib/errors/errors';
 import { wibDateStringFrom } from '@/services/hrd/shift-window';
-import { weekQueryRange } from '@/services/hrd/week-range';
+import { isLastWeekOfMonth, weekQueryRange } from '@/services/hrd/week-range';
 
 export type PayrollExceptionReason = 'NO_ATTENDANCE' | 'RATE_MISSING';
 
@@ -43,7 +43,17 @@ export interface WeeklyPayroll {
   totalPieceEarnings: number;
   totalKgPaid: number;
   totalKgUnpaid: number;
+  /** Gross from work (daily+OT or piece) before BPJS. */
   totalEarnings: number;
+  /**
+   * Full monthly BPJS employee deduction, applied only on the last week of the month
+   * for DAILY/PIECE participants. 0 otherwise (including MONTHLY — handled by payslip bulanan).
+   */
+  bpjsDeduction: number;
+  /** true when this week is the last week of a calendar month (contains month-end day). */
+  isBpjsWeek: boolean;
+  /** totalEarnings − bpjsDeduction */
+  netPay: number;
   records: PayrollRecord[];
   pieceLines: PiecePayrollLine[];
   exceptions: PiecePayrollLine[];
@@ -69,7 +79,14 @@ export const PayrollService = {
   ): Promise<WeeklyPayroll> {
     const employee = await db.employee.findUnique({
       where: { id: employeeId },
-      select: { id: true, name: true, code: true, payType: true },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        payType: true,
+        bpjsParticipant: true,
+        bpjsEmployeeDeduction: true,
+      },
     });
     if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
 
@@ -201,6 +218,16 @@ export const PayrollService = {
         ? totalPieceEarnings
         : totalDailyEarnings + totalOvertimeEarnings;
 
+    // BPJS once/month on last week — only for shopfloor (DAILY/PIECE). MONTHLY uses payslip bulanan.
+    const isBpjsWeek = isLastWeekOfMonth(weekStart, weekEnd);
+    const isShopfloor =
+      employee.payType === EmployeePayType.DAILY || employee.payType === EmployeePayType.PIECE;
+    const bpjsDeduction =
+      isShopfloor && isBpjsWeek && employee.bpjsParticipant
+        ? Math.round(toNum(employee.bpjsEmployeeDeduction) * 100) / 100
+        : 0;
+    const netPay = Math.round((totalEarnings - bpjsDeduction) * 100) / 100;
+
     return {
       employeeId: employee.id,
       employeeName: employee.name,
@@ -218,6 +245,9 @@ export const PayrollService = {
       totalKgPaid: Math.round(totalKgPaid * 100) / 100,
       totalKgUnpaid: Math.round(totalKgUnpaid * 100) / 100,
       totalEarnings: Math.round(totalEarnings * 100) / 100,
+      bpjsDeduction,
+      isBpjsWeek,
+      netPay,
       records,
       pieceLines,
       exceptions,
