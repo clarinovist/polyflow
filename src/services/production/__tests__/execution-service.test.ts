@@ -12,6 +12,9 @@ vi.mock('@/lib/core/prisma', () => {
             update: vi.fn(),
             count: vi.fn(),
         },
+        productionShift: {
+            findFirst: vi.fn(),
+        },
         productionOrder: {
             findUniqueOrThrow: vi.fn(),
             findUnique: vi.fn().mockResolvedValue({ id: 'po-1', isMaklon: false }),
@@ -456,6 +459,59 @@ describe('ProductionExecutionService.logRunningOutput', () => {
             })
         );
         expect(tx.productionOrder.update).toHaveBeenCalled();
+    });
+
+    it('uses kiosk operatorId + active shift instead of inheriting shell operator', async () => {
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            machineId: 'machine-1',
+            operatorId: 'op-abrar',
+            shiftId: 'shift-abrar',
+            enteredQuantity: null,
+            enteredUnit: null,
+            notes: null,
+        } as never);
+        vi.mocked(tx.productionShift.findFirst)
+            .mockResolvedValueOnce({ id: 'shift-idris' } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({ id: 'exec-1' } as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 100,
+            orderNumber: 'WO-001',
+            isMaklon: false,
+            locationId: 'loc-1',
+            bom: { productVariantId: 'pv-1', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-1',
+            quantityProduced: 25,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            operatorId: 'op-idris',
+            userId: 'user-1',
+        });
+
+        expect(tx.productionExecution.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { id: 'exec-1' },
+                data: { operatorId: 'op-idris', shiftId: 'shift-idris' },
+            })
+        );
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    operatorId: 'op-idris',
+                    shiftId: 'shift-idris',
+                    status: 'COMPLETED',
+                }),
+            })
+        );
     });
 });
 

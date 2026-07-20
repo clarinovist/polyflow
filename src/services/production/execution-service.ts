@@ -267,6 +267,22 @@ export class ProductionExecutionService {
     const { productionOrderId, machineId, operatorId, shiftId } = data;
 
     return await prisma.$transaction(async (tx) => {
+      // Handover: if SPK still running (paused without full stop), reassign operator/shift
+      const existing = await tx.productionExecution.findFirst({
+        where: { productionOrderId, endTime: null },
+        orderBy: { startTime: "desc" },
+      });
+      if (existing) {
+        return await tx.productionExecution.update({
+          where: { id: existing.id },
+          data: {
+            operatorId: operatorId ?? existing.operatorId,
+            shiftId: shiftId ?? existing.shiftId,
+            machineId: machineId ?? existing.machineId,
+          },
+        });
+      }
+
       const execution = await tx.productionExecution.create({
         data: {
           productionOrderId,
@@ -425,19 +441,58 @@ export class ProductionExecutionService {
       scrapProngkolQty = 0,
       scrapDaunQty = 0,
       notes,
-      operatorId: _operatorId,
+      operatorId: requestOperatorId,
       helperIds,
       photoUrl,
       userId,
     } = data;
 
     await prisma.$transaction(async (tx) => {
-      // 1. Get running execution to inherit its context (machine, operator, shift)
+      // 1. Running shell = machine context; operator/shift prefer kiosk login
       const runningExecution = await tx.productionExecution.findUniqueOrThrow({
         where: { id: executionId },
       });
 
       const productionOrderId = runningExecution.productionOrderId;
+      const operatorId = requestOperatorId || runningExecution.operatorId;
+      let shiftId = runningExecution.shiftId;
+
+      if (requestOperatorId) {
+        const now = new Date();
+        const byOperator = await tx.productionShift.findFirst({
+          where: {
+            productionOrderId,
+            startTime: { lte: now },
+            endTime: { gte: now },
+            operatorId: requestOperatorId,
+          },
+          orderBy: { startTime: "asc" },
+          select: { id: true },
+        });
+        const activeShift =
+          byOperator ??
+          (await tx.productionShift.findFirst({
+            where: {
+              productionOrderId,
+              startTime: { lte: now },
+              endTime: { gte: now },
+            },
+            orderBy: { startTime: "asc" },
+            select: { id: true },
+          }));
+        if (activeShift) shiftId = activeShift.id;
+
+        // Keep shell in sync so next log / UI shows current operator
+        if (
+          operatorId !== runningExecution.operatorId ||
+          shiftId !== runningExecution.shiftId
+        ) {
+          await tx.productionExecution.update({
+            where: { id: executionId },
+            data: { operatorId, shiftId },
+          });
+        }
+      }
 
       // 2. Resolve quantity
       const resolved = await resolveOutputQuantity({
@@ -459,7 +514,7 @@ export class ProductionExecutionService {
 
       // 3. CREATE a new completed execution (not update the running one!)
       const pieceSnap = await buildPieceSnapshotForOperator(tx, {
-        operatorId: runningExecution.operatorId,
+        operatorId,
         machineId: runningExecution.machineId,
         quantityProduced: resolved.baseQty,
       });
@@ -467,8 +522,8 @@ export class ProductionExecutionService {
         data: {
           productionOrderId,
           machineId: runningExecution.machineId,
-          operatorId: runningExecution.operatorId,
-          shiftId: runningExecution.shiftId,
+          operatorId,
+          shiftId,
           quantityProduced: resolved.baseQty,
           scrapQuantity: scrapQuantity || 0,
           scrapProngkolQty: scrapProngkolQty || 0,

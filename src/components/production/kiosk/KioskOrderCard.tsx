@@ -69,27 +69,25 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
     const unitMeta = getProductionUnitMeta(order.bom.productVariant);
 
     const handleStart = async () => {
-        if (!activeExecution) {
-            setIsLoading(true);
-            try {
-                // Shift is auto-detected server-side based on operator + current time
-                const result = await startExecution({
-                    productionOrderId: order.id,
-                    machineId: order.machine?.id,
-                    operatorId: operatorId,
-                });
+        setIsLoading(true);
+        try {
+            // Shift auto-detect server-side. If SPK already running, server reassigns operator (shift handover).
+            const result = await startExecution({
+                productionOrderId: order.id,
+                machineId: order.machine?.id,
+                operatorId: operatorId,
+            });
 
-                if (result.success) {
-                    toast.success("Produksi dimulai!");
-                    router.refresh();
-                } else {
-                    toast.error(result.error || "Gagal memulai produksi");
-                }
-            } catch {
-                toast.error('Gagal memproses. Silakan coba lagi.');
-            } finally {
-                setIsLoading(false);
+            if (result.success) {
+                toast.success(activeExecution ? "Operator diganti!" : "Produksi dimulai!");
+                router.refresh();
+            } else {
+                toast.error(result.error || "Gagal memulai produksi");
             }
+        } catch {
+            toast.error('Gagal memproses. Silakan coba lagi.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
