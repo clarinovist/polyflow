@@ -64,10 +64,85 @@ export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
 }
 
 /**
+ * True when resources grant any access under a workspace root
+ * (e.g. `/warehouse` or `/warehouse/inventory`).
+ */
+export function hasWorkspaceResourceAccess(
+  resources: string[] | "ALL" | null | undefined,
+  workspace: WorkspaceKey | string,
+): boolean {
+  if (resources === "ALL") return true;
+  if (!resources?.length) return false;
+  const root = workspace.startsWith("/") ? workspace : `/${workspace}`;
+  return resources.some((res) => res === root || res.startsWith(`${root}/`));
+}
+
+/**
+ * Path coverage for rolePermission resources:
+ * - exact match
+ * - parent resource grants children (`/warehouse` → `/warehouse/inventory`)
+ * - workspace root is reachable when any nested resource exists
+ *   (`/warehouse/inventory` → may enter `/warehouse` for landing redirect)
+ */
+export function isPathAllowedByResources(
+  pathname: string,
+  resources: string[] | "ALL" | null | undefined,
+): boolean {
+  if (resources === "ALL") return true;
+  if (!resources?.length) return false;
+
+  const segments = pathname.split("/").filter(Boolean);
+  const isWorkspaceRoot = segments.length === 1;
+
+  return resources.some((res) => {
+    if (pathname === res || pathname.startsWith(`${res}/`)) return true;
+    // Nested permission grants entry at workspace root (layout/landing only)
+    if (isWorkspaceRoot && res.startsWith(`${pathname}/`)) return true;
+    return false;
+  });
+}
+
+/**
+ * Preferred landing path inside a workspace given granted resources.
+ * Used when user may open the workspace root but only has nested perms.
+ */
+export function getPreferredWorkspaceLanding(
+  workspace: WorkspaceKey,
+  resources: string[] | "ALL",
+): string {
+  const root = `/${workspace}`;
+  if (resources === "ALL" || resources.includes(root)) return root;
+
+  if (workspace === "warehouse") {
+    if (
+      resources.some(
+        (r) => r === "/warehouse/inventory" || r.startsWith("/warehouse/inventory/"),
+      )
+    ) {
+      return "/warehouse/inventory";
+    }
+  }
+
+  const nested = resources
+    .filter((r) => r.startsWith(`${root}/`))
+    .sort((a, b) => a.length - b.length);
+  return nested[0] ?? root;
+}
+
+/**
  * Checks if a user has permission to access a workspace.
+ *
+ * Role policy is the primary gate. Access Control matrix entries
+ * (`allowedResources` / rolePermission) can grant cross-role module access
+ * (e.g. SALES + `/warehouse` for stok).
  */
 export function canAccessWorkspace(
-  user: { role?: string; roles?: string[]; isSuperAdmin?: boolean; allowedResources?: string[] } | null | undefined,
+  user: {
+    role?: string;
+    roles?: string[];
+    isSuperAdmin?: boolean;
+    allowedResources?: string[];
+  } | null | undefined,
   workspace: WorkspaceKey,
   pathname?: string,
 ): boolean {
@@ -75,6 +150,7 @@ export function canAccessWorkspace(
 
   const allRoles = getUserRoles(user);
   const isSuperAdmin = !!user.isSuperAdmin;
+  const resources = user.allowedResources;
 
   // 1. Super Admin is strictly isolated to admin workspace
   if (isSuperAdmin) {
@@ -91,55 +167,33 @@ export function canAccessWorkspace(
     return true;
   }
 
+  const resourceAllowsWorkspace = (): boolean => {
+    if (!hasWorkspaceResourceAccess(resources, workspace)) return false;
+    if (!pathname) return true;
+    return isPathAllowedByResources(pathname, resources);
+  };
+
   // Strictly isolate WAREHOUSE and PRODUCTION if they are the only assigned roles
-  const nonIsolatedRoles = allRoles.filter(r => r !== "WAREHOUSE" && r !== "PRODUCTION");
+  const nonIsolatedRoles = allRoles.filter(
+    (r) => r !== "WAREHOUSE" && r !== "PRODUCTION",
+  );
   if (nonIsolatedRoles.length === 0) {
     if (workspace === "warehouse" && allRoles.includes("WAREHOUSE")) return true;
     if (workspace === "production" && allRoles.includes("PRODUCTION")) return true;
-    if (
-      pathname &&
-      user.allowedResources?.some(
-        (res) => pathname === res || pathname.startsWith(`${res}/`),
-      )
-    ) {
-      return true;
-    }
+    // Cross-workspace only via explicit resource grants (e.g. products master)
+    if (pathname && isPathAllowedByResources(pathname, resources)) return true;
+    if (!pathname && resourceAllowsWorkspace()) return true;
     return false;
   }
 
-  // 4. Workspace-specific gates (aligned with WORKSPACE_ACCESS_POLICY)
-  if (workspace === "warehouse") {
-    const warehouseRoles = ["WAREHOUSE", "PRODUCTION", "PLANNING"];
-    if (allRoles.some((r) => warehouseRoles.includes(r))) return true;
-    if (
-      pathname &&
-      user.allowedResources?.some(
-        (res) => pathname === res || pathname.startsWith(`${res}/`),
-      )
-    ) {
-      return true;
-    }
-    return false;
+  // 4. Role policy for this workspace
+  const policyRoles = WORKSPACE_ACCESS_POLICY[workspace];
+  if (policyRoles?.some((r) => allRoles.includes(r))) {
+    return true;
   }
 
-  if (workspace === "production") {
-    const productionRoles = ["PRODUCTION", "PLANNING", "PROCUREMENT"];
-    if (allRoles.some((r) => productionRoles.includes(r))) return true;
-    if (
-      pathname &&
-      user.allowedResources?.some(
-        (res) => pathname === res || pathname.startsWith(`${res}/`),
-      )
-    ) {
-      return true;
-    }
-    return false;
-  }
-
-  // 5. Other workspaces: ANY role in policy
-  const allowed = WORKSPACE_ACCESS_POLICY[workspace];
-  if (!allowed) return false;
-  return allRoles.some((r) => allowed.includes(r));
+  // 5. Access Control matrix: module/resource grant (SALES → stok, etc.)
+  return resourceAllowsWorkspace();
 }
 
 /**

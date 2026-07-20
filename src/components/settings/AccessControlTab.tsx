@@ -13,12 +13,13 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { sidebarLinks } from '@/components/layout/sidebar-nav';
 import { settingsLabels } from '@/lib/labels';
 
-// Extract resources from sidebar links
+// Extract resources from sidebar links (module roots enforced by layouts)
 const RESOURCES = sidebarLinks.map(item => ({
     key: item.href,
     label: item.title,
@@ -68,7 +69,19 @@ export function AccessControlTab() {
                 const role = ROLES[i];
                 if (result.success && result.data) {
                     result.data.forEach(p => {
-                        newState[role][p.resource] = p.canAccess;
+                        // Map nested grants onto module roots shown in the matrix
+                        // e.g. /warehouse/inventory counts as Stok (/warehouse) checked
+                        const exact = p.resource;
+                        if (exact in (newState[role] || {})) {
+                            newState[role][exact] = p.canAccess;
+                        } else if (p.canAccess) {
+                            const parentModule = RESOURCES.find(
+                                (res) => exact === res.key || exact.startsWith(`${res.key}/`),
+                            );
+                            if (parentModule) {
+                                newState[role][parentModule.key] = true;
+                            }
+                        }
                     });
                 }
             });
@@ -104,7 +117,12 @@ export function AccessControlTab() {
                     [resource]: currentVal
                 }
             }));
-            toast.error('Gagal memperbarui izin');
+            toast.error(settingsLabels.permissionSaveFailed);
+        } else {
+            toast.success(settingsLabels.permissionSaved, {
+                description: settingsLabels.permissionReloginHint,
+                duration: 5000,
+            });
         }
 
         setUpdating(null);
@@ -126,7 +144,15 @@ export function AccessControlTab() {
                     {settingsLabels.accessControlDesc}
                 </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+                <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-sm space-y-1">
+                        <p>{settingsLabels.permissionAutoSaveHint}</p>
+                        <p className="text-muted-foreground">{settingsLabels.permissionReloginHint}</p>
+                    </AlertDescription>
+                </Alert>
+
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -142,7 +168,7 @@ export function AccessControlTab() {
                                 <TableCell className="font-medium">
                                     <div className="flex flex-col">
                                         <span>{res.label}</span>
-                                        <span className="text-xs text-muted-foreground">{res.group}</span>
+                                        <span className="text-xs text-muted-foreground">{res.key}</span>
                                     </div>
                                 </TableCell>
                                 {ROLES.map(role => (
@@ -152,7 +178,11 @@ export function AccessControlTab() {
                                                 checked={permissions[role]?.[res.key] || false}
                                                 onCheckedChange={() => handleToggle(role, res.key, permissions[role]?.[res.key])}
                                                 disabled={updating === `${role}-${res.key}`}
+                                                aria-label={`${role} ${res.label}`}
                                             />
+                                            {updating === `${role}-${res.key}` && (
+                                                <Loader2 className="ml-2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                            )}
                                         </div>
                                     </TableCell>
                                 ))}
@@ -191,7 +221,11 @@ export function AccessControlTab() {
                                                 checked={permissions[role]?.[feat.key] || false}
                                                 onCheckedChange={() => handleToggle(role, feat.key, permissions[role]?.[feat.key])}
                                                 disabled={updating === `${role}-${feat.key}`}
+                                                aria-label={`${role} ${feat.label}`}
                                             />
+                                            {updating === `${role}-${feat.key}` && (
+                                                <Loader2 className="ml-2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                            )}
                                         </div>
                                     </TableCell>
                                 ))}

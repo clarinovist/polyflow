@@ -3,6 +3,9 @@ import {
   getWorkspaceFromPath,
   canAccessWorkspace,
   getDefaultRedirectForUser,
+  hasWorkspaceResourceAccess,
+  isPathAllowedByResources,
+  getPreferredWorkspaceLanding,
 } from '../access-policy';
 
 describe('Access Policy Helpers', () => {
@@ -23,6 +26,42 @@ describe('Access Policy Helpers', () => {
       expect(getWorkspaceFromPath('/login')).toBeNull();
       expect(getWorkspaceFromPath('/about')).toBeNull();
       expect(getWorkspaceFromPath('/kiosk/terminal')).toBeNull();
+    });
+  });
+
+  describe('hasWorkspaceResourceAccess / isPathAllowedByResources', () => {
+    it('detects module root and nested grants', () => {
+      expect(hasWorkspaceResourceAccess(['/warehouse'], 'warehouse')).toBe(true);
+      expect(hasWorkspaceResourceAccess(['/warehouse/inventory'], 'warehouse')).toBe(true);
+      expect(hasWorkspaceResourceAccess(['/sales'], 'warehouse')).toBe(false);
+      expect(hasWorkspaceResourceAccess('ALL', 'warehouse')).toBe(true);
+    });
+
+    it('allows parent resource to cover children', () => {
+      expect(isPathAllowedByResources('/warehouse/inventory', ['/warehouse'])).toBe(true);
+      expect(isPathAllowedByResources('/warehouse/inventory/transfer', ['/warehouse'])).toBe(true);
+    });
+
+    it('allows workspace root when only nested resource is granted', () => {
+      expect(isPathAllowedByResources('/warehouse', ['/warehouse/inventory'])).toBe(true);
+    });
+
+    it('denies sibling paths under same workspace', () => {
+      expect(isPathAllowedByResources('/warehouse/opname', ['/warehouse/inventory'])).toBe(false);
+    });
+  });
+
+  describe('getPreferredWorkspaceLanding', () => {
+    it('prefers inventory when only inventory is granted', () => {
+      expect(
+        getPreferredWorkspaceLanding('warehouse', ['/warehouse/inventory']),
+      ).toBe('/warehouse/inventory');
+    });
+
+    it('returns root when module root is granted', () => {
+      expect(getPreferredWorkspaceLanding('warehouse', ['/warehouse'])).toBe(
+        '/warehouse',
+      );
     });
   });
 
@@ -93,6 +132,36 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(salesUser, 'sales')).toBe(true);
       expect(canAccessWorkspace(salesUser, 'dashboard')).toBe(true);
       expect(canAccessWorkspace(salesUser, 'finance')).toBe(false);
+    });
+
+    it('allows Sales users into warehouse when Access Control grants /warehouse', () => {
+      const salesUser = {
+        role: 'SALES',
+        allowedResources: ['/dashboard', '/sales', '/warehouse'],
+      };
+      // Layout gate (no pathname) must not bounce them
+      expect(canAccessWorkspace(salesUser, 'warehouse')).toBe(true);
+      expect(canAccessWorkspace(salesUser, 'warehouse', '/warehouse')).toBe(true);
+      expect(
+        canAccessWorkspace(salesUser, 'warehouse', '/warehouse/inventory'),
+      ).toBe(true);
+      // Still denied for unrelated workspaces
+      expect(canAccessWorkspace(salesUser, 'finance')).toBe(false);
+    });
+
+    it('allows Sales users into warehouse when only /warehouse/inventory is granted', () => {
+      const salesUser = {
+        role: 'SALES',
+        allowedResources: ['/warehouse/inventory'],
+      };
+      expect(canAccessWorkspace(salesUser, 'warehouse')).toBe(true);
+      expect(canAccessWorkspace(salesUser, 'warehouse', '/warehouse')).toBe(true);
+      expect(
+        canAccessWorkspace(salesUser, 'warehouse', '/warehouse/inventory'),
+      ).toBe(true);
+      expect(
+        canAccessWorkspace(salesUser, 'warehouse', '/warehouse/opname'),
+      ).toBe(false);
     });
 
     it('returns false for null or undefined user', () => {

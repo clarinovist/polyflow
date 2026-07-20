@@ -139,7 +139,14 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
       ...group,
       items: group.items.filter((item) => {
         if (permissions === "ALL") return true;
-        return permissions.includes(item.href) || permissions.some((p) => item.href.startsWith(p));
+        // Show module if granted at root OR any nested resource
+        // e.g. /warehouse/inventory still shows "Stok" → /warehouse
+        return permissions.some(
+          (p) =>
+            p === item.href ||
+            p.startsWith(`${item.href}/`) ||
+            item.href.startsWith(`${p}/`),
+        );
       }),
     }))
     .filter((group) => group.items.length > 0);

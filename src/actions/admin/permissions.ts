@@ -80,8 +80,47 @@ export const updatePermission = withTenant(async function updatePermission(
         },
       });
 
+      // Module-root toggle: cascade to nested resources so Access Control matrix
+      // stays consistent (e.g. uncheck Stok `/warehouse` also clears
+      // `/warehouse/inventory` grants from default seeds).
+      if (!resource.startsWith("feature:")) {
+        if (!canAccess) {
+          await prisma.rolePermission.updateMany({
+            where: {
+              role: targetRole,
+              resource: { startsWith: `${resource}/` },
+            },
+            data: { canAccess: false },
+          });
+        } else if (resource === "/warehouse") {
+          // Ensure inventory landing exists when Stok module is granted to roles
+          // that commonly need stock lookup (aligned with DEFAULT_PERMISSIONS).
+          await prisma.rolePermission.upsert({
+            where: {
+              role_resource: {
+                role: targetRole,
+                resource: "/warehouse/inventory",
+              },
+            },
+            update: { canAccess: true },
+            create: {
+              role: targetRole,
+              resource: "/warehouse/inventory",
+              canAccess: true,
+            },
+          });
+        }
+      }
+
       revalidatePath("/dashboard/settings");
       revalidatePath("/dashboard");
+      revalidatePath("/warehouse");
+      revalidatePath("/sales");
+      revalidatePath("/production");
+      revalidatePath("/purchasing");
+      revalidatePath("/finance");
+      revalidatePath("/hrd");
+      revalidatePath("/maklon");
       return null;
     } catch (error) {
       if (error instanceof AuthorizationError) throw error;
@@ -205,6 +244,8 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/sales/analytics",
     "/dashboard/products",
     "/sales/customers",
+    // Module root used by Access Control matrix + main sidebar "Stok"
+    "/warehouse",
     "/warehouse/inventory",
   ],
   FINANCE: [

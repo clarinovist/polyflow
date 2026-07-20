@@ -2,10 +2,15 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { WarehouseSidebar } from '@/components/warehouse/warehouse-sidebar';
 import { ClockDisplay } from '../kiosk/ClockDisplay';
-import { canAccessWorkspace } from '@/lib/auth/access-policy';
+import {
+    canAccessWorkspace,
+    getPreferredWorkspaceLanding,
+    hasWorkspaceResourceAccess,
+} from '@/lib/auth/access-policy';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { getMyPermissions } from '@/actions/admin/permissions';
+import { headers } from 'next/headers';
 
 export default async function WarehouseLayout({
     children,
@@ -24,20 +29,49 @@ export default async function WarehouseLayout({
         role: (session.user as { role?: string }).role || 'WAREHOUSE',
     };
 
-    if (!canAccessWorkspace(session.user, 'warehouse')) {
+    const reqHeaders = await headers();
+    const pathname = reqHeaders.get('x-pathname') || '/warehouse';
+
+    // Prefer fresh DB permissions for layout gates; fall back to JWT snapshot.
+    const permissionsRes = await getMyPermissions();
+    const sessionAllowed =
+        (session.user as { allowedResources?: string[] })?.allowedResources || [];
+    const permissions: string[] | 'ALL' =
+        permissionsRes.success && permissionsRes.data
+            ? permissionsRes.data
+            : sessionAllowed.length > 0
+              ? sessionAllowed
+              : [];
+
+    const userForPolicy = {
+        ...session.user,
+        // Overlay fresh permissions so Access Control changes work without
+        // waiting for a full re-login when layout is the gate.
+        allowedResources:
+            permissions === 'ALL' ? sessionAllowed : (permissions as string[]),
+    };
+
+    if (!canAccessWorkspace(userForPolicy, 'warehouse', pathname)) {
         redirect('/dashboard');
     }
 
-    const permissionsRes = await getMyPermissions();
-    const permissions = permissionsRes.success && permissionsRes.data ? permissionsRes.data : [];
-    if (permissions !== 'ALL' && !permissions.includes('/warehouse')) {
-        redirect('/logout');
+    if (!hasWorkspaceResourceAccess(permissions, 'warehouse')) {
+        redirect('/dashboard?error=Unauthorized');
+    }
+
+    // Nested-only grants (e.g. /warehouse/inventory): bounce root → preferred page
+    if (
+        pathname === '/warehouse' &&
+        permissions !== 'ALL' &&
+        !permissions.includes('/warehouse')
+    ) {
+        redirect(getPreferredWorkspaceLanding('warehouse', permissions));
     }
 
     return (
         <div className="min-h-screen bg-background flex text-foreground">
             {/* Dedicated Warehouse Sidebar */}
-            <WarehouseSidebar user={user} />
+            <WarehouseSidebar user={user} permissions={permissions} />
 
             <SidebarSpacer className="flex-1 flex flex-col min-h-screen">
                 {/* Simplified Header for Utility (Clock, Context) */}
