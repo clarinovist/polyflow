@@ -11,6 +11,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -26,6 +27,15 @@ import { Loader2, ClipboardList, ShoppingBag } from 'lucide-react';
 import { Location } from '@prisma/client';
 import { ExtendedProductionOrder } from '../production/order-detail/types';
 import { consolidatedBatchIssueMaterials } from '@/actions/production/production';
+import { cn } from '@/lib/utils/utils';
+
+const STATUS_BADGE: Record<string, string> = {
+    RELEASED: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    WAITING_MATERIAL: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400',
+    IN_PROGRESS: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-400',
+    COMPLETED: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400',
+    CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-400',
+};
 
 interface ConsolidatedIssueDialogProps {
     isOpen: boolean;
@@ -221,75 +231,109 @@ export function ConsolidatedIssueDialog({
         });
     };
 
+    const selectedCount = Object.values(selectedOrderIds).filter(Boolean).length;
+    const materialsWithQty = aggregatedItems.filter(i => i.quantityToIssue > 0).length;
+
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-4xl bg-white dark:bg-slate-900 border dark:border-slate-800 h-[85vh] flex flex-col p-0">
-                <form onSubmit={handleSubmit} className="flex flex-col h-full">
-                    <DialogHeader className="p-6 pb-4 border-b dark:border-slate-800">
-                        <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                            <ClipboardList className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-                            Pengambilan Bahan Konsolidasi (Consolidated Picking)
+            <DialogContent className="max-w-4xl bg-white dark:bg-slate-900 border dark:border-slate-800 h-[85vh] flex flex-col p-0 gap-0">
+                <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
+                    <DialogHeader className="p-5 pb-4 border-b dark:border-slate-800 shrink-0">
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                            <ClipboardList className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
+                            Pengambilan Bahan Konsolidasi
                         </DialogTitle>
                         <DialogDescription>
                             Gabungkan pengambilan bahan baku untuk beberapa SPK harian agar lebih efisien.
                         </DialogDescription>
                     </DialogHeader>
 
-                    {/* Scrollable Container */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5 min-h-0">
                         {/* Section 1: Select Orders */}
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-slate-850 dark:text-slate-200">
-                                1. Pilih Perintah Kerja (SPK) yang Ingin Digabungkan
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded p-3 bg-slate-50/50 dark:bg-slate-950/20 dark:border-slate-800">
-                                {orders.map(o => (
-                                    <div key={o.id} className="flex items-center space-x-2 p-1.5 hover:bg-white dark:hover:bg-slate-900 rounded transition-colors">
-                                        <Checkbox
-                                            id={`chk-${o.id}`}
-                                            checked={!!selectedOrderIds[o.id]}
-                                            onCheckedChange={(checked) => handleToggleOrder(o.id, !!checked)}
-                                        />
-                                        <Label htmlFor={`chk-${o.id}`} className="text-xs font-medium cursor-pointer flex-1 flex justify-between items-center pr-2">
-                                            <span className="font-mono font-bold truncate max-w-[120px]">{o.orderNumber.split('-').slice(-2).join('-')}</span>
-                                            <span className="text-muted-foreground truncate max-w-[150px]">{o.bom.productVariant.product.name}</span>
-                                            <span className="text-[10px] uppercase font-bold text-slate-500">{o.status}</span>
-                                        </Label>
-                                    </div>
-                                ))}
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                    1. Pilih SPK
+                                </h3>
+                                <span className="text-xs text-muted-foreground tabular-nums">
+                                    {selectedCount}/{orders.length} dipilih
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto border rounded-lg p-2 bg-slate-50/50 dark:bg-slate-950/30 dark:border-slate-800">
+                                {orders.map(o => {
+                                    const checked = !!selectedOrderIds[o.id];
+                                    const shortNo = o.orderNumber.split('-').slice(-2).join('-');
+                                    const productName = o.bom.productVariant.product.name;
+                                    return (
+                                        <label
+                                            key={o.id}
+                                            htmlFor={`chk-${o.id}`}
+                                            className={cn(
+                                                'flex items-start gap-2.5 p-2.5 rounded-md border cursor-pointer transition-colors',
+                                                checked
+                                                    ? 'bg-white dark:bg-slate-900 border-amber-300/70 dark:border-amber-700/50 shadow-sm'
+                                                    : 'bg-transparent border-transparent hover:bg-white/70 dark:hover:bg-slate-900/60'
+                                            )}
+                                        >
+                                            <Checkbox
+                                                id={`chk-${o.id}`}
+                                                checked={checked}
+                                                onCheckedChange={(v) => handleToggleOrder(o.id, !!v)}
+                                                className="mt-0.5 shrink-0"
+                                            />
+                                            <div className="min-w-0 flex-1 space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                        {shortNo}
+                                                    </span>
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={cn(
+                                                            'text-[9px] h-5 px-1.5 font-semibold uppercase tracking-wide shrink-0 border-0',
+                                                            STATUS_BADGE[o.status] || 'bg-slate-100 text-slate-600'
+                                                        )}
+                                                    >
+                                                        {o.status.replace(/_/g, ' ')}
+                                                    </Badge>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                                                    {productName}
+                                                </p>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
                             </div>
                         </div>
 
-                        {/* Section 2: Source Location Select */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="sourceLoc" className="text-sm font-semibold">
-                                    2. Lokasi Gudang Asal
-                                </Label>
-                                <Select value={sourceLocationId} onValueChange={setSourceLocationId}>
-                                    <SelectTrigger id="sourceLoc" className="w-full bg-white dark:bg-slate-900 border dark:border-slate-800">
-                                        <SelectValue placeholder="Pilih gudang asal bahan baku" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white dark:bg-slate-900">
-                                        {warehouseLocations.map(loc => (
-                                            <SelectItem key={loc.id} value={loc.id}>
-                                                {loc.name} ({loc.slug})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        {/* Section 2: Source Location */}
+                        <div className="space-y-2 max-w-md">
+                            <Label htmlFor="sourceLoc" className="text-sm font-semibold">
+                                2. Lokasi Gudang Asal
+                            </Label>
+                            <Select value={sourceLocationId} onValueChange={setSourceLocationId}>
+                                <SelectTrigger id="sourceLoc" className="w-full bg-white dark:bg-slate-900 border dark:border-slate-800">
+                                    <SelectValue placeholder="Pilih gudang asal bahan baku" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white dark:bg-slate-900">
+                                    {warehouseLocations.map(loc => (
+                                        <SelectItem key={loc.id} value={loc.id}>
+                                            {loc.name} ({loc.slug})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
-                        {/* Section 3: Consolidated Materials Table */}
-                        <div className="space-y-3 pt-2">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-sm font-semibold text-slate-850 dark:text-slate-200">
+                        {/* Section 3: Materials table */}
+                        <div className="space-y-2.5">
+                            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                                     3. Akumulasi Kebutuhan Bahan Baku
                                 </h3>
-                                <div className="text-xs text-muted-foreground">
-                                    *Jumlah default adalah sisa kebutuhan planned
-                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Default = sisa kebutuhan planned
+                                </p>
                             </div>
 
                             {aggregatedItems.length === 0 ? (
@@ -298,34 +342,34 @@ export function ConsolidatedIssueDialog({
                                     <span className="text-sm">Tidak ada bahan baku yang perlu diambil untuk SPK yang dipilih.</span>
                                 </div>
                             ) : (
-                                <div className="border rounded-lg overflow-hidden dark:border-slate-800">
-                                    <table className="w-full text-xs text-left">
-                                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold uppercase text-[10px] tracking-wider border-b dark:border-slate-800">
+                                <div className="border rounded-lg overflow-auto dark:border-slate-800 max-h-[40vh]">
+                                    <table className="w-full text-xs text-left min-w-[640px]">
+                                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold uppercase text-[10px] tracking-wider border-b dark:border-slate-700 sticky top-0 z-10">
                                             <tr>
-                                                <th className="p-3 w-[40%]">Bahan Baku</th>
-                                                <th className="p-3 text-right">Total Direncanakan</th>
-                                                <th className="p-3 text-right">Sudah Diambil</th>
-                                                <th className="p-3 text-right">Sisa Kebutuhan</th>
-                                                <th className="p-3 text-center w-[20%]">Jumlah Diambil</th>
+                                                <th className="p-3 min-w-[180px]">Bahan Baku</th>
+                                                <th className="p-3 text-right whitespace-nowrap">Total Direncanakan</th>
+                                                <th className="p-3 text-right whitespace-nowrap">Sudah Diambil</th>
+                                                <th className="p-3 text-right whitespace-nowrap">Sisa Kebutuhan</th>
+                                                <th className="p-3 text-center min-w-[140px]">Jumlah Diambil</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                                             {aggregatedItems.map(item => (
                                                 <tr key={item.productVariantId} className="hover:bg-slate-50/50 dark:hover:bg-slate-950/10">
                                                     <td className="p-3 font-medium">
-                                                        <div className="font-bold text-slate-850 dark:text-slate-200">{item.variantName}</div>
+                                                        <div className="font-bold text-slate-800 dark:text-slate-200">{item.variantName}</div>
                                                         <div className="text-[10px] text-muted-foreground font-mono">{item.skuCode}</div>
                                                     </td>
-                                                    <td className="p-3 text-right text-slate-600 dark:text-slate-400">
+                                                    <td className="p-3 text-right text-slate-600 dark:text-slate-400 tabular-nums whitespace-nowrap">
                                                         {item.totalPlanned.toFixed(2)} {item.unit}
                                                     </td>
-                                                    <td className="p-3 text-right text-slate-600 dark:text-slate-400">
+                                                    <td className="p-3 text-right text-slate-600 dark:text-slate-400 tabular-nums whitespace-nowrap">
                                                         {item.totalIssued.toFixed(2)} {item.unit}
                                                     </td>
-                                                    <td className="p-3 text-right text-amber-600 dark:text-amber-500 font-bold">
+                                                    <td className="p-3 text-right text-amber-600 dark:text-amber-500 font-bold tabular-nums whitespace-nowrap">
                                                         {item.remainingNeed.toFixed(2)} {item.unit}
                                                     </td>
-                                                    <td className="p-3 text-center">
+                                                    <td className="p-3">
                                                         <div className="flex items-center justify-center gap-1.5">
                                                             <Input
                                                                 type="number"
@@ -333,10 +377,10 @@ export function ConsolidatedIssueDialog({
                                                                 min="0"
                                                                 value={item.quantityToIssue === 0 ? '' : item.quantityToIssue}
                                                                 onChange={(e) => handleQtyChange(item.productVariantId, e.target.value)}
-                                                                className="h-8 w-24 text-right text-xs bg-slate-50/50 focus:bg-white dark:bg-slate-950/40 border dark:border-slate-800 font-bold"
+                                                                className="h-8 w-28 text-right text-xs bg-slate-50/50 focus:bg-white dark:bg-slate-950/40 border dark:border-slate-800 font-bold tabular-nums"
                                                                 placeholder="0"
                                                             />
-                                                            <span className="text-[10px] font-bold text-slate-500 w-8 text-left">{item.unit}</span>
+                                                            <span className="text-[10px] font-bold text-slate-500 w-8 shrink-0">{item.unit}</span>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -348,30 +392,35 @@ export function ConsolidatedIssueDialog({
                         </div>
                     </div>
 
-                    <DialogFooter className="p-6 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/20">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onClose}
-                            disabled={isPending}
-                            className="bg-white dark:bg-slate-900 border dark:border-slate-800"
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={isPending}
-                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
-                        >
-                            {isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Memproses...
-                                </>
-                            ) : (
-                                'Konfirmasi Pengambilan'
-                            )}
-                        </Button>
+                    <DialogFooter className="p-4 sm:p-5 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 shrink-0 sm:justify-between gap-3">
+                        <p className="text-xs text-muted-foreground tabular-nums hidden sm:block">
+                            {selectedCount} SPK · {materialsWithQty} bahan
+                        </p>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onClose}
+                                disabled={isPending}
+                                className="flex-1 sm:flex-none bg-white dark:bg-slate-900 border dark:border-slate-800"
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isPending || selectedCount === 0 || materialsWithQty === 0}
+                                className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white font-bold"
+                            >
+                                {isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Memproses...
+                                    </>
+                                ) : (
+                                    'Konfirmasi Pengambilan'
+                                )}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>
