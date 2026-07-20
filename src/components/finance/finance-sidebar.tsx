@@ -21,6 +21,7 @@ import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
 import { AdminBackButton } from "@/components/layout/admin-back-button";
 import { financeSidebarLabels } from "@/lib/labels";
+import { filterNavGroups } from "@/lib/auth/permission-match";
 
 interface FinanceSidebarProps {
   user: {
@@ -28,6 +29,8 @@ interface FinanceSidebarProps {
     email?: string | null;
     role?: string | null;
   };
+  /** Fresh rolePermission resources; 'ALL' for tenant admin */
+  permissions?: string[] | "ALL";
 }
 
 const financeLinks = [
@@ -217,13 +220,14 @@ const financeLinks = [
   },
 ];
 
-export function FinanceSidebar({ user }: FinanceSidebarProps) {
+export function FinanceSidebar({ user, permissions }: FinanceSidebarProps) {
+  const filteredGroups = filterNavGroups(financeLinks, permissions);
   return (
     <PortalSidebarBase user={user} portalName="Finance" accentColor="purple">
       <div className="px-3 mb-2">
         <AdminBackButton />
       </div>
-      {financeLinks.map((group) => (
+      {filteredGroups.map((group) => (
         <PortalNavGroup
           key={group.heading}
           heading={group.heading}

@@ -178,6 +178,7 @@ export function AccessControlTab() {
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-sm space-y-1">
                         <p>{settingsLabels.permissionAutoSaveHint}</p>
+                        <p className="text-muted-foreground">{settingsLabels.permissionTreeHint}</p>
                         <p className="text-muted-foreground">{settingsLabels.permissionReloginHint}</p>
                     </AlertDescription>
                 </Alert>

@@ -36,4 +36,6 @@ export const settingsLabels = {
     'Perubahan tersimpan otomatis saat Anda mencentang. Tidak perlu tombol Simpan.',
   permissionReloginHint:
     'Pengguna yang sudah login mungkin perlu login ulang agar menu/akses modul baru aktif penuh di sesi mereka.',
+  permissionTreeHint:
+    'Centang modul root = beri akses penuh ke semua sub-fitur di bawahnya. Centang sub-fitur saja = akses terbatas ke halaman tersebut. Checkbox parent menampilkan tanda indeterminate (–) ketika hanya sebagian anak yang dicentang.',
 } as const;

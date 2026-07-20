@@ -11,6 +11,7 @@ import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
 import { AdminBackButton } from "@/components/layout/admin-back-button";
 import { maklonSidebarLabels } from "@/lib/labels";
+import { filterNavGroups } from "@/lib/auth/permission-match";
 
 interface MaklonSidebarProps {
   user: {
@@ -18,6 +19,8 @@ interface MaklonSidebarProps {
     email?: string | null;
     role?: string | null;
   };
+  /** Fresh rolePermission resources; 'ALL' for tenant admin */
+  permissions?: string[] | "ALL";
 }
 
 const maklonLinks = [
@@ -69,13 +72,14 @@ const maklonLinks = [
   },
 ];
 
-export function MaklonSidebar({ user }: MaklonSidebarProps) {
+export function MaklonSidebar({ user, permissions }: MaklonSidebarProps) {
+  const filteredGroups = filterNavGroups(maklonLinks, permissions);
   return (
     <PortalSidebarBase user={user} portalName="Maklon" accentColor="amber">
       <div className="px-3 mb-2">
         <AdminBackButton />
       </div>
-      {maklonLinks.map((group) => (
+      {filteredGroups.map((group) => (
         <PortalNavGroup
           key={group.heading}
           heading={group.heading}

@@ -13,6 +13,7 @@ import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
 import { AdminBackButton } from "@/components/layout/admin-back-button";
 import { purchasingSidebarLabels } from "@/lib/labels";
+import { filterNavGroups } from "@/lib/auth/permission-match";
 
 interface PurchasingSidebarProps {
   user: {
@@ -20,6 +21,8 @@ interface PurchasingSidebarProps {
     email?: string | null;
     role?: string | null;
   };
+  /** Fresh rolePermission resources; 'ALL' for tenant admin */
+  permissions?: string[] | "ALL";
 }
 
 const purchasingLinks = [
@@ -85,13 +88,14 @@ const purchasingLinks = [
   },
 ];
 
-export function PurchasingSidebar({ user }: PurchasingSidebarProps) {
+export function PurchasingSidebar({ user, permissions }: PurchasingSidebarProps) {
+  const filteredGroups = filterNavGroups(purchasingLinks, permissions);
   return (
     <PortalSidebarBase user={user} portalName="Pembelian" accentColor="purple">
       <div className="px-3 mb-2">
         <AdminBackButton />
       </div>
-      {purchasingLinks.map((group) => (
+      {filteredGroups.map((group) => (
         <PortalNavGroup
           key={group.heading}
           heading={group.heading}

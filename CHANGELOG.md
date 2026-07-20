@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **access-control:** granular per-sub-fitur permission catalog (Phase 0-4)
+  - `permission-catalog.ts`: hierarchical ~80 resource paths across all modules
+  - `permission-match.ts`: shared `canSeeNavHref`/`filterNavGroups` helpers
+  - All portal layouts (sales, purchasing, production, maklon, finance, hrd,
+    warehouse) now enforce nested-gate + preferred landing + defense-in-depth
+    deep path deny
+  - All portal sidebars filter nav by permissions (sales, purchasing, production,
+    maklon, finance, hrd, warehouse)
+  - Sales mobile BottomNav gates Stok tab on `/warehouse/inventory`
+  - `AccessControlTab` rewritten as indented tree from catalog with parent
+    bulk-grant + indeterminate state
+  - SALES default: `/warehouse` → `/warehouse/inventory` only (least privilege)
+  - `updatePermissionsBulk` action for module-root select-all
+  - `audit-permission-orphans.ts` script to find stale RolePermission rows
+
 ## [1.8.0](https://github.com/clarinovist/polyflow/compare/v1.7.0...v1.8.0) (2026-06-18)
 
 

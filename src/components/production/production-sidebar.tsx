@@ -16,17 +16,20 @@ import {
   Files,
   Settings2,
 } from "lucide-react";
-import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
-import { PortalNavGroup } from "@/components/layout/portal-nav-item";
-import { AdminBackButton } from "@/components/layout/admin-back-button";
-import { productionSidebarLabels } from "@/lib/labels";
+import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
+import { PortalNavGroup } from '@/components/layout/portal-nav-item';
+import { AdminBackButton } from '@/components/layout/admin-back-button';
+import { productionSidebarLabels } from '@/lib/labels';
+import { filterNavGroups } from '@/lib/auth/permission-match';
 
 interface ProductionSidebarProps {
-  user: {
-    name?: string | null;
-    email?: string | null;
-    role?: string | null;
-  };
+    user: {
+        name?: string | null;
+        email?: string | null;
+        role?: string | null;
+    };
+    /** Fresh rolePermission resources; 'ALL' for tenant admin */
+    permissions?: string[] | 'ALL';
 }
 
 const productionLinks = [
@@ -163,20 +166,21 @@ const productionLinks = [
   },
 ];
 
-export function ProductionSidebar({ user }: ProductionSidebarProps) {
-  return (
-    <PortalSidebarBase user={user} portalName="Produksi" accentColor="emerald">
-      <div className="px-3 mb-2">
-        <AdminBackButton />
-      </div>
-      {productionLinks.map((group) => (
-        <PortalNavGroup
-          key={group.heading}
-          heading={group.heading}
-          items={group.items}
-          accentColor="emerald"
-        />
-      ))}
-    </PortalSidebarBase>
-  );
+export function ProductionSidebar({ user, permissions }: ProductionSidebarProps) {
+    const filteredGroups = filterNavGroups(productionLinks, permissions);
+    return (
+        <PortalSidebarBase user={user} portalName="Produksi" accentColor="emerald">
+            <div className="px-3 mb-2">
+                <AdminBackButton />
+            </div>
+            {filteredGroups.map((group) => (
+                <PortalNavGroup
+                    key={group.heading}
+                    heading={group.heading}
+                    items={group.items}
+                    accentColor="emerald"
+                />
+            ))}
+        </PortalSidebarBase>
+    );
 }

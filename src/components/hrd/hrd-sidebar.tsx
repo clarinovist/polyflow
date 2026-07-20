@@ -16,6 +16,7 @@ import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
 import { AdminBackButton } from "@/components/layout/admin-back-button";
 import { hrdSidebarLabels } from "@/lib/labels";
+import { filterNavGroups } from "@/lib/auth/permission-match";
 
 interface HrdSidebarProps {
   user: {
@@ -23,6 +24,8 @@ interface HrdSidebarProps {
     email?: string | null;
     role?: string | null;
   };
+  /** Fresh rolePermission resources; 'ALL' for tenant admin */
+  permissions?: string[] | "ALL";
 }
 
 const hrdLinks = [
@@ -99,13 +102,14 @@ const hrdLinks = [
   },
 ];
 
-export function HrdSidebar({ user }: HrdSidebarProps) {
+export function HrdSidebar({ user, permissions }: HrdSidebarProps) {
+  const filteredGroups = filterNavGroups(hrdLinks, permissions);
   return (
     <PortalSidebarBase user={user} portalName="HRD" accentColor="rose">
       <div className="px-3 mb-2">
         <AdminBackButton />
       </div>
-      {hrdLinks.map((group) => (
+      {filteredGroups.map((group) => (
         <PortalNavGroup
           key={group.heading}
           heading={group.heading}

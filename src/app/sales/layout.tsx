@@ -5,6 +5,7 @@ import {
     canAccessWorkspace,
     getPreferredWorkspaceLanding,
     hasWorkspaceResourceAccess,
+    isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
@@ -55,6 +56,15 @@ export default async function SalesLayout({
         pathname === '/sales' &&
         permissions !== 'ALL' &&
         !permissions.includes('/sales')
+    ) {
+        redirect(getPreferredWorkspaceLanding('sales', permissions));
+    }
+
+    // Defense in depth: deny deep paths not covered by any granted resource
+    if (
+        permissions !== 'ALL' &&
+        pathname !== '/sales' &&
+        !isPathAllowedByResources(pathname, permissions)
     ) {
         redirect(getPreferredWorkspaceLanding('sales', permissions));
     }

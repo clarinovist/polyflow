@@ -6,6 +6,7 @@ import {
     canAccessWorkspace,
     getPreferredWorkspaceLanding,
     hasWorkspaceResourceAccess,
+    isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
@@ -64,6 +65,15 @@ export default async function WarehouseLayout({
         pathname === '/warehouse' &&
         permissions !== 'ALL' &&
         !permissions.includes('/warehouse')
+    ) {
+        redirect(getPreferredWorkspaceLanding('warehouse', permissions));
+    }
+
+    // Defense in depth: deny deep paths not covered by any granted resource
+    if (
+        permissions !== 'ALL' &&
+        pathname !== '/warehouse' &&
+        !isPathAllowedByResources(pathname, permissions)
     ) {
         redirect(getPreferredWorkspaceLanding('warehouse', permissions));
     }
