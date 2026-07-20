@@ -116,6 +116,10 @@ export const transferStockBulk = withTenant(async function transferStockBulk(
     // Audit log is already recorded inside the service layer within the transaction
     revalidatePath("/warehouse/inventory");
     revalidatePath("/warehouse/inventory/history");
+    revalidatePath("/warehouse");
+    if (result.data.productionOrderId) {
+      revalidatePath(`/production/orders/${result.data.productionOrderId}`);
+    }
   });
 });
 

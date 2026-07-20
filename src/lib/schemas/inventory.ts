@@ -100,6 +100,8 @@ export const bulkTransferStockSchema = z
       .min(1, "At least one item is required"),
     notes: z.string().optional().transform(sanitizeHtml),
     date: z.date().default(() => new Date()),
+    /** Optional link to WO when transfer is staging for production */
+    productionOrderId: z.string().optional(),
   })
   .refine((data) => data.sourceLocationId !== data.destinationLocationId, {
     message: "Source and destination cannot be the same",

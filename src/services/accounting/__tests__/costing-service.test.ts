@@ -34,6 +34,35 @@ describe("CostingService", () => {
       ).rejects.toThrow("Production Order");
     });
 
+    it("excludes STAGED material issues from material cost (transfer not yet consumed)", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({
+        id: "po-1",
+        orderNumber: "MO-001",
+        actualQuantity: 100,
+        materialIssues: [
+          {
+            id: "issue-staged",
+            status: "STAGED",
+            quantity: dec(10),
+            issuedAt: new Date("2026-01-15T10:00:00Z"),
+            productVariantId: "pv-1",
+            batchId: null,
+            locationId: "loc-wip",
+            productVariant: {
+              standardCost: dec(50),
+              buyPrice: dec(60),
+              price: dec(70),
+            },
+          },
+        ],
+        stockMovements: [],
+        executions: [],
+      } as never);
+
+      const result = await CostingService.calculateOrderCost("po-1");
+      expect(result.materialCost).toBe(0);
+    });
+
     it("calculates cost with material issues matched to movements", async () => {
       vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({
         id: "po-1",

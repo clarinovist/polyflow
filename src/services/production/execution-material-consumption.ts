@@ -160,14 +160,64 @@ export async function backflushMaterials(params: {
         });
         await AccountingService.recordInventoryMovement(movement, tx);
 
-        await tx.materialIssue.create({
-            data: {
+        // Convert warehouse STAGED (transfer ke WIP) into ISSUED for actual consumption,
+        // so progress stays correct (STAGED+ISSUED) and HPP only counts ISSUED.
+        let remainingToConvert = qtyToDeduct;
+        const stagedIssues = await tx.materialIssue.findMany({
+            where: {
                 productionOrderId,
                 productVariantId: item.productVariantId,
-                quantity: qtyToDeduct,
-                locationId: consumptionLocationId,
-                createdById: userId
-            }
+                status: 'STAGED',
+            },
+            orderBy: { issuedAt: 'asc' },
         });
+
+        for (const staged of stagedIssues) {
+            if (remainingToConvert <= 0.0001) break;
+            const stagedQty = Number(staged.quantity);
+            if (stagedQty <= 0.0001) continue;
+
+            if (stagedQty <= remainingToConvert + 0.0001) {
+                await tx.materialIssue.update({
+                    where: { id: staged.id },
+                    data: {
+                        status: 'ISSUED',
+                        locationId: consumptionLocationId,
+                    },
+                });
+                remainingToConvert -= stagedQty;
+            } else {
+                // Partial consume: shrink STAGED, create ISSUED for consumed slice
+                await tx.materialIssue.update({
+                    where: { id: staged.id },
+                    data: { quantity: stagedQty - remainingToConvert },
+                });
+                await tx.materialIssue.create({
+                    data: {
+                        productionOrderId,
+                        productVariantId: item.productVariantId,
+                        quantity: remainingToConvert,
+                        locationId: consumptionLocationId,
+                        status: 'ISSUED',
+                        createdById: userId,
+                    },
+                });
+                remainingToConvert = 0;
+            }
+        }
+
+        // Pure backflush (no prior staging) or over-consumption beyond staged qty
+        if (remainingToConvert > 0.0001) {
+            await tx.materialIssue.create({
+                data: {
+                    productionOrderId,
+                    productVariantId: item.productVariantId,
+                    quantity: remainingToConvert,
+                    locationId: consumptionLocationId,
+                    status: 'ISSUED',
+                    createdById: userId,
+                },
+            });
+        }
     }
 }

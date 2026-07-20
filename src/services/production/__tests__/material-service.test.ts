@@ -272,6 +272,51 @@ describe("ProductionMaterialService", () => {
       expect(prisma.productionOrder.findUniqueOrThrow).not.toHaveBeenCalled();
     });
 
+    it("should record STAGED material issues without stock OUT when recordAsStaged", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        id: "po-1",
+        orderNumber: "WO-001",
+        materialIssues: [],
+        plannedMaterials: [
+          {
+            id: "pm-1",
+            productVariantId: "pv-1",
+            quantity: 100,
+            productVariant: { name: "PP" },
+          },
+        ],
+      } as any);
+      vi.mocked(prisma.materialIssue.create).mockResolvedValue({
+        id: "mi-staged-1",
+        productVariantId: "pv-1",
+        quantity: 40,
+        status: "STAGED",
+      } as any);
+
+      await ProductionMaterialService.batchIssueMaterials({
+        productionOrderId: "po-1",
+        locationId: "loc-wip",
+        items: [{ productVariantId: "pv-1", quantity: 40 }],
+        recordAsStaged: true,
+        userId: "user-1",
+      });
+
+      expect(prisma.materialIssue.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          productionOrderId: "po-1",
+          productVariantId: "pv-1",
+          quantity: 40,
+          locationId: "loc-wip",
+          status: "STAGED",
+          createdById: "user-1",
+        }),
+      });
+      // Staging must not deduct inventory or create OUT movements
+      expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+      expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+    });
+
     it("should throw error when source location is missing", async () => {
       // Arrange
       vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);

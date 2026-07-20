@@ -85,6 +85,12 @@ export const batchMaterialIssueSchema = z.object({
         quantity: z.coerce.number().nonnegative()
     })).optional(),
     requestId: z.string().optional(), // NEW: Idempotency support
+    /**
+     * Transfer/staging mode: record MaterialIssue as STAGED without stock OUT.
+     * Physical stock move is done separately via transferStockBulk.
+     * Progress (Issued) UI counts STAGED; costing only counts ISSUED after backflush.
+     */
+    recordAsStaged: z.boolean().optional(),
 });
 
 export type CreateProductionOrderValues = z.infer<typeof createProductionOrderSchema>;

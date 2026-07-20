@@ -58,15 +58,16 @@ export class ProductionMaterialService {
             items,
             removedPlannedMaterialIds,
             addedPlannedMaterials,
-            requestId
+            requestId,
+            recordAsStaged = false,
         } = data;
         const userId = data.userId;
 
         const issueIds: string[] = [];
 
         await prisma.$transaction(async (tx) => {
-            // 1. Idempotency Check
-            if (requestId) {
+            // 1. Idempotency Check (issue path creates PROD-ISSUE movements with REQ:)
+            if (requestId && !recordAsStaged) {
                 const existing = await tx.stockMovement.findFirst({
                     where: { reference: { contains: `REQ:${requestId}` } }
                 });
@@ -133,6 +134,44 @@ export class ProductionMaterialService {
                 }
             }
         }
+
+            // Staging path: stock already moved via transferStockBulk — only record MaterialIssue
+            // so warehouse "Issued" progress updates without double stock OUT / premature HPP.
+            if (recordAsStaged) {
+                for (const item of items) {
+                    const stagingLocationId = item.sourceLocationId || locationId;
+                    if (!stagingLocationId) throw new ValidationError("Staging location is required");
+
+                    const planItem = order.plannedMaterials.find(p => p.productVariantId === item.productVariantId);
+                    const plannedQty = planItem ? Number(planItem.quantity) : 0;
+                    const issuedSoFar = order.materialIssues
+                        .filter(mi => mi.productVariantId === item.productVariantId && mi.status !== 'VOIDED')
+                        .reduce((sum, mi) => sum + Number(mi.quantity), 0);
+
+                    const remaining = Math.max(0, plannedQty - issuedSoFar);
+                    let quantityToStage = item.quantity;
+                    if (plannedQty > 0 && quantityToStage > remaining) {
+                        console.warn(`Capping stage for ${item.productVariantId}: requested ${quantityToStage}, available ${remaining}`);
+                        quantityToStage = remaining;
+                    }
+                    if (quantityToStage <= 0) continue;
+
+                    const newIssue = await tx.materialIssue.create({
+                        data: {
+                            productionOrderId,
+                            productVariantId: item.productVariantId,
+                            quantity: quantityToStage,
+                            locationId: stagingLocationId,
+                            status: 'STAGED',
+                            createdById: userId,
+                        }
+                    });
+                    issueIds.push(newIssue.id);
+                    // Keep in-memory totals accurate for multi-line cap within same batch
+                    order.materialIssues.push(newIssue as (typeof order.materialIssues)[number]);
+                }
+                return;
+            }
 
             // Standardize Prefix
             const refPrefix = `PROD-ISSUE-${order.orderNumber}`;

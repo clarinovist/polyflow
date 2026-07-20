@@ -268,7 +268,8 @@ export function BatchIssueMaterialDialog({
                             destinationLocationId: order.location.id, // Target is the Production Location
                             items: itemsToTransfer,
                             date: new Date(),
-                            notes: `Transfer for Order ${order.orderNumber}`
+                            notes: `Transfer for Order ${order.orderNumber}`,
+                            productionOrderId: order.id,
                         })
                     )
                 );
@@ -277,23 +278,31 @@ export function BatchIssueMaterialDialog({
                 // Note: Partial failure could happen, but we assume atomic failures for now.
                 
                 if (!hasError) {
-                    // SYNC PLAN: Also update the production plan if there are changes
-                    if (removedPlannedMaterialIds.length > 0 || addedPlannedMaterials.length > 0 || validItems.some(i => i.isPlanned)) {
-                        await batchIssueMaterials({
-                            productionOrderId: order.id,
-                            locationId: selectedLocation,
-                            items: [], // Don't issue stock here (already moved via transferStockBulk)
-                            removedPlannedMaterialIds,
-                            addedPlannedMaterials: [
-                                ...addedPlannedMaterials,
-                                // Also update existing planned items if their quantity changed
-                                ...items.filter(i => i.isPlanned && !i.isDeletedPlan && i.quantity !== i.originalQuantity && !removedPlannedMaterialIds.includes(i.id)).map(i => ({
-                                    productVariantId: i.productVariantId,
-                                    quantity: i.quantity
-                                }))
-                            ],
-                            requestId: `REQ-SYNC-${Date.now()}`
-                        });
+                    // Record STAGED MaterialIssue so warehouse "Issued" progress updates.
+                    // Stock was already moved via transferStockBulk — do NOT stock OUT again.
+                    // Plan qty is NOT overwritten with transfer qty (that was a latent bug).
+                    const stageResult = await batchIssueMaterials({
+                        productionOrderId: order.id,
+                        locationId: order.location.id, // destination / staging location
+                        items: validItems.map(i => ({
+                            productVariantId: i.productVariantId,
+                            quantity: i.quantity,
+                        })),
+                        removedPlannedMaterialIds,
+                        // Only true substitutes / plan additions — never use transfer qty as plan qty
+                        addedPlannedMaterials,
+                        recordAsStaged: true,
+                        requestId: `REQ-STAGE-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                    });
+
+                    if (!stageResult.success) {
+                        toast.error(
+                            stageResult.error ||
+                                'Stok sudah dipindah, tetapi pencatatan Issued gagal. Hubungi admin / refresh dan cek ulang.',
+                        );
+                        router.refresh();
+                        setLoading(false);
+                        return;
                     }
 
                     toast.success(`Bahan baku berhasil ditransfer ke Gudang ${order.location.name}.`);

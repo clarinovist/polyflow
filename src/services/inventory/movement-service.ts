@@ -140,8 +140,14 @@ export class InventoryMovementService {
     data: BulkTransferStockValues,
     userId: string,
   ) {
-    const { sourceLocationId, destinationLocationId, items, notes, date } =
-      data;
+    const {
+      sourceLocationId,
+      destinationLocationId,
+      items,
+      notes,
+      date,
+      productionOrderId,
+    } = data;
 
     await prisma.$transaction(async (tx) => {
       // 1. Fetch and Lock all Source Inventory
@@ -271,6 +277,7 @@ export class InventoryMovementService {
             reference: notes,
             createdAt: date,
             createdById: userId,
+            productionOrderId: productionOrderId || undefined,
           },
         });
 

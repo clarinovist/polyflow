@@ -124,7 +124,8 @@ export class CostingService {
         let materialCost = 0;
         const usedMovementIds = new Set<string>();
         for (const issue of order.materialIssues) {
-            if (issue.status === 'VOIDED') continue;
+            // STAGED = transfer ke WIP (belum konsumsi HPP). VOIDED = dibatalkan.
+            if (issue.status === 'VOIDED' || issue.status === 'STAGED') continue;
             if (!issue.productVariant) {
                 console.warn(`Missing product variant for issue ${issue.id} in order ${order.orderNumber}`);
                 continue;
