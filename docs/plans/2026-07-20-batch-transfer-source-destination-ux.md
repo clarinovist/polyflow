@@ -325,7 +325,7 @@ Manual (Melindo staging / local):
 | Clarify Asal/Tujuan + validasi multi-sumber | ✅ shipped `d354f704` |
 | Collapse per-item source (hilangkan redundant “Lokasi Default”) | ✅ TAHAP 1 |
 | Fix assign lokasi WO saat create (resolver slug+purpose) | ✅ TAHAP 2 — `src/lib/locations/resolve-location.ts` |
-| Remap mesin Melindo inactive → WIP/FG (data ops) | 📋 ops one-shot (bukan code) |
+| Remap mesin Melindo inactive → WIP/FG (data ops) | ✅ 2026-07-20 on `melindo_rafia` (see runbook) |
 
 ---
 
