@@ -19,6 +19,7 @@ vi.mock("@/lib/core/prisma", () => {
     productionExecution: {
       create: vi.fn(),
       update: vi.fn(),
+      findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
     },
     inventory: {
@@ -157,6 +158,9 @@ describe("ProductionService", () => {
       id: "exec-1",
       productionOrderId: "po-1",
     });
+
+    // No open execution → startExecution creates a new one (handover path skipped)
+    (prisma.productionExecution.findFirst as any).mockResolvedValue(null);
 
     (prisma.productionExecution.findUniqueOrThrow as any).mockResolvedValue({
       id: "exec-1",
