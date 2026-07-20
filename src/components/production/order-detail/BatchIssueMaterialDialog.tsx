@@ -410,7 +410,7 @@ export function BatchIssueMaterialDialog({
                                                 <span>{productionComponentLabels.destinationFromOrder}</span>
                                                 <span className="text-border" aria-hidden>·</span>
                                                 <Link
-                                                    href={`/production/orders/${order.id}`}
+                                                    href={`/production/orders/${order.id}#output-location`}
                                                     className="underline underline-offset-2 text-primary hover:text-primary/80 shrink-0"
                                                 >
                                                     {productionComponentLabels.editOrderLocation}
@@ -426,7 +426,7 @@ export function BatchIssueMaterialDialog({
                                                 {productionComponentLabels.sourceDestinationSame}
                                                 {' '}
                                                 <Link
-                                                    href={`/production/orders/${order.id}`}
+                                                    href={`/production/orders/${order.id}#output-location`}
                                                     className="underline font-semibold"
                                                 >
                                                     {productionComponentLabels.editOrderLocation}

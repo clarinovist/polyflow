@@ -38,11 +38,13 @@ export const createProductionOrderSchema = z.object({
 
 export const updateProductionOrderSchema = z.object({
     id: z.string(),
-    status: z.enum(['DRAFT', 'RELEASED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
+    status: z.enum(['DRAFT', 'RELEASED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'WAITING_MATERIAL']).optional(),
     actualQuantity: z.coerce.number().nonnegative().optional(),
     actualStartDate: z.date().optional(),
     actualEndDate: z.date().optional(),
     machineId: z.string().optional(),
+    /** Output / staging warehouse (WO location) */
+    locationId: z.string().min(1).optional(),
     plannedStartDate: z.date().optional(),
 });
 

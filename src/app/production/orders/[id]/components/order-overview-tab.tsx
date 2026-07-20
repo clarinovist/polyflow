@@ -1,6 +1,6 @@
 "use client";
 
-import { Machine } from "@prisma/client";
+import { Location, Machine } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -13,14 +13,15 @@ import {
 import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
 import { ReassignMachineButton } from "@/components/production/ReassignMachineButton";
+import { ReassignOutputLocationButton } from "@/components/production/ReassignOutputLocationButton";
 import { ExtendedProductionOrder } from "@/components/production/order-detail/types";
 import { VoidExecutionButton } from "@/components/production/VoidExecutionButton";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between border-b pb-2 last:border-0 last:pb-0">
-      <span className="text-muted-foreground text-sm">{label}</span>
-      <span className="font-medium text-sm">{value}</span>
+    <div className="flex justify-between border-b pb-2 last:border-0 last:pb-0 gap-3">
+      <span className="text-muted-foreground text-sm shrink-0">{label}</span>
+      <span className="font-medium text-sm text-right min-w-0 break-words">{value}</span>
     </div>
   );
 }
@@ -29,6 +30,7 @@ interface OrderOverviewTabProps {
   order: ExtendedProductionOrder;
   formData: {
     machines: Machine[];
+    locations: Location[];
   };
 }
 
@@ -147,7 +149,27 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
                     : "-"
                 }
               />
-              <DetailRow label="Output Location" value={order.location.name} />
+              <div
+                id="output-location"
+                className="flex justify-between items-start border-b pb-2 gap-3 scroll-mt-24"
+              >
+                <span className="text-muted-foreground text-sm shrink-0">
+                  Output Location
+                </span>
+                <div className="flex items-start gap-1.5 min-w-0 text-right">
+                  <span className="font-medium text-sm break-words">
+                    {order.location.name}
+                  </span>
+                  <ReassignOutputLocationButton
+                    orderId={order.id}
+                    orderNumber={order.orderNumber}
+                    orderStatus={order.status}
+                    currentLocationId={order.locationId}
+                    currentLocationName={order.location.name}
+                    locations={formData.locations}
+                  />
+                </div>
+              </div>
               <DetailRow label="Demand Source" value={demandSourceLabel} />
               {order.salesOrder && (
                 <DetailRow

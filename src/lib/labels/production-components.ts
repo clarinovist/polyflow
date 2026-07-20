@@ -119,6 +119,15 @@ export const productionComponentLabels = {
   destinationLocation: 'Lokasi Tujuan',
   destinationFromOrder: 'Dari lokasi pesanan (WO)',
   editOrderLocation: 'Ubah di SPK',
+  changeOutputLocation: 'Ubah lokasi output',
+  reassignOutputLocation: 'Ubah Lokasi Output / Staging',
+  reassignOutputLocationHelp:
+    'Lokasi ini menjadi tujuan transfer material dan tempat stok hasil (backflush).',
+  selectOutputLocation: 'Lokasi output',
+  saveOutputLocation: 'Simpan lokasi',
+  outputLocationUpdated: 'Lokasi output SPK berhasil diubah.',
+  outputLocationRisky:
+    'Peringatan: gudang bahan baku / lokasi berisiko. Transfer staging bisa gagal (asal = tujuan).',
   transferDirectionHint:
     'Stok dipindah dari sumber → tujuan. Tujuan mengikuti lokasi WO; ubah lokasi WO jika target salah.',
   backflushConsumeHint:

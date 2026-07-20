@@ -645,8 +645,48 @@ export class ProductionOrderService {
       actualStartDate,
       actualEndDate,
       machineId,
+      locationId,
       plannedStartDate,
     } = data;
+
+    if (locationId) {
+      const existing = await prisma.productionOrder.findUnique({
+        where: { id },
+        select: { status: true, locationId: true },
+      });
+      if (!existing) {
+        throw new NotFoundError("Production Order", id);
+      }
+      if (existing.status === "COMPLETED" || existing.status === "CANCELLED") {
+        throw new BusinessRuleError(
+          "Lokasi output tidak bisa diubah untuk SPK yang sudah selesai atau dibatalkan.",
+          { status: existing.status, orderId: id },
+          "INVALID_ORDER_STATUS",
+        );
+      }
+
+      const location = await prisma.location.findUnique({
+        where: { id: locationId },
+        select: { id: true, name: true, slug: true, locationPurpose: true },
+      });
+      if (!location) {
+        throw new NotFoundError("Location", locationId);
+      }
+
+      const slug = (location.slug || "").toLowerCase();
+      const name = (location.name || "").toLowerCase();
+      if (
+        slug.startsWith("inactive-") ||
+        slug.includes("nonaktif") ||
+        name.includes("[nonaktif]")
+      ) {
+        throw new BusinessRuleError(
+          "Tidak bisa memakai lokasi nonaktif sebagai output SPK.",
+          { locationId, slug: location.slug },
+          "INVALID_LOCATION",
+        );
+      }
+    }
 
     return await prisma.productionOrder.update({
       where: { id },
@@ -656,6 +696,7 @@ export class ProductionOrderService {
         actualStartDate,
         actualEndDate,
         machineId,
+        ...(locationId ? { locationId } : {}),
         plannedStartDate,
       },
     });
