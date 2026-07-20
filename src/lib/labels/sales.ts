@@ -186,8 +186,11 @@ export const salesLabels = {
   stockNotReady: "Stok FG belum lengkap",
   stockReady: "Stok FG siap",
   openDoExists: "Sudah ada Surat Jalan aktif",
+  openDoExistsHint: "Selesaikan atau batalkan SJ aktif dulu sebelum membuat yang baru.",
+  viewOpenDo: "Lihat SJ aktif",
   selectDoToShip: "Pilih DO mana yang akan dikirim",
   createAndShip: "Buat SJ + Kirim Sekaligus",
   commitExistingDo: "Kirim DO yang sudah ada",
   stokBelumCukup: "Stok belum cukup",
+  noEligibleSoForDo: "Tidak ada SO yang bisa dibuatkan SJ baru (semua sudah punya SJ aktif, residual 0, atau status tidak eligible).",
 } as const;

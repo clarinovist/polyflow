@@ -158,7 +158,13 @@ export async function createDeliveryOrderFromSalesOrder(
   if (openDos.length > 0) {
     throw new ConflictError(
       `Sudah ada Surat Jalan aktif (${openDos[0].orderNumber} status ${openDos[0].status}). ` +
-      `Selesaikan atau batalkan SJ yang ada sebelum membuat baru.`
+      `Buka SJ tersebut untuk melanjutkan, atau batalkan dulu sebelum membuat SJ baru.`,
+      {
+        openDoId: openDos[0].id,
+        openDoNumber: openDos[0].orderNumber,
+        openDoStatus: openDos[0].status,
+        salesOrderId,
+      },
     );
   }
 

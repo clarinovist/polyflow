@@ -139,7 +139,10 @@ export class ExternalServiceError extends ApplicationError {
  */
 export async function safeAction<T>(
     fn: () => Promise<T>
-): Promise<{ success: true; data: T } | { success: false; error: string; code: string }> {
+): Promise<
+    | { success: true; data: T }
+    | { success: false; error: string; code: string; details?: Record<string, unknown> }
+> {
     try {
         const data = await fn();
         return { success: true, data };
@@ -152,7 +155,12 @@ export async function safeAction<T>(
             }
         }
         if (error instanceof ApplicationError) {
-            return { success: false, error: error.message, code: error.code };
+            return {
+                success: false,
+                error: error.message,
+                code: error.code,
+                ...(error.details ? { details: error.details } : {}),
+            };
         }
 
         // Prisma known errors → mapped ApplicationError with user-friendly message
@@ -166,6 +174,7 @@ export async function safeAction<T>(
                 success: false,
                 error: prismaMapped.message,
                 code: prismaMapped.code,
+                ...(prismaMapped.details ? { details: prismaMapped.details } : {}),
             };
         }
 

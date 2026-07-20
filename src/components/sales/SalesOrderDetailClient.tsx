@@ -323,12 +323,31 @@ export function SalesOrderDetailClient({
             </Button>
           )}
 
-          {/* Buat Surat Jalan — MTO hot-loading: create DO without blocking on stock */}
+          {/* Buat SJ only if no open DO; otherwise point to existing SJ */}
           {(order.status === "CONFIRMED" ||
             order.status === "IN_PRODUCTION" ||
-            order.status === "READY_TO_SHIP") && !isMaklonOrder && (
-            <CreateDeliveryOrderDialog defaultSalesOrderId={order.id} />
-          )}
+            order.status === "READY_TO_SHIP") &&
+            !isMaklonOrder &&
+            (primaryOpenDo ? (
+              <Button variant="default" className="shadow-sm" asChild>
+                <Link href={`/sales/deliveries/${primaryOpenDo.id}`}>
+                  <Truck className="mr-2 h-4 w-4" />
+                  {salesLabels.viewOpenDo}
+                  {primaryOpenDo.orderNumber
+                    ? ` (${primaryOpenDo.orderNumber})`
+                    : ""}
+                </Link>
+              </Button>
+            ) : openDeliveryOrders.length > 1 ? (
+              <Button variant="outline" className="shadow-sm" asChild>
+                <Link href="/sales/deliveries">
+                  <Truck className="mr-2 h-4 w-4" />
+                  {salesLabels.openDoExists} ({openDeliveryOrders.length})
+                </Link>
+              </Button>
+            ) : (
+              <CreateDeliveryOrderDialog defaultSalesOrderId={order.id} />
+            ))}
 
           {(order.status === "CONFIRMED" ||
             order.status === "READY_TO_SHIP" ||

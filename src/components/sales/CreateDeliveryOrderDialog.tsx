@@ -45,6 +45,12 @@ interface SalesOrderItem {
   } | null;
 }
 
+interface OpenDeliveryOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+}
+
 interface SalesOrder {
   id: string;
   orderNumber: string;
@@ -55,6 +61,8 @@ interface SalesOrder {
     defaultVehicleId?: string | null;
   } | null;
   items?: SalesOrderItem[];
+  /** Open DOs (PENDING/LOADING) when loaded with includeItems */
+  deliveryOrders?: OpenDeliveryOrder[];
 }
 
 interface Location {
@@ -112,6 +120,8 @@ export function CreateDeliveryOrderDialog({
   const [tariffRateType, setTariffRateType] = useState('');
   const [overrideCostRate, setOverrideCostRate] = useState('');
   const [overrideChargeRate, setOverrideChargeRate] = useState('');
+  /** When default SO already has open DO — block create and show link */
+  const [blockedOpenDo, setBlockedOpenDo] = useState<OpenDeliveryOrder | null>(null);
   const router = useRouter();
 
   // PER_KG calculation: weight × rate = total
@@ -128,6 +138,7 @@ export function CreateDeliveryOrderDialog({
   }, [tariffRateType, estimatedWeightKg, overrideChargeRate, overrideCostRate]);
 
   const loadData = useCallback(async () => {
+    setBlockedOpenDo(null);
     const [ordersRes, locationsRes, vehiclesRes] = await Promise.all([
       getSalesOrders(true, undefined, 'customer', {
         statusFilter: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'],
@@ -136,9 +147,19 @@ export function CreateDeliveryOrderDialog({
       getVehicles({ status: 'ACTIVE' }),
     ]);
     if (ordersRes.success && ordersRes.data) {
-      // Filter: only show SOs that have at least one non-SERVICE item with residual > 0
+      // Eligible = residual physical qty > 0 AND no open DO (PENDING/LOADING)
       const allOrders = ordersRes.data as SalesOrder[];
+      let blocked: OpenDeliveryOrder | null = null;
       const eligibleOrders = allOrders.filter((so) => {
+        const openDos = (so.deliveryOrders ?? []).filter(
+          (d) => d.status === 'PENDING' || d.status === 'LOADING',
+        );
+        if (openDos.length > 0) {
+          if (defaultSalesOrderId && so.id === defaultSalesOrderId) {
+            blocked = openDos[0];
+          }
+          return false;
+        }
         if (!so.items || so.items.length === 0) return false;
         return so.items.some((item) => {
           if (item.productVariant?.product?.productType === 'SERVICE') return false;
@@ -147,15 +168,12 @@ export function CreateDeliveryOrderDialog({
           return qty - delivered > 0;
         });
       });
+      setBlockedOpenDo(blocked);
       setSalesOrders(eligibleOrders);
     }
     if (locationsRes.success && locationsRes.data) setLocations(locationsRes.data as Location[]);
     if (vehiclesRes.success && vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
-  }, []);
-
-  useEffect(() => {
-    if (open) loadData();
-  }, [open, loadData]);
+  }, [defaultSalesOrderId]);
 
   const handleSalesOrderChange = async (soId: string) => {
     setSelectedSalesOrderId(soId);
@@ -192,6 +210,23 @@ export function CreateDeliveryOrderDialog({
       setIsLoadingSoDetail(false);
     }
   };
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      await loadData();
+      if (cancelled) return;
+      if (defaultSalesOrderId) {
+        // Prefill detail for SO-scoped button
+        await handleSalesOrderChange(defaultSalesOrderId);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when dialog opens
+  }, [open, loadData, defaultSalesOrderId]);
 
   const handleVehicleChange = async (vehicleId: string) => {
     setSelectedVehicleId(vehicleId);
@@ -252,6 +287,19 @@ export function CreateDeliveryOrderDialog({
   };
 
   const handleSubmit = async () => {
+    if (blockedOpenDo) {
+      toast.error(salesLabels.openDoExists, {
+        description: salesLabels.openDoExistsHint,
+        action: {
+          label: salesLabels.viewOpenDo,
+          onClick: () => {
+            setOpen(false);
+            router.push(`/sales/deliveries/${blockedOpenDo.id}`);
+          },
+        },
+      });
+      return;
+    }
     if (!selectedSalesOrderId) {
       toast.error('Pilih Sales Order terlebih dahulu');
       return;
@@ -281,7 +329,29 @@ export function CreateDeliveryOrderDialog({
       });
 
       if (!result.success) {
-        toast.error(result.error || 'Gagal membuat Surat Jalan');
+        const details = (result as { details?: Record<string, unknown> }).details;
+        const openDoId =
+          typeof details?.openDoId === 'string' ? details.openDoId : undefined;
+        const openDoNumber =
+          typeof details?.openDoNumber === 'string' ? details.openDoNumber : undefined;
+
+        if (openDoId) {
+          toast.error(result.error || salesLabels.openDoExists, {
+            description: salesLabels.openDoExistsHint,
+            action: {
+              label: openDoNumber
+                ? `${salesLabels.viewOpenDo} (${openDoNumber})`
+                : salesLabels.viewOpenDo,
+              onClick: () => {
+                setOpen(false);
+                router.push(`/sales/deliveries/${openDoId}`);
+              },
+            },
+            duration: 10000,
+          });
+        } else {
+          toast.error(result.error || 'Gagal membuat Surat Jalan');
+        }
         return;
       }
 
@@ -317,20 +387,60 @@ export function CreateDeliveryOrderDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {blockedOpenDo && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
+              <p className="font-medium text-amber-900 dark:text-amber-200">
+                {salesLabels.openDoExists}
+                {blockedOpenDo.orderNumber ? `: ${blockedOpenDo.orderNumber}` : ''}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {salesLabels.openDoExistsHint}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => {
+                  setOpen(false);
+                  router.push(`/sales/deliveries/${blockedOpenDo.id}`);
+                }}
+              >
+                <Truck className="mr-2 h-3.5 w-3.5" />
+                {salesLabels.viewOpenDo}
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Sales Order *</Label>
-            <Select value={selectedSalesOrderId} onValueChange={handleSalesOrderChange}>
+            <Select
+              value={selectedSalesOrderId}
+              onValueChange={handleSalesOrderChange}
+              disabled={!!defaultSalesOrderId}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Sales Order..." />
               </SelectTrigger>
               <SelectContent>
-                {salesOrders.map((so) => (
-                  <SelectItem key={so.id} value={so.id}>
-                    {so.orderNumber} — {so.customer?.name || 'N/A'}
-                  </SelectItem>
-                ))}
+                {salesOrders.length === 0 ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground max-w-[280px]">
+                    {salesLabels.noEligibleSoForDo}
+                  </div>
+                ) : (
+                  salesOrders.map((so) => (
+                    <SelectItem key={so.id} value={so.id}>
+                      {so.orderNumber} — {so.customer?.name || 'N/A'}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
+            {salesOrders.length === 0 && !defaultSalesOrderId && (
+              <p className="text-xs text-muted-foreground">
+                {salesLabels.noEligibleSoForDo}
+              </p>
+            )}
           </div>
 
           {/* SO Items Summary Card */}
@@ -535,7 +645,11 @@ export function CreateDeliveryOrderDialog({
           <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>
             Batal
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading} className="bg-purple-600 hover:bg-purple-700">
+          <Button
+            onClick={handleSubmit}
+            disabled={isLoading || !!blockedOpenDo || (!defaultSalesOrderId && salesOrders.length === 0)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
             {isLoading ? (
               <>
                 <span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin mr-2" />

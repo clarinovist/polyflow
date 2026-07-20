@@ -173,6 +173,11 @@ export async function getOrders(filters?: {
         },
       },
     };
+    // Needed by Create SJ dialog: exclude SO that already have open DO
+    include.deliveryOrders = {
+      select: { id: true, orderNumber: true, status: true },
+      where: { status: { in: ["PENDING", "LOADING"] } },
+    };
   }
 
   return await prisma.salesOrder.findMany({
