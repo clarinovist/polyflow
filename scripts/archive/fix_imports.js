@@ -169,8 +169,6 @@ const replacements = {
 
   "'@/actions/analytics'": "'@/actions/core/analytics'",
   "\"@/actions/analytics\"": "\"@/actions/core/analytics\"",
-  "'@/actions/analytics-assistant'": "'@/actions/core/analytics-assistant'",
-  "\"@/actions/analytics-assistant\"": "\"@/actions/core/analytics-assistant\"",
   "'@/actions/import'": "'@/actions/core/import'",
   "\"@/actions/import\"": "\"@/actions/core/import\"",
   "'@/actions/notifications'": "'@/actions/core/notifications'",

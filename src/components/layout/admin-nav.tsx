@@ -2,7 +2,6 @@
 
 import {
     Building2,
-    Sparkles,
     Shield,
     LogOut,
     Moon,
@@ -32,7 +31,6 @@ const adminLinks = [
     { title: "Tenants", href: "/admin/super-admin", icon: Building2 },
     { title: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
     { title: "System Health", href: "/admin/system-health", icon: Activity },
-    { title: "AI Assistant", href: "/admin/database-assistant", icon: Sparkles },
 ];
 
 export function AdminNav({ user }: AdminNavProps) {
