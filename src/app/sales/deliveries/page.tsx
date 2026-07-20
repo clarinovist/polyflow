@@ -37,9 +37,14 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
 
             <Alert className="bg-background border-blue-500/20 text-blue-600 dark:text-blue-400">
                 <Info className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                    Ini adalah dokumen <strong>Surat Jalan (Delivery Order)</strong> — bukti pengiriman resmi ke customer.
-                    Antrian Sales Order untuk diproses gudang ada di modul <strong>Gudang → Antrian Kirim (SO)</strong>.
+                <AlertDescription className="text-xs space-y-1">
+                    <p>
+                        Ini adalah dokumen <strong>Surat Jalan (Delivery Order)</strong> — bukti pengiriman ke customer.
+                        Status <strong>PENDING / LOADING</strong> = draft muat (stok belum dipotong); qty masih bisa diubah di detail SJ.
+                    </p>
+                    <p className="text-muted-foreground">
+                        {salesLabels.openSjPendingList} Filter tanggal di atas memakai tanggal pengiriman; SJ draft tetap ikut tampil.
+                    </p>
                 </AlertDescription>
             </Alert>
 

@@ -438,6 +438,45 @@ export function SalesOrderDetailClient({
         </div>
       </div>
 
+      {/* Active delivery orders — always visible on SO detail */}
+      {openDeliveryOrders.length > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Truck className="h-4 w-4" />
+              {salesLabels.activeSuratJalan}
+            </CardTitle>
+            <CardDescription>
+              {salesLabels.sjPendingBanner}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {openDeliveryOrders.map((d) => (
+              <div
+                key={d.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm">
+                    {d.orderNumber ?? d.id.slice(0, 8)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Status: {d.status}
+                    {" · "}
+                    stok belum dipotong
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/sales/deliveries/${d.id}`}>
+                    Buka / ubah qty
+                  </Link>
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Main Order Info */}
         <Card className="md:col-span-2">

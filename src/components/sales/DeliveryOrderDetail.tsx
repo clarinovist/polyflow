@@ -23,7 +23,11 @@ import Image from 'next/image';
 import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
-import { updateDeliveryStatus, fetchDeliveryStockReadiness } from '@/actions/inventory/deliveries';
+import {
+    updateDeliveryStatus,
+    fetchDeliveryStockReadiness,
+    updateDeliveryItemQuantities,
+} from '@/actions/inventory/deliveries';
 import { StockReadinessBanner, type StockReadinessLine } from '@/components/sales/StockReadinessBanner';
 import { attachDeliveryPhoto } from '@/actions/sales/delivery-photos';
 import { NEXT_STEP_LABELS, getDeliveryStatusLabel } from '@/lib/sales/delivery-status';
@@ -32,6 +36,7 @@ import { toast } from 'sonner';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { type CompanyConfig } from '@/lib/config/company';
 import { compressImageForUpload } from '@/lib/media/compress-image';
+import { Input } from '@/components/ui/input';
 
 
 interface DeliveryOrderVehicle {
@@ -43,9 +48,14 @@ interface DeliveryOrderVehicle {
 
 interface DeliveryOrderItemData {
     id: string;
+    quantity?: number | string;
+    enteredQuantity?: number | string | null;
+    enteredUnit?: string | null;
+    productVariantId?: string;
     productVariant?: {
         name?: string;
         skuCode?: string;
+        primaryUnit?: string | null;
         product?: { name?: string };
         [key: string]: unknown;
     } | null;
@@ -99,9 +109,14 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
     const [uploadingPOD, setUploadingPOD] = useState(false);
     const [receivedByName, setReceivedByName] = useState('');
     const [stockReadiness, setStockReadiness] = useState<StockReadinessLine[] | null>(null);
+    const [editingQty, setEditingQty] = useState(false);
+    const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
+    const [savingQty, setSavingQty] = useState(false);
     const vehicleInputRef = useRef<HTMLInputElement>(null);
     const podInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
+
+    const canEditQty = order.status === 'PENDING' || order.status === 'LOADING';
 
     // Load stock readiness when DO is PENDING or LOADING (via server action — no Prisma on client)
     useEffect(() => {
@@ -113,6 +128,44 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                 .catch(() => {});
         }
     }, [order.id, order.status]);
+
+    const startEditQty = () => {
+        const draft: Record<string, string> = {};
+        for (const item of order.items) {
+            draft[item.id] = String(Number(item.quantity ?? 0));
+        }
+        setQtyDraft(draft);
+        setEditingQty(true);
+    };
+
+    const handleSaveQty = async () => {
+        const items = Object.entries(qtyDraft).map(([id, q]) => ({
+            id,
+            quantity: Number(q),
+        }));
+        if (items.some((i) => !i.quantity || i.quantity <= 0 || Number.isNaN(i.quantity))) {
+            toast.error('Qty harus angka > 0');
+            return;
+        }
+        setSavingQty(true);
+        try {
+            const result = await updateDeliveryItemQuantities({
+                deliveryOrderId: order.id,
+                items,
+            });
+            if (!result.success) {
+                toast.error(result.error || 'Gagal menyimpan qty');
+                return;
+            }
+            toast.success(salesLabels.sjQtyUpdated);
+            setEditingQty(false);
+            router.refresh();
+        } catch {
+            toast.error('Gagal menyimpan qty');
+        } finally {
+            setSavingQty(false);
+        }
+    };
 
     const handleStatusChange = async (newStatus: string) => {
         setIsLoading(true);
@@ -325,6 +378,24 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                 </div>
             </div>
 
+            {/* Status explainer */}
+            {canEditQty && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+                    <p className="font-medium">{salesLabels.sjDraft}</p>
+                    <p className="text-xs mt-1 text-muted-foreground dark:text-amber-200/80">
+                        {salesLabels.sjPendingBanner}
+                    </p>
+                </div>
+            )}
+            {order.status === 'SHIPPED' && (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-200">
+                    <p className="font-medium">{salesLabels.sjShipped}</p>
+                    <p className="text-xs mt-1 text-muted-foreground dark:text-emerald-200/80">
+                        {salesLabels.sjShippedBanner}
+                    </p>
+                </div>
+            )}
+
             {/* Stock Readiness Banner — soft warning for PENDING/LOADING DOs */}
             {stockReadiness && stockReadiness.length > 0 && (
                 <StockReadinessBanner lines={stockReadiness} />
@@ -351,9 +422,41 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-2 space-y-6">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Item Pengiriman</CardTitle>
-                            <CardDescription>Item yang termasuk dalam batch pengiriman ini</CardDescription>
+                        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                            <div>
+                                <CardTitle>Item Pengiriman</CardTitle>
+                                <CardDescription>
+                                    {canEditQty
+                                        ? salesLabels.sjQtyHelp
+                                        : 'Item yang termasuk dalam batch pengiriman ini'}
+                                </CardDescription>
+                            </div>
+                            {canEditQty && !editingQty && (
+                                <Button type="button" size="sm" variant="outline" onClick={startEditQty}>
+                                    {salesLabels.editSjQty}
+                                </Button>
+                            )}
+                            {canEditQty && editingQty && (
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        disabled={savingQty}
+                                        onClick={() => setEditingQty(false)}
+                                    >
+                                        Batal
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={savingQty}
+                                        onClick={handleSaveQty}
+                                    >
+                                        {savingQty ? 'Menyimpan…' : salesLabels.saveSjQty}
+                                    </Button>
+                                </div>
+                            )}
                         </CardHeader>
                         <CardContent>
                             <div className="border rounded-lg overflow-hidden">
@@ -376,7 +479,33 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                                 </td>
                                                 <td className="p-4 text-right font-mono text-xs">{item.productVariant?.skuCode}</td>
                                                 <td className="p-4 text-right font-medium">
-                                                    {getEnteredQuantityDisplay({ ...item, ...item.productVariant } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot)}
+                                                    {editingQty ? (
+                                                        <div className="inline-flex items-center gap-1.5 justify-end">
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0.01"
+                                                                className="h-8 w-28 text-right"
+                                                                value={qtyDraft[item.id] ?? ''}
+                                                                onChange={(e) =>
+                                                                    setQtyDraft((prev) => ({
+                                                                        ...prev,
+                                                                        [item.id]: e.target.value,
+                                                                    }))
+                                                                }
+                                                            />
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {item.enteredUnit ||
+                                                                    item.productVariant?.primaryUnit ||
+                                                                    ''}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        getEnteredQuantityDisplay({
+                                                            ...item,
+                                                            ...item.productVariant,
+                                                        } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot)
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}

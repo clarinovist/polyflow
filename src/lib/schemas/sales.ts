@@ -140,6 +140,19 @@ export const updateDeliveryPricingSchema = z.object({
   recomputeFromRates: z.boolean().optional().default(true),
 });
 
+/** Edit DO line quantities while status is PENDING or LOADING (before stock commit). */
+export const updateDeliveryItemQuantitiesSchema = z.object({
+  deliveryOrderId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        quantity: z.coerce.number().positive('Qty harus > 0'),
+      }),
+    )
+    .min(1),
+});
+
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
 export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
 export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;

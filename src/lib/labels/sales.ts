@@ -193,4 +193,13 @@ export const salesLabels = {
   commitExistingDo: "Kirim DO yang sudah ada",
   stokBelumCukup: "Stok belum cukup",
   noEligibleSoForDo: "Tidak ada SO yang bisa dibuatkan SJ baru (semua sudah punya SJ aktif, residual 0, atau status tidak eligible).",
+  sjPendingBanner:
+    "Draft muat — stok belum dipotong. Qty masih bisa disesuaikan dengan real lapangan sebelum Tandai Dikirim.",
+  sjShippedBanner: "Final — stok sudah dipotong dari gudang.",
+  editSjQty: "Ubah qty kirim",
+  saveSjQty: "Simpan qty",
+  sjQtyUpdated: "Qty Surat Jalan berhasil diperbarui.",
+  sjQtyHelp: "Maksimal = sisa SO yang belum terkirim. Setelah Tandai Dikirim, qty tidak bisa diubah.",
+  activeSuratJalan: "Surat Jalan aktif",
+  openSjPendingList: "SJ draft/pending selalu ditampilkan di list (tidak hilang meski di luar filter bulan).",
 } as const;

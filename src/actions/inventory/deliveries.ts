@@ -5,7 +5,11 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma, RateType, DeliveryStatus } from '@prisma/client';
 import { safeAction, NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { createManualDeliveryOrderSchema, updateDeliveryPricingSchema } from '@/lib/schemas/sales';
+import {
+  createManualDeliveryOrderSchema,
+  updateDeliveryPricingSchema,
+  updateDeliveryItemQuantitiesSchema,
+} from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { canTransition } from '@/lib/sales/delivery-status';
 import { computeDeliveryTotals } from '@/lib/sales/delivery-pricing';
@@ -15,19 +19,29 @@ import { revalidatePath } from 'next/cache';
 export const getDeliveryOrders = withTenant(
 async function getDeliveryOrders(dateRange?: { startDate?: Date, endDate?: Date }) {
     return safeAction(async () => {
+        // Always include open (PENDING/LOADING) DOs so drafts don't "disappear"
+        // when outside the selected deliveryDate month filter.
         const where: Prisma.DeliveryOrderWhereInput = {};
         if (dateRange?.startDate && dateRange?.endDate) {
-            where.deliveryDate = {
-                gte: dateRange.startDate,
-                lte: dateRange.endDate
-            };
+            where.OR = [
+                {
+                    deliveryDate: {
+                        gte: dateRange.startDate,
+                        lte: dateRange.endDate,
+                    },
+                },
+                {
+                    status: { in: [DeliveryStatus.PENDING, DeliveryStatus.LOADING] },
+                },
+            ];
         }
 
         const deliveryOrders = await prisma.deliveryOrder.findMany({
             where,
-            orderBy: {
-                createdAt: 'desc',
-            },
+            orderBy: [
+                { status: 'asc' }, // rough: open statuses tend to sort usefully with createdAt
+                { createdAt: 'desc' },
+            ],
             include: {
                 salesOrder: {
                     select: {
@@ -47,7 +61,14 @@ async function getDeliveryOrders(dateRange?: { startDate?: Date, endDate?: Date 
             },
         });
 
-        return deliveryOrders;
+        // Surface open DOs first for operators
+        const open = deliveryOrders.filter(
+            (d) => d.status === DeliveryStatus.PENDING || d.status === DeliveryStatus.LOADING,
+        );
+        const rest = deliveryOrders.filter(
+            (d) => d.status !== DeliveryStatus.PENDING && d.status !== DeliveryStatus.LOADING,
+        );
+        return [...open, ...rest];
     });
 }
 );
@@ -364,3 +385,128 @@ async function fetchDeliveryStockReadiness(deliveryOrderId: string) {
     return getDeliveryStockReadiness(deliveryOrderId);
   });
 });
+
+/**
+ * Update DO line quantities while PENDING/LOADING (before stock is committed).
+ * Max qty per line = SO residual for that variant + current DO line qty
+ * (PENDING does not consume deliveredQty yet).
+ */
+export const updateDeliveryItemQuantities = withTenant(
+  async function updateDeliveryItemQuantities(data: {
+    deliveryOrderId: string;
+    items: Array<{ id: string; quantity: number }>;
+  }) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const validated = updateDeliveryItemQuantitiesSchema.parse(data);
+
+      const doRecord = await prisma.deliveryOrder.findUnique({
+        where: { id: validated.deliveryOrderId },
+        include: {
+          items: true,
+          salesOrder: {
+            include: {
+              items: {
+                include: {
+                  productVariant: { include: { product: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!doRecord) {
+        throw new NotFoundError('Delivery Order', validated.deliveryOrderId);
+      }
+
+      if (
+        doRecord.status !== DeliveryStatus.PENDING &&
+        doRecord.status !== DeliveryStatus.LOADING
+      ) {
+        throw new BusinessRuleError(
+          'Qty hanya bisa diubah saat Surat Jalan masih PENDING atau LOADING (sebelum stok dipotong).',
+          { status: doRecord.status },
+          'INVALID_DELIVERY_STATUS',
+        );
+      }
+
+      const doItemById = new Map(doRecord.items.map((i) => [i.id, i]));
+
+      for (const patch of validated.items) {
+        const doItem = doItemById.get(patch.id);
+        if (!doItem) {
+          throw new BusinessRuleError(
+            `Item SJ tidak ditemukan: ${patch.id}`,
+            { itemId: patch.id },
+          );
+        }
+
+        const soItem = doRecord.salesOrder.items.find(
+          (si) => si.productVariantId === doItem.productVariantId,
+        );
+        if (!soItem) {
+          throw new BusinessRuleError(
+            'Item SJ tidak cocok dengan Sales Order.',
+            { productVariantId: doItem.productVariantId },
+          );
+        }
+
+        const soQty = Number(soItem.quantity);
+        const delivered = Number(soItem.deliveredQty);
+        // PENDING DO does not consume deliveredQty — max = SO residual (qty - delivered)
+        const maxAllowed = Math.max(
+          0,
+          Math.round((soQty - delivered) * 10000) / 10000,
+        );
+
+        if (patch.quantity > maxAllowed + 1e-9) {
+          throw new BusinessRuleError(
+            `Qty melebihi sisa SO yang belum terkirim (maks ${maxAllowed}).`,
+            {
+              requested: patch.quantity,
+              maxAllowed,
+              soQty,
+              delivered,
+            },
+          );
+        }
+      }
+
+      await prisma.$transaction(
+        validated.items.map((patch) => {
+          const doItem = doItemById.get(patch.id)!;
+          const factor = doItem.conversionFactorSnapshot
+            ? Number(doItem.conversionFactorSnapshot)
+            : null;
+          const enteredQty =
+            factor && factor > 0
+              ? Math.round((patch.quantity / factor) * 10000) / 10000
+              : patch.quantity;
+
+          return prisma.deliveryOrderItem.update({
+            where: { id: patch.id },
+            data: {
+              quantity: patch.quantity,
+              enteredQuantity: enteredQty,
+            },
+          });
+        }),
+      );
+
+      await logActivity({
+        userId: session.user.id,
+        action: 'UPDATE_DELIVERY_QTY',
+        entityType: 'DeliveryOrder',
+        entityId: validated.deliveryOrderId,
+        details: `DO ${doRecord.orderNumber}: line quantities updated`,
+      });
+
+      revalidatePath('/sales/deliveries');
+      revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
+      revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
+
+      return { success: true };
+    });
+  },
+);
