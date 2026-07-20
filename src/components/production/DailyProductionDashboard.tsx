@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   Plus,
   Factory,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
   ExternalLink,
+  MonitorPlay,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { QuickProduceDialog } from "./QuickProduceDialog";
@@ -76,24 +74,80 @@ export type Machine = {
   status: string;
 };
 
+/** Soft status pills — no heavy solid badges competing with product title */
 const STATUS_CONFIG: Record<
   string,
   {
     label: string;
-    variant: "default" | "secondary" | "outline" | "destructive";
-    icon: React.ElementType;
+    /** Tailwind classes for pill surface */
+    className: string;
+    /** Dot color */
+    dotClassName: string;
+    pulse?: boolean;
   }
 > = {
-  RELEASED: { label: "Siap Produksi", variant: "outline", icon: Clock },
-  IN_PROGRESS: { label: "Sedang Jalan", variant: "default", icon: Factory },
+  RELEASED: {
+    label: "Siap Produksi",
+    className:
+      "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/25",
+    dotClassName: "bg-sky-500",
+  },
+  IN_PROGRESS: {
+    label: "Sedang Jalan",
+    className:
+      "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    dotClassName: "bg-emerald-500",
+    pulse: true,
+  },
   WAITING_MATERIAL: {
     label: "Tunggu Bahan",
-    variant: "destructive",
-    icon: AlertCircle,
+    className:
+      "bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30",
+    dotClassName: "bg-amber-500",
   },
-  COMPLETED: { label: "Selesai", variant: "secondary", icon: CheckCircle2 },
-  DRAFT: { label: "Draft", variant: "secondary", icon: Clock },
+  COMPLETED: {
+    label: "Selesai",
+    className:
+      "bg-muted text-muted-foreground border-border",
+    dotClassName: "bg-muted-foreground",
+  },
+  DRAFT: {
+    label: "Draft",
+    className:
+      "bg-muted/80 text-muted-foreground border-border",
+    dotClassName: "bg-muted-foreground/70",
+  },
 };
+
+function StatusPill({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
+        cfg.className,
+      )}
+    >
+      <span className="relative flex h-1.5 w-1.5 shrink-0">
+        {cfg.pulse && (
+          <span
+            className={cn(
+              "absolute inline-flex h-full w-full animate-ping rounded-full opacity-60",
+              cfg.dotClassName,
+            )}
+          />
+        )}
+        <span
+          className={cn(
+            "relative inline-flex h-1.5 w-1.5 rounded-full",
+            cfg.dotClassName,
+          )}
+        />
+      </span>
+      {cfg.label}
+    </span>
+  );
+}
 
 /** Process columns left→right. Unknown categories fall into OTHER. */
 const PROCESS_COLUMNS: Array<{
@@ -222,38 +276,48 @@ export function DailyProductionDashboard({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 items-start overflow-x-auto">
-          {columns.map((col) => (
-            <section
-              key={col.key}
-              className="rounded-xl border bg-card/60 min-h-[320px] flex flex-col"
-            >
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/90 backdrop-blur-sm px-3 py-2.5 rounded-t-xl">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className={cn("h-2 w-2 rounded-full shrink-0", col.accent)}
-                  />
-                  <h2 className="text-xs font-bold tracking-wide truncate">
-                    {col.label}
-                  </h2>
-                </div>
-                <span className="text-[11px] font-mono text-muted-foreground border rounded-full px-2 py-0.5">
-                  {col.orders.length}
-                </span>
-              </div>
-              <div className="p-2.5 flex flex-col gap-2.5 flex-1">
-                {col.orders.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center border border-dashed rounded-lg px-3 py-8 text-center text-xs text-muted-foreground">
-                    Tidak ada order di proses ini
+        <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 items-start">
+          {columns.map((col) => {
+            const runningCount = col.orders.filter(
+              (o) => o.status === "IN_PROGRESS",
+            ).length;
+            return (
+              <section
+                key={col.key}
+                className="rounded-xl border bg-card/60 min-h-[320px] flex flex-col overflow-hidden"
+              >
+                <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-sm px-3 py-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={cn("h-2 w-2 rounded-full shrink-0", col.accent)}
+                    />
+                    <h2 className="text-xs font-bold tracking-wide truncate">
+                      {col.label}
+                    </h2>
+                    {runningCount > 0 && (
+                      <span className="hidden sm:inline text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        · {runningCount} jalan
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  col.orders.map((order) => (
-                    <OrderCard key={order.id} order={order} />
-                  ))
-                )}
-              </div>
-            </section>
-          ))}
+                  <span className="text-[11px] font-mono text-muted-foreground border rounded-full px-2 py-0.5 tabular-nums">
+                    {col.orders.length}
+                  </span>
+                </div>
+                <div className="p-2.5 flex flex-col gap-2.5 flex-1">
+                  {col.orders.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center border border-dashed rounded-lg px-3 py-10 text-center text-xs text-muted-foreground/80">
+                      Tidak ada order di proses ini
+                    </div>
+                  ) : (
+                    col.orders.map((order) => (
+                      <OrderCard key={order.id} order={order} columnAccent={col.accent} />
+                    ))
+                  )}
+                </div>
+              </section>
+            );
+          })}
         </div>
       )}
 
@@ -267,92 +331,160 @@ export function DailyProductionDashboard({
   );
 }
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({
+  order,
+  columnAccent,
+}: {
+  order: Order;
+  columnAccent: string;
+}) {
+  const actual = Number(order.actualQuantity || 0);
+  const planned = Number(order.plannedQuantity || 0);
   const progress =
-    order.plannedQuantity > 0
-      ? Math.min(
-          ((Number(order.actualQuantity) || 0) /
-            Number(order.plannedQuantity)) *
-            100,
-          100,
-        )
-      : 0;
+    planned > 0 ? Math.min((actual / planned) * 100, 100) : 0;
 
-  const totalOutput = (order.executions ?? []).reduce(
-    (sum, ex) => sum + Number(ex.quantityProduced),
-    0,
-  );
   const totalScrap = (order.executions ?? []).reduce(
     (sum, ex) => sum + Number(ex.scrapQuantity),
     0,
   );
-
-  const statusConfig = STATUS_CONFIG[order.status] || STATUS_CONFIG.DRAFT;
-  const StatusIcon = statusConfig.icon;
+  const execCount = (order.executions ?? []).length;
+  const unit = order.bom.productVariant.primaryUnit || "";
+  const isRunning = order.status === "IN_PROGRESS";
+  const isWaiting = order.status === "WAITING_MATERIAL";
 
   return (
-    <Card className="shadow-sm hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-base font-semibold truncate">
-              {order.bom.productVariant.name}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {order.bom.name}
-            </p>
-          </div>
-          <Badge variant={statusConfig.variant} className="ml-1 shrink-0 gap-1">
-            <StatusIcon className="h-3 w-3" />
-            {statusConfig.label}
-          </Badge>
+    <Card
+      className={cn(
+        "relative overflow-hidden shadow-sm hover:shadow-md transition-shadow border-border/80",
+        isRunning && "ring-1 ring-emerald-500/20",
+        isWaiting && "ring-1 ring-amber-500/20",
+      )}
+    >
+      {/* Left status / process accent */}
+      <div
+        className={cn(
+          "absolute left-0 top-0 bottom-0 w-1",
+          isRunning
+            ? "bg-emerald-500"
+            : isWaiting
+              ? "bg-amber-500"
+              : columnAccent,
+        )}
+        aria-hidden
+      />
+
+      <CardContent className="p-3 pl-3.5 space-y-3">
+        {/* Row: status + WO number */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <StatusPill status={order.status} />
+          <span
+            className="text-[10px] font-mono text-muted-foreground truncate max-w-[45%] text-right"
+            title={order.orderNumber}
+          >
+            {order.orderNumber}
+          </span>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {order.machine && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Mesin:</span>
-            <span className="font-medium">{order.machine.code}</span>
+
+        {/* Product identity — full width, no badge collision */}
+        <div className="min-w-0 space-y-0.5">
+          <h3
+            className="text-sm font-semibold leading-snug line-clamp-2 text-foreground"
+            title={order.bom.productVariant.name}
+          >
+            {order.bom.productVariant.name}
+          </h3>
+          <p
+            className="text-[11px] text-muted-foreground line-clamp-1"
+            title={order.bom.name}
+          >
+            {order.bom.name}
+          </p>
+        </div>
+
+        {/* Machine chip */}
+        {order.machine ? (
+          <div className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1 text-xs max-w-full">
+            <Wrench className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="font-semibold tabular-nums truncate">
+              {order.machine.code}
+            </span>
+            {order.machine.name &&
+              order.machine.name !== order.machine.code && (
+                <span className="text-muted-foreground truncate hidden sm:inline">
+                  · {order.machine.name}
+                </span>
+              )}
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-dashed px-2 py-1 text-[11px] text-muted-foreground">
+            <Wrench className="h-3 w-3 shrink-0" />
+            Belum ada mesin
           </div>
         )}
 
+        {/* Progress */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-baseline justify-between gap-2 text-xs">
             <span className="text-muted-foreground">Output</span>
-            <span className="font-medium">
-              {Number(order.actualQuantity || 0).toLocaleString("id-ID")} /{" "}
-              {Number(order.plannedQuantity).toLocaleString("id-ID")}{" "}
-              {order.bom.productVariant.primaryUnit || ""}
+            <span className="font-medium tabular-nums text-right">
+              <span className="text-foreground">
+                {actual.toLocaleString("id-ID")}
+              </span>
+              <span className="text-muted-foreground">
+                {" "}
+                / {planned.toLocaleString("id-ID")} {unit}
+              </span>
+              <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
+                ({Math.round(progress)}%)
+              </span>
             </span>
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress
+            value={progress}
+            className="h-1.5"
+            indicatorClassName={cn(
+              isRunning && "bg-emerald-500",
+              isWaiting && "bg-amber-500",
+            )}
+          />
+          {(execCount > 0 || totalScrap > 0) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+              {execCount > 0 && (
+                <span className="tabular-nums">{execCount} batch</span>
+              )}
+              {totalScrap > 0 && (
+                <span className="text-red-500 tabular-nums">
+                  Scrap {totalScrap.toLocaleString("id-ID")}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {(order.executions ?? []).length > 0 && (
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>{(order.executions ?? []).length} eksekusi</span>
-            <span>Output: {totalOutput.toLocaleString("id-ID")}</span>
-            {totalScrap > 0 && (
-              <span className="text-red-500">
-                Scrap: {totalScrap.toLocaleString("id-ID")}
-              </span>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 pt-1">
-          <Link href={`/production/orders/${order.id}`} className="flex-1">
-            <Button variant="outline" size="sm" className="w-full gap-1.5">
+        {/* Actions */}
+        <div className="flex items-center gap-2 pt-0.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-8 gap-1.5 text-xs"
+            asChild
+          >
+            <Link href={`/production/orders/${order.id}`}>
               <ExternalLink className="h-3.5 w-3.5" />
               Detail
-            </Button>
-          </Link>
-          <Link href="/kiosk" className="flex-1">
-            <Button variant="secondary" size="sm" className="w-full gap-1.5">
-              <Factory className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+          <Button
+            variant={isRunning ? "default" : "secondary"}
+            size="sm"
+            className="flex-1 h-8 gap-1.5 text-xs"
+            asChild
+          >
+            <Link href="/kiosk">
+              <MonitorPlay className="h-3.5 w-3.5" />
               Kiosk
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>
