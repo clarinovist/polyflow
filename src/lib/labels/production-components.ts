@@ -115,7 +115,15 @@ export const productionComponentLabels = {
   issueMaterial: 'Terbitkan Material',
   transferMaterialsToStaging: 'Transfer Material ke Staging/Produksi',
   issueMaterialsAndUpdatePlan: 'Terbitkan Material & Perbarui Rencana',
-  sourceLocation: 'Lokasi Sumber',
+  sourceLocation: 'Lokasi Sumber (Asal)',
+  destinationLocation: 'Lokasi Tujuan',
+  destinationFromOrder: 'Dari lokasi pesanan (WO)',
+  transferDirectionHint:
+    'Stok dipindah dari sumber → tujuan. Tujuan mengikuti lokasi WO; ubah lokasi WO jika target salah.',
+  backflushConsumeHint:
+    'Stok akan dikonsumsi otomatis saat Anda mencatat output (Backflush).',
+  sourceDestinationSame:
+    'Lokasi sumber dan tujuan sama. Ubah sumber, atau setel lokasi WO ke lokasi produksi/staging.',
   materialHeader: 'Material',
   qtyToTransfer: 'Jumlah Transfer',
   qtyToIssue: 'Jumlah Diterbitkan',
@@ -123,7 +131,10 @@ export const productionComponentLabels = {
   substitute: 'Pengganti',
   selectSubstitute: 'Pilih pengganti...',
   overrideSourceLocation: 'Ganti Lokasi Sumber',
+  sourcePerItem: 'Asal stok',
+  toDestination: 'Ke',
   defaultLocation: 'Lokasi Default',
+  useGlobalSource: 'Ikuti lokasi sumber di atas',
   stock: 'Stok',
   fixShortage: 'Atasi Kekurangan',
   addSubstituteMaterial: 'Tambah Material Pengganti',

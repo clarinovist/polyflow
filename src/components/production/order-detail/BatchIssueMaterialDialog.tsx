@@ -230,12 +230,6 @@ export function BatchIssueMaterialDialog({
         setLoading(true);
         try {
             if (isTransferMode) {
-                if (selectedLocation === order.location.id) {
-                    toast.error('Lokasi asal dan tujuan harus berbeda untuk transfer.');
-                    setLoading(false);
-                    return;
-                }
-
                 // Harden: block non-plan items in EXTRUSION/PACKING transfer — use ad-hoc dialog instead
                 const isExtrusionOrPacking = ['EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
                 if (isExtrusionOrPacking) {
@@ -262,10 +256,13 @@ export function BatchIssueMaterialDialog({
                     });
                     return acc;
                 }, {} as Record<string, { productVariantId: string, quantity: number }[]>);
-                
-                // Validate destination
-                if (Object.keys(transfersByLocation).includes(order.location.id)) {
-                    toast.error('Lokasi asal dan tujuan harus berbeda untuk transfer.');
+
+                // Validate: every source used for transfer must differ from WO destination
+                if (
+                    validItems.length > 0 &&
+                    Object.keys(transfersByLocation).includes(order.location.id)
+                ) {
+                    toast.error(productionComponentLabels.sourceDestinationSame);
                     setLoading(false);
                     return;
                 }
@@ -358,42 +355,96 @@ export function BatchIssueMaterialDialog({
                     </DialogHeader>
 
                     <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4 bg-muted/40 p-4 rounded-lg border relative">
-                            <div className="space-y-2">
-                                <Label>{productionComponentLabels.sourceLocation}</Label>
-                                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex items-end pb-1 text-sm text-center">
-                                {isTransferMode ? (
-                                    <div className="text-amber-600 flex items-center bg-amber-50 p-2 rounded w-full">
-                                        <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                                        <span className="text-xs text-left">
-                                            Barang akan <b>DIPINDAHKAN</b> ke <b>{order.location.name}</b>.
-                                            Stok akan dikonsumsi otomatis saat Anda Mencatat Output (Backflush).
-                                            {!order.location.name.toLowerCase().includes('production') && !order.location.name.toLowerCase().includes('staging') && (
-                                                <div className="mt-1 font-bold text-red-600">
-                                                    {productionComponentLabels.warningTargetWarehouse}
-                                                </div>
-                                            )}
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <div className="text-muted-foreground flex items-center w-full">
-                                        <AlertCircle className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
-                                        <span className="text-xs text-left">
-                                            {productionComponentLabels.editingRowsWarning}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
+                        <div className="bg-muted/40 p-4 rounded-lg border relative space-y-3">
                             <Button variant="ghost" size="sm" onClick={checkStocks} disabled={checkingStock} className="h-6 text-xs absolute top-2 right-2">
                                 <RefreshCw className={cn("w-3 h-3 mr-1", checkingStock && "animate-spin")} /> {productionComponentLabels.refreshStock}
                             </Button>
+
+                            {isTransferMode ? (
+                                <>
+                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end pr-24 sm:pr-28">
+                                        <div className="space-y-2">
+                                            <Label>{productionComponentLabels.sourceLocation}</Label>
+                                            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {locations.map(l => (
+                                                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="hidden sm:flex items-center justify-center pb-2 text-muted-foreground" aria-hidden>
+                                            <ArrowRightLeft className="w-4 h-4" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>{productionComponentLabels.destinationLocation}</Label>
+                                            <div
+                                                className={cn(
+                                                    "flex h-10 w-full items-center rounded-md border px-3 text-sm font-medium",
+                                                    selectedLocation === order.location.id
+                                                        ? "border-destructive/50 bg-destructive/10 text-destructive"
+                                                        : "border-input bg-background"
+                                                )}
+                                                title={productionComponentLabels.destinationFromOrder}
+                                            >
+                                                {order.location.name}
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-snug">
+                                                {productionComponentLabels.destinationFromOrder}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {selectedLocation === order.location.id && (
+                                        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                            <span>{productionComponentLabels.sourceDestinationSame}</span>
+                                        </div>
+                                    )}
+
+                                    <div className="text-amber-700 dark:text-amber-500 flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 p-2 rounded text-xs">
+                                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                        <div className="text-left space-y-1">
+                                            <p>{productionComponentLabels.transferDirectionHint}</p>
+                                            <p>{productionComponentLabels.backflushConsumeHint}</p>
+                                            {!order.location.name.toLowerCase().includes('production') &&
+                                                !order.location.name.toLowerCase().includes('staging') &&
+                                                !order.location.name.toLowerCase().includes('produksi') && (
+                                                    <p className="font-bold text-red-600">
+                                                        {productionComponentLabels.warningTargetWarehouse}
+                                                    </p>
+                                                )}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-24 sm:pr-28">
+                                    <div className="space-y-2">
+                                        <Label>{productionComponentLabels.sourceLocation}</Label>
+                                        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {locations.map(l => (
+                                                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex items-end pb-1">
+                                        <div className="text-muted-foreground flex items-start gap-2 w-full">
+                                            <AlertCircle className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
+                                            <span className="text-xs text-left">
+                                                {productionComponentLabels.editingRowsWarning}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="rounded-md border">
@@ -435,21 +486,44 @@ export function BatchIssueMaterialDialog({
                                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{productionComponentLabels.substitute}</span>
                                                     </div>
                                                 )}
-                                                <div className="mt-2">
+                                                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                        {productionComponentLabels.sourcePerItem}:
+                                                    </span>
                                                     <Select
                                                         value={item.sourceLocationId || selectedLocation}
                                                         onValueChange={(val) => handleUpdateLocation(item.id, val)}
                                                     >
-                                                        <SelectTrigger className="h-7 text-xs border-dashed w-fit">
+                                                        <SelectTrigger
+                                                            className={cn(
+                                                                "h-7 text-xs border-dashed w-fit max-w-[220px]",
+                                                                isTransferMode &&
+                                                                    (item.sourceLocationId || selectedLocation) === order.location.id &&
+                                                                    "border-destructive/60 text-destructive"
+                                                            )}
+                                                        >
                                                             <SelectValue placeholder={productionComponentLabels.overrideSourceLocation} />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value={selectedLocation}>{productionComponentLabels.defaultLocation}</SelectItem>
+                                                            <SelectItem value={selectedLocation}>
+                                                                {locations.find(l => l.id === selectedLocation)?.name
+                                                                    ?? productionComponentLabels.defaultLocation}
+                                                                {' '}
+                                                                <span className="text-muted-foreground">
+                                                                    ({productionComponentLabels.useGlobalSource})
+                                                                </span>
+                                                            </SelectItem>
                                                             {locations.filter(l => l.id !== selectedLocation).map(l => (
                                                                 <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
+                                                    {isTransferMode && (
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            {productionComponentLabels.toDestination}:{' '}
+                                                            <span className="font-medium text-foreground">{order.location.name}</span>
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="p-3">
@@ -534,7 +608,21 @@ export function BatchIssueMaterialDialog({
 
                     <DialogFooter className="mt-6">
                         <Button variant="outline" onClick={() => setOpen(false)}>{productionComponentLabels.cancel}</Button>
-                        <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
+                        <Button
+                            onClick={onSubmit}
+                            disabled={
+                                loading ||
+                                (isTransferMode &&
+                                    items.some(
+                                        i =>
+                                            !i.isDeletedPlan &&
+                                            i.quantity > 0 &&
+                                            i.productVariantId !== '' &&
+                                            (i.sourceLocationId || selectedLocation) === order.location.id
+                                    ))
+                            }
+                            className="bg-primary hover:bg-primary/90"
+                        >
                             {loading ? 'Memproses...' : (isTransferMode ? 'Pindahkan Stok' : 'Simpan & Perbarui Rencana')}
                         </Button>
                     </DialogFooter>
