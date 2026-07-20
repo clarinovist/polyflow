@@ -10,16 +10,17 @@ interface DeliveryOrderPageProps {
 
 export default async function DeliveryOrderPage({ params }: DeliveryOrderPageProps) {
     const { id } = await params;
-    const [order, companyConfig] = await Promise.all([
+    const [result, companyConfig] = await Promise.all([
         getDeliveryOrderById(id),
         getCompanyConfigWithOverridesAsync(),
     ]);
 
-    if (!order) {
+    // getDeliveryOrderById returns safeAction shape: { success, data } | { success: false, error }
+    if (!result || !result.success || !result.data) {
         notFound();
     }
 
-    const serializedOrder = serializeData(order);
+    const serializedOrder = serializeData(result.data);
 
     return (
         <div className="p-6">

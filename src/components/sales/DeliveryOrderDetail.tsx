@@ -116,6 +116,9 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
     const podInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
+    // Guard: items may be missing if caller passes a partial/wrapped payload
+    const items = order.items ?? [];
+
     const canEditQty = order.status === 'PENDING' || order.status === 'LOADING';
 
     // Load stock readiness when DO is PENDING or LOADING (via server action — no Prisma on client)
@@ -131,7 +134,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
 
     const startEditQty = () => {
         const draft: Record<string, string> = {};
-        for (const item of order.items) {
+        for (const item of items) {
             draft[item.id] = String(Number(item.quantity ?? 0));
         }
         setQtyDraft(draft);
@@ -469,7 +472,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {order.items.map((item) => (
+                                        {items.map((item) => (
                                             <tr key={item.id} className="hover:bg-muted/50">
                                                 <td className="p-4">
                                                     <div className="font-medium">{item.productVariant?.product?.name}</div>
