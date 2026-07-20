@@ -36,10 +36,7 @@ export default async function MaklonReturnsPage({
       {res.success && res.data ? (
         <div className="bg-white dark:bg-sidebar rounded-xl border p-0 sm:p-2">
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <MaklonReturnTable
-            initialData={res.data as any}
-            basePath="/maklon/returns"
-          />
+          <MaklonReturnTable initialData={res.data as any} basePath="/maklon/returns" />
         </div>
       ) : (
         <Alert variant="destructive">
