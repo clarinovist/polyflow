@@ -67,7 +67,7 @@ const purchasingLinks = [
     heading: "Maklon",
     items: [
       {
-        href: "/dashboard/maklon/receipts",
+        href: "/maklon/receipts",
         icon: Package,
         label: "Monitor Penerimaan Maklon",
       },

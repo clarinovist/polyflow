@@ -7,8 +7,8 @@ export const MASTER_PATHS = {
   products: '/dashboard/products',
   machines: '/dashboard/machines',
   employees: '/dashboard/employees',
-  maklonReceipts: '/dashboard/maklon/receipts',
-  maklonReturns: '/dashboard/maklon/returns',
+  maklonReceipts: '/maklon/receipts',
+  maklonReturns: '/maklon/returns',
 } as const;
 
 /**

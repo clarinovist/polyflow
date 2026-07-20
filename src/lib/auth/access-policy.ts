@@ -7,7 +7,9 @@ export type WorkspaceKey =
   | "production"
   | "finance"
   | "sales"
-  | "purchasing";
+  | "purchasing"
+  | "hrd"
+  | "maklon";
 
 /**
  * Defines the roles permitted to access each workspace area.
@@ -30,6 +32,10 @@ export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
     sales: ["ADMIN", "SALES"],
     // planning merged into production
     purchasing: ["ADMIN", "PROCUREMENT", "PLANNING"],
+    // HRD: admin + finance (aligned with requireHrdFinance / requireHrdApprover)
+    hrd: ["ADMIN", "FINANCE"],
+    // Maklon portal: admin + procurement/planning; warehouse keeps /warehouse/maklon aliases
+    maklon: ["ADMIN", "PROCUREMENT", "PLANNING"],
   } as const;
 
 /**
@@ -48,6 +54,8 @@ export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
       "finance",
       "sales",
       "purchasing",
+      "hrd",
+      "maklon",
     ].includes(workspaceCandidate)
   ) {
     return workspaceCandidate as WorkspaceKey;

@@ -21,14 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   MessageCircleHeart,
-  Clock,
-  Wallet,
-  Scale,
-  CalendarDays,
-  Gavel,
-  HandCoins,
-  CalendarRange,
-  AlertTriangle,
+  IdCard,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -74,6 +67,8 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
         icon: PackageSearch,
       },
       { title: mainNavLabels.accounting, href: "/finance", icon: Calculator },
+      { title: mainNavLabels.hrd, href: "/hrd", icon: IdCard },
+      { title: mainNavLabels.maklon, href: "/maklon", icon: Package },
     ],
   },
   {
@@ -95,34 +90,6 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
         href: "/dashboard/employees",
         icon: Users,
       },
-    ],
-  },
-  {
-    heading: "Maklon",
-    items: [
-      {
-        title: mainNavLabels.maklonReceipts,
-        href: "/dashboard/maklon/receipts",
-        icon: PackageSearch,
-      },
-      {
-        title: mainNavLabels.maklonReturns,
-        href: "/dashboard/maklon/returns",
-        icon: Package,
-      },
-    ],
-  },
-  {
-    heading: "HRD",
-    items: [
-      { title: "Absensi", href: "/hrd/attendance", icon: Clock },
-      { title: "Gaji Mingguan", href: "/hrd/payroll", icon: Wallet },
-      { title: "Tarif Borongan", href: "/hrd/piece-rates", icon: Scale },
-      { title: "Gaji Bulanan", href: "/hrd/payroll-monthly", icon: CalendarRange },
-      { title: "Kasbon Karyawan", href: "/hrd/loans", icon: HandCoins },
-      { title: "Cuti & Izin", href: "/hrd/leave", icon: CalendarDays },
-      { title: "Sanksi Disiplin", href: "/hrd/disciplinary", icon: Gavel },
-      { title: "Peringatan HR", href: "/hrd/alerts", icon: AlertTriangle },
     ],
   },
 ];

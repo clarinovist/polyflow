@@ -13,6 +13,8 @@ describe('Access Policy Helpers', () => {
       expect(getWorkspaceFromPath('/production/orders/123')).toBe('production');
       expect(getWorkspaceFromPath('/finance/tax')).toBe('finance');
       expect(getWorkspaceFromPath('/sales')).toBe('sales');
+      expect(getWorkspaceFromPath('/hrd/attendance')).toBe('hrd');
+      expect(getWorkspaceFromPath('/maklon/receipts')).toBe('maklon');
       expect(getWorkspaceFromPath('/admin/users')).toBe('admin');
     });
 
@@ -66,11 +68,24 @@ describe('Access Policy Helpers', () => {
     });
 
 
-    it('allows Finance users in finance and dashboard', () => {
+    it('allows Finance users in finance, hrd, and dashboard', () => {
       const financeUser = { role: 'FINANCE' };
       expect(canAccessWorkspace(financeUser, 'finance')).toBe(true);
+      expect(canAccessWorkspace(financeUser, 'hrd')).toBe(true);
       expect(canAccessWorkspace(financeUser, 'dashboard')).toBe(true);
       expect(canAccessWorkspace(financeUser, 'warehouse')).toBe(false);
+    });
+
+    it('denies Sales users from hrd workspace', () => {
+      const salesUser = { role: 'SALES' };
+      expect(canAccessWorkspace(salesUser, 'hrd')).toBe(false);
+    });
+
+    it('allows Procurement and Planning in maklon workspace', () => {
+      expect(canAccessWorkspace({ role: 'PROCUREMENT' }, 'maklon')).toBe(true);
+      expect(canAccessWorkspace({ role: 'PLANNING' }, 'maklon')).toBe(true);
+      expect(canAccessWorkspace({ role: 'ADMIN' }, 'maklon')).toBe(true);
+      expect(canAccessWorkspace({ role: 'SALES' }, 'maklon')).toBe(false);
     });
 
     it('allows Sales users in sales and dashboard', () => {

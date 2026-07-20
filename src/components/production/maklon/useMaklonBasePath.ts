@@ -2,12 +2,13 @@
 
 import { usePathname } from 'next/navigation';
 
-const MAKLON_BASE_PATHS = ['/warehouse/maklon', '/dashboard/maklon'] as const;
+const MAKLON_BASE_PATHS = ['/maklon', '/warehouse/maklon', '/dashboard/maklon'] as const;
 
 /**
  * Returns the Maklon base path based on the current URL.
- * Warehouse users stay in /warehouse/maklon (warehouse layout),
- * Admin/master users stay in /dashboard/maklon (dashboard layout).
+ * - Portal Maklon users stay in /maklon
+ * - Warehouse users stay in /warehouse/maklon (warehouse layout)
+ * - Legacy /dashboard/maklon redirects to /maklon
  */
 export function useMaklonBasePath(): string {
     const pathname = usePathname();
@@ -18,5 +19,5 @@ export function useMaklonBasePath(): string {
         }
     }
 
-    return '/dashboard/maklon';
+    return '/maklon';
 }

@@ -17,7 +17,9 @@ export type WorkspaceKey =
   | 'production'
   | 'warehouse'
   | 'purchasing'
-  | 'finance';
+  | 'finance'
+  | 'hrd'
+  | 'maklon';
 
 export type NavSection =
   | 'ringkasan'
@@ -62,14 +64,13 @@ const masterNavItems: NavItem[] = [
   { id: 'master-production', label: 'Produksi', href: '/production', workspace: 'master', section: 'ringkasan', owner: 'production' },
   { id: 'master-inventory', label: 'Stok', href: '/warehouse', workspace: 'master', section: 'ringkasan', owner: 'warehouse' },
   { id: 'master-finance', label: 'Finance', href: '/finance', workspace: 'master', section: 'ringkasan', owner: 'finance' },
+  { id: 'master-hrd', label: 'HRD', href: '/hrd', workspace: 'master', section: 'ringkasan', owner: 'hrd' },
+  { id: 'master-maklon', label: 'Maklon', href: '/maklon', workspace: 'master', section: 'ringkasan', owner: 'warehouse' },
   // Master data
   { id: 'master-products', label: 'Katalog Produk', href: '/dashboard/products', workspace: 'master', section: 'master', owner: 'master' },
   { id: 'master-boms', label: 'BOM / Formula', href: '/dashboard/boms', workspace: 'master', section: 'master', owner: 'master' },
   { id: 'master-machines', label: 'Mesin (Master)', href: '/dashboard/machines', workspace: 'master', section: 'master', owner: 'master' },
   { id: 'master-employees', label: 'Karyawan', href: '/dashboard/employees', workspace: 'master', section: 'master', owner: 'master' },
-  // Maklon
-  { id: 'master-maklon-receipts', label: 'Penerimaan Maklon', href: '/dashboard/maklon/receipts', workspace: 'master', section: 'maklon', owner: 'warehouse' },
-  { id: 'master-maklon-returns', label: 'Retur Maklon', href: '/dashboard/maklon/returns', workspace: 'master', section: 'maklon', owner: 'warehouse' },
 ];
 
 /**
@@ -139,7 +140,7 @@ const purchasingNavItems: NavItem[] = [
   { id: 'purch-orders', label: 'Order Pembelian', href: '/purchasing/orders', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
   { id: 'purch-returns', label: 'Retur Pembelian', href: '/purchasing/returns', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
   { id: 'purch-suppliers', label: 'Supplier', href: '/purchasing/suppliers', workspace: 'purchasing', section: 'master', owner: 'purchasing' },
-  { id: 'purch-maklon-monitor', label: 'Monitor Penerimaan Maklon', href: '/dashboard/maklon/receipts', workspace: 'purchasing', section: 'maklon', owner: 'warehouse' },
+  { id: 'purch-maklon-monitor', label: 'Monitor Penerimaan Maklon', href: '/maklon/receipts', workspace: 'purchasing', section: 'maklon', owner: 'warehouse' },
   { id: 'purch-analytics', label: 'Analitik Pembelian', href: '/purchasing/analytics', workspace: 'purchasing', section: 'analitik', owner: 'purchasing' },
 ];
 

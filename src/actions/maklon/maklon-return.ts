@@ -28,6 +28,7 @@ export async function createMaklonReturnAction(data: {
             createdById: user.id
         });
 
+        revalidatePath('/maklon/returns');
         revalidatePath('/dashboard/maklon/returns');
         revalidatePath('/warehouse/maklon/returns');
         revalidatePath('/dashboard/inventory');

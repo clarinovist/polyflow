@@ -20,6 +20,8 @@ const PATH_LABELS: Record<string, string> = {
   production: "Produksi",
   warehouse: "Gudang",
   finance: "Finance",
+  hrd: "HRD",
+  maklon: "Maklon",
   admin: "Admin",
   kiosk: "Kiosk",
 
@@ -93,6 +95,16 @@ const PATH_LABELS: Record<string, string> = {
   "budget-variance": "Varians Anggaran",
   tax: "Pajak",
   daily: "Harian",
+
+  // HRD
+  attendance: "Absensi",
+  payroll: "Gaji Mingguan",
+  "piece-rates": "Tarif Borongan",
+  "payroll-monthly": "Gaji Bulanan",
+  loans: "Kasbon Karyawan",
+  leave: "Cuti & Izin",
+  disciplinary: "Sanksi Disiplin",
+  alerts: "Peringatan HR",
 };
 
 function getLabel(segment: string): string {

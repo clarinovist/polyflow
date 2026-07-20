@@ -195,6 +195,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/production/mrp",
     "/production/schedule",
     "/production",
+    "/maklon",
   ],
   SALES: [
     "/dashboard",
@@ -217,6 +218,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/finance/budgeting",
     "/sales/invoices",
     "/finance/invoices",
+    "/hrd",
   ],
   PROCUREMENT: [
     "/dashboard",
@@ -229,6 +231,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/finance/invoices",
     "/dashboard/products",
     "/warehouse/inventory",
+    "/maklon",
   ],
 };
 

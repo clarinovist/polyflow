@@ -28,7 +28,7 @@ interface MaklonReturnTableProps {
     basePath?: string;
 }
 
-export function MaklonReturnTable({ initialData, basePath = '/dashboard/maklon/returns' }: MaklonReturnTableProps) {
+export function MaklonReturnTable({ initialData, basePath = '/maklon/returns' }: MaklonReturnTableProps) {
     const router = useRouter();
 
     const getStatusColor = (status: MaklonMaterialReturnStatus) => {

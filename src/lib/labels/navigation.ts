@@ -5,6 +5,8 @@ export const mainNavLabels = {
   production: "Produksi",
   inventory: "Stok",
   accounting: "Finance",
+  hrd: "HRD",
+  maklon: "Maklon",
 
   // Master data
   productCatalog: "Katalog Produk",
@@ -12,12 +14,34 @@ export const mainNavLabels = {
   machines: "Mesin (Master)",
   employees: "Karyawan",
 
-  // Maklon
+  // Maklon (legacy flat labels — kept for any remaining references)
   maklonReceipts: "Penerimaan Maklon",
   maklonReturns: "Retur Maklon",
 
   // Support
   help: "Bantuan",
+} as const;
+
+export const hrdSidebarLabels = {
+  dashboard: "Dashboard HRD",
+  attendance: "Absensi",
+  payrollWeekly: "Gaji Mingguan",
+  pieceRates: "Tarif Borongan",
+  payrollMonthly: "Gaji Bulanan",
+  loans: "Kasbon Karyawan",
+  leave: "Cuti & Izin",
+  disciplinary: "Sanksi Disiplin",
+  alerts: "Peringatan HR",
+  employees: "Karyawan",
+} as const;
+
+export const maklonSidebarLabels = {
+  dashboard: "Dashboard Maklon",
+  receipts: "Penerimaan Maklon",
+  newReceipt: "Penerimaan Baru",
+  returns: "Retur Maklon",
+  newReturn: "Retur Baru",
+  warehousePortal: "Portal Gudang",
 } as const;
 
 /** Sidebar by domain */

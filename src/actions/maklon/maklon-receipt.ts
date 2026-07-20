@@ -28,6 +28,7 @@ export async function createMaklonReceiptAction(data: {
             createdById: user.id
         });
 
+        revalidatePath('/maklon/receipts');
         revalidatePath('/dashboard/maklon/receipts');
         revalidatePath('/warehouse/maklon/receipts');
         revalidatePath('/dashboard/inventory');
