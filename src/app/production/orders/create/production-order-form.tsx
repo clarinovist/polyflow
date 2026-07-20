@@ -3,7 +3,12 @@
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createProductionOrderSchema } from "@/lib/schemas/production";
-import { MAKLON_STAGE_SLUGS, WAREHOUSE_SLUGS } from "@/lib/constants/locations";
+import {
+  resolveOutputLocationId as resolveOutputLoc,
+  resolveSourceLocationId as resolveSourceLoc,
+  type LocationLike,
+  type ProductionStage,
+} from "@/lib/locations/resolve-location";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -172,9 +177,10 @@ export function ProductionOrderForm({
     );
   }, [boms, selectedProductVariantId]);
 
-  const locationIdBySlug = useMemo(() => {
-    return new Map(locations.map((location) => [location.slug, location.id]));
-  }, [locations]);
+  const locationLikes = useMemo(
+    () => locations as LocationLike[],
+    [locations],
+  );
 
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -183,8 +189,7 @@ export function ProductionOrderForm({
       plannedQuantity: 0,
       plannedStartDate: new Date(),
       items: [],
-      locationId:
-        locations.find((l) => l.slug === WAREHOUSE_SLUGS.MIXING)?.id || "",
+      locationId: resolveOutputLoc(locationLikes, "mixing", false),
       bomId: "",
       machineId: "",
       salesOrderId: salesOrderId || "",
@@ -240,68 +245,17 @@ export function ProductionOrderForm({
   }, [planningMode, enteredTargetQty, watchBomId, boms, form]);
 
   const resolveSourceLocationId = (
-    stage: "mixing" | "extrusion" | "packing" | "rework",
+    stage: ProductionStage,
     isMaklonMode: boolean,
-  ) => {
-    const rmLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.RAW_MATERIAL) || "";
-    const mixingLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.MIXING) || "";
-    const fgLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.FINISHING) || "";
-    const customerOwnedLoc =
-      locationIdBySlug.get(WAREHOUSE_SLUGS.CUSTOMER_OWNED) || "";
-    const maklonRmLoc =
-      locationIdBySlug.get(MAKLON_STAGE_SLUGS.RAW_MATERIAL) || "";
-    const maklonWipLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.WIP) || "";
-    const maklonFgLoc =
-      locationIdBySlug.get(MAKLON_STAGE_SLUGS.FINISHED_GOOD) || "";
-
-    if (!isMaklonMode) {
-      if (stage === "mixing") return rmLoc;
-      if (stage === "extrusion") return mixingLoc;
-      if (stage === "packing") return fgLoc;
-      if (stage === "rework") return fgLoc;
-      return "";
-    }
-
-    if (stage === "mixing") return maklonRmLoc || customerOwnedLoc || rmLoc;
-    if (stage === "extrusion")
-      return maklonWipLoc || maklonRmLoc || customerOwnedLoc || mixingLoc;
-    if (stage === "packing")
-      return maklonFgLoc || maklonWipLoc || customerOwnedLoc || fgLoc;
-    if (stage === "rework")
-      return maklonFgLoc || maklonWipLoc || customerOwnedLoc || fgLoc;
-    return "";
-  };
+  ) => resolveSourceLoc(locationLikes, stage, isMaklonMode);
 
   const resolveOutputLocationId = (
-    stage: "mixing" | "extrusion" | "packing" | "rework",
+    stage: ProductionStage,
     isMaklonMode: boolean,
-  ) => {
-    const mixingLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.MIXING) || "";
-    const fgLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.FINISHING) || "";
-    const packingLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.PACKING_AREA) || "";
-    const maklonWipLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.WIP) || "";
-    const maklonFgLoc =
-      locationIdBySlug.get(MAKLON_STAGE_SLUGS.FINISHED_GOOD) || "";
-    const maklonPackingLoc =
-      locationIdBySlug.get(MAKLON_STAGE_SLUGS.PACKING) || "";
-
-    if (!isMaklonMode) {
-      if (stage === "mixing") return mixingLoc;
-      if (stage === "extrusion") return fgLoc;
-      if (stage === "packing") return packingLoc;
-      if (stage === "rework") return fgLoc;
-      return "";
-    }
-
-    if (stage === "mixing") return maklonWipLoc || mixingLoc;
-    if (stage === "extrusion") return maklonFgLoc || fgLoc;
-    if (stage === "packing") return maklonPackingLoc || packingLoc;
-    if (stage === "rework") return maklonFgLoc || fgLoc;
-    return "";
-  };
+  ) => resolveOutputLoc(locationLikes, stage, isMaklonMode);
 
   const [materialSourceLocationId, setMaterialSourceLocationId] =
-    useState<string>(() => resolveSourceLocationId("mixing", false));
+    useState<string>(() => resolveSourceLoc(locationLikes, "mixing", false));
   const [suggestedSource, setSuggestedSource] = useState<{
     id: string;
     name: string;
@@ -995,15 +949,40 @@ export function ProductionOrderForm({
               </Button>
             </div>
 
-            {/* Hidden Fields for Logic */}
+            {/* Output location — was hidden; wrong defaults on Melindo were invisible */}
             <FormField
               control={form.control}
               name="locationId"
               render={({ field }) => (
-                <FormItem className="hidden">
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
+                <FormItem>
+                  <FormLabel>Lokasi Output (Tujuan FG/WIP)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih lokasi output" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {locations
+                        .filter(
+                          (l) =>
+                            !l.slug?.startsWith("inactive-") &&
+                            !String(l.name || "")
+                              .toLowerCase()
+                              .includes("[nonaktif]"),
+                        )
+                        .map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Lokasi stok hasil / staging WO. Mixing → WIP; Extrusi → FG.
+                    Bukan gudang bahan baku.
+                  </FormDescription>
+                  <FormMessage />
                 </FormItem>
               )}
             />

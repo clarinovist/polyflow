@@ -100,47 +100,38 @@ export const quickCreateProductionOrder = withTenant(
           throw new BusinessRuleError("Produk, jumlah, dan mesin wajib diisi");
         }
 
-        const { WAREHOUSE_SLUGS } = await import("@/lib/constants/locations");
+        const {
+          resolveOutputLocationId,
+          stageFromBomCategory,
+          isInactiveLocation,
+        } = await import("@/lib/locations/resolve-location");
 
         const bom = await prisma.bom.findUnique({
           where: { id: bomId },
           select: { category: true },
         });
 
-        const outputSlugByCategory: Record<string, string> = {
-          MIXING: WAREHOUSE_SLUGS.MIXING,
-          EXTRUSION: WAREHOUSE_SLUGS.FINISHING,
-          PACKING: WAREHOUSE_SLUGS.PACKING_AREA,
-          REWORK: WAREHOUSE_SLUGS.FINISHING,
-        };
-
-        const outputSlug =
-          outputSlugByCategory[bom?.category || ""] ||
-          WAREHOUSE_SLUGS.RAW_MATERIAL;
-
-        let location = await prisma.location.findUnique({
-          where: { slug: outputSlug },
-          select: { id: true },
+        const allLocations = await prisma.location.findMany({
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            locationPurpose: true,
+          },
         });
 
-        // Fallback for Melindo or databases with different warehouse layouts
-        if (!location) {
-          location = await prisma.location.findUnique({
-            where: { slug: "gudang-utama" },
-            select: { id: true },
-          });
+        const stage = stageFromBomCategory(bom?.category);
+        let locationId = resolveOutputLocationId(allLocations, stage, false);
+
+        // Last resort: first active location (never prefer inactive)
+        if (!locationId) {
+          const active = allLocations.find((l) => !isInactiveLocation(l));
+          locationId = active?.id || allLocations[0]?.id || "";
         }
 
-        // Final fallback to the first available location
-        if (!location) {
-          location = await prisma.location.findFirst({
-            select: { id: true },
-          });
-        }
-
-        if (!location) {
+        if (!locationId) {
           throw new BusinessRuleError(
-            `Lokasi output (${outputSlug}) tidak ditemukan`,
+            `Lokasi output untuk stage ${stage} tidak ditemukan. Periksa master lokasi / locationPurpose.`,
           );
         }
 
@@ -148,7 +139,7 @@ export const quickCreateProductionOrder = withTenant(
           bomId,
           plannedQuantity,
           machineId,
-          locationId: location.id,
+          locationId,
           userId: session.user.id,
         });
 

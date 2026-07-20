@@ -12,8 +12,11 @@ import { transferStockBulk, getRealtimeStock, adjustStock } from '@/actions/inve
 import { toast } from 'sonner';
 import { Plus, Trash2, Package, AlertCircle, ArrowRightLeft, RefreshCw, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { productionComponentLabels } from '@/lib/labels';
+import {
+    resolveTransferSourceLocationId,
+    type LocationLike,
+} from '@/lib/locations/resolve-location';
 
 interface BatchItem {
     id: string; // Internal ID for keys (equals to plannedMaterial.id if isPlanned)
@@ -38,35 +41,24 @@ export function BatchIssueMaterialDialog({
 }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    /** Multi-source: per-row override hidden by default (plan TAHAP 1) */
+    const [perItemSourceEnabled, setPerItemSourceEnabled] = useState(false);
 
-    // Refined default location logic
-    const defaultSourceLocationId = useMemo(() => {
-        // 1. If it's an EXTRUSION order, source should be Mixing Area
-        if (order.bom?.category === 'EXTRUSION') {
-            const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
-            if (mixingLoc) return mixingLoc.id;
-        }
-        // 2. If it's a MIXING order, source should be Raw Material Warehouse
-        if (order.bom?.category === 'MIXING') {
-            const rmLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.RAW_MATERIAL);
-            if (rmLoc) return rmLoc.id;
-        }
-        // 3. If it's a PACKING order, source should be Finished Goods Warehouse
-        if (order.bom?.category === 'PACKING') {
-            const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
-            if (fgLoc) return fgLoc.id;
-        }
-        // 4. If it's a REWORK order, source should be Finished Goods Warehouse (defective FG)
-        if (order.bom?.category === 'REWORK') {
-            const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
-            if (fgLoc) return fgLoc.id;
-        }
-        // Fallback: Machine Location or first available
-        return order.machine?.locationId || locations[0]?.id;
-    }, [order, locations]);
+    const defaultSourceLocationId = useMemo(
+        () =>
+            resolveTransferSourceLocationId(
+                locations as LocationLike[],
+                order.bom?.category,
+                order.machine?.locationId,
+            ),
+        [order, locations],
+    );
 
     const [selectedLocation, setSelectedLocation] = useState(defaultSourceLocationId);
     const router = useRouter();
+
+    const effectiveSourceForItem = (item: BatchItem) =>
+        perItemSourceEnabled ? (item.sourceLocationId || selectedLocation) : selectedLocation;
 
     // Check if transfer mode (Backflush) based on machine type OR bom category
     const isTransferMode = order.machine?.type === 'MIXER' ||
@@ -112,7 +104,7 @@ export function BatchIssueMaterialDialog({
 
         await Promise.all(activeItems.map(async (item) => {
             try {
-                const locToUse = item.sourceLocationId || selectedLocation;
+                const locToUse = effectiveSourceForItem(item);
                 const res = await getRealtimeStock(locToUse, item.productVariantId);
                 if (res.success && typeof res.data === 'number') {
                     const stockKey = `${locToUse}_${item.productVariantId}`;
@@ -133,7 +125,7 @@ export function BatchIssueMaterialDialog({
             checkStocks();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, selectedLocation]);
+    }, [open, selectedLocation, perItemSourceEnabled]);
 
     const handleQuickAdjust = async () => {
         if (!adjustingItem) return;
@@ -246,9 +238,9 @@ export function BatchIssueMaterialDialog({
                     }
                 }
 
-                // TRANSFER MODE: Transfer Stock Logic, grouping by source locations
+                // TRANSFER MODE: group by source (global only unless multi-source enabled)
                 const transfersByLocation = validItems.reduce((acc, item) => {
-                    const loc = item.sourceLocationId || selectedLocation;
+                    const loc = effectiveSourceForItem(item);
                     if (!acc[loc]) acc[loc] = [];
                     acc[loc].push({
                         productVariantId: item.productVariantId,
@@ -318,7 +310,7 @@ export function BatchIssueMaterialDialog({
                     items: validItems.map(i => ({
                         productVariantId: i.productVariantId,
                         quantity: i.quantity,
-                        sourceLocationId: i.sourceLocationId
+                        sourceLocationId: perItemSourceEnabled ? i.sourceLocationId : undefined
                     })),
                     removedPlannedMaterialIds,
                     addedPlannedMaterials,
@@ -486,45 +478,47 @@ export function BatchIssueMaterialDialog({
                                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{productionComponentLabels.substitute}</span>
                                                     </div>
                                                 )}
-                                                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                                        {productionComponentLabels.sourcePerItem}:
-                                                    </span>
-                                                    <Select
-                                                        value={item.sourceLocationId || selectedLocation}
-                                                        onValueChange={(val) => handleUpdateLocation(item.id, val)}
-                                                    >
-                                                        <SelectTrigger
-                                                            className={cn(
-                                                                "h-7 text-xs border-dashed w-fit max-w-[220px]",
-                                                                isTransferMode &&
-                                                                    (item.sourceLocationId || selectedLocation) === order.location.id &&
-                                                                    "border-destructive/60 text-destructive"
-                                                            )}
-                                                        >
-                                                            <SelectValue placeholder={productionComponentLabels.overrideSourceLocation} />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value={selectedLocation}>
-                                                                {locations.find(l => l.id === selectedLocation)?.name
-                                                                    ?? productionComponentLabels.defaultLocation}
-                                                                {' '}
-                                                                <span className="text-muted-foreground">
-                                                                    ({productionComponentLabels.useGlobalSource})
-                                                                </span>
-                                                            </SelectItem>
-                                                            {locations.filter(l => l.id !== selectedLocation).map(l => (
-                                                                <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {isTransferMode && (
-                                                        <span className="text-[10px] text-muted-foreground">
-                                                            {productionComponentLabels.toDestination}:{' '}
-                                                            <span className="font-medium text-foreground">{order.location.name}</span>
+                                                {perItemSourceEnabled && (
+                                                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                            {productionComponentLabels.sourcePerItem}:
                                                         </span>
-                                                    )}
-                                                </div>
+                                                        <Select
+                                                            value={item.sourceLocationId || selectedLocation}
+                                                            onValueChange={(val) => handleUpdateLocation(item.id, val)}
+                                                        >
+                                                            <SelectTrigger
+                                                                className={cn(
+                                                                    "h-7 text-xs border-dashed w-fit max-w-[220px]",
+                                                                    isTransferMode &&
+                                                                        effectiveSourceForItem(item) === order.location.id &&
+                                                                        "border-destructive/60 text-destructive"
+                                                                )}
+                                                            >
+                                                                <SelectValue placeholder={productionComponentLabels.overrideSourceLocation} />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value={selectedLocation}>
+                                                                    {locations.find(l => l.id === selectedLocation)?.name
+                                                                        ?? productionComponentLabels.defaultLocation}
+                                                                    {' '}
+                                                                    <span className="text-muted-foreground">
+                                                                        ({productionComponentLabels.useGlobalSource})
+                                                                    </span>
+                                                                </SelectItem>
+                                                                {locations.filter(l => l.id !== selectedLocation).map(l => (
+                                                                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {isTransferMode && (
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                {productionComponentLabels.toDestination}:{' '}
+                                                                <span className="font-medium text-foreground">{order.location.name}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex items-center gap-2">
@@ -539,7 +533,7 @@ export function BatchIssueMaterialDialog({
                                                     <span className="text-muted-foreground w-10 text-xs font-bold">{item.unit || '-'}</span>
                                                 </div>
                                                 {!isTransferMode && (() => {
-                                                    const locToUse = item.sourceLocationId || selectedLocation;
+                                                    const locToUse = effectiveSourceForItem(item);
                                                     const stockKey = `${locToUse}_${item.productVariantId}`;
                                                     const currentStock = stockLevels[stockKey];
                                                     
@@ -595,14 +589,36 @@ export function BatchIssueMaterialDialog({
                                     ))}
                                 </tbody>
                             </table>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="w-full h-10 rounded-none border-t text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                                onClick={handleAddSubstitute}
-                            >
-                                <Plus className="w-4 h-4 mr-2" /> {productionComponentLabels.addSubstituteMaterial}
-                            </Button>
+                            <div className="flex flex-col sm:flex-row border-t">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-1 h-10 rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                    onClick={handleAddSubstitute}
+                                >
+                                    <Plus className="w-4 h-4 mr-2" /> {productionComponentLabels.addSubstituteMaterial}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-1 h-10 rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/50 border-t sm:border-t-0 sm:border-l"
+                                    onClick={() => {
+                                        if (perItemSourceEnabled) {
+                                            setItems(prev =>
+                                                prev.map(i => ({ ...i, sourceLocationId: undefined })),
+                                            );
+                                            setPerItemSourceEnabled(false);
+                                        } else {
+                                            setPerItemSourceEnabled(true);
+                                        }
+                                    }}
+                                >
+                                    {perItemSourceEnabled
+                                        ? productionComponentLabels.disablePerItemSource
+                                        : productionComponentLabels.enablePerItemSource}
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
@@ -618,7 +634,7 @@ export function BatchIssueMaterialDialog({
                                             !i.isDeletedPlan &&
                                             i.quantity > 0 &&
                                             i.productVariantId !== '' &&
-                                            (i.sourceLocationId || selectedLocation) === order.location.id
+                                            effectiveSourceForItem(i) === order.location.id
                                     ))
                             }
                             className="bg-primary hover:bg-primary/90"
