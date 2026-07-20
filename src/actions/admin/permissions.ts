@@ -135,6 +135,55 @@ export const updatePermission = withTenant(async function updatePermission(
   });
 });
 
+/**
+ * Bulk module-root toggle for the Access Control tree UI: "select all" checks
+ * the module root plus every descendant resource in one call (plan section 6.5).
+ * Unchecking still goes through `updatePermission` (single-resource cascade).
+ */
+export const updatePermissionsBulk = withTenant(
+  async function updatePermissionsBulk(
+    targetRole: Role,
+    resources: string[],
+    canAccess: boolean,
+  ) {
+    return safeAction(async () => {
+      try {
+        await checkAdmin();
+
+        await Promise.all(
+          resources.map((resource) =>
+            prisma.rolePermission.upsert({
+              where: { role_resource: { role: targetRole, resource } },
+              update: { canAccess },
+              create: { role: targetRole, resource, canAccess },
+            }),
+          ),
+        );
+
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard");
+        revalidatePath("/warehouse");
+        revalidatePath("/sales");
+        revalidatePath("/production");
+        revalidatePath("/purchasing");
+        revalidatePath("/finance");
+        revalidatePath("/hrd");
+        revalidatePath("/maklon");
+        return null;
+      } catch (error) {
+        if (error instanceof AuthorizationError) throw error;
+        logger.error("Failed to bulk update permissions", {
+          error,
+          targetRole,
+          resources,
+          module: "PermissionActions",
+        });
+        throw new BusinessRuleError("Failed to update permissions");
+      }
+    });
+  },
+);
+
 async function seedDefaultPermissionsInternal(
   targetRole: Role,
   defaultResources: string[],
@@ -244,8 +293,8 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/sales/analytics",
     "/dashboard/products",
     "/sales/customers",
-    // Module root used by Access Control matrix + main sidebar "Stok"
-    "/warehouse",
+    // Granular Access Control (2026-07-20): inventory lookup only, not full
+    // warehouse ops. Admin must explicitly grant "/warehouse" for full Stok.
     "/warehouse/inventory",
   ],
   FINANCE: [

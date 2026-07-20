@@ -18,6 +18,7 @@ import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { warehouseSidebarLabels } from '@/lib/labels';
+import { filterNavGroups } from '@/lib/auth/permission-match';
 
 interface WarehouseSidebarProps {
     user: {
@@ -65,33 +66,8 @@ const warehouseLinks = [
     },
 ];
 
-function canSeeWarehouseLink(
-    href: string,
-    permissions: string[] | 'ALL' | undefined,
-): boolean {
-    // Backward compatible: no permissions prop → full menu (warehouse-native roles)
-    if (permissions === undefined || permissions === 'ALL') return true;
-    // Module root grant from Access Control → full warehouse portal
-    if (permissions.includes('/warehouse')) return true;
-
-    return permissions.some(
-        (p) =>
-            href === p ||
-            href.startsWith(`${p}/`) ||
-            // parent nav of a nested grant (e.g. inventory section)
-            (p.startsWith(`${href}/`) && href !== '/warehouse'),
-    );
-}
-
 export function WarehouseSidebar({ user, permissions }: WarehouseSidebarProps) {
-    const filteredGroups = warehouseLinks
-        .map((group) => ({
-            ...group,
-            items: group.items.filter((item) =>
-                canSeeWarehouseLink(item.href, permissions),
-            ),
-        }))
-        .filter((group) => group.items.length > 0);
+    const filteredGroups = filterNavGroups(warehouseLinks, permissions);
 
     return (
         <PortalSidebarBase user={user} portalName="Gudang" accentColor="primary">

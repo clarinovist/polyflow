@@ -5,16 +5,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, ShoppingBag, Package, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
+import { canSeeNavHref } from "@/lib/auth/permission-match";
 
 const tabs = [
   { href: "/sales/mobile", label: "Beranda", icon: Home },
   { href: "/sales/mobile/customers", label: "Customer", icon: Users },
   { href: "/sales/mobile/orders", label: "Order", icon: ClipboardList },
   { href: "/sales/mobile/orders/create", label: "Baru", icon: ShoppingBag },
-  { href: "/sales/mobile/stock", label: "Stok", icon: Package },
+  // Stock tab reads warehouse inventory, not sales — gate on that resource
+  // instead of the generic /sales/* prefix (plan section 4.2).
+  { href: "/sales/mobile/stock", label: "Stok", icon: Package, resource: "/warehouse/inventory" },
 ];
 
-export function BottomNav() {
+interface BottomNavProps {
+  /** Fresh rolePermission resources; 'ALL' for tenant admin; omit for full menu */
+  permissions?: string[] | "ALL";
+}
+
+export function BottomNav({ permissions }: BottomNavProps) {
   const pathname = usePathname();
 
   useEffect(() => {
@@ -24,10 +32,14 @@ export function BottomNav() {
     }
   }, []);
 
+  const visibleTabs = tabs.filter((tab) =>
+    canSeeNavHref(tab.resource ?? tab.href, permissions, tab.resource ? "/warehouse" : "/sales"),
+  );
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t">
-      <div className="grid grid-cols-5 h-16">
-        {tabs.map((tab) => {
+      <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
+        {visibleTabs.map((tab) => {
           const isActive =
             tab.href === "/sales/mobile"
               ? pathname === tab.href
