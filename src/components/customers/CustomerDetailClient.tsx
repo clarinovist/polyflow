@@ -23,6 +23,12 @@ import { formatRupiah } from "@/lib/utils/utils";
 import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { SalesOrderTable } from "@/components/sales/SalesOrderTable";
 import { CustomerProductPricesManager } from "@/components/customers/CustomerProductPricesManager";
+import { CustomerInvoicesTab } from "./360/CustomerInvoicesTab";
+import { CustomerReturnsTab } from "./360/CustomerReturnsTab";
+import { CustomerDeliveriesTab } from "./360/CustomerDeliveriesTab";
+import { CustomerQuotationsTab } from "./360/CustomerQuotationsTab";
+import { CustomerVisitsTab } from "./360/CustomerVisitsTab";
+import { CustomerAnalyticsTab } from "./360/CustomerAnalyticsTab";
 
 import { Customer, SalesOrder, Location, Product, ProductVariant } from "@prisma/client";
 
@@ -126,10 +132,16 @@ export function CustomerDetailClient({
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList>
+        <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="history">Sales History</TabsTrigger>
-          <TabsTrigger value="prices">Harga Produk</TabsTrigger>
+          <TabsTrigger value="history">Sales</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="returns">Retur</TabsTrigger>
+          <TabsTrigger value="deliveries">Kirim</TabsTrigger>
+          <TabsTrigger value="quotations">Quotations</TabsTrigger>
+          <TabsTrigger value="prices">Harga</TabsTrigger>
+          <TabsTrigger value="visits">Kunjungan</TabsTrigger>
+          <TabsTrigger value="analytics">Analitik</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
@@ -332,6 +344,19 @@ export function CustomerDetailClient({
           </Card>
         </TabsContent>
 
+        <TabsContent value="invoices" className="mt-4">
+          <CustomerInvoicesTab customerId={customer.id} />
+        </TabsContent>
+        <TabsContent value="returns" className="mt-4">
+          <CustomerReturnsTab customerId={customer.id} />
+        </TabsContent>
+        <TabsContent value="deliveries" className="mt-4">
+          <CustomerDeliveriesTab customerId={customer.id} />
+        </TabsContent>
+        <TabsContent value="quotations" className="mt-4">
+          <CustomerQuotationsTab customerId={customer.id} />
+        </TabsContent>
+
         <TabsContent value="prices" className="mt-4">
           <Card>
             <CardHeader>
@@ -348,6 +373,13 @@ export function CustomerDetailClient({
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="visits" className="mt-4">
+          <CustomerVisitsTab customerId={customer.id} />
+        </TabsContent>
+        <TabsContent value="analytics" className="mt-4">
+          <CustomerAnalyticsTab customerId={customer.id} />
         </TabsContent>
       </Tabs>
     </div>
