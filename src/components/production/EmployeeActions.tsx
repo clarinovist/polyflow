@@ -8,7 +8,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2, Banknote, FileText } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Banknote, FileText, User } from 'lucide-react';
 import Link from 'next/link';
 import { deleteEmployee } from '@/actions/admin/employees';
 import { toast } from 'sonner';
@@ -57,6 +57,12 @@ export function EmployeeActions({ id, name, payType }: EmployeeActionsProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                    <Link href={`/dashboard/employees/${id}`}>
+                        <DropdownMenuItem>
+                            <User className="mr-2 h-4 w-4" />
+                            Profil
+                        </DropdownMenuItem>
+                    </Link>
                     <Link href={`/dashboard/employees/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />

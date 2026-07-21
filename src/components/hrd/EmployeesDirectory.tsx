@@ -128,7 +128,7 @@ export function EmployeesDirectory({ employees, initialStatus, initialPayType, i
                   <TableRow
                     key={emp.id}
                     className="hover:bg-muted/30 cursor-pointer"
-                    onClick={() => { window.location.href = `/dashboard/employees/${emp.id}/edit`; }}
+                    onClick={() => { window.location.href = `/dashboard/employees/${emp.id}`; }}
                   >
                     <TableCell className="font-mono text-xs text-muted-foreground">{emp.code}</TableCell>
                     <TableCell className="font-medium text-sm">{emp.name}</TableCell>

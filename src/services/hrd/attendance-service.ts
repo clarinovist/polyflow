@@ -681,6 +681,23 @@ export const AttendanceService = {
   },
 
   /**
+   * List attendance records for a single employee in a date range [from, to] inclusive.
+   * Used by employee 360° profile attendance tab.
+   */
+  async listByEmployee(db: PrismaClient, employeeId: string, from: Date, to: Date): Promise<AttendanceRecordResult[]> {
+    const records = await db.attendanceRecord.findMany({
+      where: {
+        employeeId,
+        workDate: { gte: from, lte: to },
+      },
+      include: includeRelations,
+      orderBy: [{ workDate: 'desc' }, { clockInAt: 'desc' }],
+    });
+
+    return records.map(r => buildRecordResult(r as unknown as RecordWithRelations));
+  },
+
+  /**
    * Monthly summary — aggregate per employee for a calendar month.
    * Counts PRESENT / ABSENT / ON_LEAVE records and multi-shift days.
    * Gelombang A1.

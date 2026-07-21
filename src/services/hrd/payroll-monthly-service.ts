@@ -471,6 +471,23 @@ export const PayrollMonthlyService = {
     },
 
     /**
+     * List payslips for a single employee across all periods (most recent first).
+     * Used by employee 360° profile monthly payroll tab.
+     */
+    async listByEmployee(db: PrismaClient, employeeId: string) {
+        return db.payslip.findMany({
+            where: { employeeId },
+            include: {
+                employee: { select: { id: true, name: true, code: true } },
+                allowances: true,
+                loanPayments: { include: { loan: { select: { loanNumber: true } } } },
+                payrollPeriod: { select: { id: true, year: true, month: true, status: true } },
+            },
+            orderBy: [{ payrollPeriod: { year: 'desc' } }, { payrollPeriod: { month: 'desc' } }],
+        });
+    },
+
+    /**
      * Manual correction of a DRAFT payslip (THR, overrides, other deductions).
      * Recomputes gross/deduction/net from baseSalary + allowanceTotal (frozen at generate)
      * plus editable fields.
