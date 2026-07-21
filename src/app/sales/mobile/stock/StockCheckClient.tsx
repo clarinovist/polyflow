@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Package, AlertTriangle, ScanLine } from "lucide-react";
+import { BarcodeScanner } from "@/components/ui/barcode-scanner";
+import { toast } from "sonner";
 
 type Product = {
   id: string;
@@ -27,6 +30,7 @@ export function StockCheckClient({
   locations,
 }: StockCheckClientProps) {
   const [search, setSearch] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!search) return products;
@@ -39,6 +43,20 @@ export function StockCheckClient({
     );
   }, [products, search]);
 
+  const handleScanned = useCallback(
+    (value: string) => {
+      setSearch(value);
+      setScannerOpen(false);
+      const found = products.some(
+        (p) => p.skuCode.toLowerCase() === value.toLowerCase(),
+      );
+      if (!found) {
+        toast.info("Barcode dipindai, tapi produk tidak ditemukan di daftar");
+      }
+    },
+    [products],
+  );
+
   return (
     <div className="p-4 space-y-4">
       <div>
@@ -49,15 +67,33 @@ export function StockCheckClient({
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Cari nama atau SKU produk..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-11"
-        />
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cari nama atau SKU produk..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-11"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-11 w-11 shrink-0"
+          onClick={() => setScannerOpen(true)}
+          aria-label="Scan barcode"
+        >
+          <ScanLine className="h-5 w-5" />
+        </Button>
       </div>
+
+      <BarcodeScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={handleScanned}
+      />
 
       {/* Product List */}
       {filtered.length === 0 ? (

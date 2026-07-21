@@ -132,16 +132,16 @@ export function CustomerDetailClient({
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="history">Sales</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="returns">Retur</TabsTrigger>
-          <TabsTrigger value="deliveries">Kirim</TabsTrigger>
-          <TabsTrigger value="quotations">Quotations</TabsTrigger>
-          <TabsTrigger value="prices">Harga</TabsTrigger>
-          <TabsTrigger value="visits">Kunjungan</TabsTrigger>
-          <TabsTrigger value="analytics">Analitik</TabsTrigger>
+        <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
+          <TabsTrigger value="overview" className="shrink-0">Overview</TabsTrigger>
+          <TabsTrigger value="history" className="shrink-0">Sales</TabsTrigger>
+          <TabsTrigger value="invoices" className="shrink-0">Invoices</TabsTrigger>
+          <TabsTrigger value="returns" className="shrink-0">Retur</TabsTrigger>
+          <TabsTrigger value="deliveries" className="shrink-0">Kirim</TabsTrigger>
+          <TabsTrigger value="quotations" className="shrink-0">Quotations</TabsTrigger>
+          <TabsTrigger value="prices" className="shrink-0">Harga</TabsTrigger>
+          <TabsTrigger value="visits" className="shrink-0">Kunjungan</TabsTrigger>
+          <TabsTrigger value="analytics" className="shrink-0">Analitik</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">

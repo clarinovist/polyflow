@@ -21,6 +21,7 @@ import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
+import { MobileStickyActions, MobileStickyActionsSpacer } from '@/components/ui/mobile-sticky-actions';
 
 type AllowanceRow = { id?: string; name: string; amount: string; isActive: boolean };
 
@@ -846,7 +847,7 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                 )}
             </div>
 
-            <div className="flex items-center gap-3 pt-4">
+            <div className="hidden md:flex items-center gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
                     Batal
                 </Button>
@@ -854,6 +855,16 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                     {loading ? 'Memproses...' : initialData ? 'Perbarui Pekerja' : 'Tambah Pekerja'}
                 </Button>
             </div>
+
+            <MobileStickyActionsSpacer />
+            <MobileStickyActions>
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading} className="flex-1">
+                    Batal
+                </Button>
+                <Button type="submit" disabled={loading} className="flex-1">
+                    {loading ? 'Memproses...' : initialData ? 'Perbarui' : 'Tambah'}
+                </Button>
+            </MobileStickyActions>
         </form>
     );
 }

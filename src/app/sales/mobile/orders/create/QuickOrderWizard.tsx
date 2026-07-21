@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MobileStickyActions, MobileStickyActionsSpacer } from "@/components/ui/mobile-sticky-actions";
 
 type Customer = {
   id: string;
@@ -313,15 +314,23 @@ export function QuickOrderWizard({
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="flex gap-1">
+      {/* Progress Steps */}
+      <div className="flex items-center gap-2">
         {[1, 2, 3].map((s) => (
-          <div
-            key={s}
-            className={`h-1 flex-1 rounded-full transition-colors ${
-              s <= step ? "bg-primary" : "bg-muted"
-            }`}
-          />
+          <div key={s} className="flex items-center gap-2 flex-1 last:flex-none">
+            <div
+              className={`h-2.5 w-2.5 rounded-full shrink-0 transition-colors ${
+                s <= step ? "bg-primary" : "bg-muted"
+              }`}
+            />
+            {s < 3 && (
+              <div
+                className={`h-0.5 flex-1 rounded-full transition-colors ${
+                  s < step ? "bg-primary" : "bg-muted"
+                }`}
+              />
+            )}
+          </div>
         ))}
       </div>
 
@@ -426,13 +435,24 @@ export function QuickOrderWizard({
           </div>
 
           <Button
-            className="w-full h-11"
+            className="w-full h-11 hidden md:flex"
             disabled={!customerId}
             onClick={() => setStep(2)}
           >
             Selanjutnya
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
+          <MobileStickyActionsSpacer />
+          <MobileStickyActions aboveBottomNav>
+            <Button
+              className="flex-1 h-11"
+              disabled={!customerId}
+              onClick={() => setStep(2)}
+            >
+              Selanjutnya
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </MobileStickyActions>
         </div>
       )}
 
@@ -613,13 +633,24 @@ export function QuickOrderWizard({
           </div>
 
           <Button
-            className="w-full h-11"
+            className="w-full h-11 hidden md:flex"
             disabled={items.length === 0}
             onClick={() => setStep(3)}
           >
             Review Order
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
+          <MobileStickyActionsSpacer />
+          <MobileStickyActions aboveBottomNav>
+            <Button
+              className="flex-1 h-11"
+              disabled={items.length === 0}
+              onClick={() => setStep(3)}
+            >
+              Review Order
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </MobileStickyActions>
         </div>
       )}
 
@@ -690,7 +721,7 @@ export function QuickOrderWizard({
           </div>
 
           <Button
-            className="w-full h-12 text-base"
+            className="w-full h-12 text-base hidden md:flex"
             disabled={isSubmitting}
             onClick={handleSubmit}
           >
@@ -701,6 +732,21 @@ export function QuickOrderWizard({
             )}
             {isSubmitting ? "Membuat Order..." : "Buat Order"}
           </Button>
+          <MobileStickyActionsSpacer />
+          <MobileStickyActions aboveBottomNav>
+            <Button
+              className="flex-1 h-12 text-base"
+              disabled={isSubmitting}
+              onClick={handleSubmit}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              ) : (
+                <Check className="h-5 w-5 mr-2" />
+              )}
+              {isSubmitting ? "Membuat..." : "Buat Order"}
+            </Button>
+          </MobileStickyActions>
         </div>
       )}
 

@@ -55,14 +55,14 @@ export function Supplier360Tabs({ supplier, supplierProducts, initialTab }: Prop
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="overview" className="text-xs">Ringkas</TabsTrigger>
-          <TabsTrigger value="products" className="text-xs">Produk ({supplierProducts.length})</TabsTrigger>
-          <TabsTrigger value="orders" className="text-xs">Orders</TabsTrigger>
-          <TabsTrigger value="returns" className="text-xs">Retur</TabsTrigger>
-          <TabsTrigger value="payments" className="text-xs">Hutang</TabsTrigger>
-          <TabsTrigger value="performance" className="text-xs">Performa</TabsTrigger>
-          <TabsTrigger value="analytics" className="text-xs">Analitik</TabsTrigger>
+        <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
+          <TabsTrigger value="overview" className="text-xs shrink-0">Ringkas</TabsTrigger>
+          <TabsTrigger value="products" className="text-xs shrink-0">Produk ({supplierProducts.length})</TabsTrigger>
+          <TabsTrigger value="orders" className="text-xs shrink-0">Orders</TabsTrigger>
+          <TabsTrigger value="returns" className="text-xs shrink-0">Retur</TabsTrigger>
+          <TabsTrigger value="payments" className="text-xs shrink-0">Hutang</TabsTrigger>
+          <TabsTrigger value="performance" className="text-xs shrink-0">Performa</TabsTrigger>
+          <TabsTrigger value="analytics" className="text-xs shrink-0">Analitik</TabsTrigger>
         </TabsList>
 
         <div className="mt-4 space-y-6">

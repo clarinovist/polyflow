@@ -5,6 +5,7 @@ import { Clock } from "lucide-react";
 
 import { ClockDisplay } from "./ClockDisplay";
 import { AdminBackButton } from "@/components/layout/admin-back-button";
+import { KioskFullscreenToggle } from "./KioskFullscreenToggle";
 
 interface KioskActiveExecution {
     id: string;
@@ -49,6 +50,8 @@ export default async function KioskLayout({
                         <Clock className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
                         <KioskClock />
                     </div>
+
+                    <KioskFullscreenToggle />
 
                     <div className="h-8 w-px bg-border mx-1 md:mx-2" />
 

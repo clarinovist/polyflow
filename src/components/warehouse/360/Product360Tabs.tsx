@@ -63,15 +63,15 @@ export function Product360Tabs({ productVariantId, ledgerData, locations, overvi
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="overview" className="text-xs gap-1"><Bookmark className="h-3 w-3" /> Ringkas</TabsTrigger>
-          <TabsTrigger value="stock" className="text-xs gap-1"><Warehouse className="h-3 w-3" /> Lokasi</TabsTrigger>
-          <TabsTrigger value="ledger" className="text-xs gap-1"><History className="h-3 w-3" /> Ledger</TabsTrigger>
-          <TabsTrigger value="batches" className="text-xs gap-1"><Layers className="h-3 w-3" /> Batch</TabsTrigger>
-          <TabsTrigger value="bom" className="text-xs gap-1"><Beaker className="h-3 w-3" /> BOM</TabsTrigger>
-          <TabsTrigger value="cost" className="text-xs gap-1"><TrendingUp className="h-3 w-3" /> Cost</TabsTrigger>
-          <TabsTrigger value="reservations" className="text-xs gap-1"><ListOrdered className="h-3 w-3" /> Reservasi</TabsTrigger>
-          <TabsTrigger value="movements" className="text-xs gap-1"><FileClock className="h-3 w-3" /> Movements</TabsTrigger>
+        <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
+          <TabsTrigger value="overview" className="text-xs gap-1 shrink-0"><Bookmark className="h-3 w-3" /> Ringkas</TabsTrigger>
+          <TabsTrigger value="stock" className="text-xs gap-1 shrink-0"><Warehouse className="h-3 w-3" /> Lokasi</TabsTrigger>
+          <TabsTrigger value="ledger" className="text-xs gap-1 shrink-0"><History className="h-3 w-3" /> Ledger</TabsTrigger>
+          <TabsTrigger value="batches" className="text-xs gap-1 shrink-0"><Layers className="h-3 w-3" /> Batch</TabsTrigger>
+          <TabsTrigger value="bom" className="text-xs gap-1 shrink-0"><Beaker className="h-3 w-3" /> BOM</TabsTrigger>
+          <TabsTrigger value="cost" className="text-xs gap-1 shrink-0"><TrendingUp className="h-3 w-3" /> Cost</TabsTrigger>
+          <TabsTrigger value="reservations" className="text-xs gap-1 shrink-0"><ListOrdered className="h-3 w-3" /> Reservasi</TabsTrigger>
+          <TabsTrigger value="movements" className="text-xs gap-1 shrink-0"><FileClock className="h-3 w-3" /> Movements</TabsTrigger>
         </TabsList>
 
         <div className="mt-4">

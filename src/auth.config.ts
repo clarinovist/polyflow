@@ -67,10 +67,12 @@ export const authConfig = {
                 if (pathname.startsWith('/api/auth')) return true;
 
                 const isOnKiosk = pathname.startsWith('/kiosk');
+                const isOnMy = pathname.startsWith('/my');
                 const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register';
 
-                // Kiosk and Public pages are accessible without auth
-                if (isOnKiosk || isPublicPage) return true;
+                // Kiosk, My portal (employee self-service), and Public pages are accessible without auth
+                // My portal has its own session (emp_session cookie), guarded in its layout.
+                if (isOnKiosk || isOnMy || isPublicPage) return true;
 
                 // === ADMIN SUBDOMAIN (admin.polyflow.uk) ===
                 if (isAdminSubdomain) {

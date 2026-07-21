@@ -41,15 +41,15 @@ export function Employee360Tabs({ employee, initialTab }: Props) {
       <Employee360Header employee={employee} />
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/30 p-1">
-          <TabsTrigger value="overview" className="text-xs">Ringkasan</TabsTrigger>
-          <TabsTrigger value="attendance" className="text-xs">Kehadiran</TabsTrigger>
-          {isPiece && <TabsTrigger value="production" className="text-xs">Produksi</TabsTrigger>}
-          {!isMonthly && <TabsTrigger value="payroll-weekly" className="text-xs">Gaji Mingguan</TabsTrigger>}
-          {!isDaily && !isPiece && <TabsTrigger value="payroll-monthly" className="text-xs">Gaji Bulanan</TabsTrigger>}
-          <TabsTrigger value="loans" className="text-xs">Kasbon</TabsTrigger>
-          <TabsTrigger value="leave-discipline" className="text-xs">Cuti & Disiplin</TabsTrigger>
-          <TabsTrigger value="documents" className="text-xs">Dokumen</TabsTrigger>
+        <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start bg-muted/30 p-1">
+          <TabsTrigger value="overview" className="text-xs shrink-0">Ringkasan</TabsTrigger>
+          <TabsTrigger value="attendance" className="text-xs shrink-0">Kehadiran</TabsTrigger>
+          {isPiece && <TabsTrigger value="production" className="text-xs shrink-0">Produksi</TabsTrigger>}
+          {!isMonthly && <TabsTrigger value="payroll-weekly" className="text-xs shrink-0">Gaji Mingguan</TabsTrigger>}
+          {!isDaily && !isPiece && <TabsTrigger value="payroll-monthly" className="text-xs shrink-0">Gaji Bulanan</TabsTrigger>}
+          <TabsTrigger value="loans" className="text-xs shrink-0">Kasbon</TabsTrigger>
+          <TabsTrigger value="leave-discipline" className="text-xs shrink-0">Cuti & Disiplin</TabsTrigger>
+          <TabsTrigger value="documents" className="text-xs shrink-0">Dokumen</TabsTrigger>
         </TabsList>
 
         <div className="mt-4">

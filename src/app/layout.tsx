@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SidebarCollapseProvider } from "@/components/layout/sidebar-collapse-context";
@@ -23,11 +23,23 @@ const geistMono = { variable: "font-mono" };
 export const metadata: Metadata = {
     title: "PolyFlow ERP",
     description: "Advanced Plastic Converting ERP System",
+    manifest: "/manifest.json",
     icons: {
         icon: [
             { url: "/polyflow-icon.svg", type: "image/svg+xml" },
         ],
+        apple: [
+            { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        ],
     },
+};
+
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    viewportFit: "cover",
+    themeColor: "#09090b",
 };
 
 import { SessionProvider } from "@/components/auth/SessionProvider";

@@ -18,7 +18,7 @@ export default async function SalesMobileLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="pb-16">{children}</main>
+      <main className="pb-[calc(4rem+env(safe-area-inset-bottom))]">{children}</main>
       <BottomNav permissions={permissions} />
     </div>
   );
