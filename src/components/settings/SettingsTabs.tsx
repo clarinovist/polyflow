@@ -9,7 +9,6 @@ import { NotificationSettings } from './NotificationSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings as SettingsIcon, User, Users, Lock, Monitor, Building2, Bell, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
-import { buttonVariants } from '@/components/ui/button';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { settingsLabels } from '@/lib/labels';
 
@@ -127,30 +126,35 @@ export function SettingsTabs({
     };
 
     return (
-        <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-            <aside className="lg:w-48 shrink-0 lg:sticky lg:top-6 lg:h-fit">
-                <nav className="flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1 overflow-x-auto pb-2 lg:pb-0">
-                    {tabs.map((tab) => (
+        <div>
+            <nav
+                className="flex overflow-x-auto gap-1 border-b mb-6 -mx-1 px-1 scrollbar-thin"
+                role="tablist"
+                aria-label="Settings sections"
+            >
+                {tabs.map((tab) => {
+                    const isActive = activeTab === tab.value;
+                    return (
                         <button
                             key={tab.value}
+                            role="tab"
+                            aria-selected={isActive}
+                            aria-current={isActive ? "page" : undefined}
                             onClick={() => setActiveTab(tab.value as TabValue)}
                             className={cn(
-                                buttonVariants({ variant: "ghost" }),
-                                activeTab === tab.value
-                                    ? "bg-muted hover:bg-muted"
-                                    : "hover:bg-transparent hover:underline",
-                                "justify-start"
+                                "inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                isActive
+                                    ? "border-primary text-foreground"
+                                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                             )}
                         >
-                            <tab.icon className="mr-2 h-4 w-4" />
+                            <tab.icon className="h-4 w-4" />
                             {tab.label}
                         </button>
-                    ))}
-                </nav>
-            </aside>
-            <div className="flex-1 min-w-0">
-                {renderContent()}
-            </div>
+                    );
+                })}
+            </nav>
+            <div className="min-w-0">{renderContent()}</div>
         </div>
     );
 }
