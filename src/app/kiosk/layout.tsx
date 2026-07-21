@@ -6,6 +6,7 @@ import { Clock } from "lucide-react";
 import { ClockDisplay } from "./ClockDisplay";
 import { AdminBackButton } from "@/components/layout/admin-back-button";
 import { KioskFullscreenToggle } from "./KioskFullscreenToggle";
+import { MyPortalButton } from "@/components/kiosk/MyPortalQr";
 
 interface KioskActiveExecution {
     id: string;
@@ -46,6 +47,7 @@ export default async function KioskLayout({
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-4">
+                    <MyPortalButton />
                     <div className="bg-muted px-3 md:px-4 py-1.5 md:py-2 rounded-full flex items-center gap-2 md:gap-3 text-xs md:sm font-medium border shadow-sm">
                         <Clock className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
                         <KioskClock />

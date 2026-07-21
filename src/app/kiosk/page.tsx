@@ -8,6 +8,7 @@ import Link from "next/link";
 import KioskRefreshWrapper, { Order } from './KioskRefreshWrapper';
 import { kioskLabels } from "@/lib/labels";
 import { refreshKioskData } from "@/actions/app/refresh-actions";
+import { MyPortalQr } from "@/components/kiosk/MyPortalQr";
 
 const getData = withTenantPage(async function getData() {
     // Fetch active/released orders
@@ -119,6 +120,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
 
     return (
         <div className="h-full flex flex-col space-y-4 md:space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
+            <MyPortalQr />
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-card p-4 md:p-6 rounded-xl border-2 shadow-sm gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">{kioskLabels.jobList}</h1>
