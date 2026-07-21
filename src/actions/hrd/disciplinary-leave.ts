@@ -18,6 +18,15 @@ export const listDisciplinaryActions = withTenant(
     },
 );
 
+export const getDisciplinaryRecap = withTenant(
+    async function getDisciplinaryRecap(year?: number, month?: number) {
+        return safeAction(async () => {
+            await requireHrdFinance();
+            return DisciplinaryService.getRecap(prisma, year, month);
+        });
+    },
+);
+
 export const createDisciplinaryAction = withTenant(
     async function createDisciplinaryAction(data: DisciplinaryInput) {
         return safeAction(async () => {
@@ -60,6 +69,15 @@ export const listLeaveRequests = withTenant(
         return safeAction(async () => {
             await requireHrdFinance();
             return LeaveService.list(prisma, filters);
+        });
+    },
+);
+
+export const getLeaveRecap = withTenant(
+    async function getLeaveRecap(year: number, month: number) {
+        return safeAction(async () => {
+            await requireHrdFinance();
+            return LeaveService.getRecap(prisma, year, month);
         });
     },
 );

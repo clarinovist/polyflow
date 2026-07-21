@@ -31,6 +31,35 @@ export const DisciplinaryService = {
         });
     },
 
+    /** Count by type + active (not expired) for HRD rekap. */
+    async getRecap(db: PrismaClient, year?: number, month?: number) {
+        const where: Record<string, unknown> = {};
+        if (year != null && month != null) {
+            const monthStart = new Date(Date.UTC(year, month - 1, 1));
+            const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+            where.effectiveDate = { gte: monthStart, lte: monthEnd };
+        }
+        const rows = await db.disciplinaryAction.findMany({
+            where: where as never,
+            select: {
+                type: true,
+                expiryDate: true,
+            },
+        });
+        const now = new Date();
+        const byType = new Map<string, number>();
+        let activeCount = 0;
+        for (const r of rows) {
+            byType.set(r.type, (byType.get(r.type) ?? 0) + 1);
+            if (!r.expiryDate || r.expiryDate >= now) activeCount += 1;
+        }
+        return {
+            total: rows.length,
+            activeCount,
+            byType: Array.from(byType.entries()).map(([type, count]) => ({ type, count })),
+        };
+    },
+
     async create(db: PrismaClient, data: DisciplinaryInput) {
         if (!data.reason.trim()) throw new BusinessRuleError('Alasan sanksi wajib diisi');
         const employee = await db.employee.findUnique({
@@ -88,6 +117,14 @@ function eachUtcDateInclusive(start: Date, end: Date): Date[] {
     return dates;
 }
 
+/** Inclusive calendar days between two dates (UTC day bounds). */
+export function leaveDayCount(start: Date, end: Date): number {
+    const a = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+    const b = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+    if (b < a) return 0;
+    return Math.floor((b - a) / 86_400_000) + 1;
+}
+
 export const LeaveService = {
     async list(
         db: PrismaClient,
@@ -104,6 +141,52 @@ export const LeaveService = {
             },
             orderBy: { createdAt: 'desc' },
         });
+    },
+
+    /**
+     * Leave recap for a calendar month: requests that overlap the month.
+     * totalDays = inclusive days of the full request (not clipped to month — YAGNI).
+     */
+    async getRecap(db: PrismaClient, year: number, month: number) {
+        const monthStart = new Date(Date.UTC(year, month - 1, 1));
+        const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+        const rows = await db.leaveRequest.findMany({
+            where: {
+                startDate: { lte: monthEnd },
+                endDate: { gte: monthStart },
+            },
+            include: {
+                employee: { select: { id: true, name: true, code: true } },
+            },
+            orderBy: { startDate: 'asc' },
+        });
+
+        const byTypeStatus = new Map<string, { type: string; status: string; count: number; totalDays: number }>();
+        let pending = 0;
+        let approved = 0;
+        let rejected = 0;
+        let totalDaysApproved = 0;
+
+        for (const r of rows) {
+            const days = leaveDayCount(r.startDate, r.endDate);
+            const key = `${r.type}|${r.status}`;
+            const existing = byTypeStatus.get(key) ?? { type: r.type, status: r.status, count: 0, totalDays: 0 };
+            existing.count += 1;
+            existing.totalDays += days;
+            byTypeStatus.set(key, existing);
+
+            if (r.status === 'PENDING') pending += 1;
+            else if (r.status === 'APPROVED') {
+                approved += 1;
+                totalDaysApproved += days;
+            } else if (r.status === 'REJECTED') rejected += 1;
+        }
+
+        return {
+            rows,
+            byTypeStatus: Array.from(byTypeStatus.values()),
+            totals: { pending, approved, rejected, totalDaysApproved, requestCount: rows.length },
+        };
     },
 
     async create(db: PrismaClient, data: LeaveRequestInput) {

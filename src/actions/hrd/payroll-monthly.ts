@@ -17,6 +17,15 @@ import {
 
 // ─── KASBON ───
 
+export const getLoanPortfolioSummary = withTenant(
+    async function getLoanPortfolioSummary() {
+        return safeAction(async () => {
+            await requireHrdFinance();
+            return EmployeeLoanService.getPortfolioSummary(prisma);
+        });
+    },
+);
+
 export const listLoans = withTenant(
     async function listLoans(filters?: { employeeId?: string; status?: 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED' }) {
         return safeAction(async () => {

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Clock, Users, ArrowUpDown, MoreHorizontal } from 'lucide-react';
+import { Clock, Users, ArrowUpDown, MoreHorizontal, Download } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -19,9 +19,15 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { setAbsent, correctAttendance, getAttendanceMonthlySummary } from '@/actions/admin/attendance';
+import {
+  setAbsent,
+  correctAttendance,
+  getAttendanceMonthlySummary,
+  getAttendanceWeeklySummary,
+} from '@/actions/admin/attendance';
+import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import Link from 'next/link';
 
 interface AttendanceRecord {
@@ -73,6 +79,27 @@ interface MonthlySummary {
   multiShiftDays: number;
 }
 
+interface WeeklySummary {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  daysPresent: number;
+  totalActualHours: number;
+  totalOvertimeHours: number;
+  totalDailyEarnings: number;
+  totalOvertimeEarnings: number;
+  totalEarnings: number;
+}
+
+function formatIdr(n: number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+}
+
+function weekLabel(start: Date, end: Date) {
+  const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' };
+  return `${start.toLocaleDateString('id-ID', opts)} – ${end.toLocaleDateString('id-ID', opts)}`;
+}
+
 interface Props {
   records: AttendanceRecord[];
   summary: DailySummary | null;
@@ -113,6 +140,13 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
 
   const [monthlyData, setMonthlyData] = useState<MonthlySummary[]>([]);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [weeklyData, setWeeklyData] = useState<WeeklySummary[]>([]);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+
+  const weekBounds = useMemo(() => {
+    const base = new Date(currentDate);
+    return { start: startOfWeek(base), end: endOfWeek(base) };
+  }, [currentDate]);
 
   const updateParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams.toString());
@@ -126,6 +160,9 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
     const sp = new URLSearchParams(searchParams.toString());
     sp.set('mode', mode);
     if (mode === 'daily') {
+      sp.delete('year');
+      sp.delete('month');
+    } else if (mode === 'weekly') {
       sp.delete('year');
       sp.delete('month');
     } else if (mode === 'monthly') {
@@ -149,11 +186,43 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
     }
   };
 
+  const loadWeekly = async (dateStr: string) => {
+    setWeeklyLoading(true);
+    try {
+      const base = new Date(dateStr);
+      const ws = startOfWeek(base);
+      const we = endOfWeek(base);
+      const res = await getAttendanceWeeklySummary(ws.toISOString(), we.toISOString());
+      if (res.success) {
+        setWeeklyData((res.data as WeeklySummary[]) ?? []);
+      } else {
+        toast.error(res.error || 'Gagal memuat rekap mingguan');
+      }
+    } finally {
+      setWeeklyLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (viewMode === 'monthly') {
       loadMonthly(currentYear, currentMonth);
+    } else if (viewMode === 'weekly') {
+      loadWeekly(currentDate);
     }
-  }, [viewMode, currentYear, currentMonth]);
+  }, [viewMode, currentYear, currentMonth, currentDate]);
+
+  const exportHref = (() => {
+    if (viewMode === 'monthly') {
+      return `/api/hrd/attendance/export?mode=monthly&year=${currentYear}&month=${currentMonth}`;
+    }
+    if (viewMode === 'weekly') {
+      return `/api/hrd/attendance/export?mode=weekly&date=${currentDate}`;
+    }
+    const sp = new URLSearchParams({ mode: 'daily', date: currentDate });
+    if (currentShift) sp.set('shift', currentShift);
+    if (overtimeOnly) sp.set('ot', '1');
+    return `/api/hrd/attendance/export?${sp.toString()}`;
+  })();
 
   const handleSetAbsent = async (r: AttendanceRecord) => {
     setActionLoading(true);
@@ -260,6 +329,24 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
           </>
         )}
 
+        {viewMode === 'weekly' && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Minggu</label>
+            <Input
+              type="date"
+              value={currentDate}
+              onChange={(e) => updateParam('date', e.target.value)}
+              className="w-[180px]"
+            />
+            <span className="text-xs text-muted-foreground">
+              {weekLabel(weekBounds.start, weekBounds.end)}
+            </span>
+            <Link href={`/hrd/payroll?date=${currentDate}`} className="text-xs text-muted-foreground hover:underline ml-1">
+              → Gaji Mingguan
+            </Link>
+          </div>
+        )}
+
         {viewMode === 'monthly' && (
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-muted-foreground">Periode</label>
@@ -307,6 +394,12 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
             </Link>
           </div>
         )}
+
+        <a href={exportHref} className="ml-auto">
+          <Button type="button" size="sm" variant="outline" className="gap-1">
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
+        </a>
       </div>
 
       {/* Monthly summary view */}
@@ -368,8 +461,61 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
         </div>
       )}
 
-      {/* Summary cards (daily/weekly) */}
-      {viewMode !== 'monthly' && summary && (
+      {/* Weekly summary view */}
+      {viewMode === 'weekly' && (
+        <div className="space-y-4">
+          {weeklyLoading ? (
+            <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Memuat…</div>
+          ) : weeklyData.length === 0 ? (
+            <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
+              Tidak ada data absensi untuk minggu {weekLabel(weekBounds.start, weekBounds.end)}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <SummaryCard icon={<Users className="h-4 w-4" />} label="Karyawan" value={`${weeklyData.length} orang`} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Total Hadir" value={`${weeklyData.reduce((s, r) => s + r.daysPresent, 0)} shift`} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Total Jam" value={`${weeklyData.reduce((s, r) => s + r.totalActualHours, 0).toFixed(1)}j`} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Total OT" value={`${weeklyData.reduce((s, r) => s + r.totalOvertimeHours, 0).toFixed(1)}j`} accent={weeklyData.some((r) => r.totalOvertimeHours > 0)} />
+                <SummaryCard icon={<Clock className="h-4 w-4" />} label="Est. Upah" value={formatIdr(weeklyData.reduce((s, r) => s + r.totalEarnings, 0))} />
+              </div>
+              <div className="bg-card rounded-xl border overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="font-semibold text-muted-foreground">Kode</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground">Nama</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-center">Hadir</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-right">Jam Aktual</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-right">Jam OT</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-right">Daily</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-right">OT Rp</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {weeklyData.map((r) => (
+                      <TableRow key={r.employeeId} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">{r.employeeCode}</TableCell>
+                        <TableCell>{r.employeeName}</TableCell>
+                        <TableCell className="text-center">{r.daysPresent}</TableCell>
+                        <TableCell className="text-right">{r.totalActualHours.toFixed(1)}j</TableCell>
+                        <TableCell className="text-right">{r.totalOvertimeHours.toFixed(1)}j</TableCell>
+                        <TableCell className="text-right">{formatIdr(r.totalDailyEarnings)}</TableCell>
+                        <TableCell className="text-right">{formatIdr(r.totalOvertimeEarnings)}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatIdr(r.totalEarnings)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Summary cards (daily only) */}
+      {viewMode === 'daily' && summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <SummaryCard icon={<Users className="h-4 w-4" />} label="Hadir" value={`${summary.totalEmployees} orang`} />
           <SummaryCard icon={<ArrowUpDown className="h-4 w-4" />} label="Record" value={`${summary.totalRecords} shift`} />
@@ -379,8 +525,8 @@ export function AttendanceRecap({ records, summary, shifts, currentDate, current
         </div>
       )}
 
-      {/* Table (daily/weekly) */}
-      {viewMode !== 'monthly' && (
+      {/* Table (daily only) */}
+      {viewMode === 'daily' && (
       <div className="bg-card rounded-xl border overflow-x-auto">
         <Table>
           <TableHeader className="bg-muted/50">

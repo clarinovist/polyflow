@@ -28,6 +28,7 @@ export const hrdSidebarLabels = {
   payrollWeekly: "Gaji Mingguan",
   pieceRates: "Tarif Borongan",
   payrollMonthly: "Gaji Bulanan",
+  bpjs: "Rekap BPJS",
   loans: "Kasbon Karyawan",
   leave: "Cuti & Izin",
   disciplinary: "Sanksi Disiplin",

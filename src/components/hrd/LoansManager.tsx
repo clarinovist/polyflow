@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { listLoans, createLoan, markLoanDefaulted } from '@/actions/hrd/payroll-monthly';
+import { listLoans, createLoan, markLoanDefaulted, getLoanPortfolioSummary } from '@/actions/hrd/payroll-monthly';
 import { getEmployees } from '@/actions/admin/employees';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { Download } from 'lucide-react';
 
 type LoanStatus = 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED';
 const STATUS_BADGE: Record<LoanStatus, string> = {
@@ -67,6 +68,13 @@ export function LoansManager() {
     const [filterStatus, setFilterStatus] = useState<'ACTIVE' | 'PAID_OFF' | 'DEFAULTED' | 'ALL'>('ACTIVE');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [collateralFile, setCollateralFile] = useState<File | null>(null);
+    const [portfolio, setPortfolio] = useState<{
+        activeCount: number;
+        paidOffCount: number;
+        defaultedCount: number;
+        sumPrincipalActive: number;
+        sumRemainingActive: number;
+    } | null>(null);
 
     const [form, setForm] = useState({
         employeeId: '',
@@ -80,9 +88,10 @@ export function LoansManager() {
 
     const load = async () => {
         setLoading(true);
-        const [empRes, loanRes] = await Promise.all([
+        const [empRes, loanRes, portRes] = await Promise.all([
             getEmployees(),
             listLoans(filterStatus === 'ALL' ? undefined : { status: filterStatus }),
+            getLoanPortfolioSummary(),
         ]);
         if (empRes.success && Array.isArray(empRes.data)) {
             setEmployees(
@@ -94,6 +103,7 @@ export function LoansManager() {
             );
         }
         setLoans(loanRes.success ? (loanRes.data ?? []) : []);
+        setPortfolio(portRes.success ? (portRes.data ?? null) : null);
         setLoading(false);
     };
 
@@ -162,6 +172,27 @@ export function LoansManager() {
     };
 
     return (
+        <div className="space-y-4">
+            {portfolio && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded-xl border bg-card p-3">
+                        <div className="text-[10px] uppercase text-muted-foreground font-medium">Aktif</div>
+                        <div className="text-lg font-bold">{portfolio.activeCount}</div>
+                    </div>
+                    <div className="rounded-xl border bg-card p-3">
+                        <div className="text-[10px] uppercase text-muted-foreground font-medium">Sisa Outstanding</div>
+                        <div className="text-lg font-bold text-amber-700">{formatIdr(portfolio.sumRemainingActive)}</div>
+                    </div>
+                    <div className="rounded-xl border bg-card p-3">
+                        <div className="text-[10px] uppercase text-muted-foreground font-medium">Pokok Aktif</div>
+                        <div className="text-lg font-bold">{formatIdr(portfolio.sumPrincipalActive)}</div>
+                    </div>
+                    <div className="rounded-xl border bg-card p-3">
+                        <div className="text-[10px] uppercase text-muted-foreground font-medium">Lunas / Macet</div>
+                        <div className="text-lg font-bold">{portfolio.paidOffCount} / {portfolio.defaultedCount}</div>
+                    </div>
+                </div>
+            )}
         <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 rounded-lg border bg-card p-4 space-y-3">
                 <h2 className="text-sm font-bold uppercase tracking-tight">Pengajuan Kasbon</h2>
@@ -270,22 +301,29 @@ export function LoansManager() {
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                     <h2 className="text-sm font-bold uppercase tracking-tight">Daftar Kasbon</h2>
-                    <Select
-                        value={filterStatus}
-                        onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}
-                    >
-                        <SelectTrigger className="h-8 w-36 text-xs">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="ACTIVE">Aktif</SelectItem>
-                            <SelectItem value="PAID_OFF">Lunas</SelectItem>
-                            <SelectItem value="DEFAULTED">Macet</SelectItem>
-                            <SelectItem value="ALL">Semua</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                        <a href={`/api/hrd/loans/export?status=${filterStatus}`}>
+                            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs">
+                                <Download className="h-3.5 w-3.5" /> CSV
+                            </Button>
+                        </a>
+                        <Select
+                            value={filterStatus}
+                            onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}
+                        >
+                            <SelectTrigger className="h-8 w-36 text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ACTIVE">Aktif</SelectItem>
+                                <SelectItem value="PAID_OFF">Lunas</SelectItem>
+                                <SelectItem value="DEFAULTED">Macet</SelectItem>
+                                <SelectItem value="ALL">Semua</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
                 <div className="rounded-lg border overflow-x-auto">
                     <table className="w-full text-sm">
@@ -419,6 +457,7 @@ export function LoansManager() {
                     </table>
                 </div>
             </div>
+        </div>
         </div>
     );
 }

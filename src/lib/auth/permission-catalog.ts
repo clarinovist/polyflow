@@ -147,6 +147,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
       { key: "/hrd/alerts", label: "Alert Absensi" },
       { key: "/hrd/payroll", label: "Payroll Harian/Piece" },
       { key: "/hrd/payroll-monthly", label: "Payroll Bulanan" },
+      { key: "/hrd/bpjs", label: "Rekap BPJS" },
       { key: "/hrd/piece-rates", label: "Tarif Borongan" },
       { key: "/hrd/loans", label: "Kasbon" },
       { key: "/hrd/leave", label: "Cuti" },

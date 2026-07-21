@@ -11,6 +11,7 @@ import {
   Gavel,
   AlertTriangle,
   Users,
+  Shield,
 } from "lucide-react";
 import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
@@ -67,6 +68,11 @@ const hrdLinks = [
         href: "/hrd/payroll-monthly",
         icon: CalendarRange,
         label: hrdSidebarLabels.payrollMonthly,
+      },
+      {
+        href: "/hrd/bpjs",
+        icon: Shield,
+        label: hrdSidebarLabels.bpjs,
       },
       {
         href: "/hrd/piece-rates",

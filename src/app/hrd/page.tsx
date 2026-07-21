@@ -10,10 +10,13 @@ import {
   AlertTriangle,
   Users,
   ArrowRight,
+  Shield,
+  UserCheck,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { hrdSidebarLabels } from "@/lib/labels";
+import { getHrdDashboardKpis } from "@/actions/hrd/dashboard-kpis";
 
 const hubs = [
   {
@@ -23,7 +26,7 @@ const hubs = [
         href: "/hrd/attendance",
         icon: Clock,
         title: hrdSidebarLabels.attendance,
-        description: "Rekap kehadiran harian dan mingguan",
+        description: "Rekap kehadiran harian, mingguan, dan bulanan",
       },
       {
         href: "/hrd/alerts",
@@ -47,6 +50,12 @@ const hubs = [
         icon: CalendarRange,
         title: hrdSidebarLabels.payrollMonthly,
         description: "Payroll bulanan, BPJS, dan slip gaji",
+      },
+      {
+        href: "/hrd/bpjs",
+        icon: Shield,
+        title: hrdSidebarLabels.bpjs,
+        description: "Peserta BPJS, iuran, dan potongan real",
       },
       {
         href: "/hrd/piece-rates",
@@ -87,13 +96,81 @@ const hubs = [
   },
 ];
 
-export default function HrdDashboardPage() {
+function formatIdr(n: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+export default async function HrdDashboardPage() {
+  const kpiRes = await getHrdDashboardKpis().catch(() => null);
+  const kpi = kpiRes?.success ? kpiRes.data : null;
+
   return (
     <div className="flex flex-col space-y-8">
       <PageHeader
         title="Portal HRD"
         description="Kelola absensi, penggajian, dan kepegawaian dari satu tempat."
       />
+
+      {kpi && (
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          <Link href="/hrd/attendance">
+            <Card className="hover:border-rose-300 transition-colors h-full">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-[10px] uppercase text-muted-foreground font-medium">
+                  <UserCheck className="h-3.5 w-3.5" /> Hadir hari ini
+                </div>
+                <div className="text-2xl font-black mt-1">{kpi.presentToday}</div>
+                <div className="text-[10px] text-muted-foreground">{kpi.today}</div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/hrd/leave">
+            <Card className="hover:border-rose-300 transition-colors h-full">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-muted-foreground font-medium">Cuti pending</div>
+                <div className="text-2xl font-black mt-1 text-amber-700">{kpi.leavePending}</div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/hrd/loans">
+            <Card className="hover:border-rose-300 transition-colors h-full">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-muted-foreground font-medium">Kasbon outstanding</div>
+                <div className="text-lg font-black mt-1">{formatIdr(kpi.loanOutstanding)}</div>
+                <div className="text-[10px] text-muted-foreground">{kpi.loanActiveCount} aktif</div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/hrd/payroll-monthly">
+            <Card className="hover:border-rose-300 transition-colors h-full">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-muted-foreground font-medium">Periode gaji OPEN</div>
+                <div className="text-2xl font-black mt-1">{kpi.openPayrollPeriods}</div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/hrd/bpjs">
+            <Card className="hover:border-rose-300 transition-colors h-full">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-muted-foreground font-medium">Peserta BPJS</div>
+                <div className="text-2xl font-black mt-1">{kpi.bpjsParticipants}</div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/hrd/alerts">
+            <Card className="hover:border-rose-300 transition-colors h-full">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-muted-foreground font-medium">Alert HR unread</div>
+                <div className="text-2xl font-black mt-1 text-rose-700">{kpi.hrAlertsUnread}</div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
 
       {hubs.map((group) => (
         <section key={group.heading} className="space-y-3">

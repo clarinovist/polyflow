@@ -28,6 +28,34 @@ export default async function PayrollPage({
   const weekStart = rows[0]?.weekStart ?? startOfWeek(baseDate).toISOString();
   const weekEnd = rows[0]?.weekEnd ?? endOfWeek(baseDate).toISOString();
 
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.daysWorked += r.daysWorked;
+      acc.totalActualHours += r.totalActualHours;
+      acc.totalKgPaid += r.totalKgPaid;
+      acc.totalKgUnpaid += r.totalKgUnpaid;
+      acc.totalDailyEarnings += r.totalDailyEarnings;
+      acc.totalOvertimeEarnings += r.totalOvertimeEarnings;
+      acc.totalPieceEarnings += r.totalPieceEarnings;
+      acc.totalEarnings += r.totalEarnings;
+      acc.bpjsDeduction += r.bpjsDeduction;
+      acc.netPay += r.netPay;
+      return acc;
+    },
+    {
+      daysWorked: 0,
+      totalActualHours: 0,
+      totalKgPaid: 0,
+      totalKgUnpaid: 0,
+      totalDailyEarnings: 0,
+      totalOvertimeEarnings: 0,
+      totalPieceEarnings: 0,
+      totalEarnings: 0,
+      bpjsDeduction: 0,
+      netPay: 0,
+    },
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -119,6 +147,33 @@ export default async function PayrollPage({
                   </tr>
                 ))}
               </tbody>
+              {rows.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 bg-muted/30 font-semibold">
+                    <td className="p-3" colSpan={3}>
+                      Total ({rows.length} karyawan)
+                    </td>
+                    <td className="p-3 text-right">{totals.daysWorked}</td>
+                    <td className="p-3 text-right">{Math.round(totals.totalActualHours * 10) / 10}</td>
+                    <td className="p-3 text-right">{totals.totalKgPaid}</td>
+                    <td className="p-3 text-right">
+                      {totals.totalKgUnpaid > 0 ? (
+                        <span className="text-red-600">{totals.totalKgUnpaid}</span>
+                      ) : (
+                        0
+                      )}
+                    </td>
+                    <td className="p-3 text-right">{formatIdr(totals.totalDailyEarnings)}</td>
+                    <td className="p-3 text-right">{formatIdr(totals.totalOvertimeEarnings)}</td>
+                    <td className="p-3 text-right">{formatIdr(totals.totalPieceEarnings)}</td>
+                    <td className="p-3 text-right">{formatIdr(totals.totalEarnings)}</td>
+                    <td className="p-3 text-right text-red-600">
+                      {totals.bpjsDeduction > 0 ? `-${formatIdr(totals.bpjsDeduction)}` : '—'}
+                    </td>
+                    <td className="p-3 text-right">{formatIdr(totals.netPay)}</td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
           <p className="p-3 text-xs text-muted-foreground border-t">

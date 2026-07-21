@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
     listDisciplinaryActions,
     createDisciplinaryAction,
+    getDisciplinaryRecap,
 } from '@/actions/hrd/disciplinary-leave';
 import { getEmployees } from '@/actions/admin/employees';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { Download } from 'lucide-react';
 
 type DType = 'VERBAL_WARNING' | 'SP1' | 'SP2' | 'SP3' | 'SUSPENSION' | 'OTHER';
 const TYPE_LABEL: Record<DType, string> = {
@@ -34,6 +36,11 @@ export function DisciplinaryManager() {
         documentUrl?: string | null;
     }>>([]);
     const [loading, setLoading] = useState(false);
+    const [recap, setRecap] = useState<{
+        total: number;
+        activeCount: number;
+        byType: Array<{ type: string; count: number }>;
+    } | null>(null);
 
     const [form, setForm] = useState({
         employeeId: '',
@@ -47,14 +54,16 @@ export function DisciplinaryManager() {
 
     const load = async () => {
         setLoading(true);
-        const [empRes, actRes] = await Promise.all([
+        const [empRes, actRes, recapRes] = await Promise.all([
             getEmployees(),
             listDisciplinaryActions(),
+            getDisciplinaryRecap(),
         ]);
         if (empRes.success && Array.isArray(empRes.data)) {
             setEmployees(empRes.data.map((e: { id: string; name: string; code: string }) => ({ id: e.id, name: e.name, code: e.code })));
         }
         setActions(actRes.success ? actRes.data ?? [] : []);
+        setRecap(recapRes.success ? (recapRes.data ?? null) : null);
         setLoading(false);
     };
 
@@ -104,6 +113,44 @@ export function DisciplinaryManager() {
     };
 
     return (
+        <div className="space-y-4">
+            {recap && (
+                <div className="rounded-lg border bg-card p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-bold uppercase tracking-tight">Rekap Sanksi</h2>
+                        <a href="/api/hrd/disciplinary/export">
+                            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs">
+                                <Download className="h-3.5 w-3.5" /> CSV
+                            </Button>
+                        </a>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div className="rounded-lg bg-muted/40 p-2 text-center">
+                            <div className="text-[10px] text-muted-foreground">Total</div>
+                            <div className="font-bold">{recap.total}</div>
+                        </div>
+                        <div className="rounded-lg bg-muted/40 p-2 text-center">
+                            <div className="text-[10px] text-muted-foreground">Aktif</div>
+                            <div className="font-bold text-red-700">{recap.activeCount}</div>
+                        </div>
+                        {recap.byType.slice(0, 2).map((t) => (
+                            <div key={t.type} className="rounded-lg bg-muted/40 p-2 text-center">
+                                <div className="text-[10px] text-muted-foreground">{TYPE_LABEL[t.type as DType] ?? t.type}</div>
+                                <div className="font-bold">{t.count}</div>
+                            </div>
+                        ))}
+                    </div>
+                    {recap.byType.length > 2 && (
+                        <div className="flex flex-wrap gap-1.5 text-[11px]">
+                            {recap.byType.map((t) => (
+                                <span key={t.type} className="rounded-full bg-muted px-2 py-0.5">
+                                    {TYPE_LABEL[t.type as DType] ?? t.type}: {t.count}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 rounded-lg border bg-card p-4 space-y-3">
                 <h2 className="text-sm font-bold uppercase tracking-tight">Tambah Sanksi</h2>
@@ -213,6 +260,7 @@ export function DisciplinaryManager() {
                     </table>
                 </div>
             </div>
+        </div>
         </div>
     );
 }

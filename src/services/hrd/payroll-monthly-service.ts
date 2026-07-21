@@ -169,6 +169,41 @@ export const EmployeeLoanService = {
         });
     },
 
+    /** Company-wide portfolio totals for HRD rekap. */
+    async getPortfolioSummary(db: PrismaClient) {
+        const rows = await db.employeeLoan.findMany({
+            select: {
+                status: true,
+                principalAmount: true,
+                remainingBalance: true,
+            },
+        });
+        const round2 = (n: number) => Math.round(n * 100) / 100;
+        let activeCount = 0;
+        let paidOffCount = 0;
+        let defaultedCount = 0;
+        let sumPrincipalActive = 0;
+        let sumRemainingActive = 0;
+        for (const r of rows) {
+            if (r.status === 'ACTIVE') {
+                activeCount += 1;
+                sumPrincipalActive += Number(r.principalAmount);
+                sumRemainingActive += Number(r.remainingBalance);
+            } else if (r.status === 'PAID_OFF') {
+                paidOffCount += 1;
+            } else if (r.status === 'DEFAULTED') {
+                defaultedCount += 1;
+            }
+        }
+        return {
+            activeCount,
+            paidOffCount,
+            defaultedCount,
+            sumPrincipalActive: round2(sumPrincipalActive),
+            sumRemainingActive: round2(sumRemainingActive),
+        };
+    },
+
     async nextLoanNumber(db: PrismaClient, year: number): Promise<string> {
         return nextLoanNumberInTx(db, year);
     },

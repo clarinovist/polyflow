@@ -11,11 +11,13 @@ import {
     listLeaveRequests,
     approveLeaveRequest,
     rejectLeaveRequest,
+    getLeaveRecap,
 } from '@/actions/hrd/disciplinary-leave';
 import { getEmployees } from '@/actions/admin/employees';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { Download } from 'lucide-react';
 
 type LeaveType = 'ANNUAL' | 'SICK' | 'PERMISSION' | 'MATERNITY' | 'UNPAID' | 'OTHER';
 type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -38,6 +40,13 @@ export function LeaveRequestsManager() {
     }>>([]);
     const [loading, setLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('ALL');
+    const now = new Date();
+    const [recapYear, setRecapYear] = useState(now.getFullYear());
+    const [recapMonth, setRecapMonth] = useState(now.getMonth() + 1);
+    const [recap, setRecap] = useState<{
+        byTypeStatus: Array<{ type: string; status: string; count: number; totalDays: number }>;
+        totals: { pending: number; approved: number; rejected: number; totalDaysApproved: number; requestCount: number };
+    } | null>(null);
 
     const [form, setForm] = useState({
         employeeId: '',
@@ -63,6 +72,18 @@ export function LeaveRequestsManager() {
         setLoading(false);
     }, [filterStatus]);
 
+    const loadRecap = useCallback(async () => {
+        const res = await getLeaveRecap(recapYear, recapMonth);
+        if (res.success && res.data) {
+            setRecap({
+                byTypeStatus: res.data.byTypeStatus,
+                totals: res.data.totals,
+            });
+        } else {
+            setRecap(null);
+        }
+    }, [recapYear, recapMonth]);
+
     useEffect(() => {
         loadEmployees();
         loadRequests();
@@ -71,6 +92,10 @@ export function LeaveRequestsManager() {
     useEffect(() => {
         loadRequests();
     }, [loadRequests]);
+
+    useEffect(() => {
+        loadRecap();
+    }, [loadRecap]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -137,6 +162,81 @@ export function LeaveRequestsManager() {
     };
 
     return (
+        <div className="space-y-4">
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-sm font-bold uppercase tracking-tight">Rekap Bulan</h2>
+                    <div className="flex items-center gap-2">
+                        <Select value={String(recapMonth)} onValueChange={(v) => setRecapMonth(Number(v))}>
+                            <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'].map((m, i) => (
+                                    <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={String(recapYear)} onValueChange={(v) => setRecapYear(Number(v))}>
+                            <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {[2025, 2026, 2027].map((y) => (
+                                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <a href={`/api/hrd/leave/export?year=${recapYear}&month=${recapMonth}`}>
+                            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs">
+                                <Download className="h-3.5 w-3.5" /> CSV
+                            </Button>
+                        </a>
+                    </div>
+                </div>
+                {recap && (
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <div className="rounded-lg bg-muted/40 p-2 text-center">
+                                <div className="text-[10px] text-muted-foreground">Pending</div>
+                                <div className="font-bold">{recap.totals.pending}</div>
+                            </div>
+                            <div className="rounded-lg bg-muted/40 p-2 text-center">
+                                <div className="text-[10px] text-muted-foreground">Disetujui</div>
+                                <div className="font-bold text-green-700">{recap.totals.approved}</div>
+                            </div>
+                            <div className="rounded-lg bg-muted/40 p-2 text-center">
+                                <div className="text-[10px] text-muted-foreground">Ditolak</div>
+                                <div className="font-bold text-red-700">{recap.totals.rejected}</div>
+                            </div>
+                            <div className="rounded-lg bg-muted/40 p-2 text-center">
+                                <div className="text-[10px] text-muted-foreground">Hari approved</div>
+                                <div className="font-bold">{recap.totals.totalDaysApproved}</div>
+                            </div>
+                        </div>
+                        {recap.byTypeStatus.length > 0 && (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                    <thead className="text-left text-muted-foreground">
+                                        <tr>
+                                            <th className="p-1">Jenis</th>
+                                            <th className="p-1">Status</th>
+                                            <th className="p-1 text-right">Count</th>
+                                            <th className="p-1 text-right">Hari</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {recap.byTypeStatus.map((r) => (
+                                            <tr key={`${r.type}-${r.status}`} className="border-t">
+                                                <td className="p-1">{TYPE_LABEL[r.type as LeaveType] ?? r.type}</td>
+                                                <td className="p-1">{r.status}</td>
+                                                <td className="p-1 text-right">{r.count}</td>
+                                                <td className="p-1 text-right">{r.totalDays}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
         <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 rounded-lg border bg-card p-4 space-y-3">
                 <h2 className="text-sm font-bold uppercase tracking-tight">Pengajuan Baru</h2>
@@ -251,6 +351,7 @@ export function LeaveRequestsManager() {
                     </table>
                 </div>
             </div>
+        </div>
         </div>
     );
 }
