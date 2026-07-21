@@ -6,13 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Upload, Plus, Trash2, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
     getCompanySettings,
     updateCompanySettings,
     uploadCompanyLogo,
 } from '@/actions/settings/company-actions';
+
+interface BankRow {
+    holder: string;
+    bank: string;
+    account: string;
+}
 
 interface CompanyForm {
     name: string;
@@ -32,9 +38,95 @@ const EMPTY: CompanyForm = {
     signerName: '',
 };
 
+function parseBankJson(raw: string | undefined): BankRow[] {
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .filter((r: unknown) => r && typeof r === 'object')
+            .map((r: unknown) => {
+                const o = r as Record<string, unknown>;
+                return {
+                    holder: typeof o.holder === 'string' ? o.holder : '',
+                    bank: typeof o.bank === 'string' ? o.bank : '',
+                    account: typeof o.account === 'string' ? o.account : '',
+                };
+            })
+            .filter((r) => r.account || r.holder || r.bank);
+    } catch {
+        return [];
+    }
+}
+
+function BankAccountsEditor({
+    title,
+    description,
+    rows,
+    onChange,
+}: {
+    title: string;
+    description: string;
+    rows: BankRow[];
+    onChange: (next: BankRow[]) => void;
+}) {
+    const addRow = () => onChange([...rows, { holder: '', bank: '', account: '' }]);
+    const removeRow = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
+    const updateRow = (i: number, field: keyof BankRow, val: string) => {
+        const next = rows.slice();
+        next[i] = { ...next[i], [field]: val };
+        onChange(next);
+    };
+    return (
+        <div className="space-y-3 rounded-lg border p-4">
+            <div>
+                <h4 className="font-medium flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    {title}
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1">{description}</p>
+            </div>
+            {rows.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 border border-dashed rounded px-3">
+                    Belum ada rekening. Klik Tambah.
+                </p>
+            ) : (
+                <div className="space-y-2">
+                    {rows.map((r, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                            <div className="col-span-4">
+                                <Label className="text-xs">Pemilik</Label>
+                                <Input value={r.holder} onChange={(e) => updateRow(i, 'holder', e.target.value)} placeholder="Nama pemilik" className="h-8 text-sm" />
+                            </div>
+                            <div className="col-span-4">
+                                <Label className="text-xs">Bank</Label>
+                                <Input value={r.bank} onChange={(e) => updateRow(i, 'bank', e.target.value)} placeholder="Bank BCA" className="h-8 text-sm" />
+                            </div>
+                            <div className="col-span-3">
+                                <Label className="text-xs">No Rekening</Label>
+                                <Input value={r.account} onChange={(e) => updateRow(i, 'account', e.target.value)} placeholder="1234567890" className="h-8 text-sm" inputMode="numeric" />
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeRow(i)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+            <Button type="button" variant="outline" size="sm" onClick={addRow}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Tambah Rekening
+            </Button>
+        </div>
+    );
+}
+
 export function CompanySettings() {
     const [form, setForm] = useState<CompanyForm>(EMPTY);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
+    const [banksNonPPN, setBanksNonPPN] = useState<BankRow[]>([]);
+    const [banksPPN, setBanksPPN] = useState<BankRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, startSaving] = useTransition();
     const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -53,6 +145,8 @@ export function CompanySettings() {
                     signerName: res.data.signerName || '',
                 });
                 setLogoUrl(res.data.logoUrl || null);
+                setBanksNonPPN(parseBankJson(res.data.bankAccountsNonPPN));
+                setBanksPPN(parseBankJson(res.data.bankAccountsPPN));
             }
             setLoading(false);
         })();
@@ -64,12 +158,18 @@ export function CompanySettings() {
 
     const handleSave = () => {
         startSaving(async () => {
-            // Only send non-empty fields so blank inputs don't overwrite env
-            // defaults with empty strings.
-            const payload = Object.fromEntries(
-                Object.entries(form).filter(([, v]) => v.trim() !== ''),
+            const payload: Record<string, string> = Object.fromEntries(
+                Object.entries(form).filter(([, v]) => (v as string).trim() !== ''),
+            ) as Record<string, string>;
+            // Bank accounts: save as JSON, allow empty to clear
+            payload.bankAccountsNonPPN = JSON.stringify(
+                banksNonPPN.filter((r) => r.account.trim() || r.holder.trim() || r.bank.trim()),
             );
-            const res = await updateCompanySettings(payload);
+            payload.bankAccountsPPN = JSON.stringify(
+                banksPPN.filter((r) => r.account.trim() || r.holder.trim() || r.bank.trim()),
+            );
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const res = await updateCompanySettings(payload as any);
             if (res.success) {
                 toast.success('Pengaturan perusahaan disimpan. Akan dipakai pada dokumen cetak berikutnya.');
             } else {
@@ -177,6 +277,25 @@ export function CompanySettings() {
                 <div className="grid gap-2">
                     <Label htmlFor="companyFooter">Catatan Footer Cetak</Label>
                     <Textarea id="companyFooter" value={form.footerNote} onChange={setField('footerNote')} rows={2} />
+                </div>
+
+                <div className="space-y-4 pt-2 border-t">
+                    <div>
+                        <h3 className="font-medium">Rekening Bank Cetak Dokumen</h3>
+                        <p className="text-xs text-muted-foreground">Dipakai pada invoice, surat jalan, kuitansi. Pisahkan PPN dan Non-PPN. Data tenant-isolated.</p>
+                    </div>
+                    <BankAccountsEditor
+                        title="Non-PPN (contoh potongan / umum)"
+                        description="Tampilkan saat invoice tanpa PPN."
+                        rows={banksNonPPN}
+                        onChange={setBanksNonPPN}
+                    />
+                    <BankAccountsEditor
+                        title="PPN"
+                        description="Tampilkan saat invoice dengan PPN."
+                        rows={banksPPN}
+                        onChange={setBanksPPN}
+                    />
                 </div>
 
                 <div className="flex justify-end">
