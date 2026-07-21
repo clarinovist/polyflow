@@ -293,10 +293,13 @@ export class SalesReturnService {
     return updated;
   }
 
-  static async getReturns(filters?: { status?: SalesReturnStatus, customerId?: string, search?: string }) {
+  static async getReturns(filters?: { status?: SalesReturnStatus, customerId?: string, search?: string, startDate?: Date, endDate?: Date }) {
     const where: Record<string, unknown> = {};
     if (filters?.status) where.status = filters.status;
     if (filters?.customerId) where.customerId = filters.customerId;
+    if (filters?.startDate && filters?.endDate) {
+      (where as { returnDate?: { gte: Date; lte: Date } }).returnDate = { gte: filters.startDate, lte: filters.endDate };
+    }
     if (filters?.search) {
       where.OR = [
         { returnNumber: { contains: filters.search, mode: 'insensitive' } },

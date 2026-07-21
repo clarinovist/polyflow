@@ -34,10 +34,10 @@ export default async function SalesMobileDashboardPage() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header */}
+      {/* Header — P1: copy konsisten; stats global, bukan hari ini-only */}
       <div>
         <h1 className="text-xl font-bold">Sales Mobile</h1>
-        <p className="text-sm text-muted-foreground">Ringkasan hari ini</p>
+        <p className="text-sm text-muted-foreground">Ringkasan keseluruhan • Outstanding & order aktif</p>
       </div>
 
       {/* Sync Banner */}
@@ -70,7 +70,7 @@ export default async function SalesMobileDashboardPage() {
       {/* Journey Plan */}
       <DailyJourneyPlan activeCustomers={activeCustomers} />
 
-      {/* Stats Cards */}
+      {/* Stats Cards — P1: inject pipeline value (minimal, reuse stats from server) */}
       <div className="grid grid-cols-2 gap-3">
         <div className="p-4 border rounded-xl">
           <div className="flex items-center gap-2 mb-2">
@@ -78,6 +78,9 @@ export default async function SalesMobileDashboardPage() {
             <span className="text-xs text-muted-foreground">Order Aktif</span>
           </div>
           <p className="text-2xl font-bold">{stats?.activeCount ?? 0}</p>
+          {(stats as { pipelineAmount?: number } | null | undefined)?.pipelineAmount != null && (
+            <p className="text-xs text-muted-foreground mt-1">{formatRupiah((stats as { pipelineAmount: number }).pipelineAmount)}</p>
+          )}
         </div>
         <div className="p-4 border rounded-xl">
           <div className="flex items-center gap-2 mb-2">

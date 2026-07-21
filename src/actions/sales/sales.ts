@@ -305,43 +305,58 @@ export const deleteSalesOrder = withTenant(async function deleteSalesOrder(
 });
 
 export const getSalesOrderStats = withTenant(
-  async function getSalesOrderStats() {
+  async function getSalesOrderStats(dateRange?: {
+    startDate?: Date;
+    endDate?: Date;
+  }) {
     return safeAction(async () => {
       await requireAuth();
 
+      // Scope: ORDERED customer's orderDate — align with list page's filtered view
+      const where: Record<string, unknown> = {
+        demandType: "customer",
+      };
+      if (dateRange?.startDate && dateRange?.endDate) {
+        where.orderDate = {
+          gte: dateRange.startDate,
+          lte: dateRange.endDate,
+        };
+      }
+
       const stats = await prisma.salesOrder.groupBy({
+        where,
         by: ["status"],
-        _count: {
-          status: true,
-        },
+        _count: { status: true },
+        _sum: { totalAmount: true },
       });
 
-      const totalOrders = stats.reduce(
-        (acc, curr) => acc + curr._count.status,
-        0,
-      );
+      const sum = (rows: typeof stats) =>
+        rows.reduce((acc, r) => acc + Number(r._sum.totalAmount || 0), 0);
+      const count = (rows: typeof stats) =>
+        rows.reduce((acc, r) => acc + r._count.status, 0);
 
-      const activeCount = stats
-        .filter((s) =>
-          ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "READY_TO_SHIP"].includes(
-            s.status,
-          ),
-        )
-        .reduce((acc, curr) => acc + curr._count.status, 0);
+      const isActive = (s: string) =>
+        ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "READY_TO_SHIP"].includes(s);
+      const isDone = (s: string) => ["SHIPPED", "DELIVERED"].includes(s);
 
-      const completedCount = stats
-        .filter((s) => ["SHIPPED", "DELIVERED"].includes(s.status))
-        .reduce((acc, curr) => acc + curr._count.status, 0);
+      const activeRows = stats.filter((s) => isActive(s.status));
+      const doneRows = stats.filter((s) => isDone(s.status));
+      const cancelledRows = stats.filter((s) => s.status === "CANCELLED");
 
-      const cancelledCount = stats
-        .filter((s) => s.status === "CANCELLED")
-        .reduce((acc, curr) => acc + curr._count.status, 0);
+      // Pipeline = aktif non-batal — jawaban original request "kalau semua terkonversi"
+      const pipelineRows = activeRows; // never includes CANCELLED/DONE
 
       return {
-        totalOrders,
-        activeCount,
-        completedCount,
-        cancelledCount,
+        totalOrders: count(stats),
+        activeCount: count(activeRows),
+        completedCount: count(doneRows),
+        cancelledCount: count(cancelledRows),
+
+        totalAmount: sum(stats),
+        activeAmount: sum(activeRows),
+        completedAmount: sum(doneRows),
+        pipelineAmount: sum(pipelineRows),
+        cancelledAmount: sum(cancelledRows),
       };
     });
   },

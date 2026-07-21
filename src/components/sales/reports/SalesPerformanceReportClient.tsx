@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getSalesPerformanceReport } from "@/actions/sales/sales-reports";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatRupiah } from "@/lib/utils/utils";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { BarChart3, Users, Package, TrendingUp, Loader2 } from "lucide-react";
+import { BarChart3, Users, Package, TrendingUp } from "lucide-react";
 
 type Summary = {
   totalRevenue: number;
@@ -23,7 +22,7 @@ type Row = {
   period: string;
   orderId: string;
   orderNumber: string;
-  orderDate: Date;
+  orderDate: Date | string;
   customerName: string;
   productName: string;
   quantity: number;
@@ -35,30 +34,12 @@ type Row = {
   salesPerson: string;
 };
 
-export function SalesPerformanceReportClient() {
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
+type Initial = { rows: Row[]; summary: Summary } | null;
+
+export function SalesPerformanceReportClient({ initialData, periodLabel }: { initialData: Initial; periodLabel: string; start: Date; end: Date }) {
+  const summary = initialData?.summary ?? null;
+  const rows = initialData?.rows ?? [];
   const [activeTab, setActiveTab] = useState<"summary" | "customers" | "products" | "detail">("summary");
-
-  useEffect(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    getSalesPerformanceReport({ startDate: start, endDate: end }).then((result) => {
-      const data = result && typeof result === "object" && "data" in result
-        ? (result as { data: { rows: Row[]; summary: Summary } | null }).data
-        : null;
-      if (data) {
-        setSummary(data.summary);
-        setRows(data.rows);
-      }
-      setLoading(false);
-    }).catch(() => {
-      setLoading(false);
-    });
-  }, []);
 
   const tabs = [
     { key: "summary" as const, label: "Ringkasan", icon: TrendingUp },
@@ -69,18 +50,14 @@ export function SalesPerformanceReportClient() {
 
   return (
     <div className="space-y-6">
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : !summary ? (
+      {summary == null ? (
         <div className="text-center py-12 text-muted-foreground">
           <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p>Tidak ada data penjualan untuk periode ini.</p>
+          <p>Tidak ada data untuk periode {periodLabel}.</p>
         </div>
       ) : (
         <>
-          {/* Tab Navigation */}
+          <p className="text-xs text-muted-foreground">Scope: {periodLabel} • orderDate non-batal</p>
           <div className="flex gap-2 border-b pb-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -89,9 +66,7 @@ export function SalesPerformanceReportClient() {
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors ${
-                    activeTab === tab.key
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    activeTab === tab.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   }`}
                 >
                   <Icon className="h-4 w-4" />

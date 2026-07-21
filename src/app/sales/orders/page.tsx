@@ -1,13 +1,14 @@
 import { getSalesOrders, getSalesOrderStats } from '@/actions/sales/sales';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, ShoppingCart, Clock, CheckCircle, XCircle, Archive, ArrowLeft } from 'lucide-react';
+import { Plus, ShoppingCart, Clock, CheckCircle, XCircle, Archive, ArrowLeft, Banknote, Package as PackageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { SalesOrderFilters } from '@/components/sales/SalesOrderFilters';
-import { serializeData } from '@/lib/utils/utils';
+import { serializeData, formatRupiah } from '@/lib/utils/utils';
 import { SalesOrderType, SalesOrderStatus } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
+import { OrderPeriodHint } from '@/components/sales/OrderPeriodHint';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -116,14 +117,25 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         ? await getSalesOrders(true, archiveDateRange, 'legacy-internal')
         : await getSalesOrders(true, dateRange, 'customer', extraFilters);
 
-    const statsRes = await getSalesOrderStats();
+    // P0 fix: stats ikut dateRange list — stats global misleading
+    const statsRes = isArchive
+        ? await getSalesOrderStats(archiveDateRange)
+        : await getSalesOrderStats(dateRange);
 
     const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
     const stats = statsRes.success && statsRes.data ? statsRes.data : {
         totalOrders: 0,
         activeCount: 0,
         completedCount: 0,
-        cancelledCount: 0
+        cancelledCount: 0,
+        totalAmount: 0,
+        activeAmount: 0,
+        completedAmount: 0,
+        pipelineAmount: 0,
+        cancelledAmount: 0,
+    } as {
+        totalOrders: number; activeCount: number; completedCount: number; cancelledCount: number;
+        totalAmount: number; activeAmount: number; completedAmount: number; pipelineAmount: number; cancelledAmount: number;
     };
 
     const serializedOrders = serializeData(orders);
@@ -208,53 +220,83 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </div>
             </div>
 
-            {/* Summary Cards — global counts + list scope */}
-            <div>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Ringkasan global</p>
-                    <p className="text-xs text-muted-foreground">
-                        {salesLabels.displayedCount}: <span className="font-semibold text-foreground">{displayedCount}</span>
-                        <span className="text-muted-foreground"> (filter aktif)</span>
-                    </p>
-                </div>
-                <div className="grid gap-4 md:grid-cols-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">{salesLabels.totalOrders}</CardTitle>
-                            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.totalOrders}</div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">{salesLabels.activePending}</CardTitle>
-                            <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.activeCount}</div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">{salesLabels.completed}</CardTitle>
-                            <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.completedCount}</div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">{salesLabels.cancelled}</CardTitle>
-                            <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.cancelledCount}</div>
-                        </CardContent>
-                    </Card>
-                </div>
+            {/* P0 fix: period hint + pipeline omzet — original request "kalau semua terkonversi" */}
+            <OrderPeriodHint start={checkStart} end={checkEnd} displayedCount={displayedCount} />
+
+            {/* Omzet — money context */}
+            <div className="grid gap-4 md:grid-cols-4">
+                <Card className="md:col-span-2 border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Potensi Omzet (kalau semua terkirim)</CardTitle>
+                        <Banknote className="h-4 w-4 text-amber-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatRupiah((stats as { pipelineAmount?: number }).pipelineAmount ?? (stats as { activeAmount?: number }).activeAmount ?? 0)}</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Order aktif non-batal dalam periode • {stats.activeCount} order
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Realisasi (Shipped/Delivered)</CardTitle>
+                        <PackageIcon className="h-4 w-4 text-emerald-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatRupiah((stats as { completedAmount?: number }).completedAmount ?? 0)}</div>
+                        <p className="text-xs text-muted-foreground mt-1">{stats.completedCount} order</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Periode (gross, exc. batal)</CardTitle>
+                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatRupiah(((stats as { totalAmount?: number; cancelledAmount?: number }).totalAmount != null && (stats as { cancelledAmount?: number }).cancelledAmount != null ? (stats as { totalAmount: number }).totalAmount - (stats as { cancelledAmount: number }).cancelledAmount : ((stats as { activeAmount?: number }).activeAmount ?? 0) + ((stats as { completedAmount?: number }).completedAmount ?? 0)))}</div>
+                        <p className="text-xs text-muted-foreground mt-1">{stats.totalOrders} order (incl. batal {stats.cancelledCount})</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Counts */}
+            <div className="grid gap-4 md:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{salesLabels.totalOrders}</CardTitle>
+                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{salesLabels.activePending}</CardTitle>
+                        <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.activeCount}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{salesLabels.completed}</CardTitle>
+                        <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.completedCount}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{salesLabels.cancelled}</CardTitle>
+                        <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.cancelledCount}</div>
+                    </CardContent>
+                </Card>
             </div>
 
             <Card>
