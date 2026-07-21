@@ -280,8 +280,9 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { code: "21120" },
     { code: "2-390" },
     { nameContains: "Other Payables" },
-    { nameContains: "Hutang ke Nugroho" },
     { nameContains: "Hutang Owner" },
+    { nameContains: "Hutang Pemilik" },
+    { nameContains: "Hutang ke Pemilik" },
   ],
   "fixed-asset-machinery": [
     { code: "12100" },

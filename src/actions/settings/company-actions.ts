@@ -55,6 +55,8 @@ const UpdateCompanySchema = z.object({
     footerNote: z.string().max(500).optional(),
     signerName: z.string().max(200).optional(),
     logoUrl: z.string().max(500).optional(),
+    bankAccountsNonPPN: z.string().max(10000).optional(),
+    bankAccountsPPN: z.string().max(10000).optional(),
 });
 
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;
@@ -68,6 +70,21 @@ export async function updateCompanySettings(input: UpdateCompanyInput) {
             keyof CompanySettings,
             string,
         ][];
+
+        // Validate bank JSON if provided.
+        for (const [field, value] of entries) {
+            if (field === 'bankAccountsNonPPN' || field === 'bankAccountsPPN') {
+                let parsed: unknown;
+                try {
+                    parsed = JSON.parse(value);
+                } catch {
+                    throw new ValidationError(`Format ${field} tidak valid. Harus JSON array [{holder,bank,account}].`);
+                }
+                if (!Array.isArray(parsed)) {
+                    throw new ValidationError(`Format ${field} harus berupa array.`);
+                }
+            }
+        }
 
         await prisma.$transaction(
             entries.map(([field, value]) => {

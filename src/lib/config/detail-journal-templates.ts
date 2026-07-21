@@ -28,7 +28,10 @@ export type DetailJournalTemplate = {
   allowDirectionToggle: boolean;
   outflowLabel?: string;
   inflowLabel?: string;
-  primaryAccountCodes: string[];
+  // role-based primary & counter, resolved via name hints / TenantAccountRole
+  primaryAccountRole: string;
+  counterAccountRole: string;
+  primaryAccountCodes: string[]; // legacy fallback, kept minimal & generic
   primaryNameHints: string[];
   counterAccountCodes: string[];
   counterNameHints: string[];
@@ -42,20 +45,17 @@ export const DETAIL_JOURNAL_TEMPLATES: Record<
     key: 'DIRECT_LABOR',
     label: 'Biaya Tenaga Kerja Langsung',
     detailSectionTitle: 'Rincian Tenaga Kerja Langsung',
-    descriptionPlaceholder:
-      'e.g., BERITA ACARA CASH OPNAME 04 JULI 2026',
+    descriptionPlaceholder: 'e.g., BERITA ACARA CASH OPNAME 04 JULI 2026',
     detailNamePlaceholder: 'Nama pekerja',
     primaryAccountLabel: 'Akun Biaya (Tenaga Kerja Langsung)',
     counterAccountLabel: 'Akun Kas (Pembayaran)',
     defaultDirection: 'OUTFLOW',
     allowDirectionToggle: false,
-    primaryAccountCodes: ['5-012b', '5-012', '51200'],
-    primaryNameHints: [
-      'Tenaga Kerja Langsung',
-      'Direct Labor',
-      'Upah Tenaga Kerja',
-    ],
-    counterAccountCodes: ['1-112', '11120'],
+    primaryAccountRole: 'direct-labor',
+    counterAccountRole: 'petty-cash',
+    primaryAccountCodes: ['51200'],
+    primaryNameHints: ['Tenaga Kerja Langsung', 'Direct Labor', 'Upah Tenaga Kerja'],
+    counterAccountCodes: ['11110', '11120'],
     counterNameHints: ['Kas Kecil', 'Petty Cash'],
   },
   EMPLOYEE_RECEIVABLE: {
@@ -66,23 +66,23 @@ export const DETAIL_JOURNAL_TEMPLATES: Record<
     detailNamePlaceholder: 'Nama karyawan / keterangan',
     primaryAccountLabel: 'Akun Piutang Karyawan',
     counterAccountLabel: 'Akun Kas Kecil',
-    helperText:
-      'Pilih arah: Keluar untuk kasbon, Masuk untuk pengembalian.',
+    helperText: 'Pilih arah: Keluar untuk kasbon, Masuk untuk pengembalian.',
     defaultDirection: 'OUTFLOW',
     allowDirectionToggle: true,
     outflowLabel: 'Keluar — Kasbon',
     inflowLabel: 'Masuk — Pengembalian',
-    primaryAccountCodes: ['1-117', '11510'],
+    primaryAccountRole: 'employee-receivable',
+    counterAccountRole: 'petty-cash',
+    primaryAccountCodes: ['11510'],
     primaryNameHints: ['Piutang Karyawan'],
-    counterAccountCodes: ['1-112', '11120'],
+    counterAccountCodes: ['11110', '11120'],
     counterNameHints: ['Kas Kecil', 'Petty Cash'],
   },
   BPJS_HEALTH: {
     key: 'BPJS_HEALTH',
     label: 'Premi BPJS Kesehatan',
     detailSectionTitle: 'Rincian Premi BPJS Kesehatan',
-    descriptionPlaceholder:
-      'e.g., Terima premi BPJS Kesehatan 13 Jun 2026',
+    descriptionPlaceholder: 'e.g., Terima premi BPJS Kesehatan 13 Jun 2026',
     detailNamePlaceholder: 'Nama karyawan',
     primaryAccountLabel: 'Akun BPJS Kesehatan',
     counterAccountLabel: 'Akun Kas Kecil (Penerimaan)',
@@ -90,17 +90,18 @@ export const DETAIL_JOURNAL_TEMPLATES: Record<
       'Untuk penerimaan premi dari karyawan. BPJS Ketenagakerjaan diinput di template terpisah (2 jurnal).',
     defaultDirection: 'INFLOW',
     allowDirectionToggle: false,
-    primaryAccountCodes: ['6-031'],
+    primaryAccountRole: 'bpjs-health',
+    counterAccountRole: 'petty-cash',
+    primaryAccountCodes: [],
     primaryNameHints: ['BPJS Kesehatan', 'Premi BPJS Kesehatan'],
-    counterAccountCodes: ['1-112', '11120'],
+    counterAccountCodes: ['11110', '11120'],
     counterNameHints: ['Kas Kecil', 'Petty Cash'],
   },
   BPJS_EMPLOYMENT: {
     key: 'BPJS_EMPLOYMENT',
     label: 'Premi BPJS Ketenagakerjaan',
     detailSectionTitle: 'Rincian Premi BPJS Ketenagakerjaan',
-    descriptionPlaceholder:
-      'e.g., Terima premi BPJS Ketenagakerjaan 13 Jun 2026',
+    descriptionPlaceholder: 'e.g., Terima premi BPJS Ketenagakerjaan 13 Jun 2026',
     detailNamePlaceholder: 'Nama karyawan',
     primaryAccountLabel: 'Akun BPJS Ketenagakerjaan',
     counterAccountLabel: 'Akun Kas Kecil (Penerimaan)',
@@ -108,9 +109,11 @@ export const DETAIL_JOURNAL_TEMPLATES: Record<
       'Untuk penerimaan premi dari karyawan. BPJS Kesehatan diinput di template terpisah (2 jurnal).',
     defaultDirection: 'INFLOW',
     allowDirectionToggle: false,
-    primaryAccountCodes: ['6-033'],
+    primaryAccountRole: 'bpjs-employment',
+    counterAccountRole: 'petty-cash',
+    primaryAccountCodes: [],
     primaryNameHints: ['BPJS Ketenagakerjaan', 'Premi BPJS Ketenagakerjaan'],
-    counterAccountCodes: ['1-112', '11120'],
+    counterAccountCodes: ['11110', '11120'],
     counterNameHints: ['Kas Kecil', 'Petty Cash'],
   },
 };

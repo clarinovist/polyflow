@@ -3,10 +3,13 @@ export interface JournalTemplate {
     name: string;
     description: string;
     lines: {
-        accountCode: string;
+        // role-based — resolved via TenantAccountRole / account-resolver patterns
+        accountRole: string;
         debit?: boolean;
         credit?: boolean;
         description?: string;
+        // legacy code fallback kept optional for seed/prototype COA; not tenant-specific
+        accountCode?: string;
     }[];
 }
 
@@ -16,8 +19,8 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
         name: 'Gaji Karyawan',
         description: 'Pembayaran gaji bulanan karyawan',
         lines: [
-            { accountCode: '61100', debit: true, description: 'Beban Gaji' },
-            { accountCode: '11101', credit: true, description: 'Bayar Gaji' }
+            { accountRole: 'office-salaries', accountCode: '62100', debit: true, description: 'Beban Gaji' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Gaji' }
         ]
     },
     {
@@ -25,17 +28,17 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
         name: 'Sewa Kantor',
         description: 'Pembayaran sewa kantor/gudang',
         lines: [
-            { accountCode: '61300', debit: true, description: 'Beban Sewa' },
-            { accountCode: '11101', credit: true, description: 'Bayar Sewa' }
+            { accountRole: 'factory-rent', accountCode: '53410', debit: true, description: 'Beban Sewa' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Sewa' }
         ]
     },
     {
         id: 'purchase-raw-materials',
         name: 'Beli Bahan Baku',
-        description: 'Pembelian bahan baku (Resin, Catalist, dll)',
+        description: 'Pembelian bahan baku',
         lines: [
-            { accountCode: '12100', debit: true, description: 'Persediaan Bahan Baku' },
-            { accountCode: '11101', credit: true, description: 'Bayar Bahan Baku' }
+            { accountRole: 'raw-material', accountCode: '11300', debit: true, description: 'Persediaan Bahan Baku' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Bahan Baku' }
         ]
     },
     {
@@ -43,8 +46,8 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
         name: 'Beli Kemasan',
         description: 'Pembelian botol, box, atau kemasan lain',
         lines: [
-            { accountCode: '12200', debit: true, description: 'Persediaan Kemasan' },
-            { accountCode: '11101', credit: true, description: 'Bayar Kemasan' }
+            { accountRole: 'packaging', accountCode: '11340', debit: true, description: 'Persediaan Kemasan' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Kemasan' }
         ]
     },
     {
@@ -52,8 +55,8 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
         name: 'Beli Perlengkapan',
         description: 'Pembelian sarung tangan, masker, dll',
         lines: [
-            { accountCode: '12300', debit: true, description: 'Persediaan Perlengkapan' },
-            { accountCode: '11101', credit: true, description: 'Bayar Perlengkapan' }
+            { accountRole: 'inventory-consumables', accountCode: '11360', debit: true, description: 'Persediaan Perlengkapan' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Perlengkapan' }
         ]
     },
     {
@@ -61,8 +64,8 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
         name: 'Biaya Listrik',
         description: 'Tagihan listrik bulanan',
         lines: [
-            { accountCode: '61401', debit: true, description: 'Beban Listrik' },
-            { accountCode: '11101', credit: true, description: 'Bayar Listrik' }
+            { accountRole: 'factory-electricity', accountCode: '53200', debit: true, description: 'Beban Listrik' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Listrik' }
         ]
     },
     {
@@ -70,8 +73,8 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
         name: 'Biaya Perawatan',
         description: 'Servis mesin atau perbaikan gedung',
         lines: [
-            { accountCode: '61402', debit: true, description: 'Beban Pemeliharaan' },
-            { accountCode: '11101', credit: true, description: 'Bayar Pemeliharaan' }
+            { accountRole: 'factory-maintenance', accountCode: '53300', debit: true, description: 'Beban Pemeliharaan' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Pemeliharaan' }
         ]
     },
     {
@@ -79,8 +82,8 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
         name: 'Biaya Transportasi',
         description: 'Bensin, tol, atau kirim barang',
         lines: [
-            { accountCode: '61403', debit: true, description: 'Beban Transportasi' },
-            { accountCode: '11101', credit: true, description: 'Bayar Transportasi' }
+            { accountRole: 'shipping-expense', accountCode: '61100', debit: true, description: 'Beban Transportasi' },
+            { accountRole: 'petty-cash', accountCode: '11110', credit: true, description: 'Bayar Transportasi' }
         ]
     }
 ];

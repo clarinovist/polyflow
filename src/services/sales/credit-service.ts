@@ -186,11 +186,12 @@ export async function getCustomersWithCreditSummary(): Promise<CustomerCreditSum
     let headroom: number | null = null;
     let exposureStatus: CustomerCreditSummary['exposureStatus'] = 'none';
 
+    const CREDIT_NEAR_THRESHOLD_RATIO = 0.1;
     if (creditLimit > 0) {
       headroom = creditLimit - currentExposure;
       if (currentExposure > creditLimit) {
         exposureStatus = 'over';
-      } else if (headroom < creditLimit * 0.1) {
+      } else if (headroom < creditLimit * CREDIT_NEAR_THRESHOLD_RATIO) {
         exposureStatus = 'near';
       } else {
         exposureStatus = 'safe';

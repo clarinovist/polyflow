@@ -172,7 +172,7 @@ export function CompanySettings() {
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="companySigner">Nama Penandatangan</Label>
-                    <Input id="companySigner" value={form.signerName} onChange={setField('signerName')} placeholder="mis. Nugroho Pramono" />
+                    <Input id="companySigner" value={form.signerName} onChange={setField('signerName')} placeholder="mis. Nama Penandatangan" />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="companyFooter">Catatan Footer Cetak</Label>

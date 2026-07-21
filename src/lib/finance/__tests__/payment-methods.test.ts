@@ -72,9 +72,9 @@ describe('payment-methods', () => {
     it('includes account number when available', () => {
       expect(
         getPaymentMethodLabel('Transfer BCA', {
-          BCA: { holder: 'MELINDO', account: '3270448789' },
+          BCA: { holder: 'PT ACME', account: '1234567890' },
         }),
-      ).toBe('Transfer BCA — 3270448789');
+      ).toBe('Transfer BCA — 1234567890');
     });
 
     it('omits account when tenant has not configured banks', () => {

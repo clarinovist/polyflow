@@ -7,10 +7,55 @@ import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { revalidatePath } from 'next/cache';
 import { PettyCashReportService } from '@/services/finance/petty-cash-report-service';
 import { parseBusinessDate } from '@/lib/utils/timezone';
+import { prisma } from '@/lib/core/prisma';
 import { Role } from '@prisma/client';
 
 const REPORT_PATH = '/finance/petty-cash/reports/daily';
 const MUTATING_ROLES: Role[] = [Role.ADMIN, Role.FINANCE];
+
+const SIGNATURE_KEYS: Record<string, string> = {
+    kasir: 'cashOpname.signer.kasir',
+    akuntansi: 'cashOpname.signer.akuntansi',
+    direktur: 'cashOpname.signer.direktur',
+    komisaris: 'cashOpname.signer.komisaris',
+};
+
+export const getCashOpnameSignaturesAction = withTenant(async function () {
+    return safeAction(async () => {
+        await requireAuth();
+        const rows = await prisma.appSetting.findMany({
+            where: { key: { in: Object.values(SIGNATURE_KEYS) } },
+            select: { key: true, value: true },
+        });
+        const byKey = new Map(rows.map((r) => [r.key, r.value]));
+        const result: Record<string, string> = {};
+        for (const [field, key] of Object.entries(SIGNATURE_KEYS)) {
+            const v = byKey.get(key);
+            if (v) result[field] = v;
+        }
+        return result;
+    });
+});
+
+export const saveCashOpnameSignaturesAction = withTenant(async function (input: Record<string, string>) {
+    return safeAction(async () => {
+        const session = await requireRole(MUTATING_ROLES);
+        const entries = Object.entries(input).filter(([, v]) => (v ?? '').trim() !== '');
+        if (entries.length === 0) return { saved: [] as string[] };
+        const upserts = entries
+            .filter(([field]) => SIGNATURE_KEYS[field])
+            .map(([field, value]) => {
+                const key = SIGNATURE_KEYS[field];
+                return prisma.appSetting.upsert({
+                    where: { key },
+                    create: { key, value: value.trim(), updatedBy: session.user.id },
+                    update: { value: value.trim(), updatedBy: session.user.id },
+                });
+            });
+        await prisma.$transaction(upserts);
+        return { saved: entries.map(([k]) => k) };
+    });
+});
 
 /**
  * Validate a YYYY-MM-DD date string (business calendar date).

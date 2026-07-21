@@ -54,7 +54,7 @@ import {
 import { Plus, Trash2, ShoppingBag, Calculator, Settings } from "lucide-react";
 import { formatRupiah } from "@/lib/utils/utils";
 import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-format";
-import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
+import { calculatePpn, DEFAULT_PPN_PERCENT, type PpnMode } from "@/lib/utils/ppn";
 import { ProductCombobox } from "@/components/products/product-combobox";
 import { SupplierCombobox } from "@/components/purchasing/suppliers/supplier-combobox";
 import { Badge } from "@/components/ui/badge";
@@ -533,10 +533,9 @@ export function PurchaseOrderForm({
                                       form.setValue(`items.${index}.taxPercent`, 0);
                                       form.setValue(`items.${index}.dppOtherAmount`, null);
                                     } else {
-                                      // Auto-set PPN 11% when checkbox is checked and tax is 0
                                       const currentTax = Number(form.getValues(`items.${index}.taxPercent`) || 0);
                                       if (currentTax === 0) {
-                                        form.setValue(`items.${index}.taxPercent`, 11);
+                                        form.setValue(`items.${index}.taxPercent`, DEFAULT_PPN_PERCENT);
                                       }
                                       // Default to INCLUDE if no mode set
                                       const currentMode = form.getValues(`items.${index}.ppnMode`);

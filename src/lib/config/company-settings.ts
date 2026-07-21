@@ -17,6 +17,8 @@ export interface CompanySettings {
     footerNote: string;
     signerName: string;
     logoUrl: string;
+    bankAccountsNonPPN: string; // JSON: BankAccount[]
+    bankAccountsPPN: string; // JSON: BankAccount[]
 }
 
 export const COMPANY_SETTING_KEYS: Record<keyof CompanySettings, string> = {
@@ -27,6 +29,8 @@ export const COMPANY_SETTING_KEYS: Record<keyof CompanySettings, string> = {
     footerNote: 'company.footerNote',
     signerName: 'company.signerName',
     logoUrl: 'company.logoUrl',
+    bankAccountsNonPPN: 'company.bankAccountsNonPPN',
+    bankAccountsPPN: 'company.bankAccountsPPN',
 };
 
 /**
@@ -63,10 +67,10 @@ export async function readCompanySettingOverrides(): Promise<Partial<CompanySett
  * getCompanyConfigAsync when they want tenant overrides applied.
  */
 export async function getCompanyConfigWithOverridesAsync() {
-    const { getCompanyConfigAsync } = await import('./company');
+    const { getCompanyConfigAsync, parseBankAccounts } = await import('./company');
     const base = await getCompanyConfigAsync();
     const overrides = await readCompanySettingOverrides();
-    return {
+    const merged = {
         ...base,
         name: overrides.name ?? base.name,
         address: overrides.address ?? base.address,
@@ -76,4 +80,15 @@ export async function getCompanyConfigWithOverridesAsync() {
         signerName: overrides.signerName ?? base.signerName,
         logoUrl: overrides.logoUrl ?? base.logoUrl,
     };
+    type BankAccount = { holder: string; bank: string; account: string };
+    // Bank accounts: JSON stored in AppSetting; merge over env/base.
+    if (overrides.bankAccountsNonPPN) {
+        const parsed = parseBankAccounts(overrides.bankAccountsNonPPN) as BankAccount[] | null;
+        if (parsed && parsed.length > 0) merged.bankAccountsNonPPN = parsed;
+    }
+    if (overrides.bankAccountsPPN) {
+        const parsed = parseBankAccounts(overrides.bankAccountsPPN) as BankAccount[] | null;
+        if (parsed && parsed.length > 0) merged.bankAccountsPPN = parsed;
+    }
+    return merged;
 }

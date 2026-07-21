@@ -159,9 +159,10 @@ function computeEarnings(
   };
 }
 
+const OVERTIME_MULTIPLIER = 1.5;
 function defaultOvertimeHourlyRate(dailyRate: number, standardDayHours: number): number {
   if (standardDayHours <= 0) return 0;
-  return Math.round((dailyRate / standardDayHours) * 1.5 * 100) / 100;
+  return Math.round((dailyRate / standardDayHours) * OVERTIME_MULTIPLIER * 100) / 100;
 }
 
 function buildRecordResult(record: RecordWithRelations): AttendanceRecordResult {

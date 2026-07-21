@@ -1,3 +1,6 @@
+const MINUTES_PER_DAY = 1440;
+const DEFAULT_SHIFT_HOURS = 8;
+
 /**
  * Shift window utilities for attendance.
  * Handles overnight shifts, planned hours calculation, and workDate resolution.
@@ -26,7 +29,7 @@ export function calcPlannedHours(startTime: string, endTime: string): number | n
 
   const minutes = end > start
     ? end - start
-    : (1440 - start) + end; // overnight
+    : (MINUTES_PER_DAY - start) + end; // overnight
 
   return Math.round((minutes / 60) * 100) / 100; // 2 decimal places
 }
@@ -105,5 +108,5 @@ export function getEffectivePlannedHours(
   endTime: string,
 ): number {
   if (plannedHours != null && plannedHours > 0) return plannedHours;
-  return calcPlannedHours(startTime, endTime) ?? 8; // fallback to 8h
+  return calcPlannedHours(startTime, endTime) ?? DEFAULT_SHIFT_HOURS;
 }

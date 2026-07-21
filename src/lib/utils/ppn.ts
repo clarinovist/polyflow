@@ -1,3 +1,5 @@
+export const DEFAULT_PPN_PERCENT = 11;
+
 /**
  * PPN (Pajak Pertambahan Nilai) Calculation Utilities
  *
@@ -34,7 +36,7 @@ export interface PpnCalculation {
  */
 export function calculatePpn(
   subtotal: number,
-  taxPercent: number = 11,
+  taxPercent: number = DEFAULT_PPN_PERCENT,
   ppnMode: PpnMode = 'EXCLUDE'
 ): PpnCalculation {
   if (subtotal <= 0) {
@@ -68,7 +70,7 @@ export function calculatePpn(
  * @param taxPercent - Persentase PPN (default 11%)
  * @returns DPP (harga tanpa PPN)
  */
-export function extractDppFromInclude(priceIncludePpn: number, taxPercent: number = 11): number {
+export function extractDppFromInclude(priceIncludePpn: number, taxPercent: number = DEFAULT_PPN_PERCENT): number {
   return Math.round((priceIncludePpn / (1 + taxPercent / 100)) * 100) / 100;
 }
 
@@ -79,6 +81,6 @@ export function extractDppFromInclude(priceIncludePpn: number, taxPercent: numbe
  * @param taxPercent - Persentase PPN (default 11%)
  * @returns Jumlah PPN
  */
-export function calculateTaxFromDpp(dpp: number, taxPercent: number = 11): number {
+export function calculateTaxFromDpp(dpp: number, taxPercent: number = DEFAULT_PPN_PERCENT): number {
   return Math.round((dpp * (taxPercent / 100)) * 100) / 100;
 }

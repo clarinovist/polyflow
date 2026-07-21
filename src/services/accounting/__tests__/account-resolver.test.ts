@@ -178,18 +178,18 @@ describe('account-resolver', () => {
             expect(result).toEqual({ id: 'acc-electricity', code: '53200', name: 'Factory Electricity' });
         });
 
-        it('resolves new role other-payables by Melindo code (2-390)', async () => {
+        it('resolves other-payables by generic owner pattern (TenantAccountRole preferred)', async () => {
             vi.mocked(prisma.account.findUnique)
                 .mockResolvedValueOnce(null) // 21120 not found
                 .mockResolvedValueOnce({
-                    id: 'acc-melindo-hutang',
+                    id: 'acc-owner',
                     code: '2-390',
-                    name: 'Hutang ke Nugroho',
+                    name: 'Hutang Owner',
                 } as never);
 
             const result = await resolveAccount('other-payables');
 
-            expect(result).toEqual({ id: 'acc-melindo-hutang', code: '2-390', name: 'Hutang ke Nugroho' });
+            expect(result).toEqual({ id: 'acc-owner', code: '2-390', name: 'Hutang Owner' });
         });
 
         it('prefers TenantAccountRole DB mapping over patterns when tenantId is set', async () => {

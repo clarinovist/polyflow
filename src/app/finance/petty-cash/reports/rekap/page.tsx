@@ -230,7 +230,7 @@ export default function RekapKasPage() {
                             REKAP PEMASUKAN & PENGELUARAN KAS
                         </h1>
                         <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Cash Opname : 1-112 Kas Kecil
+                            Cash Opname : Kas Kecil
                         </p>
                         <p className="text-sm text-gray-700 dark:text-gray-300">
                             Tanggal : {dayName}, {dateFormatted}

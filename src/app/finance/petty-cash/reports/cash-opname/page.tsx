@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getDailyPettyCashReportAction } from "@/actions/finance/petty-cash-report-actions";
+import {
+  getDailyPettyCashReportAction,
+  getCashOpnameSignaturesAction,
+  saveCashOpnameSignaturesAction,
+} from "@/actions/finance/petty-cash-report-actions";
 import { Button } from "@/components/ui/button";
 import { RotateCw, Printer, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -58,6 +62,8 @@ function formatNumber(n: number): string {
   return n.toLocaleString("id-ID").replace(/,/g, ".");
 }
 
+const EMPTY_SIGNATURES = { kasir: '', akuntansi: '', direktur: '', komisaris: '' };
+
 export default function CashOpnamePage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,12 +71,9 @@ export default function CashOpnamePage() {
   const [denominations, setDenominations] = useState<number[]>(
     new Array(DENOMINATIONS.length).fill(0),
   );
-  const [signatures, setSignatures] = useState({
-    kasir: "Febyoni",
-    akuntansi: "Akhmad A C",
-    direktur: "Nugroho Pramono",
-    komisaris: "Lie Mei Lie",
-  });
+  // ponytail: defaults now generic empty; persist/load from AppSetting via server actions.
+  const [signatures, setSignatures] = useState({ ...EMPTY_SIGNATURES });
+  const [sigLoaded, setSigLoaded] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -93,6 +96,37 @@ export default function CashOpnamePage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Load saved signer names from AppSetting
+  useEffect(() => {
+    if (sigLoaded) return;
+    (async () => {
+      try {
+        const res = await getCashOpnameSignaturesAction();
+        if (res && 'success' in res && (res as { success: boolean }).success) {
+          const wrapped = res as { data: Record<string, string> };
+          const saved = wrapped.data;
+          if (saved && Object.keys(saved).length > 0) {
+            setSignatures((prev) => ({ ...prev, ...saved }));
+          }
+        }
+      } catch {
+        // ignore
+      }
+      setSigLoaded(true);
+    })();
+  }, [sigLoaded]);
+
+  const handleSaveSignatures = async () => {
+    try {
+      const filtered = Object.fromEntries(
+        Object.entries(signatures).filter(([, v]) => v.trim() !== '')
+      );
+      await saveCashOpnameSignaturesAction(filtered);
+    } catch {
+      // ignore
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -229,6 +263,7 @@ export default function CashOpnamePage() {
             onChange={(e) =>
               setSignatures((s) => ({ ...s, kasir: e.target.value }))
             }
+            onBlur={handleSaveSignatures}
             className="h-8 text-sm"
           />
         </div>
@@ -241,6 +276,7 @@ export default function CashOpnamePage() {
             onChange={(e) =>
               setSignatures((s) => ({ ...s, akuntansi: e.target.value }))
             }
+            onBlur={handleSaveSignatures}
             className="h-8 text-sm"
           />
         </div>
@@ -253,6 +289,7 @@ export default function CashOpnamePage() {
             onChange={(e) =>
               setSignatures((s) => ({ ...s, direktur: e.target.value }))
             }
+            onBlur={handleSaveSignatures}
             className="h-8 text-sm"
           />
         </div>
@@ -265,6 +302,7 @@ export default function CashOpnamePage() {
             onChange={(e) =>
               setSignatures((s) => ({ ...s, komisaris: e.target.value }))
             }
+            onBlur={handleSaveSignatures}
             className="h-8 text-sm"
           />
         </div>
@@ -286,7 +324,7 @@ export default function CashOpnamePage() {
               BERITA ACARA
             </h1>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              Cash Opname : 1-112 Kas Kecil
+              Cash Opname : Kas Kecil
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
               Tanggal : {dayName}, {dateFormatted}

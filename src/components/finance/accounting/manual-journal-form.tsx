@@ -74,21 +74,37 @@ export default function ManualJournalForm({
     // Importing Templates logic
     const [templateOpen, setTemplateOpen] = useState(false);
 
+    // ponytail: resolve via role hints across both legacy + new COA; role is source of truth
     const applyTemplate = (templateId: string) => {
         const template = JOURNAL_TEMPLATES.find((t) => t.id === templateId);
         if (!template) return;
-
+        // minimal role→name pattern map reusing resolver hints
+        const ROLE_NAME_HINTS: Record<string, string[]> = {
+            'petty-cash': ['Kas Kecil', 'Petty Cash'],
+            'office-salaries': ['Gaji', 'Salaries'],
+            'factory-electricity': ['Listrik', 'Electricity'],
+            'factory-maintenance': ['Maintenance', 'Pemeliharaan'],
+            'factory-rent': ['Sewa', 'Rent'],
+            'raw-material': ['Bahan Baku', 'Raw Material'],
+            'packaging': ['Kemasan', 'Packaging'],
+            'inventory-consumables': ['Perlengkapan', 'Consumable'],
+            'shipping-expense': ['Pengiriman', 'Shipping', 'Transport'],
+        };
         const newLines = template.lines.map((line) => {
-            const matchedAccount = accounts.find((acc) => acc.code === line.accountCode);
-
+            let matched = accounts.find((acc) => acc.code === line.accountCode);
+            const hints = ROLE_NAME_HINTS[line.accountRole];
+            if (!matched && hints) {
+                matched = accounts.find((acc) =>
+                    hints.some((h) => acc.name.toLowerCase().includes(h.toLowerCase()))
+                );
+            }
             return {
-                accountId: matchedAccount ? matchedAccount.id : "",
+                accountId: matched ? matched.id : "",
                 description: line.description || "",
                 debit: 0,
                 credit: 0
             };
         });
-
         replace(newLines);
         form.setValue('description', template.name);
         setTemplateOpen(false);
