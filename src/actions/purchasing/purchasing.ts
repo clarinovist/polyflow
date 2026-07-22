@@ -7,6 +7,7 @@ import {
   updatePurchaseOrderSchema,
   createGoodsReceiptSchema,
   createPurchaseInvoiceSchema,
+  createWalkInReceiptSchema,
 } from "@/lib/schemas/purchasing";
 import { PurchaseService } from "@/services/purchasing/purchase-service";
 import { requireAuth } from "@/lib/tools/auth-checks";
@@ -17,6 +18,7 @@ import {
   CreateGoodsReceiptValues,
   CreatePurchaseInvoiceValues,
   CreatePurchaseRequestValues,
+  CreateWalkInReceiptValues,
   createPurchaseRequestSchema,
 } from "@/lib/schemas/purchasing";
 import { PurchaseOrderStatus } from "@prisma/client";
@@ -108,11 +110,46 @@ export const createGoodsReceipt = withTenant(async function createGoodsReceipt(
     revalidatePath("/purchasing/orders");
     revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
     revalidatePath("/warehouse/incoming");
+    revalidatePath("/warehouse/incoming/history");
     revalidatePath(`/warehouse/incoming/create-receipt`);
     revalidatePath("/warehouse/inventory");
     return serializeData(receipt);
   });
 });
+
+export const createWalkInGoodsReceipt = withTenant(
+  async function createWalkInGoodsReceipt(formData: CreateWalkInReceiptValues) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const validated = createWalkInReceiptSchema.parse(formData);
+
+      const result = await PurchaseService.createWalkInReceipt(
+        validated,
+        session.user.id,
+      );
+
+      await logActivity({
+        userId: session.user.id,
+        action: "CREATE_WALK_IN_RECEIPT",
+        entityType: "GoodsReceipt",
+        entityId: result.goodsReceipt.id,
+        details: `Walk-in GR ${result.goodsReceipt.receiptNumber} + PO ${result.purchaseOrder.orderNumber} (nota ${validated.supplierRefNo})`,
+      });
+
+      revalidatePath("/warehouse/incoming");
+      revalidatePath("/warehouse/incoming/history");
+      revalidatePath("/warehouse/incoming/from-nota");
+      revalidatePath("/warehouse/inventory");
+      revalidatePath("/purchasing/orders");
+      revalidatePath(`/purchasing/orders/${result.purchaseOrder.id}`);
+
+      return serializeData({
+        goodsReceipt: result.goodsReceipt,
+        purchaseOrder: result.purchaseOrder,
+      });
+    });
+  },
+);
 
 export const createPurchaseInvoice = withTenant(
   async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {

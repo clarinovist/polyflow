@@ -88,7 +88,12 @@ export function GoodsReceiptForm({
                 return;
             }
             toast.success('Penerimaan Barang berhasil dicatat');
-            router.push(`${basePath}/${purchaseOrderId}`);
+            const receiptId = result.data?.id as string | undefined;
+            if (basePath.includes('/warehouse/incoming') && receiptId) {
+                router.push(`${basePath}/${receiptId}`);
+            } else {
+                router.push(`${basePath}/${purchaseOrderId}`);
+            }
             router.refresh();
         } catch (_error) {
             toast.error('Gagal memproses penerimaan barang. Silakan coba lagi.');

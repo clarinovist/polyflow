@@ -32,7 +32,15 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
                 <div className="text-center py-12">
                     <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h2 className="text-lg font-semibold">Pilih Purchase Order</h2>
-                    <p className="text-muted-foreground">Pilih PO dari daftar untuk membuat goods receipt.</p>
+                    <p className="text-muted-foreground mb-4">
+                        Pilih PO dari antrean penerimaan untuk membuat goods receipt.
+                    </p>
+                    <a
+                        href="/warehouse/incoming"
+                        className="text-emerald-600 hover:underline text-sm font-medium"
+                    >
+                        Kembali ke antrean penerimaan
+                    </a>
                 </div>
             </div>
         );
@@ -68,7 +76,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            <GoodsReceiptForm {...formProps} />
+            <GoodsReceiptForm {...formProps} basePath="/warehouse/incoming" />
         </div>
     );
 }

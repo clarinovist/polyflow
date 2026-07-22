@@ -84,6 +84,35 @@ export const createPurchaseInvoiceSchema = z.object({
   notes: z.string().optional().transform(sanitizeHtml),
 });
 
+/** Warehouse walk-in: goods + nota arrive before a planned PO exists. */
+export const createWalkInReceiptSchema = z.object({
+  supplierId: z.string().min(1, "Supplier is required"),
+  supplierRefNo: z
+    .string()
+    .min(1, "No. nota / surat jalan is required")
+    .transform(sanitizeHtml),
+  receivedDate: z.coerce.date(),
+  locationId: z.string().min(1, "Location is required"),
+  notes: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => (v == null || v === "" ? undefined : sanitizeHtml(v))),
+  items: z
+    .array(
+      z.object({
+        productVariantId: z.string().min(1, "Product is required"),
+        receivedQty: z.coerce.number().positive("Quantity must be positive"),
+        unitCost: z.coerce
+          .number()
+          .min(0, "Unit cost cannot be negative")
+          .optional()
+          .nullable(),
+      }),
+    )
+    .min(1, "At least one item is required"),
+});
+
 export const purchaseRequestItemSchema = z.object({
   productVariantId: z.string().min(1, "Product is required"),
   quantity: z.coerce.number().positive("Quantity must be positive"),
@@ -110,6 +139,9 @@ export type GoodsReceiptItemValues = z.infer<typeof goodsReceiptItemSchema>;
 export type CreateGoodsReceiptValues = z.infer<typeof createGoodsReceiptSchema>;
 export type CreatePurchaseInvoiceValues = z.infer<
   typeof createPurchaseInvoiceSchema
+>;
+export type CreateWalkInReceiptValues = z.infer<
+  typeof createWalkInReceiptSchema
 >;
 
 export type PurchaseRequestItemValues = z.infer<

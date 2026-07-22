@@ -30,6 +30,7 @@ interface GoodsReceiptDetailProps {
         notes: string | null;
         isMaklon?: boolean;
         purchaseOrder: {
+            id: string;
             orderNumber: string;
             supplier: { name: string; code: string | null };
         } | null;
@@ -55,7 +56,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href={`${basePath}/receipts`}>
+                        <Link href={`${basePath}/history`}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
                         </Link>
                     </Button>
@@ -72,7 +73,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
 
                 {receipt.purchaseOrder && (
                     <Button variant="outline" asChild>
-                        <Link href={`${basePath}/orders/${receipt.purchaseOrder.orderNumber.replace('PO-', '')}`}>
+                        <Link href={`${basePath}/orders/${receipt.purchaseOrder.id}`}>
                             <FileText className="mr-2 h-4 w-4" />
                             Lihat PO {receipt.purchaseOrder.orderNumber}
                         </Link>
@@ -148,7 +149,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                                         <div>
                                             <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
                                             <Link
-                                                href={`${basePath}/orders`}
+                                                href={`${basePath}/orders/${receipt.purchaseOrder.id}`}
                                                 className="font-mono text-blue-600 hover:underline"
                                             >
                                                 {receipt.purchaseOrder.orderNumber}

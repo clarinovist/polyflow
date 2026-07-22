@@ -26,6 +26,12 @@ import {
 } from './invoices-service';
 import { createPurchaseRequest, convertRequestToOrder, consolidateRequestsToOrder } from './requests-service';
 import { getPurchaseStats } from './stats-service';
+import {
+    listReceivablePurchaseOrders,
+    getGoodsReceiptsForDay,
+    createWalkInReceipt,
+} from './walk-in-receipt-service';
+import type { CreateWalkInReceiptValues } from '@/lib/schemas/purchasing';
 
 export class PurchaseService {
 
@@ -47,6 +53,18 @@ export class PurchaseService {
 
     static async createGoodsReceipt(data: CreateGoodsReceiptValues, userId: string) {
         return createGoodsReceipt(data, userId);
+    }
+
+    static async listReceivablePurchaseOrders() {
+        return listReceivablePurchaseOrders();
+    }
+
+    static async getGoodsReceiptsForDay(day?: Date) {
+        return getGoodsReceiptsForDay(day);
+    }
+
+    static async createWalkInReceipt(data: CreateWalkInReceiptValues, userId: string) {
+        return createWalkInReceipt(data, userId);
     }
 
     static async createInvoice(data: CreatePurchaseInvoiceValues) {

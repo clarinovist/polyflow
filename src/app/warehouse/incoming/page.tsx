@@ -1,64 +1,29 @@
 import React from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
-import { GoodsReceiptTable } from '@/components/purchasing/orders/GoodsReceiptTable';
 import { Metadata } from 'next';
-import { PackageSearch } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-
-import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
-import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
-
 import { withTenantPage } from '@/lib/core/tenant';
+import { IncomingOperationalClient } from '@/components/warehouse/incoming/IncomingOperationalClient';
 
-const getReceipts = withTenantPage(async (opts) => {
-    return PurchaseService.getGoodsReceipts(opts);
+const getOperationalData = withTenantPage(async () => {
+    const [receivablePOs, todayReceipts] = await Promise.all([
+        PurchaseService.listReceivablePurchaseOrders(),
+        PurchaseService.getGoodsReceiptsForDay(new Date()),
+    ]);
+    return { receivablePOs, todayReceipts };
 });
+
 export const metadata: Metadata = {
-    title: 'Incoming Receipts | Warehouse | PolyFlow',
+    title: 'Penerimaan Barang | Warehouse | PolyFlow',
 };
 
-export default async function WarehouseIncomingPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
-    const params = await searchParams;
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
-
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
-    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
-
-    const receipts = await getReceipts({ startDate: checkStart, endDate: checkEnd });
-
-    // Serialize all Prisma objects for Client Components
-    const serializedReceipts = serializeData(receipts);
+export default async function WarehouseIncomingPage() {
+    const data = await getOperationalData();
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Penerimaan Barang</h1>
-                    <p className="text-muted-foreground">Lihat dan kelola semua penerimaan barang dari supplier.</p>
-                </div>
-                <div>
-                    <div className="flex gap-2">
-                        <Link href="/warehouse/incoming/create-maklon" passHref>
-                            <Button className="bg-purple-600 hover:bg-purple-700 h-9 shrink-0 gap-2">
-                                <PackageSearch className="h-4 w-4" />
-                                Post Maklon Receipt
-                            </Button>
-                        </Link>
-                        <UrlTransactionDateFilter defaultPreset="this_month" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Use the refactored GoodsReceiptTable with the warehouse base path */}
-            <GoodsReceiptTable
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                receipts={serializedReceipts as any}
-                basePath="/warehouse/incoming"
-            />
-        </div>
+        <IncomingOperationalClient
+            receivablePOs={serializeData(data.receivablePOs) as never}
+            todayReceipts={serializeData(data.todayReceipts) as never}
+        />
     );
 }
