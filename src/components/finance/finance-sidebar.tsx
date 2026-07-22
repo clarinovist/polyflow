@@ -15,7 +15,6 @@ import {
   TrendingUp,
   Wallet,
   Landmark,
-  Factory,
 } from "lucide-react";
 import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
@@ -35,7 +34,7 @@ interface FinanceSidebarProps {
 
 const financeLinks = [
   {
-    heading: "Operasi",
+    heading: "Hari Ini",
     items: [
       {
         href: "/finance",
@@ -43,6 +42,11 @@ const financeLinks = [
         label: financeSidebarLabels.dashboard,
         exact: true,
       },
+    ],
+  },
+  {
+    heading: "Operasi Kas",
+    items: [
       {
         href: "/finance/petty-cash",
         icon: Wallet,
@@ -78,7 +82,7 @@ const financeLinks = [
     ],
   },
   {
-    heading: "Arus Kas",
+    heading: "Piutang & Hutang",
     items: [
       {
         href: "/finance/quick-entry",
@@ -134,62 +138,29 @@ const financeLinks = [
         href: "/finance/budgeting",
         icon: TrendingUp,
         label: financeSidebarLabels.budgeting,
-        exact: true,
-      },
-      {
-        href: "/finance/budgeting/input",
-        icon: Wallet,
-        label: financeSidebarLabels.budgetInput,
-      },
-      {
-        href: "/finance/budgeting/variance",
-        icon: FileText,
-        label: financeSidebarLabels.budgetVariance,
+        children: [
+          {
+            href: "/finance/budgeting/input",
+            icon: Wallet,
+            label: financeSidebarLabels.budgetInput,
+          },
+          {
+            href: "/finance/budgeting/variance",
+            icon: FileText,
+            label: financeSidebarLabels.budgetVariance,
+          },
+        ],
       },
     ],
   },
   {
-    heading: "Laporan Keuangan",
+    heading: "Laporan",
     items: [
       {
-        href: "/finance/reports/balance-sheet",
+        href: "/finance/reports",
         icon: FileText,
-        label: financeSidebarLabels.balanceSheet,
-      },
-      {
-        href: "/finance/reports/income-statement",
-        icon: FileText,
-        label: financeSidebarLabels.incomeStatement,
-      },
-      {
-        href: "/finance/reports/cash-flow",
-        icon: FileText,
-        label: financeSidebarLabels.cashFlowStatement,
-      },
-      {
-        href: "/finance/reports/trial-balance",
-        icon: FileText,
-        label: financeSidebarLabels.trialBalance,
-      },
-      {
-        href: "/finance/reports/general-ledger",
-        icon: BookOpen,
-        label: financeSidebarLabels.generalLedger,
-      },
-      {
-        href: "/finance/reports/hpp",
-        icon: FileText,
-        label: financeSidebarLabels.hppReport,
-      },
-      {
-        href: "/finance/reports/tax",
-        icon: FileText,
-        label: financeSidebarLabels.taxReport,
-      },
-      {
-        href: "/finance/reports/maklon",
-        icon: Factory,
-        label: financeSidebarLabels.maklonProfitability,
+        label: financeSidebarLabels.reportsHub,
+        exact: true,
       },
     ],
   },
@@ -200,11 +171,13 @@ const financeLinks = [
         href: "/finance/coa",
         icon: Settings2,
         label: financeSidebarLabels.chartOfAccounts,
-      },
-      {
-        href: "/finance/coa/roles",
-        icon: Settings2,
-        label: "Role Mapping",
+        children: [
+          {
+            href: "/finance/coa/roles",
+            icon: Settings2,
+            label: "Role Mapping",
+          },
+        ],
       },
       {
         href: "/finance/periods",
@@ -216,6 +189,11 @@ const financeLinks = [
         icon: HistoryIcon,
         label: financeSidebarLabels.openingBalance,
       },
+      {
+        href: "/finance/payment-banks",
+        icon: Landmark,
+        label: financeSidebarLabels.paymentBanks,
+      },
     ],
   },
 ];
@@ -223,7 +201,7 @@ const financeLinks = [
 export function FinanceSidebar({ user, permissions }: FinanceSidebarProps) {
   const filteredGroups = filterNavGroups(financeLinks, permissions);
   return (
-    <PortalSidebarBase user={user} portalName="Finance" accentColor="purple">
+    <PortalSidebarBase user={user} portalName="Portal Keuangan" accentColor="purple">
       <div className="px-3 mb-2">
         <AdminBackButton />
       </div>

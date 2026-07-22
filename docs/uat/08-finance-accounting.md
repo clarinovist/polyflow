@@ -1,14 +1,106 @@
-# 📊 UAT — Modul Keuangan & Akuntansi
+# 📊 UAT — Modul Keuangan & Akuntansi (Papan Keuangan v2)
 
 ## Informasi Modul
 
 | Field | Detail |
 |-------|--------|
-| **Modul** | Chart of Accounts, Jurnal, AR/AP, Laporan Keuangan |
-| **Halaman** | `/finance/accounts`, `/finance/journals`, `/finance/reports` |
+| **Modul** | Papan Keuangan, COA, Jurnal, AR/AP, Petty Cash, Rekon Bank, Laporan (hub) |
+| **Halaman** | `/finance` (Papan Keuangan), `/finance/coa`, `/finance/journals`, `/finance/invoices/*`, `/finance/payments/*`, `/finance/aging`, `/finance/bank-reconciliation`, `/finance/reports` (hub), `/finance/periods` |
 | **Login Sebagai** | ADMIN atau FINANCE |
 | **Tanggal UAT** | ____/____/________ |
 | **Nama Tester** | _________________________ |
+| **IA baru** | Sidebar: Hari Ini (Papan Keuangan) · Operasi Kas (Petty + Rekon + Aging) · Piutang & Hutang (Quick entry, AR, terima, AP, bayar) · Akuntansi (Jurnal, Aset, FOH) · Anggaran (1 entry hub → input/variance) · Laporan (1 hub `/finance/reports` → 8 reports) · Pengaturan (COA + roles, periode, saldo awal, bank pembayaran) |
+
+## 0. Papan Keuangan — Command Board (NEW)
+
+### TC-FIN-HOME-001: Board queues + snapshot dual section
+| **ID** | TC-FIN-HOME-001 | **Prioritas** | 🔴 P1 |
+
+**Langkah:** Buka `/finance` → periksa antrean kerja (snapshot, bukan filter periode) + snapshot periode (filter bulan).
+
+**Diharapkan:**
+- Top 4 queue cards: Piutang jatuh tempo (N / Rp sisa), Hutang jatuh tempo, Jurnal draft, Rekonsiliasi terbuka. Angka = snapshot global, bukan filter periode.
+- Filter bulan (FinanceDateFilter) hanya mempengaruhi strip snapshot GL di bawah: Pendapatan (4*), Posisi kas (111*), AR GL (112*), AP GL (211*) — semua POSTED only.
+- Tooltip definisi GL vs invoice remaining jelas.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-FIN-HOME-002: Posisi kas label jujur
+| **ID** | TC-FIN-HOME-002 | **Prioritas** | 🔴 P1 |
+
+**Langkah:** `/finance` → cek card Posisi kas.
+
+**Diharapkan:** Label **Posisi kas (akun 111\*)** + tooltip GL akun 111* POSTED filter periode. Tidak lagi copy menyesatkan "Revenue − Payables" / "Net Position".
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-FIN-HOME-003: AR overdue deep link
+| **ID** | TC-FIN-HOME-003 | **Prioritas** | 🔴 P1 |
+
+**Langkah:** Klik card Piutang jatuh tempo atau list top 5 → lanjutkan `/finance/invoices/sales?status=OVERDUE`.
+
+**Diharapkan:** List invoice sales overdue filter hidup (dueDate < now, sisa > 0). Klik detail → bisa input pembayaran di `/finance/payments/received`.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-FIN-HOME-004: AP overdue deep link
+| **ID** | TC-FIN-HOME-004 | **Prioritas** | 🔴 P1 |
+
+**Langkah:** Card Hutang jatuh tempo → `/finance/invoices/purchase?status=OVERDUE`.
+
+**Diharapkan:** List hutang overdue, supplier name jelas, bisa lanjut bayar `/finance/payments/sent`.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-FIN-HOME-005: Quick actions ID
+| **ID** | TC-FIN-HOME-005 | **Prioritas** | 🟡 P2 |
+
+**Langkah:** Bar Cepat (Terima bayar, Bayar supplier, Petty cash, Jurnal baru, Aging, Rekonsiliasi, Laporan).
+
+**Diharapkan:** Semua link live, label Bahasa Indonesia.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-FIN-NAV-001: IA collapse sidebar
+| **ID** | TC-FIN-NAV-001 | **Prioritas** | 🔴 P1 |
+
+**Langkah:** Periksa sidebar finance: top-level ≤ ~15 (target). Laporan = 1 entry hub `/finance/reports` (bukan 8 flat). Anggaran = 1 entry hub nested input/variance. Pengaturan mencakup Bank Pembayaran `/finance/payment-banks`.
+
+**Diharapkan:** Navigasi ringan; report cards di `/finance/reports` hub lengkap 8 reports + variance. Permission granular masih work: user dengan hak `/finance/reports/income-statement` saja masih bisa akses via hub atau direct URL walaupun sidebar top-level hanya hub.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-FIN-REP-001: Reports hub
+| **ID** | TC-FIN-REP-001 | **Prioritas** | 🔴 P1 |
+
+**Langkah:** `/finance/reports` → buka semua 8 cards: Neraca, Laba Rugi, Neraca Saldo, Buku Besar, Arus Kas, HPP, Pajak, Maklon + Varians Anggaran.
+
+**Diharapkan:** Semua link hidup, deskripsi ID, catatan metrik anti-bingung (GL vs invoice).
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-FIN-PERIOD-001: Period close signal
+| **ID** | TC-FIN-PERIOD-001 | **Prioritas** | 🟡 P2 |
+
+**Langkah:** `/finance` strip periode: cek periode berjalan OPEN, days to month end, openCount. Klik Kelola periode → `/finance/periods`.
+
+**Diharapkan:** Signal jelas tutup bulan; tidak crash bila tidak ada periode berjalan.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
 
 ## Prasyarat
 - Sudah ada Chart of Accounts (CoA) yang terisi

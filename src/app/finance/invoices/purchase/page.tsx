@@ -7,7 +7,7 @@ import { serializeData } from '@/lib/utils/utils';
 import { withTenant } from '@/lib/core/tenant';
 
 export const metadata: Metadata = {
-    title: 'Purchase Invoices | PolyFlow',
+    title: 'Invoice Purchase | PolyFlow',
 };
 
 import { parseISO } from 'date-fns';
@@ -18,8 +18,9 @@ const getInvoices = withTenant(async (dateRange?: { startDate?: Date; endDate?: 
     return PurchaseService.getPurchaseInvoices(dateRange);
 });
 
-export default async function PurchaseInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+export default async function PurchaseInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, status?: string }> }) {
     const params = await searchParams;
+    const initialStatus = params?.status;
 
     // Only filter by date when explicitly provided via URL params
     const dateRange = params?.startDate && params?.endDate
@@ -35,9 +36,9 @@ export default async function PurchaseInvoicesPage({ searchParams }: { searchPar
         <div className="flex flex-col gap-6 p-6">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Purchase Invoices</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Invoice Purchase</h1>
                     <p className="text-muted-foreground">
-                        Manage supplier bills and payments.
+                        Kelola tagihan supplier dan pembayaran.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -46,7 +47,7 @@ export default async function PurchaseInvoicesPage({ searchParams }: { searchPar
             </div>
 
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseInvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/purchase" />
+            <PurchaseInvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/purchase" initialStatus={initialStatus} />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { columns, JournalEntryWithDetails } from "./JournalColumns";
 import {
   getJournalEntries,
@@ -53,11 +54,22 @@ import {
 } from "@tanstack/react-table";
 
 export function JournalListClient() {
-  // State
+  const urlSearchParams = useSearchParams();
+  const urlStatus = urlSearchParams.get('status')?.toUpperCase();
+  // State — init from ?status=DRAFT if present
   const [data, setData] = useState<JournalEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<JournalStatus | "ALL">("ALL");
+  const [status, setStatus] = useState<JournalStatus | "ALL">(() => {
+    if (urlStatus && ['DRAFT','POSTED','VOIDED'].includes(urlStatus)) return urlStatus as JournalStatus;
+    return "ALL";
+  });
+
+  useEffect(() => {
+    if (urlStatus && ['DRAFT','POSTED','VOIDED'].includes(urlStatus)) {
+      setStatus(urlStatus as JournalStatus);
+    }
+  }, [urlStatus]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -161,9 +173,9 @@ export function JournalListClient() {
     <div className="space-y-6 max-w-full overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Journal Entries</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Jurnal</h2>
           <p className="text-muted-foreground text-sm">
-            Manage and post general ledger transactions from all modules.
+            Kelola dan posting transaksi buku besar dari semua modul.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -177,12 +189,12 @@ export function JournalListClient() {
               {batchLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Post Selected ({selectedRows.length})
+              Post Terpilih ({selectedRows.length})
             </Button>
           )}
           <Link href="/finance/journals/create">
             <Button variant="outline">
-              <Plus className="mr-2 h-4 w-4" /> New Manual Entry
+              <Plus className="mr-2 h-4 w-4" /> Jurnal Manual Baru
             </Button>
           </Link>
         </div>
@@ -200,10 +212,10 @@ export function JournalListClient() {
             {/* Search */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground whitespace-nowrap">
-                Search:
+                  Search:
               </span>
               <Input
-                placeholder="Number, ref..."
+                placeholder="Nomor, ref..."
                 className="h-9 w-[180px] bg-background"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -223,10 +235,10 @@ export function JournalListClient() {
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All Transactions</SelectItem>
-                  <SelectItem value="DRAFT">Draft Only</SelectItem>
-                  <SelectItem value="POSTED">Posted Entry</SelectItem>
-                  <SelectItem value="VOIDED">Voided</SelectItem>
+                  <SelectItem value="ALL">Semua Transaksi</SelectItem>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="POSTED">Sudah Posting</SelectItem>
+                  <SelectItem value="VOIDED">Dibatalkan</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -246,7 +258,7 @@ export function JournalListClient() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
+          <CardTitle>Riwayat Transaksi</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -293,7 +305,7 @@ export function JournalListClient() {
                       <div className="flex flex-col justify-center items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
                         <span className="text-sm font-medium">
-                          Fetching transactions...
+                          Mengambil transaksi...
                         </span>
                       </div>
                     </TableCell>

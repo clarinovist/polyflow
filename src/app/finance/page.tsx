@@ -1,32 +1,53 @@
-import { getFinanceDashboardStats } from "@/actions/dashboard/finance-dashboard";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { getFinanceShiftBoard } from "@/actions/dashboard/finance-dashboard";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { FinanceDateFilter } from "@/components/finance/finance-date-filter";
 import { formatRupiah } from "@/lib/utils/utils";
 import {
-  Wallet,
+  AlertTriangle,
+  Banknote,
+  FileClock,
+  Landmark,
+  Receipt,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingUp,
+  Wallet,
+  CalendarClock,
   FileText,
-  DollarSign,
-  Briefcase,
-  Landmark,
+  BarChart3,
+  History,
+  CreditCard,
+  Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-
-import { PageHeader } from "@/components/ui/page-header";
-
-import { startOfMonth, endOfMonth, parseISO } from "date-fns";
-import { FinanceDateFilter } from "@/components/finance/finance-date-filter";
+import { startOfMonth, endOfMonth, parseISO, format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 
 export const dynamic = "force-dynamic";
+
+function QueueCard({ title, count, amount, subLabel, href, icon: Icon, tone }: {
+  title: string; count: number; amount: number; subLabel: string; href: string; icon: React.ElementType; tone: string;
+}) {
+  return (
+    <Link href={href} className="block">
+      <Card className={`shadow-sm hover:shadow-md transition-shadow border-t-4 ${tone} h-full`}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <Icon className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold">{count}</span>
+            <span className="text-xs text-muted-foreground">{subLabel}</span>
+          </div>
+          <div className="text-sm font-medium mt-1 truncate">{formatRupiah(amount)} sisa</div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
 
 export default async function FinanceDashboardPage({
   searchParams,
@@ -37,255 +58,272 @@ export default async function FinanceDashboardPage({
   const now = new Date();
   const defaultStart = startOfMonth(now);
   const defaultEnd = endOfMonth(now);
-
-  const checkStart = params?.startDate
-    ? parseISO(params.startDate)
-    : defaultStart;
+  const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
   const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-  const statsRes = await getFinanceDashboardStats({
-    startDate: checkStart,
-    endDate: checkEnd,
-  });
-  const stats =
-    statsRes.success && statsRes.data
-      ? statsRes.data
-      : {
-          revenue: 0,
-          receivables: 0,
-          payables: 0,
-          netCashPosition: 0,
-          counts: { receivables: 0, payables: 0 },
-        };
+  const boardRes = await getFinanceShiftBoard({ startDate: checkStart, endDate: checkEnd });
+  const board = boardRes.success && boardRes.data ? boardRes.data : null;
+
+  // Fallback if board fails to load
+  if (!board) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Papan Keuangan"
+          description="Antrean kas & akuntansi + snapshot jujur."
+        />
+        <Card><CardContent className="p-6 text-sm text-muted-foreground">Gagal memuat papan. Coba refresh.</CardContent></Card>
+      </div>
+    );
+  }
+
+  const hasQueues = board.queues.arOverdueCount > 0 || board.queues.apOverdueCount > 0 || board.queues.draftJournals > 0 || board.queues.openBankRecs > 0;
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <PageHeader
-          title="Finance Overview"
-          description="Real-time financial snapshot and cash flow analysis."
+          title="Papan Keuangan"
+          description="Hari ini: tagih piutang jatuh tempo, bayar hutang, post jurnal draft, rekonsiliasi. Snapshot GL di bawah adalah filter periode — bukan sama dengan antrean invoice."
         />
-        <FinanceDateFilter />
+        <div className="flex items-center gap-2 self-start">
+          <FinanceDateFilter />
+        </div>
       </div>
 
-      {/* Core Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-t-4 border-t-emerald-500 shadow-sm dark:bg-zinc-900 dark:border-t-emerald-400">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-zinc-100">
-              Total Revenue
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold dark:text-zinc-100">
-              {formatRupiah(stats.revenue)}
+      {/* Period close strip */}
+      {board.period && (
+        <Card className={`border-l-4 ${board.period.currentPeriod ? (board.period.daysToMonthEnd !== null && board.period.daysToMonthEnd <= 5 ? 'border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20' : 'border-l-emerald-500') : 'border-l-slate-300'}`}>
+          <CardContent className="p-4 flex flex-wrap items-center gap-3 justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <CalendarClock className="h-4 w-4" />
+              {board.period.currentPeriod ? (
+                <>
+                  <span className="font-medium">Periode {board.period.currentPeriod.name}</span>
+                  <Badge variant={board.period.currentPeriod.status === 'OPEN' ? 'default' : 'secondary'}>{board.period.currentPeriod.status}</Badge>
+                  {board.period.daysToMonthEnd !== null && (
+                    <span className="text-muted-foreground">
+                      {board.period.daysToMonthEnd === 0 ? 'Tutup hari ini' : `${board.period.daysToMonthEnd} hari lagi tutup bulan`}
+                      {' · '}
+                      {format(parseISO(board.period.currentPeriod.endDate), 'd MMM yyyy', { locale: localeId })}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-muted-foreground">Tidak ada periode berjalan untuk hari ini.</span>
+              )}
+              <span className="hidden md:inline text-muted-foreground">· {board.period.openCount} periode OPEN</span>
+              {board.period.reconThisMonth === 0 && (
+                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">Belum ada rekonsiliasi bulan ini</Badge>
+              )}
+              {board.period.reconThisMonth > 0 && (
+                <span className="hidden md:inline text-[11px] text-emerald-600">· {board.period.reconThisMonth} rekonsiliasi selesai bulan ini</span>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Collected from paid invoices
-            </p>
+            <Link href="/finance/periods">
+              <Button variant="outline" size="sm" className="gap-1.5"><CalendarClock className="h-3.5 w-3.5" /> Kelola periode</Button>
+            </Link>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-blue-500 shadow-sm dark:bg-zinc-900 dark:border-t-blue-400">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-zinc-100">
-              Net Position
+      )}
+
+      {/* Queues — snapshot (NOT period-bound) */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Antrean kerja (snapshot, bukan filter periode)</h2>
+          {!hasQueues && <span className="text-xs text-emerald-600">Semua antrean bersih ✓</span>}
+        </div>
+        <p className="text-[11px] text-muted-foreground mb-3">Piutang/hutang jatuh tempo = dieksekusi di sini (terima bayar / bayar supplier). Modul sales & purchasing membuat draft invoice; finance menyelesaikan pembayaran.</p>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <QueueCard
+            title="Piutang jatuh tempo"
+            count={board.queues.arOverdueCount}
+            amount={board.queues.arOverdueAmount}
+            subLabel={`dari ${board.queues.arUnpaidCount} belum lunas`}
+            href="/finance/invoices/sales?overdue=true"
+            icon={AlertTriangle}
+            tone="border-t-red-500 dark:border-t-red-400"
+          />
+          <QueueCard
+            title="Hutang jatuh tempo"
+            count={board.queues.apOverdueCount}
+            amount={board.queues.apOverdueAmount}
+            subLabel={`dari ${board.queues.apUnpaidCount} belum lunas`}
+            href="/finance/invoices/purchase?overdue=true"
+            icon={Receipt}
+            tone="border-t-amber-500 dark:border-t-amber-400"
+          />
+          <QueueCard
+            title="Jurnal draft"
+            count={board.queues.draftJournals}
+            amount={0}
+            subLabel="menunggu posting"
+            href="/finance/journals?status=DRAFT"
+            icon={FileClock}
+            tone="border-t-blue-500 dark:border-t-blue-400"
+          />
+          <QueueCard
+            title="Rekonsiliasi terbuka"
+            count={board.queues.openBankRecs}
+            amount={0}
+            subLabel="DRAFT / In Progress"
+            href="/finance/bank-reconciliation"
+            icon={Landmark}
+            tone="border-t-purple-500 dark:border-t-purple-400"
+          />
+        </div>
+      </div>
+
+      {/* Attention lists */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500" /> Piutang overdue — top 5
             </CardTitle>
-            <Wallet className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+            <CardDescription className="text-xs">Tagih sekarang. Filter: dueDate &lt; hari ini &amp; sisa &gt; 0</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {formatRupiah(stats.netCashPosition)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Revenue - Total Payables
-            </p>
+          <CardContent className="space-y-2">
+            {board.attention.arOverdue.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Tidak ada piutang overdue.</p>
+            ) : board.attention.arOverdue.map((it) => (
+              <Link key={it.id} href={`/finance/invoices/sales/${it.id}`} className="block rounded-md border p-2.5 hover:bg-muted/50 transition">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">{it.invoiceNumber}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{it.customerName}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-xs font-semibold">{formatRupiah(it.remaining)}</div>
+                    <div className="text-[10px] text-muted-foreground">{it.dueDate ? format(parseISO(it.dueDate), 'd MMM', { locale: localeId }) : '-'}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+            <Link href="/finance/invoices/sales?overdue=true"><Button variant="ghost" size="sm" className="w-full mt-1 h-8 text-xs">Lihat semua overdue <ArrowUpRight className="h-3 w-3 ml-1" /></Button></Link>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-amber-500 shadow-sm dark:bg-zinc-900 dark:border-t-amber-400">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-zinc-100">
-              Receivables (AR)
+
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-amber-600" /> Hutang overdue — top 5
             </CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+            <CardDescription className="text-xs">Bayar prioritas. Filter: dueDate &lt; hari ini &amp; sisa &gt; 0</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold dark:text-zinc-100">
-              {formatRupiah(stats.receivables)}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary" className="text-xs font-normal">
-                {stats.counts.receivables} Unpaid Invoices
-              </Badge>
-            </div>
+          <CardContent className="space-y-2">
+            {board.attention.apOverdue.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Tidak ada hutang overdue.</p>
+            ) : board.attention.apOverdue.map((it) => (
+              <Link key={it.id} href={`/finance/invoices/purchase/${it.id}`} className="block rounded-md border p-2.5 hover:bg-muted/50 transition">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">{it.invoiceNumber}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{it.supplierName}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-xs font-semibold">{formatRupiah(it.remaining)}</div>
+                    <div className="text-[10px] text-muted-foreground">{it.dueDate ? format(parseISO(it.dueDate), 'd MMM', { locale: localeId }) : '-'}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+            <Link href="/finance/invoices/purchase?overdue=true"><Button variant="ghost" size="sm" className="w-full mt-1 h-8 text-xs">Lihat semua overdue <ArrowDownRight className="h-3 w-3 ml-1" /></Button></Link>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-purple-500 shadow-sm dark:bg-zinc-900 dark:border-t-purple-400">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-zinc-100">
-              Payables (AP)
+
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <FileClock className="h-4 w-4 text-blue-600" /> Jurnal draft — top 5
             </CardTitle>
-            <ArrowDownRight className="h-4 w-4 text-purple-500 dark:text-purple-400" />
+            <CardDescription className="text-xs">Posting sebelum tutup buku.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold dark:text-zinc-100">
-              {formatRupiah(stats.payables)}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary" className="text-xs font-normal">
-                {stats.counts.payables} Pending Bills
-              </Badge>
-            </div>
+          <CardContent className="space-y-2">
+            {board.attention.draftJournals.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Tidak ada jurnal draft.</p>
+            ) : board.attention.draftJournals.map((j) => (
+              <Link key={j.id} href={`/finance/journals/${j.id}`} className="block rounded-md border p-2.5 hover:bg-muted/50 transition">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">{j.entryNumber}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{j.description}</div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground shrink-0">{format(parseISO(j.entryDate), 'd MMM', { locale: localeId })}</div>
+                </div>
+              </Link>
+            ))}
+            <Link href="/finance/journals?status=DRAFT"><Button variant="ghost" size="sm" className="w-full mt-1 h-8 text-xs">Lihat jurnal draft <FileText className="h-3 w-3 ml-1" /></Button></Link>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="dark:bg-zinc-900 dark:border-zinc-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 dark:text-zinc-100">
-              <FileText className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
-              Invoicing
-            </CardTitle>
-            <CardDescription>
-              Manage customer invoices and payments
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Link href="/finance/invoices/sales">
-              <Button
-                variant="outline"
-                className="w-full justify-start h-12 text-left dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700"
-              >
-                <div className="flex flex-col items-start">
-                  <span className="font-semibold">Sales Invoices</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Create and track invoices
-                  </span>
-                </div>
-              </Button>
-            </Link>
-            <Link href="/finance/payments/received">
-              <Button
-                variant="ghost"
-                className="w-full justify-between dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Check Received Payments{" "}
-                <ArrowUpRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+      {/* Quick actions — ID */}
+      <div>
+        <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground mb-3">Cepat</h2>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/finance/payments/received"><Button variant="outline" size="sm" className="gap-1.5"><Wallet className="h-3.5 w-3.5" /> Terima bayar</Button></Link>
+          <Link href="/finance/payments/sent"><Button variant="outline" size="sm" className="gap-1.5"><Banknote className="h-3.5 w-3.5" /> Bayar supplier</Button></Link>
+          <Link href="/finance/petty-cash"><Button variant="outline" size="sm" className="gap-1.5"><Zap className="h-3.5 w-3.5" /> Petty cash</Button></Link>
+          <Link href="/finance/journals"><Button variant="outline" size="sm" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Jurnal baru</Button></Link>
+          <Link href="/finance/aging"><Button variant="outline" size="sm" className="gap-1.5"><History className="h-3.5 w-3.5" /> Aging</Button></Link>
+          <Link href="/finance/bank-reconciliation"><Button variant="outline" size="sm" className="gap-1.5"><Landmark className="h-3.5 w-3.5" /> Rekonsiliasi</Button></Link>
+          <Link href="/finance/reports"><Button variant="outline" size="sm" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Laporan</Button></Link>
+        </div>
+      </div>
 
-        <Card className="dark:bg-zinc-900 dark:border-zinc-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 dark:text-zinc-100">
-              <Briefcase className="h-5 w-5 text-rose-500 dark:text-rose-400" />
-              Payables
-            </CardTitle>
-            <CardDescription>
-              Bill payments and supplier management
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Link href="/finance/invoices/purchase">
-              <Button
-                variant="outline"
-                className="w-full justify-start h-12 text-left dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700"
-              >
-                <div className="flex flex-col items-start">
-                  <span className="font-semibold">Purchase Invoices</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Process supplier bills
-                  </span>
-                </div>
-              </Button>
-            </Link>
-            <Link href="/finance/payments/sent">
-              <Button
-                variant="ghost"
-                className="w-full justify-between dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Payment History <ArrowDownRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-            <Link href="/finance/payment-banks">
-              <Button
-                variant="ghost"
-                className="w-full justify-between dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Rekening Bank Pembayaran <Landmark className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden border-none shadow-md bg-indigo-600 dark:bg-indigo-900 text-white flex flex-col h-full">
-          {/* Decorative Background Element */}
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute bottom-0 left-0 -mb-8 -ml-8 h-32 w-32 rounded-full bg-indigo-400/20 blur-3xl text-white" />
-
-          <CardHeader className="relative z-10 pb-2">
-            <CardTitle className="flex items-center gap-2 text-white">
-              <TrendingUp className="h-5 w-5" />
-              Financial Reports
-            </CardTitle>
-            <CardDescription className="text-indigo-100/70">
-              Analyze your financial performance
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="relative z-10 space-y-3 flex-1">
-            <div className="grid grid-cols-1 gap-2">
-              <Link href="/finance/reports/income-statement">
-                <Button
-                  variant="secondary"
-                  className="w-full justify-between h-11 font-semibold bg-white text-indigo-700 hover:bg-indigo-50 dark:bg-zinc-100 dark:text-indigo-800 dark:hover:bg-zinc-200 border-none transition-all group"
-                >
-                  Profit & Loss
-                  <ArrowUpRight className="h-4 w-4 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </Button>
-              </Link>
-              <Link href="/finance/reports/balance-sheet">
-                <Button
-                  variant="secondary"
-                  className="w-full justify-between h-11 font-semibold bg-white/20 hover:bg-white/30 text-white border-none transition-all group"
-                >
-                  Balance Sheet
-                  <ArrowUpRight className="h-4 w-4 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </Button>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <Link href="/finance/journals">
-                <Button
-                  variant="ghost"
-                  className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium"
-                >
-                  Journals
-                </Button>
-              </Link>
-              <Link href="/production/costing">
-                <Button
-                  variant="ghost"
-                  className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium"
-                >
-                  Costing Dashboard
-                </Button>
-              </Link>
-              <Link href="/finance/reports/hpp">
-                <Button
-                  variant="ghost"
-                  className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium"
-                >
-                  Laporan HPP
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Snapshot periode — honest GL metrics */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Snapshot periode (filter bulan, POSTED GL saja)</h2>
+          <Badge variant="outline" className="text-[10px]">{board.snapshot.periodLabel}</Badge>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium">Pendapatan periode</CardTitle>
+              <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">{formatRupiah(board.snapshot.revenue)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1" title={board.snapshot.definitions.revenue}>GL {board.snapshot.definitions.revenue} · Bukan = invoice paid count</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm border-t-2 border-t-blue-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium">Posisi kas (akun 111*)</CardTitle>
+              <Wallet className="h-3.5 w-3.5 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold text-blue-700 dark:text-blue-300">{formatRupiah(board.snapshot.cashPosition)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1" title={board.snapshot.definitions.cash}>GL {board.snapshot.definitions.cash} · Bukan = Revenue − AP</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium">Piutang GL (112*)</CardTitle>
+              <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">{formatRupiah(board.snapshot.arGl)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1" title={board.snapshot.definitions.arGl}>GL {board.snapshot.definitions.arGl} · Beda dengan antrean invoice sisa</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium">Hutang GL (211*)</CardTitle>
+              <Banknote className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">{formatRupiah(board.snapshot.apGl)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1" title={board.snapshot.definitions.apGl}>GL {board.snapshot.definitions.apGl} · Beda dengan antrean invoice sisa</p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/finance/reports"><Button variant="outline" size="sm" className="h-7 text-xs">→ Laporan</Button></Link>
+          <Link href="/finance/aging"><Button variant="outline" size="sm" className="h-7 text-xs">→ Aging</Button></Link>
+        </div>
       </div>
     </div>
   );

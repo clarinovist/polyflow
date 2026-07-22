@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -65,21 +66,43 @@ interface InvoiceData {
 interface InvoiceTableProps {
   invoices: InvoiceData[];
   basePath?: string;
+  initialStatus?: string;
+  overdueMode?: boolean;
 }
 
 export function InvoiceTable({
   invoices,
   basePath = "/sales/orders",
+  initialStatus,
+  overdueMode,
 }: InvoiceTableProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlStatus = searchParams.get('status');
+  const urlOverdue = searchParams.get('overdue') === 'true';
+  const isOverdueMode = overdueMode || urlOverdue;
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus || urlStatus || "ALL");
+
+  useEffect(() => {
+    const s = initialStatus || urlStatus;
+    if (s) setStatusFilter(s);
+  }, [initialStatus, urlStatus]);
 
   const filteredInvoices = useMemo(() => {
+    const now = new Date();
     return invoices.filter((inv) => {
-      // 1. Filter by status
-      if (statusFilter !== "ALL" && inv.status !== statusFilter) {
+      // 1. Overdue mode: match board definition (dueDate < now + remaining > 0 + UNPAID/PARTIAL/OVERDUE)
+      if (isOverdueMode) {
+        const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+        const remaining = (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0);
+        const overdueStatuses: string[] = ['UNPAID', 'PARTIAL', 'OVERDUE'];
+        if (!dueDate || dueDate >= now || remaining <= 0 || !overdueStatuses.includes(inv.status)) {
+          return false;
+        }
+        // fall through to search filter
+      } else if (statusFilter !== "ALL" && inv.status !== statusFilter) {
         return false;
       }
 
@@ -103,7 +126,7 @@ export function InvoiceTable({
         orderRef.includes(lowerSearch)
       );
     });
-  }, [invoices, searchTerm, statusFilter]);
+  }, [invoices, searchTerm, statusFilter, isOverdueMode]);
 
   const handleDelete = async (id: string, type: "AR" | "AP") => {
     setIsDeleting(id);

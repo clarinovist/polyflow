@@ -10,9 +10,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
-export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
+export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal', status?: string }> }) {
     const params = await searchParams;
     const demand = params?.demand || 'customer';
+    const initialStatus = params?.status;
 
     // Only filter by date when explicitly provided via URL params
     const dateRange = params?.startDate && params?.endDate
@@ -24,6 +25,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
         query.set('demand', nextDemand);
         if (params?.startDate) query.set('startDate', params.startDate);
         if (params?.endDate) query.set('endDate', params.endDate);
+        if (params?.status) query.set('status', params.status);
         return `/finance/invoices/sales?${query.toString()}`;
     };
 
@@ -36,9 +38,9 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Sales Invoices</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Invoice Sales</h1>
                     <p className="text-muted-foreground">
-                        Manage customer billing and track outstanding payments.
+                        Kelola tagihan customer dan lacak pembayaran tertunggak.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -67,7 +69,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
             )}
 
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <InvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/sales" />
+            <InvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/sales" initialStatus={initialStatus} />
         </div>
     );
 }

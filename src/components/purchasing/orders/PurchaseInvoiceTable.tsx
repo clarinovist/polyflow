@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -59,15 +59,23 @@ type InvoiceWithRelations = {
 interface PurchaseInvoiceTableProps {
   invoices: InvoiceWithRelations[];
   basePath?: string;
+  initialStatus?: string;
+  overdueMode?: boolean;
 }
 
 export function PurchaseInvoiceTable({
   invoices,
   basePath = "/purchasing/orders",
+  initialStatus,
+  overdueMode,
 }: PurchaseInvoiceTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus || "ALL");
+
+  useEffect(() => {
+    if (initialStatus) setStatusFilter(initialStatus);
+  }, [initialStatus]);
 
   const handleDelete = async (id: string) => {
     setIsDeleting(id);
@@ -89,9 +97,16 @@ export function PurchaseInvoiceTable({
   };
 
   const filteredInvoices = useMemo(() => {
+    const now = new Date();
     return invoices.filter((inv) => {
-      // 1. Filter by status
-      if (statusFilter !== "ALL" && inv.status !== statusFilter) {
+      // 1. Overdue mode: match board definition (dueDate < now + remaining > 0 + UNPAID/PARTIAL/OVERDUE)
+      if (overdueMode) {
+        const remaining = (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0);
+        const overdueStatuses: string[] = ['UNPAID', 'PARTIAL', 'OVERDUE'];
+        if (new Date(inv.dueDate) >= now || remaining <= 0 || !overdueStatuses.includes(inv.status)) {
+          return false;
+        }
+      } else if (statusFilter !== "ALL" && inv.status !== statusFilter) {
         return false;
       }
 
@@ -103,7 +118,7 @@ export function PurchaseInvoiceTable({
         inv.purchaseOrder.supplier.name.toLowerCase().includes(lowerSearch)
       );
     });
-  }, [invoices, searchTerm, statusFilter]);
+  }, [invoices, searchTerm, statusFilter, overdueMode]);
 
   const getStatusBadge = (status: PurchaseInvoiceStatus) => {
     const styles: Record<string, string> = {
