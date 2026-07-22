@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Pre-commit hook: run AGENTS.md consistency check
+# Enable: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+# Check if any AGENTS.md file was modified
+CHANGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E "AGENTS\.md$" || true)
+
+if [ -n "$CHANGED_AGENTS" ]; then
+  echo "AGENTS.md files changed, running consistency check..."
+  bash scripts/check-agents-consistency.sh
+fi

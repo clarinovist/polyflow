@@ -1,0 +1,21 @@
+name: agents-consistency
+
+on:
+  push:
+    paths:
+      - '**/AGENTS.md'
+      - 'scripts/check-agents-consistency.sh'
+  pull_request:
+    paths:
+      - '**/AGENTS.md'
+      - 'scripts/check-agents-consistency.sh'
+
+jobs:
+  check:
+    name: consistency / check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run AGENTS.md consistency check
+        run: bash scripts/check-agents-consistency.sh
