@@ -104,13 +104,13 @@ const productionNavItems: NavItem[] = [
   { id: 'prod-daily', label: 'SPK Aktif', href: '/production/daily', workspace: 'production', section: 'lantai', owner: 'production' },
   { id: 'prod-machines', label: 'Papan Mesin', href: '/production/machines', workspace: 'production', section: 'lantai', owner: 'production' },
   { id: 'prod-inventory', label: 'Stok Lantai', href: '/production/inventory', workspace: 'production', section: 'sumber-daya', owner: 'warehouse' },
-  { id: 'prod-resources', label: 'Tim / Shift', href: '/production/resources', workspace: 'production', section: 'sumber-daya', owner: 'production' },
-  { id: 'prod-history', label: 'Log Hasil', href: '/production/history', workspace: 'production', section: 'sumber-daya', owner: 'production' },
-  { id: 'prod-packing', label: 'Laporan Packing', href: '/production/packing-monthly', workspace: 'production', section: 'sumber-daya', owner: 'production' },
-  { id: 'prod-shifts', label: 'Shift Kerja', href: '/production/shifts', workspace: 'production', section: 'sumber-daya', owner: 'production' },
+  { id: 'prod-packing', label: 'Laporan Packing', href: '/production/packing-monthly', workspace: 'production', section: 'analitik', owner: 'production' },
   { id: 'prod-analytics', label: 'Analitik Produksi', href: '/production/analytics', workspace: 'production', section: 'analitik', owner: 'production' },
   { id: 'prod-costing', label: 'Costing', href: '/production/costing', workspace: 'production', section: 'analitik', owner: 'production' },
-  { id: 'prod-kiosk', label: 'Kiosk Operator', href: '/kiosk', workspace: 'production', section: 'analitik', owner: 'production' },
+  { id: 'prod-history', label: 'Log Hasil', href: '/production/history', workspace: 'production', section: 'sumber-daya', owner: 'production' },
+  { id: 'prod-resources', label: 'Tim / Shift', href: '/production/resources', workspace: 'production', section: 'sumber-daya', owner: 'production' },
+  { id: 'prod-shifts', label: 'Shift Kerja', href: '/production/shifts', workspace: 'production', section: 'sumber-daya', owner: 'production' },
+  { id: 'prod-kiosk', label: 'Kiosk Operator', href: '/kiosk', workspace: 'production', section: 'sumber-daya', owner: 'production' },
 ];
 
 /**

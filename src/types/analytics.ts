@@ -4,6 +4,7 @@ export interface DateRange {
 }
 
 export interface ProductionRealizationItem {
+  orderId: string;
   orderNumber: string;
   productName: string;
   plannedQuantity: number;
@@ -27,6 +28,7 @@ export interface MaterialUsageVarianceItem {
 }
 
 export interface MachinePerformanceItem {
+  machineId?: string;
   machineName: string;
   machineCode: string;
   totalOutput: number;
@@ -59,9 +61,11 @@ export interface QualityControlSummary {
     percentage: number; // % of total scrap
   }[];
   scrapByProduct: {
+    productVariantId: string;
     productName: string;
     quantity: number;
     percentage: number;
+    sampleProductionOrderId?: string;
   }[];
 }
 

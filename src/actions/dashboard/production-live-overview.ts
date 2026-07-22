@@ -7,6 +7,7 @@ import { ProductionStatus } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
 import { getWibDayBounds, toBusinessDateString, BUSINESS_TIMEZONE, formatWIB } from '@/lib/utils/timezone';
 import { serializeData } from '@/lib/utils/utils';
+import { countUncoveredFgVariants } from '@/services/production/fg-demand-service';
 
 export type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
 
@@ -150,6 +151,14 @@ export const getProductionLiveOverview = withTenant(
             },
           }),
         ]);
+
+      // FG uncovered count (graceful skip if service not ready)
+      let fgUncoveredVariants = 0;
+      try {
+        fgUncoveredVariants = await countUncoveredFgVariants();
+      } catch {
+        // fg-demand-service may not be available yet
+      }
 
       // --- Per-process pulse + hourly ---
       const processes: Record<
@@ -299,6 +308,8 @@ export const getProductionLiveOverview = withTenant(
         machineId?: string;
         ageMinutes: number;
         processKey: ProcessKey | 'ALL';
+        secondaryHref?: string;
+        secondaryLabel?: string;
       };
 
       const attentions: AttentionItem[] = [];
@@ -389,6 +400,8 @@ export const getProductionLiveOverview = withTenant(
           orderId: wo.id,
           ageMinutes: age,
           processKey: processKeyFromCategory(wo.bom?.category),
+          secondaryHref: '/warehouse/materials',
+          secondaryLabel: 'Bahan di Gudang',
         });
       }
 
@@ -429,6 +442,9 @@ export const getProductionLiveOverview = withTenant(
         activeJobs: PROCESS_KEYS.reduce((s, k) => s + processes[k].activeJobs, 0),
         released: PROCESS_KEYS.reduce((s, k) => s + processes[k].released, 0),
         waiting: PROCESS_KEYS.reduce((s, k) => s + processes[k].waiting, 0),
+        downtimeOpen: openDowntimes.length,
+        waitingMaterialCount: waitingMaterialOrders.length,
+        fgUncoveredVariants,
       };
 
       return serializeData({

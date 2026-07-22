@@ -265,3 +265,18 @@ export async function listFgDemandBoard(
 
   return rows;
 }
+
+/**
+ * Lightweight count of FG variants with uncovered demand.
+ * Used by the production home board work strip.
+ * ponytail: currently delegates to full list scan — small N (FG variants open)
+ * for Melindo scale. When N grows (e.g. > 200 variants), push the uncovered filter
+ * into SQL (demand residual − fg inventory − open SPK) to avoid O(M) fetches.
+ */
+export async function countUncoveredFgVariants(): Promise<number> {
+  // Thin projection: prisma findMany still pulls full rows, but list helper is already
+  // scoped to open SO items + non-scrap inventory + open SPK counts. For small variant count
+  // (< ~200) this single scan is fast; workloads here are tenant-scoped small.
+  const rows = await listFgDemandBoard({ onlyUncovered: true });
+  return rows.length;
+}

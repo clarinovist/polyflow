@@ -18,8 +18,8 @@ export default async function ProductionDashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Lantai Produksi — Pulse Hari Ini"
-        description="Posisi per proses (Mixing / Extrusion / Packing). Command center tetap di Manajemen Lantai."
+        title="Hari Ini — Produksi"
+        description="Pulse lantai + antrean kerja shift."
       />
       <ProductionOverviewClient initialData={liveData} />
     </div>

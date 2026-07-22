@@ -14,8 +14,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BomCategory } from '@prisma/client';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 
-export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
-    const { category } = await searchParams;
+export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string; status?: string }> }) {
+    const { category, status } = await searchParams;
 
     let bomCategories: BomCategory[] | undefined;
 
@@ -27,12 +27,23 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
         bomCategories = ['PACKING'];
     }
 
-    const orders = await getProductionOrders({ bomCategories });
+    const validStatuses = ['DRAFT', 'RELEASED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'WAITING_MATERIAL'] as const;
+    const statusFilter = status && validStatuses.includes(status as any) ? status as typeof validStatuses[number] : undefined;
+
+    const orders = await getProductionOrders({ bomCategories, status: statusFilter });
     const stats = await getProductionOrderStats();
 
     const buildCategoryHref = (nextCategory?: string) => {
-        return nextCategory ? `/production/orders?category=${nextCategory}` : '/production/orders';
+        const params = new URLSearchParams();
+        if (nextCategory) params.set('category', nextCategory);
+        if (statusFilter) params.set('status', statusFilter);
+        const q = params.toString();
+        return q ? `/production/orders?${q}` : '/production/orders';
     };
+
+    const clearStatusHref = category
+        ? `/production/orders?category=${category}`
+        : '/production/orders';
 
     return (
         <div className="p-4 md:p-8 space-y-6">
@@ -40,7 +51,19 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">{planningLabels.createWorkOrder}</h1>
-                    <p className="text-muted-foreground mt-2">{planningLabels.planNewJob}</p>
+                    <p className="text-muted-foreground mt-2">
+                        {statusFilter
+                            ? `Filter status: ${statusFilter.replace(/_/g, ' ')}`
+                            : planningLabels.planNewJob}
+                    </p>
+                    {statusFilter && (
+                        <Link
+                            href={clearStatusHref}
+                            className="inline-flex mt-2 text-xs font-semibold text-primary hover:underline"
+                        >
+                            Hapus filter status
+                        </Link>
+                    )}
                 </div>
                 <Link href="/production/orders/create" className="w-full sm:w-auto">
                     <Button className="w-full sm:w-auto gap-2">

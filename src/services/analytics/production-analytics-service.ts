@@ -57,6 +57,7 @@ export async function getProductionAnalytics(dateRange?: DateRange): Promise<Pro
         }
 
         return {
+            orderId: order.id,
             orderNumber: order.orderNumber,
             productName: order.bom.productVariant.name,
             plannedQuantity: plannedQty,
@@ -94,7 +95,6 @@ export async function getProductionAnalytics(dateRange?: DateRange): Promise<Pro
         }))
         .sort((a, b) => b.quantity - a.quantity);
 
-    const scrapByProductMap: Record<string, number> = {};
     const variantIds = [...new Set(scrapRecords.map(record => record.productVariantId))];
     const variants = await prisma.productVariant.findMany({
         where: { id: { in: variantIds } },
@@ -102,21 +102,29 @@ export async function getProductionAnalytics(dateRange?: DateRange): Promise<Pro
     });
     const variantNameMap = new Map(variants.map(variant => [variant.id, `${variant.product.name} - ${variant.name}`]));
 
-    scrapRecords.forEach(record => {
-        const variantId = record.productVariantId;
-        const name = variantNameMap.get(variantId) || 'Unknown Product';
+    const scrapByProductMap: Record<string, { name: string; qty: number; sampleOrderId?: string }> = {};
+    for (const record of scrapRecords) {
+        const name = variantNameMap.get(record.productVariantId) || 'Unknown Product';
         const qty = Number(record.quantity);
-        scrapByProductMap[name] = (scrapByProductMap[name] || 0) + qty;
-    });
+        const existing = scrapByProductMap[record.productVariantId];
+        if (existing) {
+            existing.qty += qty;
+            if (!existing.sampleOrderId) existing.sampleOrderId = record.productionOrderId;
+        } else {
+            scrapByProductMap[record.productVariantId] = { name, qty, sampleOrderId: record.productionOrderId };
+        }
+    }
 
     const scrapByProduct = Object.entries(scrapByProductMap)
-        .map(([productName, quantity]) => ({
-            productName,
-            quantity,
-            percentage: totalScrap > 0 ? (quantity / totalScrap) * 100 : 0
+        .map(([variantId, v]) => ({
+            productVariantId: variantId,
+            productName: v.name,
+            quantity: v.qty,
+            percentage: totalScrap > 0 ? (v.qty / totalScrap) * 100 : 0,
+            sampleProductionOrderId: v.sampleOrderId,
         }))
         .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 5);
+        .slice(0, 8);
 
     const inspections = await prisma.qualityInspection.findMany({
         where: {
@@ -151,7 +159,7 @@ export async function getProductionAnalytics(dateRange?: DateRange): Promise<Pro
         }
     });
 
-    const machineMap: Record<string, { machineName: string; totalOutput: number; operatingHours: number; scrap: number }> = {};
+    const machineMap: Record<string, { machineId: string; machineName: string; totalOutput: number; operatingHours: number; scrap: number }> = {};
     const operatorMap: Record<string, { name: string; code: string; output: number; scrap: number; orders: Set<string> }> = {};
 
     executions.forEach(execution => {
@@ -167,6 +175,7 @@ export async function getProductionAnalytics(dateRange?: DateRange): Promise<Pro
             const machineCode = execution.machine.code;
             if (!machineMap[machineCode]) {
                 machineMap[machineCode] = {
+                    machineId: execution.machine.id,
                     machineName: execution.machine.name,
                     totalOutput: 0,
                     operatingHours: 0,
@@ -196,6 +205,7 @@ export async function getProductionAnalytics(dateRange?: DateRange): Promise<Pro
     });
 
     const machinePerformance: MachinePerformanceItem[] = Object.entries(machineMap).map(([code, data]) => ({
+        machineId: data.machineId,
         machineCode: code,
         machineName: data.machineName,
         totalOutput: data.totalOutput,

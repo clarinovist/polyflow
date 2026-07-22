@@ -4,6 +4,7 @@ import { getBoms } from '@/actions/production/boms';
 import { getMachines } from '@/actions/production/machines';
 import { ProductionStatus } from "@prisma/client";
 import { serializeData } from "@/lib/utils/utils";
+import Link from "next/link";
 import {
   DailyProductionDashboard,
   type Order,
@@ -41,11 +42,16 @@ export default async function DailyProductionPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Produksi Aktif
+          SPK Aktif
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Board per proses — order aktif termasuk yang terbawa dari hari sebelumnya.
+          Board per proses — SPK aktif termasuk yang terbawa dari hari sebelumnya.
         </p>
+        <div className="flex flex-wrap gap-3 mt-2 text-xs font-semibold">
+          <Link href="/production" className="text-primary hover:underline">← Papan Produksi</Link>
+          <Link href="/production/history" className="text-primary hover:underline">Log Hasil</Link>
+          <Link href="/production/resources" className="text-primary hover:underline">Tim / Shift</Link>
+        </div>
       </div>
 
       <DailyProductionDashboard

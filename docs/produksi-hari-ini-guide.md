@@ -28,8 +28,8 @@ Fitur **Produksi Hari Ini** memungkinkan supervisor membuat order produksi haria
 ## Cara Mengakses
 
 1. Login ke Polyflow
-2. Klik menu **"Produksi"** di sidebar kiri
-3. Klik **"Produksi Hari Ini"** di sidebar Portal Produksi
+2. Buka portal **Produksi** → home **Papan Produksi** (`/production`) = pulse + antrean shift
+3. Klik **SPK Aktif** di sidebar (group Lantai) — dulu “Produksi Hari Ini / Produksi Aktif”
 
 Atau langsung buka: `/production/daily`
 

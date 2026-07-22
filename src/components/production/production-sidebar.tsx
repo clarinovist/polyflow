@@ -5,8 +5,6 @@ import {
   CalendarPlus,
   Factory,
   Boxes,
-  History,
-  Clock,
   Users,
   ClipboardCheck,
   FileText,
@@ -14,7 +12,6 @@ import {
   Calendar,
   TrendingUp,
   Files,
-  Settings2,
 } from "lucide-react";
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -34,7 +31,7 @@ interface ProductionSidebarProps {
 
 const productionLinks = [
   {
-    heading: "Ringkasan",
+    heading: "Hari Ini",
     items: [
       {
         href: "/production",
@@ -45,17 +42,12 @@ const productionLinks = [
     ],
   },
   {
-    heading: "Perencanaan Produksi",
+    heading: "Antrean",
     items: [
       {
         href: "/production/orders",
         icon: Factory,
         label: productionSidebarLabels.workOrders,
-      },
-      {
-        href: "/production/boms",
-        icon: Files,
-        label: productionSidebarLabels.bom,
       },
       {
         href: "/production/requests",
@@ -67,15 +59,10 @@ const productionLinks = [
         icon: Calendar,
         label: productionSidebarLabels.productionSchedule,
       },
-      {
-        href: "/production/mrp",
-        icon: FileText,
-        label: productionSidebarLabels.materialRequirements,
-      },
     ],
   },
   {
-    heading: "Manajemen Lantai",
+    heading: "Lantai",
     items: [
       {
         href: "/production/daily",
@@ -90,7 +77,7 @@ const productionLinks = [
     ],
   },
   {
-    heading: "Sumber Daya & Stok",
+    heading: "Bahan & WIP",
     items: [
       {
         href: "/production/inventory",
@@ -98,29 +85,24 @@ const productionLinks = [
         label: productionSidebarLabels.floorStock,
       },
       {
-        href: "/production/resources",
-        icon: Users,
-        label: productionSidebarLabels.teamShifts,
-      },
-      {
-        href: "/production/history",
-        icon: History,
-        label: productionSidebarLabels.outputLogs,
-      },
-      {
-        href: "/production/packing-monthly",
+        href: "/production/mrp",
         icon: FileText,
-        label: productionSidebarLabels.packingMonthlyReport,
-      },
-      {
-        href: "/production/shifts",
-        icon: Clock,
-        label: productionSidebarLabels.workShifts,
+        label: productionSidebarLabels.materialRequirements,
       },
     ],
   },
   {
-    heading: "Analitik & Tools",
+    heading: "Resep",
+    items: [
+      {
+        href: "/production/boms",
+        icon: Files,
+        label: productionSidebarLabels.bom,
+      },
+    ],
+  },
+  {
+    heading: "Analitik",
     items: [
       {
         href: "/production/analytics",
@@ -133,34 +115,29 @@ const productionLinks = [
         label: productionSidebarLabels.costingDashboard,
       },
       {
-        href: "/kiosk",
-        icon: ClipboardCheck,
-        label: productionSidebarLabels.operatorKiosk,
+        href: "/production/packing-monthly",
+        icon: FileText,
+        label: productionSidebarLabels.packingMonthlyReport,
       },
     ],
   },
   {
-    heading: "Master Data",
+    heading: "Lainnya",
     items: [
       {
-        href: "/dashboard/machines",
-        icon: Settings2,
-        label: "Mesin (Master)",
+        href: "/kiosk",
+        icon: ClipboardCheck,
+        label: productionSidebarLabels.operatorKiosk,
       },
       {
-        href: "/dashboard/products",
-        icon: Boxes,
-        label: "Katalog Produk",
+        href: "/production/history",
+        icon: FileText,
+        label: productionSidebarLabels.outputLogs,
       },
       {
-        href: "/dashboard/boms",
-        icon: Files,
-        label: "BOM / Formula",
-      },
-      {
-        href: "/dashboard/employees",
+        href: "/production/resources",
         icon: Users,
-        label: "Karyawan",
+        label: productionSidebarLabels.teamShifts,
       },
     ],
   },

@@ -255,6 +255,112 @@
 
 ---
 
+## E. Command Board & IA Collapse (Gelombang 2026-07-22)
+
+### TC-CB-001: Home Board Work Strip
+
+| **ID** | TC-CB-001 | **Prioritas** | 🔴 P1 |
+
+**Langkah:**
+1. Buka `/production` sebagai PRODUCTION/ADMIN
+2. Lihat strip atas — kartu: SPK jalan, Rilis, Tunggu bahan, Downtime aktif, Butuh perhatian, (optional) Belum di-SPK
+3. Klik tiap kartu — harus deep link:
+   - SPK jalan → `/production/daily`
+   - Rilis → `/production/orders?status=RELEASED`
+   - Tunggu bahan → `/production/orders?status=WAITING_MATERIAL`
+   - Downtime aktif → `/production/machines`
+   - Butuh perhatian → scroll `#attentions` (bukan navigasi silang)
+   - Belum di-SPK → `/production/requests`
+4. Quick actions row: `+ SPK baru` → create, `Papan FG` → requests, `SPK Aktif` → daily, `Bahan Gudang` → `/warehouse/materials`, `Kiosk` → `/kiosk`
+
+**Diharapkan:** Kartu menampilkan count real (bukan filtered by tab), deep link filter status preserve ?category if present, quick actions reachable.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-CB-002: Waiting Material → Handoff Gudang
+
+| **ID** | TC-CB-002 | **Prioritas** | 🔴 P1 |
+
+**Langkah:**
+1. Buat SPK WAITING_MATERIAL atau ubah existing RELEASED ke tunggu bahan (via material gating)
+2. Buka `/production` → strip filter tab ANY → di Butuh perhatian list, cari item tunggu bahan
+3. Klick primary title — buka order detail `/production/orders/[id]`
+4. Periksa secondary link **Bahan di Gudang** — klik
+
+**Diharapkan:** Secondary link `/warehouse/materials`, bukan nested `<a>` inside `<a>` bug; submenu menampilkan SPK tersebut (Path A bahan di gudang).
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-CB-003: Sidebar IA Collapse
+
+| **ID** | TC-CB-003 | **Prioritas** | 🔴 P1 |
+
+**Langkah:**
+1. Buka sidebar Produksi — hitung group + items.
+2. Verifikasi: Hari Ini (1), Antrean (3), Lantai (2), Bahan & WIP (2), Resep (1), Analitik (3), Lainnya (3)
+3. Periksa label ID — tidak ada "Overview", "Costing Dashboard", "Footer", "Produksi Hari Ini"
+4. No Master Data group 4 item di sidebar produksi
+5. Check `registry.ts` + `permission-catalog.ts` labels aligned.
+
+**Diharapkan:** ~12 top-level (≤10 primary jobs + 3 lain-lain soft). Copy ID, group heading ID (Hari Ini / Antrean / Lantai / Bahan & WIP / Resep / Analitik / Lainnya). No EN.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-CB-004: Orders Status Filter Deep Link
+
+| **ID** | TC-CB-004 | **Prioritas** | 🔴 P1 |
+
+**Langkah:**
+1. Dari home kartu Rilis → harus `/production/orders?status=RELEASED&...` filtered list
+2. Dari tab Mixing → filter status harus preserve `?category=mixing&status=RELEASED`
+3. Hapus filter status link tersedia.
+4. Invalid status param harus fallback no-filter (not crash).
+
+**Diharapkan:** List filtered server-side via `getProductionOrders({status})`, bukan client only. Tab category + status combine.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-CB-005: Analytics Actionable Tabs
+
+| **ID** | TC-CB-005 | **Prioritas** | 🟡 P2 |
+
+**Langkah:**
+1. Buka `/production/analytics`
+2. KPI header: Rata-rata Yield, QC Lulus, Total Scrap, Mesin Aktif — copy ID (bukan Avg. Yield / QC Pass Rate)
+3. Section "Perlu ditindak" — 3 tabs: Scrap Tertinggi, Yield Rendah, Mesin Performa Rendah.
+4. Scrap tab: kolom Aksi → Buka SPK spesifik sample order (jika data ada) atau Log.
+5. Yield Rendah: Buka SPK via `/production/orders/[id]`
+6. Mesin: Buka spesifik mesin via `/production/machines/[id]`
+
+**Diharapkan:** Deep link pakai ID (orderId/machineId) bukan hanya status list. Empty state jika no data.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-CB-006: Daily + Kiosk Non-Regression
+
+| **ID** | TC-CB-006 | **Prioritas** | 🔴 P1 |
+
+**Langkah:**
+1. `/production/daily` → title SPK Aktif (bukan Produksi Aktif), link balik Papan Produksi + Log + Tim/Shift.
+2. Check kiosk entry from home quick action + sidebar Lainnya reachable.
+3. Kiosk flow START → log output → complete tetap.
+
+**Diharapkan:** No path break, copy consistent.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
 ## Ringkasan Hasil
 
 | Bagian | TC | Lulus | Gagal | Sebagian |
@@ -263,6 +369,7 @@
 | Material Issuance | 4 | | | |
 | Output & Scrap | 3 | | | |
 | Lainnya | 5 | | | |
-| **TOTAL** | **17** | | | |
+| Command Board & IA | 6 | | | |
+| **TOTAL** | **23** | | | |
 
 **Tanda Tangan Tester:** _________________________ **Tanggal:** ____/____/________

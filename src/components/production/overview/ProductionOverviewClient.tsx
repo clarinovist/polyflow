@@ -61,6 +61,8 @@ type AttentionItem = {
   machineId?: string;
   ageMinutes: number;
   processKey: ProcessKey | 'ALL';
+  secondaryHref?: string;
+  secondaryLabel?: string;
 };
 
 export type ProductionOverviewData = {
@@ -74,7 +76,14 @@ export type ProductionOverviewData = {
   }[];
   runningOrders: RunningOrder[];
   attentions: AttentionItem[];
-  totals: { activeJobs: number; released: number; waiting: number };
+  totals: {
+    activeJobs: number;
+    released: number;
+    waiting: number;
+    downtimeOpen: number;
+    waitingMaterialCount: number;
+    fgUncoveredVariants: number;
+  };
 };
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -123,7 +132,7 @@ export function emptyOverviewData(): ProductionOverviewData {
     })),
     runningOrders: [],
     attentions: [],
-    totals: { activeJobs: 0, released: 0, waiting: 0 },
+    totals: { activeJobs: 0, released: 0, waiting: 0, downtimeOpen: 0, waitingMaterialCount: 0, fgUncoveredVariants: 0 },
   };
 }
 
@@ -207,6 +216,72 @@ export function ProductionOverviewClient({ initialData }: ProductionOverviewClie
         lastUpdated={lastUpdated}
       />
 
+      {/* Work Strip — antrean kerja hari ini */}
+      <div className="rounded-xl border bg-card/60 p-3">
+        <div className="flex items-center gap-2 mb-2.5">
+          <h2 className="text-sm font-bold">Hari Ini — Produksi</h2>
+          <span className="text-[11px] text-muted-foreground">Pulse lantai + antrean yang butuh tindakan.</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          <WorkStripCard
+            label="SPK jalan"
+            count={activeData.totals.activeJobs}
+            href="/production/daily"
+            accent="emerald"
+          />
+          <WorkStripCard
+            label="Rilis"
+            count={activeData.totals.released}
+            href="/production/orders?status=RELEASED"
+            accent="blue"
+          />
+          <WorkStripCard
+            label="Tunggu bahan"
+            count={activeData.totals.waitingMaterialCount}
+            href="/production/orders?status=WAITING_MATERIAL"
+            accent="amber"
+          />
+          <WorkStripCard
+            label="Downtime aktif"
+            count={activeData.totals.downtimeOpen}
+            href="/production/machines"
+            accent="red"
+          />
+          <WorkStripCard
+            label="Butuh perhatian"
+            count={activeData.attentions.length}
+            href="#attentions"
+            accent="rose"
+          />
+          {activeData.totals.fgUncoveredVariants > 0 && (
+            <WorkStripCard
+              label="Belum di-SPK"
+              count={activeData.totals.fgUncoveredVariants}
+              href="/production/requests"
+              accent="violet"
+            />
+          )}
+        </div>
+        {/* Quick actions */}
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px] font-bold">
+            <Link href="/production/orders/create">+ SPK baru</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px] font-bold">
+            <Link href="/production/requests">Papan FG</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px] font-bold">
+            <Link href="/production/daily">SPK Aktif</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px] font-bold">
+            <Link href="/warehouse/materials">Bahan Gudang</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px] font-bold">
+            <Link href="/kiosk">Kiosk</Link>
+          </Button>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
           <TabsList className="h-auto flex-wrap">
@@ -220,7 +295,7 @@ export function ProductionOverviewClient({ initialData }: ProductionOverviewClie
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm" className="font-bold">
             <Link href="/production/daily">
-              Produksi Aktif
+              SPK Aktif
               <ArrowRight className="h-3.5 w-3.5 ml-1" />
             </Link>
           </Button>
@@ -406,18 +481,18 @@ export function ProductionOverviewClient({ initialData }: ProductionOverviewClie
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm bg-card/65 backdrop-blur-sm">
+        <Card className="shadow-sm bg-card/65 backdrop-blur-sm" id="attentions">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-bold">Exception</CardTitle>
+            <CardTitle className="text-base font-bold">Butuh perhatian</CardTitle>
             <CardDescription>
-              Filter by tab. Jembatan ke lantai — command center di Manajemen Lantai.
+              Tap untuk buka SPK / mesin.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {filteredAttentions.length === 0 ? (
               <div className="flex flex-col items-center justify-center border border-dashed rounded-lg py-10 text-center">
                 <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
-                <p className="text-sm font-semibold">Tidak ada exception</p>
+                <p className="text-sm font-semibold">Tidak ada isu</p>
                 <p className="text-xs text-muted-foreground mt-1">Filter ini sehat.</p>
               </div>
             ) : (
@@ -429,11 +504,10 @@ export function ProductionOverviewClient({ initialData }: ProductionOverviewClie
                     : '/production/daily';
                 const red = item.severity === 'red';
                 return (
-                  <Link
+                  <div
                     key={`${item.title}-${idx}`}
-                    href={href}
                     className={cn(
-                      'flex items-start gap-2.5 rounded-lg border p-3 text-xs transition-colors hover:bg-muted/40',
+                      'flex items-start gap-2.5 rounded-lg border p-3 text-xs',
                       red
                         ? 'border-rose-500/20 bg-rose-500/5'
                         : 'border-amber-500/20 bg-amber-500/5'
@@ -444,13 +518,23 @@ export function ProductionOverviewClient({ initialData }: ProductionOverviewClie
                     ) : (
                       <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                     )}
-                    <div className="min-w-0">
-                      <p className="font-bold truncate">{item.title}</p>
-                      <p className="text-muted-foreground mt-0.5 line-clamp-2">
-                        {item.subtitle}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <Link href={href} className="block hover:opacity-80 transition-opacity">
+                        <p className="font-bold truncate">{item.title}</p>
+                        <p className="text-muted-foreground mt-0.5 line-clamp-2">
+                          {item.subtitle}
+                        </p>
+                      </Link>
+                      {item.secondaryHref && item.secondaryLabel && (
+                        <Link
+                          href={item.secondaryHref}
+                          className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          {item.secondaryLabel} <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      )}
                     </div>
-                  </Link>
+                  </div>
                 );
               })
             )}
@@ -491,5 +575,39 @@ function KpiCard({
         <div className="text-[11px] mt-1.5">{hint}</div>
       </CardContent>
     </Card>
+  );
+}
+
+const WORK_STRIP_ACCENT: Record<string, string> = {
+  emerald: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400',
+  blue: 'border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-400',
+  amber: 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400',
+  red: 'border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-400',
+  rose: 'border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-400',
+  violet: 'border-violet-500/30 bg-violet-500/5 text-violet-700 dark:text-violet-400',
+};
+
+function WorkStripCard({
+  label,
+  count,
+  href,
+  accent,
+}: {
+  label: string;
+  count: number;
+  href: string;
+  accent: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'flex flex-col gap-0.5 rounded-lg border p-2.5 text-xs transition-colors hover:opacity-80',
+        WORK_STRIP_ACCENT[accent] || WORK_STRIP_ACCENT.emerald
+      )}
+    >
+      <span className="font-bold text-lg tabular-nums leading-tight">{count}</span>
+      <span className="font-medium text-[11px] leading-tight">{label}</span>
+    </Link>
   );
 }
