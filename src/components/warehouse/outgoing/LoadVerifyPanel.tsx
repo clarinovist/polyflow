@@ -12,7 +12,10 @@ import {
     saveDeliveryLoadVerification,
     confirmDeliveryLoadVerified,
 } from '@/actions/inventory/deliveries';
-import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
+import {
+    getEnteredQuantityDisplay,
+    type EnteredQuantitySnapshot,
+} from '@/lib/utils/production-units';
 
 interface LoadVerifyItem {
     id: string;
@@ -186,7 +189,7 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                                                 quantity: item.quantity,
                                                 enteredUnit: item.enteredUnit,
                                                 primaryUnit: item.productVariant?.primaryUnit,
-                                            } as any)}
+                                            } as EnteredQuantitySnapshot)}
                                         </td>
                                         <td className="p-4 text-right">
                                             {canEdit ? (
@@ -218,7 +221,7 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                                                               quantity: item.verifiedQuantity,
                                                               enteredUnit: item.enteredUnit,
                                                               primaryUnit: item.productVariant?.primaryUnit,
-                                                          } as any)
+                                                          } as EnteredQuantitySnapshot)
                                                         : '-'}
                                                 </span>
                                             )}

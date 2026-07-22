@@ -2,6 +2,7 @@ import React from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { getLocations } from '@/actions/inventory/inventory';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { GoodsReceiptForm } from '@/components/purchasing/orders/GoodsReceiptForm';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
@@ -35,12 +36,12 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
                     <p className="text-muted-foreground mb-4">
                         Pilih PO dari antrean penerimaan untuk membuat goods receipt.
                     </p>
-                    <a
+                    <Link
                         href="/warehouse/incoming"
                         className="text-emerald-600 hover:underline text-sm font-medium"
                     >
                         Kembali ke antrean penerimaan
-                    </a>
+                    </Link>
                 </div>
             </div>
         );
