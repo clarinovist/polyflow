@@ -49,7 +49,8 @@ export function InventoryTable({
     abcMap,
     totalStock,
     totalValue,
-    customerOwnedValue
+    customerOwnedValue,
+    topBadges,
 }: InventoryTableProps) {
 
     const router = useRouter();
@@ -67,7 +68,7 @@ export function InventoryTable({
     const isLocationSpecific = !!locationIdFilter;
 
     // Check if any filters are active
-    const hasFilters = searchTerm || productTypeFilter !== 'all' || searchParams.get('lowStock') === 'true';
+    const hasFilters = !!(searchTerm || productTypeFilter !== 'all' || searchParams.get('lowStock') === 'true');
 
     // Helper function to check if variant is low stock
     const isGlobalLowStock = useCallback((item: InventoryItem) => {

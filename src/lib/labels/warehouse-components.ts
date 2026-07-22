@@ -47,7 +47,6 @@ export const warehouseComponentLabels = {
   // Stock Aging
   stockAgingTitle: 'Aging Stok',
   stockAgingDesc: 'Analisa usia stok berdasarkan tanggal penerimaan batch.',
-  searchProduct: 'Cari produk...',
 
   // Quick Stock Check
   quickStockCheck: 'Cek Stok Cepat',

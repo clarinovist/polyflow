@@ -493,6 +493,7 @@ describe('ProductionExecutionService.logRunningOutput', () => {
             scrapQuantity: 0,
             scrapProngkolQty: 0,
             scrapDaunQty: 0,
+            notes: '',
             operatorId: 'op-idris',
             userId: 'user-1',
         });

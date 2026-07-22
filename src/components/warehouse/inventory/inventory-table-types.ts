@@ -43,4 +43,5 @@ export interface InventoryTableProps {
     totalStock?: number;
     totalValue?: number;
     customerOwnedValue?: number;
+    topBadges?: React.ReactNode;
 }
