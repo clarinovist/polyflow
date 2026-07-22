@@ -92,7 +92,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
-    "jsdom": "^28.0.0",
+    "jsdom": "^29.1.1",
     "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "ts-morph": "^28.0.0",
