@@ -2,33 +2,41 @@ import React from 'react';
 import { Metadata } from 'next';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseOrderTable } from '@/components/purchasing/orders/PurchaseOrderTable';
-
 import { serializeData } from '@/lib/utils/utils';
-import { planningLabels } from '@/lib/labels';
 import { withTenantPage } from '@/lib/core/tenant';
+import { PurchaseOrderStatus } from '@prisma/client';
 
-const getOrdersData = withTenantPage(async () => {
-    const orders = await PurchaseService.getPurchaseOrders();
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
+
+const getOrdersData = withTenantPage(async (statusFilter?: PurchaseOrderStatus) => {
+    const filters = statusFilter ? { status: statusFilter } : undefined;
+    const orders = await PurchaseService.getPurchaseOrders(filters);
     const stats = await PurchaseService.getPurchaseStats();
     return { orders, stats };
 });
 
 export const metadata: Metadata = {
-    title: 'Purchase Orders | PolyFlow ERP',
-    description: planningLabels.purchaseOrdersDesc,
+    title: 'Order Pembelian (PO) | PolyFlow ERP',
+    description: 'Kelola procurement dan pesanan supplier.',
 };
 
-export default async function PurchaseOrdersPage() {
-    const { orders } = await getOrdersData();
+export default async function PurchaseOrdersPage(props: { searchParams: SearchParams }) {
+    const searchParams = await props.searchParams;
+    const statusParam = typeof searchParams.status === 'string' ? searchParams.status : undefined;
+    const statusFilter = statusParam && Object.values(PurchaseOrderStatus).includes(statusParam as PurchaseOrderStatus)
+        ? (statusParam as PurchaseOrderStatus)
+        : undefined;
+
+    const { orders } = await getOrdersData(statusFilter);
 
     return (
         <div className="flex flex-col gap-6 p-6">
             <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Purchase Orders</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">Order Pembelian (PO)</h1>
                         <p className="text-muted-foreground">
-                            Manage supplier purchase orders and track procurement.
+                            Kelola procurement dan pesanan supplier.
                         </p>
                     </div>
                 </div>

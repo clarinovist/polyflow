@@ -58,7 +58,7 @@ export function Supplier360Tabs({ supplier, supplierProducts, initialTab }: Prop
         <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
           <TabsTrigger value="overview" className="text-xs shrink-0">Ringkas</TabsTrigger>
           <TabsTrigger value="products" className="text-xs shrink-0">Produk ({supplierProducts.length})</TabsTrigger>
-          <TabsTrigger value="orders" className="text-xs shrink-0">Orders</TabsTrigger>
+          <TabsTrigger value="orders" className="text-xs shrink-0">Order</TabsTrigger>
           <TabsTrigger value="returns" className="text-xs shrink-0">Retur</TabsTrigger>
           <TabsTrigger value="payments" className="text-xs shrink-0">Hutang</TabsTrigger>
           <TabsTrigger value="performance" className="text-xs shrink-0">Performa</TabsTrigger>

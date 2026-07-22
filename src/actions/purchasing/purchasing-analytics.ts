@@ -238,6 +238,47 @@ async function getAPAgingReport(): Promise<{ success: boolean, data?: APAgingIte
 }
 );
 
+export type OverdueAPLine = {
+    id: string;
+    invoiceNumber: string;
+    supplierName: string;
+    remaining: number;
+    dueDate: string;
+};
+
+/** Top overdue purchase invoices for actionable analytics list. */
+export const getOverdueAPLines = withTenant(
+async function getOverdueAPLines(limit = 10) {
+    return safeAction(async () => {
+        const now = new Date();
+        const rows = await prisma.purchaseInvoice.findMany({
+            where: {
+                status: { notIn: ['PAID', 'CANCELLED'] },
+                dueDate: { lt: now },
+            },
+            orderBy: { dueDate: 'asc' },
+            take: limit,
+            select: {
+                id: true,
+                invoiceNumber: true,
+                totalAmount: true,
+                paidAmount: true,
+                dueDate: true,
+                purchaseOrder: { select: { supplier: { select: { name: true } } } },
+            },
+        });
+
+        return rows.map((inv) => ({
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            supplierName: inv.purchaseOrder?.supplier?.name ?? '-',
+            remaining: Number(inv.totalAmount) - Number(inv.paidAmount),
+            dueDate: inv.dueDate?.toISOString() ?? '',
+        }));
+    });
+}
+);
+
 export const getPurchasingAnalytics = withTenant(
 async function getPurchasingAnalytics(dateRange?: DateRange) {
     return safeAction(async () => {

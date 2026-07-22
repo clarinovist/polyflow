@@ -349,10 +349,13 @@ export const getPurchaseInvoices = withTenant(
 );
 
 export const getPurchaseRequests = withTenant(
-  async function getPurchaseRequests() {
+  async function getPurchaseRequests(filters?: {
+    status?: "OPEN" | "APPROVED" | "CONVERTED" | "REJECTED";
+  }) {
     return safeAction(async () => {
       await requireAuth();
       const requests = await prisma.purchaseRequest.findMany({
+        where: filters?.status ? { status: filters.status } : undefined,
         orderBy: { createdAt: "desc" },
         include: {
           items: {

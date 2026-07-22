@@ -27,12 +27,12 @@ interface PurchasingSidebarProps {
 
 const purchasingLinks = [
   {
-    heading: "Ringkasan",
+    heading: "Hari Ini",
     items: [
       {
         href: "/purchasing",
         icon: LayoutDashboard,
-        label: purchasingSidebarLabels.purchasingDashboard,
+        label: purchasingSidebarLabels.homeBoard,
       },
     ],
   },
@@ -57,7 +57,7 @@ const purchasingLinks = [
     ],
   },
   {
-    heading: "Data Master",
+    heading: "Master",
     items: [
       {
         href: "/purchasing/suppliers",
@@ -77,7 +77,7 @@ const purchasingLinks = [
     ],
   },
   {
-    heading: "Analitik",
+    heading: "Laporan",
     items: [
       {
         href: "/purchasing/analytics",
@@ -91,7 +91,7 @@ const purchasingLinks = [
 export function PurchasingSidebar({ user, permissions }: PurchasingSidebarProps) {
   const filteredGroups = filterNavGroups(purchasingLinks, permissions);
   return (
-    <PortalSidebarBase user={user} portalName="Pembelian" accentColor="purple">
+    <PortalSidebarBase user={user} portalName="Portal Pembelian" accentColor="purple">
       <div className="px-3 mb-2">
         <AdminBackButton />
       </div>

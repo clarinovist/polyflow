@@ -605,9 +605,23 @@ A robust foundation for industrial financial management:
 - Leave request approval workflow
 - Disciplinary action tracking (SP)
 
+### HRD Command Board (`/hrd`)
+
+- **Papan shift HRD**: home = work queue, bukan dashboard statis
+- **6 KPI cards**: Hadir hari ini, Cuti pending, Kasbon outstanding, Periode OPEN, Peserta BPJS, Alert HR unread
+- **Attention lists** (4 kolom):
+  - Cuti/izin menunggu (top 5 + deep link)
+  - Alert kontrak/probation (top 5 + deep link)
+  - Periode gaji terbuka + flag "Perlu generate"
+  - Tanpa kabar kemarin (absent yesterday)
+- **Dual payroll guidance**: penjelasan borongan/mingguan vs bulanan/kantor
+- **Quick actions**: 4 tombol akses cepat
+- **Compact menu grid**: 10 menu dalam grid 4 kolom (menggantikan 9 hub tiles)
+
 ### Plans
 
 - [HRD Gelombang A — Hardening](./plans/2026-07-19-hrd-gelombang-a-hardening.md) — monthly recap, un-finalize, CSV export, print, docs
+- [HRD Command Board & IA](./plans/2026-07-22-hrd-ops-command-board-and-ia.md) — papan shift, attention lists, dual payroll guidance
 
 ---
 
@@ -657,6 +671,7 @@ PolyFlow supports multi-language interfaces through `next-intl`:
 30. ✅ **HRD Kasbon** - Loan management with auto-deduction on finalize
 31. ✅ **HRD CSV Export** - Weekly and monthly payroll export
 32. ✅ **HRD Payslip Print** - Print-friendly payslip view via browser
+33. ✅ **HRD Command Board** - Papan shift dengan attention lists, dual payroll guidance, quick actions
 
 ### 🚧 Planned Features
 

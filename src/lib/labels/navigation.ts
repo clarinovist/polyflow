@@ -144,10 +144,11 @@ export const planningSidebarLabelsExtended = {
 } as const;
 
 export const purchasingSidebarLabels = {
+  homeBoard: "Papan Pembelian",
   purchasingDashboard: "Dashboard Pembelian",
-  purchaseRequests: "Permintaan Pembelian",
-  purchaseOrders: "Order Pembelian",
-  purchaseReturns: "Retur Pembelian",
+  purchaseRequests: "Permintaan (PR)",
+  purchaseOrders: "Order Pembelian (PO)",
+  purchaseReturns: "Retur",
   supplierManagement: "Supplier",
   procurementAnalytics: "Analitik Pembelian",
 } as const;

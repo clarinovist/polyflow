@@ -133,13 +133,13 @@ const warehouseNavItems: NavItem[] = [
  * Purchasing sidebar nav items
  */
 const purchasingNavItems: NavItem[] = [
-  { id: 'purch-dashboard', label: 'Dashboard Pembelian', href: '/purchasing', workspace: 'purchasing', section: 'ringkasan', owner: 'purchasing' },
-  { id: 'purch-requests', label: 'Permintaan Pembelian', href: '/purchasing/requests', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
-  { id: 'purch-orders', label: 'Order Pembelian', href: '/purchasing/orders', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
-  { id: 'purch-returns', label: 'Retur Pembelian', href: '/purchasing/returns', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
+  { id: 'purch-dashboard', label: 'Papan Pembelian', href: '/purchasing', workspace: 'purchasing', section: 'ringkasan', owner: 'purchasing' },
+  { id: 'purch-requests', label: 'Permintaan (PR)', href: '/purchasing/requests', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
+  { id: 'purch-orders', label: 'Order Pembelian (PO)', href: '/purchasing/orders', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
+  { id: 'purch-returns', label: 'Retur', href: '/purchasing/returns', workspace: 'purchasing', section: 'transaksi', owner: 'purchasing' },
   { id: 'purch-suppliers', label: 'Supplier', href: '/purchasing/suppliers', workspace: 'purchasing', section: 'master', owner: 'purchasing' },
   { id: 'purch-maklon-monitor', label: 'Monitor Penerimaan Maklon', href: '/maklon/receipts', workspace: 'purchasing', section: 'maklon', owner: 'warehouse' },
-  { id: 'purch-analytics', label: 'Analitik Pembelian', href: '/purchasing/analytics', workspace: 'purchasing', section: 'analitik', owner: 'purchasing' },
+  { id: 'purch-analytics', label: 'Analitik Pembelian', href: '/purchasing/analytics', workspace: 'purchasing', section: 'pelaporan', owner: 'purchasing' },
 ];
 
 /**
