@@ -4,7 +4,7 @@
 import { StockAgingResult } from '@/services/inventory/stock-aging-service';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatRupiah, formatQuantity } from '@/lib/utils/utils';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
@@ -71,22 +71,22 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                                         <div className="text-xs text-muted-foreground">{item.skuCode}</div>
                                     </TableCell>
                                     <TableCell className="text-right font-medium">
-                                        {item.totalStock}
+                                        {formatQuantity(item.totalStock)}
                                     </TableCell>
                                     <TableCell className="text-right border-l border-border">
-                                        <div className="text-sm">{item.buckets['0-30'].quantity}</div>
+                                        <div className="text-sm">{formatQuantity(item.buckets['0-30'].quantity)}</div>
                                         <div className="text-xs text-muted-foreground">{formatRupiah(item.buckets['0-30'].value)}</div>
                                     </TableCell>
                                     <TableCell className="text-right border-l border-border">
-                                        <div className="text-sm">{item.buckets['31-60'].quantity}</div>
+                                        <div className="text-sm">{formatQuantity(item.buckets['31-60'].quantity)}</div>
                                         <div className="text-xs text-muted-foreground">{formatRupiah(item.buckets['31-60'].value)}</div>
                                     </TableCell>
                                     <TableCell className="text-right border-l border-border">
-                                        <div className="text-sm">{item.buckets['61-90'].quantity}</div>
+                                        <div className="text-sm">{formatQuantity(item.buckets['61-90'].quantity)}</div>
                                         <div className="text-xs text-muted-foreground">{formatRupiah(item.buckets['61-90'].value)}</div>
                                     </TableCell>
                                     <TableCell className="text-right border-l-2 border-red-500/50">
-                                        <div className="text-sm font-bold text-red-600 dark:text-red-400">{item.buckets['90+'].quantity}</div>
+                                        <div className="text-sm font-bold text-red-600 dark:text-red-400">{formatQuantity(item.buckets['90+'].quantity)}</div>
                                         {item.buckets['90+'].value > 0 && (
                                             <div className="text-xs font-semibold text-red-500 dark:text-red-400/80">{formatRupiah(item.buckets['90+'].value)}</div>
                                         )}

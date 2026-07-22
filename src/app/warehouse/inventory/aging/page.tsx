@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatRupiah, formatQuantity } from '@/lib/utils/utils';
 import { Metadata } from 'next';
 import { withTenantPage } from '@/lib/core/tenant';
 
@@ -48,7 +48,7 @@ export default async function StockAgingPage() {
                         <CardTitle className="text-sm font-medium">Total Item</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{summary.totalItems}</div>
+                        <div className="text-2xl font-bold">{formatQuantity(summary.totalItems)}</div>
                     </CardContent>
                 </Card>
                 <Card>
@@ -64,7 +64,7 @@ export default async function StockAgingPage() {
                         <CardTitle className="text-sm font-medium">Stok Aging (&gt;90 hari)</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{summary.slowMovingCount}</div>
+                        <div className="text-2xl font-bold text-red-600">{formatQuantity(summary.slowMovingCount)}</div>
                     </CardContent>
                 </Card>
                 <Card>
