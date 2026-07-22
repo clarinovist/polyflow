@@ -33,6 +33,12 @@ interface GoodsReceiptFormProps {
     basePath?: string;
 }
 
+/** Parse decimal string; accepts Indonesian comma (247,62) and period (247.62). */
+function parseDecimalInput(raw: string): number {
+    const num = Number((raw || '0').replace(',', '.'));
+    return isNaN(num) ? 0 : num;
+}
+
 export function GoodsReceiptForm({
     purchaseOrderId,
     orderNumber,
@@ -43,6 +49,10 @@ export function GoodsReceiptForm({
 }: GoodsReceiptFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    // Keep raw string while typing so comma/dot decimal separators are not stripped.
+    // Immediate Number() coercion turns "247," into 247 → next digits become 24762.
+    const [rawQtyInputs, setRawQtyInputs] = useState<Record<number, string>>({});
+    const [rawCostInputs, setRawCostInputs] = useState<Record<number, string>>({});
 
     // Filter out items that are already fully received
     const pendingItems = items.filter(item => item.receivedQty < item.orderedQty);
@@ -124,11 +134,27 @@ export function GoodsReceiptForm({
                                                                 <Input
                                                                     type="text"
                                                                     inputMode="decimal"
-                                                                    value={field.value ?? ''}
+                                                                    value={
+                                                                        rawQtyInputs[index] !== undefined
+                                                                            ? rawQtyInputs[index]
+                                                                            : (field.value ?? '')
+                                                                    }
                                                                     onChange={e => {
-                                                                        const normalized = e.target.value.replace(',', '.');
-                                                                        const num = Number(normalized);
-                                                                        field.onChange(isNaN(num) ? 0 : num);
+                                                                        const raw = e.target.value;
+                                                                        setRawQtyInputs(prev => ({ ...prev, [index]: raw }));
+                                                                        // Keep intermediate input like "247," / "247." visible
+                                                                        const num = Number(raw.replace(',', '.'));
+                                                                        if (!isNaN(num) && raw !== '' && raw !== ',' && raw !== '.') {
+                                                                            field.onChange(num);
+                                                                        }
+                                                                    }}
+                                                                    onBlur={e => {
+                                                                        field.onChange(parseDecimalInput(e.target.value));
+                                                                        setRawQtyInputs(prev => {
+                                                                            const next = { ...prev };
+                                                                            delete next[index];
+                                                                            return next;
+                                                                        });
                                                                     }}
                                                                     className="h-9"
                                                                 />
@@ -148,12 +174,26 @@ export function GoodsReceiptForm({
                                                                 <Input
                                                                     type="text"
                                                                     inputMode="decimal"
-                                                                    value={field.value ?? ''}
+                                                                    value={
+                                                                        rawCostInputs[index] !== undefined
+                                                                            ? rawCostInputs[index]
+                                                                            : (field.value ?? '')
+                                                                    }
                                                                     onChange={e => {
-                                                                        // Normalize Indonesian decimal format (comma → period)
-                                                                        const normalized = e.target.value.replace(',', '.');
-                                                                        const num = Number(normalized);
-                                                                        field.onChange(isNaN(num) ? 0 : num);
+                                                                        const raw = e.target.value;
+                                                                        setRawCostInputs(prev => ({ ...prev, [index]: raw }));
+                                                                        const num = Number(raw.replace(',', '.'));
+                                                                        if (!isNaN(num) && raw !== '' && raw !== ',' && raw !== '.') {
+                                                                            field.onChange(num);
+                                                                        }
+                                                                    }}
+                                                                    onBlur={e => {
+                                                                        field.onChange(parseDecimalInput(e.target.value));
+                                                                        setRawCostInputs(prev => {
+                                                                            const next = { ...prev };
+                                                                            delete next[index];
+                                                                            return next;
+                                                                        });
                                                                     }}
                                                                     className="h-9"
                                                                 />
