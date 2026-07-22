@@ -119,6 +119,24 @@ function activeLocations(locations: LocationLike[]): LocationLike[] {
 }
 
 /**
+ * Whether a single location belongs to a logical warehouse role.
+ * Multi-tenant: matches canonical slugs, Melindo aliases, or locationPurpose.
+ * Inactive locations never match.
+ */
+export function locationMatchesRole(
+  loc: LocationLike | null | undefined,
+  role: LocationRole,
+): boolean {
+  if (!loc || isInactiveLocation(loc)) return false;
+  const slug = (loc.slug || "").toLowerCase();
+  if ((ROLE_SLUGS[role] || []).some((s) => s.toLowerCase() === slug)) {
+    return true;
+  }
+  const purpose = loc.locationPurpose || "";
+  return (ROLE_PURPOSES[role] || []).includes(purpose);
+}
+
+/**
  * Resolve a single logical role to a location id.
  */
 export function resolveLocationByRole(

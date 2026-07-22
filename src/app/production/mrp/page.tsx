@@ -1,6 +1,6 @@
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getInventoryList } from '@/actions/inventory/inventory';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { locationMatchesRole } from '@/lib/locations/resolve-location';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -21,11 +21,24 @@ export default async function PpicMrpPage() {
         [ProductionStatus.DRAFT, ProductionStatus.RELEASED].includes(o.status)
     );
 
-    // 2. Fetch current RM inventory
+    // 2. Fetch current RM inventory (multi-tenant: rm_warehouse OR gudang-bahan-baku OR purpose RAW_MATERIAL)
     const inventoryRes = await getInventoryList();
     const allInventory = inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rmInventory = (allInventory as any[]).filter((item: any) => item.location?.slug === WAREHOUSE_SLUGS.RAW_MATERIAL);
+    const rmInventory = (allInventory as any[]).filter((item: any) =>
+        locationMatchesRole(item.location, "RAW_MATERIAL")
+    );
+
+    // Sum qty per variant (inventory can have multiple rows / locations)
+    const rmStockByVariant = new Map<string, number>();
+    for (const inv of rmInventory) {
+        const vid = inv.productVariantId as string;
+        if (!vid) continue;
+        rmStockByVariant.set(
+            vid,
+            (rmStockByVariant.get(vid) || 0) + Number(inv.quantity || 0),
+        );
+    }
 
     // 3. Aggregate requirements
     const requirementsMap = new Map<string, { name: string, sku: string, totalReq: number, unit: string }>();
@@ -66,8 +79,7 @@ export default async function PpicMrpPage() {
 
     // 4. Join with Inventory to find shortages
     const analysis = Array.from(requirementsMap.entries()).map(([id, req]) => {
-        const inventory = rmInventory.find(inv => inv.productVariantId === id);
-        const stock = Number(inventory?.quantity || 0);
+        const stock = rmStockByVariant.get(id) || 0;
         const shortage = Math.max(0, req.totalReq - stock);
         return {
             ...req,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isInactiveLocation,
   isRiskyOutputLocation,
+  locationMatchesRole,
   resolveLocationByRole,
   resolveOutputLocationId,
   resolveSourceLocationId,
@@ -60,6 +61,28 @@ describe("resolveLocationByRole — Melindo purpose/alias", () => {
   it("never returns inactive locations when active purpose match exists", () => {
     expect(resolveLocationByRole(melindo, "FINISHED_GOOD")?.id).toBe("fg-m");
     expect(resolveLocationByRole(melindo, "FINISHED_GOOD")?.id).not.toBe("dead");
+  });
+});
+
+describe("locationMatchesRole — multi-tenant RM filter", () => {
+  it("matches Kiyowo rm_warehouse and Melindo gudang-bahan-baku", () => {
+    expect(locationMatchesRole(kiyowo[0], "RAW_MATERIAL")).toBe(true);
+    expect(locationMatchesRole(melindo[0], "RAW_MATERIAL")).toBe(true);
+  });
+
+  it("matches by locationPurpose RAW_MATERIAL", () => {
+    expect(
+      locationMatchesRole(
+        { id: "x", name: "RM", slug: "custom-rm", locationPurpose: "RAW_MATERIAL" },
+        "RAW_MATERIAL",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects WIP / FG / inactive as RAW_MATERIAL", () => {
+    expect(locationMatchesRole(melindo[1], "RAW_MATERIAL")).toBe(false); // WIP
+    expect(locationMatchesRole(melindo[2], "RAW_MATERIAL")).toBe(false); // FG
+    expect(locationMatchesRole(melindo[5], "RAW_MATERIAL")).toBe(false); // inactive
   });
 });
 
