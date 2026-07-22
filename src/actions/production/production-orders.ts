@@ -221,6 +221,22 @@ export const getProductionOrders = withTenant(
             id: true,
             name: true,
             category: true,
+            outputQuantity: true,
+            // Needed by /production/mrp shortage analysis (BOM explode)
+            items: {
+              select: {
+                productVariantId: true,
+                quantity: true,
+                productVariant: {
+                  select: {
+                    id: true,
+                    name: true,
+                    skuCode: true,
+                    primaryUnit: true,
+                  },
+                },
+              },
+            },
             productVariant: {
               select: {
                 id: true,
@@ -314,6 +330,20 @@ export const getProductionOrders = withTenant(
       plannedConversionFactorSnapshot:
         order.plannedConversionFactorSnapshot?.toNumber() ?? null,
       actualQuantity: order.actualQuantity?.toNumber() ?? null,
+      bom: order.bom
+        ? {
+            ...order.bom,
+            outputQuantity: order.bom.outputQuantity.toNumber(),
+            items: (order.bom.items || []).map((item) => ({
+              ...item,
+              quantity: item.quantity.toNumber(),
+            })),
+          }
+        : order.bom,
+      plannedMaterials: (order.plannedMaterials || []).map((pm) => ({
+        ...pm,
+        quantity: pm.quantity.toNumber(),
+      })),
     }));
   },
 );

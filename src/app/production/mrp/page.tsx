@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function PpicMrpPage() {
     // 1. Fetch active production orders and their material requirements
     const ordersRes = await getProductionOrders();
-    const allOrders = ordersRes;
+    const allOrders = Array.isArray(ordersRes) ? ordersRes : [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pendingOrders = (allOrders as any[]).filter((o: any) =>
         [ProductionStatus.DRAFT, ProductionStatus.RELEASED].includes(o.status)
@@ -32,14 +32,32 @@ export default async function PpicMrpPage() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pendingOrders.forEach((order: any) => {
-        const multiplier = Number(order.plannedQuantity) / Number(order.bom.outputQuantity);
+        const bomItems = order.bom?.items;
+        const outputQty = Number(order.bom?.outputQuantity ?? 0);
+        if (!Array.isArray(bomItems) || bomItems.length === 0 || outputQty <= 0) {
+            // Prefer plannedMaterials when BOM lines are missing
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (order.plannedMaterials || []).forEach((pm: any) => {
+                const existing = requirementsMap.get(pm.productVariantId) || {
+                    name: pm.productVariant?.name || "Unknown",
+                    sku: pm.productVariant?.skuCode || pm.productVariantId,
+                    totalReq: 0,
+                    unit: pm.productVariant?.primaryUnit || "",
+                };
+                existing.totalReq += Number(pm.quantity);
+                requirementsMap.set(pm.productVariantId, existing);
+            });
+            return;
+        }
+
+        const multiplier = Number(order.plannedQuantity) / outputQty;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        order.bom.items.forEach((item: any) => {
+        bomItems.forEach((item: any) => {
             const existing = requirementsMap.get(item.productVariantId) || {
-                name: item.productVariant.name,
-                sku: item.productVariant.skuCode,
+                name: item.productVariant?.name || "Unknown",
+                sku: item.productVariant?.skuCode || item.productVariantId,
                 totalReq: 0,
-                unit: item.productVariant.primaryUnit
+                unit: item.productVariant?.primaryUnit || "",
             };
             existing.totalReq += Number(item.quantity) * multiplier;
             requirementsMap.set(item.productVariantId, existing);
