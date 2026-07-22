@@ -131,14 +131,14 @@ export function CustomerDetailClient({
         />
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+        <Tabs defaultValue="overview" className="w-full">
         <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
-          <TabsTrigger value="overview" className="shrink-0">Overview</TabsTrigger>
-          <TabsTrigger value="history" className="shrink-0">Sales</TabsTrigger>
-          <TabsTrigger value="invoices" className="shrink-0">Invoices</TabsTrigger>
+          <TabsTrigger value="overview" className="shrink-0">Ringkas</TabsTrigger>
+          <TabsTrigger value="history" className="shrink-0">Pesanan</TabsTrigger>
+          <TabsTrigger value="invoices" className="shrink-0">Invoice</TabsTrigger>
           <TabsTrigger value="returns" className="shrink-0">Retur</TabsTrigger>
           <TabsTrigger value="deliveries" className="shrink-0">Kirim</TabsTrigger>
-          <TabsTrigger value="quotations" className="shrink-0">Quotations</TabsTrigger>
+          <TabsTrigger value="quotations" className="shrink-0">Penawaran</TabsTrigger>
           <TabsTrigger value="prices" className="shrink-0">Harga</TabsTrigger>
           <TabsTrigger value="visits" className="shrink-0">Kunjungan</TabsTrigger>
           <TabsTrigger value="analytics" className="shrink-0">Analitik</TabsTrigger>
@@ -151,7 +151,7 @@ export function CustomerDetailClient({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5" />
-                  Overview
+                  Ringkas
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -281,7 +281,7 @@ export function CustomerDetailClient({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
-                  Financial Details
+                  Detail Keuangan
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">

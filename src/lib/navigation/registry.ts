@@ -77,30 +77,31 @@ const masterNavItems: NavItem[] = [
  * Sales sidebar nav items
  */
 const salesNavItems: NavItem[] = [
-  { id: 'sales-dashboard', label: 'Dashboard Penjualan', href: '/sales', workspace: 'sales', section: 'ringkasan', owner: 'sales' },
-  { id: 'sales-mobile', label: 'Tampilan Mobile', href: '/sales/mobile', workspace: 'sales', section: 'ringkasan', owner: 'sales' },
+  { id: 'sales-dashboard', label: 'Papan Sales', href: '/sales', workspace: 'sales', section: 'ringkasan', owner: 'sales' },
+  { id: 'sales-mobile', label: 'Mode Mobile', href: '/sales/mobile', workspace: 'sales', section: 'ringkasan', owner: 'sales' },
   { id: 'sales-quotations', label: 'Penawaran', href: '/sales/quotations', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-orders', label: 'Sales Order', href: '/sales/orders', workspace: 'sales', section: 'transaksi', owner: 'sales' },
-  { id: 'sales-invoices', label: 'Invoice Penjualan', href: '/sales/invoices', workspace: 'sales', section: 'transaksi', owner: 'sales' },
+  { id: 'sales-invoices', label: 'Invoice & Piutang', href: '/sales/invoices', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-returns', label: 'Retur Penjualan', href: '/sales/returns', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-delivery-schedules', label: 'Jadwal Kirim', href: '/sales/delivery-schedules', workspace: 'sales', section: 'pengiriman', owner: 'sales' },
   { id: 'sales-deliveries', label: 'Surat Jalan', href: '/sales/deliveries', workspace: 'sales', section: 'pengiriman', owner: 'sales' },
   { id: 'sales-vehicles', label: 'Armada', href: '/sales/vehicles', workspace: 'sales', section: 'pengiriman', owner: 'sales' },
-  { id: 'sales-shipping-cost', label: 'Biaya Pengiriman', href: '/sales/reports/shipping-cost', workspace: 'sales', section: 'analitik', owner: 'sales' },
   { id: 'sales-customers', label: 'Customer', href: '/sales/customers', workspace: 'sales', section: 'pelaporan', owner: 'sales' },
+  { id: 'sales-shipping-cost', label: 'Biaya Pengiriman', href: '/sales/reports/shipping-cost', workspace: 'sales', section: 'pelaporan', owner: 'sales' },
+  { id: 'sales-performance', label: 'Performa Penjualan', href: '/sales/reports/sales-performance', workspace: 'sales', section: 'pelaporan', owner: 'sales' },
 ];
 
 /**
  * Production sidebar nav items
  */
 const productionNavItems: NavItem[] = [
-  { id: 'prod-overview', label: 'Overview', href: '/production', workspace: 'production', section: 'ringkasan', owner: 'production' },
-  { id: 'prod-orders', label: 'SPK Produksi', href: '/production/orders', workspace: 'production', section: 'perencanaan', owner: 'production' },
+  { id: 'prod-overview', label: 'Papan Produksi', href: '/production', workspace: 'production', section: 'ringkasan', owner: 'production' },
+  { id: 'prod-orders', label: 'SPK', href: '/production/orders', workspace: 'production', section: 'perencanaan', owner: 'production' },
   { id: 'prod-boms', label: 'BOM / Formula', href: '/production/boms', workspace: 'production', section: 'perencanaan', owner: 'master', isAlias: true, canonicalHref: '/dashboard/boms' },
-  { id: 'prod-requests', label: 'Permintaan Masuk', href: '/production/requests', workspace: 'production', section: 'perencanaan', owner: 'production' },
-  { id: 'prod-schedule', label: 'Jadwal Produksi', href: '/production/schedule', workspace: 'production', section: 'perencanaan', owner: 'production' },
-  { id: 'prod-mrp', label: 'Kebutuhan Material', href: '/production/mrp', workspace: 'production', section: 'perencanaan', owner: 'production' },
-  { id: 'prod-daily', label: 'Produksi Aktif', href: '/production/daily', workspace: 'production', section: 'lantai', owner: 'production' },
+  { id: 'prod-requests', label: 'Permintaan FG', href: '/production/requests', workspace: 'production', section: 'perencanaan', owner: 'production' },
+  { id: 'prod-schedule', label: 'Jadwal', href: '/production/schedule', workspace: 'production', section: 'perencanaan', owner: 'production' },
+  { id: 'prod-mrp', label: 'MRP', href: '/production/mrp', workspace: 'production', section: 'perencanaan', owner: 'production' },
+  { id: 'prod-daily', label: 'SPK Aktif', href: '/production/daily', workspace: 'production', section: 'lantai', owner: 'production' },
   { id: 'prod-machines', label: 'Papan Mesin', href: '/production/machines', workspace: 'production', section: 'lantai', owner: 'production' },
   { id: 'prod-inventory', label: 'Stok Lantai', href: '/production/inventory', workspace: 'production', section: 'sumber-daya', owner: 'warehouse' },
   { id: 'prod-resources', label: 'Tim / Shift', href: '/production/resources', workspace: 'production', section: 'sumber-daya', owner: 'production' },
@@ -108,7 +109,7 @@ const productionNavItems: NavItem[] = [
   { id: 'prod-packing', label: 'Laporan Packing', href: '/production/packing-monthly', workspace: 'production', section: 'sumber-daya', owner: 'production' },
   { id: 'prod-shifts', label: 'Shift Kerja', href: '/production/shifts', workspace: 'production', section: 'sumber-daya', owner: 'production' },
   { id: 'prod-analytics', label: 'Analitik Produksi', href: '/production/analytics', workspace: 'production', section: 'analitik', owner: 'production' },
-  { id: 'prod-costing', label: 'Costing Dashboard', href: '/production/costing', workspace: 'production', section: 'analitik', owner: 'production' },
+  { id: 'prod-costing', label: 'Costing', href: '/production/costing', workspace: 'production', section: 'analitik', owner: 'production' },
   { id: 'prod-kiosk', label: 'Kiosk Operator', href: '/kiosk', workspace: 'production', section: 'analitik', owner: 'production' },
 ];
 
@@ -116,19 +117,16 @@ const productionNavItems: NavItem[] = [
  * Warehouse sidebar nav items
  */
 const warehouseNavItems: NavItem[] = [
-  { id: 'wh-job-queue', label: 'Antrian Tugas', href: '/warehouse', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
+  { id: 'wh-home', label: 'Hari Ini', href: '/warehouse', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
   { id: 'wh-incoming', label: 'Penerimaan Barang', href: '/warehouse/incoming', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
   { id: 'wh-outgoing', label: 'Antrian Muat', href: '/warehouse/outgoing', workspace: 'warehouse', section: 'operasi', owner: 'sales' },
+  { id: 'wh-materials', label: 'Bahan Produksi', href: '/warehouse/materials', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
   { id: 'wh-opname', label: 'Stock Opname', href: '/warehouse/opname', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
   { id: 'wh-maklon-receipts', label: 'Penerimaan Maklon', href: '/warehouse/maklon/receipts', workspace: 'warehouse', section: 'maklon', owner: 'warehouse' },
   { id: 'wh-maklon-returns', label: 'Retur Maklon', href: '/warehouse/maklon/returns', workspace: 'warehouse', section: 'maklon', owner: 'warehouse' },
-  { id: 'wh-inventory', label: 'Ikhtisar Stok', href: '/warehouse/inventory', workspace: 'warehouse', section: 'persediaan', owner: 'warehouse' },
-  { id: 'wh-transfer', label: 'Transfer Stok', href: '/warehouse/inventory/transfer', workspace: 'warehouse', section: 'persediaan', owner: 'warehouse' },
-  { id: 'wh-adjustment', label: 'Penyesuaian Stok', href: '/warehouse/inventory/adjustment', workspace: 'warehouse', section: 'persediaan', owner: 'warehouse' },
-  { id: 'wh-aging', label: 'Aging Stok', href: '/warehouse/inventory/aging', workspace: 'warehouse', section: 'persediaan', owner: 'warehouse' },
+  { id: 'wh-inventory', label: 'Stok', href: '/warehouse/inventory', workspace: 'warehouse', section: 'persediaan', owner: 'warehouse' },
   { id: 'wh-locations', label: 'Lokasi', href: '/warehouse/locations', workspace: 'warehouse', section: 'persediaan', owner: 'warehouse' },
-  { id: 'wh-analytics', label: 'Dashboard Analitik', href: '/warehouse/analytics', workspace: 'warehouse', section: 'analitik', owner: 'warehouse' },
-  { id: 'wh-stock-movement', label: 'Mutasi Stok', href: '/warehouse/inventory/history', workspace: 'warehouse', section: 'analitik', owner: 'warehouse' },
+  { id: 'wh-analytics', label: 'Analitik Gudang', href: '/warehouse/analytics', workspace: 'warehouse', section: 'analitik', owner: 'warehouse' },
 ];
 
 /**

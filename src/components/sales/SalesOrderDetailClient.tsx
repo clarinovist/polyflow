@@ -28,6 +28,8 @@ import {
   Receipt,
   AlertTriangle,
   Repeat,
+  CalendarPlus,
+  MoreHorizontal,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -57,6 +59,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   getEnteredQuantityDisplay,
   getEnteredUnitPriceDisplay,
@@ -221,6 +229,20 @@ export function SalesOrderDetailClient({
         </Alert>
       )}
 
+      {/* Shipping path guidance — only for sellable orders */}
+      {!isLegacyInternalOrder && !isMaklonOrder && !warehouseMode &&
+        ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(order.status) && (
+        <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-800/50 dark:bg-blue-900/20">
+          <Truck className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+          <AlertTitle>Alur Kirim</AlertTitle>
+          <AlertDescription className="text-sm">
+            Untuk rute harian multi-toko: pakai <strong>Jadwal Kirim</strong>.
+            Untuk 1 SO hot-load: <strong>Buat Surat Jalan</strong>.
+            Muat & tandai dikirim dikerjakan di <strong>Portal Gudang</strong>.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
@@ -357,32 +379,47 @@ export function SalesOrderDetailClient({
               </Button>
             ) : (
               !warehouseMode && (
-                <CreateDeliveryOrderDialog defaultSalesOrderId={order.id} />
+                <>
+                  <CreateDeliveryOrderDialog defaultSalesOrderId={order.id} />
+                  <Button variant="outline" asChild>
+                    <Link href="/sales/delivery-schedules">
+                      <CalendarPlus className="mr-2 h-4 w-4" /> Tambah ke Jadwal
+                    </Link>
+                  </Button>
+                </>
               )
             ))}
 
-          {/* Quick ship: sales path only — warehouse must use DO detail + load verify */}
+          {/* Quick ship: demoted to dropdown "Lainnya" */}
           {!warehouseMode &&
             (order.status === "CONFIRMED" ||
               order.status === "READY_TO_SHIP" ||
               (order.status === "IN_PRODUCTION" && !!primaryOpenDo)) && (
-            <Button
-              onClick={() => setIsShipDialogOpen(true)}
-              disabled={isLoading || openDeliveryOrders.length > 1}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-              title={
-                openDeliveryOrders.length > 1
-                  ? salesLabels.selectDoToShip
-                  : undefined
-              }
-            >
-              <Truck className="mr-2 h-4 w-4" />{" "}
-              {isMaklonOrder
-                ? "Tutup Order Jasa"
-                : primaryOpenDo
-                  ? `${salesLabels.commitExistingDo} (${primaryOpenDo.orderNumber ?? "SJ"})`
-                  : salesLabels.createAndShip}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isLoading || openDeliveryOrders.length > 1}
+                  title={
+                    openDeliveryOrders.length > 1
+                      ? salesLabels.selectDoToShip
+                      : undefined
+                  }
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsShipDialogOpen(true)}>
+                  <Truck className="mr-2 h-4 w-4" />
+                  {isMaklonOrder
+                    ? "Tutup Order Jasa"
+                    : primaryOpenDo
+                      ? `Kirim SJ cepat (${primaryOpenDo.orderNumber ?? "SJ"}) — lanjutan`
+                      : "Buat SJ + Kirim Cepat (lanjutan)"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           {(order.status === "SHIPPED" || order.status === "DELIVERED") && (

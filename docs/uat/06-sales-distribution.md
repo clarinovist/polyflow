@@ -378,6 +378,181 @@
 
 ---
 
+## J. Sales Command Board (Papan Sales) — 2026-07-22
+
+### TC-SA-HOME-001: Board Loads with KPI Cards
+| **ID** | TC-SA-HOME-001 | **Prioritas** | 🔴 P1 |
+|--------|----------------|---------------|--------|
+
+**Langkah:**
+1. Login sebagai SALES atau ADMIN
+2. Buka `/sales`
+
+**Diharapkan:**
+- Halaman menampilkan 5 kartu KPI: DRAFT SO, Siap SJ, SJ Aktif, Trip Hari Ini, Overdue
+- Bukan lagi chart wall / analytics dashboard lama
+- Setiap kartu menampilkan angka count
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-SA-HOME-002: Card Deep Links Work
+| **ID** | TC-SA-HOME-002 | **Prioritas** | 🔴 P1 |
+|--------|----------------|---------------|--------|
+
+**Langkah:**
+1. Buka `/sales`
+2. Klik kartu "DRAFT SO"
+3. Klik browser back
+4. Klik kartu "SJ Aktif"
+5. Klik browser back
+6. Klik kartu "Overdue"
+
+**Diharapkan:**
+- Klik "DRAFT SO" → navigasi ke `/sales/orders?status=DRAFT`
+- Klik "SJ Aktif" → navigasi ke `/sales/deliveries?status=PENDING`
+- Klik "Overdue" → navigasi ke `/sales/invoices?status=OVERDUE`
+- Filter di halaman tujuan sesuai dengan kartu yang diklik
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-SA-HOME-003: DO LOADING Included in SJ Aktif Count
+| **ID** | TC-SA-HOME-003 | **Prioritas** | 🔴 P1 |
+|--------|----------------|---------------|--------|
+
+**Prasyarat:** Ada Delivery Order dengan status LOADING
+
+**Langkah:**
+1. Buka `/sales`
+2. Lihat kartu "SJ Aktif"
+
+**Diharapkan:** Jumlah SJ Aktif = count DO dengan status PENDING + LOADING (bukan hanya PENDING)
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-SA-HOME-004: Attention Lists Display
+| **ID** | TC-SA-HOME-004 | **Prioritas** | 🟡 P2 |
+|--------|----------------|---------------|--------|
+
+**Prasyarat:** Ada SO DRAFT > 0 hari, SO READY_TO_SHIP tanpa DO, DO PENDING/LOADING, invoice OVERDUE
+
+**Langkah:**
+1. Buka `/sales`
+2. Scroll ke bagian "Butuh Perhatian"
+
+**Diharapkan:**
+- Section "Butuh Perhatian" tampil
+- Setiap list menampilkan max 5 item
+- Setiap item menampilkan nomor dokumen, nama customer, dan badge status
+- Link "Lihat semua" di bawah setiap list
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-SA-HOME-005: Quick Actions Work
+| **ID** | TC-SA-HOME-005 | **Prioritas** | 🟡 P2 |
+|--------|----------------|---------------|--------|
+
+**Langkah:**
+1. Buka `/sales`
+2. Klik "+ Order Baru"
+3. Klik browser back
+4. Klik "+ Penawaran"
+5. Klik browser back
+6. Klik "Jadwal Kirim"
+7. Klik browser back
+8. Klik "Mode Mobile"
+
+**Diharapkan:**
+- "+ Order Baru" → `/sales/orders/new`
+- "+ Penawaran" → `/sales/quotations/new`
+- "Jadwal Kirim" → `/sales/delivery-schedules`
+- "Mode Mobile" → `/sales/mobile`
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-SA-HOME-006: Performance Strip Shows Revenue
+| **ID** | TC-SA-HOME-006 | **Prioritas** | 🟢 P3 |
+|--------|----------------|---------------|--------|
+
+**Langkah:**
+1. Buka `/sales`
+2. Scroll ke bawah ke "Ringkas Performa"
+
+**Diharapkan:**
+- Omzet periode ditampilkan dalam format Rupiah
+- Order aktif dan customer aktif terlihat
+- Link "Performa lengkap" mengarah ke `/sales/reports/sales-performance`
+- Definisi omzet (Jurnal akun 4*) terlihat
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+## K. SO Detail — Shipping CTA Clarity
+
+### TC-SA-SHIP-001: Shipping Path Guidance Alert
+| **ID** | TC-SA-SHIP-001 | **Prioritas** | 🔴 P1 |
+|--------|----------------|---------------|--------|
+
+**Langkah:**
+1. Buka SO dengan status READY_TO_SHIP
+2. Lihat bagian atas detail SO
+
+**Diharapkan:**
+- Alert "Alur Kirim" tampil dengan copy: "Untuk rute harian multi-toko: pakai Jadwal Kirim. Untuk 1 SO hot-load: Buat Surat Jalan. Muat & tandai dikirim dikerjakan di Portal Gudang."
+- Primary CTAs: "Buat Surat Jalan" + "Tambah ke Jadwal"
+- ShipmentDialog ada di dropdown "⋮" (bukan button utama)
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-SA-SHIP-002: Tambah ke Jadwal Kirim Button
+| **ID** | TC-SA-SHIP-002 | **Prioritas** | 🔴 P1 |
+|--------|----------------|---------------|--------|
+
+**Langkah:**
+1. Buka SO dengan status CONFIRMED atau READY_TO_SHIP
+2. Klik "Tambah ke Jadwal"
+
+**Diharapkan:** Navigasi ke `/sales/delivery-schedules?addOrder={soId}`
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+## L. Sidebar Navigation
+
+### TC-SA-NAV-001: Sidebar Groups Correct
+| **ID** | TC-SA-NAV-001 | **Prioritas** | 🟡 P2 |
+|--------|----------------|---------------|--------|
+
+**Langkah:**
+1. Login sebagai SALES
+2. Periksa sidebar navigation
+
+**Diharapkan:**
+- Group "Hari Ini": Papan Sales
+- Group "Transaksi": Penawaran, Sales Order, Invoice & Piutang, Retur
+- Group "Pengiriman": Jadwal Kirim, Surat Jalan, Armada
+- Group "Pelanggan": Customer
+- Group "Laporan": Performa Penjualan, Biaya Pengiriman
+- Footer: Mode Mobile
+- Portal name: "Portal Sales"
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
 ## Ringkasan Hasil
 
 | Bagian | TC | Lulus | Gagal | Sebagian |
@@ -390,6 +565,9 @@
 | Return & Lainnya | 3 | | | |
 | Credit Limit | 2 | | | |
 | Customer Directory | 1 | | | |
-| **TOTAL** | **24** | | | |
+| Command Board | 6 | | | |
+| SO Detail Shipping CTA | 2 | | | |
+| Sidebar Navigation | 1 | | | |
+| **TOTAL** | **33** | | | |
 
 **Tanda Tangan Tester:** _________________________ **Tanggal:** ____/____/________

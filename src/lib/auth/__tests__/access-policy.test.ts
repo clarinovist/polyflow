@@ -40,6 +40,7 @@ describe('Access Policy Helpers', () => {
     it('allows parent resource to cover children', () => {
       expect(isPathAllowedByResources('/warehouse/inventory', ['/warehouse'])).toBe(true);
       expect(isPathAllowedByResources('/warehouse/inventory/transfer', ['/warehouse'])).toBe(true);
+      expect(isPathAllowedByResources('/warehouse/materials', ['/warehouse'])).toBe(true);
     });
 
     it('allows workspace root when only nested resource is granted', () => {

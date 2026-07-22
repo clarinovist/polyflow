@@ -6,10 +6,7 @@ import {
     PackageSearch,
     ChevronRight,
     ClipboardCheck,
-    ArrowLeftRight,
-    PackagePlus,
-    Clock,
-    History,
+    ClipboardList,
     BarChart3,
     Package,
     RotateCcw,
@@ -34,9 +31,10 @@ const warehouseLinks = [
     {
         heading: 'Operasi',
         items: [
-            { href: '/warehouse', icon: LayoutDashboard, label: warehouseSidebarLabels.jobQueue, exact: true },
+            { href: '/warehouse', icon: LayoutDashboard, label: warehouseSidebarLabels.homeBoard, exact: true },
             { href: '/warehouse/incoming', icon: PackageSearch, label: warehouseSidebarLabels.incomingReceipts },
             { href: '/warehouse/outgoing', icon: ChevronRight, label: warehouseSidebarLabels.outgoingOrders },
+            { href: '/warehouse/materials', icon: ClipboardList, label: warehouseSidebarLabels.materialProduction },
             { href: '/warehouse/opname', icon: ClipboardCheck, label: warehouseSidebarLabels.stockOpname },
         ],
     },
@@ -51,9 +49,6 @@ const warehouseLinks = [
         heading: 'Persediaan',
         items: [
             { href: '/warehouse/inventory', icon: Warehouse, label: warehouseSidebarLabels.stockOverview },
-            { href: '/warehouse/inventory/transfer', icon: ArrowLeftRight, label: warehouseSidebarLabels.stockTransfer },
-            { href: '/warehouse/inventory/adjustment', icon: PackagePlus, label: warehouseSidebarLabels.stockAdjustment },
-            { href: '/warehouse/inventory/aging', icon: Clock, label: warehouseSidebarLabels.stockAging },
             { href: '/warehouse/locations', icon: Warehouse, label: warehouseSidebarLabels.locations },
         ],
     },
@@ -61,7 +56,6 @@ const warehouseLinks = [
         heading: 'Analitik',
         items: [
             { href: '/warehouse/analytics', icon: BarChart3, label: warehouseSidebarLabels.analyticsDashboard },
-            { href: '/warehouse/inventory/history', icon: History, label: warehouseSidebarLabels.stockMovement },
         ],
     },
 ];

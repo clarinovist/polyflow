@@ -6,7 +6,11 @@ import { parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { UrlTransactionDateFilter } from "@/components/common/url-transaction-date-filter";
 import { SalesInvoicesShell } from "@/components/sales/SalesInvoicesShell";
 
-export default async function SalesInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string; endDate?: string }> }) {
+export default async function SalesInvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ startDate?: string; endDate?: string; status?: string }>;
+}) {
   const params = await searchParams;
   const now = new Date();
   const defaultStart = startOfMonth(now);
@@ -35,7 +39,12 @@ export default async function SalesInvoicesPage({ searchParams }: { searchParams
         <UrlTransactionDateFilter defaultPreset="this_month" />
       </div>
 
-      <SalesInvoicesShell initialInvoices={invoices as never} stats={stats as never} periodLabel={periodLabel} />
+      <SalesInvoicesShell
+        initialInvoices={invoices as never}
+        stats={stats as never}
+        periodLabel={periodLabel}
+        initialStatus={params?.status}
+      />
     </div>
   );
 }

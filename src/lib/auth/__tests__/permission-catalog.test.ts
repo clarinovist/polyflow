@@ -43,6 +43,12 @@ describe('permission-catalog', () => {
     );
   });
 
+  it('includes warehouse materials path for command-board split', () => {
+    const warehouse = PERMISSION_CATALOG.find((n) => n.key === '/warehouse');
+    const keys = warehouse?.children?.map((n) => n.key) ?? [];
+    expect(keys).toContain('/warehouse/materials');
+  });
+
   describe('getModuleRoot', () => {
     it('extracts the first path segment', () => {
       expect(getModuleRoot('/warehouse/inventory/transfer')).toBe('/warehouse');

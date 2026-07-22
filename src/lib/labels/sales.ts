@@ -46,19 +46,19 @@ export const salesLabels = {
   emptyReturns: "Tidak ada retur penjualan.",
   allReturns: "Semua Retur",
 
-  // Sales Dashboard
-  salesDashboard: "Dashboard Penjualan",
-  salesDashboardDesc: "Ringkasan performa penjualan.",
-  totalRevenuePeriod: "Total Pendapatan (Periode)",
+  // Sales Dashboard / Command Board
+  salesDashboard: "Papan Sales",
+  salesDashboardDesc: "Hari ini — antrean kerja, order, SJ, piutang.",
+  totalRevenuePeriod: "Omzet Periode",
   basedOnPeriod: "Berdasarkan periode terpilih",
   noData: "Tidak ada data",
   activeOrders: "Pesanan Aktif",
   ordersInProgress: "Pesanan sedang diproses",
-  pendingDeliveries: "Pengiriman Tertunda",
-  readyToShip: "Siap dikirim",
+  pendingDeliveries: "SJ Aktif",
+  readyToShip: "Menunggu muat gudang",
   activeCustomers: "Customer Aktif",
   totalActiveBase: "Total customer aktif",
-  recentSalesOrders: "Pesanan Penjualan Terbaru",
+  recentSalesOrders: "Pesanan Terbaru",
 
   // Sales Orders
   salesOrders: "Sales Orders",

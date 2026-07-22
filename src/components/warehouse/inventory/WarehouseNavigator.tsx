@@ -43,7 +43,7 @@ export function WarehouseNavigator({
                     )}
                 >
                     <Warehouse className="h-4 w-4" />
-                    <span>All Warehouses</span>
+                    <span>Semua Lokasi</span>
                     <Badge
                         variant={isAllActive ? "secondary" : "outline"}
                         className={cn("px-1.5 h-5 min-w-[1.25rem] justify-center flex", isAllActive ? "bg-primary-foreground/20 text-primary-foreground border-none" : "")}

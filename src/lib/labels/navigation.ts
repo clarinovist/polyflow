@@ -47,16 +47,16 @@ export const maklonSidebarLabels = {
 
 /** Sidebar by domain */
 export const productionSidebarLabels = {
-  overview: "Overview",
+  overview: "Papan Produksi",
   // Production Planning
-  workOrders: "SPK Produksi",
+  workOrders: "SPK",
   bom: "BOM / Formula",
-  incomingRequests: "Papan Permintaan FG",
-  productionSchedule: "Jadwal Produksi",
-  materialRequirements: "Kebutuhan Material",
+  incomingRequests: "Permintaan FG",
+  productionSchedule: "Jadwal",
+  materialRequirements: "MRP",
   productionAnalytics: "Analitik Produksi",
   // Production Floor
-  dailyProduction: "Produksi Aktif",
+  dailyProduction: "SPK Aktif",
   machineBoard: "Papan Mesin",
   floorStock: "Stok Lantai",
   teamShifts: "Tim / Shift",
@@ -64,19 +64,21 @@ export const productionSidebarLabels = {
   packingMonthlyReport: "Laporan Packing",
   workShifts: "Shift Kerja",
   operatorKiosk: "Kiosk Operator",
-  costingDashboard: "Costing Dashboard",
+  costingDashboard: "Costing",
 } as const;
 
 export const warehouseSidebarLabels = {
+  homeBoard: "Hari Ini",
   jobQueue: "Antrian Tugas",
   incomingReceipts: "Penerimaan Barang",
   outgoingOrders: "Antrian Muat",
+  materialProduction: "Bahan Produksi",
   stockOpname: "Stock Opname",
-  stockOverview: "Ikhtisar Stok",
+  stockOverview: "Stok",
   stockTransfer: "Transfer Stok",
   stockAdjustment: "Penyesuaian Stok",
   locations: "Lokasi",
-  analyticsDashboard: "Dashboard Analitik",
+  analyticsDashboard: "Analitik Gudang",
   stockAging: "Aging Stok",
   stockMovement: "Mutasi Stok",
   transferAnalytics: "Analitik Transfer",
@@ -118,16 +120,18 @@ export const financeSidebarLabels = {
 } as const;
 
 export const salesSidebarLabels = {
-  salesDashboard: "Dashboard Penjualan",
+  salesDashboard: "Papan Sales",
   quotations: "Penawaran",
   salesOrders: "Sales Order",
-  salesInvoices: "Invoice Penjualan",
+  salesInvoices: "Invoice & Piutang",
   deliveryTracking: "Surat Jalan",
   deliverySchedules: "Jadwal Kirim",
   vehicles: "Armada",
   shippingCostReport: "Biaya Pengiriman",
+  salesPerformance: "Performa Penjualan",
   salesReturns: "Retur Penjualan",
   customerManagement: "Customer",
+  mobileMode: "Mode Mobile",
 } as const;
 
 export const planningSidebarLabelsExtended = {

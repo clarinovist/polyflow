@@ -59,7 +59,7 @@ interface OpnameDetailClientProps {
     basePath?: string;
 }
 
-export function OpnameDetailClient({ session, currentUserId, basePath = '/warehouse/inventory/opname' }: OpnameDetailClientProps) {
+export function OpnameDetailClient({ session, currentUserId, basePath = '/warehouse/opname' }: OpnameDetailClientProps) {
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const router = useRouter();

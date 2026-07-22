@@ -194,7 +194,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                         <MetricRow label={dashboardLabels.activeOrdersLabel} value={stats.sales.activeOrders.toString()} />
                         <MetricRow label={dashboardLabels.pendingInvoices} value={stats.sales.pendingInvoices.toString()} />
                         <div className="pt-2">
-                            <Link href="/sales/analytics" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors">
+                            <Link href="/sales/reports/sales-performance" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors">
                                 {dashboardLabels.viewAnalytics} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>

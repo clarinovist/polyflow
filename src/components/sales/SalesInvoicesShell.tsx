@@ -18,18 +18,30 @@ type Stats = {
   unpaidCount: number;
 } | null;
 
+function parseStatusFilter(raw?: string | null): FilterStatus {
+  if (!raw) return "all";
+  const upper = raw.toUpperCase();
+  if (upper === "UNPAID" || upper === "PARTIAL" || upper === "OVERDUE" || upper === "PAID") {
+    return upper;
+  }
+  return "all";
+}
+
 export function SalesInvoicesShell({
   initialInvoices,
   stats,
   periodLabel,
+  initialStatus,
 }: {
   initialInvoices: Record<string, unknown>[];
   stats: Stats;
   periodLabel: string;
+  /** Deep-link from command board: ?status=OVERDUE */
+  initialStatus?: string | null;
 }) {
   const { data: session } = useSession();
   const canAccessFinance = session?.user?.role === "ADMIN" || session?.user?.role === "FINANCE";
-  const [filter, setFilter] = useState<FilterStatus>("all");
+  const [filter, setFilter] = useState<FilterStatus>(() => parseStatusFilter(initialStatus));
 
   const filteredInvoices = useMemo(() => {
     if (filter === "all") return initialInvoices;

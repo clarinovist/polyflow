@@ -27,7 +27,7 @@ import { getLocations } from '@/actions/inventory/inventory';
 import { useRouter } from 'next/navigation';
 import { warehouseComponentLabels } from '@/lib/labels';
 
-export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }: { basePath?: string }) {
+export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePath?: string }) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     interface Location {

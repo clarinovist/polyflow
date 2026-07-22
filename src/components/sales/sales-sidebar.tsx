@@ -17,6 +17,7 @@ import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { salesSidebarLabels } from '@/lib/labels';
 import { filterNavGroups } from '@/lib/auth/permission-match';
+import Link from 'next/link';
 
 interface SalesSidebarProps {
     user: {
@@ -30,10 +31,9 @@ interface SalesSidebarProps {
 
 const salesLinks = [
     {
-        heading: 'Ringkasan',
+        heading: 'Hari Ini',
         items: [
             { href: '/sales', icon: LayoutDashboard, label: salesSidebarLabels.salesDashboard },
-            { href: '/sales/mobile', icon: Smartphone, label: 'Tampilan Mobile' },
         ],
     },
     {
@@ -54,16 +54,16 @@ const salesLinks = [
         ],
     },
     {
-        heading: 'Laporan',
-        items: [
-            { href: '/sales/reports/shipping-cost', icon: BarChart3, label: 'Biaya Pengiriman' },
-            { href: '/sales/reports/sales-performance', icon: BarChart3, label: 'Performa Penjualan' },
-        ],
-    },
-    {
         heading: 'Pelanggan',
         items: [
             { href: '/sales/customers', icon: Users2, label: salesSidebarLabels.customerManagement },
+        ],
+    },
+    {
+        heading: 'Laporan',
+        items: [
+            { href: '/sales/reports/sales-performance', icon: BarChart3, label: salesSidebarLabels.salesPerformance },
+            { href: '/sales/reports/shipping-cost', icon: BarChart3, label: salesSidebarLabels.shippingCostReport },
         ],
     },
 ];
@@ -71,7 +71,7 @@ const salesLinks = [
 export function SalesSidebar({ user, permissions }: SalesSidebarProps) {
     const filteredGroups = filterNavGroups(salesLinks, permissions);
     return (
-        <PortalSidebarBase user={user} portalName="Sales" accentColor="blue">
+        <PortalSidebarBase user={user} portalName="Portal Sales" accentColor="blue">
             <div className="px-3 mb-2">
                 <AdminBackButton />
             </div>
@@ -83,6 +83,16 @@ export function SalesSidebar({ user, permissions }: SalesSidebarProps) {
                     accentColor="blue"
                 />
             ))}
+            {/* Mobile Mode — footer entry */}
+            <div className="mt-auto pt-4 border-t border-sidebar-border mx-3">
+                <Link
+                    href="/sales/mobile"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                >
+                    <Smartphone className="h-4 w-4" />
+                    <span>{salesSidebarLabels.mobileMode}</span>
+                </Link>
+            </div>
         </PortalSidebarBase>
     );
 }

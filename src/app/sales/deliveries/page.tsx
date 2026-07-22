@@ -6,6 +6,7 @@ import { serializeData } from '@/lib/utils/utils';
 import { salesLabels } from '@/lib/labels';
 import { Package, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import Link from 'next/link';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -44,6 +45,9 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
                     </p>
                     <p className="text-muted-foreground">
                         {salesLabels.openSjPendingList} Filter tanggal di atas memakai tanggal pengiriman; SJ draft tetap ikut tampil.
+                    </p>
+                    <p className="text-muted-foreground">
+                        Muat, verifikasi, & tandai dikirim dikerjakan di <Link href="/warehouse/outgoing" className="underline hover:text-foreground">Portal Gudang</Link>.
                     </p>
                 </AlertDescription>
             </Alert>
