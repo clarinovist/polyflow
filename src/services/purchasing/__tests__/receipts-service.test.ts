@@ -1575,23 +1575,34 @@ describe("receipts-service", () => {
         vi.mocked(InventoryCoreService.incrementStockWithCost),
       ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-2", 15, 2500);
     });
-    it("rejects over-receiving beyond PO quantity", async () => {
+    it("allows over-receiving beyond PO quantity (PO is estimate)", async () => {
       const data = { ...baseData, purchaseOrderId: "po-1", items: [{ ...baseData.items[0], receivedQty: 3 }] };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.goodsReceipt.findMany).mockResolvedValue([]);
-      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb({
+      const mockCreate = vi.fn().mockResolvedValue({ id: "gr-1", items: [] });
+      const mockTx = {
         productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL" } }) },
-        goodsReceipt: { create: vi.fn().mockResolvedValue({ id: "gr-1" }) },
+        inventory: { findUnique: vi.fn().mockResolvedValue(null) },
+        goodsReceipt: { create: mockCreate },
+        stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
         purchaseOrderItem: {
           findFirst: vi.fn().mockResolvedValue({
             id: "poi-1",
             receivedQty: { toNumber: () => 8 },
             quantity: { toNumber: () => 10 },
           }),
+          update: vi.fn(),
+          findMany: vi.fn().mockResolvedValue([]),
         },
-      }));
+        purchaseOrder: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          update: vi.fn(),
+        },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(mockTx));
 
-      await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/melebihi.*PO/i);
+      await expect(createGoodsReceipt(data, userId)).resolves.toBeDefined();
+      expect(mockCreate).toHaveBeenCalled();
     });
 
     it("rejects identical recent GR submissions", async () => {

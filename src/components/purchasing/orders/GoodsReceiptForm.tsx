@@ -54,8 +54,8 @@ export function GoodsReceiptForm({
     const [rawQtyInputs, setRawQtyInputs] = useState<Record<number, string>>({});
     const [rawCostInputs, setRawCostInputs] = useState<Record<number, string>>({});
 
-    // Filter out items that are already fully received
-    const pendingItems = items.filter(item => item.receivedQty < item.orderedQty);
+    // Allow over-receiving: PO qty treated as estimate, show all items
+    const pendingItems = items;
 
     const form = useForm<CreateGoodsReceiptValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,10 +67,17 @@ export function GoodsReceiptForm({
             notes: `Penerimaan untuk pesanan ${orderNumber}`,
             items: pendingItems.map(item => ({
                 productVariantId: item.productVariantId,
-                receivedQty: item.orderedQty - item.receivedQty,
+                receivedQty: Math.max(0, item.orderedQty - item.receivedQty),
                 unitCost: item.unitPrice
             }))
         }
+    });
+
+    const watchedQtys = form.watch('items');
+    const hasOverReceipt = watchedQtys?.some((w, idx) => {
+        const orig = pendingItems[idx];
+        if (!orig) return false;
+        return (orig.receivedQty + (w?.receivedQty || 0)) > orig.orderedQty;
     });
 
     const { fields } = useFieldArray({
@@ -118,14 +125,18 @@ export function GoodsReceiptForm({
                                 <div className="space-y-4">
                                     {fields.map((field, index) => {
                                         const originalItem = items.find(i => i.productVariantId === field.productVariantId);
+                                        const currentQty = watchedQtys?.[index]?.receivedQty || 0;
+                                        const wouldBeTotal = (originalItem?.receivedQty || 0) + currentQty;
+                                        const isOver = originalItem ? wouldBeTotal > originalItem.orderedQty : false;
                                         return (
-                                            <div key={field.id} className="p-4 border rounded-lg bg-muted/30 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                                            <div key={field.id} className={`p-4 border rounded-lg grid grid-cols-1 md:grid-cols-4 gap-4 items-center ${isOver ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300' : 'bg-muted/30'}`}>
                                                 <div className="md:col-span-2">
                                                     <p className="font-semibold text-sm">{originalItem?.productName}</p>
                                                     <p className="text-xs text-muted-foreground font-mono">{originalItem?.skuCode}</p>
-                                                    <div className="mt-1 flex gap-2">
+                                                    <div className="mt-1 flex gap-2 flex-wrap">
                                                         <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">Dipesan: {originalItem?.orderedQty}</span>
                                                         <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded">Diterima Sblm: {originalItem?.receivedQty}</span>
+                                                        {isOver && <span className="text-[10px] bg-amber-200 text-amber-800 px-1 rounded font-bold">Over: {wouldBeTotal} &gt; {originalItem?.orderedQty}</span>}
                                                     </div>
                                                 </div>
 
@@ -289,6 +300,14 @@ export function GoodsReceiptForm({
                                     )}
                                 />
 
+                                {hasOverReceipt && (
+                                    <div className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-md border border-amber-300 dark:border-amber-700 flex gap-3">
+                                        <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                                        <div className="text-[11px] text-amber-800 dark:text-amber-200">
+                                            <strong>Over receipt terdeteksi:</strong> qty diterima melebihi PO. PO diperlakukan sebagai perkiraan, penerimaan akan tetap disimpan & stok bertambah.
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md border border-amber-200 dark:border-amber-800 flex gap-3">
                                     <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                     <div className="text-[11px] text-amber-800 dark:text-amber-200">

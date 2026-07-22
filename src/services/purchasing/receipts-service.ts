@@ -84,31 +84,7 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
     }
 
     const receipt = await prisma.$transaction(async (tx) => {
-        if (data.purchaseOrderId) {
-            for (const item of data.items) {
-                const poItem = await tx.purchaseOrderItem.findFirst({
-                    where: {
-                        purchaseOrderId: data.purchaseOrderId,
-                        productVariantId: item.productVariantId,
-                    },
-                });
-
-                if (poItem) {
-                    const existingReceived = poItem.receivedQty.toNumber();
-                    const poQty = poItem.quantity.toNumber();
-                    const wouldReceive = existingReceived + item.receivedQty;
-
-                    if (wouldReceive > poQty) {
-                        throw new BusinessRuleError(
-                            `Qty diterima (${wouldReceive}) melebihi qty PO (${poQty}).`,
-                            { productVariantId: item.productVariantId, existingReceived, poQty, attempting: item.receivedQty },
-                            'OVER_RECEIVING'
-                        );
-                    }
-                }
-            }
-        }
-
+        // ponytail: over-receiving allowed — PO qty treated as estimate. If stricter control needed, add tolerance check here.
         const receiptTx = await tx.goodsReceipt.create({
             data: {
                 receiptNumber,

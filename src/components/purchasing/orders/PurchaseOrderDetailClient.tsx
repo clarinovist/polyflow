@@ -314,12 +314,17 @@ export function PurchaseOrderDetailClient({
                         <td className="p-4 text-right">
                           <span
                             className={
-                              item.receivedQty >= item.quantity
+                              item.receivedQty > item.quantity
+                                ? "text-amber-700 dark:text-amber-300 font-bold"
+                                : item.receivedQty >= item.quantity
                                 ? "text-emerald-600 dark:text-emerald-400 font-bold"
                                 : "text-amber-600 dark:text-amber-400"
                             }
                           >
                             {item.receivedQty}
+                            {item.receivedQty > item.quantity && (
+                              <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 px-1 rounded">OVER</span>
+                            )}
                           </span>
                         </td>
                         <td className="p-4 text-right">
