@@ -42,6 +42,7 @@ interface InventoryDesktopTableProps {
     toggleSelectItem: (id: string) => void;
     handleSort: (field: SortField) => void;
     isGlobalLowStock: (item: InventoryItem) => boolean;
+    hasFilters?: boolean;
 }
 
 export function InventoryDesktopTable({
@@ -62,6 +63,7 @@ export function InventoryDesktopTable({
     toggleSelectItem,
     handleSort,
     isGlobalLowStock,
+    hasFilters = false,
 }: InventoryDesktopTableProps) {
     return (
         <div className="flex-1 overflow-hidden relative hidden md:block">
@@ -80,7 +82,7 @@ export function InventoryDesktopTable({
 
                             <TableHead className="w-[40%] cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSort('name')}>
                                 <div className="flex items-center gap-2">
-                                    Product Details
+                                    Produk
                                     <div className="flex flex-col">
                                         <SortIcon field="name" currentSortField={sortField} currentSortOrder={sortOrder} />
                                     </div>
@@ -148,9 +150,12 @@ export function InventoryDesktopTable({
                                     <TableCell className="py-1 align-middle">
                                         <div className="flex flex-col gap-0.5">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-medium text-sm text-foreground leading-tight">
+                                                <Link
+                                                    href={`/warehouse/inventory/${item.productVariantId}`}
+                                                    className="font-medium text-sm text-foreground leading-tight hover:text-primary transition-colors"
+                                                >
                                                     {item.productVariant.name}
-                                                </span>
+                                                </Link>
                                                 {abcMap && abcMap[item.productVariantId] && (
                                                     <Badge variant="outline" className={cn(
                                                         'h-4 px-1 text-[10px] font-bold',
@@ -186,7 +191,7 @@ export function InventoryDesktopTable({
                                                 </span>
                                                 {item.location.locationType === 'CUSTOMER_OWNED' && (
                                                     <Badge variant="outline" className="h-4 px-1 text-[9px] border-amber-500/20 text-amber-600 dark:text-amber-400 bg-amber-500/10">
-                                                        Off-balance
+                                                        Milik customer
                                                     </Badge>
                                                 )}
                                             </div>
@@ -259,7 +264,7 @@ export function InventoryDesktopTable({
                                             </div>
                                         ) : (
                                             <Badge variant="outline" className="h-5 text-[10px] px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-normal">
-                                                In Stock
+                                                Tersedia
                                             </Badge>
                                         )}
                                     </TableCell>
@@ -279,7 +284,28 @@ export function InventoryDesktopTable({
                                 <TableCell colSpan={isLocationSpecific ? 5 : 6} className="text-center py-8">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
                                         <Search className="h-6 w-6" />
-                                        <p className="text-sm">{warehouseComponentLabels.noInventoryData}</p>
+                                        {isLocationSpecific ? (
+                                            <>
+                                                <p className="text-sm">Tidak ada stok di lokasi ini.</p>
+                                                <Link href="/warehouse/inventory" className="text-xs text-primary hover:underline">
+                                                    Lihat semua lokasi
+                                                </Link>
+                                            </>
+                                        ) : hasFilters ? (
+                                            <>
+                                                <p className="text-sm">Tidak ada item yang cocok.</p>
+                                                <Link href="/warehouse/inventory" className="text-xs text-primary hover:underline">
+                                                    Hapus filter
+                                                </Link>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="text-sm">Belum ada stok tercatat.</p>
+                                                <Link href="/warehouse/incoming" className="text-xs text-primary hover:underline">
+                                                    Catat penerimaan barang
+                                                </Link>
+                                            </>
+                                        )}
                                     </div>
                                 </TableCell>
                             </TableRow>

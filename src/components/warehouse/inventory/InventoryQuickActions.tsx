@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeftRight, PackagePlus, Clock, History, ClipboardCheck } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ArrowLeftRight, PackagePlus, Clock, History, ClipboardCheck, MoreVertical } from 'lucide-react';
 
 interface InventoryQuickActionsProps {
     lowStockCount?: number;
@@ -19,35 +25,45 @@ export function InventoryQuickActions({ lowStockCount }: InventoryQuickActionsPr
                 </Link>
             )}
             <Link href="/warehouse/inventory/transfer">
-                <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                <Button variant="default" size="sm" className="text-xs gap-1.5">
                     <ArrowLeftRight className="h-3.5 w-3.5" />
                     Transfer
                 </Button>
             </Link>
-            <Link href="/warehouse/inventory/adjustment">
-                <Button variant="outline" size="sm" className="text-xs gap-1.5">
-                    <PackagePlus className="h-3.5 w-3.5" />
-                    Penyesuaian
-                </Button>
-            </Link>
-            <Link href="/warehouse/inventory/aging">
-                <Button variant="outline" size="sm" className="text-xs gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    Aging
-                </Button>
-            </Link>
-            <Link href="/warehouse/inventory/history">
-                <Button variant="outline" size="sm" className="text-xs gap-1.5">
-                    <History className="h-3.5 w-3.5" />
-                    Mutasi
-                </Button>
-            </Link>
-            <Link href="/warehouse/opname">
-                <Button variant="outline" size="sm" className="text-xs gap-1.5">
-                    <ClipboardCheck className="h-3.5 w-3.5" />
-                    Opname
-                </Button>
-            </Link>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                        <MoreVertical className="h-3.5 w-3.5" />
+                        Lainnya
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                        <Link href="/warehouse/inventory/adjustment" className="flex items-center gap-2">
+                            <PackagePlus className="h-4 w-4" />
+                            Penyesuaian
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href="/warehouse/inventory/aging" className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Aging
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href="/warehouse/inventory/history" className="flex items-center gap-2">
+                            <History className="h-4 w-4" />
+                            Mutasi
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href="/warehouse/opname" className="flex items-center gap-2">
+                            <ClipboardCheck className="h-4 w-4" />
+                            Opname
+                        </Link>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
     );
 }

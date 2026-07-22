@@ -65,6 +65,28 @@ export const warehouseComponentLabels = {
   pack: 'Packaging',
   service: 'Service',
 
+  // Table Headers
+  product: 'Produk',
+  location: 'Lokasi',
+  stock: 'Stok',
+  reserved: 'Terpesan',
+  available: 'Tersedia',
+  status: 'Status',
+  inStock: 'Tersedia',
+  unitCost: 'Harga Satuan',
+  stockValue: 'Nilai Stok',
+
+  // Selection
+  selected: 'dipilih',
+  selectAll: 'Pilih semua',
+  bulkActions: 'Aksi massal',
+  exportSelected: 'Export yang dipilih',
+  waiting: 'Menunggu',
+  customerOwned: 'Milik customer',
+
+  // Search
+  searchProduct: 'Cari produk / SKU...',
+
   // Inventory Analytics Card
   totalValue: 'Nilai Total',
   totalItems: 'Total Item',

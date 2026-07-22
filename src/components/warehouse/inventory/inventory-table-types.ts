@@ -1,5 +1,3 @@
-import type React from 'react';
-
 export type SortField = 'name' | 'sku' | 'location' | 'stock' | 'type' | 'status';
 export type SortOrder = 'asc' | 'desc';
 
@@ -42,7 +40,7 @@ export interface InventoryTableProps {
     initialCompareDate?: string;
     showPrices?: boolean;
     abcMap?: Record<string, string>;
-    topBadges?: React.ReactNode;
     totalStock?: number;
     totalValue?: number;
+    customerOwnedValue?: number;
 }

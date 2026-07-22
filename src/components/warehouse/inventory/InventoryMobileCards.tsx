@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,8 @@ interface InventoryMobileCardsProps {
     selectedItems: Set<string>;
     toggleSelectItem: (id: string) => void;
     isGlobalLowStock: (item: InventoryItem) => boolean;
+    isLocationSpecific?: boolean;
+    hasFilters?: boolean;
 }
 
 export function InventoryMobileCards({
@@ -26,13 +29,36 @@ export function InventoryMobileCards({
     selectedItems,
     toggleSelectItem,
     isGlobalLowStock,
+    isLocationSpecific = false,
+    hasFilters = false,
 }: InventoryMobileCardsProps) {
     return (
         <div className="flex-1 overflow-y-auto md:hidden p-4 space-y-3">
             {paginatedInventory.length === 0 ? (
                 <div className="text-center py-8 flex flex-col items-center justify-center text-muted-foreground">
                     <Search className="h-8 w-8 mb-2 opacity-50" />
-                    <p>{warehouseComponentLabels.noInventoryData}</p>
+                    {isLocationSpecific ? (
+                        <>
+                            <p>Tidak ada stok di lokasi ini.</p>
+                            <Link href="/warehouse/inventory" className="text-xs text-primary hover:underline mt-1">
+                                Lihat semua lokasi
+                            </Link>
+                        </>
+                    ) : hasFilters ? (
+                        <>
+                            <p>Tidak ada item yang cocok.</p>
+                            <Link href="/warehouse/inventory" className="text-xs text-primary hover:underline mt-1">
+                                Hapus filter
+                            </Link>
+                        </>
+                    ) : (
+                        <>
+                            <p>Belum ada stok tercatat.</p>
+                            <Link href="/warehouse/incoming" className="text-xs text-primary hover:underline mt-1">
+                                Catat penerimaan barang
+                            </Link>
+                        </>
+                    )}
                 </div>
             ) : (
                 paginatedInventory.map((item) => {
@@ -51,7 +77,9 @@ export function InventoryMobileCards({
                                             onCheckedChange={() => toggleSelectItem(item.id)}
                                         />
                                         <div>
-                                            <h3 className="font-semibold text-sm leading-tight">{item.productVariant.name}</h3>
+                                            <Link href={`/warehouse/inventory/${item.productVariantId}`}>
+                                                <h3 className="font-semibold text-sm leading-tight hover:text-primary transition-colors">{item.productVariant.name}</h3>
+                                            </Link>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <code className="text-[10px] bg-background px-1 rounded border">{item.productVariant.skuCode}</code>
                                                 <span className="text-[10px] text-muted-foreground">{item.location?.name}</span>
@@ -64,7 +92,7 @@ export function InventoryMobileCards({
                                         </Badge>
                                     ) : (
                                         <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                                            In Stock
+                                            Tersedia
                                         </Badge>
                                     )}
                                 </div>

@@ -12,8 +12,7 @@ import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable'
 import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
 
-import { formatRupiah, serializeData, toDecimalNumber } from '@/lib/utils/utils';
-import { Badge } from '@/components/ui/badge';
+import { serializeData, toDecimalNumber } from '@/lib/utils/utils';
 import { withTenantPage } from '@/lib/core/tenant';
 import { InventoryQuickActions } from '@/components/warehouse/inventory/InventoryQuickActions';
 
@@ -175,7 +174,7 @@ export default async function WarehouseInventoryPage({
     const serializedInventory = serializeData(displayInventory) as InventoryItem[];
 
     return (
-        <div className="h-full flex flex-col space-y-4 p-6 overflow-hidden">
+        <div className="h-full flex flex-col space-y-4 overflow-hidden">
             <div className="flex items-end justify-between shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Stok</h1>
@@ -205,22 +204,9 @@ export default async function WarehouseInventoryPage({
                                 initialCompareDate={params.compareWith}
                                 showPrices={showPrices}
                                 abcMap={abcMap}
-                                topBadges={
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
-                                            <span className="font-bold">{formatRupiah(internalDisplayValue)}</span>
-                                            <span className="opacity-70">gudang internal</span>
-                                        </Badge>
-                                        {customerOwnedDisplayValue > 0 && (
-                                            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
-                                                <span className="font-bold">{formatRupiah(customerOwnedDisplayValue)}</span>
-                                                <span className="opacity-70">milik customer</span>
-                                            </Badge>
-                                        )}
-                                    </div>
-                                }
                                 totalStock={displayedTotalStock}
                                 totalValue={internalDisplayValue}
+                                customerOwnedValue={customerOwnedDisplayValue}
                             />
                         </div>
                     </CardContent>

@@ -95,7 +95,7 @@ export function WarehouseNavigator({
                                     {location.totalSkus}
                                 </Badge>
                                 {location.lowStockCount > 0 && (
-                                    <Badge className="bg-red-500 text-white border-none px-1.5 h-5 min-w-[1.25rem] justify-center flex shadow-sm animate-pulse">
+                                    <Badge className="bg-red-500 text-white border-none px-1.5 h-5 min-w-[1.25rem] justify-center flex shadow-sm">
                                         {location.lowStockCount}
                                     </Badge>
                                 )}

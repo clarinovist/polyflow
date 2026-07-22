@@ -47,9 +47,9 @@ export function InventoryTable({
     initialCompareDate: _initialCompareDate,
     showPrices = false,
     abcMap,
-    topBadges,
     totalStock,
-    totalValue
+    totalValue,
+    customerOwnedValue
 }: InventoryTableProps) {
 
     const router = useRouter();
@@ -65,6 +65,9 @@ export function InventoryTable({
     // Check if we are filtering by a specific location
     const locationIdFilter = searchParams.get('locationId');
     const isLocationSpecific = !!locationIdFilter;
+
+    // Check if any filters are active
+    const hasFilters = searchTerm || productTypeFilter !== 'all' || searchParams.get('lowStock') === 'true';
 
     // Helper function to check if variant is low stock
     const isGlobalLowStock = useCallback((item: InventoryItem) => {
@@ -250,6 +253,7 @@ export function InventoryTable({
                     {/* Date Filter */}
                     <div className="flex items-center gap-2 bg-muted/50 border rounded-md px-2 py-1">
                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Stok per tanggal</span>
                         <input
                             type="date"
                             value={initialDate || ''}
@@ -278,20 +282,31 @@ export function InventoryTable({
                         )}
                     </div>
 
+                    {initialDate && (
+                        <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-md px-2 py-1 text-xs">
+                            <span className="font-medium">Mode historis</span>
+                            <span className="opacity-70">·</span>
+                            <span>{initialDate}</span>
+                        </div>
+                    )}
+
                     {/* Bulk Actions Checkbox or Dropdown */}
                     {selectedItems.size > 0 && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
                                     <Layers className="mr-2 h-4 w-4" />
-                                    {selectedItems.size} Selected
+                                    {selectedItems.size} dipilih
+                                    {isAllSelected && processedInventory.length > ITEMS_PER_PAGE && (
+                                        <span className="ml-1 opacity-70">(semua hasil filter)</span>
+                                    )}
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
-                                <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
+                                <DropdownMenuLabel>Aksi massal</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={handleExport}>
-                                    Export Selected
+                                    Export yang dipilih
                                 </DropdownMenuItem>
 
                                 <DropdownMenuItem
@@ -316,7 +331,7 @@ export function InventoryTable({
                     <div className="relative flex-1 min-w-[150px]">
                         <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground/40" />
                         <Input
-                            placeholder="Search product..."
+                            placeholder="Cari produk / SKU..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-8 pr-8 h-8 text-[13px] bg-background border-border"
@@ -346,7 +361,7 @@ export function InventoryTable({
                     </Select>
 
                     {/* Export Button */}
-                    <Button variant="outline" size="sm" onClick={handleExport} className="px-3" title="Export All/Selected">
+                    <Button variant="outline" size="sm" onClick={handleExport} className="px-3" title="Export semua/dipilih" aria-label="Export CSV">
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
@@ -362,6 +377,12 @@ export function InventoryTable({
                         <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap border-l border-border pl-4">
                             <span className="font-bold text-foreground text-blue-600 dark:text-blue-400">{formatRupiah(totalValue)}</span>
                             <span className="text-[11px] uppercase tracking-wider opacity-70">nilai internal</span>
+                        </div>
+                    )}
+                    {customerOwnedValue !== undefined && customerOwnedValue > 0 && (
+                        <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-md px-2 py-1 text-xs">
+                            <span className="font-bold">{formatRupiah(customerOwnedValue)}</span>
+                            <span className="opacity-70">milik customer</span>
                         </div>
                     )}
                 </div>
@@ -385,6 +406,7 @@ export function InventoryTable({
                 toggleSelectItem={toggleSelectItem}
                 handleSort={handleSort}
                 isGlobalLowStock={isGlobalLowStock}
+                hasFilters={hasFilters}
             />
 
             <InventoryMobileCards
@@ -393,11 +415,18 @@ export function InventoryTable({
                 selectedItems={selectedItems}
                 toggleSelectItem={toggleSelectItem}
                 isGlobalLowStock={isGlobalLowStock}
+                isLocationSpecific={isLocationSpecific}
+                hasFilters={hasFilters}
             />
 
             {/* Pagination Footer */}
             <div className="flex items-center justify-between px-2 shrink-0 py-2 border-t">
                 <div className="text-xs text-muted-foreground">
+                    {selectedItems.size > 0 && (
+                        <span className="mr-2 text-blue-600 dark:text-blue-400 font-medium">
+                            {selectedItems.size} dipilih ·{' '}
+                        </span>
+                    )}
                     Menampilkan {processedInventory.length > 0 ? startIndex + 1 : 0} sampai {Math.min(startIndex + ITEMS_PER_PAGE, processedInventory.length)} dari {processedInventory.length} item
                 </div>
                 <div className="flex items-center gap-2">
@@ -407,6 +436,7 @@ export function InventoryTable({
                         className="h-8 w-8 p-0"
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
+                        aria-label="Halaman sebelumnya"
                     >
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -419,6 +449,7 @@ export function InventoryTable({
                         className="h-8 w-8 p-0"
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages || totalPages === 0}
+                        aria-label="Halaman berikutnya"
                     >
                         <ChevronRight className="h-4 w-4" />
                     </Button>
