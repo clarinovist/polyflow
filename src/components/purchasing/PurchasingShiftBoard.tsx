@@ -16,8 +16,8 @@ import {
   Plus,
   ExternalLink,
 } from 'lucide-react';
-import type { PurchasingShiftBoard } from '@/actions/purchasing/purchasing-dashboard';
-import { PR_AGING_THRESHOLD_DAYS } from '@/actions/purchasing/purchasing-dashboard';
+import type { PurchasingShiftBoard } from '@/actions/purchasing/purchasing-types';
+import { PR_AGING_THRESHOLD_DAYS } from '@/actions/purchasing/purchasing-types';
 
 interface PurchasingShiftBoardProps {
   data: PurchasingShiftBoard;

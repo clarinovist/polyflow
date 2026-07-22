@@ -38,7 +38,8 @@ vi.mock('@/services/inventory/analytics-service', () => ({
   getSuggestedPurchases: mockGetSuggestedPurchases,
 }));
 
-import { getPurchasingShiftBoard, PR_AGING_THRESHOLD_DAYS } from '../purchasing-dashboard';
+import { getPurchasingShiftBoard } from '../purchasing-dashboard';
+import { PR_AGING_THRESHOLD_DAYS } from '../purchasing-types';
 import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
 
 const decimal = (n: number) => ({ toNumber: () => n });

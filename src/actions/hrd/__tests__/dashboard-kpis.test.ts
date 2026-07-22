@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysBetween, getMonthName, mapHrdShiftBoard } from '../dashboard-kpis';
+import { daysBetween, getMonthName, mapHrdShiftBoard } from '../hrd-helpers';
 
 describe('getMonthName', () => {
   it('returns Indonesian month names', () => {
