@@ -1,35 +1,31 @@
-import { getSalesOrders } from '@/actions/sales/sales';
+import { getFgDemandBoard, getInitData } from '@/actions/production/production';
 import { ProductionRequestsClient } from '@/components/production/ProductionRequestsClient';
-import { planningLabels } from '@/lib/labels';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-    title: `${planningLabels.incomingRequestsTitle} | PolyFlow`,
-    description: planningLabels.incomingRequestsDesc,
+    title: 'Papan Permintaan FG | PolyFlow',
+    description: 'Item FG yang perlu diproduksi berdasarkan Sales Order aktif.',
 };
 
 export default async function ProductionRequestsPage() {
-    // Ideally we would have a specific server action for this to filter on database level,
-    // but for now we reuse existing and filter here.
-    const allOrdersRes = await getSalesOrders(true);
-    const allOrders = allOrdersRes.success && allOrdersRes.data ? allOrdersRes.data : [];
+    const [demandRes, initRes] = await Promise.all([
+        getFgDemandBoard(),
+        getInitData(),
+    ]);
 
-    // Filter for CONFIRMED (MTS) or IN_PRODUCTION (MTO) orders
-    // that still need production processing (no work orders created yet).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pendingOrders = (allOrders as any[]).filter(order =>
-        (order.status === 'CONFIRMED' || order.status === 'IN_PRODUCTION') &&
-        (order._count?.productionOrders === 0)
-    );
-
-    // Sort by Date Ascending (Oldest First) for FIFO processing
-    pendingOrders.sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
+    const rows = demandRes.success && demandRes.data ? demandRes.data : [];
+    const machines = initRes.success && initRes.data?.machines ? initRes.data.machines : [];
+    const locations = initRes.success && initRes.data?.locations ? initRes.data.locations : [];
 
     return (
         <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Production Planning</h1>
-            <ProductionRequestsClient orders={pendingOrders} />
+            <h1 className="text-2xl font-bold mb-6">Papan Permintaan FG</h1>
+            <ProductionRequestsClient
+                rows={rows}
+                machines={machines}
+                locations={locations}
+            />
         </div>
     );
 }

@@ -55,3 +55,5 @@ export {
 export { createChildProductionOrder } from "./production-child";
 
 export { logMachineDowntime } from "./production-downtime";
+
+export { getFgDemandBoard, createSpkFromDemand } from "./production-demand";

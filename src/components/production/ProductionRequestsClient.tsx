@@ -1,308 +1,313 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-
+import { useState, useMemo } from "react";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Button } from "@/components/ui/button";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { format, differenceInDays } from 'date-fns';
-import { ClipboardCheck, ArrowRight, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
-import { ProductionPlanningDialog } from './ProductionPlanningDialog';
-import { cancelOrderFromPlanning } from '@/actions/production/production';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-import { productionComponentLabels } from '@/lib/labels';
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
+import {
+  ClipboardCheck,
+  Factory,
+  Search,
+  Package,
+} from "lucide-react";
+import { CreateSpkFromDemandDialog } from "./CreateSpkFromDemandDialog";
 
-interface ProductionRequestsClientProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    orders: any[];
+interface FgDemandRow {
+  productVariantId: string;
+  productName: string;
+  variantName: string;
+  skuCode: string;
+  unit: string;
+  openDemand: number;
+  availableFg: number;
+  needToMake: number;
+  openSpkPlanned: number;
+  uncoveredNeed: number;
+  earliestDue: string | null;
+  urgencyHint: "URGENT" | "NORMAL" | "LOW";
+  openSpkCount: number;
+  openSpkTotalQty: number;
 }
 
-type DateRange = 'all' | '7d' | '30d' | '90d';
+interface Machine {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  status: string;
+}
 
-export function ProductionRequestsClient({ orders }: ProductionRequestsClientProps) {
-    const router = useRouter();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [selectedOrder, setSelectedOrder] = useState<any>(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-    const [filterCustomer, setFilterCustomer] = useState<string>('all');
-    const [filterDateRange, setFilterDateRange] = useState<DateRange>('all');
-    const [cancellingId, setCancellingId] = useState<string | null>(null);
+interface Location {
+  id: string;
+  name: string;
+  slug?: string;
+  locationPurpose?: string;
+}
 
-    // Get unique customers for filter
-    const customers = useMemo(
-        () => [...new Set(orders.map(o => o.customer?.name).filter(Boolean))],
-        [orders]
-    );
+interface ProductionRequestsClientProps {
+  rows: FgDemandRow[];
+  machines: Machine[];
+  locations: Location[];
+}
 
-    // Filter orders
-    const filteredOrders = useMemo(() => {
-        return orders.filter(order => {
-            if (filterCustomer !== 'all' && order.customer?.name !== filterCustomer) return false;
+const urgencyBadge = (urgency: string) => {
+  switch (urgency) {
+    case "URGENT":
+      return (
+        <Badge variant="destructive" className="text-[10px] py-0 h-5">
+          🔴 Urgent
+        </Badge>
+      );
+    case "NORMAL":
+      return (
+        <Badge
+          variant="outline"
+          className="bg-warning/10 text-warning border-warning/20 text-[10px] py-0 h-5"
+        >
+          🟡 Normal
+        </Badge>
+      );
+    case "LOW":
+      return (
+        <Badge
+          variant="outline"
+          className="bg-muted text-muted-foreground text-[10px] py-0 h-5"
+        >
+          🟢 Low
+        </Badge>
+      );
+    default:
+      return null;
+  }
+};
 
-            if (filterDateRange !== 'all') {
-                const orderDate = new Date(order.orderDate);
-                const now = new Date();
-                const daysMap: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
-                const daysAgo = daysMap[filterDateRange];
-                if (daysAgo) {
-                    const cutoff = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-                    if (orderDate < cutoff) return false;
-                }
-            }
+export function ProductionRequestsClient({
+  rows,
+  machines,
+  locations,
+}: ProductionRequestsClientProps) {
+  const [search, setSearch] = useState("");
+  const [onlyUncovered, setOnlyUncovered] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<FgDemandRow | null>(null);
 
-            return true;
-        });
-    }, [orders, filterCustomer, filterDateRange]);
+  const filtered = useMemo(() => {
+    return rows.filter((row) => {
+      if (onlyUncovered && row.uncoveredNeed <= 0) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          row.productName.toLowerCase().includes(q) ||
+          row.variantName.toLowerCase().includes(q) ||
+          row.skuCode.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [rows, search, onlyUncovered]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleProcess = (order: any) => {
-        setSelectedOrder(order);
-        setIsDialogOpen(true);
-    };
+  const handleCreateSpk = (row: FgDemandRow) => {
+    setSelectedRow(row);
+    setDialogOpen(true);
+  };
 
-    const handleOrderCreated = () => {
-        setIsDialogOpen(false);
-        router.refresh();
-    };
+  const totalNeed = filtered.reduce((sum, r) => sum + r.needToMake, 0);
+  const totalUncovered = filtered.reduce(
+    (sum, r) => sum + r.uncoveredNeed,
+    0,
+  );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleCancel = async (order: any) => {
-        if (!confirm(`Batalkan order ${order.orderNumber}?`)) return;
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5" />
+            Papan Permintaan FG
+          </CardTitle>
+          <CardDescription>
+            Item FG yang perlu diproduksi berdasarkan Sales Order aktif.
+            Kurangi stok FG dan SPK yang sudah ada.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari produk / SKU..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
 
-        setCancellingId(order.id);
-        try {
-            const result = await cancelOrderFromPlanning(order.id);
-            if (result && result.success !== false) {
-                toast.success(`Order ${order.orderNumber} berhasil dibatalkan`);
-                router.refresh();
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                toast.error((result as any)?.error || 'Gagal membatalkan order');
-            }
-        } catch {
-            toast.error('Gagal membatalkan order');
-        } finally {
-            setCancellingId(null);
-        }
-    };
+            <div className="flex items-center gap-2">
+              <Switch
+                id="only-uncovered"
+                checked={onlyUncovered}
+                onCheckedChange={setOnlyUncovered}
+              />
+              <Label
+                htmlFor="only-uncovered"
+                className="text-sm cursor-pointer"
+              >
+                Belum di-SPK saja
+              </Label>
+            </div>
 
-    const hasActiveFilters = filterCustomer !== 'all' || filterDateRange !== 'all';
+            <div className="flex items-center gap-4 ml-auto text-sm text-muted-foreground">
+              <span>
+                Perlu dibuat:{" "}
+                <strong className="text-foreground">
+                  {totalNeed.toLocaleString("id-ID")}
+                </strong>
+              </span>
+              <span>
+                Belum di-SPK:{" "}
+                <strong className="text-foreground">
+                  {totalUncovered.toLocaleString("id-ID")}
+                </strong>
+              </span>
+              <span>
+                {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </div>
 
-    return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <ClipboardCheck className="h-5 w-5" />
-                        {productionComponentLabels.incomingRequests}
-                    </CardTitle>
-                    <CardDescription>
-                        Queue of confirmed Sales Orders waiting for production planning.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {/* Filters */}
-                    <div className="flex flex-wrap items-center gap-3 mb-4">
-                        <Select value={filterCustomer} onValueChange={setFilterCustomer}>
-                            <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder="Semua Customer" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Customer</SelectItem>
-                                {customers.map(c => (
-                                    <SelectItem key={c} value={c!}>{c}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={filterDateRange} onValueChange={(v) => setFilterDateRange(v as DateRange)}>
-                            <SelectTrigger className="w-[160px]">
-                                <SelectValue placeholder="Semua Waktu" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Waktu</SelectItem>
-                                <SelectItem value="7d">7 Hari Terakhir</SelectItem>
-                                <SelectItem value="30d">30 Hari Terakhir</SelectItem>
-                                <SelectItem value="90d">90 Hari Terakhir</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        {hasActiveFilters && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => { setFilterCustomer('all'); setFilterDateRange('all'); }}
-                            >
-                                Reset Filter
-                            </Button>
-                        )}
-
-                        <span className="text-xs text-muted-foreground ml-auto">
-                            {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-lg font-medium">Tidak ada permintaan FG</p>
+              <p className="text-sm">
+                {rows.length === 0
+                  ? "Semua Sales Order sudah terpenuhi atau belum ada SO aktif."
+                  : "Tidak ada item yang cocok dengan filter."}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produk</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-right">Perlu (net stok)</TableHead>
+                    <TableHead className="text-right">Belum di-SPK</TableHead>
+                    <TableHead className="text-right">Stok FG</TableHead>
+                    <TableHead className="text-right">SPK open</TableHead>
+                    <TableHead>Due Terdekat</TableHead>
+                    <TableHead>Sinyal</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((row) => (
+                    <TableRow key={row.productVariantId}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {row.productName}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {row.variantName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground font-mono">
+                        {row.skuCode}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {row.needToMake.toLocaleString("id-ID")} {row.unit}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span
+                          className={
+                            row.uncoveredNeed > 0
+                              ? "font-semibold text-foreground"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {row.uncoveredNeed.toLocaleString("id-ID")} {row.unit}
                         </span>
-                    </div>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {row.availableFg.toLocaleString("id-ID")} {row.unit}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {row.openSpkCount > 0 ? (
+                          <span>
+                            {row.openSpkCount} ·{" "}
+                            {row.openSpkTotalQty.toLocaleString("id-ID")}{" "}
+                            {row.unit}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {row.earliestDue ? (
+                          format(new Date(row.earliestDue), "dd MMM yyyy", {
+                            locale: idLocale,
+                          })
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{urgencyBadge(row.urgencyHint)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          onClick={() => handleCreateSpk(row)}
+                          disabled={row.uncoveredNeed <= 0}
+                        >
+                          <Factory className="mr-1 h-3 w-3" />
+                          Buat SPK
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-                    {filteredOrders.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                            {hasActiveFilters
-                                ? 'Tidak ada order yang cocok dengan filter.'
-                                : 'Tidak ada permintaan pending ditemukan.'}
-                        </div>
-                    ) : (
-                        <div className="rounded-md border overflow-hidden">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-8" />
-                                        <TableHead>Order #</TableHead>
-                                        <TableHead>Tanggal</TableHead>
-                                        <TableHead>Customer</TableHead>
-                                        <TableHead>Items</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">{productionComponentLabels.actions}</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredOrders.map((order) => {
-                                        const isExpanded = expandedOrderId === order.id;
-                                        const orderAge = differenceInDays(new Date(), new Date(order.orderDate));
-
-                                        return (
-                                            <>
-                                                <TableRow
-                                                    key={order.id}
-                                                    className="cursor-pointer hover:bg-muted/50"
-                                                    onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
-                                                >
-                                                    <TableCell className="w-8 px-2">
-                                                        {isExpanded
-                                                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                                        }
-                                                    </TableCell>
-                                                    <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <span>{format(new Date(order.orderDate), 'PP')}</span>
-                                                            {orderAge > 30 && (
-                                                                <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 text-[10px] py-0 h-5">
-                                                                    {orderAge} hari
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>{order.customer?.name || 'Internal'}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col gap-1">
-                                                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                                            {order.items.slice(0, 2).map((item: any) => (
-                                                                <span key={item.id} className="text-xs text-muted-foreground">
-                                                                    {item.productVariant.product.name} ({Number(item.quantity)})
-                                                                </span>
-                                                            ))}
-                                                            {order.items.length > 2 && (
-                                                                <span className="text-xs text-muted-foreground italic">
-                                                                    + {order.items.length - 2} more...
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="bg-info/10 text-info border-info/20">
-                                                            {order.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="destructive"
-                                                                disabled={cancellingId === order.id}
-                                                                onClick={() => handleCancel(order)}
-                                                            >
-                                                                <XCircle className="mr-1 h-3 w-3" />
-                                                                {cancellingId === order.id ? '...' : 'Batal'}
-                                                            </Button>
-                                                            <Button size="sm" onClick={() => handleProcess(order)}>
-                                                                Proses <ArrowRight className="ml-1 h-3 w-3" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                                {isExpanded && (
-                                                    <TableRow key={`${order.id}-detail`}>
-                                                        <TableCell colSpan={7} className="bg-muted/30 p-4">
-                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                                                                <div>
-                                                                    <p className="font-semibold text-foreground mb-1">Detail Order</p>
-                                                                    <div className="space-y-0.5 text-muted-foreground">
-                                                                        <p>Order #: {order.orderNumber}</p>
-                                                                        <p>Tanggal: {format(new Date(order.orderDate), 'PP')}</p>
-                                                                        <p>Status: {order.status}</p>
-                                                                        {order.notes && <p>Catatan: {order.notes}</p>}
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-semibold text-foreground mb-1">Customer</p>
-                                                                    <div className="space-y-0.5 text-muted-foreground">
-                                                                        <p>{order.customer?.name || 'Internal'}</p>
-                                                                        {order.customer?.phone && <p>Telp: {order.customer.phone}</p>}
-                                                                        {order.customer?.billingAddress && (
-                                                                            <p className="text-xs">{order.customer.billingAddress}</p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-semibold text-foreground mb-1">Items ({order.items.length})</p>
-                                                                    <div className="space-y-0.5 text-muted-foreground">
-                                                                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                                                        {order.items.map((item: any) => (
-                                                                            <p key={item.id}>
-                                                                                {item.productVariant.product.name} × {Number(item.quantity)} {item.productVariant.primaryUnit}
-                                                                            </p>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {selectedOrder && (
-                <ProductionPlanningDialog
-                    isOpen={isDialogOpen}
-                    onClose={() => setIsDialogOpen(false)}
-                    salesOrderId={selectedOrder.id}
-                    salesOrderNumber={selectedOrder.orderNumber}
-                    onOrderCreated={handleOrderCreated}
-                />
-            )}
-        </div>
-    );
+      {selectedRow && (
+        <CreateSpkFromDemandDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          productVariantId={selectedRow.productVariantId}
+          productName={selectedRow.productName}
+          variantName={selectedRow.variantName}
+          skuCode={selectedRow.skuCode}
+          unit={selectedRow.unit}
+          defaultQuantity={selectedRow.uncoveredNeed}
+          machines={machines}
+          locations={locations}
+        />
+      )}
+    </div>
+  );
 }

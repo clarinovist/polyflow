@@ -1,6 +1,6 @@
 # Production Module Business Logistics & Rules
 
-**Last Updated**: July 17, 2026
+**Last Updated**: July 22, 2026
 
 ## 0. Material Ownership (Dual Path)
 
@@ -91,3 +91,37 @@ Production logic is now implemented in `src/services/production/` with the follo
 
 Server Actions in `src/actions/production/` delegate to these services, following the pattern:
 `Auth Check` → `Input Parsing` → `Call Service` → `Return Result`
+
+## 6. FG Demand Board & SPK Priority
+
+### Demand Board (`/production/requests`)
+
+The FG Demand Board replaces the old "SO without WO" list. It aggregates **FG items** from open Sales Orders and shows:
+
+- **openDemand**: total residual across open SOs per variant
+- **availableFg**: FG stock across non-scrap locations
+- **needToMake**: `max(0, openDemand − availableFg)`
+- **openSpkPlanned**: total planned qty from open SPKs (via BOM.productVariantId)
+- **uncoveredNeed**: `max(0, needToMake − openSpkPlanned)`
+- **urgencyHint**: URGENT (≤2d), NORMAL (≤7d), LOW (>7d) — signal only, not auto-priority
+
+SPKs created from the board are **not linked to any SO** (`salesOrderId = null`). Demand decreases as:
+- FG stock increases (production output)
+- SO residual decreases (delivery/shipment)
+
+### SPK Priority
+
+`ProductionOrder` has a `priority` field: `URGENT | NORMAL | LOW` (default: `NORMAL`).
+
+- Priority is **manual** — admin sets it when creating SPK
+- The urgency badge on the demand board is a **signal only** and does not auto-set SPK priority
+- Priority is displayed as a badge on the order list and detail pages
+
+### Auto-WO on SO Confirm (Feature Flag)
+
+By default, confirming a Sales Order **no longer auto-creates WOs**. Shortages go to the FG Demand Board instead.
+
+To re-enable legacy auto-WO behavior:
+```
+AUTO_CREATE_WO_ON_SO_CONFIRM=true
+```

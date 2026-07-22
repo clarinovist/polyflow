@@ -25,7 +25,7 @@ import {
 
 // ── Confirm Order types ──────────────────────────────────────────────
 export type ConfirmOrderWarning = {
-  code: "MISSING_DEFAULT_BOM" | "WO_CREATE_FAILED";
+  code: "MISSING_DEFAULT_BOM" | "WO_CREATE_FAILED" | "FG_DEMAND_QUEUED";
   productVariantIds: string[];
   productNames: string[];
   message: string;
@@ -672,12 +672,16 @@ export async function confirmOrder(
   // ── Auto-create WO only for creatable (BOM-present) shortages ──
   let productionOrdersCreated = 0;
 
+  // Feature flag: auto-create WO on SO confirm.
+  // Default: false (shortages go to FG demand board instead).
+  const autoCreateWo = process.env.AUTO_CREATE_WO_ON_SO_CONFIRM === "true";
+
   // Build name map from order items for friendly warning messages
   const variantNameMap = new Map(
     order.items.map((item) => [item.productVariantId, item.productVariant.name]),
   );
 
-  if (shortages.length > 0) {
+  if (autoCreateWo && shortages.length > 0) {
     const shortageVariantIds = shortages.map((s) => s.productVariantId);
 
     // Re-query which variants have BOM (could have been created between tx and now)
@@ -765,6 +769,18 @@ export async function confirmOrder(
         details: `Status adjusted to CONFIRMED: no production orders created (all auto-WO failed or skipped).`,
       });
     }
+  }
+
+  // When auto-WO is disabled, inform that shortages are on the FG demand board
+  if (!autoCreateWo && shortages.length > 0) {
+    warnings.push({
+      code: "FG_DEMAND_QUEUED",
+      productVariantIds: shortages.map((s) => s.productVariantId),
+      productNames: shortages.map(
+        (s) => variantNameMap.get(s.productVariantId) || s.productVariantId,
+      ),
+      message: `Kekurangan stok masuk antrian produksi (Papan Permintaan FG). Buka Production → Papan Permintaan FG untuk membuat SPK.`,
+    });
   }
 
   return {

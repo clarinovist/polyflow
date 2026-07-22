@@ -4,13 +4,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-import { Loader2, AlertTriangle, Hammer, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Loader2, AlertTriangle, Hammer, CheckCircle2, ArrowRight, ExternalLink } from 'lucide-react';
 import { checkSalesOrderFulfillment } from '@/actions/sales/sales';
 
 import Link from 'next/link';
 import { ProductionOrder } from '@prisma/client';
-import { Button } from '@/components/ui/button';
-import { SplitProductionDialog } from './SplitProductionDialog';
 
 // Define localized serialized type if not shared, or use partial
 type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity' | 'plannedStartDate' | 'plannedEndDate' | 'actualStartDate' | 'actualEndDate' | 'createdAt' | 'updatedAt'> & {
@@ -49,12 +47,6 @@ interface ProductionStatusCardProps {
 export function ProductionStatusCard({ salesOrderId, status: _status, productionOrders, items, currentUserRole }: ProductionStatusCardProps) {
     const [shortages, setShortages] = useState<Shortage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSplitDialogOpen, setIsSplitDialogOpen] = useState(false);
-    const [activeShortage, setActiveShortage] = useState<{
-        productVariantId: string;
-        variantName: string;
-        shortage: number;
-    } | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -122,22 +114,13 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                                                 </div>
                                             </div>
                                             {canPlan && s.shortage > 0 && (
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setActiveShortage({
-                                                            productVariantId: s.productVariantId,
-                                                            variantName,
-                                                            shortage: s.shortage,
-                                                        });
-                                                        setIsSplitDialogOpen(true);
-                                                    }}
-                                                    className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/20 text-xs px-2.5 py-1 h-7 font-semibold"
+                                                <Link
+                                                    href="/production/requests"
+                                                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 h-7 font-medium text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                                                 >
-                                                    Rencanakan
-                                                </Button>
+                                                    <ExternalLink className="h-3 w-3" />
+                                                    Papan FG
+                                                </Link>
                                             )}
                                         </div>
                                     );
@@ -189,20 +172,6 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                     )}
                 </CardContent>
             </Card>
-
-            {activeShortage && (
-                <SplitProductionDialog
-                    salesOrderId={salesOrderId}
-                    productVariantId={activeShortage.productVariantId}
-                    variantName={activeShortage.variantName}
-                    shortageQty={activeShortage.shortage}
-                    isOpen={isSplitDialogOpen}
-                    onClose={() => {
-                        setIsSplitDialogOpen(false);
-                        setActiveShortage(null);
-                    }}
-                />
-            )}
         </>
     );
 }

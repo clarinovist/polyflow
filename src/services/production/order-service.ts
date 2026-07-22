@@ -210,6 +210,7 @@ export class ProductionOrderService {
       salesOrderId,
       userId,
       machineId,
+      priority,
       isMaklon,
       maklonCustomerId,
       estimatedConversionCost,
@@ -319,6 +320,7 @@ export class ProductionOrderService {
         location: { connect: { id: locationId } },
         notes,
         status: initialStatus,
+        priority: priority || "NORMAL",
         actualQuantity: 0,
         plannedEnteredQuantity,
         plannedEnteredUnit,
@@ -567,8 +569,9 @@ export class ProductionOrderService {
     locationId: string;
     userId?: string;
     notes?: string;
+    priority?: "URGENT" | "NORMAL" | "LOW";
   }) {
-    const { bomId, plannedQuantity, machineId, locationId, userId, notes } =
+    const { bomId, plannedQuantity, machineId, locationId, userId, notes, priority } =
       data;
 
     if (!bomId || plannedQuantity <= 0 || !machineId || !locationId) {
@@ -619,6 +622,7 @@ export class ProductionOrderService {
       machineId,
       userId,
       notes: notes || "Quick produce — produksi harian",
+      priority: priority || "NORMAL",
       isMaklon: false,
       estimatedConversionCost: 0,
     });
@@ -641,6 +645,7 @@ export class ProductionOrderService {
     const {
       id,
       status,
+      priority,
       actualQuantity,
       actualStartDate,
       actualEndDate,
@@ -692,6 +697,7 @@ export class ProductionOrderService {
       where: { id },
       data: {
         status,
+        priority,
         actualQuantity,
         actualStartDate,
         actualEndDate,

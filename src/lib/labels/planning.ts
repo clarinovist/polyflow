@@ -119,7 +119,7 @@ export const planningLabels = {
   insufficientStock: (count: number) => `Anda memiliki ${count} material dengan stok tidak cukup untuk memenuhi rencana produksi.`,
 
   // Requests
-  incomingRequestsTitle: 'Permintaan Produksi Masuk',
-  incomingRequestsDesc: 'Kelola permintaan kerja dari Penjualan',
+  incomingRequestsTitle: 'Papan Permintaan FG',
+  incomingRequestsDesc: 'Item FG yang perlu diproduksi berdasarkan Sales Order aktif',
   productionPlanning: 'Perencanaan Produksi',
 } as const;

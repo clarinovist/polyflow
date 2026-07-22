@@ -1064,6 +1064,33 @@ export function ProductionOrderForm({
                   )}
                 </div>
 
+                {/* Priority */}
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prioritas</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value || "NORMAL"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih prioritas" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="URGENT">🔴 URGENT</SelectItem>
+                          <SelectItem value="NORMAL">🟡 NORMAL</SelectItem>
+                          <SelectItem value="LOW">🟢 LOW</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {/* Notes Field */}
                 <FormField
                   control={form.control}

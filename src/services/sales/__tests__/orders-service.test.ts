@@ -231,15 +231,18 @@ describe("confirmOrder", () => {
 
     // Should confirm successfully (not throw)
     expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0].code).toBe("MISSING_DEFAULT_BOM");
-    expect(result.warnings[0].productNames).toContain("Rafia Hitam KW 0,95 (10)");
+    // MISSING_DEFAULT_BOM + FG_DEMAND_QUEUED (auto-WO off by default)
+    expect(result.warnings.map((w) => w.code)).toEqual(
+      expect.arrayContaining(["MISSING_DEFAULT_BOM", "FG_DEMAND_QUEUED"]),
+    );
+    expect(result.warnings.find((w) => w.code === "MISSING_DEFAULT_BOM")?.productNames)
+      .toContain("Rafia Hitam KW 0,95 (10)");
     expect(result.productionOrdersCreated).toBe(0);
-    // WO should NOT be created for missing-BOM variant
+    // WO should NOT be created (auto-WO default off + missing BOM)
     expect(ProductionService.createOrderFromSales).not.toHaveBeenCalled();
   });
 
-  it("shortage + has BOM → auto-create WO, status IN_PRODUCTION", async () => {
+  it("shortage + has BOM → default no auto-WO, status IN_PRODUCTION, FG demand queued", async () => {
     // Setup: MTO order, no inventory, BOM exists
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
       id: "so-1",
@@ -267,15 +270,57 @@ describe("confirmOrder", () => {
     const result = await confirmOrder("so-1", "user-1");
 
     expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
-    expect(result.warnings).toHaveLength(0);
-    expect(ProductionService.createOrderFromSales).toHaveBeenCalledWith(
-      "so-1",
-      "pv-1",
-      10,
-    );
+    expect(result.productionOrdersCreated).toBe(0);
+    expect(ProductionService.createOrderFromSales).not.toHaveBeenCalled();
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].code).toBe("FG_DEMAND_QUEUED");
+    expect(result.warnings[0].message).toContain("Papan Permintaan FG");
   });
 
-  it("partial: 2 shortages, 1 BOM missing → WO only for BOM-present, warning for missing", async () => {
+  it("shortage + has BOM + AUTO_CREATE_WO_ON_SO_CONFIRM=true → auto-create WO", async () => {
+    const prev = process.env.AUTO_CREATE_WO_ON_SO_CONFIRM;
+    process.env.AUTO_CREATE_WO_ON_SO_CONFIRM = "true";
+
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_ORDER,
+      totalAmount: { toNumber: () => 100 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 } as never,
+          productVariant: { product: { productType: "PHYSICAL" } },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([
+      { productVariantId: "pv-1" },
+    ] as never);
+
+    try {
+      const result = await confirmOrder("so-1", "user-1");
+
+      expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
+      expect(result.warnings).toHaveLength(0);
+      expect(ProductionService.createOrderFromSales).toHaveBeenCalledWith(
+        "so-1",
+        "pv-1",
+        10,
+      );
+    } finally {
+      if (prev === undefined) delete process.env.AUTO_CREATE_WO_ON_SO_CONFIRM;
+      else process.env.AUTO_CREATE_WO_ON_SO_CONFIRM = prev;
+    }
+  });
+
+  it("partial: 2 shortages, 1 BOM missing → no auto-WO by default, warnings for missing BOM + board", async () => {
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
       id: "so-1",
       orderNumber: "SO-001",
@@ -311,18 +356,16 @@ describe("confirmOrder", () => {
 
     const result = await confirmOrder("so-1", "user-1");
 
-    // Has at least 1 creatable → IN_PRODUCTION
+    // Has at least 1 creatable → IN_PRODUCTION (demand board path)
     expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0].code).toBe("MISSING_DEFAULT_BOM");
-    expect(result.warnings[0].productNames).toContain("Sedotan Bening Super");
-    // WO only for pv-1 (has BOM)
-    expect(ProductionService.createOrderFromSales).toHaveBeenCalledTimes(1);
-    expect(ProductionService.createOrderFromSales).toHaveBeenCalledWith(
-      "so-1",
-      "pv-1",
-      10,
+    expect(result.warnings.map((w) => w.code)).toEqual(
+      expect.arrayContaining(["MISSING_DEFAULT_BOM", "FG_DEMAND_QUEUED"]),
     );
+    expect(result.warnings.find((w) => w.code === "MISSING_DEFAULT_BOM")?.productNames)
+      .toContain("Sedotan Bening Super");
+    // Default: no auto-WO
+    expect(ProductionService.createOrderFromSales).not.toHaveBeenCalled();
+    expect(result.productionOrdersCreated).toBe(0);
   });
 
   it("full stock → CONFIRMED, no warnings, no BOM query", async () => {
@@ -341,7 +384,10 @@ describe("confirmOrder", () => {
     expect(prisma.bom.findMany).not.toHaveBeenCalled();
   });
 
-  it("WO create throws sync → still logged, confirm returns warnings", async () => {
+  it("WO create throws sync → still logged when auto-WO enabled", async () => {
+    const prev = process.env.AUTO_CREATE_WO_ON_SO_CONFIRM;
+    process.env.AUTO_CREATE_WO_ON_SO_CONFIRM = "true";
+
     const loggerErrorSpy = vi
       .spyOn(logger, "error")
       .mockImplementation(() => {});
@@ -351,21 +397,28 @@ describe("confirmOrder", () => {
       throw mockError;
     });
 
-    const result = await confirmOrder("so-1", "user-1");
+    try {
+      const result = await confirmOrder("so-1", "user-1");
 
-    // Confirm should succeed despite WO failure
-    expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
-    expect(result.productionOrdersCreated).toBe(0);
-    expect(result.warnings.some((w) => w.code === "WO_CREATE_FAILED")).toBe(true);
-    expect(loggerErrorSpy).toHaveBeenCalledWith(
-      "Unexpected error in WO auto-creation",
-      expect.objectContaining({ error: mockError }),
-    );
-
-    loggerErrorSpy.mockRestore();
+      // Confirm should succeed despite WO failure
+      expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
+      expect(result.productionOrdersCreated).toBe(0);
+      expect(result.warnings.some((w) => w.code === "WO_CREATE_FAILED")).toBe(true);
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        "Unexpected error in WO auto-creation",
+        expect.objectContaining({ error: mockError }),
+      );
+    } finally {
+      if (prev === undefined) delete process.env.AUTO_CREATE_WO_ON_SO_CONFIRM;
+      else process.env.AUTO_CREATE_WO_ON_SO_CONFIRM = prev;
+      loggerErrorSpy.mockRestore();
+    }
   });
 
-  it("MTS + BOM exists + all WO rejected → post-adjust to CONFIRMED", async () => {
+  it("MTS + BOM exists + all WO rejected → post-adjust to CONFIRMED (auto-WO on)", async () => {
+    const prev = process.env.AUTO_CREATE_WO_ON_SO_CONFIRM;
+    process.env.AUTO_CREATE_WO_ON_SO_CONFIRM = "true";
+
     // Silence expected logger.error noise for rejected auto-WO path
     const loggerErrorSpy = vi
       .spyOn(logger, "error")
@@ -400,35 +453,39 @@ describe("confirmOrder", () => {
       new Error("WO creation failed"),
     );
 
-    const result = await confirmOrder("so-1", "user-1");
+    try {
+      const result = await confirmOrder("so-1", "user-1");
 
-    // MTS: had creatable shortage → initially IN_PRODUCTION → but 0 WO succeeded → post-adjust to CONFIRMED
-    expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
-    expect(result.productionOrdersCreated).toBe(0);
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0].code).toBe("WO_CREATE_FAILED");
-    expect(result.warnings[0].productNames).toContain("Sedotan Bening");
-    expect(result.warnings[0].message).toContain("Sedotan Bening");
+      // MTS: had creatable shortage → initially IN_PRODUCTION → but 0 WO succeeded → post-adjust to CONFIRMED
+      expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
+      expect(result.productionOrdersCreated).toBe(0);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].code).toBe("WO_CREATE_FAILED");
+      expect(result.warnings[0].productNames).toContain("Sedotan Bening");
+      expect(result.warnings[0].message).toContain("Sedotan Bening");
 
-    // Audit trail: confirm log + post-adjust status log
-    expect(logActivity).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "SALES_ORDER_CONFIRMED",
-        entityId: "so-1",
-        details: expect.stringContaining("Status: IN_PRODUCTION"),
-      }),
-    );
-    expect(logActivity).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "SALES_ORDER_CONFIRMED",
-        entityId: "so-1",
-        details:
-          "Status adjusted to CONFIRMED: no production orders created (all auto-WO failed or skipped).",
-      }),
-    );
-    expect(loggerErrorSpy).toHaveBeenCalled();
-
-    loggerErrorSpy.mockRestore();
+      // Audit trail: confirm log + post-adjust status log
+      expect(logActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "SALES_ORDER_CONFIRMED",
+          entityId: "so-1",
+          details: expect.stringContaining("Status: IN_PRODUCTION"),
+        }),
+      );
+      expect(logActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "SALES_ORDER_CONFIRMED",
+          entityId: "so-1",
+          details:
+            "Status adjusted to CONFIRMED: no production orders created (all auto-WO failed or skipped).",
+        }),
+      );
+      expect(loggerErrorSpy).toHaveBeenCalled();
+    } finally {
+      if (prev === undefined) delete process.env.AUTO_CREATE_WO_ON_SO_CONFIRM;
+      else process.env.AUTO_CREATE_WO_ON_SO_CONFIRM = prev;
+      loggerErrorSpy.mockRestore();
+    }
   });
 
   it("stores sales-unit snapshot while keeping canonical quantity and price in base unit", async () => {

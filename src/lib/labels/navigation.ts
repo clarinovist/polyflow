@@ -51,7 +51,7 @@ export const productionSidebarLabels = {
   // Production Planning
   workOrders: "SPK Produksi",
   bom: "BOM / Formula",
-  incomingRequests: "Permintaan Masuk",
+  incomingRequests: "Papan Permintaan FG",
   productionSchedule: "Jadwal Produksi",
   materialRequirements: "Kebutuhan Material",
   productionAnalytics: "Analitik Produksi",
@@ -133,7 +133,7 @@ export const salesSidebarLabels = {
 export const planningSidebarLabelsExtended = {
   planningDashboard: "Dashboard Planning",
   workOrders: "SPK Produksi",
-  incomingRequests: "Permintaan Masuk",
+  incomingRequests: "Papan Permintaan FG",
   productionSchedule: "Jadwal Produksi",
   materialRequirements: "Kebutuhan Material",
   productionAnalytics: "Analitik Produksi",

@@ -15,6 +15,7 @@ export const createProductionOrderSchema = z.object({
     locationId: z.string().min(1, "Output location is required"),
     notes: z.string().optional().transform(sanitizeHtml),
     salesOrderId: z.string().optional(),
+    priority: z.enum(['URGENT', 'NORMAL', 'LOW']).optional(),
     machineId: z.string().optional(),
 
     // Flexible BOM Items
@@ -39,6 +40,7 @@ export const createProductionOrderSchema = z.object({
 export const updateProductionOrderSchema = z.object({
     id: z.string(),
     status: z.enum(['DRAFT', 'RELEASED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'WAITING_MATERIAL']).optional(),
+    priority: z.enum(['URGENT', 'NORMAL', 'LOW']).optional(),
     actualQuantity: z.coerce.number().nonnegative().optional(),
     actualStartDate: z.date().optional(),
     actualEndDate: z.date().optional(),

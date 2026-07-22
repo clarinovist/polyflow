@@ -685,6 +685,7 @@ model ProductionOrder {
   actualStartDate                 DateTime?
   actualEndDate                   DateTime?
   status                          ProductionStatus      @default(DRAFT)
+  priority                        ProductionPriority    @default(NORMAL)
   machineId                       String?
   locationId                      String
   createdById                     String?
@@ -1657,6 +1658,12 @@ enum ProductionStatus {
   COMPLETED
   CANCELLED
   WAITING_MATERIAL
+}
+
+enum ProductionPriority {
+  URGENT
+  NORMAL
+  LOW
 }
 
 enum InspectionResult {
