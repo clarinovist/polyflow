@@ -28,7 +28,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
     }
 
     const validStatuses = ['DRAFT', 'RELEASED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'WAITING_MATERIAL'] as const;
-    const statusFilter = status && validStatuses.includes(status as any) ? status as typeof validStatuses[number] : undefined;
+    const statusFilter = status && (validStatuses as readonly string[]).includes(status) ? status as typeof validStatuses[number] : undefined;
 
     const orders = await getProductionOrders({ bomCategories, status: statusFilter });
     const stats = await getProductionOrderStats();
