@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { PayrollMonthlyManager } from '@/components/hrd/PayrollMonthlyManager';
 import { Wallet } from 'lucide-react';
 
@@ -10,7 +11,13 @@ export default function PayrollMonthlyPage() {
                 </div>
                 <div>
                     <h1 className="text-2xl font-black tracking-tight uppercase">Gaji Bulanan</h1>
-                    <p className="text-sm text-muted-foreground">Payroll karyawan kantor (payType = MONTHLY) — BPJS, kasbon, THR ad-hoc</p>
+                    <p className="text-sm text-muted-foreground">
+                        Untuk payType MONTHLY (kantor). Borongan/harian →{' '}
+                        <Link href="/hrd/payroll" className="text-primary font-medium hover:underline">
+                            Gaji Mingguan
+                        </Link>
+                        . BPJS, kasbon, THR ad-hoc.
+                    </p>
                 </div>
             </div>
             <PayrollMonthlyManager />

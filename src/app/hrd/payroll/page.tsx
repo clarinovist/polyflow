@@ -60,9 +60,13 @@ export default async function PayrollPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gaji Mingguan</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Gaji Mingguan (Borongan)</h1>
           <p className="text-muted-foreground mt-1">
-            Harian dari absensi · Borongan dari output operator (gate absensi) · BPJS dipotong di minggu terakhir bulan
+            Untuk payType PIECE / DAILY. Karyawan bulanan →{' '}
+            <Link href="/hrd/payroll-monthly" className="text-primary font-medium hover:underline">
+              Gaji Bulanan
+            </Link>
+            . Harian dari absensi · Borongan dari output operator · BPJS di minggu terakhir bulan
             {weekStart && weekEnd ? ` · ${weekLabel(new Date(weekStart), new Date(weekEnd))}` : ''}
           </p>
         </div>

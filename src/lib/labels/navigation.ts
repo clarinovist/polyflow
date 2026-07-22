@@ -23,16 +23,17 @@ export const mainNavLabels = {
 } as const;
 
 export const hrdSidebarLabels = {
+  homeBoard: "Hari Ini",
   dashboard: "Dashboard HRD",
-  attendance: "Absensi",
-  payrollWeekly: "Gaji Mingguan",
+  attendance: "Rekap Kehadiran",
+  payrollWeekly: "Gaji Mingguan (Borongan)",
   pieceRates: "Tarif Borongan",
   payrollMonthly: "Gaji Bulanan",
   bpjs: "Rekap BPJS",
   loans: "Kasbon Karyawan",
   leave: "Cuti & Izin",
   disciplinary: "Sanksi Disiplin",
-  alerts: "Peringatan HR",
+  alerts: "Alert HR",
   employees: "Karyawan",
 } as const;
 

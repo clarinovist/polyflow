@@ -31,12 +31,12 @@ interface HrdSidebarProps {
 
 const hrdLinks = [
   {
-    heading: "Ringkasan",
+    heading: "Hari Ini",
     items: [
       {
         href: "/hrd",
         icon: LayoutDashboard,
-        label: hrdSidebarLabels.dashboard,
+        label: hrdSidebarLabels.homeBoard,
         exact: true,
       },
     ],
@@ -90,7 +90,7 @@ const hrdLinks = [
     heading: "Kepegawaian",
     items: [
       {
-        href: "/dashboard/employees",
+        href: "/hrd/employees",
         icon: Users,
         label: hrdSidebarLabels.employees,
       },
@@ -111,7 +111,7 @@ const hrdLinks = [
 export function HrdSidebar({ user, permissions }: HrdSidebarProps) {
   const filteredGroups = filterNavGroups(hrdLinks, permissions);
   return (
-    <PortalSidebarBase user={user} portalName="HRD" accentColor="rose">
+    <PortalSidebarBase user={user} portalName="Portal HRD" accentColor="rose">
       <div className="px-3 mb-2">
         <AdminBackButton />
       </div>
