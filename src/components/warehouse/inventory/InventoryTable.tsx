@@ -303,6 +303,18 @@ export function InventoryTable({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
+                                <DropdownMenuLabel>Pilih</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={toggleSelectAll}>
+                                    {isAllSelected ? 'Batal pilih semua' : 'Semua hasil filter'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    const pageIds = new Set(paginatedInventory.map(i => i.id));
+                                    setSelectedItems(pageIds);
+                                }}>
+                                    Halaman ini saja
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
                                 <DropdownMenuLabel>Aksi massal</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={handleExport}>
@@ -417,6 +429,10 @@ export function InventoryTable({
                 isGlobalLowStock={isGlobalLowStock}
                 isLocationSpecific={isLocationSpecific}
                 hasFilters={hasFilters}
+                abcMap={abcMap}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                handleSort={handleSort}
             />
 
             {/* Pagination Footer */}

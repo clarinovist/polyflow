@@ -191,27 +191,23 @@ export default async function WarehouseInventoryPage({
                 basePath="/warehouse/inventory"
             />
 
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                <Card className="border shadow-sm bg-card h-full flex flex-col overflow-hidden">
-                    <CardContent suppressHydrationWarning className="p-0 flex-1 overflow-hidden">
-                        <div className="h-full overflow-auto px-4 pb-4 pt-1">
-                            <InventoryTable
-                                inventory={serializedInventory}
-                                variantTotals={tableVariantTotals}
-                                comparisonData={comparisonData}
-                                showComparison={!!compareDate}
-                                initialDate={params.asOf}
-                                initialCompareDate={params.compareWith}
-                                showPrices={showPrices}
-                                abcMap={abcMap}
-                                totalStock={displayedTotalStock}
-                                totalValue={internalDisplayValue}
-                                customerOwnedValue={customerOwnedDisplayValue}
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            <Card className="flex-1 min-h-0 border shadow-sm bg-card">
+                <CardContent suppressHydrationWarning className="p-0 h-full">
+                    <InventoryTable
+                        inventory={serializedInventory}
+                        variantTotals={tableVariantTotals}
+                        comparisonData={comparisonData}
+                        showComparison={!!compareDate}
+                        initialDate={params.asOf}
+                        initialCompareDate={params.compareWith}
+                        showPrices={showPrices}
+                        abcMap={abcMap}
+                        totalStock={displayedTotalStock}
+                        totalValue={internalDisplayValue}
+                        customerOwnedValue={customerOwnedDisplayValue}
+                    />
+                </CardContent>
+            </Card>
         </div>
     );
 }

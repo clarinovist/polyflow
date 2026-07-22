@@ -175,7 +175,7 @@ export function InventoryDesktopTable({
                                                     {item.productVariant.skuCode}
                                                 </Link>
                                                 <span>•</span>
-                                                <span className="capitalize text-[10px]">
+                                                <span className="capitalize text-xs">
                                                     {item.productVariant.product.productType.toLowerCase().replace('_', ' ')}
                                                 </span>
                                             </div>
@@ -190,7 +190,7 @@ export function InventoryDesktopTable({
                                                     {item.location.name}
                                                 </span>
                                                 {item.location.locationType === 'CUSTOMER_OWNED' && (
-                                                    <Badge variant="outline" className="h-4 px-1 text-[9px] border-amber-500/20 text-amber-600 dark:text-amber-400 bg-amber-500/10">
+                                                    <Badge variant="outline" className="h-4 px-1 text-xs border-amber-500/20 text-amber-600 dark:text-amber-400 bg-amber-500/10">
                                                         Milik customer
                                                     </Badge>
                                                 )}
@@ -255,15 +255,15 @@ export function InventoryDesktopTable({
                                     <TableCell className="py-1 align-middle">
                                         {isLowStock ? (
                                             <div className="space-y-1">
-                                                <Badge variant="destructive" className="h-5 text-[10px] px-1.5 shadow-none font-normal">
+                                                <Badge variant="destructive" className="h-5 text-xs px-1.5 shadow-none font-normal">
                                                     {warehouseComponentLabels.lowStock}
                                                 </Badge>
-                                                <div className="text-[10px] text-destructive font-medium whitespace-nowrap">
+                                                <div className="text-xs text-destructive font-medium whitespace-nowrap">
                                                     {totalStockValue}/{thresholdValue}
                                                 </div>
                                             </div>
                                         ) : (
-                                            <Badge variant="outline" className="h-5 text-[10px] px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-normal">
+                                            <Badge variant="outline" className="h-5 text-xs px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-normal">
                                                 Tersedia
                                             </Badge>
                                         )}
