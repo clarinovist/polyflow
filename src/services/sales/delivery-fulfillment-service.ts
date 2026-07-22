@@ -284,6 +284,15 @@ export async function commitDeliveryShipment(
       );
     }
 
+    // 2b. Require load verification before stock commit
+    if (!doRecord.loadVerifiedAt) {
+      throw new BusinessRuleError(
+        "Verifikasi muat belum dikunci. Cek qty fisik vs perintah, lalu Kunci Verifikasi sebelum Tandai Dikirim.",
+        { deliveryOrderId },
+        "LOAD_NOT_VERIFIED",
+      );
+    }
+
     // 3. Guard SO status — not CANCELLED
     if (doRecord.salesOrder.status === SalesOrderStatus.CANCELLED) {
       throw new BusinessRuleError("SO sudah dibatalkan — tidak bisa commit pengiriman.");
@@ -389,6 +398,8 @@ export async function commitDeliveryShipment(
       where: { id: deliveryOrderId },
       data: {
         status: DeliveryStatus.SHIPPED,
+        stockCommittedAt: new Date(),
+        stockCommittedById: userId,
         ...(opts?.trackingNumber && { trackingNumber: opts.trackingNumber }),
         ...(opts?.carrier && { carrier: opts.carrier }),
       },

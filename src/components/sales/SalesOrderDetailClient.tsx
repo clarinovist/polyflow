@@ -330,7 +330,13 @@ export function SalesOrderDetailClient({
             !isMaklonOrder &&
             (primaryOpenDo ? (
               <Button variant="default" className="shadow-sm" asChild>
-                <Link href={`/sales/deliveries/${primaryOpenDo.id}`}>
+                <Link
+                  href={
+                    warehouseMode
+                      ? `/warehouse/outgoing/${primaryOpenDo.id}`
+                      : `/sales/deliveries/${primaryOpenDo.id}`
+                  }
+                >
                   <Truck className="mr-2 h-4 w-4" />
                   {salesLabels.viewOpenDo}
                   {primaryOpenDo.orderNumber
@@ -340,18 +346,26 @@ export function SalesOrderDetailClient({
               </Button>
             ) : openDeliveryOrders.length > 1 ? (
               <Button variant="outline" className="shadow-sm" asChild>
-                <Link href="/sales/deliveries">
+                <Link
+                  href={
+                    warehouseMode ? "/warehouse/outgoing" : "/sales/deliveries"
+                  }
+                >
                   <Truck className="mr-2 h-4 w-4" />
                   {salesLabels.openDoExists} ({openDeliveryOrders.length})
                 </Link>
               </Button>
             ) : (
-              <CreateDeliveryOrderDialog defaultSalesOrderId={order.id} />
+              !warehouseMode && (
+                <CreateDeliveryOrderDialog defaultSalesOrderId={order.id} />
+              )
             ))}
 
-          {(order.status === "CONFIRMED" ||
-            order.status === "READY_TO_SHIP" ||
-            (order.status === "IN_PRODUCTION" && !!primaryOpenDo)) && (
+          {/* Quick ship: sales path only — warehouse must use DO detail + load verify */}
+          {!warehouseMode &&
+            (order.status === "CONFIRMED" ||
+              order.status === "READY_TO_SHIP" ||
+              (order.status === "IN_PRODUCTION" && !!primaryOpenDo)) && (
             <Button
               onClick={() => setIsShipDialogOpen(true)}
               disabled={isLoading || openDeliveryOrders.length > 1}
@@ -467,7 +481,13 @@ export function SalesOrderDetailClient({
                   </p>
                 </div>
                 <Button size="sm" variant="outline" asChild>
-                  <Link href={`/sales/deliveries/${d.id}`}>
+                  <Link
+                    href={
+                      warehouseMode
+                        ? `/warehouse/outgoing/${d.id}`
+                        : `/sales/deliveries/${d.id}`
+                    }
+                  >
                     Buka / ubah qty
                   </Link>
                 </Button>

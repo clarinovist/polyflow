@@ -118,7 +118,7 @@ const productionNavItems: NavItem[] = [
 const warehouseNavItems: NavItem[] = [
   { id: 'wh-job-queue', label: 'Antrian Tugas', href: '/warehouse', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
   { id: 'wh-incoming', label: 'Penerimaan Barang', href: '/warehouse/incoming', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
-  { id: 'wh-outgoing', label: 'Antrian Kirim (SO)', href: '/warehouse/outgoing', workspace: 'warehouse', section: 'operasi', owner: 'sales' },
+  { id: 'wh-outgoing', label: 'Antrian Muat', href: '/warehouse/outgoing', workspace: 'warehouse', section: 'operasi', owner: 'sales' },
   { id: 'wh-opname', label: 'Stock Opname', href: '/warehouse/opname', workspace: 'warehouse', section: 'operasi', owner: 'warehouse' },
   { id: 'wh-maklon-receipts', label: 'Penerimaan Maklon', href: '/warehouse/maklon/receipts', workspace: 'warehouse', section: 'maklon', owner: 'warehouse' },
   { id: 'wh-maklon-returns', label: 'Retur Maklon', href: '/warehouse/maklon/returns', workspace: 'warehouse', section: 'maklon', owner: 'warehouse' },

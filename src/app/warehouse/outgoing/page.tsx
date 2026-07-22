@@ -1,78 +1,72 @@
-import { getSalesOrders } from '@/actions/sales/sales';
+import { getDeliveryOrders } from '@/actions/inventory/deliveries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
+import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { serializeData } from '@/lib/utils/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Info, Truck } from 'lucide-react';
+import { History, Info } from 'lucide-react';
 import Link from 'next/link';
-import { auth } from '@/auth';
-import { canAccessWorkspace } from '@/lib/auth/access-policy';
+import { warehouseLabels } from '@/lib/labels';
 
-import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
-import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
+export default async function WarehouseOutgoingPage() {
+    const result = await getDeliveryOrders();
+    const allOrders = result.success && result.data ? serializeData(result.data) : [];
 
-export default async function WarehouseOutgoingPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
-    const params = await searchParams;
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
-
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
-    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
-
-    const [orders, session] = await Promise.all([
-        getSalesOrders(false, { startDate: checkStart, endDate: checkEnd }),
-        auth(),
-    ]);
-
-    const user = session?.user as { role?: string; isSuperAdmin?: boolean; allowedResources?: string[] } | undefined;
-    const canAccessSales = canAccessWorkspace(
-        { role: user?.role, isSuperAdmin: !!user?.isSuperAdmin, allowedResources: user?.allowedResources },
-        'sales',
+    // Active load queue: perintah muat only
+    const openOrders = allOrders.filter(
+        (o: { status: string }) => o.status === 'PENDING' || o.status === 'LOADING',
     );
 
-    const serializedOrders = orders.success && orders.data ? serializeData(orders.data) : [];
+    // LOADING first, then PENDING, then by delivery date
+    openOrders.sort((a: { status: string; deliveryDate: string }, b: { status: string; deliveryDate: string }) => {
+        if (a.status === 'LOADING' && b.status !== 'LOADING') return -1;
+        if (a.status !== 'LOADING' && b.status === 'LOADING') return 1;
+        return new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime();
+    });
 
     return (
         <div className="flex flex-col space-y-6 p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Antrian Kirim (SO)</h1>
-                    <p className="text-muted-foreground">Sales Order yang siap/perlu diproses gudang.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{warehouseLabels.outgoing}</h1>
+                    <p className="text-muted-foreground">
+                        Perintah muat (Surat Jalan) siap atau sedang diproses gudang.
+                    </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <UrlTransactionDateFilter defaultPreset="this_month" />
-                    {canAccessSales && (
-                        <Button variant="outline" asChild>
-                            <Link href="/sales/deliveries">
-                                <Truck className="mr-2 h-4 w-4" />
-                                Lihat Surat Jalan
-                            </Link>
-                        </Button>
-                    )}
-                </div>
+                <Button variant="outline" asChild>
+                    <Link href="/warehouse/outgoing/history">
+                        <History className="mr-2 h-4 w-4" />
+                        {warehouseLabels.outgoingHistory}
+                    </Link>
+                </Button>
             </div>
 
             <Alert className="bg-background border-blue-500/20 text-blue-600 dark:text-blue-400">
                 <Info className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                    <strong>Alur:</strong> SO di bawah ini adalah antrian untuk diproses gudang.
-                    Surat Jalan (Delivery Order) dibuat dan dikelola di modul Sales → Pengiriman.
-                    Status pengiriman fisik mengacu pada dokumen Surat Jalan, bukan status SO di sini.
+                    <strong>Alur:</strong> Surat Jalan di bawah adalah perintah muat.
+                    Mulai muat → cek qty fisik vs perintah (verifikasi) → Tandai Dikirim (potong stok).
+                    SJ dibuat di Sales; gudang mengeksekusi di sini.
                 </AlertDescription>
             </Alert>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Sales Orders</CardTitle>
+                    <CardTitle>Perintah Muat ({openOrders.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <SalesOrderTable
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        initialData={serializedOrders as any}
-                        basePath="/warehouse/outgoing"
-                    />
+                    {openOrders.length === 0 ? (
+                        <div className="text-center p-8 text-muted-foreground border rounded-lg border-dashed">
+                            Belum ada perintah muat. Tunggu Sales membuat Surat Jalan.
+                        </div>
+                    ) : (
+                        <DeliveryOrderTable
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            initialData={openOrders as any}
+                            basePath="/warehouse/outgoing"
+                            mode="active"
+                        />
+                    )}
                 </CardContent>
             </Card>
         </div>

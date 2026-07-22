@@ -32,6 +32,7 @@ import { StockReadinessBanner, type StockReadinessLine } from '@/components/sale
 import { attachDeliveryPhoto } from '@/actions/sales/delivery-photos';
 import { NEXT_STEP_LABELS, getDeliveryStatusLabel } from '@/lib/sales/delivery-status';
 import { EditDeliveryPricingDialog } from '@/components/sales/EditDeliveryPricingDialog';
+import { LoadVerifyPanel } from '@/components/warehouse/outgoing/LoadVerifyPanel';
 import { toast } from 'sonner';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { type CompanyConfig } from '@/lib/config/company';
@@ -51,6 +52,7 @@ interface DeliveryOrderItemData {
     quantity?: number | string;
     enteredQuantity?: number | string | null;
     enteredUnit?: string | null;
+    verifiedQuantity?: number | string | null;
     productVariantId?: string;
     productVariant?: {
         name?: string;
@@ -76,6 +78,9 @@ export interface DeliveryOrderDetailData {
     proofOfDeliveryUrl?: string | null;
     proofOfDeliveryAt?: string | Date | null;
     receivedBy?: string | null;
+    loadVerifiedAt?: string | Date | null;
+    loadVerifiedById?: string | null;
+    loadingStartedAt?: string | Date | null;
     estimatedWeightKg?: number | null;
     appliedRateType?: string | null;
     appliedRouteName?: string | null;
@@ -100,9 +105,17 @@ export interface DeliveryOrderDetailData {
 interface DeliveryOrderDetailProps {
     order: DeliveryOrderDetailData;
     companyConfig?: CompanyConfig;
+    basePath?: string;
+    /** Hide sales-only pricing/retur chrome; keep load ops */
+    warehouseMode?: boolean;
 }
 
-export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetailProps) {
+export function DeliveryOrderDetail({
+    order,
+    companyConfig,
+    basePath = '/sales/deliveries',
+    warehouseMode = false,
+}: DeliveryOrderDetailProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [uploadingVehicle, setUploadingVehicle] = useState(false);
@@ -120,6 +133,8 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
     const items = order.items ?? [];
 
     const canEditQty = order.status === 'PENDING' || order.status === 'LOADING';
+    const isLoadVerified = !!order.loadVerifiedAt;
+    const canShip = isLoadVerified;
 
     // Load stock readiness when DO is PENDING or LOADING (via server action — no Prisma on client)
     useEffect(() => {
@@ -270,14 +285,19 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
         <div className="space-y-6">
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="sm" asChild>
-                    <Link href="/sales/deliveries">
+                    <Link href={basePath}>
                         <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
                     </Link>
                 </Button>
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrder} {order.orderNumber}</h1>
-                    <div className="flex items-center gap-3 mt-1">
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
                         {getStatusBadge(order.status)}
+                        {isLoadVerified && canEditQty && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                Muat terverifikasi
+                            </Badge>
+                        )}
                         {nextStep && nextStep.to !== 'SHIPPED' && (
                             <Button
                                 size="sm"
@@ -288,14 +308,19 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                 <Check className="mr-1 h-3.5 w-3.5" /> {nextStep.label}
                             </Button>
                         )}
-                        {/* Tandai Dikirim — confirm dialog with stock warning */}
+                        {/* Tandai Dikirim — requires load verification + confirm dialog */}
                         {nextStep && nextStep.to === 'SHIPPED' && (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button
                                         size="sm"
                                         className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
-                                        disabled={isLoading}
+                                        disabled={isLoading || !canShip}
+                                        title={
+                                            !canShip
+                                                ? 'Kunci verifikasi muat dulu'
+                                                : undefined
+                                        }
                                     >
                                         <Check className="mr-1 h-3.5 w-3.5" /> {salesLabels.tandaiDikirim}
                                     </Button>
@@ -305,6 +330,11 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                         <AlertDialogTitle>{salesLabels.tandaiDikirim}?</AlertDialogTitle>
                                         <AlertDialogDescription>
                                             {salesLabels.tandaiDikirimConfirm} Invoice draft akan dibuat otomatis.
+                                            {!canShip && (
+                                                <span className="block mt-2 text-amber-700 dark:text-amber-300">
+                                                    Verifikasi muat belum dikunci — lengkapi panel Verifikasi Muat dulu.
+                                                </span>
+                                            )}
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -312,6 +342,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                         <AlertDialogAction
                                             onClick={() => handleStatusChange('SHIPPED')}
                                             className="bg-green-600 hover:bg-green-700"
+                                            disabled={!canShip}
                                         >
                                             Ya, {salesLabels.tandaiDikirim}
                                         </AlertDialogAction>
@@ -343,8 +374,8 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                        {/* Secondary: Return */}
-                        {['SHIPPED', 'IN_TRANSIT', 'ARRIVED'].includes(order.status) && (
+                        {/* Secondary: Return — hide in warehouse floor mode */}
+                        {!warehouseMode && ['SHIPPED', 'IN_TRANSIT', 'ARRIVED'].includes(order.status) && (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-orange-600 border-orange-200 hover:bg-orange-50">
@@ -368,7 +399,17 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                             </AlertDialog>
                         )}
                         <span className="text-muted-foreground text-sm">
-                            Terkait dengan <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 dark:text-blue-400 hover:underline">{order.salesOrder?.orderNumber}</Link>
+                            Terkait dengan{' '}
+                            <Link
+                                href={
+                                    warehouseMode
+                                        ? `/warehouse/outgoing/orders/${order.salesOrderId}`
+                                        : `/sales/orders/${order.salesOrderId}`
+                                }
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                {order.salesOrder?.orderNumber}
+                            </Link>
                         </span>
                         <button
                             onClick={() => setShowPreview(true)}
@@ -518,6 +559,22 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                         </CardContent>
                     </Card>
 
+                    {canEditQty && (
+                        <LoadVerifyPanel
+                            deliveryOrderId={order.id}
+                            items={items.map((item) => ({
+                                id: item.id,
+                                quantity: item.quantity ?? 0,
+                                verifiedQuantity: item.verifiedQuantity,
+                                enteredQuantity: item.enteredQuantity,
+                                enteredUnit: item.enteredUnit,
+                                productVariant: item.productVariant,
+                            }))}
+                            isVerified={isLoadVerified}
+                            canEdit={!isLoadVerified}
+                        />
+                    )}
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Timeline</CardTitle>
@@ -625,7 +682,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                     <Truck className="h-5 w-5" />
                                     Armada & Tarif
                                 </CardTitle>
-                                {order.status !== 'CANCELLED' && (
+                                {!warehouseMode && order.status !== 'CANCELLED' && (
                                     <EditDeliveryPricingDialog order={order} />
                                 )}
                             </div>

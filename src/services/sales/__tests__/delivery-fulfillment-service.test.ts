@@ -120,6 +120,7 @@ function makeDeliveryOrder(overrides: Record<string, unknown> = {}) {
     salesOrderId: "so-1",
     sourceLocationId: "loc-1",
     status: DeliveryStatus.PENDING,
+    loadVerifiedAt: new Date("2026-07-22T00:00:00.000Z"),
     items: [
       {
         id: "doi-1",
@@ -422,6 +423,16 @@ describe("commitDeliveryShipment", () => {
         data: expect.objectContaining({ status: DeliveryStatus.SHIPPED }),
       })
     );
+  });
+
+  it("rejects commit when load not verified", async () => {
+    const doRecord = makeDeliveryOrder({ loadVerifiedAt: null });
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
+
+    await expect(commitDeliveryShipment("do-1", "user-1")).rejects.toThrow(/Verifikasi muat/i);
+
+    expect(InventoryCoreService.validateAndLockStock).not.toHaveBeenCalled();
+    expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
   });
 
   it("rejects when stock insufficient — no status change, no deliveredQty", async () => {

@@ -16,10 +16,19 @@ import { getDeliveryStatusLabel } from "@/lib/sales/delivery-status";
 interface DeliveryOrderTableProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialData: any[];
+  /** Detail/list base path — sales or warehouse portal */
+  basePath?: string;
+  /** active = open queue; history = closed archive (UI copy only for now) */
+  mode?: "active" | "history";
 }
 
-export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
+export function DeliveryOrderTable({
+  initialData,
+  basePath = "/sales/deliveries",
+  mode = "active",
+}: DeliveryOrderTableProps) {
   const router = useRouter();
+  void mode;
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -59,6 +68,7 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
           <Link
             href={`/sales/orders/${row.original.salesOrderId}`}
             className="text-blue-600 hover:underline"
+            onClick={(e) => e.stopPropagation()}
           >
             {row.original.salesOrder?.orderNumber}
           </Link>
@@ -105,7 +115,7 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
         cell: ({ row }) => (
           <div className="text-right">
             <Button variant="ghost" size="sm" asChild>
-              <Link href={`/sales/deliveries/${row.original.id}`}>
+              <Link href={`${basePath}/${row.original.id}`}>
                 <Eye className="h-4 w-4" />
               </Link>
             </Button>
@@ -113,7 +123,7 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
         ),
       },
     ],
-    [],
+    [basePath],
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,7 +138,7 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
           <Card
             key={order.id}
             className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-            onClick={() => router.push(`/sales/deliveries/${order.id}`)}
+            onClick={() => router.push(`${basePath}/${order.id}`)}
           >
             <CardHeader className="p-4 pb-2">
               <div className="flex justify-between items-start">

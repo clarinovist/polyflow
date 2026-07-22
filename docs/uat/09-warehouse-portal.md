@@ -34,24 +34,42 @@
 |--------|-----------|---------------|--------|
 
 **Langkah:**
-1. `/warehouse/incoming` → Pilih PO yang CONFIRMED
-2. Input qty diterima → Simpan
+1. `/warehouse/incoming` → lihat antrean **Menunggu Diterima** (PO SENT / PARTIAL)
+2. Klik **Terima** pada PO → input qty diterima → Simpan
+3. (Opsional) buka **Riwayat** di `/warehouse/incoming/history`
 
-**Diharapkan:** Stok bertambah di lokasi gudang, receipt tercatat, PO receivedQty terupdate
+**Diharapkan:** Stok bertambah di lokasi gudang, receipt tercatat, PO receivedQty terupdate, GR muncul di “Diterima Hari Ini”
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
 
 ---
 
-### TC-WH-003: Proses Pengiriman (Outgoing)
+### TC-WH-002b: Terima dari Nota (tanpa PO)
+| **ID** | TC-WH-002b | **Prioritas** | 🔴 P1 |
+|--------|------------|---------------|--------|
+
+**Langkah:**
+1. `/warehouse/incoming` → **Terima dari Nota**
+2. Isi supplier, no. nota/SJ, lokasi, item + qty → Simpan
+
+**Diharapkan:** PO otomatis terbentuk (notes `[WAREHOUSE_WALK_IN]`), GR tercatat, stok naik, finance mendapat notifikasi; badge “Dari Nota” terlihat di ringkasan hari ini
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-WH-003: Proses Pengiriman (Outgoing / Antrian Muat)
 | **ID** | TC-WH-003 | **Prioritas** | 🔴 P1 |
 |--------|-----------|---------------|--------|
 
 **Langkah:**
-1. `/warehouse/outgoing` → Pilih DO yang perlu dikirim
-2. Konfirmasi qty kirim → Proses
+1. Login WAREHOUSE → `/warehouse/outgoing` (Antrian Muat = list SJ PENDING/LOADING, bukan SO)
+2. Pilih Surat Jalan → detail DO di path warehouse
+3. **Mulai Muat** (PENDING → LOADING)
+4. Panel **Verifikasi Muat**: isi qty fisik (atau “Samakan semua ke perintah”) → **Kunci Verifikasi**
+5. **Tandai Dikirim** (butuh verifikasi terkunci + stok FG cukup)
 
-**Diharapkan:** Stok berkurang, status pengiriman terupdate, DO deliveredQty terupdate
+**Diharapkan:** Stok berkurang, DO → SHIPPED, SO deliveredQty terupdate, invoice DRAFT; SJ muncul di **Riwayat Kirim**
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
 

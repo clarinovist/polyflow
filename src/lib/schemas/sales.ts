@@ -153,6 +153,19 @@ export const updateDeliveryItemQuantitiesSchema = z.object({
     .min(1),
 });
 
+/** Physical count vs planned DO qty — warehouse load verification */
+export const saveDeliveryLoadVerificationSchema = z.object({
+  deliveryOrderId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        verifiedQuantity: z.coerce.number().positive('Qty verifikasi harus > 0'),
+      }),
+    )
+    .min(1),
+});
+
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
 export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
 export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;

@@ -62,7 +62,7 @@ const PATH_LABELS: Record<string, string> = {
 
   // Warehouse
   incoming: "Penerimaan Barang",
-  outgoing: "Antrian Kirim (SO)",
+  outgoing: "Antrian Muat",
   opname: "Stock Opname",
   transfer: "Transfer Stok",
   adjustment: "Penyesuaian Stok",

@@ -9,6 +9,7 @@ import {
   createManualDeliveryOrderSchema,
   updateDeliveryPricingSchema,
   updateDeliveryItemQuantitiesSchema,
+  saveDeliveryLoadVerificationSchema,
 } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { canTransition } from '@/lib/sales/delivery-status';
@@ -162,6 +163,7 @@ async function createManualDeliveryOrder(data: {
 
     revalidatePath('/sales/deliveries');
     revalidatePath(`/sales/orders/${validatedData.salesOrderId}`);
+    revalidatePath('/warehouse/outgoing');
 
     return deliveryOrder;
   });
@@ -198,6 +200,16 @@ async function updateDeliveryStatus(
     if (newStatus === 'SHIPPED') {
       const { commitDeliveryShipment } = await import('@/services/sales/delivery-fulfillment-service');
       await commitDeliveryShipment(deliveryOrderId, session.user.id);
+    } else if (newStatus === 'LOADING') {
+      // Set loadingStartedAt when transitioning to LOADING
+      await prisma.deliveryOrder.update({
+        where: { id: deliveryOrderId },
+        data: {
+          status: newStatus as DeliveryStatus,
+          loadingStartedAt: new Date(),
+          loadingStartedById: session.user.id,
+        },
+      });
     } else {
       // For all other transitions, just update status
       await prisma.deliveryOrder.update({
@@ -235,6 +247,8 @@ async function updateDeliveryStatus(
     revalidatePath('/sales/deliveries');
     revalidatePath(`/sales/deliveries/${deliveryOrderId}`);
     revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
+    revalidatePath('/warehouse/outgoing');
+    revalidatePath(`/warehouse/outgoing/${deliveryOrderId}`);
 
     return { success: true };
   });
@@ -473,8 +487,8 @@ export const updateDeliveryItemQuantities = withTenant(
         }
       }
 
-      await prisma.$transaction(
-        validated.items.map((patch) => {
+      await prisma.$transaction(async (tx) => {
+        for (const patch of validated.items) {
           const doItem = doItemById.get(patch.id)!;
           const factor = doItem.conversionFactorSnapshot
             ? Number(doItem.conversionFactorSnapshot)
@@ -484,27 +498,197 @@ export const updateDeliveryItemQuantities = withTenant(
               ? Math.round((patch.quantity / factor) * 10000) / 10000
               : patch.quantity;
 
-          return prisma.deliveryOrderItem.update({
+          await tx.deliveryOrderItem.update({
             where: { id: patch.id },
             data: {
               quantity: patch.quantity,
               enteredQuantity: enteredQty,
+              // Qty change invalidates physical load verification
+              verifiedQuantity: null,
+              verifiedAt: null,
+              verifiedById: null,
             },
           });
-        }),
-      );
+        }
+
+        await tx.deliveryOrder.update({
+          where: { id: validated.deliveryOrderId },
+          data: {
+            loadVerifiedAt: null,
+            loadVerifiedById: null,
+          },
+        });
+      });
 
       await logActivity({
         userId: session.user.id,
         action: 'UPDATE_DELIVERY_QTY',
         entityType: 'DeliveryOrder',
         entityId: validated.deliveryOrderId,
-        details: `DO ${doRecord.orderNumber}: line quantities updated`,
+        details: `DO ${doRecord.orderNumber}: line quantities updated (verification cleared)`,
       });
 
       revalidatePath('/sales/deliveries');
       revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
       revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
+      revalidatePath('/warehouse/outgoing');
+      revalidatePath(`/warehouse/outgoing/${validated.deliveryOrderId}`);
+
+      return { success: true };
+    });
+  },
+);
+
+/**
+ * Save per-line verified quantities (physical count at load).
+ * Does not lock header verification — use confirmDeliveryLoadVerified after all match.
+ */
+export const saveDeliveryLoadVerification = withTenant(
+  async function saveDeliveryLoadVerification(data: {
+    deliveryOrderId: string;
+    items: Array<{ id: string; verifiedQuantity: number }>;
+  }) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const validated = saveDeliveryLoadVerificationSchema.parse(data);
+
+      const doRecord = await prisma.deliveryOrder.findUnique({
+        where: { id: validated.deliveryOrderId },
+        include: { items: true },
+      });
+      if (!doRecord) {
+        throw new NotFoundError('Delivery Order', validated.deliveryOrderId);
+      }
+      if (
+        doRecord.status !== DeliveryStatus.PENDING &&
+        doRecord.status !== DeliveryStatus.LOADING
+      ) {
+        throw new BusinessRuleError(
+          'Verifikasi muat hanya saat SJ PENDING atau LOADING.',
+          { status: doRecord.status },
+          'INVALID_DELIVERY_STATUS',
+        );
+      }
+
+      const itemIds = new Set(doRecord.items.map((i) => i.id));
+      for (const patch of validated.items) {
+        if (!itemIds.has(patch.id)) {
+          throw new BusinessRuleError(`Item SJ tidak ditemukan: ${patch.id}`, {
+            itemId: patch.id,
+          });
+        }
+      }
+
+      const now = new Date();
+      await prisma.$transaction(async (tx) => {
+        for (const patch of validated.items) {
+          await tx.deliveryOrderItem.update({
+            where: { id: patch.id },
+            data: {
+              verifiedQuantity: patch.verifiedQuantity,
+              verifiedAt: now,
+              verifiedById: session.user.id,
+            },
+          });
+        }
+        // Any re-save unlocks header until confirm again
+        await tx.deliveryOrder.update({
+          where: { id: validated.deliveryOrderId },
+          data: {
+            loadVerifiedAt: null,
+            loadVerifiedById: null,
+          },
+        });
+      });
+
+      await logActivity({
+        userId: session.user.id,
+        action: 'SAVE_DELIVERY_LOAD_VERIFICATION',
+        entityType: 'DeliveryOrder',
+        entityId: validated.deliveryOrderId,
+        details: `DO ${doRecord.orderNumber}: saved ${validated.items.length} line verification qty`,
+      });
+
+      revalidatePath('/sales/deliveries');
+      revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
+      revalidatePath('/warehouse/outgoing');
+      revalidatePath(`/warehouse/outgoing/${validated.deliveryOrderId}`);
+
+      return { success: true };
+    });
+  },
+);
+
+/**
+ * Lock load verification when every line has verifiedQuantity matching planned quantity.
+ */
+export const confirmDeliveryLoadVerified = withTenant(
+  async function confirmDeliveryLoadVerified(deliveryOrderId: string) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      const doRecord = await prisma.deliveryOrder.findUnique({
+        where: { id: deliveryOrderId },
+        include: { items: true },
+      });
+      if (!doRecord) throw new NotFoundError('Delivery Order', deliveryOrderId);
+      if (
+        doRecord.status !== DeliveryStatus.PENDING &&
+        doRecord.status !== DeliveryStatus.LOADING
+      ) {
+        throw new BusinessRuleError(
+          'Verifikasi muat hanya saat SJ PENDING atau LOADING.',
+          { status: doRecord.status },
+          'INVALID_DELIVERY_STATUS',
+        );
+      }
+      if (doRecord.items.length === 0) {
+        throw new BusinessRuleError('Surat Jalan tidak punya item untuk diverifikasi.');
+      }
+
+      for (const item of doRecord.items) {
+        if (item.verifiedQuantity == null) {
+          throw new BusinessRuleError(
+            'Semua baris harus punya qty dihitung sebelum dikunci.',
+            { itemId: item.id },
+            'LOAD_VERIFY_INCOMPLETE',
+          );
+        }
+        const planned = Number(item.quantity);
+        const verified = Number(item.verifiedQuantity);
+        if (Math.abs(planned - verified) > 1e-6) {
+          throw new BusinessRuleError(
+            'Ada selisih qty fisik vs perintah. Koreksi qty SJ atau hitung ulang sampai sesuai, lalu kunci.',
+            {
+              itemId: item.id,
+              planned,
+              verified,
+            },
+            'LOAD_VERIFY_MISMATCH',
+          );
+        }
+      }
+
+      await prisma.deliveryOrder.update({
+        where: { id: deliveryOrderId },
+        data: {
+          loadVerifiedAt: new Date(),
+          loadVerifiedById: session.user.id,
+        },
+      });
+
+      await logActivity({
+        userId: session.user.id,
+        action: 'CONFIRM_DELIVERY_LOAD_VERIFIED',
+        entityType: 'DeliveryOrder',
+        entityId: deliveryOrderId,
+        details: `DO ${doRecord.orderNumber}: load verification locked`,
+      });
+
+      revalidatePath('/sales/deliveries');
+      revalidatePath(`/sales/deliveries/${deliveryOrderId}`);
+      revalidatePath('/warehouse/outgoing');
+      revalidatePath(`/warehouse/outgoing/${deliveryOrderId}`);
 
       return { success: true };
     });

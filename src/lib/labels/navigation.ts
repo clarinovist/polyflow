@@ -70,7 +70,7 @@ export const productionSidebarLabels = {
 export const warehouseSidebarLabels = {
   jobQueue: "Antrian Tugas",
   incomingReceipts: "Penerimaan Barang",
-  outgoingOrders: "Antrian Kirim (SO)",
+  outgoingOrders: "Antrian Muat",
   stockOpname: "Stock Opname",
   stockOverview: "Ikhtisar Stok",
   stockTransfer: "Transfer Stok",

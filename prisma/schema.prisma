@@ -1309,6 +1309,12 @@ model DeliveryOrder {
   proofOfDeliveryUrl String?
   proofOfDeliveryAt  DateTime?
   receivedBy         String?
+  loadingStartedAt   DateTime?
+  loadingStartedById String?
+  loadVerifiedAt     DateTime?
+  loadVerifiedById   String?
+  stockCommittedAt   DateTime?
+  stockCommittedById String?
   createdBy          User?                   @relation("DeliveryCreator", fields: [createdById], references: [id])
   salesOrder         SalesOrder              @relation(fields: [salesOrderId], references: [id])
   sourceLocation     Location                @relation(fields: [sourceLocationId], references: [id])
@@ -1329,6 +1335,9 @@ model DeliveryOrderItem {
   enteredQuantity          Decimal?       @db.Decimal(15, 4)
   enteredUnit              Unit?
   conversionFactorSnapshot Decimal?       @db.Decimal(10, 4)
+  verifiedQuantity         Decimal?       @db.Decimal(15, 4)
+  verifiedAt               DateTime?
+  verifiedById             String?
   notes                    String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
