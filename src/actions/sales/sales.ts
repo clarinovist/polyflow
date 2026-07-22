@@ -313,8 +313,9 @@ export const getSalesOrderStats = withTenant(
       await requireAuth();
 
       // Scope: ORDERED customer's orderDate — align with list page's filtered view
+      // demandType is NOT a DB column — translate to customerId filter like getOrders() does
       const where: Record<string, unknown> = {
-        demandType: "customer",
+        customerId: { not: null },
       };
       if (dateRange?.startDate && dateRange?.endDate) {
         where.orderDate = {
