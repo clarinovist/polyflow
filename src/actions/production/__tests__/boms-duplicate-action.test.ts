@@ -134,7 +134,7 @@ describe('duplicateBom action', () => {
 
         expect(result.success).toBe(false);
         if (!result.success) {
-            expect(result.error).toContain('no ingredients');
+            expect(result.error).toContain('tidak memiliki bahan');
         }
     });
 
