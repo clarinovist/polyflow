@@ -66,9 +66,17 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
     const [operatorId, setOperatorId] = useState<string | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [timeLeft, setTimeLeft] = useState(30);
+    const [optimisticExecutionId, setOptimisticExecutionId] = useState<string | null>(null);
     const [_isPending, startTransition] = useTransition();
 
-    const activeExecution = order.executions.find(e => !e.endTime);
+    const activeExecution = order.executions.find(e => !e.endTime)
+        ?? (optimisticExecutionId
+            ? {
+                id: optimisticExecutionId,
+                startTime: new Date(),
+                endTime: null,
+            }
+            : undefined);
     const isRunning = !!activeExecution;
     const unitMeta = getProductionUnitMeta(order.bom.productVariant);
 
@@ -85,6 +93,14 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
             router.push('/kiosk');
         }
     }, [isInitialized, operatorId, router]);
+
+    // Clear optimistic override once real execution lands via router.refresh()
+    useEffect(() => {
+        const realActive = order.executions.find(e => !e.endTime);
+        if (realActive && optimisticExecutionId) {
+            setOptimisticExecutionId(null);
+        }
+    }, [order.executions, optimisticExecutionId]);
 
     // Auto-refresh timer (30s) — pause while log/stop dialog open
     const dialogOpen = logDialogOpen || stopDialogOpen;
@@ -119,6 +135,9 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
 
             if (result.success) {
                 toast.success(activeExecution ? "Operator diganti!" : "Produksi dimulai!");
+                const startedId =
+                    (result.data as { id?: string } | null | undefined)?.id ?? null;
+                if (startedId) setOptimisticExecutionId(startedId);
                 router.refresh();
             } else {
                 toast.error(result.error || "Gagal memulai produksi");
