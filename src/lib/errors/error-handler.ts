@@ -87,7 +87,7 @@ export function handleError(error: unknown): ActionResponse {
     // Unknown Errors
     return {
         success: false,
-        error: "An unexpected error occurred. Please try again.",
+        error: "Terjadi kesalahan tidak terduga. Silakan coba lagi.",
         code: "UNKNOWN_ERROR",
     };
 }

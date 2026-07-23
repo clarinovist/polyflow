@@ -276,7 +276,7 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
 
         const newPassword = formData.get("newPassword") as string;
         if (!newPassword || newPassword.length < 6) {
-            throw new BusinessRuleError("Password must be at least 6 characters.");
+            throw new BusinessRuleError("Password minimal 6 karakter.");
         }
 
         try {
@@ -301,7 +301,7 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
                 });
 
                 if (!adminUser) {
-                    throw new BusinessRuleError("No admin user found for this tenant.");
+                    throw new BusinessRuleError("Tidak ada user admin untuk tenant ini.");
                 }
 
                 await getTenantDb(tenant.dbUrl).user.update({

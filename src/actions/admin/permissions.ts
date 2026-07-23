@@ -178,7 +178,7 @@ export const updatePermissionsBulk = withTenant(
           resources,
           module: "PermissionActions",
         });
-        throw new BusinessRuleError("Gagal memperbarui izins");
+        throw new BusinessRuleError("Gagal memperbarui izin");
       }
     });
   },
