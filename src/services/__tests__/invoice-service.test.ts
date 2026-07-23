@@ -134,10 +134,10 @@ describe('InvoiceService', () => {
                 invoiceDate: new Date(),
                 dueDate: new Date(),
                 termOfPaymentDays: 30,
-            }, 'user-1')).rejects.toThrow(/without customer/i);
+            }, 'user-1')).rejects.toThrow(/tanpa customer|tanpa customer/i);
         });
 
-        it('should skip draft invoice generation for legacy internal orders without customer', async () => {
+        it('should skip draft invoice generation for legacy internal orders tanpa customer', async () => {
             vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
                 id: 'so-legacy',
                 totalAmount: { toNumber: () => 1000 },

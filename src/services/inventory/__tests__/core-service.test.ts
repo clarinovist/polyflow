@@ -164,7 +164,7 @@ describe("InventoryCoreService", () => {
           "location-999",
         );
         expect((error as InsufficientStockError).message).toContain(
-          "Unknown Item",
+          "Item tidak diketahui",
         );
       }
     });
@@ -234,7 +234,7 @@ describe("InventoryCoreService", () => {
           "location-999",
         );
         expect((error as InsufficientStockError).message).toContain(
-          "Unknown Item",
+          "Item tidak diketahui",
         );
       }
     });

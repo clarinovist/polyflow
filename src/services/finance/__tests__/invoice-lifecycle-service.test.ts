@@ -294,7 +294,7 @@ describe("invoice-lifecycle-service", () => {
       );
     });
 
-    it("should throw error when sales order not found", async () => {
+    it("should throw error when sales order tidak ditemukan", async () => {
       // Arrange
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
 
@@ -330,7 +330,7 @@ describe("invoice-lifecycle-service", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Sales Order has no total amount");
+      ).rejects.toThrow("Sales Order tidak memiliki total amount");
     });
 
     it("should throw error when sales order has no customer", async () => {
@@ -353,7 +353,7 @@ describe("invoice-lifecycle-service", () => {
           "user-1",
         ),
       ).rejects.toThrow(
-        "Cannot create invoice for a Sales Order without customer",
+        "Tidak dapat membuat invoice untuk Sales Order tanpa customer",
       );
     });
   });
@@ -559,7 +559,7 @@ describe("invoice-lifecycle-service", () => {
       });
     });
 
-    it("should throw error when invoice not found", async () => {
+    it("should throw error when invoice tidak ditemukan", async () => {
       // Arrange
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null);
 
@@ -679,7 +679,7 @@ describe("invoice-lifecycle-service", () => {
       );
     });
 
-    it("should return undefined when sales order not found", async () => {
+    it("should return undefined when sales order tidak ditemukan", async () => {
       // Arrange
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
 
@@ -721,7 +721,7 @@ describe("invoice-lifecycle-service", () => {
       expect(prisma.invoice.create).not.toHaveBeenCalled();
     });
 
-    it("should return undefined when invoice already exists for the sales order", async () => {
+    it("should return undefined when invoice sudah ada for the sales order", async () => {
       // Arrange
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
         mockSalesOrder as any,

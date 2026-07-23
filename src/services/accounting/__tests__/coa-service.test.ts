@@ -83,7 +83,7 @@ describe('coa-service', () => {
             expect(prisma.account.create).toHaveBeenCalledWith({ data: accountData });
         });
 
-        it('should throw error when account code already exists', async () => {
+        it('should throw error when account code sudah ada', async () => {
             // Arrange
             const accountData = {
                 code: '1000',
@@ -102,7 +102,7 @@ describe('coa-service', () => {
 
             // Act & Assert
             await expect(createAccount(accountData)).rejects.toThrow(
-                'Account code 1000 already exists'
+                'Kode akun'
             );
         });
     });
@@ -155,7 +155,7 @@ describe('coa-service', () => {
             expect(result).toEqual(mockUpdatedAccount);
         });
 
-        it('should throw error when code already exists for different account', async () => {
+        it('should throw error when code sudah ada for different account', async () => {
             // Arrange
             const updateData = {
                 code: '2000',
@@ -170,7 +170,7 @@ describe('coa-service', () => {
 
             // Act & Assert
             await expect(updateAccount('1', updateData)).rejects.toThrow(
-                'Account code 2000 already exists'
+                'Kode akun'
             );
         });
     });
@@ -200,7 +200,7 @@ describe('coa-service', () => {
 
             // Act & Assert
             await expect(deleteAccount('1')).rejects.toThrow(
-                'Cannot delete account because it has existing transactions. Consider deactivating it instead.'
+                'Tidak dapat menghapus akun karena masih memiliki transaksi. Pertimbangkan untuk menonaktifkannya saja.'
             );
         });
     });

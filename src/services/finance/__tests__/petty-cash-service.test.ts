@@ -98,7 +98,7 @@ describe('PettyCashService', () => {
             expect(result).toBe(700); // 1000 - 300
         });
 
-        it('should return 0 when account not found', async () => {
+        it('should return 0 when account tidak ditemukan', async () => {
             // Arrange
             const { resolveAccount } = await import('@/services/accounting/account-resolver');
 

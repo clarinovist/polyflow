@@ -187,7 +187,7 @@ export async function postBulkJournals(ids: string[], userId?: string) {
     const isOpen = await isPeriodOpen(journal.entryDate);
     if (!isOpen) {
       throw new BusinessRuleError(
-        `Cannot post journal ${journal.entryNumber} to a closed fiscal period.`,
+        `Tidak dapat memposting jurnal ${journal.entryNumber} ke periode fiskal yang sudah ditutup.`,
         { journalId: journal.id, entryNumber: journal.entryNumber, entryDate: journal.entryDate },
         "FISCAL_PERIOD_CLOSED",
       );

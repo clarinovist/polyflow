@@ -935,7 +935,7 @@ describe("reports-service", () => {
       expect(balance).toBe(4500000);
     });
 
-    it("throws error when account is not found", async () => {
+    it("throws error when account is tidak ditemukan", async () => {
       vi.mocked(prisma.journalLine.findMany).mockResolvedValue([]);
       vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
 
@@ -1171,7 +1171,7 @@ describe("reports-service", () => {
   // ========================================================================
 
   describe("closePeriod", () => {
-    it("throws when closing entry already exists for the period", async () => {
+    it("throws when closing entry already exists (ID message)", async () => {
       vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({
         id: "je1",
         entryNumber: "JE-001",
@@ -1182,7 +1182,7 @@ describe("reports-service", () => {
       await expect(
         closePeriod(new Date("2026-06-30"), "user1"),
       ).rejects.toThrow(
-        "Closing entry already exists for CLOSING-2026-06 (JE: JE-001). Void it first if you want to re-close.",
+        "Entri closing sudah ada untuk CLOSING-2026-06 (JE: JE-001). Void terlebih dahulu jika ingin close ulang.",
       );
     });
 
@@ -1193,11 +1193,11 @@ describe("reports-service", () => {
       await expect(
         closePeriod(new Date("2026-06-30"), "user1"),
       ).rejects.toThrow(
-        "No revenue or expense balances found for period CLOSING-2026-06. Nothing to close.",
+        "Tidak ditemukan saldo pendapatan atau biaya untuk periode CLOSING-2026-06. Tidak ada yang perlu di-close.",
       );
     });
 
-    it("throws when earnings account not found via resolveAccount", async () => {
+    it("throws when earnings account tidak ditemukan via resolveAccount", async () => {
       vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.account.findMany).mockResolvedValue([
         {
@@ -1209,12 +1209,12 @@ describe("reports-service", () => {
         },
       ] as never);
       vi.mocked(mockResolveAccount).mockRejectedValue(
-        new Error('Account not found for role "current-year-earnings"')
+        new Error('Account tidak ditemukan for role "current-year-earnings"')
       );
 
       await expect(
         closePeriod(new Date("2026-06-30"), "user1"),
-      ).rejects.toThrow('Account not found for role "current-year-earnings"');
+      ).rejects.toThrow('Account tidak ditemukan for role "current-year-earnings"');
     });
 
     it("creates closing entry for profit scenario (netIncome >= 0)", async () => {

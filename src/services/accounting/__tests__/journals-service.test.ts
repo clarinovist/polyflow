@@ -76,7 +76,7 @@ describe('JournalsService', () => {
         it('should throw error if fiscal period is closed', async () => {
             vi.mocked(isPeriodOpen).mockResolvedValue(false);
 
-            await expect(createJournalEntry(validEntry)).rejects.toThrow(/closed fiscal period/);
+            await expect(createJournalEntry(validEntry)).rejects.toThrow(/periode fiskal/i);
             expect(prisma.journalEntry.create).not.toHaveBeenCalled();
         });
 
@@ -85,7 +85,7 @@ describe('JournalsService', () => {
 
             // Mock sequence generation to throw P2025
             vi.mocked(prisma.systemSequence.update).mockRejectedValue(
-                new Prisma.PrismaClientKnownRequestError('Record to update not found', {
+                new Prisma.PrismaClientKnownRequestError('Record to update tidak ditemukan', {
                     code: 'P2025',
                     clientVersion: '5.22.0'
                 })

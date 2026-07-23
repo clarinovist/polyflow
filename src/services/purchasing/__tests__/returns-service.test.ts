@@ -468,10 +468,10 @@ describe("PurchaseReturnService.updateReturn", () => {
         { id: undefined, reason: "updated" } as never,
         "user-1",
       ),
-    ).rejects.toThrow("Return ID is required");
+    ).rejects.toThrow("ID retur wajib diisi");
   });
 
-  it("throws when return not found", async () => {
+  it("throws when return tidak ditemukan", async () => {
     vi.mocked(mockPrisma.purchaseReturn.findUnique).mockResolvedValue(null);
 
     await expect(
@@ -591,7 +591,7 @@ describe("PurchaseReturnService.confirmReturn", () => {
     vi.clearAllMocks();
   });
 
-  it("throws when return not found", async () => {
+  it("throws when return tidak ditemukan", async () => {
     vi.mocked(mockPrisma.purchaseReturn.findUnique).mockResolvedValue(null);
 
     await expect(
@@ -606,7 +606,7 @@ describe("PurchaseReturnService.confirmReturn", () => {
 
     await expect(
       PurchaseReturnService.confirmReturn("ret-1", "user-1"),
-    ).rejects.toThrow("Only DRAFT returns can be confirmed");
+    ).rejects.toThrow("DRAFT returns can be confirmed");
   });
 
   it("confirms a draft return successfully", async () => {
@@ -639,7 +639,7 @@ describe("PurchaseReturnService.shipReturn", () => {
     vi.clearAllMocks();
   });
 
-  it("throws when return not found", async () => {
+  it("throws when return tidak ditemukan", async () => {
     vi.mocked(mockPrisma.purchaseReturn.findUnique).mockResolvedValue(null);
 
     await expect(
@@ -802,7 +802,7 @@ describe("PurchaseReturnService.completeReturn", () => {
     vi.clearAllMocks();
   });
 
-  it("throws when return not found", async () => {
+  it("throws when return tidak ditemukan", async () => {
     vi.mocked(mockPrisma.purchaseReturn.findUnique).mockResolvedValue(null);
 
     await expect(
@@ -853,7 +853,7 @@ describe("PurchaseReturnService.cancelReturn", () => {
     vi.clearAllMocks();
   });
 
-  it("throws when return not found", async () => {
+  it("throws when return tidak ditemukan", async () => {
     vi.mocked(mockPrisma.purchaseReturn.findUnique).mockResolvedValue(null);
 
     await expect(
@@ -1080,7 +1080,7 @@ describe("PurchaseReturnService.getReturnById", () => {
     });
   });
 
-  it("returns null when return not found", async () => {
+  it("returns null when return tidak ditemukan", async () => {
     vi.mocked(mockPrisma.purchaseReturn.findUnique).mockResolvedValue(null);
 
     const result = await PurchaseReturnService.getReturnById("nonexistent");

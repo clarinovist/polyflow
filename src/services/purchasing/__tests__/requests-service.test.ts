@@ -319,7 +319,7 @@ describe("requests-service", () => {
       expect(prisma.purchaseOrder.create).toHaveBeenCalled();
     });
 
-    it("should throw error when request not found", async () => {
+    it("should throw error when request tidak ditemukan", async () => {
       // Arrange
       vi.mocked(prisma.purchaseRequest.findUnique).mockResolvedValue(null);
 
@@ -638,10 +638,10 @@ describe("requests-service", () => {
       // Act & Assert
       await expect(
         consolidateRequestsToOrder([], "supplier-1", "user-1"),
-      ).rejects.toThrow("No requests selected for consolidation");
+      ).rejects.toThrow("Tidak ada permintaan yang dipilih");
     });
 
-    it("should throw error when some requests not found", async () => {
+    it("should throw error when some requests tidak ditemukan", async () => {
       // Arrange
       vi.mocked(prisma.purchaseRequest.findMany).mockResolvedValue([
         { id: "pr-1", requestNumber: "PR-001" },

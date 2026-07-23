@@ -133,7 +133,7 @@ describe('ProductionExecutionService.voidExecution', () => {
             productionOrder: { id: 'po-1' },
         } as never);
 
-        await expect(ProductionExecutionService.voidExecution('exec-1')).rejects.toThrow('Execution has already been voided');
+        await expect(ProductionExecutionService.voidExecution('exec-1')).rejects.toThrow('Eksekusi sudah di-void');
 
         expect(tx.stockMovement.findMany).not.toHaveBeenCalled();
         expect(tx.productionExecution.update).not.toHaveBeenCalled();

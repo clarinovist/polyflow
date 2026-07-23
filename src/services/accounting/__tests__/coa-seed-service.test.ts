@@ -91,7 +91,7 @@ describe('coa-seed-service', () => {
 
         it('records failed roles when pattern resolve throws', async () => {
             findMany.mockResolvedValue([]);
-            mockResolveByPatterns.mockRejectedValue(new Error('not found'));
+            mockResolveByPatterns.mockRejectedValue(new Error('tidak ditemukan'));
 
             const result = await seedTenantAccountRoles({
                 tenantId: 't1',
@@ -112,7 +112,7 @@ describe('coa-seed-service', () => {
         it('rejects unknown roles', async () => {
             await expect(
                 updateRoleMapping('t1', 'not-a-real-role', 'acc-1', tenantDb),
-            ).rejects.toThrow('Unknown account role');
+            ).rejects.toThrow('Peran akun tidak dikenal');
         });
 
         it('rejects missing account', async () => {

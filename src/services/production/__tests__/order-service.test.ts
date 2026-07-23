@@ -186,7 +186,7 @@ describe("ProductionOrderService", () => {
       expect(r.ok).toBe(false);
     });
 
-    it("should error when BOM not found", async () => {
+    it("should error when BOM tidak ditemukan", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
       const r = await ProductionOrderService.getBomWithInventory(
         "bom-1",
@@ -615,7 +615,7 @@ describe("ProductionOrderService", () => {
       ).toBeDefined();
     });
 
-    it("should throw when BOM not found", async () => {
+    it("should throw when BOM tidak ditemukan", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
       await expect(
         ProductionOrderService.createOrder({
@@ -638,7 +638,7 @@ describe("ProductionOrderService", () => {
       ).rejects.toThrow("nonaktif");
     });
 
-    it("should skip machine validation when machine not found", async () => {
+    it("should skip machine validation when machine tidak ditemukan", async () => {
       vi.mocked(prisma.machine.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
@@ -852,25 +852,25 @@ describe("ProductionOrderService", () => {
     it("should throw on empty salesOrderId", async () => {
       await expect(
         ProductionOrderService.createOrderFromSales("", "pv-1", 100),
-      ).rejects.toThrow("Invalid parameters");
+      ).rejects.toThrow(/Parameter tidak valid/i);
     });
 
     it("should throw on empty productVariantId", async () => {
       await expect(
         ProductionOrderService.createOrderFromSales("so-1", "", 100),
-      ).rejects.toThrow("Invalid parameters");
+      ).rejects.toThrow(/Parameter tidak valid/i);
     });
 
     it("should throw on zero quantity", async () => {
       await expect(
         ProductionOrderService.createOrderFromSales("so-1", "pv-1", 0),
-      ).rejects.toThrow("Invalid parameters");
+      ).rejects.toThrow(/Parameter tidak valid/i);
     });
 
     it("should throw on negative quantity", async () => {
       await expect(
         ProductionOrderService.createOrderFromSales("so-1", "pv-1", -10),
-      ).rejects.toThrow("Invalid parameters");
+      ).rejects.toThrow(/Parameter tidak valid/i);
     });
 
     it("should throw when no default BOM", async () => {
@@ -880,7 +880,7 @@ describe("ProductionOrderService", () => {
       ).rejects.toThrow("No default BOM found");
     });
 
-    it("should throw when SO not found", async () => {
+    it("should throw when SO tidak ditemukan", async () => {
       vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "b-1" } as any);
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
       await expect(
@@ -1135,7 +1135,7 @@ describe("ProductionOrderService", () => {
       expect(r).toBeDefined();
     });
 
-    it("should skip machine validation when machine not found", async () => {
+    it("should skip machine validation when machine tidak ditemukan", async () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
@@ -1280,7 +1280,7 @@ describe("ProductionOrderService", () => {
       expect(prisma.$transaction).toHaveBeenCalled();
     });
 
-    it("should throw when not found", async () => {
+    it("should throw when tidak ditemukan", async () => {
       vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(null);
       await expect(ProductionOrderService.deleteOrder("x")).rejects.toThrow(
         "Production Order",
@@ -1292,7 +1292,7 @@ describe("ProductionOrderService", () => {
         status: "IN_PROGRESS",
       } as any);
       await expect(ProductionOrderService.deleteOrder("po-1")).rejects.toThrow(
-        "Only DRAFT or WAITING_MATERIAL",
+        "DRAFT or WAITING_MATERIAL",
       );
     });
 
@@ -1301,7 +1301,7 @@ describe("ProductionOrderService", () => {
         status: "COMPLETED",
       } as any);
       await expect(ProductionOrderService.deleteOrder("po-1")).rejects.toThrow(
-        "Only DRAFT or WAITING_MATERIAL",
+        "DRAFT or WAITING_MATERIAL",
       );
     });
 
@@ -1310,7 +1310,7 @@ describe("ProductionOrderService", () => {
         status: "RELEASED",
       } as any);
       await expect(ProductionOrderService.deleteOrder("po-1")).rejects.toThrow(
-        "Only DRAFT or WAITING_MATERIAL",
+        "DRAFT or WAITING_MATERIAL",
       );
     });
   });
@@ -1414,7 +1414,7 @@ describe("ProductionOrderService", () => {
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
       await expect(
         ProductionOrderService.splitOrdersFromSales(splitData),
-      ).rejects.toThrow("Sales Order 'so-1' not found");
+      ).rejects.toThrow("Sales Order 'so-1' tidak ditemukan");
     });
 
     it("should throw if Sales Order has no sourceLocationId", async () => {
@@ -1441,7 +1441,7 @@ describe("ProductionOrderService", () => {
 
       await expect(
         ProductionOrderService.splitOrdersFromSales(splitData),
-      ).rejects.toThrow("Sales Order Item 'so-1/pv-1' not found");
+      ).rejects.toThrow("Sales Order Item 'so-1/pv-1' tidak ditemukan");
     });
 
     it("should throw if sum of batch quantities exceeds remaining demand", async () => {

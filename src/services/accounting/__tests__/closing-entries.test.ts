@@ -101,7 +101,7 @@ describe('createYearEndClosingEntry', () => {
         vi.mocked(prisma.journalLine.findMany).mockResolvedValue([]);
 
         await expect(createYearEndClosingEntry(2026, 'user-1')).rejects.toThrow(
-            'No balance in Current Year Earnings'
+            'Tidak ada saldo di Laba Tahun Berjalan'
         );
     });
 });

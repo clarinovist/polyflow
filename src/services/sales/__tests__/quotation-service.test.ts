@@ -536,7 +536,7 @@ describe("QuotationService", () => {
             },
           ],
         }),
-      ).rejects.toThrow("Product Variant 'pv-999' not found");
+      ).rejects.toThrow("Product Variant 'pv-999' tidak ditemukan");
     });
 
     it("should allow updating status manually during update", async () => {
@@ -729,7 +729,7 @@ describe("QuotationService", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Customer 'cust-999' not found");
+      ).rejects.toThrow("Customer 'cust-999' tidak ditemukan");
     });
 
     it("should throw error when product variant not found", async () => {
@@ -759,7 +759,7 @@ describe("QuotationService", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Product Variant 'pv-999' not found");
+      ).rejects.toThrow("Product Variant 'pv-999' tidak ditemukan");
     });
 
     it("should calculate totals with discount and tax", async () => {

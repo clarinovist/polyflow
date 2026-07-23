@@ -52,15 +52,15 @@ describe("PettyCashReportService", () => {
   });
 
   describe("getDailyReport", () => {
-    it("should throw an error if Petty Cash account is not found", async () => {
+    it("should throw an error if Petty Cash account is tidak ditemukan", async () => {
       vi.mocked(prisma.pettyCashDailyReport.findFirst).mockResolvedValue(null);
       mockResolveAccount.mockRejectedValue(
-        new Error('Account not found for role "petty-cash"'),
+        new Error('Account tidak ditemukan for role "petty-cash"'),
       );
 
       await expect(
         PettyCashReportService.getDailyReport("2026-06-09"),
-      ).rejects.toThrow('Account not found for role "petty-cash"');
+      ).rejects.toThrow('Account tidak ditemukan for role "petty-cash"');
     });
 
     it("should calculate opening balance, daily totals, and return transactions", async () => {
@@ -332,7 +332,7 @@ describe("PettyCashReportService", () => {
       ).rejects.toThrow("FINALIZED");
     });
 
-    it("throws when report not found", async () => {
+    it("throws when report tidak ditemukan", async () => {
       vi.mocked(prisma.pettyCashDailyReport.findUnique).mockResolvedValue(null);
 
       await expect(
@@ -416,7 +416,7 @@ describe("PettyCashReportService", () => {
       expect(result).toBeDefined();
     });
 
-    it("throws when report not found", async () => {
+    it("throws when report tidak ditemukan", async () => {
       vi.mocked(prisma.pettyCashDailyReport.findUnique).mockResolvedValue(null);
 
       await expect(

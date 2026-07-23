@@ -144,7 +144,7 @@ describe('AccountingService', () => {
             };
 
             await expect(AccountingService.createJournalEntry(input))
-                .rejects.toThrow(/Cannot create journal entry in a closed fiscal period/);
+                .rejects.toThrow(/Tidak dapat membuat jurnal di periode fiskal/);
             
             expect(prisma.$transaction).not.toHaveBeenCalled();
         });
@@ -210,7 +210,7 @@ describe('AccountingService', () => {
             });
 
             await expect(AccountingService.voidJournal('je-2', 'user-1'))
-                .rejects.toThrow(/Only POSTED journals can be voided/);
+                .rejects.toThrow(/Hanya jurnal POSTED yang dapat di-void/);
         });
     });
 
