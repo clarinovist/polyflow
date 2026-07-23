@@ -6,27 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import { EditPurchaseInvoiceDueDateDialog } from '@/components/purchasing/orders/EditPurchaseInvoiceDueDateDialog';
-import type { PurchaseInvoiceStatus } from '@prisma/client';
 
-type PurchaseInvoiceForClient = {
-  id: string;
-  invoiceNumber: string;
-  invoiceDate: Date | string;
-  dueDate: Date | string | null;
-  termOfPaymentDays?: number | null;
-  status: PurchaseInvoiceStatus;
-  totalAmount: number | { toNumber: () => number };
-  paidAmount: number | { toNumber: () => number };
-  purchaseOrder: {
-    orderNumber: string;
-    supplier: { name: string };
-    totalAmount: number | { toNumber: () => number };
-    items?: unknown[];
-  };
-  payments?: unknown[];
-};
-
-export function FinancialPurchaseInvoicePageClient({ invoice }: { invoice: PurchaseInvoiceForClient }) {
+export function FinancialPurchaseInvoicePageClient({ invoice }: { invoice: Parameters<typeof FinancialPurchaseInvoiceDetail>[0]['invoice'] }) {
   const [editOpen, setEditOpen] = useState(false);
 
   return (
