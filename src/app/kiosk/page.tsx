@@ -27,6 +27,33 @@ const getData = withTenantPage(async function getData() {
         }
     });
 
+    // Fallback: jika MachineOperator kosong, ambil mesin dari ProductionExecution terbaru per operator
+    const operatorIds = employees.map(e => e.id);
+    const executionMachines = operatorIds.length > 0
+        ? await prisma.productionExecution.findMany({
+            where: {
+                operatorId: { in: operatorIds },
+                machineId: { not: null },
+            },
+            select: {
+                operatorId: true,
+                machineId: true,
+                startTime: true,
+            },
+            orderBy: { startTime: 'desc' },
+        })
+        : [];
+
+    const machinesByOperator = new Map<string, string[]>();
+    for (const ex of executionMachines) {
+        if (!ex.operatorId || !ex.machineId) continue;
+        const list = machinesByOperator.get(ex.operatorId) ?? [];
+        if (!list.includes(ex.machineId)) {
+            list.push(ex.machineId);
+            machinesByOperator.set(ex.operatorId, list);
+        }
+    }
+
     const activeJobCount = await prisma.productionExecution.count({
         where: {
             endTime: null,
@@ -34,18 +61,20 @@ const getData = withTenantPage(async function getData() {
         }
     });
 
-    return { employees, machines, activeJobCount };
+    return { employees, machines, activeJobCount, machinesByOperator };
 });
 
 export default async function KioskPage() {
-    const { employees, machines, activeJobCount } = await getData();
+    const { employees, machines, activeJobCount, machinesByOperator } = await getData();
 
     return (
         <KioskHub
             employees={employees.map(e => ({
                 id: e.id,
                 name: e.name,
-                machineIds: e.machineAssignments.map(a => a.machineId),
+                machineIds: e.machineAssignments.length > 0
+                    ? e.machineAssignments.map(a => a.machineId)
+                    : (machinesByOperator.get(e.id) ?? []),
                 machineNames: [],
             }))}
             machines={machines}
