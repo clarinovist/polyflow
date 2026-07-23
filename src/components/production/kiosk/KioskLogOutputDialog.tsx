@@ -82,10 +82,24 @@ export function KioskLogOutputDialog({
         const formData = new FormData();
         formData.append('file', file);
         formData.append('executionId', executionId);
-        const res = await fetch('/api/upload/production-photo', { method: 'POST', body: formData });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return data.publicUrl || null;
+        try {
+            const res = await fetch('/api/upload/production-photo', { method: 'POST', body: formData });
+            if (!res.ok) {
+                let errMsg = `Gagal upload foto (${res.status})`;
+                try {
+                    const errBody = await res.json();
+                    if (errBody?.error) errMsg = `Upload foto: ${errBody.error}`;
+                } catch { /* response not JSON */ }
+                toast.error(errMsg);
+                return null;
+            }
+            const data = await res.json();
+            return data.publicUrl || null;
+        } catch (error) {
+            console.error('Photo upload failed:', error);
+            toast.error('Koneksi gagal saat upload foto. Periksa jaringan lalu coba lagi.');
+            return null;
+        }
     };
 
     const submitOutput = async () => {
