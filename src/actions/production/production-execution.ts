@@ -241,18 +241,155 @@ export const getActiveExecutions = withTenant(
   },
 );
 
+export type ProductionHistoryFilter = {
+  from?: string;           // YYYY-MM-DD (WIB business day start)
+  to?: string;             // YYYY-MM-DD (WIB business day end)
+  q?: string;              // orderNumber / product name / notes
+  machineId?: string;      // filter by machine
+  operatorId?: string;     // filter by operator (Employee id)
+  shiftId?: string;        // filter by shift
+  productVariantId?: string; // filter by product variant
+  hasScrap?: boolean;      // only groups with scrap > 0
+  missingPhoto?: boolean;  // only groups where photoCount === 0
+  includeVoided?: boolean; // default false
+  limit?: number;          // default 200, max 500
+};
+
+export type ProductionHistoryExecution = {
+  id: string;
+  quantityProduced: number;
+  scrapQuantity: number;
+  scrapDaunQty: number;
+  scrapProngkolQty: number;
+  startTime: string | null;
+  endTime: string | null;
+  notes: string | null;
+  photoUrl: string | null;
+  status: string;
+  enteredQuantity: number | null;
+  enteredUnit: string | null;
+  bruto: number | null;
+  bobin: number | null;
+  cekGram: string | null;
+  operator: { name: string } | null;
+  machine: { code: string } | null;
+  shift: { shiftName: string } | null;
+  helpers: { name: string }[];
+};
+
+export type ProductionHistoryGroup = {
+  productionOrder: {
+    id: string;
+    orderNumber: string;
+    bom: {
+      name: string;
+      productVariant: { name: string; primaryUnit: string };
+    };
+  };
+  executions: ProductionHistoryExecution[];
+  totalQuantity: number;
+  totalScrap: number;
+  latestEndTime: Date | null;
+  earliestEndTime: Date | null;
+  machineCodes: string[];
+  operatorNames: string[];
+  shiftNames: string[];
+  photoCount: number;
+};
+
+export type ProductionHistorySummary = {
+  totalGood: number;
+  totalScrap: number;
+  executionCount: number;
+  orderCount: number;
+  missingPhotoCount: number;
+};
+
+function getDefaultWibRange(): { start: Date; end: Date } {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  const todayStr = `${get('year')}-${get('month')}-${get('day')}`;
+  const startMs = Date.UTC(
+    parseInt(todayStr.slice(0, 4)),
+    parseInt(todayStr.slice(5, 7)) - 1,
+    parseInt(todayStr.slice(8, 10)),
+    0, 0, 0, 0,
+  ) - 7 * 60 * 60 * 1000;
+  const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
+  return { start: new Date(startMs), end: new Date(endMs) };
+}
+
+function getWibDayBoundsFromStr(dateStr: string): { start: Date; end: Date } {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const startMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0) - 7 * 60 * 60 * 1000;
+  const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
+  return { start: new Date(startMs), end: new Date(endMs) };
+}
+
 export const getProductionHistory = withTenant(
-  async function getProductionHistory() {
+  async function getProductionHistory(filter?: ProductionHistoryFilter) {
     return safeAction(async () => {
       const session = await auth();
-      if (!session?.user) return [];
+      if (!session?.user) return { groups: [], summary: { totalGood: 0, totalScrap: 0, executionCount: 0, orderCount: 0, missingPhotoCount: 0 } };
 
-      // Get all completed executions (not voided), more than before
+      // Determine time bounds
+      let timeFilter: { gte: Date; lte: Date };
+      if (filter?.from || filter?.to) {
+        const startBound = filter.from ? getWibDayBoundsFromStr(filter.from).start : getWibDayBoundsFromStr('2020-01-01').start;
+        const endBound = filter.to ? getWibDayBoundsFromStr(filter.to).end : new Date();
+        timeFilter = { gte: startBound, lte: endBound };
+      } else {
+        // Default: hari ini WIB
+        const { start, end } = getDefaultWibRange();
+        timeFilter = { gte: start, lte: end };
+      }
+
+      const limit = Math.min(filter?.limit ?? 200, 500);
+
+      // Build where clause
+      const where: Record<string, unknown> = {
+        endTime: { not: null, gte: timeFilter.gte, lte: timeFilter.lte },
+      };
+
+      if (!filter?.includeVoided) {
+        where.status = { not: 'VOIDED' };
+      }
+
+      if (filter?.hasScrap) {
+        where.scrapQuantity = { gt: 0 };
+      }
+
+      if (filter?.missingPhoto) {
+        where.OR = [
+          { photoUrl: null },
+          { photoUrl: '' },
+        ];
+      }
+
+      // Phase B: relation-based filters
+      if (filter?.machineId) {
+        where.machineId = filter.machineId;
+      }
+      if (filter?.operatorId) {
+        where.operatorId = filter.operatorId;
+      }
+      if (filter?.shiftId) {
+        where.shiftId = filter.shiftId;
+      }
+      if (filter?.productVariantId) {
+        where.productionOrder = {
+          bom: {
+            productVariantId: filter.productVariantId,
+          },
+        };
+      }
+
       const completions = await prisma.productionExecution.findMany({
-        where: {
-          endTime: { not: null },
-          status: { not: 'VOIDED' },
-        },
+        where,
         include: {
           productionOrder: {
             include: {
@@ -264,21 +401,29 @@ export const getProductionHistory = withTenant(
           operator: true,
           machine: true,
           shift: true,
+          helpers: true,
         },
         orderBy: { endTime: "desc" },
-        take: 200, // More records since we now have multiple per SPK
+        take: limit,
       });
 
-      // Group executions by productionOrderId
-      const groupedMap = new Map<string, {
-        productionOrder: typeof completions[0]['productionOrder'];
-        executions: typeof completions;
-        totalQuantity: number;
-        totalScrap: number;
-        latestEndTime: Date | null;
-      }>();
+      // Text search filter (post-query, since it spans relations)
+      let filtered = completions;
+      if (filter?.q) {
+        const q = filter.q.toLowerCase();
+        filtered = completions.filter(exec => {
+          const orderNum = exec.productionOrder.orderNumber.toLowerCase();
+          const prodName = exec.productionOrder.bom.productVariant.name.toLowerCase();
+          const bomName = exec.productionOrder.bom.name.toLowerCase();
+          const notes = exec.notes?.toLowerCase() || '';
+          return orderNum.includes(q) || prodName.includes(q) || bomName.includes(q) || notes.includes(q);
+        });
+      }
 
-      for (const exec of completions) {
+      // Group executions by productionOrderId
+      const groupedMap = new Map<string, ProductionHistoryGroup>();
+
+      for (const exec of filtered) {
         const orderId = exec.productionOrderId;
         if (!groupedMap.has(orderId)) {
           groupedMap.set(orderId, {
@@ -287,26 +432,110 @@ export const getProductionHistory = withTenant(
             totalQuantity: 0,
             totalScrap: 0,
             latestEndTime: null,
+            earliestEndTime: null,
+            machineCodes: [],
+            operatorNames: [],
+            shiftNames: [],
+            photoCount: 0,
           });
         }
         const group = groupedMap.get(orderId)!;
-        group.executions.push(exec);
+        group.executions.push({
+          id: exec.id,
+          quantityProduced: Number(exec.quantityProduced || 0),
+          scrapQuantity: Number(exec.scrapQuantity || 0),
+          scrapDaunQty: Number(exec.scrapDaunQty || 0),
+          scrapProngkolQty: Number(exec.scrapProngkolQty || 0),
+          startTime: exec.startTime?.toISOString() || null,
+          endTime: exec.endTime?.toISOString() || null,
+          notes: exec.notes,
+          photoUrl: exec.photoUrl,
+          status: exec.status,
+          enteredQuantity: exec.enteredQuantity ? Number(exec.enteredQuantity) : null,
+          enteredUnit: exec.enteredUnit || null,
+          bruto: exec.bruto ? Number(exec.bruto) : null,
+          bobin: exec.bobin ? Number(exec.bobin) : null,
+          cekGram: exec.cekGram || null,
+          operator: exec.operator ? { name: exec.operator.name } : null,
+          machine: exec.machine ? { code: exec.machine.code } : null,
+          shift: exec.shift ? { shiftName: exec.shift.shiftName } : null,
+          helpers: exec.helpers.map(h => ({ name: h.name })),
+        });
         group.totalQuantity += Number(exec.quantityProduced || 0);
         group.totalScrap += Number(exec.scrapQuantity || 0);
-        // Track latest endTime for sorting
-        if (exec.endTime && (!group.latestEndTime || exec.endTime > group.latestEndTime)) {
-          group.latestEndTime = exec.endTime;
+
+        if (exec.endTime) {
+          if (!group.latestEndTime || exec.endTime > group.latestEndTime) {
+            group.latestEndTime = exec.endTime;
+          }
+          if (!group.earliestEndTime || exec.endTime < group.earliestEndTime) {
+            group.earliestEndTime = exec.endTime;
+          }
+        }
+
+        if (exec.machine?.code && !group.machineCodes.includes(exec.machine.code)) {
+          group.machineCodes.push(exec.machine.code);
+        }
+        if (exec.operator?.name && !group.operatorNames.includes(exec.operator.name)) {
+          group.operatorNames.push(exec.operator.name);
+        }
+        if (exec.shift?.shiftName && !group.shiftNames.includes(exec.shift.shiftName)) {
+          group.shiftNames.push(exec.shift.shiftName);
+        }
+        if (exec.photoUrl) {
+          group.photoCount++;
         }
       }
 
-      // Convert to array and sort by latest endTime
-      const grouped = Array.from(groupedMap.values()).sort((a, b) => {
+      // Sort by latest endTime desc
+      const groups = Array.from(groupedMap.values()).sort((a, b) => {
         if (!a.latestEndTime) return 1;
         if (!b.latestEndTime) return -1;
         return b.latestEndTime.getTime() - a.latestEndTime.getTime();
       });
 
-      return serializeData(grouped);
+      // Compute summary from result set
+      const summary: ProductionHistorySummary = {
+        totalGood: groups.reduce((sum, g) => sum + g.totalQuantity, 0),
+        totalScrap: groups.reduce((sum, g) => sum + g.totalScrap, 0),
+        executionCount: groups.reduce((sum, g) => sum + g.executions.length, 0),
+        orderCount: groups.length,
+        missingPhotoCount: groups.filter(g => g.photoCount === 0).length,
+      };
+
+      return serializeData({ groups, summary });
+    });
+  },
+);
+
+export const getProductionHistoryFilterOptions = withTenant(
+  async function getProductionHistoryFilterOptions() {
+    return safeAction(async () => {
+      const session = await auth();
+      if (!session?.user) return { machines: [], operators: [], shifts: [], products: [] };
+
+      const [machines, operators, shifts, products] = await Promise.all([
+        prisma.machine.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true, code: true, name: true },
+          orderBy: { code: 'asc' },
+        }),
+        prisma.employee.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
+        }),
+        prisma.productionShift.findMany({
+          select: { id: true, shiftName: true },
+          orderBy: { shiftName: 'asc' },
+        }),
+        prisma.productVariant.findMany({
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
+        }),
+      ]);
+
+      return serializeData({ machines, operators, shifts, products });
     });
   },
 );
