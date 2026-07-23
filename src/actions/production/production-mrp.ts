@@ -103,7 +103,7 @@ export const cancelOrderFromPlanning = withTenant(
         });
 
         if (!order) {
-          throw new BusinessRuleError("Order not found");
+          throw new BusinessRuleError("Order tidak ditemukan");
         }
 
         if (order.productionOrders.length > 0) {
@@ -116,7 +116,7 @@ export const cancelOrderFromPlanning = withTenant(
           order.status !== SalesOrderStatus.CONFIRMED &&
           order.status !== SalesOrderStatus.IN_PRODUCTION
         ) {
-          throw new BusinessRuleError("Order is not in a cancellable state");
+          throw new BusinessRuleError("Order tidak dalam status yang dapat dibatalkan");
         }
 
         // Cancel stock reservations and update status
@@ -146,7 +146,7 @@ export const cancelOrderFromPlanning = withTenant(
           error,
           module: "ProductionActions",
         });
-        throw new BusinessRuleError("Failed to cancel order. Please try again.");
+        throw new BusinessRuleError("Gagal membatalkan order. Coba lagi.");
       }
     });
   },

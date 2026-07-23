@@ -489,7 +489,7 @@ export const updateProductionOrder = withTenant(
 export const deleteProductionOrder = withTenant(
   async function deleteProductionOrder(id: string) {
     return safeAction(async () => {
-      if (!id) throw new BusinessRuleError("Order ID is required");
+      if (!id) throw new BusinessRuleError("ID Order wajib diisi");
 
       try {
         await requirePlanningRole();

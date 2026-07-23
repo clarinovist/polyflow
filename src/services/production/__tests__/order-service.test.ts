@@ -995,25 +995,25 @@ describe("ProductionOrderService", () => {
     it("should throw on empty bomId", async () => {
       await expect(
         ProductionOrderService.quickCreateOrder({ ...qd, bomId: "" }),
-      ).rejects.toThrow("BOM, quantity, machine, and location are required");
+      ).rejects.toThrow(/BOM, jumlah, mesin, dan lokasi wajib diisi/i);
     });
 
     it("should throw on zero quantity", async () => {
       await expect(
         ProductionOrderService.quickCreateOrder({ ...qd, plannedQuantity: 0 }),
-      ).rejects.toThrow("BOM, quantity, machine, and location are required");
+      ).rejects.toThrow(/BOM, jumlah, mesin, dan lokasi wajib diisi/i);
     });
 
     it("should throw on empty machineId", async () => {
       await expect(
         ProductionOrderService.quickCreateOrder({ ...qd, machineId: "" }),
-      ).rejects.toThrow("BOM, quantity, machine, and location are required");
+      ).rejects.toThrow(/BOM, jumlah, mesin, dan lokasi wajib diisi/i);
     });
 
     it("should throw on empty locationId", async () => {
       await expect(
         ProductionOrderService.quickCreateOrder({ ...qd, locationId: "" }),
-      ).rejects.toThrow("BOM, quantity, machine, and location are required");
+      ).rejects.toThrow(/BOM, jumlah, mesin, dan lokasi wajib diisi/i);
     });
 
     it("should throw on incompatible machine", async () => {

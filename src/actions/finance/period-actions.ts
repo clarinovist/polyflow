@@ -103,7 +103,7 @@ export const closePeriod = withTenant(async function closePeriod(id: string) {
     const period = await prisma.fiscalPeriod.findUnique({ where: { id } });
     if (!period) throw new NotFoundError("Fiscal Period", id);
     if (period.status !== PeriodStatus.OPEN) {
-      throw new BusinessRuleError("Only OPEN periods can be closed");
+      throw new BusinessRuleError("Hanya periode OPEN yang dapat ditutup");
     }
 
     const userId = session.user.id;
@@ -150,7 +150,7 @@ export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
     const period = await prisma.fiscalPeriod.findUnique({ where: { id } });
     if (!period) throw new NotFoundError("Fiscal Period", id);
     if (period.status === PeriodStatus.LOCKED) {
-      throw new BusinessRuleError("Cannot reopen a LOCKED fiscal period");
+      throw new BusinessRuleError("Tidak dapat membuka kembali periode fiskal yang sudah LOCKED");
     }
 
     // Wrap in transaction to ensure atomicity of journal deletion + period update

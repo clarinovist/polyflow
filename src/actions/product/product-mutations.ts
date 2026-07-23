@@ -126,7 +126,7 @@ export const updateProduct = withTenant(async function updateProduct(
       });
 
       if (!currentProduct) {
-        throw new BusinessRuleError("Product not found");
+        throw new BusinessRuleError("Produk tidak ditemukan");
       }
 
       const currentSkuCodes = currentProduct.variants.map((v) => v.skuCode);

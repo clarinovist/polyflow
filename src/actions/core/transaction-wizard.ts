@@ -26,7 +26,7 @@ export const createWizardTransaction = withTenant(
 
             const config = TRANSACTION_TYPES.find(t => t.id === data.transactionTypeId);
             if (!config) {
-                throw new BusinessRuleError("Invalid transaction type");
+                throw new BusinessRuleError("Tipe transaksi tidak valid");
             }
 
             if (config.blockedInQuickEntryReason) {
@@ -138,7 +138,7 @@ export const createWizardTransaction = withTenant(
             } catch (error) {
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error("Wizard Transaction Error", { error, data, module: 'TransactionWizard' });
-                throw new BusinessRuleError("Failed to record transaction");
+                throw new BusinessRuleError("Gagal mencatat transaksi");
             }
         });
     }

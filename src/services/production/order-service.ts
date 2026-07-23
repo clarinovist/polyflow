@@ -575,7 +575,7 @@ export class ProductionOrderService {
       data;
 
     if (!bomId || plannedQuantity <= 0 || !machineId || !locationId) {
-      throw new ValidationError("BOM, quantity, machine, and location are required");
+      throw new ValidationError("BOM, jumlah, mesin, dan lokasi wajib diisi");
     }
 
     // Validate machine type vs BOM category (reuse logic from createOrder)

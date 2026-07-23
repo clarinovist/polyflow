@@ -37,7 +37,7 @@ export const createProductionIssue = withTenant(
           error,
           module: "ProductionActions",
         });
-        throw new BusinessRuleError("Failed to create production issue.");
+        throw new BusinessRuleError("Gagal membuat masalah produksi.");
       }
     });
   },
@@ -73,7 +73,7 @@ export const updateProductionIssueStatus = withTenant(
           error,
           module: "ProductionActions",
         });
-        throw new BusinessRuleError("Failed to update issue status.");
+        throw new BusinessRuleError("Gagal memperbarui status masalah.");
       }
     });
   },
@@ -99,7 +99,7 @@ export const deleteProductionIssue = withTenant(
           error,
           module: "ProductionActions",
         });
-        throw new BusinessRuleError("Failed to delete issue.");
+        throw new BusinessRuleError("Gagal menghapus masalah.");
       }
     });
   },

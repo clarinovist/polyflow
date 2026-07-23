@@ -365,7 +365,7 @@ export const acknowledgeHandover = withTenant(
       const movement = await (
         await import("@/lib/core/prisma")
       ).prisma.stockMovement.findUnique({ where: { id: movementId } });
-      if (!movement) throw new ValidationError("Movement not found");
+      if (!movement) throw new ValidationError("Pergerakan stok tidak ditemukan");
 
       // Append an acknowledgement note to the reference for auditability
       const newReference =

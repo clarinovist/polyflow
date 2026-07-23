@@ -81,7 +81,7 @@ async function updateOverdueStatuses() {
             };
         } catch (error) {
             logger.error("Failed to update overdue statuses", { error, module: 'FinanceActions' });
-            throw new BusinessRuleError("Failed to update overdue statuses. Please check system constraints.");
+            throw new BusinessRuleError("Gagal memperbarui status jatuh tempo. Periksa batasan sistem.");
         }
     });
 }

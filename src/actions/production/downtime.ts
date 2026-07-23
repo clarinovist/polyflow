@@ -35,7 +35,7 @@ async function logMachineDowntime(
             return null;
         } catch (error) {
             logger.error("Failed to log downtime", { error, module: 'ProductionActions' });
-            throw new BusinessRuleError("Failed to log downtime. Please check system constraints.");
+            throw new BusinessRuleError("Gagal mencatat downtime. Periksa batasan sistem.");
         }
     });
 }

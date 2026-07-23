@@ -103,7 +103,7 @@ async function importProducts(products: ImportProduct[]) {
                         if (!finalSku) {
                             const skuResult = await getNextSKU(productData.productType, productData.productName);
                             if (!skuResult.success || !skuResult.data) {
-                                throw new BusinessRuleError(skuResult.error || "Failed to generate SKU");
+                                throw new BusinessRuleError(skuResult.error || "Gagal membuat SKU");
                             }
                             finalSku = skuResult.data;
 

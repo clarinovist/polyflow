@@ -151,7 +151,7 @@ export const deleteAsset = withTenant(async function deleteAsset(id: string) {
         assetId: id,
         module: "AssetActions",
       });
-      throw new BusinessRuleError("Failed to delete asset.");
+      throw new BusinessRuleError("Gagal menghapus aset.");
     }
   });
 });

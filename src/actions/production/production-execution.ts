@@ -40,7 +40,7 @@ export const startExecution = withTenant(async function startExecution(
       } catch {
         // Kiosk mode: no session required if operatorId is provided
         if (!result.data.operatorId) {
-          throw new BusinessRuleError("Authentication required or operator ID must be provided");
+          throw new BusinessRuleError("Autentikasi diperlukan atau ID operator harus diisi");
         }
       }
 
@@ -92,7 +92,7 @@ export const stopExecution = withTenant(async function stopExecution(
       } catch {
         // Kiosk mode: no session required if operatorId is provided
         if (!result.data.operatorId) {
-          throw new BusinessRuleError("Authentication required or operator ID must be provided");
+          throw new BusinessRuleError("Autentikasi diperlukan atau ID operator harus diisi");
         }
       }
 
@@ -194,7 +194,7 @@ export const logRunningOutput = withTenant(async function logRunningOutput(
       } catch {
         // Kiosk mode: no session required if operatorId is provided
         if (!result.data.operatorId) {
-          throw new BusinessRuleError("Authentication required or operator ID must be provided");
+          throw new BusinessRuleError("Autentikasi diperlukan atau ID operator harus diisi");
         }
       }
 

@@ -232,7 +232,7 @@ async function createBom(data: CreateBomValues) {
             return serializeData(bom);
         } catch (error) {
             logger.error("Failed to create BOM", { error, module: 'BomActions' });
-            throw new BusinessRuleError("Failed to create Recipe (BOM). Please verify the details.");
+            throw new BusinessRuleError("Gagal membuat Resep (BOM). Periksa detailnya.");
         }
     });
 }
@@ -371,7 +371,7 @@ async function updateBom(id: string, data: CreateBomValues) {
             return serializeData(result);
         } catch (error) {
             logger.error("Failed to update BOM", { error, module: 'BomActions' });
-            throw new BusinessRuleError("Failed to update Recipe (BOM). Please try again.");
+            throw new BusinessRuleError("Gagal memperbarui Resep (BOM). Coba lagi.");
         }
     });
 }
@@ -632,7 +632,7 @@ async function duplicateBom(data: DuplicateBomValues) {
         }
 
         if (sourceBom.items.length === 0) {
-            throw new BusinessRuleError("Source BOM has no ingredients to duplicate.");
+            throw new BusinessRuleError("BOM sumber tidak memiliki bahan untuk diduplikasi.");
         }
 
         // 2. Verify target variant exists
@@ -763,7 +763,7 @@ async function duplicateBom(data: DuplicateBomValues) {
                 throw error;
             }
             logger.error("Failed to duplicate BOM", { error, module: 'BomActions' });
-            throw new BusinessRuleError("Failed to duplicate Recipe. Please verify the details.");
+            throw new BusinessRuleError("Gagal menduplikasi Resep. Periksa detailnya.");
         }
     });
 }

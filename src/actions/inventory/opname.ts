@@ -238,7 +238,7 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
 
     if (!opname) throw new NotFoundError("StockOpname", opnameId);
     if (opname.status !== "OPEN")
-      throw new BusinessRuleError("Can only add items to OPEN sessions");
+      throw new BusinessRuleError("Hanya bisa menambah item ke sesi yang OPEN");
 
     // Validasi productVariant exists
     const variant = await prisma.productVariant.findUnique({
@@ -292,7 +292,7 @@ export const deleteOpnameSession = withTenant(
       }
 
       if (session.status !== "OPEN") {
-        throw new BusinessRuleError("Only OPEN sessions can be deleted");
+        throw new BusinessRuleError("Hanya sesi OPEN yang dapat dihapus");
       }
 
       await prisma.stockOpname.delete({
