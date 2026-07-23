@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,9 @@ import { KioskStopDialog } from "@/components/production/kiosk/KioskStopDialog";
 import { DowntimeDialog } from "@/components/production/kiosk/DowntimeDialog";
 import { KioskLogOutputDialog } from "@/components/production/kiosk/KioskLogOutputDialog";
 import { KioskJobProgress } from "@/components/kiosk/KioskJobProgress";
-import { getEnteredQuantityDisplay, getProductionUnitMeta } from "@/lib/utils/production-units";
+import { getProductionUnitMeta, toDisplayQuantity } from "@/lib/utils/production-units";
 import { kioskLabels } from "@/lib/labels";
+import { getStatusLabel } from "@/lib/labels/helpers";
 
 export interface Order {
     id: string;
@@ -62,15 +63,50 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [stopDialogOpen, setStopDialogOpen] = useState(false);
     const [logDialogOpen, setLogDialogOpen] = useState(false);
+    const [operatorId, setOperatorId] = useState<string | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(30);
+    const [_isPending, startTransition] = useTransition();
 
     const activeExecution = order.executions.find(e => !e.endTime);
     const isRunning = !!activeExecution;
     const unitMeta = getProductionUnitMeta(order.bom.productVariant);
 
-    // Get operator from sessionStorage
-    const operatorId = typeof window !== 'undefined'
-        ? sessionStorage.getItem('kiosk_operator_id')
-        : null;
+    // Hydrate operator from sessionStorage
+    useEffect(() => {
+        const saved = sessionStorage.getItem('kiosk_operator_id');
+        setOperatorId(saved);
+        setIsInitialized(true);
+    }, []);
+
+    // Gate: redirect to hub if no operator selected
+    useEffect(() => {
+        if (isInitialized && !operatorId) {
+            router.push('/kiosk');
+        }
+    }, [isInitialized, operatorId, router]);
+
+    // Auto-refresh timer (30s) — pause while log/stop dialog open
+    const dialogOpen = logDialogOpen || stopDialogOpen;
+    useEffect(() => {
+        if (dialogOpen) return;
+        const timer = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 0) return 30;
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [dialogOpen]);
+
+    useEffect(() => {
+        if (dialogOpen) return;
+        if (timeLeft === 0) {
+            startTransition(() => {
+                router.refresh();
+            });
+        }
+    }, [timeLeft, router, dialogOpen]);
 
     const handleStart = async () => {
         setIsLoading(true);
@@ -96,8 +132,35 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
 
     const recentLogs = (order.outputLogs || []).slice(0, 3);
 
+    // Progress numbers must match displayUnit (convert base → sales when alternate unit)
+    const actualBase = order.actualQuantity || 0;
+    const targetBase = order.plannedQuantity;
+    const progressActual = unitMeta.hasAlternateUnit
+        ? toDisplayQuantity(actualBase, unitMeta.conversionFactor)
+        : actualBase;
+    const progressTarget = unitMeta.hasAlternateUnit
+        ? toDisplayQuantity(targetBase, unitMeta.conversionFactor)
+        : targetBase;
+
+    // Show loading while hydrating or redirecting to hub (no operator)
+    if (!isInitialized || !operatorId) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Auto-refresh timer */}
+            <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
+                <div
+                    className="h-full bg-primary transition-all duration-1000 ease-linear"
+                    style={{ width: `${(timeLeft / 30) * 100}%` }}
+                />
+            </div>
+
             {/* Back nav */}
             <div className="flex items-center gap-3">
                 <Link href="/kiosk/jobs">
@@ -112,7 +175,7 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
                             variant={isRunning ? "default" : "secondary"}
                             className={`${isRunning ? "bg-emerald-600 animate-pulse" : ""} text-[10px]`}
                         >
-                            {isRunning ? kioskLabels.running.toUpperCase() : order.status}
+                            {isRunning ? kioskLabels.running.toUpperCase() : getStatusLabel(order.status, 'production')}
                         </Badge>
                     </div>
                 </div>
@@ -135,17 +198,11 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
                     </span>
                 </div>
 
-                {/* Progress */}
+                {/* Progress — numbers in display unit (e.g. BAL), not base KG */}
                 <KioskJobProgress
-                    actual={order.actualQuantity || 0}
-                    target={order.plannedQuantity}
-                    unit={getEnteredQuantityDisplay({
-                        ...order.bom.productVariant,
-                        quantity: order.plannedQuantity,
-                        enteredQuantity: order.plannedEnteredQuantity,
-                        enteredUnit: order.plannedEnteredUnit,
-                        conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
-                    }, { showBaseWhenAlternate: false })}
+                    actual={progressActual}
+                    target={progressTarget}
+                    unit={unitMeta.displayUnit}
                 />
             </div>
 

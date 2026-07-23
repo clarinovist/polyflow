@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 interface UseKioskIdleSessionOptions {
@@ -18,6 +18,12 @@ export function useKioskIdleSession({
   const [timeLeft, setTimeLeft] = useState(warningMs / 1000);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
+  // Keep latest onIdle without re-creating the interval each render
+  const onIdleRef = useRef(onIdle);
+  useEffect(() => {
+    onIdleRef.current = onIdle;
+  }, [onIdle]);
+
   const resetTimer = useCallback(() => {
     setLastActivity(Date.now());
     setShowWarning(false);
@@ -33,7 +39,7 @@ export function useKioskIdleSession({
     return () => events.forEach(event => window.removeEventListener(event, handler));
   }, [resetTimer]);
 
-  // Main idle timer
+  // Main idle timer — stable deps only (no showWarning / onIdle identity churn)
   useEffect(() => {
     const interval = setInterval(() => {
       const elapsed = Date.now() - lastActivity;
@@ -41,29 +47,24 @@ export function useKioskIdleSession({
 
       if (remaining <= 0) {
         clearInterval(interval);
-        onIdle?.();
+        onIdleRef.current?.();
         return;
       }
 
-      if (remaining <= warningMs && !showWarning) {
+      if (remaining <= warningMs) {
         setShowWarning(true);
-        setTimeLeft(Math.ceil(remaining / 1000));
-      }
-
-      if (showWarning) {
         setTimeLeft(Math.ceil(remaining / 1000));
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [lastActivity, timeoutMs, warningMs, showWarning, onIdle]);
+  }, [lastActivity, timeoutMs, warningMs]);
 
   return {
     showWarning,
     timeLeft,
     resetTimer,
     dismissWarning: () => {
-      setShowWarning(false);
       resetTimer();
     },
   };

@@ -130,19 +130,29 @@ export function KioskHub({ employees, machines, activeJobCount, hasProsesKhusus 
 
         {/* Proses Khusus */}
         {hasProsesKhusus && (
-          <Link href="/kiosk/production/hd" className="block">
-            <div className="group relative bg-card border-2 rounded-2xl p-6 md:p-8 hover:border-primary hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer min-h-[140px] md:min-h-[160px] flex flex-col justify-between">
-              <div>
-                <div className="h-14 w-14 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4 group-hover:bg-purple-200 transition-colors">
-                  <Wrench className="h-7 w-7 text-purple-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight">
-                  {kioskLabels.tileProsesKhusus}
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">{kioskLabels.tileProsesKhususDesc}</p>
+          <div className="bg-card border-2 rounded-2xl p-6 md:p-8 min-h-[140px] md:min-h-[160px] flex flex-col justify-between">
+            <div>
+              <div className="h-14 w-14 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4">
+                <Wrench className="h-7 w-7 text-purple-600" />
               </div>
+              <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight">
+                {kioskLabels.tileProsesKhusus}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">{kioskLabels.tileProsesKhususDesc}</p>
             </div>
-          </Link>
+            <div className="flex gap-2 mt-4">
+              <Link href="/kiosk/production/hd" className="flex-1">
+                <div className="h-11 rounded-lg border-2 bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800 flex items-center justify-center text-sm font-bold text-purple-700 hover:bg-purple-100 transition-colors active:scale-95">
+                  HD
+                </div>
+              </Link>
+              <Link href="/kiosk/production/potongplong" className="flex-1">
+                <div className="h-11 rounded-lg border-2 bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800 flex items-center justify-center text-sm font-bold text-purple-700 hover:bg-purple-100 transition-colors active:scale-95">
+                  Potong/Plong
+                </div>
+              </Link>
+            </div>
+          </div>
         )}
 
         {/* Status Saya (deep link to My Portal) */}

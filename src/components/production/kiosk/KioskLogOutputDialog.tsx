@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { logRunningOutput } from "@/actions/production/production";
-import { Loader2, Users, Camera, CheckCircle2, ArrowLeft, ArrowRight, Save, RotateCcw } from "lucide-react";
+import { Loader2, Users, Camera, CheckCircle2, ArrowLeft, ArrowRight, Save, RotateCcw, AlertTriangle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { getProductionUnitMeta, toBaseQuantity } from "@/lib/utils/production-units";
 import { Unit } from "@prisma/client";
@@ -35,6 +35,8 @@ const STEPS = [
     { key: 'confirm', title: kioskLabels.wizardStepKonfirmasi, subtitle: kioskLabels.wizardKonfirmasiDesc },
 ] as const;
 
+type ScrapConfirmMode = 'idle' | 'scrap-zero' | 'scrap-only';
+
 export function KioskLogOutputDialog({
     open,
     onOpenChange,
@@ -56,6 +58,7 @@ export function KioskLogOutputDialog({
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [scrapConfirmMode, setScrapConfirmMode] = useState<ScrapConfirmMode>('idle');
     const [loggedOutputs, setLoggedOutputs] = useState<Array<{
         quantity: number;
         unit: string;
@@ -135,20 +138,58 @@ export function KioskLogOutputDialog({
         }
     };
 
-    const handleNext = () => {
-        if (step === 0) {
-            if (qtyNum < 0) {
-                toast.error("Jumlah hasil tidak boleh negatif");
-                return;
-            }
-            if (qtyNum === 0 && !hasScrap) {
-                toast.error("Masukkan jumlah hasil atau scrap");
-                return;
-            }
+    // Step 0: Qty — only reject negative
+    const handleNextFromQty = () => {
+        if (qtyNum < 0) {
+            toast.error("Jumlah hasil tidak boleh negatif");
+            return;
         }
-        if (step < STEPS.length - 1) {
-            setStep(step + 1);
+        // Allow qty=0 (will be validated at confirm step)
+        setStep(1);
+    };
+
+    // Step 1: Scrap — handle confirmations
+    const handleNextFromScrap = () => {
+        const scrapAlreadyZero = !hasScrap;
+
+        if (qtyNum === 0 && scrapAlreadyZero) {
+            // qty=0 + scrap=0 → block, need at least one
+            toast.error("Masukkan jumlah hasil atau scrap");
+            return;
         }
+
+        if (qtyNum === 0 && hasScrap) {
+            // qty=0 + scrap>0 → scrap-only confirmation
+            setScrapConfirmMode('scrap-only');
+            return;
+        }
+
+        if (qtyNum > 0 && scrapAlreadyZero) {
+            // qty>0 + scrap=0 → scrap-zero warning
+            setScrapConfirmMode('scrap-zero');
+            return;
+        }
+
+        // qty>0 + scrap>0 → normal flow
+        setStep(2);
+    };
+
+    const handleScrapConfirm = () => {
+        setScrapConfirmMode('idle');
+        setStep(2);
+    };
+
+    const handleScrapConfirmEditScrap = () => {
+        setScrapConfirmMode('idle');
+        // Focus on first scrap input
+        document.getElementById('log-scrap-prongkol')?.focus();
+    };
+
+    const handleScrapConfirmEditQty = () => {
+        setScrapConfirmMode('idle');
+        setStep(0);
+        // Focus on qty input
+        setTimeout(() => document.getElementById('log-quantity')?.focus(), 100);
     };
 
     const handleBack = () => {
@@ -164,6 +205,7 @@ export function KioskLogOutputDialog({
         setNotes('');
         setPhotoFile(null);
         setShowSuccess(false);
+        setScrapConfirmMode('idle');
         setStep(0);
     };
 
@@ -284,40 +326,107 @@ export function KioskLogOutputDialog({
                     {/* Step 2: Scrap */}
                     {step === 1 && (
                         <div className="space-y-4 animate-in fade-in duration-200">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="log-scrap-prongkol" className="text-sm font-semibold text-amber-500">
-                                    {kioskLabels.wizardScrapProngkol} ({unitMeta.primaryUnit})
-                                </Label>
-                                <Input
-                                    id="log-scrap-prongkol"
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
-                                    value={scrapProngkol}
-                                    onChange={(e) => setScrapProngkol(e.target.value)}
-                                    autoFocus
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="log-scrap-daun" className="text-sm font-semibold text-amber-500">
-                                    {kioskLabels.wizardScrapDaun} ({unitMeta.primaryUnit})
-                                </Label>
-                                <Input
-                                    id="log-scrap-daun"
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
-                                    value={scrapDaun}
-                                    onChange={(e) => setScrapDaun(e.target.value)}
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Kosongkan jika tidak ada scrap. Lanjut untuk skip.
-                            </p>
+                            {/* Scrap confirm banners */}
+                            {scrapConfirmMode === 'scrap-zero' && (
+                                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="font-semibold text-amber-800">{kioskLabels.wizardScrapZeroTitle}</p>
+                                            <p className="text-sm text-amber-700 mt-1">{kioskLabels.wizardScrapZeroDesc}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                                            onClick={handleScrapConfirmEditScrap}
+                                        >
+                                            Isi Scrap
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="bg-amber-600 hover:bg-amber-700"
+                                            onClick={handleScrapConfirm}
+                                        >
+                                            {kioskLabels.wizardScrapZeroYes}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {scrapConfirmMode === 'scrap-only' && (
+                                <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                        <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="font-semibold text-blue-800">{kioskLabels.wizardScrapOnlyTitle}</p>
+                                            <p className="text-sm text-blue-700 mt-1">{kioskLabels.wizardScrapOnlyDesc}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="border-blue-400 text-blue-700 hover:bg-blue-100"
+                                            onClick={handleScrapConfirmEditQty}
+                                        >
+                                            Isi Hasil Bagus
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="bg-blue-600 hover:bg-blue-700"
+                                            onClick={handleScrapConfirm}
+                                        >
+                                            {kioskLabels.wizardScrapOnlyYes}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {scrapConfirmMode === 'idle' && (
+                                <>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="log-scrap-prongkol" className="text-sm font-semibold text-amber-500">
+                                            {kioskLabels.wizardScrapProngkol} ({unitMeta.primaryUnit})
+                                        </Label>
+                                        <Input
+                                            id="log-scrap-prongkol"
+                                            type="number"
+                                            inputMode="decimal"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
+                                            value={scrapProngkol}
+                                            onChange={(e) => setScrapProngkol(e.target.value)}
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="log-scrap-daun" className="text-sm font-semibold text-amber-500">
+                                            {kioskLabels.wizardScrapDaun} ({unitMeta.primaryUnit})
+                                        </Label>
+                                        <Input
+                                            id="log-scrap-daun"
+                                            type="number"
+                                            inputMode="decimal"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
+                                            value={scrapDaun}
+                                            onChange={(e) => setScrapDaun(e.target.value)}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Kosongkan jika tidak ada scrap. Lanjut untuk skip.
+                                    </p>
+                                </>
+                            )}
                         </div>
                     )}
 
@@ -383,6 +492,13 @@ export function KioskLogOutputDialog({
                                 )}
                             </div>
 
+                            {/* Final validation warning */}
+                            {qtyNum === 0 && totalScrap === 0 && (
+                                <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 font-medium">
+                                    Qty bagus dan scrap keduanya 0. Masukkan minimal satu.
+                                </div>
+                            )}
+
                             {/* Helpers */}
                             {orderHelpers.length > 0 && (
                                 <div className="space-y-2">
@@ -413,7 +529,7 @@ export function KioskLogOutputDialog({
 
                 {/* Navigation */}
                 <div className="flex gap-3 pt-2 border-t">
-                    {step > 0 && (
+                    {step > 0 && scrapConfirmMode === 'idle' && (
                         <Button
                             type="button"
                             variant="outline"
@@ -428,20 +544,20 @@ export function KioskLogOutputDialog({
 
                     <div className="flex-1" />
 
-                    {step < STEPS.length - 1 ? (
+                    {step < STEPS.length - 1 && scrapConfirmMode === 'idle' ? (
                         <Button
                             type="button"
-                            onClick={handleNext}
+                            onClick={step === 0 ? handleNextFromQty : step === 1 ? handleNextFromScrap : () => setStep(step + 1)}
                             className="h-12 font-bold px-8 bg-emerald-600 hover:bg-emerald-700"
                         >
                             {kioskLabels.wizardNext}
                             <ArrowRight className="ml-1 h-4 w-4" />
                         </Button>
-                    ) : (
+                    ) : step === STEPS.length - 1 && scrapConfirmMode === 'idle' ? (
                         <Button
                             type="button"
                             onClick={submitOutput}
-                            disabled={isLoading}
+                            disabled={isLoading || (qtyNum === 0 && totalScrap === 0)}
                             className="h-12 font-bold px-8 bg-emerald-600 hover:bg-emerald-700"
                         >
                             {isLoading ? (
@@ -451,7 +567,7 @@ export function KioskLogOutputDialog({
                             )}
                             {kioskLabels.wizardSubmit}
                         </Button>
-                    )}
+                    ) : null}
                 </div>
             </DialogContent>
         </Dialog>

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 
 import { formatProductionQuantity, getEnteredQuantityDisplay } from "@/lib/utils/production-units";
 import { kioskLabels } from "@/lib/labels";
+import { getStatusLabel } from "@/lib/labels/helpers";
 
 interface ProductionOrder {
     id: string;
@@ -91,14 +92,17 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
     };
 
     return (
-        <button
+        <div
+            role="button"
+            tabIndex={0}
             onClick={handleCardClick}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(); } }}
             className={`flex flex-col rounded-xl border-2 shadow-sm text-left w-full transition-all active:scale-[0.98] hover:shadow-md ${isRunning ? 'border-emerald-500 bg-emerald-50/10 shadow-lg hover:border-emerald-600' : 'border-border bg-card text-card-foreground hover:border-primary/50'} h-full overflow-hidden cursor-pointer`}
         >
             <div className="p-3 md:p-4 pb-2 border-b-0 space-y-2">
                 <div className="flex justify-between items-start">
                     <Badge variant={isRunning ? "default" : "secondary"} className={`${isRunning ? "bg-emerald-600 animate-pulse" : ""} text-[10px] md:text-sm`}>
-                        {isRunning ? kioskLabels.running.toUpperCase() : order.status}
+                        {isRunning ? kioskLabels.running.toUpperCase() : getStatusLabel(order.status, 'production')}
                     </Badge>
                     <span className="text-xs text-muted-foreground font-mono">{order.orderNumber}</span>
                 </div>
@@ -166,6 +170,6 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                     </div>
                 )}
             </div>
-        </button>
+        </div>
     );
 }

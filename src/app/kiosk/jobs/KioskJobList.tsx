@@ -91,7 +91,7 @@ export default function KioskJobList({ initialOrders, employees, machines }: Kio
     }, [defaultMachineId]);
 
     useBarcodeScanner((code) => {
-        toast.info(`Scanned: ${code}`);
+        toast.info(`Scan: ${code}`);
         const params = new URLSearchParams(searchParams);
         params.set('q', code);
         router.replace(`${pathname}?${params.toString()}`);

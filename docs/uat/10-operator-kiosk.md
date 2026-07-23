@@ -121,10 +121,120 @@
 
 ---
 
+## Phase 1 — Hub, Focus, Wizard
+
+### TC-KSK-020: Hub Tiles Setelah Pilih Operator
+| **ID** | TC-KSK-020 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Buka `/kiosk`
+2. Pilih operator dari gate
+
+**Diharapkan:**
+- Hub menampilkan tile: Produksi/SPK, Absensi, Proses Khusus, Status Saya
+- Badge count "N aktif" ditampilkan di tile Produksi jika ada job running
+- Operator chip + tombol Logout ditampilkan
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-021: Start Job → Focus Mode
+| **ID** | TC-KSK-021 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Dari hub → tap tile Produksi
+2. Tap tombol MULAI SPK di salah satu card
+
+**Diharapkan:**
+- Setelah start, navigasi otomatis ke focus mode (`/kiosk/jobs/[orderId]`)
+- Focus menampilkan: nama produk besar, mesin, operator, progress bar actual/target
+- CTA: Catat Hasil (hijau besar), Downtime (outline), Stop (destructive)
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-022: Wizard Catat Hasil — Full Flow
+| **ID** | TC-KSK-022 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Dari focus mode → tap "CATAT HASIL"
+2. Step 1: Masukkan qty bagus → tap Lanjut
+3. Step 2: Skip scrap (kosongkan) → tap Lanjut
+4. Step 3: Skip foto → tap Lanjut
+5. Step 4: Review ringkas → tap "Kirim Hasil"
+
+**Diharapkan:**
+- Progress indicator 1/4 → 4/4
+- Setiap step bisa back tanpa hilang data
+- Setelah sukses: layar "Berhasil!" dengan opsi "Catat Lagi" atau "Selesai"
+- Actual quantity naik di focus mode
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-023: Banner Job Aktif → Focus
+| **ID** | TC-KSK-023 | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Pastikan ada job yang sedang running
+2. Tap banner job aktif di bagian bawah layar
+
+**Diharapkan:**
+- Banner navigasi ke focus mode job yang benar (bukan daftar SPK)
+- Timer elapsed ditampilkan dengan benar
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-024: HP — Alur Catat Hasil Tanpa Horizontal Scroll
+| **ID** | TC-KSK-024 | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Buka kiosk di HP (width < 768px)
+2. Jalani alur: hub → produksi → pilih SPK → start → focus → catat hasil
+
+**Diharapkan:**
+- Hub tiles stack vertikal (1 kolom)
+- Jobs list 1 kolom
+- Focus full viewport
+- Wizard tidak ada horizontal scroll destruktif
+- Semua tombol tetap besar dan mudah ditekan
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-025: Idle Timeout
+| **ID** | TC-KSK-025 | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Login operator di kiosk
+2. Tidak melakukan aktivitas selama 15 menit
+
+**Diharapkan:**
+- 60 detik sebelum timeout: muncul warning "Session Hampir Habis"
+- Warning menampilkan countdown
+- Tap "Ketuk untuk Lanjut" → session lanjut
+- Jika tidak diapa-apakan → logout otomatis → kembali ke gate operator
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
 ## Ringkasan Hasil
 
 | Total TC | Lulus | Gagal | Sebagian |
 |----------|-------|-------|----------|
-| 8 | | | |
+| 14 | | | |
 
 **Tanda Tangan Tester:** _________________________ **Tanggal:** ____/____/________
