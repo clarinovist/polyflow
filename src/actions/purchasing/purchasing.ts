@@ -27,6 +27,7 @@ import { AutoJournalService } from "@/services/finance/auto-journal-service";
 import { logActivity } from "@/lib/tools/audit";
 import { logger } from "@/lib/config/logger";
 import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
+import { hasAnyRole } from "@/lib/auth/roles";
 
 export const createPurchaseOrder = withTenant(
   async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
@@ -412,6 +413,9 @@ export const updatePurchaseInvoiceDueDate = withTenant(
   ) {
     return safeAction(async () => {
       const session = await requireAuth();
+      if (!hasAnyRole(session.user, ["ADMIN", "FINANCE"])) {
+        throw new BusinessRuleError("Hanya ADMIN atau FINANCE yang boleh mengubah jatuh tempo");
+      }
       const parsed = {
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : undefined,
