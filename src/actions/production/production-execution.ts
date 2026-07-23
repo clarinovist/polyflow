@@ -223,9 +223,7 @@ export const getActiveExecutions = withTenant(
   async function getActiveExecutions() {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (!session?.user) return [];
-
+        // Kiosk semi-public: allow tenant-scoped read without NextAuth session
         const executions = await ProductionService.getActiveExecutions();
         return serializeData(executions);
       } catch (error) {
