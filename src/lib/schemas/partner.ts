@@ -7,7 +7,13 @@ export const createSupplierSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   address: z.string().optional(),
   taxId: z.string().optional(),
-  paymentTermDays: z.coerce.number().int().nonnegative().optional(),
+  paymentTermDays: z.coerce
+    .number()
+    .int()
+    .min(0, "Tempo minimal 0")
+    .max(365, "Tempo maksimal 365 hari")
+    .optional()
+    .default(30),
   bankName: z.string().optional(),
   bankAccount: z.string().optional(),
   notes: z.string().optional(),

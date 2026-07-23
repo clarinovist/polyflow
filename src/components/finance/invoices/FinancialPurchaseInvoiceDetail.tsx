@@ -5,6 +5,7 @@ import { formatRupiah } from "@/lib/utils/utils";
 import { PurchaseInvoiceStatus } from "@prisma/client";
 import { format } from "date-fns";
 import { AlertCircle, CreditCard, History, Package } from "lucide-react";
+import { isInvoiceOverdue } from "@/lib/purchasing/payment-terms";
 
 interface PurchaseOrderItemData {
     id: string;
@@ -27,7 +28,8 @@ interface FinancialPurchaseInvoiceDetailProps {
         id: string;
         invoiceNumber: string;
         invoiceDate: Date | string;
-        dueDate: Date | string;
+        dueDate: Date | string | null;
+        termOfPaymentDays?: number | null;
         status: PurchaseInvoiceStatus;
         totalAmount: number;
         paidAmount: number;
@@ -72,6 +74,7 @@ export function FinancialPurchaseInvoiceDetail({ invoice }: FinancialPurchaseInv
 
     const items = invoice.purchaseOrder.items ?? [];
     const hasItems = items.length > 0;
+    const overdue = isInvoiceOverdue(invoice.dueDate, invoice.status);
 
     return (
         <div className="space-y-6">
@@ -91,11 +94,15 @@ export function FinancialPurchaseInvoiceDetail({ invoice }: FinancialPurchaseInv
                             <div>
                                 <p className="text-muted-foreground">Invoice Date</p>
                                 <p className="font-medium">{format(new Date(invoice.invoiceDate), 'PP')}</p>
+                                {invoice.termOfPaymentDays != null && (
+                                    <p className="text-xs text-muted-foreground mt-1">Tempo: {invoice.termOfPaymentDays === 0 ? 'Cash' : `${invoice.termOfPaymentDays} hari`}</p>
+                                )}
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Due Date</p>
-                                <p className={invoice.status === 'OVERDUE' ? 'text-red-600 dark:text-red-400 font-bold' : 'font-medium'}>
-                                    {format(new Date(invoice.dueDate), 'PP')}
+                                <p className={overdue || invoice.status === 'OVERDUE' ? 'text-red-600 dark:text-red-400 font-bold' : 'font-medium'}>
+                                    {invoice.dueDate ? format(new Date(invoice.dueDate), 'PP') : '-'}
+                                    {overdue && <span className="ml-2 text-xs">Terlambat</span>}
                                 </p>
                             </div>
                             <div>

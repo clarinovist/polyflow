@@ -37,15 +37,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { isInvoiceOverdue } from "@/lib/purchasing/payment-terms";
 
 type InvoiceWithRelations = {
   id: string;
   invoiceNumber: string;
   invoiceDate: Date;
-  dueDate: Date;
+  dueDate: Date | string | null;
   status: PurchaseInvoiceStatus;
   totalAmount: number;
   paidAmount: number;
+  termOfPaymentDays?: number | null;
   purchaseOrderId: string;
   purchaseOrder: {
     id: string;
@@ -103,7 +105,7 @@ export function PurchaseInvoiceTable({
       if (overdueMode) {
         const remaining = (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0);
         const overdueStatuses: string[] = ['UNPAID', 'PARTIAL', 'OVERDUE'];
-        if (new Date(inv.dueDate) >= now || remaining <= 0 || !overdueStatuses.includes(inv.status)) {
+        if (!inv.dueDate || new Date(inv.dueDate as unknown as string) >= now || remaining <= 0 || !overdueStatuses.includes(inv.status)) {
           return false;
         }
       } else if (statusFilter !== "ALL" && inv.status !== statusFilter) {
@@ -120,10 +122,14 @@ export function PurchaseInvoiceTable({
     });
   }, [invoices, searchTerm, statusFilter, overdueMode]);
 
-  const getStatusBadge = (status: PurchaseInvoiceStatus) => {
+  const getStatusBadge = (inv: InvoiceWithRelations) => {
+    const status = inv.status;
+    const overdue = isInvoiceOverdue(inv.dueDate, status);
+    // UNPAID yang belum lewat tempo jangan merah
     const styles: Record<string, string> = {
-      UNPAID:
-        "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900",
+      UNPAID: overdue
+        ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900"
+        : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700",
       PARTIAL:
         "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900",
       PAID: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-900",
@@ -133,8 +139,9 @@ export function PurchaseInvoiceTable({
       DRAFT: "bg-slate-100 text-slate-800",
     };
     return (
-      <Badge variant="outline" className={styles[status]}>
+      <Badge variant="outline" className={styles[status] ?? styles.DRAFT}>
         {getStatusLabel(status, "purchasing")}
+        {overdue && status === "UNPAID" ? " (Terlambat)" : ""}
       </Badge>
     );
   };
@@ -190,18 +197,25 @@ export function PurchaseInvoiceTable({
       {
         accessorKey: "dueDate",
         header: formLabels.dueDate,
-        size: 130,
+        size: 150,
         sortingFn: "datetime",
         cell: ({ row }) => {
-          const { dueDate, status } = row.original;
-          const isOverdue =
-            dueDate && new Date(dueDate) < new Date() && status !== "PAID";
+          const inv = row.original;
+          const overdue = isInvoiceOverdue(inv.dueDate, inv.status);
           return (
             <div
-              className={`flex items-center gap-2 text-sm ${isOverdue ? "text-red-600 font-bold" : ""}`}
+              className={`flex flex-col text-xs ${overdue ? "text-red-600 font-bold" : ""}`}
             >
-              <Calendar className="h-3 w-3" />
-              {dueDate ? format(new Date(dueDate), "dd MMM yyyy") : "-"}
+              <span className="flex items-center gap-1.5">
+                <Calendar className="h-3 w-3" />
+                {inv.dueDate ? format(new Date(inv.dueDate), "dd MMM yyyy") : "-"}
+                {overdue && <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700">Terlambat</span>}
+              </span>
+              {inv.termOfPaymentDays != null && (
+                <span className="text-[11px] text-muted-foreground ml-4">
+                  {inv.termOfPaymentDays === 0 ? "Cash" : `${inv.termOfPaymentDays} hari`}
+                </span>
+              )}
             </div>
           );
         },
@@ -229,8 +243,8 @@ export function PurchaseInvoiceTable({
       {
         accessorKey: "status",
         header: formLabels.status,
-        size: 110,
-        cell: ({ row }) => getStatusBadge(row.original.status),
+        size: 130,
+        cell: ({ row }) => getStatusBadge(row.original),
       },
       {
         id: "actions",

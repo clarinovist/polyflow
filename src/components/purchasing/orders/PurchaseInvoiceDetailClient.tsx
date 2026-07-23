@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { recordPurchasePayment } from '@/actions/purchasing/purchasing';
 import { getStatusLabel, purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
+import { isInvoiceOverdue } from '@/lib/purchasing/payment-terms';
 import {
     DEFAULT_PAYMENT_METHOD,
     getPaymentMethodLabel,
@@ -65,7 +66,7 @@ export function PurchaseInvoiceDetailClient({
     const [paymentNotes, setPaymentNotes] = useState('');
 
     const remainingAmount = invoice.totalAmount - invoice.paidAmount;
-    const isOverdue = new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID';
+    const isOverdue = isInvoiceOverdue(invoice.dueDate, invoice.status);
     const progressPercent = invoice.totalAmount > 0 ? (invoice.paidAmount / invoice.totalAmount) * 100 : 0;
 
     const getStatusBadge = (status: string) => {

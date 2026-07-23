@@ -22,7 +22,8 @@ import {
     getPurchaseInvoices,
     getOutstandingPurchaseInvoices,
     generateBillNumber,
-    createDraftBillFromPo
+    createDraftBillFromPo,
+    updatePurchaseInvoiceDueDate,
 } from './invoices-service';
 import { createPurchaseRequest, convertRequestToOrder, consolidateRequestsToOrder } from './requests-service';
 import { getPurchaseStats } from './stats-service';
@@ -121,6 +122,15 @@ export class PurchaseService {
     static async createDraftBillFromPo(purchaseOrderId: string, userId: string) {
         return createDraftBillFromPo(purchaseOrderId, userId);
     }
+
+    static async updatePurchaseInvoiceDueDate(
+        id: string,
+        data: { dueDate?: Date; termOfPaymentDays?: number; invoiceDate?: Date },
+        userId: string,
+    ) {
+        return updatePurchaseInvoiceDueDate(id, data, userId);
+    }
+
     static async getPurchaseStats() {
         return getPurchaseStats();
     }

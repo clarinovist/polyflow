@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
+import { PAYMENT_TERM_OPTIONS } from '@/lib/purchasing/payment-terms';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface SupplierDialogProps {
     mode: 'create' | 'edit';
@@ -50,7 +52,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
             email: initialData.email || '',
             address: initialData.address || '',
             taxId: initialData.taxId || '',
-            paymentTermDays: initialData.paymentTermDays || 0,
+            paymentTermDays: initialData.paymentTermDays ?? 30,
             bankName: initialData.bankName || '',
             bankAccount: initialData.bankAccount || '',
             notes: initialData.notes || '',
@@ -61,7 +63,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
             email: '',
             address: '',
             taxId: '',
-            paymentTermDays: 0,
+            paymentTermDays: 30,
             bankName: '',
             bankAccount: '',
             notes: '',
@@ -209,9 +211,35 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>{purchasingLabels.paymentTermDays}</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" {...field} />
-                                        </FormControl>
+                                        <Select
+                                            value={String(field.value ?? 30)}
+                                            onValueChange={(v) => field.onChange(parseInt(v, 10))}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Pilih tempo" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {PAYMENT_TERM_OPTIONS.map((opt) => (
+                                                    <SelectItem key={opt.value} value={String(opt.value)}>
+                                                        {opt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-[11px] text-muted-foreground">Custom:</span>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                max={365}
+                                                placeholder="hari"
+                                                className="h-7 w-20 text-xs"
+                                                value={String(field.value ?? "")}
+                                                onChange={(e) => field.onChange(parseInt(e.target.value || "0", 10))}
+                                            />
+                                        </div>
                                         <FormMessage />
                                     </FormItem>
                                 )}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   PurchaseOrder,
   PurchaseOrderItem,
@@ -18,6 +18,8 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/utils/utils";
 import { format } from "date-fns";
 import {
@@ -43,6 +45,25 @@ import {
   createPurchaseInvoice,
   deletePurchaseOrder,
 } from "@/actions/purchasing/purchasing";
+import {
+  PAYMENT_TERM_OPTIONS,
+  calculateDueDate,
+} from "@/lib/purchasing/payment-terms";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Serialized types
 type SerializedPOItem = Omit<
@@ -95,6 +116,49 @@ export function PurchaseOrderDetailClient({
 }: PurchaseOrderDetailClientProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [termDays, setTermDays] = useState<number>(() => order.supplier?.paymentTermDays ?? 30);
+  const [customTermDays, setCustomTermDays] = useState<string>("");
+  const [useManualDue, setUseManualDue] = useState(false);
+  const [manualDueDate, setManualDueDate] = useState("");
+
+  const computedDueDate = useMemo(() => {
+    if (useManualDue && manualDueDate) return new Date(manualDueDate);
+    const inv = invoiceDate ? new Date(invoiceDate) : new Date();
+    const t = termDays === -1 ? parseInt(customTermDays || "0", 10) || 0 : termDays;
+    return calculateDueDate(inv, t);
+  }, [invoiceDate, termDays, customTermDays, useManualDue, manualDueDate]);
+
+  const handleCreateInvoice = async () => {
+    setIsLoading(true);
+    try {
+      const invDate = invoiceDate ? new Date(invoiceDate) : new Date();
+      const finalTerm = termDays === -1 ? parseInt(customTermDays || "0", 10) || 0 : termDays;
+      const payload: Record<string, unknown> = {
+        purchaseOrderId: order.id,
+        invoiceNumber: `INV-${order.orderNumber}`,
+        invoiceDate: invDate,
+        termOfPaymentDays: finalTerm,
+        notes: "",
+      };
+      if (useManualDue && manualDueDate) {
+        payload.manualDueDate = new Date(manualDueDate);
+      } else {
+        payload.dueDate = computedDueDate;
+      }
+      const result = await createPurchaseInvoice(payload as never);
+      if (result) {
+        toast.success(`Invoice dibuat. Jatuh tempo: ${format(computedDueDate, "dd MMM yyyy")}`);
+        setInvoiceDialogOpen(false);
+        router.refresh();
+      }
+    } catch (_error) {
+      toast.error("Gagal membuat invoice. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getStatusBadge = (status: PurchaseOrderStatus) => {
     const styles: Record<string, string> = {
@@ -188,36 +252,130 @@ export function PurchaseOrderDetailClient({
             order.invoices.length === 0 &&
             order.status !== "CANCELLED" &&
             order.status !== "DRAFT" && (
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    const termDays = order.supplier?.paymentTermDays ?? 30;
-                    const result = await createPurchaseInvoice({
-                      purchaseOrderId: order.id,
-                      invoiceNumber: `INV-${order.orderNumber}`,
-                      invoiceDate: new Date(),
-                      dueDate: new Date(
-                        Date.now() + termDays * 24 * 60 * 60 * 1000,
-                      ),
-                      termOfPaymentDays: termDays,
-                      notes: "",
-                    });
-                    if (result) {
-                      toast.success("Invoice berhasil dibuat");
-                      router.refresh();
-                    }
-                  } catch (_error) {
-                    toast.error("Gagal membuat invoice. Silakan coba lagi.");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-                disabled={isLoading}
-              >
-                <Receipt className="mr-2 h-4 w-4" /> Buat Invoice
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTermDays(order.supplier?.paymentTermDays ?? 30);
+                    setInvoiceDate(new Date().toISOString().slice(0, 10));
+                    setUseManualDue(false);
+                    setManualDueDate("");
+                    setCustomTermDays("");
+                    setInvoiceDialogOpen(true);
+                  }}
+                  disabled={isLoading}
+                >
+                  <Receipt className="mr-2 h-4 w-4" /> Buat Invoice
+                </Button>
+
+                <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+                  <DialogContent className="sm:max-w-[480px]">
+                    <DialogHeader>
+                      <DialogTitle>Buat Purchase Invoice</DialogTitle>
+                      <DialogDescription>
+                        Tentukan tanggal invoice & tempo. Jatuh tempo = Invoice + Tempo (atau manual).
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>Tanggal Invoice</Label>
+                          <Input
+                            type="date"
+                            value={invoiceDate}
+                            onChange={(e) => setInvoiceDate(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Tempo Supplier Default</Label>
+                          <div className="text-sm font-medium py-2">
+                            {order.supplier?.paymentTermDays ?? 30} hari (dari master supplier)
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Tempo Pembayaran</Label>
+                        <Select
+                          value={String(termDays)}
+                          onValueChange={(v) => setTermDays(parseInt(v, 10))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAYMENT_TERM_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={String(opt.value)}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="-1">Custom...</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {termDays === -1 && (
+                        <div className="space-y-1.5">
+                          <Label>Custom Tempo (hari)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={365}
+                            value={customTermDays}
+                            onChange={(e) => setCustomTermDays(e.target.value)}
+                            placeholder="Misal 21"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          id="manual-due"
+                          type="checkbox"
+                          checked={useManualDue}
+                          onChange={(e) => setUseManualDue(e.target.checked)}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="manual-due" className="cursor-pointer">
+                          Input tanggal jatuh tempo manual
+                        </Label>
+                      </div>
+
+                      {useManualDue && (
+                        <div className="space-y-1.5">
+                          <Label>Tanggal Jatuh Tempo (manual)</Label>
+                          <Input
+                            type="date"
+                            value={manualDueDate}
+                            onChange={(e) => setManualDueDate(e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      <div className="rounded-md bg-muted p-3 text-sm">
+                        <div className="text-muted-foreground">Preview Jatuh Tempo:</div>
+                        <div className="font-bold text-base mt-1">
+                          {format(computedDueDate, "dd MMM yyyy")}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Rumus: Invoice {invoiceDate ? format(new Date(invoiceDate), "dd MMM yyyy") : "-"} +{" "}
+                          {useManualDue ? "Manual" : `${termDays === -1 ? customTermDays || 0 : termDays} hari`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>
+                        Batal
+                      </Button>
+                      <Button onClick={handleCreateInvoice} disabled={isLoading}>
+                        {isLoading ? "Membuat..." : "Buat Invoice"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </>
             )}
 
           {!warehouseMode &&

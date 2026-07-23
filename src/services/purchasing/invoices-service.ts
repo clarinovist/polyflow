@@ -15,8 +15,16 @@ import {
 } from "@/lib/errors/errors";
 
 export async function createInvoice(data: CreatePurchaseInvoiceValues) {
-  const finalDueDate =
-    data.dueDate || addDays(data.invoiceDate, data.termOfPaymentDays || 0);
+  // Priority: manualDueDate > dueDate > invoiceDate + termDays. Default 30 hari.
+  const termDays = data.termOfPaymentDays ?? 30;
+  let finalDueDate: Date;
+  if (data.manualDueDate) {
+    finalDueDate = data.manualDueDate;
+  } else if (data.dueDate) {
+    finalDueDate = data.dueDate;
+  } else {
+    finalDueDate = addDays(data.invoiceDate, termDays);
+  }
 
   const po = await prisma.purchaseOrder.findUnique({
     where: { id: data.purchaseOrderId },
@@ -31,7 +39,7 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
       purchaseOrderId: data.purchaseOrderId,
       invoiceDate: data.invoiceDate,
       dueDate: finalDueDate,
-      termOfPaymentDays: data.termOfPaymentDays || 0,
+      termOfPaymentDays: termDays,
       totalAmount: po.totalAmount || 0,
       status: PurchaseInvoiceStatus.UNPAID,
     },
@@ -231,6 +239,8 @@ export async function getOutstandingPurchaseInvoices() {
       paidAmount: true,
       status: true,
       invoiceDate: true,
+      dueDate: true,
+      termOfPaymentDays: true,
       purchaseOrder: {
         select: {
           orderNumber: true,
@@ -290,7 +300,10 @@ export async function createDraftBillFromPo(
   });
   if (existing) return;
 
-  const termOfPaymentDays = po.supplier?.paymentTermDays ?? 30;
+  // ponytail: uses supplier.paymentTermDays (default 30). Invoice date = receipt date (now), due = invoice + term.
+  const rawTerm = po.supplier?.paymentTermDays;
+  const termOfPaymentDays =
+    rawTerm != null && rawTerm >= 0 && rawTerm <= 365 ? rawTerm : 30;
   const invoiceNumber = await generateBillNumber();
   const invoiceDate = new Date();
   const dueDate = addDays(invoiceDate, termOfPaymentDays);
@@ -333,6 +346,45 @@ export async function createDraftBillFromPo(
   );
 
   return invoice;
+}
+
+export async function updatePurchaseInvoiceDueDate(
+  id: string,
+  data: { dueDate?: Date; termOfPaymentDays?: number; invoiceDate?: Date },
+  userId: string,
+) {
+  const existing = await prisma.purchaseInvoice.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError("Purchase Invoice", id);
+
+  if (existing.status === PurchaseInvoiceStatus.PAID) {
+    throw new BusinessRuleError("Cannot change due date of PAID invoice");
+  }
+
+  let finalDueDate = data.dueDate;
+  if (!finalDueDate) {
+    const invDate = data.invoiceDate ?? existing.invoiceDate;
+    const term = data.termOfPaymentDays ?? existing.termOfPaymentDays;
+    finalDueDate = addDays(invDate, term);
+  }
+
+  const updated = await prisma.purchaseInvoice.update({
+    where: { id },
+    data: {
+      ...(data.invoiceDate && { invoiceDate: data.invoiceDate }),
+      dueDate: finalDueDate,
+      ...(data.termOfPaymentDays != null && { termOfPaymentDays: data.termOfPaymentDays }),
+    },
+  });
+
+  await logActivity({
+    userId,
+    action: "UPDATE_PURCHASE_INVOICE_DUE_DATE",
+    entityType: "PurchaseInvoice",
+    entityId: id,
+    details: `Due date changed to ${finalDueDate.toISOString()} term ${updated.termOfPaymentDays} days`,
+  });
+
+  return updated;
 }
 
 export async function checkOverduePurchasingInvoices() {

@@ -72,17 +72,29 @@ export const createGoodsReceiptSchema = z
     }
   });
 
-export const createPurchaseInvoiceSchema = z.object({
-  purchaseOrderId: z.string().min(1, "PO ID is required"),
-  invoiceNumber: z
-    .string()
-    .min(1, "Invoice number is required")
-    .transform(sanitizeHtml),
-  invoiceDate: z.coerce.date(),
-  dueDate: z.coerce.date().optional().nullable(),
-  termOfPaymentDays: z.coerce.number().min(0).default(0),
-  notes: z.string().optional().transform(sanitizeHtml),
-});
+export const createPurchaseInvoiceSchema = z
+  .object({
+    purchaseOrderId: z.string().min(1, "PO ID is required"),
+    invoiceNumber: z
+      .string()
+      .min(1, "Invoice number is required")
+      .transform(sanitizeHtml),
+    invoiceDate: z.coerce.date(),
+    dueDate: z.coerce.date().optional().nullable(),
+    termOfPaymentDays: z.coerce.number().int().min(0).max(365).default(30),
+    manualDueDate: z.coerce.date().optional().nullable(),
+    notes: z.string().optional().transform(sanitizeHtml),
+  })
+  .superRefine((data, ctx) => {
+    // If manualDueDate provided, dueDate logic handled in service
+    if (data.manualDueDate && data.manualDueDate < data.invoiceDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Tanggal jatuh tempo tidak boleh sebelum tanggal invoice",
+        path: ["manualDueDate"],
+      });
+    }
+  });
 
 /** Warehouse walk-in: goods + nota arrive before a planned PO exists. */
 export const createWalkInReceiptSchema = z.object({

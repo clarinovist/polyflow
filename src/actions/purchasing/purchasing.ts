@@ -404,3 +404,24 @@ export const consolidatePurchaseRequests = withTenant(
     });
   },
 );
+
+export const updatePurchaseInvoiceDueDate = withTenant(
+  async function updatePurchaseInvoiceDueDate(
+    id: string,
+    data: { dueDate?: Date | string; termOfPaymentDays?: number; invoiceDate?: Date | string },
+  ) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const parsed = {
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : undefined,
+        termOfPaymentDays: data.termOfPaymentDays,
+      };
+      const updated = await PurchaseService.updatePurchaseInvoiceDueDate(id, parsed, session.user.id);
+      revalidatePath("/finance/invoices/purchase");
+      revalidatePath(`/finance/invoices/purchase/${id}`);
+      revalidatePath("/purchasing/orders");
+      return serializeData(updated);
+    });
+  },
+);

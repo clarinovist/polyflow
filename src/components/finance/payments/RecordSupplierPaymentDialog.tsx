@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,12 +19,18 @@ import {
     type TenantPaymentBanks,
 } from '@/lib/finance/payment-methods';
 import { PaymentMethodFields } from '@/components/finance/payments/PaymentMethodFields';
+import { isInvoiceOverdue } from '@/lib/purchasing/payment-terms';
+import { format } from 'date-fns';
 
 interface PurchaseInvoice {
     id: string;
     invoiceNumber: string;
     totalAmount: number;
     paidAmount: number;
+    invoiceDate?: Date | string;
+    dueDate?: Date | string | null;
+    status?: string;
+    termOfPaymentDays?: number | null;
     purchaseOrder?: {
         supplier?: { name: string } | null;
     } | null;
@@ -49,7 +55,20 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
     const [notes, setNotes] = useState('');
     const [invoiceSearchOpen, setInvoiceSearchOpen] = useState(false);
 
-    const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId);
+    // Sort: overdue first, then earliest due date
+    const sortedInvoices = useMemo(() => {
+        return [...invoices].sort((a, b) => {
+            const aOver = isInvoiceOverdue(a.dueDate, a.status);
+            const bOver = isInvoiceOverdue(b.dueDate, b.status);
+            if (aOver && !bOver) return -1;
+            if (!aOver && bOver) return 1;
+            const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+            const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+            return aDue - bDue;
+        });
+    }, [invoices]);
+
+    const selectedInvoice = sortedInvoices.find(inv => inv.id === selectedInvoiceId);
     const remainingBalance = selectedInvoice
         ? Number(selectedInvoice.totalAmount) - Number(selectedInvoice.paidAmount)
         : 0;
@@ -212,10 +231,10 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
                                     <CommandList className="max-h-[320px]">
                                         <CommandEmpty>Tidak ada invoice ditemukan.</CommandEmpty>
                                         <CommandGroup>
-                                            {invoices.map((inv) => {
+                                            {sortedInvoices.map((inv) => {
                                                 const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
                                                 const supplierName = inv.purchaseOrder?.supplier?.name ?? '—';
-                                                // Include searchable text in value; keep id at end for uniqueness
+                                                const overdue = isInvoiceOverdue(inv.dueDate, inv.status);
                                                 const searchValue = `${inv.invoiceNumber} ${supplierName} ${inv.id}`;
                                                 return (
                                                     <CommandItem
@@ -225,7 +244,7 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
                                                             setSelectedInvoiceId((prev) => (prev === inv.id ? '' : inv.id));
                                                             setInvoiceSearchOpen(false);
                                                         }}
-                                                        className="flex items-center gap-2"
+                                                        className={`flex items-center gap-2 ${overdue ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
                                                     >
                                                         <Check
                                                             className={cn(
@@ -234,11 +253,13 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
                                                             )}
                                                         />
                                                         <div className="flex flex-col min-w-0 flex-1">
-                                                            <span className="truncate font-medium">
+                                                            <span className={`truncate font-medium flex items-center gap-1 ${overdue ? 'text-red-700' : ''}`}>
                                                                 {inv.invoiceNumber}
+                                                                {overdue && <span className="text-[9px] bg-red-100 text-red-700 px-1 rounded">Terlambat</span>}
                                                             </span>
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {supplierName}
+                                                            <span className="text-xs text-muted-foreground flex gap-2">
+                                                                <span>{supplierName}</span>
+                                                                {inv.dueDate && <span>· JT {format(new Date(inv.dueDate), 'dd MMM yy')}</span>}
                                                             </span>
                                                         </div>
                                                         <span className="text-xs font-mono text-muted-foreground shrink-0">
@@ -264,6 +285,15 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
                                 <span className="text-muted-foreground">Sudah Dibayar:</span>
                                 <span className="font-medium text-emerald-600">{formatRupiah(Number(selectedInvoice.paidAmount))}</span>
                             </div>
+                            {selectedInvoice.dueDate && (
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Jatuh Tempo:</span>
+                                    <span className={`font-medium ${isInvoiceOverdue(selectedInvoice.dueDate, selectedInvoice.status) ? 'text-red-600 font-bold' : ''}`}>
+                                        {format(new Date(selectedInvoice.dueDate), 'dd MMM yyyy')}
+                                        {selectedInvoice.termOfPaymentDays != null && ` (${selectedInvoice.termOfPaymentDays === 0 ? 'Cash' : `${selectedInvoice.termOfPaymentDays} hari`})`}
+                                    </span>
+                                </div>
+                            )}
                             <div className="flex justify-between border-t pt-1">
                                 <span className="text-muted-foreground font-semibold">Sisa Tagihan:</span>
                                 <span className="font-bold text-red-600">{formatRupiah(remainingBalance)}</span>
