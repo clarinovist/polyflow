@@ -249,12 +249,6 @@ export function ProductionOrderForm({
     !!recommendedOutputId &&
     watchLocationId === recommendedOutputId;
 
-  const sourceLocationName =
-    locations.find((l) => l.id === materialSourceLocationId)?.name || "—";
-  const recommendedOutputName =
-    locations.find((l) => l.id === recommendedOutputId)?.name ||
-    recommendedOutputHint(processType);
-
   const [planningMode, setPlanningMode] = useState<
     "weight" | "sales" | "batch"
   >("weight");
@@ -303,6 +297,12 @@ export function ProductionOrderForm({
     id: string;
     name: string;
   } | null>(null);
+
+  const sourceLocationName =
+    locations.find((l) => l.id === materialSourceLocationId)?.name || "—";
+  const recommendedOutputName =
+    locations.find((l) => l.id === recommendedOutputId)?.name ||
+    recommendedOutputHint(processType);
 
   // Effect to calculate requirements
   useEffect(() => {
