@@ -92,7 +92,9 @@ export async function compressImageForUpload(
   file: File,
   opts: CompressImageOptions = {},
 ): Promise<File> {
-  if (!file.type.startsWith("image/")) return file;
+  // iOS Safari often hands camera files with empty MIME; infer from name.
+  const inferredType = file.type || guessImageTypeFromName(file.name);
+  if (!inferredType.startsWith("image/")) return file;
   try {
     return await compressImageBlob(file, {
       maxSide: opts.maxSide ?? 1280,
@@ -101,8 +103,18 @@ export async function compressImageForUpload(
       fileName: opts.fileName ?? `upload-${Date.now()}.jpg`,
     });
   } catch {
-    return file;
+    // Canvas decode failed (e.g. HEIC on non-Safari). Return original but
+    // stamp a safe name + MIME so downstream validation accepts it.
+    return new File([file], `upload-${Date.now()}.jpg`, { type: "image/jpeg" });
   }
+}
+
+function guessImageTypeFromName(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (["jpg", "jpeg", "heic", "heif"].includes(ext)) return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  return "";
 }
 
 /** Read a File as a data URL (e.g. offline visit logs). */

@@ -18,19 +18,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file type
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic"];
-    if (!allowedTypes.includes(file.type)) {
+    // Validate file type. Allow empty MIME (iOS Safari camera capture)
+    // and HEIC — downstream compression converts to JPEG when possible.
+    const fileType = file.type || "";
+    const isJpeg = !fileType || ["image/jpeg", "image/jpg"].includes(fileType);
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (!isJpeg && !allowedTypes.includes(fileType)) {
       return NextResponse.json(
         { error: "Only JPEG, PNG, WebP, and HEIC images are allowed" },
         { status: 400 }
       );
     }
 
-    // Max 5MB
-    if (file.size > 5 * 1024 * 1024) {
+    // Max 15MB. Camera raw (HEIC/JPEG) can be 8-12MB before compression.
+    if (file.size > 15 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "File size must be under 5MB" },
+        { error: "Ukuran foto melebihi 15MB. Ambil ulang dari jarak lebih dekat." },
         { status: 400 }
       );
     }
