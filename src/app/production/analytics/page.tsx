@@ -144,7 +144,10 @@ export default async function ProductionAnalyticsPage(props: { searchParams: Sea
                                         Buka SPK <ExternalLink className="h-3 w-3" />
                                       </Link>
                                     ) : (
-                                      <Link href="/production/history" className="text-xs font-semibold text-primary hover:underline">
+                                      <Link
+                                        href={`/production/history?productVariantId=${item.productVariantId}&hasScrap=true`}
+                                        className="text-xs font-semibold text-primary hover:underline"
+                                      >
                                         Log
                                       </Link>
                                     )}
@@ -154,7 +157,7 @@ export default async function ProductionAnalyticsPage(props: { searchParams: Sea
                             </TableBody>
                           </Table>
                         </div>
-                        <Link href="/production/history" className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+                        <Link href="/production/history?from=today&to=today" className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
                           Lihat log hasil <ExternalLink className="h-3 w-3" />
                         </Link>
                       </div>

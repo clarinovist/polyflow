@@ -279,6 +279,9 @@ export function ProductionOverviewClient({ initialData }: ProductionOverviewClie
           <Button asChild variant="outline" size="sm" className="h-7 text-[11px] font-bold">
             <Link href="/kiosk">Kiosk</Link>
           </Button>
+          <Button asChild variant="ghost" size="sm" className="h-7 text-[11px]">
+            <Link href="/production/history?from=today&to=today">Log hari ini →</Link>
+          </Button>
         </div>
       </div>
 
