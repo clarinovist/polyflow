@@ -20,6 +20,7 @@ import {
 } from "@/lib/errors/errors";
 import { Ok, Err, Result } from "@/lib/utils/result";
 import { createProductionOrderWithGeneratedNumber } from "./order-number-service";
+import { resolveSourceLocationId, stageFromBomCategory } from "@/lib/locations/resolve-location";
 
 export class ProductionOrderService {
   /**
@@ -217,6 +218,7 @@ export class ProductionOrderService {
       plannedEnteredQuantity,
       plannedEnteredUnit,
       plannedConversionFactorSnapshot,
+      materialSourceLocationId,
     } = data;
 
     const execute = async (transaction: Prisma.TransactionClient) => {
@@ -288,26 +290,42 @@ export class ProductionOrderService {
       }
 
       // 3. Determine Initial Status based on Stock Availability
+      // Shortage check uses materialSourceLocationId (source warehouse), NOT output locationId.
+      // Falls back to resolve from BOM category if not provided.
       let initialStatus: ProductionStatus = ProductionStatus.DRAFT;
       if (materialsToCreate.length > 0) {
         const variantIds = materialsToCreate.map((m) => m.productVariantId);
-        const inventoryRows = await transaction.inventory.findMany({
-          where: {
-            locationId: locationId,
-            productVariantId: { in: variantIds },
-          },
-        });
 
-        const isShortage = materialsToCreate.some((m) => {
-          const stock =
-            inventoryRows
-              .find((ir) => ir.productVariantId === m.productVariantId)
-              ?.quantity.toNumber() || 0;
-          return m.quantity > stock;
-        });
+        // Resolve source location for shortage check
+        let shortageLocationId = materialSourceLocationId;
+        if (!shortageLocationId) {
+          // Fallback: resolve default source from BOM category + maklon
+          const allLocations = await transaction.location.findMany({
+            select: { id: true, name: true, slug: true, locationPurpose: true },
+          });
+          const stage = stageFromBomCategory(bomForOrder.category);
+          shortageLocationId = resolveSourceLocationId(allLocations, stage, !!isMaklon);
+        }
 
-        if (isShortage) {
-          initialStatus = ProductionStatus.WAITING_MATERIAL;
+        if (shortageLocationId) {
+          const inventoryRows = await transaction.inventory.findMany({
+            where: {
+              locationId: shortageLocationId,
+              productVariantId: { in: variantIds },
+            },
+          });
+
+          const isShortage = materialsToCreate.some((m) => {
+            const stock =
+              inventoryRows
+                .find((ir) => ir.productVariantId === m.productVariantId)
+                ?.quantity.toNumber() || 0;
+            return m.quantity > stock;
+          });
+
+          if (isShortage) {
+            initialStatus = ProductionStatus.WAITING_MATERIAL;
+          }
         }
       }
 

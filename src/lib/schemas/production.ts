@@ -17,6 +17,8 @@ export const createProductionOrderSchema = z.object({
     salesOrderId: z.string().optional(),
     priority: z.enum(['URGENT', 'NORMAL', 'LOW']).optional(),
     machineId: z.string().optional(),
+    /** Source location for material stock check (shortage). Defaults to BOM-category resolver if omitted. */
+    materialSourceLocationId: z.string().optional(),
 
     // Flexible BOM Items
     items: z.array(z.object({

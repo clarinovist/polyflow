@@ -52,9 +52,10 @@ export const getInitData = withTenant(async function getInitData() {
 export const getProductionFormData = getInitData;
 
 export const createProductionOrder = withTenant(
-  async function createProductionOrder(data: CreateProductionOrderValues) {
+  async function createProductionOrder(data: CreateProductionOrderValues & { createPath?: string }) {
     return safeAction(async () => {
-      const result = createProductionOrderSchema.safeParse(data);
+      const { createPath, ...orderData } = data;
+      const result = createProductionOrderSchema.safeParse(orderData);
       if (!result.success) {
         throw new BusinessRuleError(result.error.issues[0].message);
       }
@@ -66,6 +67,15 @@ export const createProductionOrder = withTenant(
           ...result.data,
           userId: session.user.id,
         });
+
+        // C6: Log create path for analytics
+        if (createPath) {
+          logger.info("Production order created", {
+            orderId: order.id,
+            createPath,
+            module: "ProductionActions",
+          });
+        }
 
         revalidatePath("/production");
         revalidatePath("/sales");

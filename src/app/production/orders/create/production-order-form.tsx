@@ -1,68 +1,44 @@
 "use client";
 
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createProductionOrderSchema } from "@/lib/schemas/production";
 import {
-  isInactiveLocation,
-  isRiskyOutputLocation,
   recommendedOutputHint,
-  resolveOutputLocationId as resolveOutputLoc,
-  resolveSourceLocationId as resolveSourceLoc,
   stageLabelId,
+  resolveOutputLocationId,
+  stageFromBomCategory,
   type LocationLike,
   type ProductionStage,
 } from "@/lib/locations/resolve-location";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, Factory, ArrowRightLeft } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { useState, useMemo, useEffect } from "react";
-import { cn } from "@/lib/utils/utils";
-import { format } from "date-fns";
-import {
-  createProductionOrder,
-  getBomWithInventory,
-} from "@/actions/production/production";
+import { Form } from "@/components/ui/form";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { formatLocalDate } from "@/lib/dates/parse-local-date";
+import { createProductionOrder } from "@/actions/production/production";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  formatProductionQuantity,
-  getProductionUnitMeta,
-  toBaseQuantity,
-} from "@/lib/utils/production-units";
+import { toBaseQuantity } from "@/lib/utils/production-units";
 import { Unit } from "@prisma/client";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { z } from "zod";
+
+// Hooks
+import { usePlanningIntent } from "./hooks/use-planning-intent";
+import { useBomMaterialPreview } from "./hooks/use-bom-material-preview";
+import { useCompatibleMachines } from "./hooks/use-compatible-machines";
+import { useCreateSpkDefaults } from "./hooks/use-create-spk-defaults";
+
+// Components
+import { CreateSpkStepper, type StepNumber } from "./components/create-spk-stepper";
+import { StageProductSection } from "./components/stage-product-section";
+import { PlanningQuantitySection } from "./components/planning-quantity-section";
+import { LocationFlowCard } from "./components/location-flow-card";
+import { MaklonSection } from "./components/maklon-section";
+import { OrderMetaSection } from "./components/order-meta-section";
+import { MaterialPreviewPanel } from "./components/material-preview-panel";
+import { ReviewCommitSection } from "./components/review-commit-section";
+import { RiskyOutputConfirmDialog } from "./components/risky-output-confirm-dialog";
 
 export interface ProductionOrderFormProps {
   locations: {
@@ -84,114 +60,58 @@ export interface ProductionOrderFormProps {
       primaryUnit: string;
       salesUnit?: string | null;
       conversionFactor?: number;
-      product: {
-        productType: string;
-      };
+      product: { productType: string };
     };
-    items: {
-      productVariantId: string;
-      quantity: number;
-    }[];
+    items: { productVariantId: string; quantity: number }[];
     salesOrderId?: string;
   }[];
   customers?: { id: string; name: string }[];
+  rawMaterials?: { id: string; name: string; primaryUnit: string }[];
   salesOrderId?: string;
+  variantId?: string;
+  qtyHint?: number;
+  priorityHint?: "URGENT" | "NORMAL" | "LOW";
 }
 
-interface MaterialRequirement {
-  productVariantId: string;
-  name: string;
-  unit: string;
-  stdQty: number; // Original BOM Qty
-  bomOutput: number; // Original BOM Output
-  requiredQty: number; // Calculated
-  currentStock: number;
-}
-
-type BomWithInventoryResult =
-  | {
-      success: true;
-      data: MaterialRequirement[];
-      meta?: {
-        suggestedSourceLocationId?: string | null;
-        suggestedSourceLocationName?: string | null;
-      };
-    }
-  | { success: false; error?: string };
-
-// Use schema directly from zod-schemas
 const formSchema = createProductionOrderSchema;
-
 type FormValues = z.infer<typeof formSchema>;
+
+/** Build a materialInfo-like map from rawMaterials prop for ad-hoc lines */
+function buildRawMaterialMeta(rawMaterials: { id: string; name: string; primaryUnit: string }[]) {
+  const map: Record<string, { productVariantId: string; name: string; unit: string; stdQty: number; bomOutput: number; currentStock: number }> = {};
+  for (const rm of rawMaterials) {
+    map[rm.id] = { productVariantId: rm.id, name: rm.name, unit: rm.primaryUnit, stdQty: 0, bomOutput: 0, currentStock: 0 };
+  }
+  return map;
+}
 
 export function ProductionOrderForm({
   boms,
   machines,
   locations,
   customers = [],
+  rawMaterials = [],
   salesOrderId,
+  variantId,
+  qtyHint,
+  priorityHint,
 }: ProductionOrderFormProps) {
   const router = useRouter();
+  const [step, setStep] = useState<StepNumber>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [processType, setProcessType] = useState<
-    "mixing" | "extrusion" | "packing" | "rework"
-  >("mixing");
-  const [selectedProductVariantId, setSelectedProductVariantId] =
-    useState<string>("");
-  const [isCalculating, setIsCalculating] = useState(false);
+  const [stage, setStage] = useState<ProductionStage>("mixing");
+  const [selectedProductVariantId, setSelectedProductVariantId] = useState("");
+  const [outputManuallyOverridden, setOutputManuallyOverridden] = useState(false);
+  const [riskyConfirmed, setRiskyConfirmed] = useState(false);
+  const [showRiskyDialog, setShowRiskyDialog] = useState(false);
+  const [sourceOverrideId, setSourceOverrideId] = useState<string | null>(null);
 
-  // For storing extra info about materials that isn't in the form state
-  const [materialInfo, setMaterialInfo] = useState<
-    Record<string, Omit<MaterialRequirement, "requiredQty">>
-  >({});
+  // P1: Track qtyHint for prefill
+  const qtyHintRef = useRef(qtyHint);
+  // P2: Dirty flag — prevent preview seed from overwriting user edits
+  const itemsDirtyRef = useRef(false);
 
-  // Extract unique products that have BOMs
-  const availableProducts = useMemo(() => {
-    const products = new Map();
-    boms.forEach((bom) => {
-      if (!products.has(bom.productVariantId)) {
-        products.set(bom.productVariantId, {
-          id: bom.productVariantId,
-          name: bom.productVariant.name,
-          unit: bom.productVariant.primaryUnit,
-          productType: bom.productVariant.product.productType,
-        });
-      }
-    });
-
-    const allProducts = Array.from(products.values());
-
-    // Filter based on Process Type
-    return allProducts.filter((p) => {
-      const productBoms = boms.filter((b) => b.productVariantId === p.id);
-      if (processType === "mixing") {
-        return productBoms.some((b) => b.category === "MIXING");
-      }
-      if (processType === "extrusion") {
-        return productBoms.some((b) => b.category === "EXTRUSION");
-      }
-      if (processType === "packing") {
-        return productBoms.some((b) => b.category === "PACKING");
-      }
-      if (processType === "rework") {
-        return productBoms.some((b) => b.category === "REWORK");
-      }
-      return true;
-    });
-  }, [boms, processType]);
-
-  // Filter BOMs based on selected product
-  const availableBoms = useMemo(() => {
-    if (!selectedProductVariantId) return [];
-    return boms.filter(
-      (bom) => bom.productVariantId === selectedProductVariantId,
-    );
-  }, [boms, selectedProductVariantId]);
-
-  const locationLikes = useMemo(
-    () => locations as LocationLike[],
-    [locations],
-  );
+  const locationLikes = useMemo(() => locations as LocationLike[], [locations]);
 
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,1103 +120,610 @@ export function ProductionOrderForm({
       plannedQuantity: 0,
       plannedStartDate: new Date(),
       items: [],
-      locationId: resolveOutputLoc(locationLikes, "mixing", false),
+      locationId: "",
       bomId: "",
       machineId: "",
       salesOrderId: salesOrderId || "",
       notes: "",
       isMaklon: false,
       estimatedConversionCost: 0,
+      priority: "NORMAL",
     },
   });
 
-  // Materials Array
-  const { fields: materialFields, replace: replaceMaterials } = useFieldArray({
-    control: form.control,
-    name: "items",
-  });
-
-  // Flexible BOM Logic
+  // Watched values
   const watchBomId = useWatch({ control: form.control, name: "bomId" });
-  const watchPlannedQty = useWatch({
-    control: form.control,
-    name: "plannedQuantity",
-  });
-  const watchItems = useWatch({ control: form.control, name: "items" });
+  const watchPlannedQty = useWatch({ control: form.control, name: "plannedQuantity" });
   const watchIsMaklon = useWatch({ control: form.control, name: "isMaklon" });
-  const watchLocationId = useWatch({
-    control: form.control,
-    name: "locationId",
+  const watchLocationId = useWatch({ control: form.control, name: "locationId" });
+  const watchMachineId = useWatch({ control: form.control, name: "machineId" });
+  const watchStartDate = useWatch({ control: form.control, name: "plannedStartDate" });
+  const watchPriority = useWatch({ control: form.control, name: "priority" });
+  const watchMaklonCustomerId = useWatch({ control: form.control, name: "maklonCustomerId" });
+  const watchPlannedEndDate = useWatch({ control: form.control, name: "plannedEndDate" });
+  const watchItems = useWatch({ control: form.control, name: "items" });
+
+  // Location defaults hook
+  const {
+    sourceLocationId: defaultSourceId,
+    outputLocationId,
+    activeLocations,
+    isRiskyOutput,
+    isRecommendedOutput,
+  } = useCreateSpkDefaults({
+    locations: locationLikes,
+    stage,
+    isMaklon: !!watchIsMaklon,
   });
 
-  const recommendedOutputId = useMemo(
-    () => resolveOutputLoc(locationLikes, processType, !!watchIsMaklon),
-    [locationLikes, processType, watchIsMaklon],
-  );
-
-  const activeLocations = useMemo(
-    () => locationLikes.filter((l) => !isInactiveLocation(l)),
-    [locationLikes],
-  );
-
-  const selectedOutputLoc = useMemo(
-    () => locationLikes.find((l) => l.id === watchLocationId),
-    [locationLikes, watchLocationId],
-  );
-  const outputIsRisky = isRiskyOutputLocation(selectedOutputLoc);
-  const outputIsRecommended =
-    !!watchLocationId &&
-    !!recommendedOutputId &&
-    watchLocationId === recommendedOutputId;
-
-  const [planningMode, setPlanningMode] = useState<
-    "weight" | "sales" | "batch"
-  >("weight");
-  const [batchCount, setBatchCount] = useState<number>(1);
-  const [enteredTargetQty, setEnteredTargetQty] = useState<number>(0);
-
-  // Update Planned Qty when Batch Count or BOM changes in Batch Mode
-  useEffect(() => {
-    if (planningMode === "batch" && watchBomId) {
-      const bom = boms.find((b) => b.id === watchBomId);
-      if (bom) {
-        const totalQty = Number(bom.outputQuantity) * batchCount;
-        form.setValue("plannedQuantity", totalQty);
-      }
-    }
-  }, [planningMode, batchCount, watchBomId, boms, form]);
-
-  useEffect(() => {
-    if (planningMode === "sales" && watchBomId) {
-      const bom = boms.find((b) => b.id === watchBomId);
-      if (bom) {
-        const meta = getProductionUnitMeta(bom.productVariant);
-        form.setValue(
-          "plannedQuantity",
-          toBaseQuantity(Number(enteredTargetQty || 0), meta.conversionFactor),
-        );
-      }
-    }
-  }, [planningMode, enteredTargetQty, watchBomId, boms, form]);
-
-  const resolveSourceLocationId = (
-    stage: ProductionStage,
-    isMaklonMode: boolean,
-  ) => resolveSourceLoc(locationLikes, stage, isMaklonMode);
-
-  const resolveOutputLocationId = (
-    stage: ProductionStage,
-    isMaklonMode: boolean,
-  ) => resolveOutputLoc(locationLikes, stage, isMaklonMode);
-
-  const [materialSourceLocationId, setMaterialSourceLocationId] =
-    useState<string>(() => resolveSourceLoc(locationLikes, "mixing", false));
-  const [outputManuallyOverridden, setOutputManuallyOverridden] =
-    useState(false);
-  const [suggestedSource, setSuggestedSource] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-
-  const sourceLocationName =
-    locations.find((l) => l.id === materialSourceLocationId)?.name || "—";
-  const recommendedOutputName =
-    locations.find((l) => l.id === recommendedOutputId)?.name ||
-    recommendedOutputHint(processType);
-
-  // Effect to calculate requirements
-  useEffect(() => {
-    const calculate = async () => {
-      if (
-        watchBomId &&
-        Number(watchPlannedQty) > 0 &&
-        materialSourceLocationId
-      ) {
-        setIsCalculating(true);
-        const result = (await getBomWithInventory(
-          watchBomId,
-          materialSourceLocationId,
-          Number(watchPlannedQty),
-        )) as BomWithInventoryResult;
-        setIsCalculating(false);
-
-        if (result.success && result.data) {
-          // Update form fields
-          const newItems = (result.data as MaterialRequirement[]).map(
-            (item) => ({
-              productVariantId: item.productVariantId,
-              quantity: item.requiredQty,
-            }),
-          );
-
-          replaceMaterials(newItems);
-
-          // Store metadata for display
-          const infoMap: Record<
-            string,
-            Omit<MaterialRequirement, "requiredQty">
-          > = {};
-          (result.data as MaterialRequirement[]).forEach((item) => {
-            infoMap[item.productVariantId] = {
-              productVariantId: item.productVariantId,
-              name: item.name,
-              unit: item.unit,
-              stdQty: item.stdQty,
-              bomOutput: item.bomOutput,
-              currentStock: item.currentStock,
-            };
-          });
-          setMaterialInfo(infoMap);
-
-          const suggestedId = result.meta?.suggestedSourceLocationId || null;
-          const suggestedName =
-            result.meta?.suggestedSourceLocationName || null;
-          if (
-            suggestedId &&
-            suggestedName &&
-            suggestedId !== materialSourceLocationId
-          ) {
-            setSuggestedSource({ id: suggestedId, name: suggestedName });
-          } else {
-            setSuggestedSource(null);
-          }
-        } else {
-          toast.error("Gagal menghitung resep", {
-            description:
-              (result as { error?: string }).error || "Error tidak diketahui",
-          });
-        }
-      }
-    };
-
-    const timer = setTimeout(() => {
-      calculate();
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timer);
-  }, [watchBomId, watchPlannedQty, materialSourceLocationId, replaceMaterials]);
-
-  // Check for stock issues on manual edits
-  const hasStockIssues = useMemo(() => {
-    let issues = false;
-    const items = watchItems || [];
-    items.forEach((item) => {
-      if (!item) return;
-      const info = materialInfo[item.productVariantId as string];
-      if (info && Number(item.quantity) > info.currentStock) {
-        issues = true;
-      }
-    });
-    return issues;
-  }, [watchItems, materialInfo]);
-
-  // Reset BOM when product changes
-  useEffect(() => {
-    if (selectedProductVariantId) {
-      form.setValue("bomId", "");
-
-      // If there's only one BOM, auto-select it
-      const filtered = boms.filter(
-        (b) => b.productVariantId === selectedProductVariantId,
-      );
-      if (filtered.length === 1) {
-        form.setValue("bomId", filtered[0].id);
-      }
-    }
-  }, [selectedProductVariantId, boms, form]);
-
-  // Available Machines based on Process Type
-  const availableMachines = useMemo(() => {
-    return machines.filter((m) => {
-      if (processType === "mixing") return m.type === "MIXER";
-      if (processType === "extrusion")
-        return m.type === "EXTRUDER" || m.type === "REWINDER";
-      if (processType === "packing")
-        return m.type === "PACKER" || m.type === "GRANULATOR";
-      if (processType === "rework") return true; // Rework is manual, no specific machine
-      return true;
-    });
-  }, [machines, processType]);
+  const effectiveSourceId = sourceOverrideId ?? defaultSourceId;
 
   const selectedBom = boms.find((b) => b.id === watchBomId);
-  const selectedBomUnit = selectedBom
-    ? getProductionUnitMeta(selectedBom.productVariant)
-    : null;
+  const bomOutputQty = selectedBom?.outputQuantity || 0;
 
-  const handleStageChange = (
-    nextStage: "mixing" | "extrusion" | "packing" | "rework",
-  ) => {
-    setProcessType(nextStage);
-    setMaterialSourceLocationId(
-      resolveSourceLocationId(nextStage, !!watchIsMaklon),
-    );
-    form.setValue(
-      "locationId",
-      resolveOutputLocationId(nextStage, !!watchIsMaklon),
-    );
+  const planning = usePlanningIntent({
+    bomOutputQty,
+    productVariant: selectedBom?.productVariant || {},
+    baseQty: (watchPlannedQty as number) || 0,
+  });
+
+  // Material preview — used ONLY for seeding form.items + materialInfo + suggestion
+  const materialPreview = useBomMaterialPreview({
+    bomId: (watchBomId as string) || "",
+    sourceLocationId: effectiveSourceId,
+    plannedQty: getEffectiveQty(),
+    debounceMs: 500,
+  });
+
+  const compatibleMachines = useCompatibleMachines(machines, stage);
+
+  // Derived
+  const products = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    boms.forEach((bom) => {
+      if (!map.has(bom.productVariantId)) {
+        map.set(bom.productVariantId, {
+          id: bom.productVariantId,
+          name: bom.productVariant.name,
+        });
+      }
+    });
+    return Array.from(map.values()).filter((p) => {
+      const productBoms = boms.filter((b) => b.productVariantId === p.id);
+      return productBoms.some((b) => {
+        if (stage === "mixing") return b.category === "MIXING";
+        if (stage === "extrusion") return b.category === "EXTRUSION" || b.category === "STANDARD";
+        if (stage === "packing") return b.category === "PACKING";
+        if (stage === "rework") return b.category === "REWORK";
+        return true;
+      });
+    });
+  }, [boms, stage]);
+
+  const availableBoms = useMemo(() => {
+    if (!selectedProductVariantId) return [];
+    return boms.filter((b) => {
+      if (b.productVariantId !== selectedProductVariantId) return false;
+      if (stage === "mixing") return b.category === "MIXING";
+      if (stage === "extrusion") return b.category === "EXTRUSION" || b.category === "STANDARD";
+      if (stage === "packing") return b.category === "PACKING";
+      if (stage === "rework") return b.category === "REWORK";
+      return true;
+    });
+  }, [boms, selectedProductVariantId, stage]);
+
+  const outputIsRisky = isRiskyOutput(watchLocationId as string);
+  const outputIsRecommended = isRecommendedOutput(watchLocationId as string);
+  const sourceLocationName = locations.find((l) => l.id === effectiveSourceId)?.name || "—";
+  const recommendedOutputName = locations.find((l) => l.id === outputLocationId)?.name || recommendedOutputHint(stage);
+
+  function getEffectiveQty(): number {
+    if (planning.planningMode === "batch" && bomOutputQty > 0) {
+      return planning.batchCount * bomOutputQty;
+    }
+    if (planning.planningMode === "sales" && planning.unitMeta.hasAlternateUnit) {
+      return toBaseQuantity(planning.enteredTargetQty, planning.unitMeta.conversionFactor);
+    }
+    return (watchPlannedQty as number) || 0;
+  }
+
+  // ── P0: Single source of truth ────────────────────────────────────
+  // Seed form.items from preview when it settles, but only if user hasn't edited
+  useEffect(() => {
+    if (!materialPreview.isCalculating && materialPreview.items.length > 0 && !itemsDirtyRef.current) {
+      form.setValue("items", materialPreview.items);
+    }
+  }, [materialPreview.items, materialPreview.isCalculating, form]);
+
+  // Clear items when preview empties (e.g., bomId cleared)
+  useEffect(() => {
+    if (!materialPreview.isCalculating && materialPreview.items.length === 0 && watchBomId) {
+      form.setValue("items", []);
+      itemsDirtyRef.current = false;
+    }
+  }, [materialPreview.isCalculating, materialPreview.items.length, watchBomId, form]);
+
+  // Reset dirty flag when effective qty changes (batch/sales mode too)
+  const effectiveQtyForSeed = useMemo(() => {
+    if (planning.planningMode === "batch" && bomOutputQty > 0) {
+      return planning.batchCount * bomOutputQty;
+    }
+    if (planning.planningMode === "sales" && planning.unitMeta.hasAlternateUnit) {
+      return toBaseQuantity(planning.enteredTargetQty, planning.unitMeta.conversionFactor);
+    }
+    return (watchPlannedQty as number) || 0;
+  }, [planning.planningMode, planning.batchCount, planning.enteredTargetQty, planning.unitMeta, bomOutputQty, watchPlannedQty]);
+  useEffect(() => {
+    itemsDirtyRef.current = false;
+  }, [watchBomId, effectiveQtyForSeed, effectiveSourceId]);
+
+  // Display items: form items (edited) if available, else preview
+  const displayItems = useMemo(() => {
+    const formItems = (watchItems as { productVariantId: string; quantity: number }[] | undefined) || [];
+    if (formItems.length > 0) return formItems;
+    return materialPreview.items;
+  }, [watchItems, materialPreview.items]);
+
+  // Merged materialInfo: preview info + rawMaterials metadata for ad-hoc lines
+  const mergedMaterialInfo = useMemo(() => {
+    const rmMeta = buildRawMaterialMeta(rawMaterials);
+    return { ...rmMeta, ...materialPreview.materialInfo };
+  }, [rawMaterials, materialPreview.materialInfo]);
+
+  // Stock issues: only for BOM-sourced items (have inventory snapshot in preview)
+  const hasStockIssues = useMemo(() => {
+    return displayItems.some((item) => {
+      const fromBom = materialPreview.materialInfo[item.productVariantId];
+      if (!fromBom) return false; // ad-hoc line, no inventory snapshot
+      return item.quantity > fromBom.currentStock; // 0 stock → true shortage
+    });
+  }, [displayItems, materialPreview.materialInfo]);
+
+  // ── Effects ─────────────────────────────────────────────────────
+
+  // Auto-select product if only one available
+  useEffect(() => {
+    if (!selectedProductVariantId && products.length === 1) {
+      setSelectedProductVariantId(products[0].id);
+    }
+  }, [products, selectedProductVariantId]);
+
+  // Auto-select BOM if only one available
+  useEffect(() => {
+    if (selectedProductVariantId && !watchBomId && availableBoms.length === 1) {
+      form.setValue("bomId", availableBoms[0].id);
+    }
+  }, [selectedProductVariantId, watchBomId, availableBoms, form]);
+
+  // Set default output location when empty
+  useEffect(() => {
+    if (outputLocationId && !watchLocationId) {
+      form.setValue("locationId", outputLocationId);
+    }
+  }, [outputLocationId, watchLocationId, form]);
+
+  // Reset risky confirmed when output changes
+  useEffect(() => {
+    setRiskyConfirmed(false);
+  }, [watchLocationId]);
+
+  // P1: Prefill from demand board — resolve stage from BOM category
+  useEffect(() => {
+    if (!variantId) return;
+    // Find default BOM for this variant to determine stage
+    const variantBoms = boms.filter((b) => b.productVariantId === variantId);
+    if (variantBoms.length > 0) {
+      // Prefer default BOM, else first
+      const defaultBom = variantBoms.find((b) => b.isDefault) || variantBoms[0];
+      const mappedStage = stageFromBomCategory(defaultBom.category);
+      setStage(mappedStage);
+      setSelectedProductVariantId(variantId);
+      // Auto-select the BOM
+      form.setValue("bomId", defaultBom.id);
+      // Re-resolve output for the mapped stage
+      const newOutput = resolveOutputLocationId(locationLikes, mappedStage, false);
+      form.setValue("locationId", newOutput);
+    } else {
+      // No BOM found, just set product
+      setSelectedProductVariantId(variantId);
+    }
+  }, [variantId, boms, locationLikes, form]);
+
+  // P1: Apply qtyHint — after BOM selected (if variantId) or immediately (standalone)
+  useEffect(() => {
+    if (qtyHintRef.current && qtyHintRef.current > 0) {
+      if (variantId && !watchBomId) return; // Wait for BOM from variant prefill
+      form.setValue("plannedQuantity", qtyHintRef.current);
+      qtyHintRef.current = 0; // Apply once
+    }
+  }, [form, watchBomId, variantId]);
+
+  useEffect(() => {
+    if (priorityHint) {
+      form.setValue("priority", priorityHint);
+    }
+  }, [priorityHint, form]);
+
+  // ── Handlers ────────────────────────────────────────────────────
+
+  const handleStageChange = useCallback((nextStage: ProductionStage) => {
+    setStage(nextStage);
     setOutputManuallyOverridden(false);
+    setSourceOverrideId(null);
     setSelectedProductVariantId("");
-    form.setValue("items", []);
     form.setValue("bomId", "");
     form.setValue("plannedQuantity", 0);
-    setEnteredTargetQty(0);
-    setPlanningMode("weight");
     form.setValue("machineId", "");
-    setMaterialInfo({});
-    setSuggestedSource(null);
-  };
-
-  const applyRecommendedOutput = () => {
-    const id = resolveOutputLocationId(processType, !!watchIsMaklon);
-    if (id) {
-      form.setValue("locationId", id);
-      setOutputManuallyOverridden(false);
+    form.setValue("items", []);
+    itemsDirtyRef.current = false;
+    // Re-apply qtyHint if still pending
+    if (qtyHintRef.current && qtyHintRef.current > 0) {
+      form.setValue("plannedQuantity", qtyHintRef.current);
     }
-  };
+    const newOutput = resolveOutputLocationId(locationLikes, nextStage, !!watchIsMaklon);
+    form.setValue("locationId", newOutput);
+    planning.reset();
+  }, [locationLikes, watchIsMaklon, form, planning]);
 
-  async function onSubmit(data: FormValues) {
+  const handleMaklonChange = useCallback((checked: boolean) => {
+    form.setValue("isMaklon", checked);
+    setSourceOverrideId(null);
+    setOutputManuallyOverridden(false);
+    const newOutput = resolveOutputLocationId(locationLikes, stage, checked);
+    form.setValue("locationId", newOutput);
+  }, [locationLikes, stage, form]);
+
+  const handleProductChange = useCallback((id: string) => {
+    setSelectedProductVariantId(id);
+    form.setValue("bomId", ""); // P3: Clear BOM when product changes
+    planning.setEnteredTargetQty(0);
+    planning.setPlanningMode("weight");
+  }, [form, planning]);
+
+  const handleBomChange = useCallback((id: string) => {
+    form.setValue("bomId", id);
+    planning.setEnteredTargetQty(0);
+  }, [form, planning]);
+
+  const handleOutputLocationChange = useCallback((val: string) => {
+    form.setValue("locationId", val);
+    setOutputManuallyOverridden(val !== outputLocationId);
+  }, [form, outputLocationId]);
+
+  const handleResetToDefault = useCallback(() => {
+    form.setValue("locationId", outputLocationId);
+    setOutputManuallyOverridden(false);
+  }, [form, outputLocationId]);
+
+  const handleAcceptSuggestedSource = useCallback(() => {
+    const id = materialPreview.acceptSuggestedSource();
+    if (id) {
+      setSourceOverrideId(id);
+    }
+  }, [materialPreview]);
+
+  // C1: Editable material handlers — all operate on form.items, mark dirty
+  const handleItemQtyChange = useCallback((productVariantId: string, newQty: number) => {
+    const current = (form.getValues("items") || []) as { productVariantId: string; quantity: number }[];
+    const updated = current.map((i) =>
+      i.productVariantId === productVariantId ? { ...i, quantity: newQty } : i,
+    );
+    form.setValue("items", updated);
+    itemsDirtyRef.current = true;
+  }, [form]);
+
+  const handleAddItem = useCallback((productVariantId: string, qty: number) => {
+    const current = (form.getValues("items") || []) as { productVariantId: string; quantity: number }[];
+    form.setValue("items", [...current, { productVariantId, quantity: qty }]);
+    itemsDirtyRef.current = true;
+  }, [form]);
+
+  const handleRemoveItem = useCallback((productVariantId: string) => {
+    const current = (form.getValues("items") || []) as { productVariantId: string; quantity: number }[];
+    form.setValue(
+      "items",
+      current.filter((i) => i.productVariantId !== productVariantId),
+    );
+    itemsDirtyRef.current = true;
+  }, [form]);
+
+  // ── Shared submit logic (P2: no closure issues) ─────────────────
+
+  const doSubmit = useCallback(async (riskAck = false) => {
+    // Inline qty calculation to avoid getEffectiveQty closure dependency
+    let effectiveQty = 0;
+    if (planning.planningMode === "batch" && bomOutputQty > 0) {
+      effectiveQty = planning.batchCount * bomOutputQty;
+    } else if (planning.planningMode === "sales" && planning.unitMeta.hasAlternateUnit) {
+      effectiveQty = toBaseQuantity(planning.enteredTargetQty, planning.unitMeta.conversionFactor);
+    } else {
+      effectiveQty = (form.getValues("plannedQuantity") as number) || 0;
+    }
+
+    if (!effectiveQty || effectiveQty <= 0) {
+      toast.warning("Target produksi harus lebih dari 0");
+      return;
+    }
+
+    if (materialPreview.isCalculating) {
+      toast.warning("Tunggu perhitungan bahan selesai");
+      return;
+    }
+
+    if (outputIsRisky && !riskAck) {
+      setShowRiskyDialog(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const formItems = (form.getValues("items") || []) as { productVariantId: string; quantity: number }[];
+
       const response = await createProductionOrder({
-        ...data,
-        locationId: data.locationId, // Ensure hidden field value is passed
-        plannedQuantity:
-          planningMode === "batch" && selectedBom
-            ? batchCount * Number(selectedBom.outputQuantity)
-            : planningMode === "sales" && selectedBomUnit
-              ? toBaseQuantity(
-                  Number(enteredTargetQty || 0),
-                  selectedBomUnit.conversionFactor,
-                )
-              : data.plannedQuantity,
+        ...form.getValues(),
+        locationId: form.getValues("locationId"),
+        materialSourceLocationId: effectiveSourceId || undefined,
+        plannedQuantity: effectiveQty,
         plannedEnteredQuantity:
-          planningMode === "sales" && selectedBomUnit
-            ? Number(enteredTargetQty || 0)
+          planning.planningMode === "sales" && planning.unitMeta.hasAlternateUnit
+            ? planning.enteredTargetQty
             : undefined,
         plannedEnteredUnit:
-          planningMode === "sales" && selectedBomUnit
-            ? (selectedBomUnit.salesUnit as Unit)
+          planning.planningMode === "sales" && planning.unitMeta.hasAlternateUnit
+            ? (planning.unitMeta.salesUnit as Unit)
             : undefined,
         plannedConversionFactorSnapshot:
-          planningMode === "sales" && selectedBomUnit
-            ? selectedBomUnit.conversionFactor
+          planning.planningMode === "sales" && planning.unitMeta.hasAlternateUnit
+            ? planning.unitMeta.conversionFactor
             : undefined,
+        // P0: Always use form items (edited truth)
+        items: formItems,
+        createPath: salesOrderId ? "sales_order" : variantId ? "demand_board" : "manual",
       });
-
-      setIsSubmitting(false);
 
       if (!response.success) {
         toast.error("Gagal membuat SPK", {
-          description:
-            response.error || "Silakan periksa data dan coba lagi",
+          description: response.error || "Silakan periksa data dan coba lagi",
         });
         return;
       }
 
       if (response.data) {
-        toast.success("Work Order berhasil dibuat", {
-          description: `Order ${response.data.orderNumber} berhasil dibuat.`,
+        const serverStatus = (response.data as { status?: string }).status;
+        const statusLabel =
+          serverStatus === "WAITING_MATERIAL" ? "Menunggu Bahan" : "DRAFT";
+        toast.success(`SPK ${response.data.orderNumber} berhasil dibuat`, {
+          description: `Status: ${statusLabel}`,
         });
         router.push(`/production/orders/${response.data.id}`);
       }
     } catch {
-      setIsSubmitting(false);
       toast.error("Gagal membuat SPK. Silakan coba lagi.");
+    } finally {
+      setIsSubmitting(false);
     }
+  }, [materialPreview.isCalculating, outputIsRisky, effectiveSourceId, planning, bomOutputQty, salesOrderId, variantId, router, form]);
+
+  function onSubmit() {
+    doSubmit(riskyConfirmed);
   }
+
+  // Step validation
+  const canAdvanceFromStep1 = !!watchBomId && getEffectiveQty() > 0;
+  const canAdvanceFromStep2 =
+    !!watchLocationId &&
+    (!watchIsMaklon || !!watchMaklonCustomerId);
+
+  // P2: Risky dialog confirm — no setTimeout, direct call
+  const handleRiskyConfirm = useCallback(() => {
+    setRiskyConfirmed(true);
+    setShowRiskyDialog(false);
+    doSubmit(true);
+  }, [doSubmit]);
+
+  // Shared material preview panel
+  const materialPanel = (
+    <MaterialPreviewPanel
+      sourceLocationName={sourceLocationName}
+      items={displayItems}
+      materialInfo={mergedMaterialInfo}
+      suggestedSource={materialPreview.suggestedSource}
+      isCalculating={materialPreview.isCalculating}
+      hasStockIssues={hasStockIssues}
+      onAcceptSuggestedSource={handleAcceptSuggestedSource}
+      editable={step === 3}
+      rawMaterials={rawMaterials}
+      onItemQtyChange={handleItemQtyChange}
+      onAddItem={handleAddItem}
+      onRemoveItem={handleRemoveItem}
+    />
+  );
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Specifications & Logistics */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Card 1: Stage + recipe + machine */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Spesifikasi Produksi</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <FormLabel>Stage Produksi</FormLabel>
-                  <div className="flex rounded-md shadow-sm">
-                    <Button
-                      type="button"
-                      variant={processType === "mixing" ? "default" : "outline"}
-                      className="rounded-r-none h-9 flex-1 text-xs"
-                      onClick={() => handleStageChange("mixing")}
-                    >
-                      Mixing
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={
-                        processType === "extrusion" ? "default" : "outline"
-                      }
-                      className="rounded-none h-9 flex-1 text-xs border-l-0"
-                      onClick={() => handleStageChange("extrusion")}
-                    >
-                      Extrusion
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={
-                        processType === "packing" ? "default" : "outline"
-                      }
-                      className="rounded-none h-9 flex-1 text-xs border-l-0"
-                      onClick={() => handleStageChange("packing")}
-                    >
-                      Packing
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={processType === "rework" ? "default" : "outline"}
-                      className="rounded-l-none h-9 flex-1 text-xs border-l-0"
-                      onClick={() => handleStageChange("rework")}
-                    >
-                      Rework
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Stage: <span className="font-medium text-foreground">{stageLabelId(processType)}</span>
-                    {" · "}
-                    Default output: {recommendedOutputHint(processType)}
-                  </p>
-                </div>
+        <CreateSpkStepper currentStep={step} />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormItem>
-                    <FormLabel>Produk</FormLabel>
-                    <Select
-                      value={selectedProductVariantId}
-                      onValueChange={(value) => {
-                        setSelectedProductVariantId(value);
-                        setSuggestedSource(null);
-                        setEnteredTargetQty(0);
-                        setPlanningMode("weight");
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih produk" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {availableProducts.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-
-                  <FormField
-                    control={form.control}
-                    name="bomId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Resep / BOM</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            setEnteredTargetQty(0);
-                            const nextBom = boms.find(
-                              (bom) => bom.id === value,
-                            );
-                            if (
-                              !getProductionUnitMeta(
-                                nextBom?.productVariant || {},
-                              ).hasAlternateUnit
-                            ) {
-                              setPlanningMode("weight");
-                            }
-                          }}
-                          value={field.value}
-                          disabled={!selectedProductVariantId}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue
-                                placeholder={
-                                  !selectedProductVariantId
-                                    ? "Pilih produk dulu"
-                                    : "Pilih resep"
-                                }
-                              />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {availableBoms.map((bom) => (
-                              <SelectItem key={bom.id} value={bom.id}>
-                                {bom.name} {bom.isDefault ? "(Default)" : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {selectedBom && (
-                          <FormDescription>
-                            Output: {selectedBom.outputQuantity}{" "}
-                            {selectedBom.productVariant.primaryUnit} / batch
-                          </FormDescription>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="machineId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mesin / Work Center</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih mesin" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {availableMachines.map((m) => (
-                              <SelectItem key={m.id} value={m.id}>
-                                {m.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="plannedStartDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Tanggal Mulai</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="date"
-                            value={
-                              field.value
-                                ? format(field.value, "yyyy-MM-dd")
-                                : ""
-                            }
-                            onChange={(e) =>
-                              field.onChange(new Date(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Material flow: source (info) → output (editable) */}
-                <div
-                  className={cn(
-                    "rounded-lg border p-4 space-y-3",
-                    outputIsRisky
-                      ? "border-destructive/40 bg-destructive/5"
-                      : "border-border bg-muted/30",
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">Alur material</h3>
-                    {outputIsRecommended ? (
-                      <Badge variant="secondary" className="text-[10px]">
-                        Disarankan
-                      </Badge>
-                    ) : outputManuallyOverridden || !outputIsRecommended ? (
-                      <Badge variant="outline" className="text-[10px]">
-                        Diubah manual
-                      </Badge>
-                    ) : null}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">
-                        Asal bahan (cek stok)
-                      </Label>
-                      <div className="flex h-10 items-center rounded-md border bg-background px-3 text-sm">
-                        {sourceLocationName}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Dipakai untuk cek ketersediaan material. Bukan tujuan transfer staging.
-                      </p>
-                    </div>
-                    <div className="hidden sm:flex items-center justify-center pb-6 text-muted-foreground">
-                      <ArrowRightLeft className="h-4 w-4" />
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="locationId"
-                      render={({ field }) => (
-                        <FormItem className="space-y-1.5">
-                          <FormLabel className="text-xs">
-                            Output / staging (lokasi WO)
-                          </FormLabel>
-                          <Select
-                            value={field.value || ""}
-                            onValueChange={(val) => {
-                              field.onChange(val);
-                              setOutputManuallyOverridden(
-                                val !== recommendedOutputId,
-                              );
-                            }}
-                          >
-                            <FormControl>
-                              <SelectTrigger
-                                className={cn(
-                                  outputIsRisky &&
-                                    "border-destructive text-destructive focus:ring-destructive",
-                                )}
-                              >
-                                <SelectValue placeholder="Pilih lokasi output" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {activeLocations.map((l) => (
-                                <SelectItem key={l.id} value={l.id}>
-                                  {l.name}
-                                  {l.id === recommendedOutputId
-                                    ? " · disarankan"
-                                    : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription className="text-[10px]">
-                            Default stage {stageLabelId(processType)}:{" "}
-                            <span className="font-medium text-foreground">
-                              {recommendedOutputName}
-                            </span>
-                            {!outputIsRecommended && recommendedOutputId && (
-                              <>
-                                {" · "}
-                                <button
-                                  type="button"
-                                  className="underline underline-offset-2 text-primary"
-                                  onClick={applyRecommendedOutput}
-                                >
-                                  Kembalikan ke default
-                                </button>
-                              </>
-                            )}
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {outputIsRisky && (
-                    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                      <span>
-                        Lokasi output ini gudang bahan baku atau nonaktif.
-                        Transfer material staging akan gagal (asal = tujuan) dan
-                        backflush bisa salah. Pilih WIP / FG / packing area.
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Planning Method */}
-                  <div className="space-y-3">
-                    <FormLabel>Planning Method</FormLabel>
-                    <div className="flex rounded-md shadow-sm">
-                      <Button
-                        type="button"
-                        variant={
-                          planningMode === "weight" ? "default" : "outline"
-                        }
-                        className="rounded-r-none h-9 flex-1 text-xs"
-                        onClick={() => setPlanningMode("weight")}
-                      >
-                        By {selectedBomUnit?.primaryUnit || "Base"}
-                      </Button>
-                      {selectedBomUnit?.hasAlternateUnit && (
-                        <Button
-                          type="button"
-                          variant={
-                            planningMode === "sales" ? "default" : "outline"
-                          }
-                          className="rounded-none h-9 flex-1 text-xs border-l-0"
-                          onClick={() => setPlanningMode("sales")}
-                        >
-                          By {selectedBomUnit.salesUnit}
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        variant={
-                          planningMode === "batch" ? "default" : "outline"
-                        }
-                        className="rounded-l-none h-9 flex-1 text-xs border-l-0"
-                        onClick={() => setPlanningMode("batch")}
-                      >
-                        By Batch
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Target Weight / Batch Input */}
-                  <div className="flex flex-col justify-end">
-                    {planningMode === "batch" ? (
-                      <FormItem>
-                        <FormLabel>Total Batches</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            value={batchCount.toString()}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "") {
-                                setBatchCount(0);
-                              } else {
-                                setBatchCount(Number(val));
-                              }
-                            }}
-                            min={1}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          {selectedBom
-                            ? `${batchCount} x ${selectedBom.outputQuantity} = ${formatProductionQuantity(Number(selectedBom.outputQuantity) * batchCount, selectedBom.productVariant)}`
-                            : "Select Recipe first"}
-                        </FormDescription>
-                      </FormItem>
-                    ) : planningMode === "sales" && selectedBomUnit ? (
-                      <FormItem>
-                        <FormLabel>
-                          Target Output ({selectedBomUnit.salesUnit})
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={enteredTargetQty.toString()}
-                            onChange={(e) => {
-                              const next =
-                                e.target.value === ""
-                                  ? 0
-                                  : Number(e.target.value);
-                              setEnteredTargetQty(next);
-                              form.setValue(
-                                "plannedQuantity",
-                                toBaseQuantity(
-                                  next,
-                                  selectedBomUnit.conversionFactor,
-                                ),
-                              );
-                            }}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          {enteredTargetQty > 0
-                            ? `Posted internally as ${formatProductionQuantity(toBaseQuantity(enteredTargetQty, selectedBomUnit.conversionFactor), selectedBom?.productVariant || {})}`
-                            : `1 ${selectedBomUnit.salesUnit} = ${selectedBomUnit.conversionFactor} ${selectedBomUnit.primaryUnit}`}
-                        </FormDescription>
-                      </FormItem>
-                    ) : (
-                      <FormField
-                        control={form.control}
-                        name="plannedQuantity"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              Target Output (
-                              {selectedBomUnit?.primaryUnit || "Base Unit"})
-                            </FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    {/* Hidden Planned Qty Display for Batch Mode */}
-                    {planningMode === "batch" && (
-                      <FormField
-                        control={form.control}
-                        name="plannedQuantity"
-                        render={({ field }) => (
-                          <FormItem className="hidden">
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Maklon Service Information */}
-                <div className="pt-4 border-t space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/50">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-md">
-                        <Factory className="h-4 w-4 text-blue-700 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor="is-maklon"
-                          className="font-bold text-sm text-blue-900 dark:text-blue-400 leading-none"
-                        >
-                          Maklon Order
-                        </Label>
-                        <p className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mt-1">
-                          Use this when the customer supplies the materials and
-                          the company charges a conversion or processing
-                          service.
-                        </p>
-                      </div>
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="isMaklon"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Switch
-                              id="is-maklon"
-                              checked={field.value}
-                              onCheckedChange={(checked) => {
-                                field.onChange(checked);
-                                setMaterialSourceLocationId(
-                                  resolveSourceLocationId(processType, checked),
-                                );
-                                form.setValue(
-                                  "locationId",
-                                  resolveOutputLocationId(processType, checked),
-                                );
-                                setOutputManuallyOverridden(false);
-                                setSuggestedSource(null);
-                              }}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {watchIsMaklon && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <FormField
-                        control={form.control}
-                        name="maklonCustomerId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Maklon Customer</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value || ""}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select Customer" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {customers.map((c) => (
-                                  <SelectItem key={c.id} value={c.id}>
-                                    {c.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              Use the same customer that owns the deposited
-                              materials. Material consumption will be recorded
-                              from the selected maklon stage location first,
-                              then fallback to CUSTOMER_OWNED stock when needed.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="estimatedConversionCost"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              Est. Conversion Cost (Service Fee)
-                            </FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
-                                  Rp
-                                </span>
-                                <Input
-                                  type="number"
-                                  className="pl-9"
-                                  {...field}
-                                />
-                              </div>
-                            </FormControl>
-                            <FormDescription>
-                              This is the estimated service fee or conversion
-                              value for the maklon job. It is separate from the
-                              customer-owned material value and supports maklon
-                              profitability tracking.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Priority */}
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prioritas</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value || "NORMAL"}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Pilih prioritas" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="URGENT">🔴 URGENT</SelectItem>
-                          <SelectItem value="NORMAL">🟡 NORMAL</SelectItem>
-                          <SelectItem value="LOW">🟢 LOW</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Notes Field */}
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Add any specific instructions..."
-                          className="resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Hidden Sales Order ID field */}
-            <FormField
-              control={form.control}
-              name="salesOrderId"
-              render={({ field }) => (
-                <FormItem className="hidden">
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end gap-4">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => router.back()}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Create Order
-              </Button>
-            </div>
-
-          </div>
-
-          {/* Right Column: Material Requirements (Sticky) */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6">
+        {/* Step 1: Spesifikasi */}
+        {step === 1 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">
-                    Material Requirements
-                  </CardTitle>
+                <CardHeader>
+                  <CardTitle>Spesifikasi Produksi</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Source:{" "}
-                    {locations.find((l) => l.id === materialSourceLocationId)
-                      ?.name || "Unknown"}
-                  </div>
+                <CardContent className="space-y-6">
+                  <StageProductSection
+                    stage={stage}
+                    onStageChange={handleStageChange}
+                    products={products}
+                    selectedProductId={selectedProductVariantId}
+                    onProductChange={handleProductChange}
+                    boms={availableBoms}
+                    selectedBomId={(watchBomId as string) || ""}
+                    onBomChange={handleBomChange}
+                    selectedBom={selectedBom}
+                    machines={compatibleMachines}
+                    selectedMachineId={(watchMachineId as string) || ""}
+                    onMachineChange={(id) => form.setValue("machineId", id)}
+                    plannedStartDate={(watchStartDate as Date) || new Date()}
+                    onDateChange={(d) => form.setValue("plannedStartDate", d)}
+                    plannedEndDate={watchPlannedEndDate as Date | undefined}
+                    onEndDateChange={(d) => form.setValue("plannedEndDate", d)}
+                  />
 
-                  {suggestedSource && (
-                    <Alert className="py-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle className="text-sm">
-                        Stock found in another warehouse
-                      </AlertTitle>
-                      <AlertDescription className="text-xs flex items-center justify-between gap-3">
-                        <span>
-                          Detected stock in{" "}
-                          <span className="font-medium">
-                            {suggestedSource.name}
-                          </span>
-                          .
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => {
-                            setMaterialSourceLocationId(suggestedSource.id);
-                            setSuggestedSource(null);
-                          }}
-                        >
-                          Use it
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {hasStockIssues && (
-                    <Alert
-                      variant="default"
-                      className="py-2 border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/20"
-                    >
-                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      <AlertTitle className="text-sm text-amber-800 dark:text-amber-400">
-                        Material Shortage
-                      </AlertTitle>
-                      <AlertDescription className="text-xs text-amber-700 dark:text-amber-400">
-                        Order will be created as <b>Waiting Material</b>.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="border rounded-md overflow-hidden max-h-[75vh] overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="h-8 text-xs">Item</TableHead>
-                          <TableHead className="h-8 text-xs w-[80px] text-right">
-                            Req
-                          </TableHead>
-                          <TableHead className="h-8 text-xs w-[80px] text-right">
-                            Stock
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {materialFields.length === 0 && !isCalculating && (
-                          <TableRow>
-                            <TableCell
-                              colSpan={3}
-                              className="text-center text-slate-400 dark:text-slate-300 py-8 text-xs"
-                            >
-                              Select product & qty
-                            </TableCell>
-                          </TableRow>
-                        )}
-
-                        {isCalculating && (
-                          <TableRow>
-                            <TableCell colSpan={3} className="text-center py-8">
-                              <Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-400 dark:text-slate-300" />
-                            </TableCell>
-                          </TableRow>
-                        )}
-
-                        {materialFields.map((field, index) => {
-                          const info = materialInfo[field.productVariantId];
-                          const currentQty =
-                            Number(watchItems?.[index]?.quantity) || 0;
-                          const isLowStock =
-                            info && currentQty > info.currentStock;
-
-                          return (
-                            <TableRow key={field.id}>
-                              <TableCell className="py-2">
-                                <div className="font-medium text-xs">
-                                  {info?.name || "Unknown"}
-                                </div>
-                                <div className="text-[10px] text-slate-400 dark:text-slate-300">
-                                  {field.productVariantId.slice(0, 6)}
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-2 text-right">
-                                <div className="flex flex-col items-end gap-1">
-                                  <span className="text-xs font-semibold">
-                                    {Number(currentQty).toFixed(2)}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-300">
-                                    {info?.unit}
-                                  </span>
-                                  {/* Hidden Input to maintain form registration */}
-                                  <input
-                                    type="hidden"
-                                    {...form.register(
-                                      `items.${index}.quantity`,
-                                      { valueAsNumber: true },
-                                    )}
-                                  />
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-2 text-right">
-                                <div className="flex flex-col items-end">
-                                  <span
-                                    className={`text-xs ${isLowStock ? "text-red-600 dark:text-red-400 font-bold" : ""}`}
-                                  >
-                                    {info?.currentStock ?? 0}
-                                  </span>
-                                  {isLowStock && (
-                                    <span className="text-[10px] text-red-500 dark:text-red-400 font-medium">
-                                      Low
-                                    </span>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <PlanningQuantitySection
+                    planningMode={planning.planningMode}
+                    onPlanningModeChange={planning.setPlanningMode}
+                    batchCount={planning.batchCount}
+                    onBatchCountChange={planning.setBatchCount}
+                    enteredTargetQty={planning.enteredTargetQty}
+                    onEnteredTargetQtyChange={planning.setEnteredTargetQty}
+                    basePlannedQty={(watchPlannedQty as number) || 0}
+                    onBasePlannedQtyChange={(n) => form.setValue("plannedQuantity", n)}
+                    bomOutputQty={bomOutputQty}
+                    bomPrimaryUnit={(selectedBom?.productVariant?.primaryUnit as string) || ""}
+                    bomProductVariant={selectedBom?.productVariant || {}}
+                    hasAlternateUnit={planning.unitMeta.hasAlternateUnit}
+                    salesUnit={planning.unitMeta.salesUnit || ""}
+                    conversionFactor={planning.unitMeta.conversionFactor}
+                  />
                 </CardContent>
               </Card>
             </div>
+
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">{materialPanel}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Lokasi & meta */}
+        {step === 2 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Lokasi & Meta</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <LocationFlowCard
+                    stage={stage}
+                    sourceLocationName={sourceLocationName}
+                    outputLocationId={(watchLocationId as string) || ""}
+                    onOutputLocationChange={handleOutputLocationChange}
+                    activeLocations={activeLocations}
+                    recommendedOutputId={outputLocationId}
+                    recommendedOutputName={recommendedOutputName}
+                    outputIsRisky={outputIsRisky}
+                    outputIsRecommended={outputIsRecommended}
+                    outputManuallyOverridden={outputManuallyOverridden}
+                    onResetToDefault={handleResetToDefault}
+                  />
+
+                  <MaklonSection
+                    form={form as unknown as Parameters<typeof MaklonSection>[0]["form"]}
+                    isMaklon={!!watchIsMaklon}
+                    onMaklonChange={handleMaklonChange}
+                    customers={customers}
+                  />
+
+                  <OrderMetaSection
+                    form={form as unknown as Parameters<typeof OrderMetaSection>[0]["form"]}
+                    salesOrderId={salesOrderId}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">{materialPanel}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Review & buat */}
+        {step === 3 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <ReviewCommitSection
+                stage={stageLabelId(stage)}
+                productName={selectedBom?.productVariant?.name || ""}
+                bomName={selectedBom?.name || ""}
+                targetSummary={
+                  planning.planningMode === "batch"
+                    ? `${planning.batchCount} batch × ${bomOutputQty} = ${getEffectiveQty()}`
+                    : planning.planningMode === "sales" && planning.unitMeta.hasAlternateUnit
+                      ? `${planning.enteredTargetQty} ${planning.unitMeta.salesUnit} × ${planning.unitMeta.conversionFactor} = ${getEffectiveQty()}`
+                      : `${getEffectiveQty()}`
+                }
+                machineName={machines.find((m) => m.id === (watchMachineId as string))?.name || ""}
+                startDate={formatLocalDate((watchStartDate as Date) || new Date())}
+                endDate={watchPlannedEndDate ? formatLocalDate(watchPlannedEndDate as Date) : undefined}
+                sourceName={sourceLocationName}
+                outputName={locations.find((l) => l.id === (watchLocationId as string))?.name || "—"}
+                priority={(watchPriority as string) || "NORMAL"}
+                isMaklon={!!watchIsMaklon}
+                predictedStatus={hasStockIssues ? "MENUNGGU_BAHAN" : "DRAFT"}
+                outputIsRisky={outputIsRisky}
+                isSubmitting={isSubmitting}
+                isCalculating={materialPreview.isCalculating}
+                isFormValid={canAdvanceFromStep1 && canAdvanceFromStep2}
+              />
+            </div>
+
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">{materialPanel}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="flex justify-between gap-4 pt-4 border-t">
+          <Button variant="outline" type="button" onClick={() => router.back()}>
+            Batal
+          </Button>
+          <div className="flex gap-2">
+            {step > 1 && (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setStep((s) => (s - 1) as StepNumber)}
+              >
+                Kembali
+              </Button>
+            )}
+            {step < 3 && (
+              <Button
+                type="button"
+                onClick={() => {
+                  if (step === 1 && !canAdvanceFromStep1) {
+                    toast.warning("Pilih produk, resep, dan target > 0");
+                    return;
+                  }
+                  if (step === 2 && !canAdvanceFromStep2) {
+                    toast.warning("Lengkapi lokasi output");
+                    return;
+                  }
+                  setStep((s) => (s + 1) as StepNumber);
+                }}
+              >
+                Lanjut →
+              </Button>
+            )}
           </div>
         </div>
+
+        <input type="hidden" {...form.register("salesOrderId")} />
       </form>
+
+      {/* C5: Risky output confirm dialog */}
+      <RiskyOutputConfirmDialog
+        open={showRiskyDialog}
+        onOpenChange={setShowRiskyDialog}
+        outputName={locations.find((l) => l.id === (watchLocationId as string))?.name || "—"}
+        onConfirm={handleRiskyConfirm}
+      />
     </Form>
   );
 }

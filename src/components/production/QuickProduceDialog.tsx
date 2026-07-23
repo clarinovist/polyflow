@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Loader2, Factory } from "lucide-react";
 import { quickCreateProductionOrder } from "@/actions/production/production";
+import { getCompatibleMachineTypes } from "@/lib/production/machine-compatibility";
 
 type Bom = {
   id: string;
@@ -44,24 +45,6 @@ type Machine = {
   type: string;
   status: string;
 };
-
-// Machine type compatibility with BOM category
-function getCompatibleMachineTypes(bomCategory: string): string[] {
-  switch (bomCategory) {
-    case "MIXING":
-      return ["MIXER"];
-    case "EXTRUSION":
-      return ["EXTRUDER", "REWINDER"];
-    case "PACKING":
-      return ["PACKER", "GRANULATOR"];
-    case "REWORK":
-      return ["MIXER", "EXTRUDER", "REWINDER", "PACKER", "GRANULATOR"];
-    case "STANDARD":
-      return ["EXTRUDER", "MIXER"];
-    default:
-      return [];
-  }
-}
 
 export function QuickProduceDialog({
   open,

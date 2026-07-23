@@ -709,6 +709,10 @@ describe("ProductionOrderService", () => {
 
     it("should set WAITING_MATERIAL when stock insufficient", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      // Provide locations for fallback resolver (STANDARD → mixing → source=RM)
+      vi.mocked(prisma.location.findMany).mockResolvedValue([
+        { id: "rm-1", name: "RM", slug: "rm_warehouse", locationPurpose: "RAW_MATERIAL" },
+      ] as any);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
         { productVariantId: "pv-1", quantity: dec(5) },
       ] as any);
@@ -736,6 +740,81 @@ describe("ProductionOrderService", () => {
         orderNumber: "WO-1",
         items: [{ productVariantId: "pv-1", quantity: 100 }],
       });
+      expect(r.status).toBe(ProductionStatus.DRAFT);
+    });
+
+    it("should use materialSourceLocationId for shortage check when provided", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      // Stock at output location is EMPTY, but stock at source location is sufficient
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+        { productVariantId: "pv-1", quantity: dec(500) },
+      ] as any);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
+      );
+      const r = await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-1",
+        locationId: "output-loc",
+        materialSourceLocationId: "source-loc",
+        items: [{ productVariantId: "pv-1", quantity: 100 }],
+      });
+      // Inventory should be queried at source-loc, not output-loc
+      expect(prisma.inventory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ locationId: "source-loc" }),
+        }),
+      );
+      expect(r.status).toBe(ProductionStatus.DRAFT);
+    });
+
+    it("should set WAITING_MATERIAL when stock at source is insufficient", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      // Stock at source location is insufficient
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+        { productVariantId: "pv-1", quantity: dec(5) },
+      ] as any);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
+      );
+      const r = await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-1",
+        locationId: "output-loc",
+        materialSourceLocationId: "source-loc",
+        items: [{ productVariantId: "pv-1", quantity: 100 }],
+      });
+      expect(r.status).toBe(ProductionStatus.WAITING_MATERIAL);
+    });
+
+    it("should fallback to BOM-category resolver when materialSourceLocationId omitted", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(
+        activeBom({ category: BomCategory.MIXING }),
+      );
+      // Provide locations so resolver can find RAW_MATERIAL
+      vi.mocked(prisma.location.findMany).mockResolvedValue([
+        { id: "rm-1", name: "RM", slug: "rm_warehouse", locationPurpose: "RAW_MATERIAL" },
+        { id: "mix-1", name: "Mix", slug: "mixing_area", locationPurpose: "MIXING" },
+      ] as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+        { productVariantId: "pv-1", quantity: dec(500) },
+      ] as any);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
+      );
+      const r = await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-1",
+        locationId: "mix-1",
+        // no materialSourceLocationId → fallback to resolver
+        items: [{ productVariantId: "pv-1", quantity: 100 }],
+      });
+      // Should resolve source = RM for MIXING stage
+      expect(prisma.inventory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ locationId: "rm-1" }),
+        }),
+      );
       expect(r.status).toBe(ProductionStatus.DRAFT);
     });
 
