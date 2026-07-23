@@ -10,7 +10,9 @@ interface ActiveExecutionBannerProps {
     executions: Array<{
         id: string;
         startTime: Date;
+        productionOrderId: string;
         productionOrder: {
+            id: string;
             orderNumber: string;
             bom: {
                 productVariant: {
@@ -49,11 +51,9 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
 
     if (!active) return null;
 
+    const focusOrderId = active.productionOrder.id;
     const handleNavigateFocus = () => {
-        // We need to find the orderId from executions
-        // The banner has the productionOrder data, but we need the productionOrderId
-        // We'll navigate to jobs list and the user can tap the running job
-        router.push('/kiosk/jobs');
+        router.push(`/kiosk/jobs/${focusOrderId}`);
     };
 
     return (
