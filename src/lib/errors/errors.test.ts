@@ -46,7 +46,7 @@ describe('safeAction helper', () => {
         });
         expect(res).toEqual({
             success: false,
-            error: 'An unexpected error occurred',
+            error: 'Terjadi kesalahan yang tidak terduga',
             code: 'INTERNAL_ERROR'
         });
     });
