@@ -392,7 +392,7 @@ const GHOST_CODES_SET = new Set([
 
 async function isMelindoTenantDb(db: PatternDb): Promise<boolean> {
   // Melindo marker: has 1-130 and 1-127 and 7-101 (melindo chart). Kiyowo has 11300 active but no 1-130.
-  const marker = await db.account.findUnique({ where: { code: '1-130' } } as any);
+  const marker = await db.account.findUnique({ where: { code: '1-130' } });
   return !!marker;
 }
 
@@ -406,7 +406,7 @@ export async function resolveByPatterns(
   const patterns = ACCOUNT_ROLE_PATTERNS[role];
   if (!patterns) throw new ValidationError(`Peran akun tidak dikenal: ${role}`, { role });
 
-  const tenantIsMelindo = await isMelindoTenantDb(target as any);
+  const tenantIsMelindo = await isMelindoTenantDb(target);
 
   for (const pattern of patterns) {
     let account = null;
@@ -425,13 +425,13 @@ export async function resolveByPatterns(
         where: {
           name: { contains: pattern.nameContains, mode: "insensitive" },
           isActive: true,
-        } as any,
+        },
         orderBy: { code: 'asc' },
-      } as any);
+      });
       if (!account) {
         account = await target.account.findFirst({
           where: { name: { contains: pattern.nameContains, mode: "insensitive" } },
-        } as any);
+        });
       }
     }
     if (account) {

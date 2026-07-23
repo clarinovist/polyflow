@@ -60,6 +60,8 @@ export const startExecution = withTenant(async function startExecution(
 
       revalidatePath("/production");
       revalidatePath("/production/kiosk");
+      revalidatePath("/kiosk", "layout");
+      revalidatePath(`/kiosk/jobs/${result.data.productionOrderId}`);
       return serializeData(execution);
     } catch (error) {
       if (error instanceof BusinessRuleError) throw error;
@@ -103,6 +105,7 @@ export const stopExecution = withTenant(async function stopExecution(
 
       revalidatePath("/production");
       revalidatePath("/production/kiosk");
+      revalidatePath("/kiosk", "layout");
       return serializeData(execution);
     } catch (error) {
       if (error instanceof BusinessRuleError) throw error;
@@ -205,6 +208,7 @@ export const logRunningOutput = withTenant(async function logRunningOutput(
 
       revalidatePath("/production");
       revalidatePath("/production/kiosk");
+      revalidatePath("/kiosk", "layout");
       return null;
     } catch (error) {
       if (error instanceof BusinessRuleError) throw error;
