@@ -430,7 +430,7 @@ describe("JournalsService", () => {
       // Act & Assert
       await expect(
         createClosingJournalEntry("nonexistent", "user-1"),
-      ).rejects.toThrow("Fiscal Period");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("returns null when no closing balances exist", async () => {
@@ -747,9 +747,7 @@ describe("JournalsService", () => {
       vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(postJournal("nonexistent")).rejects.toThrow(
-        "Journal",
-      );
+      await expect(postJournal("nonexistent")).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("throws when journal is not DRAFT", async () => {
@@ -1073,9 +1071,7 @@ describe("JournalsService", () => {
       vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(voidJournal("nonexistent")).rejects.toThrow(
-        "Journal",
-      );
+      await expect(voidJournal("nonexistent")).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("throws when journal is not POSTED", async () => {
@@ -1174,9 +1170,7 @@ describe("JournalsService", () => {
       vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(reverseJournal("nonexistent")).rejects.toThrow(
-        "Journal",
-      );
+      await expect(reverseJournal("nonexistent")).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("throws when journal is not POSTED", async () => {

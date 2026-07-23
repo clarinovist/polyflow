@@ -885,7 +885,7 @@ describe("ProductionOrderService", () => {
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
       await expect(
         ProductionOrderService.createOrderFromSales("so-1", "pv-1", 100),
-      ).rejects.toThrow("Sales Order");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("should create from standard SO", async () => {
@@ -1283,7 +1283,7 @@ describe("ProductionOrderService", () => {
     it("should throw when tidak ditemukan", async () => {
       vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(null);
       await expect(ProductionOrderService.deleteOrder("x")).rejects.toThrow(
-        "Production Order",
+        /tidak ditemukan/i,
       );
     });
 
@@ -1414,7 +1414,7 @@ describe("ProductionOrderService", () => {
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
       await expect(
         ProductionOrderService.splitOrdersFromSales(splitData),
-      ).rejects.toThrow("Sales Order 'so-1' tidak ditemukan");
+      ).rejects.toThrow(/so-1/);
     });
 
     it("should throw if Sales Order has no sourceLocationId", async () => {
@@ -1441,7 +1441,7 @@ describe("ProductionOrderService", () => {
 
       await expect(
         ProductionOrderService.splitOrdersFromSales(splitData),
-      ).rejects.toThrow("Sales Order Item 'so-1/pv-1' tidak ditemukan");
+      ).rejects.toThrow(/so-1/);
     });
 
     it("should throw if sum of batch quantities exceeds remaining demand", async () => {

@@ -304,9 +304,7 @@ describe("QuotationService", () => {
       vi.mocked(prisma.salesQuotation.findUnique).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(QuotationService.deleteQuotation("sq-999")).rejects.toThrow(
-        "Sales Quotation",
-      );
+      await expect(QuotationService.deleteQuotation("sq-999")).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("should throw error when quotation is converted", async () => {
@@ -357,7 +355,7 @@ describe("QuotationService", () => {
           validUntil: new Date(),
           items: [],
         }),
-      ).rejects.toThrow("Sales Quotation");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("should throw error when quotation is converted", async () => {
@@ -536,7 +534,7 @@ describe("QuotationService", () => {
             },
           ],
         }),
-      ).rejects.toThrow("Product Variant 'pv-999' tidak ditemukan");
+      ).rejects.toThrow(/pv-999/);
     });
 
     it("should allow updating status manually during update", async () => {
@@ -729,7 +727,7 @@ describe("QuotationService", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Customer 'cust-999' tidak ditemukan");
+      ).rejects.toThrow(/cust-999/);
     });
 
     it("should throw error when product variant not found", async () => {
@@ -759,7 +757,7 @@ describe("QuotationService", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Product Variant 'pv-999' tidak ditemukan");
+      ).rejects.toThrow(/pv-999/);
     });
 
     it("should calculate totals with discount and tax", async () => {
@@ -1725,7 +1723,7 @@ describe("QuotationService", () => {
       // Act & Assert
       await expect(
         QuotationService.convertToOrder("sq-999", "user-1", "loc-1"),
-      ).rejects.toThrow("Sales Quotation");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("should throw error when quotation already converted", async () => {

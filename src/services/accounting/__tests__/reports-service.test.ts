@@ -939,9 +939,7 @@ describe("reports-service", () => {
       vi.mocked(prisma.journalLine.findMany).mockResolvedValue([]);
       vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
 
-      await expect(getAccountBalance("nonexistent")).rejects.toThrow(
-        "Account",
-      );
+      await expect(getAccountBalance("nonexistent")).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("returns 0 for account with no journal lines", async () => {

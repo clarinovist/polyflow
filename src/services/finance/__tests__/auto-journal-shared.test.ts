@@ -38,12 +38,10 @@ describe("auto-journal-shared", () => {
       expect(result).toEqual(mockAccount);
     });
 
-    it("throws when account not found", async () => {
+    it("throws when account tidak ditemukan", async () => {
       vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
 
-      await expect(getAccountByCode("99999")).rejects.toThrow(
-        "Account",
-      );
+      await expect(getAccountByCode("99999")).rejects.toThrow(/tidak ditemukan/i);
     });
   });
 

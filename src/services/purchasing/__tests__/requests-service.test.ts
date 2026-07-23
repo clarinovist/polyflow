@@ -326,7 +326,7 @@ describe("requests-service", () => {
       // Act & Assert
       await expect(
         convertRequestToOrder("pr-999", "supplier-1", "user-1"),
-      ).rejects.toThrow("Purchase Request");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("should throw error when request already converted", async () => {
@@ -650,7 +650,7 @@ describe("requests-service", () => {
       // Act & Assert
       await expect(
         consolidateRequestsToOrder(["pr-1", "pr-999"], "supplier-1", "user-1"),
-      ).rejects.toThrow("Purchase Request");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("should throw error when request already converted", async () => {

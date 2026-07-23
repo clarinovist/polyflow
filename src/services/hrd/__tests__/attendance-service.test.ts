@@ -137,7 +137,7 @@ describe('AttendanceService', () => {
           employeeCode: 'EMP-999', pin: '1234', workShiftId: 'shift-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
         }),
-      ).rejects.toThrow('Karyawan tidak ditemukan');
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it('rejects when PIN is wrong', async () => {

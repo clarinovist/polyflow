@@ -69,11 +69,60 @@ export class AuthorizationError extends ApplicationError {
     }
 }
 
+/** Map English resource names to Indonesian labels for user-facing messages */
+export const RESOURCE_LABELS: Record<string, string> = {
+    'Account': 'Akun',
+    'Account for role': 'Akun untuk peran',
+    'AppSettings': 'Pengaturan Aplikasi',
+    'BankReconciliation': 'Rekonsiliasi Bank',
+    'Customer': 'Pelanggan',
+    'Delivery Order': 'Surat Jalan',
+    'Fiscal Period': 'Periode Fiskal',
+    'GoodsReceipt': 'Penerimaan Barang',
+    'Invoice': 'Invoice',
+    'Journal': 'Jurnal',
+    'JournalLine': 'Baris Jurnal',
+    'Location': 'Lokasi',
+    'MaterialIssue': 'Pengeluaran Material',
+    'Payment': 'Pembayaran',
+    'Product': 'Produk',
+    'Product Variant': 'Varian Produk',
+    'Production Order': 'Order Produksi',
+    'ProductionExecution': 'Eksekusi Produksi',
+    'Purchase Invoice': 'Faktur Pembelian',
+    'Purchase Order': 'Purchase Order',
+    'Purchase Request': 'Permintaan Pembelian',
+    'Purchase Return': 'Retur Pembelian',
+    'Sales Order': 'Sales Order',
+    'Sales Order Item': 'Item Sales Order',
+    'Sales Quotation': 'Penawaran Penjualan',
+    'Sales Return': 'Retur Penjualan',
+    'ScrapRecord': 'Catatan Scrap',
+    'Stock Reservation': 'Reservasi Stok',
+    'StockOpname': 'Stok Opname',
+    'User': 'Pengguna',
+    // composite like "Account for role 'x'" handled via prefix match below
+};
+
+/** Translate resource label if known, otherwise keep original */
+export function translateResource(resource: string): string {
+    // exact match
+    if (RESOURCE_LABELS[resource]) return RESOURCE_LABELS[resource];
+    // prefix match for "Account for role 'x'" etc
+    for (const [en, id] of Object.entries(RESOURCE_LABELS)) {
+        if (resource.startsWith(en + ' ')) {
+            return resource.replace(en, id);
+        }
+    }
+    return resource;
+}
+
 /** Resource not found */
 export class NotFoundError extends ApplicationError {
     constructor(resource: string, id?: string) {
-        const msg = id ? `${resource} '${id}' tidak ditemukan` : `${resource} tidak ditemukan`;
-        super(msg, 'NOT_FOUND', 404, { resource, id });
+        const localizedResource = translateResource(resource);
+        const msg = id ? `${localizedResource} '${id}' tidak ditemukan` : `${localizedResource} tidak ditemukan`;
+        super(msg, 'NOT_FOUND', 404, { resource, id, localizedResource });
     }
 }
 

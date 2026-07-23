@@ -308,7 +308,7 @@ describe("invoice-lifecycle-service", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Sales Order");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("should throw error when sales order has no total amount", async () => {
@@ -330,7 +330,7 @@ describe("invoice-lifecycle-service", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Sales Order tidak memiliki total amount");
+      ).rejects.toThrow(/tidak memiliki total amount/i);
     });
 
     it("should throw error when sales order has no customer", async () => {

@@ -132,7 +132,7 @@ describe("InventoryCoreService", () => {
       ).rejects.toThrow(InsufficientStockError);
     });
 
-    it("should include fallback IDs in error when variant/location not found", async () => {
+    it("should include fallback IDs in error when variant/location tidak ditemukan", async () => {
       // Arrange
       const mockTx = {
         $queryRaw: vi.fn().mockResolvedValue([{ quantity: "30" }]),
@@ -202,7 +202,7 @@ describe("InventoryCoreService", () => {
       ).rejects.toThrow(InsufficientStockError);
     });
 
-    it("should include fallback IDs in reservation error when variant/location not found", async () => {
+    it("should include fallback IDs in reservation error when variant/location tidak ditemukan", async () => {
       // Arrange
       const mockTx = {
         $queryRaw: vi.fn().mockResolvedValue([{ quantity: "100" }]),

@@ -476,7 +476,7 @@ describe("PurchaseReturnService.updateReturn", () => {
 
     await expect(
       PurchaseReturnService.updateReturn({ id: "ret-1" } as any, "user-1"),
-    ).rejects.toThrow("Purchase Return");
+    ).rejects.toThrow(/tidak ditemukan/i);
   });
 
   it("throws when return is not in DRAFT status", async () => {
@@ -596,7 +596,7 @@ describe("PurchaseReturnService.confirmReturn", () => {
 
     await expect(
       PurchaseReturnService.confirmReturn("ret-1", "user-1"),
-    ).rejects.toThrow("Purchase Return");
+    ).rejects.toThrow(/tidak ditemukan/i);
   });
 
   it("throws when return is not in DRAFT status", async () => {
@@ -644,7 +644,7 @@ describe("PurchaseReturnService.shipReturn", () => {
 
     await expect(
       PurchaseReturnService.shipReturn("ret-1", "user-1"),
-    ).rejects.toThrow("Purchase Return");
+    ).rejects.toThrow(/tidak ditemukan/i);
   });
 
   it("throws when return is not in CONFIRMED status", async () => {
@@ -807,7 +807,7 @@ describe("PurchaseReturnService.completeReturn", () => {
 
     await expect(
       PurchaseReturnService.completeReturn("ret-1", "user-1"),
-    ).rejects.toThrow("Purchase Return");
+    ).rejects.toThrow(/tidak ditemukan/i);
   });
 
   it("throws when return is not in SHIPPED status", async () => {
@@ -858,7 +858,7 @@ describe("PurchaseReturnService.cancelReturn", () => {
 
     await expect(
       PurchaseReturnService.cancelReturn("ret-1", "user-1"),
-    ).rejects.toThrow("Purchase Return");
+    ).rejects.toThrow(/tidak ditemukan/i);
   });
 
   it("throws when return is SHIPPED", async () => {

@@ -26,12 +26,12 @@ describe("CostingService", () => {
   });
 
   describe("calculateOrderCost", () => {
-    it("throws when order not found", async () => {
+    it("throws when order tidak ditemukan", async () => {
       vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(null);
 
       await expect(
         CostingService.calculateOrderCost("nonexistent"),
-      ).rejects.toThrow("Production Order");
+      ).rejects.toThrow(/tidak ditemukan/i);
     });
 
     it("excludes STAGED material issues from material cost (transfer not yet consumed)", async () => {

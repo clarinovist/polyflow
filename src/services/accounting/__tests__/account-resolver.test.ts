@@ -78,18 +78,14 @@ describe('account-resolver', () => {
             vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
             vi.mocked(prisma.account.findFirst).mockResolvedValue(null);
 
-            await expect(resolveAccount('nonexistent-role' as never)).rejects.toThrow(
-                "Account for role"
-            );
+            await expect(resolveAccount('nonexistent-role' as never)).rejects.toThrow(/tidak ditemukan/i);
         });
 
         it('throws when all patterns exhausted for valid role', async () => {
             vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
             vi.mocked(prisma.account.findFirst).mockResolvedValue(null);
 
-            await expect(resolveAccount('accounts-receivable')).rejects.toThrow(
-                "Account for role"
-            );
+            await expect(resolveAccount('accounts-receivable')).rejects.toThrow(/tidak ditemukan/i);
         });
 
         it('caches resolved account for subsequent calls', async () => {

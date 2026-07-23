@@ -121,7 +121,7 @@ describe('coa-seed-service', () => {
 
             await expect(
                 updateRoleMapping('t1', 'accounts-receivable', 'acc-missing', tenantDb),
-            ).rejects.toThrow('Account');
+            ).rejects.toThrow(/tidak ditemukan/i);
         });
 
         it('upserts valid mapping and clears cache', async () => {

@@ -50,7 +50,7 @@ describe('MrpService', () => {
             // Act & Assert
             await expect(
                 MrpService.simulateMaterialRequirements('so-1')
-            ).rejects.toThrow('Sales Order');
+            ).rejects.toThrow(/tidak ditemukan/i);
         });
 
         it('should return empty requirements when sales order has no items', async () => {
@@ -236,7 +236,7 @@ describe('MrpService', () => {
             // Act & Assert
             await expect(
                 MrpService.convertSoToPo('so-999', 'user-1')
-            ).rejects.toThrow('Sales Order');
+            ).rejects.toThrow(/tidak ditemukan/i);
         });
     });
 });
