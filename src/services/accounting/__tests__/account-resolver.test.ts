@@ -42,15 +42,27 @@ describe('account-resolver', () => {
         mockGetMainPrisma.mockReturnValue({ _isMain: true });
         // Default: no tenant ID in context (tests use patterns only)
         mockGetTenantIdFromContext.mockReturnValue(undefined);
+        // Default: non-Melindo tenant. isMelindoTenantDb probes code '1-130'
+        // and generic mockResolvedValue would false-positive → ghost-skip all
+        // Kiyowo codes. Return null unless a test overrides explicitly.
+        vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+            const code = args?.where?.code;
+            if (code === '1-130') return Promise.resolve(null) as any;
+            return Promise.resolve(null) as any;
+        });
     });
 
     describe('resolveAccount', () => {
         it('resolves account by exact code match (Kiyowo format)', async () => {
-            vi.mocked(prisma.account.findUnique).mockResolvedValue({
-                id: 'acc-ar-1',
-                code: '11210',
-                name: 'Accounts Receivable',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '11210') return Promise.resolve({
+                    id: 'acc-ar-1',
+                    code: '11210',
+                    name: 'Accounts Receivable',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             const result = await resolveAccount('accounts-receivable');
 
@@ -70,7 +82,11 @@ describe('account-resolver', () => {
 
             expect(result).toEqual({ id: 'acc-melindo-ar', code: '1-115b', name: 'Piutang Dagang Rafia' });
             expect(prisma.account.findFirst).toHaveBeenCalledWith({
-                where: { name: { contains: 'Piutang Dagang', mode: 'insensitive' } }
+                where: {
+                    name: { contains: 'Piutang Dagang', mode: 'insensitive' },
+                    isActive: true,
+                },
+                orderBy: { code: 'asc' },
             });
         });
 
@@ -89,42 +105,61 @@ describe('account-resolver', () => {
         });
 
         it('caches resolved account for subsequent calls', async () => {
-            vi.mocked(prisma.account.findUnique).mockResolvedValue({
-                id: 'acc-ar-1',
-                code: '11210',
-                name: 'Accounts Receivable',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '11210') return Promise.resolve({
+                    id: 'acc-ar-1',
+                    code: '11210',
+                    name: 'Accounts Receivable',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             // First call — hits DB
             await resolveAccount('accounts-receivable');
             // Second call — should use cache
             await resolveAccount('accounts-receivable');
 
-            // findUnique called only once (first call), cached for second
-            expect(prisma.account.findUnique).toHaveBeenCalledTimes(1);
+            // findUnique called for code '11210' exactly once across both calls
+            // (marker probe '1-130' happens on first resolve but is cached per tenant)
+            const calls = vi.mocked(prisma.account.findUnique).mock.calls.filter(
+                (c: any) => c?.[0]?.where?.code === '11210'
+            );
+            expect(calls).toHaveLength(1);
         });
 
         it('clears cache on clearAccountCache()', async () => {
-            vi.mocked(prisma.account.findUnique).mockResolvedValue({
-                id: 'acc-ar-1',
-                code: '11210',
-                name: 'Accounts Receivable',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '11210') return Promise.resolve({
+                    id: 'acc-ar-1',
+                    code: '11210',
+                    name: 'Accounts Receivable',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             await resolveAccount('accounts-receivable');
             clearAccountCache();
             await resolveAccount('accounts-receivable');
 
-            // After clear, cache miss → DB hit again
-            expect(prisma.account.findUnique).toHaveBeenCalledTimes(2);
+            // After clear, cache miss → code '11210' queried again
+            const calls = vi.mocked(prisma.account.findUnique).mock.calls.filter(
+                (c: any) => c?.[0]?.where?.code === '11210'
+            );
+            expect(calls).toHaveLength(2);
         });
 
         it('does not share cache between different tenant contexts', async () => {
-            vi.mocked(prisma.account.findUnique).mockResolvedValue({
-                id: 'acc-kiyowo-33000',
-                code: '33000',
-                name: 'Current Year Earnings',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '33000') return Promise.resolve({
+                    id: 'acc-kiyowo-33000',
+                    code: '33000',
+                    name: 'Current Year Earnings',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             // Simulate Kiyowo tenant context
             const kiyowoDb = { _kiyowo: true };
@@ -134,12 +169,24 @@ describe('account-resolver', () => {
             // Simulate Melindo tenant context with different DB
             const melindoDb = { _melindo: true };
             mockGetStore.mockReturnValue(melindoDb);
-            vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
-            vi.mocked(prisma.account.findFirst).mockResolvedValue({
-                id: 'acc-melindo-3-201b',
-                code: '3-201b',
-                name: 'Laba Tahun Berjalan',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '1-130') return Promise.resolve({
+                    id: 'acc-marker',
+                    code: '1-130',
+                    name: 'Melindo Marker',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
+            vi.mocked(prisma.account.findFirst).mockImplementation((args: any) => {
+                const name = args?.where?.name?.contains;
+                if (name && name.includes('Laba')) return Promise.resolve({
+                    id: 'acc-melindo-3-201b',
+                    code: '3-201b',
+                    name: 'Laba Tahun Berjalan',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             const result = await resolveAccount('current-year-earnings');
 
@@ -150,11 +197,15 @@ describe('account-resolver', () => {
         });
 
         it('resolves Melindo AR by exact code (1-115b)', async () => {
-            vi.mocked(prisma.account.findUnique).mockResolvedValue({
-                id: 'acc-melindo-ar',
-                code: '1-115b',
-                name: 'Piutang Dagang Rafia',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '1-115b') return Promise.resolve({
+                    id: 'acc-melindo-ar',
+                    code: '1-115b',
+                    name: 'Piutang Dagang Rafia',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             const result = await resolveAccount('accounts-receivable');
 
@@ -163,11 +214,15 @@ describe('account-resolver', () => {
         });
 
         it('resolves new role factory-electricity by code', async () => {
-            vi.mocked(prisma.account.findUnique).mockResolvedValue({
-                id: 'acc-electricity',
-                code: '53200',
-                name: 'Factory Electricity',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '53200') return Promise.resolve({
+                    id: 'acc-electricity',
+                    code: '53200',
+                    name: 'Factory Electricity',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             const result = await resolveAccount('factory-electricity');
 
@@ -231,11 +286,15 @@ describe('account-resolver', () => {
             });
             mockTenantDb.account.findUnique.mockResolvedValue(null);
             // Pattern fallback uses prisma proxy mock
-            vi.mocked(prisma.account.findUnique).mockResolvedValue({
-                id: 'acc-pattern',
-                code: '11210',
-                name: 'Accounts Receivable',
-            } as never);
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '11210') return Promise.resolve({
+                    id: 'acc-pattern',
+                    code: '11210',
+                    name: 'Accounts Receivable',
+                } as never);
+                return Promise.resolve(null) as any;
+            });
 
             const result = await resolveAccount('accounts-receivable');
 
