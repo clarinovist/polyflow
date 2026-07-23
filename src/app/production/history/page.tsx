@@ -49,10 +49,15 @@ export default async function ProductionHistoryPage({ searchParams }: PageProps)
   const summary = (rawData?.summary ?? defaultSummary) as ProductionHistorySummary;
   const filterOptions = filterOptionsResult.success && filterOptionsResult.data ? filterOptionsResult.data : { machines: [], operators: [], shifts: [], products: [] };
 
-  const hasActiveFilter = from || to || q || machineId || operatorId || shiftId || productVariantId || hasScrap || missingPhoto || includeVoided;
+  // Filter aktif hanya jika ada flag/q/dropdown, bukan sekadar from/to
+  const hasActiveFilter = q || machineId || operatorId || shiftId || productVariantId || hasScrap || missingPhoto || includeVoided;
+  // Cek apakah from/to bukan default "hari ini" (perbandingan kasar)
+  const fromToIsDefault =
+    !from && !to;
   const scrapPct = summary.totalGood + summary.totalScrap > 0
     ? ((summary.totalScrap / (summary.totalGood + summary.totalScrap)) * 100).toFixed(1)
     : '0.0';
+  const kpiCaption = hasActiveFilter ? 'Dari filter aktif' : fromToIsDefault ? 'Hari ini WIB' : 'Sesuai rentang tanggal';
 
   return (
     <div className="space-y-6">
@@ -83,7 +88,7 @@ export default async function ProductionHistoryPage({ searchParams }: PageProps)
               {summary.totalGood.toLocaleString()}
             </div>
             <div className="text-[11px] mt-1.5 text-muted-foreground">
-              {hasActiveFilter ? 'Dari filter aktif' : 'Hari ini WIB'}
+              {kpiCaption}
             </div>
           </CardContent>
         </Card>

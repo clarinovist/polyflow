@@ -308,25 +308,62 @@ export type ProductionHistorySummary = {
 };
 
 function getDefaultWibRange(): { start: Date; end: Date } {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(now);
-  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
-  const todayStr = `${get('year')}-${get('month')}-${get('day')}`;
-  const startMs = Date.UTC(
-    parseInt(todayStr.slice(0, 4)),
-    parseInt(todayStr.slice(5, 7)) - 1,
-    parseInt(todayStr.slice(8, 10)),
-    0, 0, 0, 0,
-  ) - 7 * 60 * 60 * 1000;
+  const todayStr = wibDateStringFromDate(new Date());
+  const [yy, mm, dd] = todayStr.split('-').map(Number);
+  const startMs = Date.UTC(yy, mm - 1, dd, 0, 0, 0, 0) - 7 * 60 * 60 * 1000;
   const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
   return { start: new Date(startMs), end: new Date(endMs) };
 }
 
+function wibDateStringFromDate(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const get = (t: string) => parts.find(p => p.type === t)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
 function getWibDayBoundsFromStr(dateStr: string): { start: Date; end: Date } {
-  const [y, m, d] = dateStr.split('-').map(Number);
+  let y: number, m: number, d: number;
+
+  // Handle keywords "today", "yesterday"
+  if (dateStr === 'today') {
+    const todayStr = wibDateStringFromDate(new Date());
+    [y, m, d] = todayStr.split('-').map(Number);
+  } else if (dateStr === 'yesterday') {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = wibDateStringFromDate(yesterday);
+    [y, m, d] = yesterdayStr.split('-').map(Number);
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    // YYYY-MM-DD directly = WIB date
+    [y, m, d] = dateStr.split('-').map(Number);
+  } else {
+    // ISO string or other — convert to WIB date first
+    try {
+      const dt = new Date(dateStr);
+      if (!isNaN(dt.getTime())) {
+        const wibStr = wibDateStringFromDate(dt);
+        [y, m, d] = wibStr.split('-').map(Number);
+      } else {
+        // fallback: slice first 10 chars
+        const fallback = dateStr.slice(0, 10);
+        [y, m, d] = fallback.split('-').map(Number);
+      }
+    } catch {
+      const fallback = dateStr.slice(0, 10);
+      [y, m, d] = fallback.split('-').map(Number);
+    }
+  }
+
+  // Guard against NaN
+  if (isNaN(y) || isNaN(m) || isNaN(d)) {
+    // fallback to today
+    const todayStr = wibDateStringFromDate(new Date());
+    [y, m, d] = todayStr.split('-').map(Number);
+  }
+
   const startMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0) - 7 * 60 * 60 * 1000;
   const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
   return { start: new Date(startMs), end: new Date(endMs) };
