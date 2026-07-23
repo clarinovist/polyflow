@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { Home, Users, ShoppingBag, Package, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
 import { canSeeNavHref } from "@/lib/auth/permission-match";
+import { useSession } from "next-auth/react";
+import { isMobileBypassAllowed } from "@/lib/mobile/mobile-access-policy";
 
 const tabs = [
   { href: "/sales/mobile", label: "Beranda", icon: Home, badgeKey: "home" as const },
@@ -28,13 +30,17 @@ interface BottomNavProps {
 
 export function BottomNav({ permissions, badges }: BottomNavProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user as { role?: string; roles?: string[] } | undefined;
+  const isAdmin = isMobileBypassAllowed(user);
 
   useEffect(() => {
-    // Clear bypass_mobile cookie if it exists when landing on mobile view
-    if (typeof document !== "undefined" && document.cookie.includes("bypass_mobile=true")) {
+    // Clear bypass_mobile cookie only for non-ADMIN users.
+    // ADMIN users may have intentionally set the bypass to access desktop UI.
+    if (typeof document !== "undefined" && !isAdmin && document.cookie.includes("bypass_mobile=true")) {
       document.cookie = "bypass_mobile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
     }
-  }, []);
+  }, [isAdmin]);
 
   const visibleTabs = tabs.filter((tab) =>
     canSeeNavHref(tab.resource ?? tab.href, permissions, tab.resource ? "/warehouse" : "/sales"),

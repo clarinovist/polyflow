@@ -728,6 +728,7 @@ export class ProductionExecutionService {
       include: {
         productionOrder: {
           select: {
+            id: true,
             orderNumber: true,
             bom: {
               select: {

@@ -1,7 +1,17 @@
 import type { NextAuthConfig } from 'next-auth';
 import { SESSION_POLICY } from '@/lib/auth/session-policy';
 import { getWorkspaceFromPath, canAccessWorkspace, getDefaultRedirectForUser } from '@/lib/auth/access-policy';
-import { hasRole } from '@/lib/auth/roles';
+import {
+  isMobileUserAgent,
+  isMobilePublicPath,
+  isMobileAllowlistedPath,
+  isMobileBypassAllowed,
+  shouldSoftLandToSalesMobile,
+  shouldSoftLandToWarehouseMobile,
+  shouldSoftLandToKiosk,
+  shouldSoftLandDashboard,
+  getMobileHomeForUser,
+} from '@/lib/mobile/mobile-access-policy';
 
 export const authConfig = {
     pages: {
@@ -81,16 +91,33 @@ export const authConfig = {
                     // (internally, URL unchanged) to /admin/super-admin once this
                     // callback allows it through.
                     const isSuperAdminAlias = pathname === '/super-admin';
+                    const isDesktopRequiredPage =
+                        pathname === '/device/desktop-required' ||
+                        pathname.startsWith('/device/desktop-required/');
+                    const userAgentAdmin =
+                        typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                    const isMobileAdmin = isMobileUserAgent(userAgentAdmin);
 
                     if (isLoginPage) {
-                        // Already logged in as SuperAdmin → go to the panel
+                        // Already logged in as SuperAdmin → panel (desktop) or wall (mobile)
                         if (isLoggedIn) {
                             const user = auth.user as { isSuperAdmin?: boolean };
                             if (user.isSuperAdmin) {
+                                if (isMobileAdmin) {
+                                    return Response.redirect(
+                                        new URL('/device/desktop-required', nextUrl),
+                                    );
+                                }
                                 return Response.redirect(new URL('/super-admin', nextUrl));
                             }
                         }
                         return true; // Show admin login page
+                    }
+
+                    // Mobile rejection page must be reachable on admin.* — otherwise
+                    // mobile gate → /device/desktop-required → bounce to /super-admin loops.
+                    if (isDesktopRequiredPage) {
+                        return true;
                     }
 
                     // All other admin routes require SuperAdmin auth
@@ -105,6 +132,12 @@ export const authConfig = {
                     const isImpersonating = !!user.impersonatedBy;
                     if (!user.isSuperAdmin && !isImpersonating) {
                         return Response.redirect(new URL('/login', nextUrl));
+                    }
+
+                    // Mobile gate early — block panel UI on phones before super-admin
+                    // path routing. desktop-required already allowed above.
+                    if (isMobileAdmin && !pathname.startsWith('/api/')) {
+                        return Response.redirect(new URL('/device/desktop-required', nextUrl));
                     }
 
                     // admin.polyflow.uk only serves the superadmin panel
@@ -139,21 +172,60 @@ export const authConfig = {
 
                         const user = auth.user as { role?: string; roles?: string[]; isSuperAdmin?: boolean; allowedResources?: string[] };
 
-                        // Mobile Sales Redirect logic
+                        // === MOBILE ALLOWLIST GATE ===
+                        // Only operational surfaces (sales/mobile, kiosk, my) are accessible on mobile.
+                        // All other paths → redirect to /device/desktop-required.
                         const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
-                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+                        const isMobile = isMobileUserAgent(userAgent);
                         const cookies = typeof headers.get === 'function' ? headers.get('cookie') || '' : '';
                         const hasMobileBypass = cookies.includes('bypass_mobile=true');
 
-                        if (hasRole(user, 'SALES') && isMobile && !hasMobileBypass) {
-                            // If they are not already on mobile sales pages, redirect them to /sales/mobile
-                            if (!pathname.startsWith('/sales/mobile')) {
+                        if (isMobile) {
+                            // Public paths always accessible
+                            if (isMobilePublicPath(pathname)) {
+                                // fall through to workspace checks below
+                            }
+                            // Admin bypass — only ADMIN role (or superadmin)
+                            else if (hasMobileBypass && isMobileBypassAllowed(user)) {
+                                // fall through to workspace checks below
+                            }
+                            // Allowlisted operational surfaces
+                            else if (isMobileAllowlistedPath(pathname)) {
+                                // fall through — RBAC will be checked by workspace/role logic
+                            }
+                            // Sales soft-landing — /sales/* → /sales/mobile
+                            else if (shouldSoftLandToSalesMobile(pathname)) {
                                 return Response.redirect(new URL('/sales/mobile', nextUrl));
+                            }
+                            // Warehouse soft-landing — /warehouse/* → /warehouse/mobile
+                            else if (shouldSoftLandToWarehouseMobile(pathname)) {
+                                return Response.redirect(new URL('/warehouse/mobile', nextUrl));
+                            }
+                            // Production soft-landing — /production/* → /kiosk
+                            else if (shouldSoftLandToKiosk(pathname)) {
+                                return Response.redirect(new URL('/kiosk', nextUrl));
+                            }
+                            // Dashboard soft-landing — /dashboard → mobile home by role
+                            else if (shouldSoftLandDashboard(pathname)) {
+                                const home = getMobileHomeForUser(user);
+                                return Response.redirect(new URL(home || '/device/desktop-required', nextUrl));
+                            }
+                            // Hard wall — everything else
+                            else {
+                                const from = encodeURIComponent(pathname);
+                                return Response.redirect(new URL(`/device/desktop-required?from=${from}`, nextUrl));
                             }
                         }
 
                         if (workspace) {
                             if (!canAccessWorkspace(user, workspace, pathname)) {
+                                // On mobile, redirect to mobile home instead of desktop workspace
+                                const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                                const isMobile = isMobileUserAgent(userAgent);
+                                if (isMobile) {
+                                    const home = getMobileHomeForUser(user);
+                                    return Response.redirect(new URL(home || '/device/desktop-required', nextUrl));
+                                }
                                 const redirectUrl = getDefaultRedirectForUser(user);
                                 return Response.redirect(new URL(redirectUrl, nextUrl));
                             }
@@ -163,6 +235,13 @@ export const authConfig = {
                         // Tenant login page
                         const isLoginPage = pathname === '/login';
                         if (isLoginPage) {
+                            // Mobile-aware: redirect to mobile home for ops users on mobile
+                            const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                            const isMobile = isMobileUserAgent(userAgent);
+                            if (isMobile) {
+                                const home = getMobileHomeForUser(user);
+                                return Response.redirect(new URL(home || '/dashboard', nextUrl));
+                            }
                             return Response.redirect(new URL('/dashboard', nextUrl));
                         }
 

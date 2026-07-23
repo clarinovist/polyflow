@@ -111,36 +111,38 @@ export function KioskStopDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>{kioskLabels.completeJob} & Ringkasan</DialogTitle>
+                    <DialogTitle className="text-xl">{kioskLabels.completeJob}</DialogTitle>
                     <DialogDescription>
-                        Meninjau produksi untuk: <span className="font-semibold text-primary">{productName}</span>.
+                        Meninjau produksi: <span className="font-semibold text-primary">{productName}</span>
                     </DialogDescription>
                 </DialogHeader>
 
+                {/* Summary */}
                 <div className="grid grid-cols-2 gap-4 p-4 bg-muted/40 rounded-lg border border-border/50">
                     <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.produced.toUpperCase()}</span>
+                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.produced}</span>
                         <span className="text-2xl font-black text-primary">{currentProduced} {unitMeta.primaryUnit}</span>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.target.toUpperCase()}</span>
+                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.target}</span>
                         <span className="text-2xl font-black">{targetQuantity} {unitMeta.primaryUnit}</span>
                     </div>
                 </div>
 
+                {/* Recent logs */}
                 {logs.length > 0 && (
-                    <div className="mt-4 border rounded-md overflow-hidden">
+                    <div className="border rounded-md overflow-hidden">
                         <div className="bg-muted px-3 py-2 text-xs font-bold uppercase tracking-wider border-b">
                             Log Hasil Parsial
                         </div>
-                        <div className="max-h-[150px] overflow-y-auto divide-y">
-                            {logs.map((log, idx) => (
-                                <div key={log.id} className="px-3 py-2 flex justify-between items-center text-sm bg-card hover:bg-accent/5">
+                        <div className="max-h-[120px] overflow-y-auto divide-y">
+                            {logs.slice(0, 5).map((log, idx) => (
+                                <div key={log.id} className="px-3 py-2 flex justify-between items-center text-sm bg-card">
                                     <div className="flex flex-col">
                                         <span className="font-medium text-emerald-600">+{log.quantity}</span>
-                                        <span className="text-[10px] text-muted-foreground italic">Entry #{logs.length - idx}</span>
+                                        <span className="text-[10px] text-muted-foreground">#{logs.length - idx}</span>
                                     </div>
                                     <span className="text-xs text-muted-foreground font-mono">
                                         {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -153,17 +155,20 @@ export function KioskStopDialog({
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="quantity" className="text-sm font-semibold">Tambah Hasil Akhir? ({unitMeta.displayUnit})</Label>
+                        <Label htmlFor="quantity" className="text-sm font-semibold">
+                            Tambah Hasil Akhir? ({unitMeta.displayUnit})
+                        </Label>
                         <Input
                             id="quantity"
                             type="number"
+                            inputMode="decimal"
                             step="0.01"
                             placeholder="0.00"
-                            className="h-12 text-lg font-bold border-primary/20 focus:border-primary"
+                            className="h-14 text-xl font-bold border-primary/20 focus:border-primary"
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
                         />
-                        <p className="text-xs text-muted-foreground italic">Kosongkan jika semua hasil sudah dicatat sebelumnya.</p>
+                        <p className="text-xs text-muted-foreground">Kosongkan jika semua hasil sudah dicatat sebelumnya.</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -172,7 +177,9 @@ export function KioskStopDialog({
                             <Input
                                 id="scrap-prongkol"
                                 type="number"
+                                inputMode="decimal"
                                 step="0.01"
+                                className="h-12 text-lg font-bold"
                                 value={scrapProngkol}
                                 onChange={(e) => setScrapProngkol(e.target.value)}
                             />
@@ -182,7 +189,9 @@ export function KioskStopDialog({
                             <Input
                                 id="scrap-daun"
                                 type="number"
+                                inputMode="decimal"
                                 step="0.01"
+                                className="h-12 text-lg font-bold"
                                 value={scrapDaun}
                                 onChange={(e) => setScrapDaun(e.target.value)}
                             />
@@ -203,20 +212,30 @@ export function KioskStopDialog({
                         <input
                             type="checkbox"
                             id="completed"
-                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
                             onChange={(e) => setCompleted(e.target.checked)}
                         />
-                        <Label htmlFor="completed" className="font-normal cursor-pointer">
+                        <Label htmlFor="completed" className="font-normal cursor-pointer text-sm">
                             Tandai SPK Selesai (Hapus dari Kiosk)
                         </Label>
                     </div>
 
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                    <DialogFooter className="gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            disabled={loading}
+                            className="h-12 font-bold"
+                        >
                             Batal
                         </Button>
-                        <Button type="submit" disabled={loading} size="lg" className="w-full sm:w-auto">
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="h-12 font-bold bg-emerald-600 hover:bg-emerald-700 flex-1 sm:flex-none"
+                        >
+                            {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                             Hentikan & Simpan
                         </Button>
                     </DialogFooter>

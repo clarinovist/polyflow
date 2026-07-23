@@ -2,16 +2,13 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square, AlertTriangle, PlusCircle } from "lucide-react";
+import { Play } from "lucide-react";
 import { startExecution } from "@/actions/production/production";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { KioskStopDialog } from "./KioskStopDialog";
-import { DowntimeDialog } from "./DowntimeDialog";
-import { KioskLogOutputDialog } from "./KioskLogOutputDialog";
-import { formatProductionQuantity, getEnteredQuantityDisplay, getProductionUnitMeta } from "@/lib/utils/production-units";
+import { formatProductionQuantity, getEnteredQuantityDisplay } from "@/lib/utils/production-units";
 import { kioskLabels } from "@/lib/labels";
 
 interface ProductionOrder {
@@ -54,24 +51,21 @@ interface ProductionOrder {
 
 interface KioskOrderCardProps {
     order: ProductionOrder;
-    operatorId?: string; // To be passed from context or selection
+    operatorId?: string;
 }
 
 export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
-    const [stopDialogOpen, setStopDialogOpen] = useState(false);
-    const [logDialogOpen, setLogDialogOpen] = useState(false);
 
-    // Check if currently running
     const activeExecution = order.executions.find(e => !e.endTime);
     const isRunning = !!activeExecution;
-    const unitMeta = getProductionUnitMeta(order.bom.productVariant);
 
-    const handleStart = async () => {
+    const handleStart = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         setIsLoading(true);
         try {
-            // Shift auto-detect server-side. If SPK already running, server reassigns operator (shift handover).
             const result = await startExecution({
                 productionOrderId: order.id,
                 machineId: order.machine?.id,
@@ -80,7 +74,8 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
 
             if (result.success) {
                 toast.success(activeExecution ? "Operator diganti!" : "Produksi dimulai!");
-                router.refresh();
+                // Navigate to focus after start
+                router.push(`/kiosk/jobs/${order.id}`);
             } else {
                 toast.error(result.error || "Gagal memulai produksi");
             }
@@ -91,159 +86,86 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
         }
     };
 
-    const handleStop = () => {
-        if (activeExecution) {
-            setStopDialogOpen(true);
-        }
-    };
-
-    const handleLogOutput = () => {
-        if (activeExecution) {
-            setLogDialogOpen(true);
-        }
+    const handleCardClick = () => {
+        router.push(`/kiosk/jobs/${order.id}`);
     };
 
     return (
-        <>
-            <div className={`flex flex-col rounded-xl border-2 shadow-sm ${isRunning ? 'border-emerald-500 bg-emerald-50/10 shadow-lg' : 'border-border bg-card text-card-foreground'} h-full overflow-hidden`}>
-                <div className="p-3 md:p-4 pb-2 border-b-0 space-y-2">
-                    <div className="flex justify-between items-start">
-                        <Badge variant={isRunning ? "default" : "secondary"} className={`${isRunning ? "bg-emerald-600 animate-pulse" : ""} text-[10px] md:text-sm`}>
-                            {isRunning ? kioskLabels.running.toUpperCase() : order.status}
-                        </Badge>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground font-mono">{order.orderNumber}</span>
-                            {order.machine && (
-                                <DowntimeDialog
-                                    machineId={order.machine.id}
-                                    machineName={order.machine.name}
-                                    operatorId={operatorId}
-                                    trigger={
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-500 hover:text-amber-600 hover:bg-amber-100/50">
-                                            <AlertTriangle className="h-4 w-4" />
-                                        </Button>
-                                    }
-                                />
-                            )}
-                        </div>
-                    </div>
-                    <div>
-                        <h3 className="text-lg md:text-xl font-semibold leading-tight tracking-tight line-clamp-2">
-                            {order.bom.productVariant.name}
-                        </h3>
-                        <div className="text-xs md:text-sm font-medium text-muted-foreground mt-1 uppercase tracking-wider">
-                            TARGET: {getEnteredQuantityDisplay({
-                                ...order.bom.productVariant,
-                                quantity: order.plannedQuantity,
-                                enteredQuantity: order.plannedEnteredQuantity,
-                                enteredUnit: order.plannedEnteredUnit,
-                                conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
-                            })}
-                        </div>
-                    </div>
+        <button
+            onClick={handleCardClick}
+            className={`flex flex-col rounded-xl border-2 shadow-sm text-left w-full transition-all active:scale-[0.98] hover:shadow-md ${isRunning ? 'border-emerald-500 bg-emerald-50/10 shadow-lg hover:border-emerald-600' : 'border-border bg-card text-card-foreground hover:border-primary/50'} h-full overflow-hidden cursor-pointer`}
+        >
+            <div className="p-3 md:p-4 pb-2 border-b-0 space-y-2">
+                <div className="flex justify-between items-start">
+                    <Badge variant={isRunning ? "default" : "secondary"} className={`${isRunning ? "bg-emerald-600 animate-pulse" : ""} text-[10px] md:text-sm`}>
+                        {isRunning ? kioskLabels.running.toUpperCase() : order.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-mono">{order.orderNumber}</span>
                 </div>
-
-                <div className="p-3 md:p-4 pt-2 flex-1">
-                    <div className="grid grid-cols-1 gap-2 text-sm mt-1 md:mt-2">
-                        <div className="bg-muted/30 p-2.5 md:p-3 rounded-md flex flex-col gap-1 md:gap-2">
-                            <div className="flex justify-between items-start">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.machine.toUpperCase()}</span>
-                                    <span className="font-bold text-sm md:text-base">{order.machine?.name || kioskLabels.unassigned}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
-                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.produced.toUpperCase()}</span>
-                                <span className="font-bold text-lg md:text-xl">{formatProductionQuantity(order.actualQuantity || 0, order.bom.productVariant, { showBaseWhenAlternate: false })}</span>
-                            </div>
-                            <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
-                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.target.toUpperCase()}</span>
-                                <span className="font-bold text-lg md:text-xl text-muted-foreground">
-                                    {getEnteredQuantityDisplay({
-                                        ...order.bom.productVariant,
-                                        quantity: order.plannedQuantity,
-                                        enteredQuantity: order.plannedEnteredQuantity,
-                                        enteredUnit: order.plannedEnteredUnit,
-                                        conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
-                                    }, { showBaseWhenAlternate: false })}
-                                </span>
-                            </div>
-                        </div>
+                <div>
+                    <h3 className="text-lg md:text-xl font-semibold leading-tight tracking-tight line-clamp-2">
+                        {order.bom.productVariant.name}
+                    </h3>
+                    <div className="text-xs md:text-sm font-medium text-muted-foreground mt-1 uppercase tracking-wider">
+                        TARGET: {getEnteredQuantityDisplay({
+                            ...order.bom.productVariant,
+                            quantity: order.plannedQuantity,
+                            enteredQuantity: order.plannedEnteredQuantity,
+                            enteredUnit: order.plannedEnteredUnit,
+                            conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
+                        })}
                     </div>
-                </div>
-
-                <div className="p-3 md:p-4 pt-0 flex flex-row items-center gap-2">
-                    {isRunning ? (
-                        <>
-                            <Button
-                                variant="outline"
-                                className="flex-1 h-12 md:h-14 text-sm md:text-base font-bold border-emerald-600 text-emerald-700 hover:bg-emerald-50 shadow-sm transition-all active:scale-95"
-                                onClick={handleLogOutput}
-                                disabled={isLoading}
-                            >
-                                <PlusCircle className="mr-2 h-5 w-5 md:h-6 md:w-6" /> <span className="text-xs md:text-base">{kioskLabels.logOutput.toUpperCase()}</span>
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                size="icon"
-                                className="h-12 w-12 md:h-14 md:w-14 shrink-0 shadow-sm active:scale-95"
-                                onClick={handleStop}
-                                disabled={isLoading}
-                                title={kioskLabels.stopJob}
-                            >
-                                <Square className="h-5 w-5 md:h-6 md:w-6 fill-current" />
-                            </Button>
-                        </>
-                    ) : (
-                        <Button
-                            variant="default"
-                            className="w-full h-12 md:h-14 text-sm md:text-lg font-bold bg-emerald-600 hover:bg-emerald-700 shadow-sm active:scale-95"
-                            onClick={handleStart}
-                            disabled={isLoading || order.status === 'COMPLETED'}
-                        >
-                            <Play className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-current" /> {kioskLabels.startJob.toUpperCase()}
-                        </Button>
-                    )}
                 </div>
             </div>
 
-            {activeExecution && (
-                <>
-                    <KioskStopDialog
-                        open={stopDialogOpen}
-                        onOpenChange={setStopDialogOpen}
-                        executionId={activeExecution.id}
-                        productName={order.bom.productVariant.name}
-                        primaryUnit={unitMeta.primaryUnit}
-                        salesUnit={unitMeta.salesUnit}
-                        conversionFactor={unitMeta.conversionFactor}
-                        currentProduced={order.actualQuantity || 0}
-                        targetQuantity={order.plannedQuantity}
-                        logs={order.outputLogs || []}
-                        operatorId={operatorId}
-                        onSuccess={() => {
-                            router.refresh();
-                        }}
-                    />
-                    <KioskLogOutputDialog
-                        open={logDialogOpen}
-                        onOpenChange={setLogDialogOpen}
-                        executionId={activeExecution.id}
-                        productName={order.bom.productVariant.name}
-                        primaryUnit={unitMeta.primaryUnit}
-                        salesUnit={unitMeta.salesUnit}
-                        conversionFactor={unitMeta.conversionFactor}
-                        operatorId={operatorId}
-                        orderHelpers={order.helpers}
-                        onSuccess={() => {
-                            router.refresh();
-                        }}
-                    />
-                </>
-            )}
-        </>
+            <div className="p-3 md:p-4 pt-2 flex-1">
+                <div className="grid grid-cols-1 gap-2 text-sm mt-1 md:mt-2">
+                    <div className="bg-muted/30 p-2.5 md:p-3 rounded-md flex flex-col gap-1 md:gap-2">
+                        <div className="flex justify-between items-start">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.machine.toUpperCase()}</span>
+                                <span className="font-bold text-sm md:text-base">{order.machine?.name || kioskLabels.unassigned}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
+                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.produced.toUpperCase()}</span>
+                            <span className="font-bold text-lg md:text-xl">{formatProductionQuantity(order.actualQuantity || 0, order.bom.productVariant, { showBaseWhenAlternate: false })}</span>
+                        </div>
+                        <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
+                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.target.toUpperCase()}</span>
+                            <span className="font-bold text-lg md:text-xl text-muted-foreground">
+                                {getEnteredQuantityDisplay({
+                                    ...order.bom.productVariant,
+                                    quantity: order.plannedQuantity,
+                                    enteredQuantity: order.plannedEnteredQuantity,
+                                    enteredUnit: order.plannedEnteredUnit,
+                                    conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
+                                }, { showBaseWhenAlternate: false })}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-3 md:p-4 pt-0">
+                {!isRunning ? (
+                    <Button
+                        variant="default"
+                        className="w-full h-12 md:h-14 text-sm md:text-lg font-bold bg-emerald-600 hover:bg-emerald-700 shadow-sm active:scale-95"
+                        onClick={handleStart}
+                        disabled={isLoading || order.status === 'COMPLETED'}
+                    >
+                        <Play className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-current" /> {kioskLabels.startJob.toUpperCase()}
+                    </Button>
+                ) : (
+                    <div className="text-center py-2 text-sm font-bold text-emerald-700 uppercase tracking-wider">
+                        Ketuk untuk buka →
+                    </div>
+                )}
+            </div>
+        </button>
     );
 }

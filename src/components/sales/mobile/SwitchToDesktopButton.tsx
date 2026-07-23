@@ -1,8 +1,16 @@
 "use client";
 
 import { Monitor } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { isMobileBypassAllowed } from "@/lib/mobile/mobile-access-policy";
 
 export function SwitchToDesktopButton() {
+  const { data: session } = useSession();
+  const user = session?.user as { role?: string; roles?: string[] } | undefined;
+  const isAdmin = isMobileBypassAllowed(user);
+
+  if (!isAdmin) return null;
+
   const handleSwitch = () => {
     if (typeof document !== "undefined") {
       // Set the cookie to bypass mobile redirection for 24 hours

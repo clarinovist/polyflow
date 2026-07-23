@@ -1,9 +1,9 @@
 'use client';
 
 import { Button } from "@/components/ui/button";
-import { StopCircle, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { kioskLabels } from "@/lib/labels";
 
 interface ActiveExecutionBannerProps {
@@ -23,8 +23,9 @@ interface ActiveExecutionBannerProps {
 
 export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps) {
     const [elapsed, setElapsed] = useState<string>("00:00:00");
+    const router = useRouter();
 
-    const active = executions[0]; // Assuming one active at a time per operator/machine context
+    const active = executions[0];
 
     useEffect(() => {
         if (!active) return;
@@ -48,10 +49,20 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
 
     if (!active) return null;
 
+    const handleNavigateFocus = () => {
+        // We need to find the orderId from executions
+        // The banner has the productionOrder data, but we need the productionOrderId
+        // We'll navigate to jobs list and the user can tap the running job
+        router.push('/kiosk/jobs');
+    };
+
     return (
-        <div className="fixed bottom-0 left-65 right-0 bg-slate-900 text-white p-4 shadow-2xl border-t border-slate-700 z-50 flex justify-between items-center animate-in slide-in-from-bottom">
+        <div
+            className="fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-4 shadow-2xl border-t border-slate-700 z-50 flex justify-between items-center animate-in slide-in-from-bottom cursor-pointer hover:bg-slate-800 transition-colors"
+            onClick={handleNavigateFocus}
+        >
             <div className="flex items-center gap-4">
-                <div className="h-10 w-10 flex items-center justify-center bg-green-500 rounded-full animate-pulse">
+                <div className="h-10 w-10 flex items-center justify-center bg-green-500 rounded-full animate-pulse shrink-0">
                     <Clock className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -63,16 +74,15 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
             </div>
 
             <Button
-                variant="destructive"
+                variant="secondary"
                 size="lg"
-                onClick={() => {
-                    // Redirect to order detail for proper stop
-                    // We need the order ID.
-                    toast.info("Buka detail SPK untuk menghentikan dan mencatat hasil.");
+                className="shrink-0"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    handleNavigateFocus();
                 }}
             >
-                <StopCircle className="mr-2 h-5 w-5" />
-                Catat Hasil & Hentikan
+                Buka Focus →
             </Button>
         </div>
     );

@@ -1,5 +1,18 @@
 /** Kiosk Operator */
 export const kioskLabels = {
+  // Hub
+  hubTitle: 'Pilih Mode Kerja',
+  hubSubtitle: 'Mulai dari sini',
+  tileProduksi: 'Produksi / SPK',
+  tileProduksiDesc: 'Daftar SPK, mulai & catat hasil',
+  tileAbsensi: 'Absensi',
+  tileAbsensiDesc: 'Masuk / pulang shift',
+  tileProsesKhusus: 'Proses Khusus',
+  tileProsesKhususDesc: 'HD, Potong-Plong',
+  tileStatusSaya: 'Status Saya',
+  tileStatusSayaDesc: 'Ringkas produksi & gaji',
+
+  // Job list
   jobList: 'Daftar SPK',
   selectJob: 'Pilih SPK untuk mulai atau kelola produksi',
   startJob: 'Mulai SPK',
@@ -26,4 +39,69 @@ export const kioskLabels = {
   createSpk: 'Buat SPK Produksi',
   searchFilter: 'Filter atau cari SPK...',
   refresh: 'Segarkan',
+
+  // Focus mode
+  focusBack: 'Daftar SPK',
+  focusProgress: 'Progress',
+  focusCatatHasil: 'Catat Hasil',
+  focusDowntime: 'Downtime',
+  focusStop: 'Hentikan',
+  focusLogTerakhir: 'Log Terakhir',
+
+  // Wizard catat hasil
+  wizardStepQty: 'Qty Bagus',
+  wizardStepScrap: 'Scrap',
+  wizardStepFoto: 'Bukti Foto',
+  wizardStepKonfirmasi: 'Konfirmasi',
+  wizardQtyDesc: 'Masukkan jumlah hasil bagus',
+  wizardScrapDesc: 'Prongkol & Daun atau lewati',
+  wizardFotoDesc: 'Ambil foto bukti produksi',
+  wizardKonfirmasiDesc: 'Ringkas sebelum kirim',
+  wizardNext: 'Lanjut',
+  wizardBack: 'Kembali',
+  wizardSubmit: 'Kirim Hasil',
+  wizardCatatLagi: 'Catat Lagi',
+  wizardSelesai: 'Selesai',
+  wizardSkipScrap: 'Lewati — Tanpa Scrap',
+  wizardConfirm: 'Konfirmasi & Kirim',
+  wizardQtyLabel: 'Jumlah Hasil Bagus',
+  wizardScrapProngkol: 'Scrap Prongkol',
+  wizardScrapDaun: 'Scrap Daun',
+  wizardScrapZeroTitle: 'Scrap = 0?',
+  wizardScrapZeroDesc: 'Yakin tidak ada affal/scrap dari batch ini?',
+  wizardScrapZeroYes: 'Ya, Tidak Ada Scrap',
+  wizardScrapOnlyTitle: 'Catat Scrap Saja?',
+  wizardScrapOnlyDesc: 'Hasil bagus = 0. Hanya scrap tanpa produk bagus.',
+  wizardScrapOnlyYes: 'Ya, Catat Scrap Saja',
+  wizardPhotoLabel: 'Foto Hasil (Opsional)',
+  wizardNotesLabel: 'Catatan (Opsional)',
+  wizardTeamLabel: 'Tim Produksi',
+  wizardSummaryQty: 'Qty Bagus',
+  wizardSummaryScrap: 'Total Scrap',
+  wizardSummaryFoto: 'Foto',
+  wizardSummaryAda: 'Ada',
+  wizardSummaryTidak: 'Tidak',
+  wizardSuccessTitle: 'Berhasil!',
+  wizardSuccessDesc: 'Hasil produksi berhasil dicatat.',
+
+  // Operator gate
+  operatorGateTitle: 'Siapa yang beroperasi?',
+  operatorGateDesc: 'Pilih nama Anda untuk mulai mengelola produksi.',
+  operatorGateHint: 'Operator akan disimpan untuk sesi ini.',
+
+  // Session
+  sessionLogout: 'Keluar',
+  sessionActive: 'Operator Aktif',
+  sessionCopyId: 'Salin ID',
+
+  // Empty states
+  emptyNoJobsForMachine: 'Tidak ada SPK untuk mesin Anda',
+  emptyNoJobsReady: 'Belum ada SPK Siap Produksi',
+  emptyWaitingRelease: 'Menunggu rilis SPK dari kantor perencanaan.',
+  emptyNoFilterMatch: 'Tidak ada SPK cocok dengan filter',
+  emptyClearFilter: 'Hapus Filter',
+
+  // Device
+  devicePhone: 'HP',
+  deviceTablet: 'Tablet',
 } as const;
