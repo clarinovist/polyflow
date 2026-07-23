@@ -32,12 +32,8 @@ export type UpsertAccountInput = {
     isCashAccount?: boolean;
 };
 
-const GHOST_BLOCKLIST = new Set([
+const GHOST_BLOCKLIST_MELINDO = new Set([
     '11110', '11300', '11310', '11340', '11350', '21200', '30000', '51100', '80000', '81000', '81100', '90000', '91000', '91100',
-    '11000', '11100', '11210', '11290', '11400', '11410', '12000', '12100', '12110', '12120', '12190', '12200', '12290', '12300', '12390',
-    '21000', '21100', '21110', '21120', '21200', '21300', '21310', '21320', '21330', '21400', '22000', '22100',
-    '31000', '32000', '33000', '41000', '41100', '41200', '41900', '50000', '51000', '51200', '52000', '52100', '52200', '53000', '53100', '53200', '53300', '53400', '53410',
-    '60000', '61000', '61100', '61200', '62000', '62100', '62200', '62300', '62400',
 ]);
 
 export const upsertAccount = withTenant(
@@ -45,18 +41,15 @@ async function upsertAccount(data: UpsertAccountInput) {
     return safeAction(async () => {
         const { id, ...rest } = data;
 
-        // Hardening: block Kiyowo 5-digit codes in Melindo tenant
-        // ponytail: minimal guard; upgrade path: tenant-aware COA format config in AppSetting
-        if (!id && GHOST_BLOCKLIST.has(rest.code)) {
-            // Check if tenant is melindo by presence of melindo-style accounts
-            const melindoMarker = await prisma.account.findFirst({
-                where: { code: { startsWith: '1-' } },
-                select: { id: true },
-            });
-            if (melindoMarker) {
+        // Hardening: ONLY for Melindo tenant, block Kiyowo 5-digit ghost codes from being re-created.
+        // Kiyowo tenant is NOT affected — it legitimately uses 11300 etc.
+        // Detection: Melindo has 1-130 marker; Kiyowo does NOT have 1-130.
+        if (!id && GHOST_BLOCKLIST_MELINDO.has(rest.code)) {
+            const isMelindoTenant = await prisma.account.findUnique({ where: { code: '1-130' } });
+            if (isMelindoTenant) {
                 throw new BusinessRuleError(
-                    `Kode akun ${rest.code} adalah format Kiyowo dan tidak diperbolehnya di tenant Melindo. Gunakan format X-XXX (misal 1-130, 7-101). ` +
-                    `Jika ini migrasi, hubungi admin.`,
+                    `Kode akun ${rest.code} adalah format Kiyowo (ghost) dan sudah di-migrasikan ke format Melindo. ` +
+                    `Gunakan 1-127/1-130/7-101/8-202. Jika butuh re-aktivasi ghost, hubungi superadmin.`,
                     { code: rest.code },
                 );
             }

@@ -383,7 +383,18 @@ type PatternDb = { account: { findUnique: (args: any) => Promise<any>; findFirst
 
 const GHOST_CODES_SET = new Set([
   '11110', '11300', '11310', '11340', '11350', '21200', '30000', '51100', '80000', '81000', '81100', '90000', '91000', '91100',
+  // extended blocklist also blocks kiyowo pure codes when reused on melindo
+  '11000','11100','11210','11290','11400','11410','12000','12100','12110','12120','12190','12200','12290','12300','12390',
+  '21000','21100','21110','21120','21300','21310','21320','21330','21400','22000','22100',
+  '31000','32000','33000','41000','41100','41200','41900','50000','51000','51200','52000','52100','52200','53000','53100','53200','53300','53400','53410',
+  '60000','61000','61100','61200','62000','62100','62200','62300','62400',
 ]);
+
+async function isMelindoTenantDb(db: PatternDb): Promise<boolean> {
+  // Melindo marker: has 1-130 and 1-127 and 7-101 (melindo chart). Kiyowo has 11300 active but no 1-130.
+  const marker = await db.account.findUnique({ where: { code: '1-130' } } as any);
+  return !!marker;
+}
 
 export async function resolveByPatterns(
   role: AccountRole,
@@ -395,49 +406,40 @@ export async function resolveByPatterns(
   const patterns = ACCOUNT_ROLE_PATTERNS[role];
   if (!patterns) throw new ValidationError(`Peran akun tidak dikenal: ${role}`, { role });
 
+  const tenantIsMelindo = await isMelindoTenantDb(target as any);
+
   for (const pattern of patterns) {
     let account = null;
     if (pattern.code) {
+      // Tenant-aware ghost skip: if melindo tenant + code is ghost blocklist, skip fetching unless it's a melindo code
+      if (tenantIsMelindo && GHOST_CODES_SET.has(pattern.code) && !pattern.code.startsWith('1-') && !pattern.code.startsWith('7-') && !pattern.code.startsWith('8-') && !pattern.code.startsWith('3-200')) {
+        // Still allow if it's the ONLY possible code for this role (kiyowo tenant will fallback), but for melindo skip
+        // Check if melindo has active marker: if yes, skip ghost codes entirely
+        // ponytail: this is intentional melindo-only guard. Kiyowo tenant bypasses because isMelindo=false branch not taken? Actually we ARE in this if.
+        // For melindo, we want to skip ghost. For kiyowo, isMelindo=false so this block not triggered.
+        continue; // skip ghost code on melindo
+      }
       account = await target.account.findUnique({ where: { code: pattern.code } });
     } else if (pattern.nameContains) {
-      // skip inactive & prefer active melindo; also skip ghost-named fallbacks if ghost code inactive?
       account = await target.account.findFirst({
         where: {
           name: { contains: pattern.nameContains, mode: "insensitive" },
-          // ponytail: allow inactive ghost skip at pattern level; upgrade path: add isActive filter in index
           isActive: true,
-        },
+        } as any,
         orderBy: { code: 'asc' },
-      });
-      // fallback: if only inactive match exists, try without isActive
+      } as any);
       if (!account) {
         account = await target.account.findFirst({
           where: { name: { contains: pattern.nameContains, mode: "insensitive" } },
-        });
+        } as any);
       }
     }
     if (account) {
-      // Skip inactive accounts (ghost cleanup)
       if (account.isActive === false) continue;
-      // Extra guard: if code is known ghost and role has melindo preferred, skip ghost even if active
-      // (melindo should never pick 11300/11310 etc when 1-130/1-127 exist)
-      if (GHOST_CODES_SET.has(account.code)) {
-        // check if melindo counterpart exists active
-        const melindoCounterpart = await target.account.findFirst({
-          where: { code: { startsWith: account.code.startsWith('1') ? '1-' : account.code.startsWith('7') ? '7-' : account.code.startsWith('8') ? '8-' : '3-' }, isActive: true },
-        });
-        // ponytail: this is heuristic; full mapping uses TenantAccountRole. Upgrade: remove after all tenants migrated.
-        // For melindo specifically, prefer melindo code even if ghost active
-        // We skip ghost only if we can find a better match later? For now allow ghost if it's the only match,
-        // but log warning for observability
-        if (melindoCounterpart && account.code !== melindoCounterpart.code) {
-          // don't return ghost yet, continue looking for melindo match later in pattern list
-          // but if this is the last pattern, ghost is still allowed (legacy tenant)
-          // To prioritize melindo, we ensure melindo codes are first in pattern list (done below)
-          // So here we just continue if we're in melindo tenant (detect by presence of 1-130)
-          const isMelindoTenant = await target.account.findUnique({ where: { code: '1-130' } });
-          if (isMelindoTenant) continue;
-        }
+      // For melindo, never return ghost even if matched via nameContains
+      if (tenantIsMelindo && GHOST_CODES_SET.has(account.code)) {
+        // If name match yields ghost, continue searching for melindo alternative
+        continue;
       }
       return { id: account.id, code: account.code, name: account.name };
     }
