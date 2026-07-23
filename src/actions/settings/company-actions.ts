@@ -2,6 +2,7 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
+import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import {
@@ -27,7 +28,7 @@ async function requireAdminId(): Promise<string> {
  * Read company settings overrides stored in AppSetting (per tenant DB).
  * Returns a partial map keyed by the short name (e.g. "name", "address").
  */
-export async function getCompanySettings() {
+export const getCompanySettings = withTenant(async function getCompanySettings() {
     return safeAction(async () => {
         // Read is admin-only to avoid leaking config to non-admins in the UI.
         await requireAdminId();
@@ -45,7 +46,7 @@ export async function getCompanySettings() {
         );
         return result;
     });
-}
+});
 
 const UpdateCompanySchema = z.object({
     name: z.string().max(200).optional(),
@@ -61,7 +62,7 @@ const UpdateCompanySchema = z.object({
 
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;
 
-export async function updateCompanySettings(input: UpdateCompanyInput) {
+export const updateCompanySettings = withTenant(async function updateCompanySettings(input: UpdateCompanyInput) {
     return safeAction(async () => {
         const adminId = await requireAdminId();
         const data = UpdateCompanySchema.parse(input);
@@ -108,12 +109,12 @@ export async function updateCompanySettings(input: UpdateCompanyInput) {
         revalidatePath('/dashboard/settings');
         return { updated: entries.map(([f]) => f) };
     });
-}
+});
 
 const MAX_LOGO_BYTES = 1 * 1024 * 1024; // 1MB
 const ALLOWED_LOGO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export async function uploadCompanyLogo(formData: FormData) {
+export const uploadCompanyLogo = withTenant(async function uploadCompanyLogo(formData: FormData) {
     return safeAction(async () => {
         const adminId = await requireAdminId();
         const file = formData.get('logo');
@@ -151,4 +152,4 @@ export async function uploadCompanyLogo(formData: FormData) {
         revalidatePath('/dashboard/settings');
         return { logoUrl: url };
     });
-}
+});

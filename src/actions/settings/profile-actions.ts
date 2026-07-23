@@ -2,6 +2,7 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
+import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';
@@ -33,7 +34,7 @@ const UpdateProfileSchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 
-export async function updateOwnProfile(input: UpdateProfileInput) {
+export const updateOwnProfile = withTenant(async function updateOwnProfile(input: UpdateProfileInput) {
     return safeAction(async () => {
         const userId = await requireUserId();
         const data = UpdateProfileSchema.parse(input);
@@ -67,7 +68,7 @@ export async function updateOwnProfile(input: UpdateProfileInput) {
         revalidatePath('/dashboard/settings');
         return updated;
     });
-}
+});
 
 // ─── 4a: Change own password ─────────────────────────────────────────
 
@@ -83,7 +84,7 @@ const ChangePasswordSchema = z
 
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 
-export async function changeOwnPassword(input: ChangePasswordInput) {
+export const changeOwnPassword = withTenant(async function changeOwnPassword(input: ChangePasswordInput) {
     return safeAction(async () => {
         const userId = await requireUserId();
         const data = ChangePasswordSchema.parse(input);
@@ -116,14 +117,14 @@ export async function changeOwnPassword(input: ChangePasswordInput) {
 
         return { success: true };
     });
-}
+});
 
 // ─── 4c: Update own avatar ───────────────────────────────────────────
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export async function updateOwnAvatar(formData: FormData) {
+export const updateOwnAvatar = withTenant(async function updateOwnAvatar(formData: FormData) {
     return safeAction(async () => {
         const userId = await requireUserId();
         const file = formData.get('avatar');
@@ -161,9 +162,9 @@ export async function updateOwnAvatar(formData: FormData) {
         revalidatePath('/dashboard/settings');
         return updated;
     });
-}
+});
 
-export async function removeOwnAvatar() {
+export const removeOwnAvatar = withTenant(async function removeOwnAvatar() {
     return safeAction(async () => {
         const userId = await requireUserId();
         const updated = await prisma.user.update({
@@ -174,11 +175,11 @@ export async function removeOwnAvatar() {
         revalidatePath('/dashboard/settings');
         return updated;
     });
-}
+});
 
 // ─── 4f: Log out of all devices (token invalidation) ─────────────────
 
-export async function logoutAllDevices() {
+export const logoutAllDevices = withTenant(async function logoutAllDevices() {
     return safeAction(async () => {
         const userId = await requireUserId();
         const updated = await prisma.user.update({
@@ -196,4 +197,4 @@ export async function logoutAllDevices() {
 
         return { tokenVersion: updated.tokenVersion };
     });
-}
+});

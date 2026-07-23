@@ -2,6 +2,7 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
+import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { safeAction, AuthenticationError } from '@/lib/errors/errors';
@@ -14,7 +15,7 @@ async function requireUserId(): Promise<string> {
     return id;
 }
 
-export async function getNotificationPrefs() {
+export const getNotificationPrefs = withTenant(async function getNotificationPrefs() {
     return safeAction(async () => {
         const userId = await requireUserId();
         const user = await prisma.user.findUnique({
@@ -38,11 +39,11 @@ export async function getNotificationPrefs() {
         }
         return prefs;
     });
-}
+});
 
 const UpdatePrefsSchema = z.record(z.string(), z.boolean());
 
-export async function updateNotificationPrefs(input: NotificationPrefs) {
+export const updateNotificationPrefs = withTenant(async function updateNotificationPrefs(input: NotificationPrefs) {
     return safeAction(async () => {
         const userId = await requireUserId();
         const parsed = UpdatePrefsSchema.parse(input);
@@ -60,4 +61,4 @@ export async function updateNotificationPrefs(input: NotificationPrefs) {
         revalidatePath('/dashboard/settings');
         return clean;
     });
-}
+});
