@@ -82,7 +82,7 @@ async function assertNotLastActiveAdmin(userId: string) {
 
     if (!targetIsAdmin?.isActive) return;
     if (activeAdminCount <= 1) {
-        throw new BusinessRuleError("Cannot remove or deactivate the last active admin");
+        throw new BusinessRuleError("Tidak dapat menghapus atau menonaktifkan admin aktif terakhir");
     }
 }
 
@@ -166,7 +166,7 @@ export const setUserRoles = withTenant(
 
             const uniqueRoles = [...new Set(newRoles)];
             if (uniqueRoles.length === 0) {
-                throw new BusinessRuleError("User must have at least one role");
+                throw new BusinessRuleError("User harus memiliki minimal satu peran");
             }
 
             const targetUser = await prisma.user.findUnique({
@@ -174,7 +174,7 @@ export const setUserRoles = withTenant(
                 include: { roles: { select: { role: true } } },
             });
             if (!targetUser || targetUser.isSuperAdmin) {
-                throw new BusinessRuleError("Cannot modify Super Admin roles");
+                throw new BusinessRuleError("Tidak dapat mengubah peran Super Admin");
             }
 
             const previouslyHadAdmin =
@@ -187,7 +187,7 @@ export const setUserRoles = withTenant(
                 previouslyHadAdmin &&
                 !uniqueRoles.includes("ADMIN")
             ) {
-                throw new BusinessRuleError("Cannot remove admin role from your own account");
+                throw new BusinessRuleError("Tidak dapat menghapus peran admin dari akun sendiri");
             }
 
             if (previouslyHadAdmin && !uniqueRoles.includes("ADMIN")) {
@@ -255,7 +255,7 @@ export const updateUser = withTenant(
                 include: { roles: { select: { role: true } } },
             });
             if (!targetUser || targetUser.isSuperAdmin) {
-                throw new BusinessRuleError('Cannot modify Super Admin accounts');
+                throw new BusinessRuleError('Tidak dapat mengubah akun Super Admin');
             }
 
             const previouslyHadAdmin =
@@ -268,7 +268,7 @@ export const updateUser = withTenant(
                 validated.role !== 'ADMIN' &&
                 previouslyHadAdmin
             ) {
-                throw new BusinessRuleError('Cannot remove admin role from your own account');
+                throw new BusinessRuleError('Tidak dapat menghapus peran admin dari akun sendiri');
             }
 
             if (previouslyHadAdmin && validated.role && validated.role !== 'ADMIN') {

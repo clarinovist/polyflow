@@ -19,7 +19,7 @@ const execAsync = promisify(exec);
 // used from every server action context).
 function makeR2Client() {
     if (!process.env.S3_ACCESS_KEY_ID || !process.env.S3_SECRET_ACCESS_KEY || !process.env.S3_ENDPOINT) {
-        throw new BusinessRuleError("R2/S3 write credentials not configured on the server.");
+        throw new BusinessRuleError("Kredensial tulis R2/S3 belum dikonfigurasi di server.");
     }
     return new S3Client({
         region: process.env.S3_REGION || "auto",
@@ -56,7 +56,7 @@ export async function backupTenant(
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant || !tenant.dbUrl) {
-        throw new BusinessRuleError("Tenant or database URL not found.");
+        throw new BusinessRuleError("Tenant atau URL database tidak ditemukan.");
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -137,7 +137,7 @@ export async function getTenantBackupDownloadUrl(backupId: string) {
     await requireSuperAdmin();
 
     const backup = await prisma.tenantBackup.findUnique({ where: { id: backupId } });
-    if (!backup) throw new BusinessRuleError("Backup not found.");
+    if (!backup) throw new BusinessRuleError("Backup tidak ditemukan.");
 
     const s3 = makeR2Client();
     const url = await getPresignedReadUrl(
@@ -167,18 +167,18 @@ export async function deleteTenant(
     }
 
     if (confirmSubdomain !== tenant.subdomain) {
-        throw new BusinessRuleError("Confirmation subdomain does not match.");
+        throw new BusinessRuleError("Konfirmasi subdomain tidak cocok.");
     }
 
     if (tenant.status !== "SUSPENDED") {
-        throw new BusinessRuleError("Tenant must be SUSPENDED before it can be deleted. Suspend the tenant first (cooling period).");
+        throw new BusinessRuleError("Tenant harus SUSPENDED sebelum dapat dihapus. Suspend terlebih dahulu (masa tunggu).");
     }
 
     // 1. Backup to R2 (best-effort, but refuses to delete if backup fails —
     //    never drop a DB without a backup).
     try {
         const backup = await backupTenant(tenantId, "pre-delete");
-        if (!backup.success) throw new BusinessRuleError("Backup returned failure");
+        if (!backup.success) throw new BusinessRuleError("Backup mengembalikan kegagalan");
     } catch (err) {
         throw new BusinessRuleError(`Pre-delete backup failed. Refusing to drop DB. Error: ${err instanceof Error ? err.message : "unknown"}`);
     }
@@ -187,7 +187,7 @@ export async function deleteTenant(
     const urlObj = new URL(tenant.dbUrl);
     const dbName = urlObj.pathname.replace(/^\//, "");
     if (!dbName) {
-        throw new BusinessRuleError("Could not parse database name from dbUrl.");
+        throw new BusinessRuleError("Tidak dapat mengurai nama database dari dbUrl.");
     }
     const quoteIdent = (s: string) => `"${s.replace(/"/g, '""')}"`;
     const safeDbName = quoteIdent(dbName);
@@ -258,12 +258,12 @@ export async function restoreTenantBackup(
         include: { tenant: true },
     });
     if (!backup || !backup.tenant) {
-        throw new BusinessRuleError("Backup not found.");
+        throw new BusinessRuleError("Backup tidak ditemukan.");
     }
     const tenant = backup.tenant;
 
     if (confirmSubdomain !== tenant.subdomain) {
-        throw new BusinessRuleError("Confirmation subdomain does not match.");
+        throw new BusinessRuleError("Konfirmasi subdomain tidak cocok.");
     }
 
     const tmpDir = await mkdtemp(join(tmpdir(), "pf-restore-"));
@@ -277,7 +277,7 @@ export async function restoreTenantBackup(
             Bucket: BUCKET,
             Key: backup.r2Key,
         }));
-        if (!resp.Body) throw new BusinessRuleError("Backup file empty in R2.");
+        if (!resp.Body) throw new BusinessRuleError("File backup kosong di R2.");
         // Collect stream body into a buffer, then write to temp file.
         const chunks: Uint8Array[] = [];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

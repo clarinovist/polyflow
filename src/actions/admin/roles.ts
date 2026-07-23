@@ -26,8 +26,8 @@ async function getJobRoles() {
 
             return roles;
         } catch (error) {
-            logger.error('Failed to fetch job roles', { error, module: 'RoleActions' });
-            throw new BusinessRuleError('Failed to fetch job roles');
+            logger.error('Gagal mengambil peran pekerjaan', { error, module: 'RoleActions' });
+            throw new BusinessRuleError('Gagal mengambil peran pekerjaan');
         }
     });
 }
@@ -44,8 +44,8 @@ async function createJobRole(name: string) {
             revalidatePath('/production/resources');
             return role;
         } catch (error) {
-            logger.error('Failed to create job role', { error, roleName: name, module: 'RoleActions' });
-            throw new BusinessRuleError('Failed to create job role');
+            logger.error('Gagal membuat peran pekerjaan', { error, roleName: name, module: 'RoleActions' });
+            throw new BusinessRuleError('Gagal membuat peran pekerjaan');
         }
     });
 }

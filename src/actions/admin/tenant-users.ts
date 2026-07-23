@@ -57,7 +57,7 @@ export async function setTenantUserStatus(
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const target = await db.user.findUnique({ where: { id: userId } });
-    if (!target) throw new BusinessRuleError("User not found in tenant DB.");
+    if (!target) throw new BusinessRuleError("User tidak ditemukan di DB tenant.");
 
     await db.user.update({
         where: { id: userId },
@@ -88,9 +88,9 @@ export async function createTenantUser(
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const existing = await db.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new BusinessRuleError("Email already in use in this tenant.");
+    if (existing) throw new BusinessRuleError("Email sudah digunakan di tenant ini.");
 
-    if (data.password.length < 6) throw new BusinessRuleError("Password must be at least 6 characters.");
+    if (data.password.length < 6) throw new BusinessRuleError("Password minimal 6 karakter.");
 
     const passwordHash = await bcrypt.hash(data.password, 10);
 
@@ -132,7 +132,7 @@ export async function updateTenantUserRole(
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const target = await db.user.findUnique({ where: { id: userId } });
-    if (!target) throw new BusinessRuleError("User not found.");
+    if (!target) throw new BusinessRuleError("User tidak ditemukan.");
 
     await db.user.update({
         where: { id: userId },
@@ -165,7 +165,7 @@ export async function deleteTenantUser(tenantId: string, userId: string) {
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const target = await db.user.findUnique({ where: { id: userId } });
-    if (!target) throw new BusinessRuleError("User not found.");
+    if (!target) throw new BusinessRuleError("User tidak ditemukan.");
 
     await db.user.delete({ where: { id: userId } });
 

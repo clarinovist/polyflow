@@ -18,7 +18,7 @@ function buildTenantDbName(subdomain: string): string {
     const dbName = `polyflow_${normalized}`;
 
     if (!/^[a-z][a-z0-9_]*$/.test(dbName)) {
-        throw new BusinessRuleError("Derived database name is invalid.");
+        throw new BusinessRuleError("Nama database turunan tidak valid.");
     }
 
     return dbName;
@@ -42,12 +42,12 @@ export async function createAndProvisionTenant(formData: FormData) {
         const adminPassword = formData.get("adminPassword") as string;
 
         if (!name || !subdomain || !adminName || !adminEmail || !adminPassword) {
-            throw new BusinessRuleError("All fields are required.");
+            throw new BusinessRuleError("Semua field wajib diisi.");
         }
 
         // Basic validation
         if (!/^[a-z0-9-]+$/.test(subdomain)) {
-            throw new BusinessRuleError("Subdomain must contain only lowercase letters, numbers, and hyphens.");
+            throw new BusinessRuleError("Subdomain hanya boleh berisi huruf kecil, angka, dan strip.");
         }
 
         // Hash the password before passing to the seeder
@@ -59,7 +59,7 @@ export async function createAndProvisionTenant(formData: FormData) {
         });
 
         if (existing) {
-            throw new BusinessRuleError("Subdomain already exists.");
+            throw new BusinessRuleError("Subdomain sudah ada.");
         }
 
         const dbName = buildTenantDbName(subdomain);
@@ -67,7 +67,7 @@ export async function createAndProvisionTenant(formData: FormData) {
         // Parse DATABASE_URL from environment to build the new one
         const mainDbUrl = process.env.DATABASE_URL;
         if (!mainDbUrl) {
-            throw new BusinessRuleError("Main DATABASE_URL not found in environment.");
+            throw new BusinessRuleError("DATABASE_URL utama tidak ditemukan di environment.");
         }
 
         const urlObj = new URL(mainDbUrl);
@@ -177,11 +177,11 @@ export async function updateTenant(tenantId: string, formData: FormData) {
         const dbUrl = formData.get("dbUrl") as string;
 
         if (!name || !subdomain) {
-            throw new BusinessRuleError("Name and subdomain are required.");
+            throw new BusinessRuleError("Nama dan subdomain wajib diisi.");
         }
 
         if (!/^[a-z0-9-]+$/.test(subdomain)) {
-            throw new BusinessRuleError("Subdomain must contain only lowercase letters, numbers, and hyphens.");
+            throw new BusinessRuleError("Subdomain hanya boleh berisi huruf kecil, angka, dan strip.");
         }
 
         try {
@@ -190,7 +190,7 @@ export async function updateTenant(tenantId: string, formData: FormData) {
             });
 
             if (existing && existing.id !== tenantId) {
-                throw new BusinessRuleError("Subdomain is already used by another tenant.");
+                throw new BusinessRuleError("Subdomain sudah digunakan tenant lain.");
             }
 
             const before = await prisma.tenant.findUnique({ where: { id: tenantId } });
@@ -241,12 +241,12 @@ export async function setTenantStatus(
         }
 
         if (!['ACTIVE', 'SUSPENDED', 'TRIAL'].includes(status)) {
-            throw new BusinessRuleError("Invalid tenant status.");
+            throw new BusinessRuleError("Status tenant tidak valid.");
         }
 
         const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
         if (!tenant) {
-            throw new BusinessRuleError("Tenant not found.");
+            throw new BusinessRuleError("Tenant tidak ditemukan.");
         }
 
         await prisma.tenant.update({

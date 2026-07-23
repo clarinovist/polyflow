@@ -46,12 +46,12 @@ export const getRolePermissions = withTenant(async function getRolePermissions(
       return permissions;
     } catch (error) {
       if (error instanceof AuthorizationError) throw error;
-      logger.error("Failed to fetch permissions", {
+      logger.error("Gagal mengambil izin", {
         error,
         targetRole,
         module: "PermissionActions",
       });
-      throw new BusinessRuleError("Failed to fetch permissions");
+      throw new BusinessRuleError("Gagal mengambil izin");
     }
   });
 });
@@ -124,13 +124,13 @@ export const updatePermission = withTenant(async function updatePermission(
       return null;
     } catch (error) {
       if (error instanceof AuthorizationError) throw error;
-      logger.error("Failed to update permission", {
+      logger.error("Gagal memperbarui izin", {
         error,
         targetRole,
         resource,
         module: "PermissionActions",
       });
-      throw new BusinessRuleError("Failed to update permission");
+      throw new BusinessRuleError("Gagal memperbarui izin");
     }
   });
 });
@@ -178,7 +178,7 @@ export const updatePermissionsBulk = withTenant(
           resources,
           module: "PermissionActions",
         });
-        throw new BusinessRuleError("Failed to update permissions");
+        throw new BusinessRuleError("Gagal memperbarui izins");
       }
     });
   },
@@ -237,12 +237,12 @@ export const seedDefaultPermissions = withTenant(
         return null;
       } catch (error) {
         if (error instanceof AuthorizationError) throw error;
-        logger.error("Failed to seed permissions", {
+        logger.error("Gagal melakukan seed permissions", {
           error,
           targetRole,
           module: "PermissionActions",
         });
-        throw new BusinessRuleError("Failed to seed");
+        throw new BusinessRuleError("Gagal melakukan seed");
       }
     });
   },

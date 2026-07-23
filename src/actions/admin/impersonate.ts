@@ -65,10 +65,10 @@ export async function impersonateTenant(tenantId: string) {
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant || !tenant.dbUrl) {
-        throw new BusinessRuleError("Tenant not found or no DB URL.");
+        throw new BusinessRuleError("Tenant tidak ditemukan atau tidak ada DB URL.");
     }
     if (tenant.status === "SUSPENDED") {
-        throw new BusinessRuleError("Cannot impersonate into a suspended tenant. Reactivate first.");
+        throw new BusinessRuleError("Tidak dapat impersonate ke tenant yang di-suspend. Reaktivasi dulu.");
     }
 
     // Look up primary admin (oldest ADMIN user) in the tenant DB.
@@ -78,10 +78,10 @@ export async function impersonateTenant(tenantId: string) {
         orderBy: { createdAt: "asc" },
     });
     if (!adminUser) {
-        throw new BusinessRuleError("No admin user found in this tenant to impersonate.");
+        throw new BusinessRuleError("Tidak ada user admin di tenant ini untuk di-impersonate.");
     }
     if (adminUser.isActive === false) {
-        throw new BusinessRuleError("The admin user is inactive in this tenant. Use user management to reactivate first.");
+        throw new BusinessRuleError("User admin tidak aktif di tenant ini. Aktifkan melalui manajemen user.");
     }
 
     const expiresAt = Math.floor(Date.now() / 1000) + IMPERSONATION_TTL_SECONDS;

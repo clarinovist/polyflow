@@ -81,7 +81,7 @@ async function getEmployees() {
             return employees;
         } catch (error) {
             logger.error('Failed to get employees', { error, module: 'EmployeeActions' });
-            throw new BusinessRuleError('Failed to retrieve personnel directory');
+            throw new BusinessRuleError('Gagal mengambil direktori personil');
         }
     });
 }
@@ -95,13 +95,13 @@ async function getEmployeeById(id: string) {
                 where: { id },
             });
             if (!employee) {
-                throw new BusinessRuleError('Employee not found');
+                throw new BusinessRuleError('Karyawan tidak ditemukan');
             }
             return employee;
         } catch (error) {
             if (error instanceof BusinessRuleError) throw error;
             logger.error('Failed to get employee', { error, employeeId: id, module: 'EmployeeActions' });
-            throw new BusinessRuleError('Database error occurred while fetching employee');
+            throw new BusinessRuleError('Terjadi kesalahan database saat mengambil karyawan');
         }
     });
 }
@@ -162,7 +162,7 @@ async function createEmployee(data: {
             return employee;
         } catch (error) {
             logger.error('Failed to create employee', { error, module: 'EmployeeActions' });
-            throw new BusinessRuleError('Failed to onboard personnel');
+            throw new BusinessRuleError('Gagal onboard personil');
         }
     });
 }
@@ -212,7 +212,7 @@ async function updateEmployee(
                 },
             });
             if (!before) {
-                throw new BusinessRuleError('Employee not found');
+                throw new BusinessRuleError('Karyawan tidak ditemukan');
             }
             const { personal: _p1, ...coreData } = data;
             const employee = await prisma.employee.update({
@@ -257,7 +257,7 @@ async function updateEmployee(
             return employee;
         } catch (error) {
             logger.error('Failed to update employee', { error, employeeId: id, module: 'EmployeeActions' });
-            throw new BusinessRuleError('Failed to update personnel records');
+            throw new BusinessRuleError('Gagal memperbarui data personil');
         }
     });
 }
@@ -287,7 +287,7 @@ async function deleteEmployee(id: string) {
             return null;
         } catch (error) {
             logger.error('Failed to delete employee', { error, employeeId: id, module: 'EmployeeActions' });
-            throw new BusinessRuleError('Cannot delete personnel. They may be linked to production history or active shifts.');
+            throw new BusinessRuleError('Tidak dapat menghapus personil. Mungkin terhubung ke riwayat produksi atau shift aktif.');
         }
     });
 }
