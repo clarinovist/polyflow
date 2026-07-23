@@ -263,15 +263,18 @@ describe("listFgDemandBoard", () => {
   });
 
   it("should sort by urgency, then earliest due, then need desc", async () => {
-    const due1 = new Date("2026-07-30");
-    const due2 = new Date("2026-07-25");
+    // Relative dates — hard-coded calendar days go stale as CI "today" moves
+    const dueLow = new Date();
+    dueLow.setDate(dueLow.getDate() + 10); // >7 days → LOW
+    const dueNormal = new Date();
+    dueNormal.setDate(dueNormal.getDate() + 5); // <=7 days → NORMAL
 
     vi.mocked(prisma.salesOrderItem.findMany).mockResolvedValue([
       {
         productVariantId: "v1",
         quantity: dec(100),
         deliveredQty: dec(0),
-        salesOrder: { expectedDate: due1 },
+        salesOrder: { expectedDate: dueLow },
         productVariant: {
           id: "v1",
           name: "Low",
@@ -284,7 +287,7 @@ describe("listFgDemandBoard", () => {
         productVariantId: "v2",
         quantity: dec(500),
         deliveredQty: dec(0),
-        salesOrder: { expectedDate: due2 },
+        salesOrder: { expectedDate: dueNormal },
         productVariant: {
           id: "v2",
           name: "Normal",
@@ -300,8 +303,9 @@ describe("listFgDemandBoard", () => {
 
     const result = await listFgDemandBoard();
 
-    // LOW (>7 days out) should be last despite larger need
+    // LOW (>7 days out) should be last despite smaller need volume
     expect(result[result.length - 1].urgencyHint).toBe("LOW");
+    expect(result[0].urgencyHint).toBe("NORMAL");
   });
 
   it("should filter with onlyUncovered option", async () => {
