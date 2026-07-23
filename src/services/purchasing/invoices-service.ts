@@ -357,7 +357,7 @@ export async function updatePurchaseInvoiceDueDate(
   if (!existing) throw new NotFoundError("Purchase Invoice", id);
 
   if (existing.status === PurchaseInvoiceStatus.PAID) {
-    throw new BusinessRuleError("Cannot change due date of PAID invoice");
+    throw new BusinessRuleError("Tidak dapat mengubah tanggal jatuh tempo invoice yang sudah LUNAS");
   }
 
   let finalDueDate = data.dueDate;

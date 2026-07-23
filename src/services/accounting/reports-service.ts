@@ -333,7 +333,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
         where: { reference: periodRef, status: { not: 'VOIDED' } }
     });
     if (existing) {
-        throw new BusinessRuleError(`Closing entry already exists for ${periodRef} (JE: ${existing.entryNumber}). Void it first if you want to re-close.`, { periodRef, existingEntryNumber: existing.entryNumber, existingId: existing.id });
+        throw new BusinessRuleError(`Entri closing sudah ada untuk ${periodRef} (JE: ${existing.entryNumber}). Void terlebih dahulu jika ingin close ulang.`, { periodRef, existingEntryNumber: existing.entryNumber, existingId: existing.id });
     }
 
     // Period: WIB start-of-month to end of the WIB business day of periodEndDate.
@@ -394,7 +394,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
     }
 
     if (closingLines.length === 0) {
-        throw new BusinessRuleError(`No revenue or expense balances found for period ${periodRef}. Nothing to close.`, { periodRef });
+        throw new BusinessRuleError(`Tidak ditemukan saldo pendapatan atau biaya untuk periode ${periodRef}. Tidak ada yang perlu di-close.`, { periodRef });
     }
 
     // Net income → Laba Berjalan (resolved by role, tenant-aware)

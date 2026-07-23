@@ -125,7 +125,7 @@ export class PurchaseReturnService {
   }
 
   static async updateReturn(data: UpdatePurchaseReturnValues, userId: string) {
-    if (!data.id) throw new ValidationError("Return ID is required");
+    if (!data.id) throw new ValidationError("ID retur wajib diisi");
     
     const existing = await prisma.purchaseReturn.findUnique({ where: { id: data.id } });
     if (!existing) throw new NotFoundError("Purchase Return", data.id);

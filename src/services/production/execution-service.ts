@@ -783,7 +783,7 @@ export class ProductionExecutionService {
       if (!execution)
         throw new NotFoundError("ProductionExecution", executionId);
       if (execution.status === "VOIDED")
-        throw new ConflictError("Execution has already been voided");
+        throw new ConflictError("Eksekusi sudah di-void");
       if (execution.status !== "COMPLETED")
         throw new ProductionRuleViolationError(
           "Only completed executions can be voided",

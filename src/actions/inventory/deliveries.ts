@@ -190,7 +190,7 @@ async function updateDeliveryStatus(
 
     if (!canTransition(doRecord.status, newStatus)) {
       throw new BusinessRuleError(
-        `Cannot change status from ${doRecord.status} to ${newStatus}.`,
+        `Tidak dapat mengubah status dari ${doRecord.status} ke ${newStatus}.`,
         { from: doRecord.status, to: newStatus, deliveryOrderId },
         "INVALID_DELIVERY_STATUS",
       );

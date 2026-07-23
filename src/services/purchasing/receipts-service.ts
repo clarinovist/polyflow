@@ -329,7 +329,7 @@ export async function reverseGoodsReceipt(
         });
 
         if (!gr) {
-            throw new BusinessRuleError(`GoodsReceipt ${goodsReceiptId} not found`);
+            throw new BusinessRuleError(`Penerimaan barang ${goodsReceiptId} tidak ditemukan`);
         }
 
         // 0. Reverse FIXED_ASSET path: delete FixedAsset cards + journal for this GR

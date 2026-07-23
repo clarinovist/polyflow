@@ -57,14 +57,14 @@ export class ValidationError extends ApplicationError {
 
 /** Authentication required or failed */
 export class AuthenticationError extends ApplicationError {
-    constructor(message: string = 'Authentication required') {
+    constructor(message: string = 'Autentikasi diperlukan') {
         super(message, 'AUTHENTICATION_ERROR', 401);
     }
 }
 
 /** Authenticated but not authorized for this action */
 export class AuthorizationError extends ApplicationError {
-    constructor(message: string = 'Insufficient permissions') {
+    constructor(message: string = 'Tidak memiliki izin yang cukup') {
         super(message, 'AUTHORIZATION_ERROR', 403);
     }
 }
@@ -72,7 +72,7 @@ export class AuthorizationError extends ApplicationError {
 /** Resource not found */
 export class NotFoundError extends ApplicationError {
     constructor(resource: string, id?: string) {
-        const msg = id ? `${resource} '${id}' not found` : `${resource} not found`;
+        const msg = id ? `${resource} '${id}' tidak ditemukan` : `${resource} tidak ditemukan`;
         super(msg, 'NOT_FOUND', 404, { resource, id });
     }
 }
@@ -180,6 +180,6 @@ export async function safeAction<T>(
 
         // Unknown error — log and return generic message
         console.error('[safeAction] Unexpected error:', error);
-        return { success: false, error: 'An unexpected error occurred', code: 'INTERNAL_ERROR' };
+        return { success: false, error: 'Terjadi kesalahan yang tidak terduga', code: 'INTERNAL_ERROR' };
     }
 }

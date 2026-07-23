@@ -376,7 +376,7 @@ export class ProductionOrderService {
     quantity: number,
   ) {
     if (!salesOrderId || !productVariantId || quantity <= 0) {
-      throw new ValidationError("Invalid parameters: salesOrderId, productVariantId, and quantity > 0 are required");
+      throw new ValidationError("Parameter tidak valid: salesOrderId, productVariantId, dan quantity > 0 wajib diisi");
     }
 
     // 1. Find default BOM
@@ -528,7 +528,7 @@ export class ProductionOrderService {
       const createdOrders = [];
       for (const batch of batches) {
         if (batch.plannedQuantity <= 0) {
-          throw new ValidationError("Batch planned quantity must be positive");
+          throw new ValidationError("Qty rencana batch harus positif");
         }
 
         const po = await this.createOrder(

@@ -53,12 +53,12 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
   }
 
   if (!salesOrder.totalAmount) {
-    throw new BusinessRuleError("Sales Order has no total amount", { salesOrderId });
+    throw new BusinessRuleError("Sales Order tidak memiliki total amount", { salesOrderId });
   }
 
   if (!salesOrder.customerId) {
     throw new BusinessRuleError(
-      "Cannot create invoice for a Sales Order without customer. Complete the customer first, or use Production Order for internal stock build.",
+      "Tidak dapat membuat invoice untuk Sales Order tanpa customer. Lengkapi data customer terlebih dahulu, atau gunakan Production Order untuk pembuatan stok internal.",
       { salesOrderId }
     );
   }

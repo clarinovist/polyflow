@@ -163,7 +163,7 @@ export async function updateRoleMapping(
 ) {
     const knownRoles = getAllAccountRoles();
     if (!knownRoles.includes(role as AccountRole)) {
-        throw new ValidationError(`Unknown account role: "${role}"`, { role, knownRoles });
+        throw new ValidationError(`Peran akun tidak dikenal: "${role}"`, { role, knownRoles });
     }
 
     // Validate account exists and is active in tenant DB
@@ -172,7 +172,7 @@ export async function updateRoleMapping(
         throw new NotFoundError("Account", accountId);
     }
     if (account.isActive === false) {
-        throw new BusinessRuleError('Account is inactive', { accountId, role, isActive: false });
+        throw new BusinessRuleError('Akun tidak aktif', { accountId, role, isActive: false });
     }
 
     const mainPrisma = getMainPrisma();

@@ -38,11 +38,11 @@ export class InventoryCoreService {
       ]);
 
       throw new InsufficientStockError(
-        `Insufficient physical stock at location "${location?.name || locationId}".\n` +
-          `Product: ${variant?.name || "Unknown Item"}\n` +
-          `Required: ${quantity} ${variant?.primaryUnit || ""}\n` +
-          `Available: ${currentQty} ${variant?.primaryUnit || ""}\n` +
-          `Tip: Check if the stock is in a different location (e.g., Main Warehouse vs Raw Material) or perform a Stock Adjustment.`,
+        `Stok fisik tidak mencukupi di lokasi "${location?.name || locationId}".\n` +
+          `Produk: ${variant?.name || "Item tidak diketahui"}\n` +
+          `Diperlukan: ${quantity} ${variant?.primaryUnit || ""}\n` +
+          `Tersedia: ${currentQty} ${variant?.primaryUnit || ""}\n` +
+          `Tips: Periksa apakah stok ada di lokasi lain (misal Gudang Utama vs Bahan Baku) atau lakukan Penyesuaian Stok.`,
       );
     }
 
@@ -72,12 +72,12 @@ export class InventoryCoreService {
       ]);
 
       throw new InsufficientStockError(
-        `Stock is reserved at location "${location?.name || locationId}".\n` +
-          `Product: ${variant?.name || "Unknown Item"}\n` +
-          `Physical Stock: ${currentQty}\n` +
-          `Reserved: ${reservedQty}\n` +
-          `Net Available: ${availableQty} ${variant?.primaryUnit || ""}\n` +
-          `Required: ${quantity} ${variant?.primaryUnit || ""}`,
+        `Stok terpesan di lokasi "${location?.name || locationId}".\n` +
+          `Produk: ${variant?.name || "Item tidak diketahui"}\n` +
+          `Stok Fisik: ${currentQty}\n` +
+          `Terpesan: ${reservedQty}\n` +
+          `Stok Bersih: ${availableQty} ${variant?.primaryUnit || ""}\n` +
+          `Diperlukan: ${quantity} ${variant?.primaryUnit || ""}`,
       );
     }
 

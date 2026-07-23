@@ -139,7 +139,7 @@ export async function createYearEndClosingEntry(
 
   if (Math.abs(balance) < 0.01) {
     throw new BusinessRuleError(
-      `No balance in Current Year Earnings (33000) for year ${year} to transfer.`,
+      `Tidak ada saldo di Laba Tahun Berjalan (33000) untuk tahun ${year} yang bisa ditransfer.`,
       { year, accountCode: "33000", balance },
     );
   }

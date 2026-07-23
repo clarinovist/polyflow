@@ -119,9 +119,9 @@ export class PettyCashService {
 
     if (!transaction) throw new NotFoundError("Petty Cash Transaction", id);
     if (transaction.status !== "DRAFT")
-      throw new BusinessRuleError("Only draft transactions can be approved", { transactionId: id, currentStatus: transaction.status });
+      throw new BusinessRuleError("Hanya transaksi berstatus DRAFT yang dapat disetujui", { transactionId: id, currentStatus: transaction.status });
     if (!transaction.expenseAccountId)
-      throw new BusinessRuleError("Expense account must be selected", { transactionId: id });
+      throw new BusinessRuleError("Akun biaya harus dipilih", { transactionId: id });
 
     const resolvedPettyCash = await resolveAccount("petty-cash");
     const pettyCashAccount = await prisma.account.findUnique({

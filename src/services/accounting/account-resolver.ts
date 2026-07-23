@@ -380,7 +380,7 @@ export async function resolveByPatterns(
   const target = db ?? proxyPrisma;
 
   const patterns = ACCOUNT_ROLE_PATTERNS[role];
-  if (!patterns) throw new ValidationError(`Unknown account role: ${role}`, { role });
+  if (!patterns) throw new ValidationError(`Peran akun tidak dikenal: ${role}`, { role });
 
   for (const pattern of patterns) {
     let account = null;

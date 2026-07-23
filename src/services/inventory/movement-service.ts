@@ -42,7 +42,7 @@ export class InventoryMovementService {
 
       if (sourceStockQty === null || sourceStockQty < quantity) {
         throw new InsufficientStockError(
-          `Insufficient stock at source location. Available: ${sourceStockQty || 0}, Requested: ${quantity}`,
+          `Stok tidak mencukupi di lokasi sumber. Tersedia: ${sourceStockQty || 0}, Diperlukan: ${quantity}`,
           { sourceLocationId, productVariantId, available: sourceStockQty || 0, requested: quantity },
         );
       }
@@ -61,7 +61,7 @@ export class InventoryMovementService {
 
       if (availableQty < quantity) {
         throw new InsufficientStockError(
-          `Cannot transfer. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+          `Tidak dapat mentransfer. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
           { sourceLocationId, productVariantId, available: availableQty, requested: quantity },
         );
       }
@@ -224,7 +224,7 @@ export class InventoryMovementService {
 
         if (sourceStockQty === undefined || sourceStockQty < quantity) {
           throw new InsufficientStockError(
-            `Insufficient stock for product at source location. Available: ${sourceStockQty || 0}, Requested: ${quantity}`,
+            `Stok tidak mencukupi untuk produk di lokasi sumber. Tersedia: ${sourceStockQty || 0}, Diperlukan: ${quantity}`,
             { productVariantId, sourceLocationId, available: sourceStockQty || 0, requested: quantity },
           );
         }
@@ -234,7 +234,7 @@ export class InventoryMovementService {
 
         if (availableQty < quantity) {
           throw new InsufficientStockError(
-            `Cannot transfer product. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+            `Tidak dapat mentransfer produk. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
             { productVariantId, sourceLocationId, available: availableQty, requested: quantity },
           );
         }
@@ -319,7 +319,7 @@ export class InventoryMovementService {
           : null;
         if (currentStockQty === null || currentStockQty < quantity) {
           throw new InsufficientStockError(
-            `Insufficient stock for adjustment OUT. Available: ${currentStockQty || 0}, Requested: ${quantity}`,
+            `Stok tidak mencukupi untuk penyesuaian keluar. Tersedia: ${currentStockQty || 0}, Diperlukan: ${quantity}`,
             { locationId, productVariantId, available: currentStockQty || 0, requested: quantity },
           );
         }
@@ -338,7 +338,7 @@ export class InventoryMovementService {
 
         if (availableQty < quantity) {
           throw new InsufficientStockError(
-            `Cannot adjust OUT. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+            `Tidak dapat melakukan penyesuaian keluar. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
             { locationId, productVariantId, available: availableQty, requested: quantity },
           );
         }
@@ -478,7 +478,7 @@ export class InventoryMovementService {
             : null;
           if (currentStockQty === null || currentStockQty < quantity) {
             throw new InsufficientStockError(
-              `Insufficient stock to adjust OUT for product ${productVariantId}. Available: ${currentStockQty || 0}, Requested: ${quantity}`,
+              `Stok tidak mencukupi untuk penyesuaian keluar produk. Tersedia: ${currentStockQty || 0}, Diperlukan: ${quantity}`,
               { productVariantId, locationId, available: currentStockQty || 0, requested: quantity },
             );
           }
@@ -496,7 +496,7 @@ export class InventoryMovementService {
           const availableQty = currentStockQty - reservedQty;
           if (availableQty < quantity) {
             throw new InsufficientStockError(
-              `Cannot adjust OUT for product ${productVariantId}. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+              `Tidak dapat melakukan penyesuaian keluar untuk produk. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
               { productVariantId, locationId, available: availableQty, requested: quantity },
             );
           }

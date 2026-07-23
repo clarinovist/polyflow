@@ -13,7 +13,7 @@ export class StockOpnameService {
 
     if (!opname) throw new NotFoundError("StockOpname", opnameId);
     if (opname.status !== OpnameStatus.OPEN)
-      throw new BusinessRuleError("Session is not open");
+      throw new BusinessRuleError("Sesi tidak terbuka");
 
     await prisma.$transaction(async (tx) => {
       // 1. Process items with variance

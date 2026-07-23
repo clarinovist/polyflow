@@ -82,7 +82,7 @@ export class SalesReturnService {
   }
 
   static async updateReturn(data: UpdateSalesReturnValues, userId: string) {
-    if (!data.id) throw new ValidationError("Return ID is required");
+    if (!data.id) throw new ValidationError("ID retur wajib diisi");
     
     const existing = await prisma.salesReturn.findUnique({ where: { id: data.id } });
     if (!existing) throw new NotFoundError("Sales Return", data.id);

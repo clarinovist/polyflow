@@ -133,7 +133,7 @@ export async function convertRequestToOrder(requestId: string, supplierId: strin
 }
 
 export async function consolidateRequestsToOrder(requestIds: string[], supplierId: string, userId: string) {
-    if (requestIds.length === 0) throw new ValidationError("No requests selected for consolidation");
+    if (requestIds.length === 0) throw new ValidationError("Tidak ada permintaan yang dipilih untuk konsolidasi");
 
     return await prisma.$transaction(async (tx) => {
         const prs = await tx.purchaseRequest.findMany({

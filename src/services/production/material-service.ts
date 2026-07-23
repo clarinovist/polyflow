@@ -98,7 +98,7 @@ export class ProductionMaterialService {
                             .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
                         if (issued > 0.001) {
-                            throw new ProductionRuleViolationError(`Cannot remove ${planItem.productVariant.name} because it has already been partially issued.`);
+                            throw new ProductionRuleViolationError(`Tidak dapat menghapus ${planItem.productVariant.name} karena sudah sebagian di-issue.`);
                         }
                         idsToDelete.push(id);
                     }
@@ -140,7 +140,7 @@ export class ProductionMaterialService {
             if (recordAsStaged) {
                 for (const item of items) {
                     const stagingLocationId = item.sourceLocationId || locationId;
-                    if (!stagingLocationId) throw new ValidationError("Staging location is required");
+                    if (!stagingLocationId) throw new ValidationError("Lokasi staging wajib diisi");
 
                     const planItem = order.plannedMaterials.find(p => p.productVariantId === item.productVariantId);
                     const plannedQty = planItem ? Number(planItem.quantity) : 0;
@@ -179,7 +179,7 @@ export class ProductionMaterialService {
 
             for (const item of items) {
                 const itemLocationId = item.sourceLocationId || locationId;
-                if (!itemLocationId) throw new ValidationError("Source location is required");
+                if (!itemLocationId) throw new ValidationError("Lokasi sumber wajib diisi");
                 // 2. Server-side Capping
                 const planItem = order.plannedMaterials.find(p => p.productVariantId === item.productVariantId);
                 const plannedQty = planItem ? Number(planItem.quantity) : 0;
@@ -293,7 +293,7 @@ export class ProductionMaterialService {
                         }
 
                         if (remainingToDeduct > 0.0001) {
-                            throw new InsufficientStockError(`Insufficient stock in batches for ${item.productVariantId}. Missing: ${remainingToDeduct}`);
+                            throw new InsufficientStockError(`Stok batch tidak mencukupi. Kurang: ${remainingToDeduct}`);
                         }
                     }
                 } else {
@@ -301,7 +301,7 @@ export class ProductionMaterialService {
                     const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                     const batch = await tx.batch.findUnique({ where: { id: item.batchId } });
                     if (!batch || Number(batch.quantity) < remainingToDeduct) {
-                        throw new InsufficientStockError(`Selected batch ${batch?.batchNumber || item.batchId} has insufficient stock or not found.`);
+                        throw new InsufficientStockError(`Batch ${batch?.batchNumber || item.batchId} stoknya tidak mencukupi atau tidak ditemukan.`);
                     }
 
                     await tx.batch.update({
@@ -381,7 +381,7 @@ export class ProductionMaterialService {
             });
 
             if (orders.length === 0) {
-                throw new ValidationError("No production orders found with the provided IDs.");
+                throw new ValidationError("Tidak ada production order yang ditemukan dengan ID tersebut.");
             }
 
             const idempotencySuffix = requestId ? ` REQ:${requestId}` : "";
@@ -506,7 +506,7 @@ export class ProductionMaterialService {
                     }
 
                     if (remainingToDeduct > 0.0001) {
-                        throw new InsufficientStockError(`Insufficient stock in batches for variant ${item.productVariantId}. Missing: ${remainingToDeduct}`);
+                        throw new InsufficientStockError(`Stok batch tidak mencukupi untuk varian ini. Kurang: ${remainingToDeduct}`);
                     }
                 }
 
