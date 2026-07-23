@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Eye, EyeOff, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
     updateOwnProfile,
     changeOwnPassword,
@@ -47,6 +49,8 @@ export function ProfileSettings({
     const [savingProfile, startProfile] = useTransition();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+    const { update: updateSession } = useSession();
+    const router = useRouter();
 
     // Password
     const [currentPassword, setCurrentPassword] = useState('');
@@ -60,6 +64,8 @@ export function ProfileSettings({
             const res = await updateOwnProfile({ name, email, locale });
             if (res.success) {
                 toast.success('Profil berhasil diperbarui.');
+                await updateSession({ name: res.data.name, email: res.data.email });
+                router.refresh();
             } else {
                 toast.error(res.error || 'Gagal memperbarui profil.');
             }
@@ -76,6 +82,8 @@ export function ProfileSettings({
             const res = await updateOwnAvatar(fd);
             if (res.success) {
                 setAvatar(res.data.avatarUrl);
+                await updateSession({ image: res.data.avatarUrl, picture: res.data.avatarUrl });
+                router.refresh();
                 toast.success('Foto profil diperbarui.');
             } else {
                 toast.error(res.error || 'Gagal mengunggah avatar.');
@@ -92,6 +100,8 @@ export function ProfileSettings({
             const res = await removeOwnAvatar();
             if (res.success) {
                 setAvatar(null);
+                await updateSession({ image: '', picture: '' });
+                router.refresh();
                 toast.success('Foto profil dihapus.');
             } else {
                 toast.error(res.error || 'Gagal menghapus avatar.');
@@ -217,7 +227,7 @@ export function ProfileSettings({
                         </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        Perubahan nama tampil di seluruh aplikasi setelah Anda login ulang.
+                        Perubahan langsung berlaku di sidebar dan seluruh aplikasi.
                     </p>
                 </CardContent>
             </Card>

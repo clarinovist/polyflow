@@ -29,6 +29,10 @@ declare module "next-auth/jwt" {
         allowedResources?: string[]
         rememberMe?: boolean
         lastActive?: number
+        tokenVersion?: number
+        impersonatedBy?: string
+        impersonationExpiresAt?: number
+        picture?: string
     }
 }
 

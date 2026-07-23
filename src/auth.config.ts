@@ -289,7 +289,7 @@ export const authConfig = {
                 return false;
             }
         },
-        jwt({ token, user }) {
+        jwt({ token, user, trigger, session }) {
             if (user) {
                 const u = user as {
                     id?: string;
@@ -316,6 +316,26 @@ export const authConfig = {
                 if (u.impersonatedBy) {
                     token.impersonatedBy = u.impersonatedBy;
                     token.impersonationExpiresAt = u.impersonationExpiresAt;
+                }
+            }
+
+            // Client-triggered partial session update (e.g. name/email/avatar change in profile settings).
+            // Whitelist-only — never trust sensitive claims (role, isSuperAdmin, tokenVersion, ...) from client.
+            if (trigger === 'update') {
+                const s = session as { name?: string; email?: string; picture?: string; image?: string } | undefined;
+                if (s) {
+                    if (typeof s.name === 'string' && s.name.length > 0) token.name = s.name;
+                    if (typeof s.email === 'string' && s.email.length > 0) token.email = s.email;
+                    // NextAuth client commonly sends image via 'name' on picture field.
+                    const incomingPicture = typeof s.picture === 'string' ? s.picture : typeof s.image === 'string' ? s.image : undefined;
+                    if (typeof incomingPicture === 'string') {
+                        if (incomingPicture === '') {
+                            delete (token as Record<string, unknown>).picture;
+                            delete (token as Record<string, unknown>).image;
+                        } else {
+                            token.picture = incomingPicture;
+                        }
+                    }
                 }
             }
 
