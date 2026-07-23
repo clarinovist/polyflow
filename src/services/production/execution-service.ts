@@ -293,6 +293,7 @@ export class ProductionExecutionService {
           endTime: null as unknown as Date,
           quantityProduced: 0,
           scrapQuantity: 0,
+          status: 'COMPLETED',
         },
       });
 
@@ -784,9 +785,9 @@ export class ProductionExecutionService {
         throw new NotFoundError("ProductionExecution", executionId);
       if (execution.status === "VOIDED")
         throw new ConflictError("Eksekusi sudah di-void");
-      if (execution.status !== "COMPLETED")
+      if (execution.endTime === null)
         throw new ProductionRuleViolationError(
-          "Only completed executions can be voided",
+          "Eksekusi masih berjalan, tidak bisa di-void",
         );
 
       const { productionOrderId, quantityProduced, createdAt } = execution;

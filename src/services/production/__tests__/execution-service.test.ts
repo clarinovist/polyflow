@@ -140,6 +140,24 @@ describe('ProductionExecutionService.voidExecution', () => {
         expect(tx.productionOrder.update).not.toHaveBeenCalled();
     });
 
+    it('rejects executions that are still running (endTime null)', async () => {
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            quantityProduced: 0,
+            createdAt: new Date('2026-04-15T10:00:00.000Z'),
+            status: 'COMPLETED',
+            endTime: null,
+            productionOrder: { id: 'po-1' },
+        } as never);
+
+        await expect(ProductionExecutionService.voidExecution('exec-1')).rejects.toThrow('Eksekusi masih berjalan, tidak bisa di-void');
+
+        expect(tx.stockMovement.findMany).not.toHaveBeenCalled();
+        expect(tx.productionExecution.update).not.toHaveBeenCalled();
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+    });
+
     it('voids a completed execution once and updates related records', async () => {
         vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({
             id: 'exec-1',
@@ -147,6 +165,7 @@ describe('ProductionExecutionService.voidExecution', () => {
             quantityProduced: 10,
             createdAt: new Date('2026-04-15T10:00:00.000Z'),
             status: 'COMPLETED',
+            endTime: new Date('2026-04-15T11:00:00.000Z'),
             productionOrder: { id: 'po-1' },
         } as never);
         vi.mocked(tx.stockMovement.findMany).mockResolvedValue([] as never);
@@ -193,6 +212,7 @@ describe('ProductionExecutionService.voidExecution', () => {
             quantityProduced: 10,
             createdAt: executionCreatedAt,
             status: 'COMPLETED',
+            endTime: new Date('2026-04-15T09:00:00.000Z'),
             productionOrder: { id: 'po-1' },
         } as never);
         vi.mocked(tx.productionExecution.findMany)
@@ -241,6 +261,7 @@ describe('ProductionExecutionService.voidExecution', () => {
             quantityProduced: new Prisma.Decimal(10),
             createdAt: new Date('2026-04-15T10:00:00.000Z'),
             status: 'COMPLETED',
+            endTime: new Date('2026-04-15T11:00:00.000Z'),
             productionOrder: {
                 id: 'po-1',
                 salesOrderId: 'so-1',
@@ -293,6 +314,7 @@ describe('ProductionExecutionService.voidExecution', () => {
             quantityProduced: new Prisma.Decimal(10),
             createdAt: new Date('2026-04-15T10:00:00.000Z'),
             status: 'COMPLETED',
+            endTime: new Date('2026-04-15T11:00:00.000Z'),
             productionOrder: {
                 id: 'po-1',
                 salesOrderId: 'so-1',

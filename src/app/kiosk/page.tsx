@@ -57,7 +57,7 @@ const getData = withTenantPage(async function getData() {
     const activeJobCount = await prisma.productionExecution.count({
         where: {
             endTime: null,
-            status: 'RUNNING',
+            status: { not: 'VOIDED' },
         }
     });
 
