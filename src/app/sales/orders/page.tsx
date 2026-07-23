@@ -9,6 +9,7 @@ import { serializeData, formatRupiah } from '@/lib/utils/utils';
 import { SalesOrderType, SalesOrderStatus } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
 import { OrderPeriodHint } from '@/components/sales/OrderPeriodHint';
+import { ContextualHelp } from '@/components/support/contextual-help';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -210,6 +211,14 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                     <p className="text-muted-foreground">{salesLabels.salesOrdersDesc}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <ContextualHelp
+                        title="Panduan SO"
+                        links={[
+                            { title: 'Cara Buat Sales Order', slug: 'cara-buat-sales-order' },
+                            { title: 'Cara Confirm SO Stok Kurang', slug: 'cara-confirm-so-stok-kurang' },
+                            { title: 'Jadwal Kirim & Surat Jalan', slug: 'cara-jadwal-kirim-dan-surat-jalan' },
+                        ]}
+                    />
                     <UrlTransactionDateFilter defaultPreset="this_month" />
                     <Button asChild>
                         <Link href="/sales/orders/create">

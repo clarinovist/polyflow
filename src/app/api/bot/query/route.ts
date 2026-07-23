@@ -1,4 +1,5 @@
 import { withTenantRoute } from "@/lib/core/tenant";
+import { getTenantIdFromContext } from "@/lib/core/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { validateExternalRequest } from "@/lib/api/external-api-helper";
 import { isPolyflowScoped, POLYFLOW_PRODUCT_ID } from "@/lib/bot/product-scope";
@@ -72,6 +73,8 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     );
   }
 
+  const tenantId = getTenantIdFromContext();
+
   try {
     const result = await generateVirtualCsReply({
       question,
@@ -79,13 +82,15 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
       requesterName: body?.requesterName,
     });
 
-    await logVirtualCsEvent({
+    const interactionId = await logVirtualCsEvent({
       channel: "telegram",
       product: POLYFLOW_PRODUCT_ID,
       question,
+      answer: result.answer,
       allowed: result.safety.allowed,
       blockedReason: result.safety.blockedReason,
       success: true,
+      tenantId,
       requesterName: body?.requesterName,
       latencyMs: Date.now() - startedAt,
     });
@@ -93,7 +98,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       product: POLYFLOW_PRODUCT_ID,
-      data: result,
+      data: { ...result, interactionId },
     });
   } catch (error) {
     console.error("[BOT_QUERY] Failed:", error);
@@ -105,6 +110,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
       allowed: false,
       blockedReason: "Internal Server Error",
       success: false,
+      tenantId,
       requesterName: body?.requesterName,
       latencyMs: Date.now() - startedAt,
     });

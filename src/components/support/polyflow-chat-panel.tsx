@@ -1,18 +1,21 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Loader2, Send, ShieldCheck, User } from 'lucide-react';
+import { Bot, Loader2, Send, ShieldCheck, ThumbsDown, ThumbsUp, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils/utils';
 
 type Role = 'assistant' | 'user';
+type Feedback = 'UP' | 'DOWN';
 
 type ChatMessage = {
   id: string;
   role: Role;
   text: string;
+  interactionId?: string;
+  feedback?: Feedback;
 };
 
 type ChatApiResponse = {
@@ -20,12 +23,24 @@ type ChatApiResponse = {
   error?: string;
   data?: {
     answer: string;
+    interactionId?: string;
     safety: {
       allowed: boolean;
       blockedReason?: string;
     };
   };
 };
+
+const QUICK_ASK_CHIPS = [
+  'Cara buat Sales Order?',
+  'Cek stok kritis',
+  'Cara terima barang?',
+  'SPK yang sedang jalan',
+  'Invoice belum lunas',
+  'Cara input stok awal',
+  'Role & permission user',
+  'Cara eskalasi masalah',
+];
 
 interface PolyflowChatPanelProps {
   embedded?: boolean;
@@ -47,13 +62,14 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
 
   const canSend = useMemo(() => question.trim().length > 0 && !isLoading, [question, isLoading]);
 
-  const pushMessage = (role: Role, text: string) => {
+  const pushMessage = (role: Role, text: string, interactionId?: string) => {
     setMessages((prev) => [
       ...prev,
       {
         id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         role,
         text,
+        interactionId,
       },
     ]);
 
@@ -62,6 +78,34 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, isLoading]);
+
+  const sendFeedback = async (messageId: string, interactionId: string, feedback: Feedback) => {
+    const previousFeedback = messages.find((m) => m.id === messageId)?.feedback;
+
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, feedback } : msg))
+    );
+
+    try {
+      const res = await fetch('/api/chat/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interactionId, feedback }),
+      });
+
+      if (!res.ok) {
+        // Rollback on server error
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === messageId ? { ...msg, feedback: previousFeedback } : msg))
+        );
+      }
+    } catch {
+      // Rollback on network error
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === messageId ? { ...msg, feedback: previousFeedback } : msg))
+      );
+    }
+  };
 
   const sendQuestion = async (incoming?: string) => {
     const payload = (incoming ?? question).trim();
@@ -87,7 +131,7 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
         return;
       }
 
-      pushMessage('assistant', json.data?.answer || 'Maaf, belum ada jawaban yang bisa saya berikan.');
+      pushMessage('assistant', json.data?.answer || 'Maaf, belum ada jawaban yang bisa saya berikan.', json.data?.interactionId);
     } catch {
       pushMessage('assistant', 'Koneksi ke server terputus. Silakan coba lagi.');
     } finally {
@@ -133,22 +177,48 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
                 </div>
               )}
 
-              <div
-                className={cn(
-                  'max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm backdrop-blur-md',
-                  msg.role === 'user'
-                    ? 'rounded-tr-sm bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border border-primary/20 shadow-md'
-                    : 'rounded-tl-sm border border-brand-border bg-brand-glass-heavy text-foreground'
-                )}
-              >
-                {msg.role === 'assistant' ? (
-                  <div className="prose prose-sm prose-slate dark:prose-invert max-w-none break-words whitespace-pre-wrap leading-relaxed">
-                    {msg.text}
+              {msg.role === 'assistant' ? (
+                <div className="flex flex-col max-w-[85%]">
+                  <div className="rounded-2xl rounded-tl-sm px-4 py-3 text-[15px] leading-relaxed shadow-sm backdrop-blur-md border border-brand-border bg-brand-glass-heavy text-foreground">
+                    <div className="prose prose-sm prose-slate dark:prose-invert max-w-none break-words whitespace-pre-wrap leading-relaxed">
+                      {msg.text}
+                    </div>
                   </div>
-                ) : (
+
+                  {msg.interactionId && !msg.feedback && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <button
+                        onClick={() => sendFeedback(msg.id, msg.interactionId!, 'UP')}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950 transition-colors"
+                        title="Membantu"
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => sendFeedback(msg.id, msg.interactionId!, 'DOWN')}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                        title="Tidak membantu"
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {msg.feedback && (
+                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                      {msg.feedback === 'UP' ? (
+                        <span className="flex items-center gap-1 text-green-600"><ThumbsUp className="h-3 w-3" /> Terima kasih atas feedbacknya!</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-red-500"><ThumbsDown className="h-3 w-3" /> Feedback dicatat, akan kami perbaiki.</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-4 py-3 text-[15px] leading-relaxed shadow-sm backdrop-blur-md bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border border-primary/20 shadow-md">
                   <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-                )}
-              </div>
+                </div>
+              )}
 
               {msg.role === 'user' && (
                 <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-glass text-foreground border border-brand-border shadow-sm">
@@ -169,6 +239,20 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
       </ScrollArea>
 
       <form onSubmit={onSubmit} className="border-t border-brand-border bg-brand-glass-heavy p-4 backdrop-blur-md">
+        {messages.length <= 1 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {QUICK_ASK_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => sendQuestion(chip)}
+                className="text-xs px-3 py-1.5 rounded-full border border-brand-border bg-brand-glass hover:bg-brand-glass-heavy text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-2 rounded-xl border border-brand-border bg-brand-glass/50 p-2 shadow-inner focus-within:border-brand-border-heavy focus-within:bg-brand-glass-heavy transition-all duration-300">
           <Textarea
             value={question}

@@ -2610,3 +2610,85 @@ model PayslipAllowance {
 
   @@index([payslipId])
 }
+
+// ==========================================
+// HELP CENTER / VIRTUAL CS (Platform-level)
+// ==========================================
+
+enum HelpOutcome {
+  SUCCESS
+  PARTIAL
+  FAILED
+  BLOCKED
+  ESCALATED
+}
+
+enum HelpFeedback {
+  UP
+  DOWN
+}
+
+model HelpInteraction {
+  id             String       @id @default(cuid())
+  tenantId       String?
+  userId         String?
+  channel        String       @default("web") // web | telegram
+  question       String       @db.Text
+  answerPreview  String       @db.Text
+  outcome        HelpOutcome  @default(SUCCESS)
+  feedback       HelpFeedback?
+  confidence     Float?
+  latencyMs      Int
+  blockedReason  String?
+  createdAt      DateTime     @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([outcome])
+  @@index([createdAt])
+}
+
+model HelpSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  valueJson   String   @db.Text
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+}
+
+enum HelpArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum HelpArticleSource {
+  SEED
+  HUMAN
+  AUTO_LEARN
+}
+
+model HelpArticle {
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  title            String
+  summary          String            @default("")
+  bodyMd           String            @db.Text
+  status           HelpArticleStatus @default(DRAFT)
+  locale           String            @default("id")
+  modules          String[]          // sales | warehouse | production | finance | hrd | purchasing | access | global
+  tags             String[]
+  errorCodes       String[]          // e.g. STOCK_INSUFFICIENT, PERMISSION_DENIED
+  source           HelpArticleSource @default(SEED)
+  version          Int               @default(1)
+  publishedAt      DateTime?
+  createdBy        String?
+  updatedBy        String?
+  helpfulCount     Int               @default(0)
+  notHelpfulCount  Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([status, createdAt])
+  @@index([slug])
+  @@index([status, modules])
+}

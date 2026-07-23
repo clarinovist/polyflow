@@ -6,6 +6,7 @@ import { serializeData } from "@/lib/utils/utils";
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ContextualHelp } from '@/components/support/contextual-help';
 
 import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
@@ -44,6 +45,13 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <ContextualHelp
+                        title="Panduan Invoice"
+                        links={[
+                            { title: 'Cara Lihat Invoice Belum Lunas', slug: 'cara-lihat-invoice-belum-lunas' },
+                            { title: 'Error Period Locked', slug: 'error-period-locked-finance' },
+                        ]}
+                    />
                     <UrlTransactionDateFilter defaultPreset="all" align="end" />
                 </div>
             </div>

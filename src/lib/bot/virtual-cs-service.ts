@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { enforceGuardrails } from './guardrails';
+import { searchHelpArticles } from './help-articles';
 import OpenAI from 'openai';
 
 const AGENTIC_DEBUG = process.env.AGENTIC_DEBUG === 'true';
@@ -298,8 +299,35 @@ const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: { name: "get_pending_sales_overview", description: "Daftar ringkas sales orders yang statusnya belum selesai." }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_help_articles",
+      description: "Cari artikel panduan / FAQ / troubleshooting dari Knowledge Base. WAJIB gunakan tool ini untuk pertanyaan 'cara pakai', 'bagaimana cara', 'tutorial', atau troubleshooting sebelum menjawab sendiri. Hasil berisi judul, slug (untuk link), dan ringkasan.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Kata kunci pencarian (misal: 'buat sales order', 'stok kurang', 'input SPK')" },
+          module: { type: "string", description: "Filter modul opsional: sales, warehouse, production, finance, hrd, purchasing, access, global" }
+        },
+        required: ["query"]
+      }
+    }
   }
 ];
+
+async function handleSearchHelpArticles(query: string, module?: string): Promise<string> {
+  const results = await searchHelpArticles(query, module, 5);
+  if (!results.length) {
+    return 'Tidak ditemukan artikel yang relevan di Knowledge Base.';
+  }
+  const lines = results.map((r, i) => {
+    const link = `/support/${r.slug}`;
+    return `${i + 1}. **${r.title}** (${r.modules.join(', ')})\n   ${r.summary}\n   Link: ${link}`;
+  });
+  return `Artikel ditemukan di Knowledge Base:\n\n${lines.join('\n\n')}`;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleToolCall(name: string, args: any): Promise<string> {
@@ -312,6 +340,7 @@ async function handleToolCall(name: string, args: any): Promise<string> {
       case 'get_general_stock_overview': return await getStockOverview();
       case 'get_critical_stock_overview': return await getCriticalStock();
       case 'get_pending_sales_overview': return await getPendingSales();
+      case 'search_help_articles': return await handleSearchHelpArticles(args.query || '', args.module);
       default: return `Error: Tool '${name}' tidak dikenali.`;
     }
   } catch(e) {
@@ -345,15 +374,17 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
     {
       role: 'system',
       content: `Anda adalah Virtual CS Polyflow, ERP pabrik plastik. Gunakan bahasa Indonesia yang ramah dan profesional.
-Anda dilengkapi dengan TOOLS untuk mengecek database operasional pabrik.
+Anda dilengkapi dengan TOOLS untuk mengecek database operasional pabrik DAN mencari artikel panduan dari Knowledge Base.
 ${greeting}
 
 Aturan Agentic:
-1. JIKA user bertanya info spesifik (ex: kenapa order Budi gagal, cek stok MP 15, apa ada penjualan kemarin?), Anda WAJIB memanggil tools.
-2. Jika perlu investigasi (seperti insuficient stock), hubungkan data dari get_sales_order_lines lalu bandingkan dengan get_product_stock. 
+1. JIKA user bertanya CARA PAKAI / tutorial / "bagaimana cara" / troubleshooting → WAJIB panggil search_help_articles DULU, lalu jawab berdasarkan hasil + sebutkan judul artikel. Jangan hallucinate langkah jika KB punya jawaban.
+2. JIKA user bertanya info spesifik data (ex: kenapa order Budi gagal, cek stok MP 15), panggil tools data (get_product_stock, get_sales_order_lines, dll).
+3. Jika perlu investigasi (seperti insufficient stock), hubungkan data dari get_sales_order_lines lalu bandingkan dengan get_product_stock. 
    PERHATIAN! Sebuah pesanan bisa memiliki beberapa baris produk yang sama. Jumlahkan total pesanan tersebut BUKAN dari satu baris, lalu bandingkan dengan total inventori fisik!
-3. Jika tools tidak menemukan data yang cukup untuk menjawab, akui keterbatasan tersebut.
-4. Anda read-only. Operasional perubahan data harus dilakukan manual melalui aplikasi UI Polyflow.`
+4. Jika tools tidak menemukan data yang cukup untuk menjawab, akui keterbatasan tersebut.
+5. Anda read-only. Operasional perubahan data harus dilakukan manual melalui aplikasi UI Polyflow.
+6. Saat mengutip artikel, sebutkan judul dan sarankan user membuka link /support/{slug} untuk panduan lengkap.`
     },
     { role: 'user', content: input.question }
   ];

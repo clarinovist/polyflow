@@ -15,6 +15,7 @@ import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNa
 import { serializeData, toDecimalNumber } from '@/lib/utils/utils';
 import { withTenantPage } from '@/lib/core/tenant';
 import { InventoryQuickActions } from '@/components/warehouse/inventory/InventoryQuickActions';
+import { ContextualHelp } from '@/components/support/contextual-help';
 
 const getAbcData = withTenantPage(async () => {
     return ABCAnalysisService.calculateABCClassification();
@@ -180,7 +181,17 @@ export default async function WarehouseInventoryPage({
                     <h1 className="text-2xl font-bold tracking-tight">Stok</h1>
                     <p className="text-muted-foreground mt-1">Pantau level stok dan status gudang</p>
                 </div>
-                <InventoryQuickActions lowStockCount={dashboardStats.lowStockCount} />
+                <div className="flex items-center gap-2">
+                    <ContextualHelp
+                        title="Panduan Stok"
+                        links={[
+                            { title: 'Cara Cek Stok Per Lokasi', slug: 'cara-cek-stok-per-lokasi' },
+                            { title: 'Cara Terima Barang Gudang', slug: 'cara-terima-barang-gudang' },
+                            { title: 'Error Backflush / Stok Bahan', slug: 'error-backflush-atau-stok-bahan' },
+                        ]}
+                    />
+                    <InventoryQuickActions lowStockCount={dashboardStats.lowStockCount} />
+                </div>
             </div>
 
             <WarehouseNavigator

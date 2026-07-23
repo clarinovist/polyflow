@@ -10,6 +10,7 @@ import {
     X,
     ScrollText,
     Activity,
+    HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -31,6 +32,7 @@ const adminLinks = [
     { title: "Tenants", href: "/admin/super-admin", icon: Building2 },
     { title: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
     { title: "System Health", href: "/admin/system-health", icon: Activity },
+    { title: "Help / Virtual CS", href: "/admin/help", icon: HelpCircle },
 ];
 
 export function AdminNav({ user }: AdminNavProps) {

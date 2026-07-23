@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { withTenantRoute } from "@/lib/core/tenant";
+import { getTenantIdFromContext } from "@/lib/core/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { generateVirtualCsReply } from "@/lib/bot/virtual-cs-service";
 import { POLYFLOW_PRODUCT_ID } from "@/lib/bot/product-scope";
@@ -43,6 +44,8 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     );
   }
 
+  const tenantId = getTenantIdFromContext();
+
   try {
     const result = await generateVirtualCsReply({
       question,
@@ -50,14 +53,16 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
       requesterName: session.user.name || undefined,
     });
 
-    await logVirtualCsEvent({
+    const interactionId = await logVirtualCsEvent({
       channel: "web",
       product: POLYFLOW_PRODUCT_ID,
       question,
+      answer: result.answer,
       allowed: result.safety.allowed,
       blockedReason: result.safety.blockedReason,
       success: true,
       userId: (session.user as { id?: string }).id,
+      tenantId,
       requesterName: session.user.name || undefined,
       latencyMs: Date.now() - startedAt,
     });
@@ -65,7 +70,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       product: POLYFLOW_PRODUCT_ID,
-      data: result,
+      data: { ...result, interactionId },
     });
   } catch (error) {
     console.error("[CHAT_BRIDGE] Failed:", error);
@@ -78,6 +83,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
       blockedReason: "Internal Server Error",
       success: false,
       userId: (session.user as { id?: string }).id,
+      tenantId,
       requesterName: session.user.name || undefined,
       latencyMs: Date.now() - startedAt,
     });
