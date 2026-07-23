@@ -25,6 +25,7 @@ export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
       "PROCUREMENT",
       "WAREHOUSE",
       "PRODUCTION",
+      "HRD",
     ],
     warehouse: ["ADMIN", "WAREHOUSE", "PRODUCTION", "PLANNING"],
     production: ["ADMIN", "PRODUCTION", "PLANNING", "PROCUREMENT"],
@@ -32,8 +33,8 @@ export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
     sales: ["ADMIN", "SALES"],
     // planning merged into production
     purchasing: ["ADMIN", "PROCUREMENT", "PLANNING"],
-    // HRD: admin + finance (aligned with requireHrdFinance / requireHrdApprover)
-    hrd: ["ADMIN", "FINANCE"],
+    // HRD: admin + finance + hrd role
+    hrd: ["ADMIN", "FINANCE", "HRD"],
     // Maklon portal: admin + procurement/planning; warehouse keeps /warehouse/maklon aliases
     maklon: ["ADMIN", "PROCUREMENT", "PLANNING"],
   } as const;
@@ -213,5 +214,8 @@ export function getDefaultRedirectForUser(user: {
   // Active role drives post-login landing (selected at login)
   if (activeRole === "WAREHOUSE") return "/warehouse";
   if (activeRole === "PRODUCTION") return "/production";
+  if (activeRole === "HRD") return "/hrd";
+  if (activeRole === "PROCUREMENT") return "/purchasing";
+  if (activeRole === "PLANNING") return "/production";
   return "/dashboard";
 }

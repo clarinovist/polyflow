@@ -19,6 +19,8 @@ export default async function SettingsPage() {
 
     // Default to WAREHOUSE if no role found (safe fallback)
     const userRole = session?.user?.role || 'WAREHOUSE';
+    const userRoles = (session?.user?.roles as string[]) || [userRole];
+    const currentUserId = session?.user?.id;
     const userName = session?.user?.name || undefined;
     const userEmail = session?.user?.email || undefined;
 
@@ -40,6 +42,8 @@ export default async function SettingsPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground mb-6">Pengaturan</h1>
             <SettingsTabs
                 currentUserRole={userRole}
+                currentUserRoles={userRoles}
+                currentUserId={currentUserId}
                 tenantName={tenantName}
                 currentUserName={userName}
                 currentUserEmail={userEmail}

@@ -3,7 +3,7 @@
  * and dispatch notifications. Gelombang B1.
  *
  * Window: 30 days (including overdue).
- * Recipients: ADMIN + FINANCE.
+ * Recipients: ADMIN + FINANCE + HRD.
  * Idempotent: 1 notification per user+type+entity+day(WIB).
  */
 
@@ -83,7 +83,7 @@ export async function dispatchReminders(db: PrismaClient): Promise<{ scanned: nu
   const expiring = await findExpiringEmployees(db);
   if (expiring.length === 0) return { scanned: 0, created: 0 };
 
-  // Find ADMIN + FINANCE users
+  // Find ADMIN + FINANCE + HRD users
   const recipients = await db.user.findMany({
     where: {
       isActive: true,
@@ -92,6 +92,8 @@ export async function dispatchReminders(db: PrismaClient): Promise<{ scanned: nu
         { roles: { some: { role: 'ADMIN' } } },
         { role: 'FINANCE' },
         { roles: { some: { role: 'FINANCE' } } },
+        { role: 'HRD' },
+        { roles: { some: { role: 'HRD' } } },
       ],
     },
     select: { id: true },

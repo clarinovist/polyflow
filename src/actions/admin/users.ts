@@ -153,7 +153,7 @@ export const createUser = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return null;
+            return created.id;
         });
     }
 );

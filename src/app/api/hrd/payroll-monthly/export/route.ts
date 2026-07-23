@@ -20,7 +20,7 @@ const toN = (v: number | { toNumber(): number } | null | undefined): number => {
 export const GET = withTenantRoute(async (req: NextRequest) => {
   const session = await auth();
   if (!session) return new Response('Unauthorized', { status: 401 });
-  if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
+  if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD'])) {
     return new Response('Forbidden', { status: 403 });
   }
 

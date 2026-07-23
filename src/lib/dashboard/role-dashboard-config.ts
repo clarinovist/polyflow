@@ -125,6 +125,14 @@ export function getPortalCta(role: DashboardRole): PortalCta | null {
       ctaLabel: 'Buka Portal Produksi',
     };
   }
+  if (r === 'HRD') {
+    return {
+      href: '/hrd',
+      title: 'Portal HRD',
+      description: 'Kehadiran, payroll, cuti, dan manajemen karyawan.',
+      ctaLabel: 'Buka Portal HRD',
+    };
+  }
   return null;
 }
 
@@ -300,6 +308,10 @@ export function buildKpis(role: DashboardRole, stats: ExecutiveStats): Dashboard
       return [lowStock, inventory, activeJobs, pendingPo];
     case 'PRODUCTION':
       return [machines, activeJobs, scrap, lowStock];
+    case 'HRD':
+      // HRD has its own portal dashboard (/hrd) with dedicated KPIs.
+      // Generic dashboard shows only quick actions + module shortcuts.
+      return [];
     case 'ADMIN':
     default:
       return [revenue, spending, machines, cashPressure];
@@ -420,6 +432,7 @@ export function buildAttentionItems(role: DashboardRole, stats: ExecutiveStats):
     PLANNING: ['delayed-jobs', 'active-jobs', 'low-stock', 'pending-po'],
     WAREHOUSE: ['low-stock', 'active-jobs', 'pending-po'],
     PRODUCTION: ['delayed-jobs', 'active-jobs', 'scrap', 'low-stock'],
+    HRD: [],
   };
 
   const allowed = roleAllow[r] ?? roleAllow.ADMIN;
@@ -702,6 +715,44 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
         resourceHint: '/production',
       },
     ],
+    HRD: [
+      {
+        href: '/hrd/attendance',
+        label: 'Kehadiran',
+        icon: ClipboardList,
+        color: 'text-indigo-600',
+        bg: 'bg-indigo-50 dark:bg-indigo-900/10',
+        border: 'hover:border-indigo-200 dark:hover:border-indigo-800',
+        resourceHint: '/hrd/attendance',
+      },
+      {
+        href: '/hrd/payroll-monthly',
+        label: 'Payroll Bulanan',
+        icon: Banknote,
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/10',
+        border: 'hover:border-emerald-200 dark:hover:border-emerald-800',
+        resourceHint: '/hrd/payroll-monthly',
+      },
+      {
+        href: '/hrd/leave',
+        label: 'Cuti',
+        icon: ClipboardList,
+        color: 'text-amber-600',
+        bg: 'bg-amber-50 dark:bg-amber-900/10',
+        border: 'hover:border-amber-200 dark:hover:border-amber-800',
+        resourceHint: '/hrd/leave',
+      },
+      {
+        href: '/dashboard/employees',
+        label: 'Data Karyawan',
+        icon: Users,
+        color: 'text-blue-600',
+        bg: 'bg-blue-50 dark:bg-blue-900/10',
+        border: 'hover:border-blue-200 dark:hover:border-blue-800',
+        resourceHint: '/dashboard/employees',
+      },
+    ],
   };
 
   return catalog[r] ?? catalog.ADMIN;
@@ -790,6 +841,7 @@ export function roleDisplayName(role: DashboardRole): string {
     PLANNING: 'Planning',
     FINANCE: 'Finance',
     PROCUREMENT: 'Pembelian',
+    HRD: 'HRD',
   };
   return map[role.toUpperCase()] ?? role;
 }

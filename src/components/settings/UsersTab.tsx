@@ -23,6 +23,16 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -32,8 +42,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Loader2, Pencil, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, UserX, Loader2, Pencil, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { SYSTEM_ROLES, getRoleLabel } from '@/lib/auth/system-roles';
 
 interface UserData {
     id: string;
@@ -45,22 +57,17 @@ interface UserData {
     createdAt: Date;
 }
 
-const USER_ROLES: { value: Role; label: string }[] = [
-    { value: 'ADMIN', label: 'Admin' },
-    { value: 'PLANNING', label: 'Planning' },
-    { value: 'WAREHOUSE', label: 'Warehouse' },
-    { value: 'PRODUCTION', label: 'Production' },
-    { value: 'SALES', label: 'Sales' },
-    { value: 'FINANCE', label: 'Finance' },
-    { value: 'PROCUREMENT', label: 'Procurement' },
-];
+const USER_ROLES = SYSTEM_ROLES.map(r => ({ value: r.value, label: r.label }));
 
-export function UsersTab() {
+export function UsersTab({ currentUserId }: { currentUserId?: string }) {
     const [users, setUsers] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
     const [createOpen, setCreateOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterRole, setFilterRole] = useState<string>('ALL');
+    const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
     // Form state for creation
     const [formData, setFormData] = useState<CreateUserInput>({
@@ -80,6 +87,7 @@ export function UsersTab() {
     });
 
     const [editRoles, setEditRoles] = useState<Role[]>([]);
+    const [createRoles, setCreateRoles] = useState<Role[]>([]);
 
     const [confirmPassword, setConfirmPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
@@ -87,6 +95,7 @@ export function UsersTab() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [showEditPassword, setShowEditPassword] = useState(false);
     const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
+    const [deactivateTarget, setDeactivateTarget] = useState<UserData | null>(null);
 
     const fetchUsers = async () => {
         const result = await getUsers();
@@ -102,6 +111,23 @@ export function UsersTab() {
         fetchUsers();
     }, []);
 
+    const filteredUsers = users.filter((user) => {
+        const matchesSearch = searchQuery === '' ||
+            user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesRole = filterRole === 'ALL' || user.roles?.includes(filterRole as Role) || user.role === filterRole;
+        const matchesStatus = filterStatus === 'ALL' ||
+            (filterStatus === 'active' && user.isActive) ||
+            (filterStatus === 'inactive' && !user.isActive);
+        return matchesSearch && matchesRole && matchesStatus;
+    });
+
+    const activeAdminCount = users.filter(u =>
+        u.isActive && (u.role === 'ADMIN' || u.roles?.includes('ADMIN'))
+    ).length;
+    const isLastAdmin = (user: UserData) =>
+        user.isActive && (user.role === 'ADMIN' || user.roles?.includes('ADMIN')) && activeAdminCount <= 1;
+
     const handleCreate = async () => {
         if (!formData.name || !formData.email || !formData.password) {
             toast.error('Semua field wajib diisi');
@@ -115,17 +141,34 @@ export function UsersTab() {
             toast.error('Konfirmasi kata sandi tidak cocok');
             return;
         }
+        const primary = formData.role as Role;
+        const allRoles = [...new Set([primary, ...createRoles])];
         setIsSubmitting(true);
         const result = await createUser(formData);
-        if (result.success) {
-            toast.success('Pengguna berhasil dibuat.');
-            setCreateOpen(false);
-            setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
-            setConfirmPassword('');
-            fetchUsers();
-        } else {
+        if (!result.success) {
             toast.error(result.error || 'Gagal membuat pengguna');
+            setIsSubmitting(false);
+            return;
         }
+        let rolesOk = true;
+        if (result.data && allRoles.length > 1) {
+            const userId = result.data as string;
+            const roleResult = await setUserRoles(userId, allRoles);
+            if (!roleResult.success) {
+                rolesOk = false;
+                toast.warning('Pengguna dibuat; peran tambahan gagal. Edit untuk memperbaiki.', {
+                    description: roleResult.error,
+                });
+            }
+        }
+        if (rolesOk) {
+            toast.success('Pengguna berhasil dibuat.');
+        }
+        setCreateOpen(false);
+        setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
+        setCreateRoles([]);
+        setConfirmPassword('');
+        fetchUsers();
         setIsSubmitting(false);
     };
 
@@ -171,8 +214,7 @@ export function UsersTab() {
     };
 
     const handleDeactivate = async (userId: string) => {
-        if (!confirm('Yakin ingin menonaktifkan pengguna ini? User tidak akan bisa login, tetapi histori transaksi tetap aman.')) return;
-
+        setDeactivateTarget(null);
         const result = await deleteUser(userId);
         if (result.success) {
             toast.success('Pengguna berhasil dinonaktifkan.');
@@ -211,7 +253,7 @@ export function UsersTab() {
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle>User Management</CardTitle>
+                    <CardTitle>Manajemen Pengguna</CardTitle>
                     <CardDescription>
                         Kelola akses sistem dan peran.
                     </CardDescription>
@@ -220,6 +262,7 @@ export function UsersTab() {
                     setCreateOpen(open);
                     if (!open) {
                         setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
+                        setCreateRoles([]);
                         setConfirmPassword('');
                         setShowPassword(false);
                         setShowConfirmPassword(false);
@@ -311,8 +354,36 @@ export function UsersTab() {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    * Multi-role bisa ditambahkan setelah pengguna dibuat (Edit).
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Tambahan Peran (Opsional)</Label>
+                                <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
+                                    {USER_ROLES.map((role) => {
+                                        const checked = createRoles.includes(role.value);
+                                        return (
+                                            <div key={role.value} className="flex items-center space-x-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`create-role-${role.value}`}
+                                                    checked={checked}
+                                                    onChange={() => {
+                                                        if (checked) {
+                                                            setCreateRoles(createRoles.filter((r) => r !== role.value));
+                                                        } else {
+                                                            setCreateRoles([...createRoles, role.value]);
+                                                        }
+                                                    }}
+                                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <Label htmlFor={`create-role-${role.value}`} className="cursor-pointer">
+                                                    {role.label}
+                                                </Label>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Pilih tambahan peran jika diperlukan. Perubahan peran aktif setelah login ulang.
                                 </p>
                             </div>
                         </div>
@@ -335,6 +406,37 @@ export function UsersTab() {
                     </div>
                 ) : (
                     <>
+                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                            <Input
+                                placeholder="Cari nama atau email..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="sm:max-w-xs"
+                            />
+                            <Select value={filterRole} onValueChange={setFilterRole}>
+                                <SelectTrigger className="sm:w-[160px]">
+                                    <SelectValue placeholder="Semua Peran" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Semua Peran</SelectItem>
+                                    {USER_ROLES.map((role) => (
+                                        <SelectItem key={role.value} value={role.value}>
+                                            {role.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                <SelectTrigger className="sm:w-[140px]">
+                                    <SelectValue placeholder="Semua Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Semua Status</SelectItem>
+                                    <SelectItem value="active">Aktif</SelectItem>
+                                    <SelectItem value="inactive">Nonaktif</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -346,14 +448,22 @@ export function UsersTab() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {users.map((user) => (
+                                {filteredUsers.map((user) => {
+                                    const isSelf = user.id === currentUserId;
+                                    const lastAdmin = isLastAdmin(user);
+                                    return (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-2">
                                                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
                                                     {user.name?.[0]?.toUpperCase() || 'U'}
                                                 </div>
-                                                {user.name || 'Tidak diketahui'}
+                                                <div className="flex items-center gap-2">
+                                                    {user.name || 'Tidak diketahui'}
+                                                    {isSelf && (
+                                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Anda</Badge>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
                                         <TableCell>{user.email}</TableCell>
@@ -361,9 +471,9 @@ export function UsersTab() {
                                             <div className="flex flex-wrap gap-1">
                                                 {user.roles?.map((role) => (
                                                     <Badge key={role} variant={role === user.role ? "default" : "outline"}>
-                                                        {role}
+                                                        {USER_ROLES.find(r => r.value === role)?.label || role}
                                                     </Badge>
-                                                )) || <Badge variant="default">{user.role}</Badge>}
+                                                )) || <Badge variant="default">{USER_ROLES.find(r => r.value === user.role)?.label || user.role}</Badge>}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -378,26 +488,74 @@ export function UsersTab() {
                                                     size="icon"
                                                     className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                                     onClick={() => openEdit(user)}
+                                                    title="Ubah pengguna"
                                                 >
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className={
-                                                        user.isActive
-                                                            ? "h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                                            : "h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
-                                                    }
-                                                    onClick={() => user.isActive ? handleDeactivate(user.id) : handleReactivate(user.id)}
-                                                    title={user.isActive ? 'Nonaktifkan pengguna' : 'Aktifkan pengguna'}
-                                                >
-                                                    {user.isActive ? <Trash2 className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
-                                                </Button>
+                                                {user.isActive ? (
+                                                    isSelf ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-muted-foreground/30 cursor-not-allowed"
+                                                                        disabled
+                                                                    >
+                                                                        <UserX className="h-4 w-4" />
+                                                                    </Button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                Tidak dapat menonaktifkan akun sendiri
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : lastAdmin ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-muted-foreground/30 cursor-not-allowed"
+                                                                        disabled
+                                                                    >
+                                                                        <UserX className="h-4 w-4" />
+                                                                    </Button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                Tidak dapat menonaktifkan admin terakhir
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={() => setDeactivateTarget(user)}
+                                                            title="Nonaktifkan pengguna"
+                                                        >
+                                                            <UserX className="h-4 w-4" />
+                                                        </Button>
+                                                    )
+                                                ) : (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
+                                                        onClick={() => handleReactivate(user.id)}
+                                                        title="Aktifkan pengguna"
+                                                    >
+                                                        <RotateCcw className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                    );
+                                })}
                             </TableBody>
                         </Table>
 
@@ -520,6 +678,27 @@ export function UsersTab() {
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
+
+                        {/* Deactivate Confirmation AlertDialog */}
+                        <AlertDialog open={!!deactivateTarget} onOpenChange={(open) => { if (!open) setDeactivateTarget(null); }}>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Nonaktifkan Pengguna</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Pengguna <strong>{deactivateTarget?.name || deactivateTarget?.email}</strong> tidak akan bisa login setelah dinonaktifkan. Histori transaksi tetap aman.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        onClick={() => deactivateTarget && handleDeactivate(deactivateTarget.id)}
+                                    >
+                                        Nonaktifkan
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </>
                 )}
             </CardContent>

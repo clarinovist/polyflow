@@ -13,7 +13,7 @@ export default async function PrintPayslipPage({
 }) {
   const session = await auth();
   if (!session) redirect('/login');
-  if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) redirect('/hrd/payroll-monthly');
+  if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD'])) redirect('/hrd/payroll-monthly');
 
   const { periodId } = await params;
   const { payslipId } = await searchParams;

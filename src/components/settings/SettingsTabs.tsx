@@ -1,6 +1,7 @@
 'use client';
 
 import { Role } from '@prisma/client';
+import { isTenantAdmin } from '@/lib/auth/roles';
 import { GeneralSettings } from './GeneralSettings';
 import { UsersTab } from './UsersTab';
 import { AccessControlTab } from './AccessControlTab';
@@ -14,6 +15,8 @@ import { settingsLabels } from '@/lib/labels';
 
 interface SettingsTabsProps {
     currentUserRole: Role;
+    currentUserRoles: string[];
+    currentUserId?: string;
     tenantName?: string;
     currentUserName?: string;
     currentUserEmail?: string;
@@ -34,6 +37,8 @@ interface TabItem {
 
 export function SettingsTabs({
     currentUserRole,
+    currentUserRoles,
+    currentUserId,
     tenantName,
     currentUserName,
     currentUserEmail,
@@ -42,7 +47,7 @@ export function SettingsTabs({
     appVersion,
     environment,
 }: SettingsTabsProps) {
-    const isAdmin = currentUserRole === 'ADMIN';
+    const isAdmin = isTenantAdmin({ role: currentUserRole, roles: currentUserRoles });
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
@@ -85,7 +90,7 @@ export function SettingsTabs({
                 return isAdmin ? <CompanySettings /> : null;
             case 'users':
                 return isAdmin ? (
-                    <UsersTab />
+                    <UsersTab currentUserId={currentUserId} />
                 ) : null;
             case 'access':
                 return isAdmin ? (

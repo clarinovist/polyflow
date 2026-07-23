@@ -13,26 +13,26 @@ export const loginFormLabels = {
   rememberMe: 'Ingat saya',
 } as const;
 
-/** Role selection labels (nama role dibiarkan English sebagai istilah standar ERP) */
+/** Role selection labels */
 export const roleSelectionLabels = {
   heading: 'Siapa Anda?',
-  subtitle: 'Pilih workspace Anda untuk melanjutkan ke dashboard.',
+  subtitle: 'Pilih peran kerja Anda untuk sesi ini.',
   roles: {
     ADMIN: {
       title: 'Administrator',
       description: 'Akses penuh ke pengaturan dan manajemen sistem.',
     },
     WAREHOUSE: {
-      title: 'Warehouse',
+      title: 'Gudang',
       description: 'Inventaris, pergerakan stok, dan pengeluaran material.',
     },
     PRODUCTION: {
-      title: 'Production',
-      description: 'Perintah kerja dan pelacakan eksekusi.',
+      title: 'Produksi (lantai)',
+      description: 'SPK aktif, papan mesin, kiosk operator, stok lantai.',
     },
     PLANNING: {
-      title: 'Planning',
-      description: 'Perencanaan produksi dan kontrol inventaris.',
+      title: 'Planning (PPIC)',
+      description: 'Jadwal, MRP, SPK perencanaan, stok & pembelian terkait.',
     },
     SALES: {
       title: 'Sales',
@@ -41,6 +41,14 @@ export const roleSelectionLabels = {
     FINANCE: {
       title: 'Finance',
       description: 'Faktur, tagihan, dan akuntansi keuangan.',
+    },
+    PROCUREMENT: {
+      title: 'Purchasing',
+      description: 'Pembelian, purchase order, dan manajemen supplier.',
+    },
+    HRD: {
+      title: 'HRD',
+      description: 'Kehadiran, payroll, cuti, dan manajemen karyawan.',
     },
   },
 } as const;

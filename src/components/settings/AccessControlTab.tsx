@@ -28,13 +28,14 @@ import {
     getFeatureCatalog,
     type PermissionNode,
 } from '@/lib/auth/permission-catalog';
+import { MATRIX_ROLES, getRoleLabel } from '@/lib/auth/system-roles';
 
 const FEATURE_PERMISSIONS = getFeatureCatalog().map((f) => ({
     key: f.key,
     label: f.label,
 }));
 
-const ROLES: Role[] = ['WAREHOUSE', 'PLANNING', 'PRODUCTION', 'SALES', 'FINANCE', 'PROCUREMENT'];
+const ROLES: Role[] = MATRIX_ROLES;
 
 // All module + nested resource keys, flattened once for state init/lookup.
 const ALL_CATALOG_KEYS = flattenCatalog().map((n) => n.key);
@@ -279,7 +280,7 @@ export function AccessControlTab() {
                             <TableRow>
                                 <TableHead className="w-[260px] min-w-[220px]">{settingsLabels.module}</TableHead>
                                 {ROLES.map(role => (
-                                    <TableHead key={role} className="text-center min-w-[72px]">{role}</TableHead>
+                                    <TableHead key={role} className="text-center min-w-[72px]">{getRoleLabel(role)}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
@@ -368,7 +369,7 @@ export function AccessControlTab() {
                             <TableRow>
                                 <TableHead className="w-[200px]">{settingsLabels.feature}</TableHead>
                                 {ROLES.map(role => (
-                                    <TableHead key={role} className="text-center">{role}</TableHead>
+                                    <TableHead key={role} className="text-center">{getRoleLabel(role)}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>

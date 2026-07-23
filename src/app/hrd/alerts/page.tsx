@@ -11,7 +11,7 @@ import { id } from 'date-fns/locale';
 export default async function AlertsPage() {
   const session = await auth();
   if (!session) redirect('/login');
-  if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) redirect('/dashboard');
+  if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD'])) redirect('/dashboard');
 
   const userId = session.user.id;
 

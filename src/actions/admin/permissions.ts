@@ -12,6 +12,7 @@ import {
   AuthorizationError,
 } from "@/lib/errors/errors";
 import { getUserRoles, hasRole, isTenantAdmin } from "@/lib/auth/roles";
+import { MATRIX_ROLES } from "@/lib/auth/system-roles";
 
 export type ResourceKey = string;
 
@@ -263,7 +264,6 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/warehouse",
     "/production",
     "/production/machines",
-    "/production/dispatch",
     "/production/inventory",
     "/production/resources",
     "/production/history",
@@ -327,6 +327,20 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/dashboard/products",
     "/warehouse/inventory",
     "/maklon",
+  ],
+  HRD: [
+    "/dashboard",
+    "/dashboard/employees",
+    "/hrd",
+    "/hrd/attendance",
+    "/hrd/alerts",
+    "/hrd/payroll",
+    "/hrd/payroll-monthly",
+    "/hrd/bpjs",
+    "/hrd/piece-rates",
+    "/hrd/loans",
+    "/hrd/leave",
+    "/hrd/disciplinary",
   ],
 };
 

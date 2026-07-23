@@ -143,6 +143,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
     key: "/hrd",
     label: "HRD",
     children: [
+      { key: "/hrd/employees", label: "Data Karyawan" },
       { key: "/hrd/attendance", label: "Kehadiran" },
       { key: "/hrd/alerts", label: "Alert Absensi" },
       { key: "/hrd/payroll", label: "Payroll Harian/Piece" },
