@@ -3,12 +3,13 @@
 import { auth } from "@/auth";
 import { PurchaseService } from "@/services/purchasing/purchase-service";
 import { revalidatePath } from "next/cache";
+import { withTenant } from "@/lib/core/tenant";
 import {
   AuthenticationError,
   safeAction,
 } from "@/lib/errors/errors";
 
-export async function convertToPo(requestId: string, supplierId: string) {
+export const convertToPo = withTenant(async function convertToPo(requestId: string, supplierId: string) {
   return safeAction(async () => {
     const session = await auth();
     if (!session?.user) {
@@ -24,4 +25,4 @@ export async function convertToPo(requestId: string, supplierId: string) {
     revalidatePath("/purchasing/requests");
     return { orderId: result.id };
   });
-}
+});

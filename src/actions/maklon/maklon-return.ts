@@ -5,8 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { AuthenticationError, NotFoundError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
+import { withTenant } from '@/lib/core/tenant';
 
-export async function createMaklonReturnAction(data: {
+export const createMaklonReturnAction = withTenant(async function createMaklonReturnAction(data: {
     returnNumber: string;
     customerId: string;
     sourceLocationId: string;
@@ -36,9 +37,9 @@ export async function createMaklonReturnAction(data: {
     } catch {
         return { success: false, error: 'Gagal memproses retur Maklon' };
     }
-}
+});
 
-export async function getMaklonReturnsAction(params?: {
+export const getMaklonReturnsAction = withTenant(async function getMaklonReturnsAction(params?: {
     search?: string;
     status?: string;
     startDate?: Date;
@@ -53,9 +54,9 @@ export async function getMaklonReturnsAction(params?: {
     } catch {
         return { success: false, error: 'Gagal memproses retur Maklon' };
     }
-}
+});
 
-export async function getMaklonReturnByIdAction(id: string) {
+export const getMaklonReturnByIdAction = withTenant(async function getMaklonReturnByIdAction(id: string) {
     try {
         const session = await requireAuth();
         if (!session?.user) throw new AuthenticationError();
@@ -66,4 +67,4 @@ export async function getMaklonReturnByIdAction(id: string) {
     } catch {
         return { success: false, error: 'Gagal memproses retur Maklon' };
     }
-}
+});

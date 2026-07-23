@@ -8,7 +8,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { serializeData } from '@/lib/utils/utils';
 
-export async function createMaklonReceiptAction(data: {
+export const createMaklonReceiptAction = withTenant(async function createMaklonReceiptAction(data: {
     receiptNumber: string;
     customerId: string;
     locationId: string;
@@ -36,7 +36,7 @@ export async function createMaklonReceiptAction(data: {
     } catch {
         return { success: false, error: 'Gagal memproses penerimaan Maklon' };
     }
-}
+});
 
 export const getMaklonReceipt = withTenant(async function getMaklonReceipt(id: string) {
     if (!id) return null;
