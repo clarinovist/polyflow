@@ -6,13 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils/utils";
 import { ExtendedProductionOrder } from "@/components/production/order-detail/types";
 import { ChildOrderList } from "@/components/production/order-detail/ChildOrderList";
 import { ManualProcurementDialog } from "@/components/production/order-detail/ManualProcurementDialog";
 import { BatchIssueMaterialDialog } from "@/components/production/order-detail/BatchIssueMaterialDialog";
-import { productionComponentLabels } from "@/lib/labels";
-import { ExternalLink, Info } from "lucide-react";
+import { ExternalLink, Info, Package } from "lucide-react";
 import { resolveMaterialPath } from "@/lib/production/material-path";
 
 interface OrderMaterialsTabProps {
@@ -28,15 +28,38 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
   const category = order.bom?.category || "";
   const materialPath = resolveMaterialPath(category);
   const isActive =
-    order.status === "IN_PROGRESS" || order.status === "RELEASED";
+    order.status === "IN_PROGRESS" ||
+    order.status === "RELEASED" ||
+    order.status === "WAITING_MATERIAL";
   const isFloorPath = materialPath === "floor_wip";
+  const isWaitingMaterial = order.status === "WAITING_MATERIAL";
 
   return (
     <div className="space-y-6">
       {/* Sub-Orders Handling */}
       <ChildOrderList order={order} />
 
-      {isActive && (
+      {isWaitingMaterial && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3 dark:border-amber-800/50 dark:bg-amber-900/20">
+          <Package className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              SPK menunggu bahan — cek kebutuhan di bawah.
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+              Path A (Mixing): pengambilan bahan baku di Gudang. Hubungi Gudang untuk issue bahan sebelum Rilis.
+            </p>
+            <Button variant="link" className="h-auto p-0 text-xs text-amber-700 dark:text-amber-300 mt-2" asChild>
+              <Link href="/warehouse" className="inline-flex items-center gap-1">
+                Buka Gudang
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {isActive && !isWaitingMaterial && (
         <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-2">
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
@@ -44,28 +67,28 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
               {isFloorPath ? (
                 <>
                   <p className="font-medium">
-                    {productionComponentLabels.materialPathFloorTitle}
+                    Jalur bahan: Staging lantai (Path B)
                   </p>
                   <p className="text-muted-foreground text-xs leading-relaxed">
-                    {productionComponentLabels.materialPathFloorHelp}
+                    WIP hasil mixing dapat di-staging di lantai. Ambil dari lantai saat produksi Extrusion/Packing.
                   </p>
                   <p className="text-muted-foreground text-xs leading-relaxed">
-                    {productionComponentLabels.materialPathAdHocHint}
+                    Bahan tambahan (mis. pelembab) hanya via Gudang.
                   </p>
                 </>
               ) : (
                 <>
                   <p className="font-medium">
-                    {productionComponentLabels.materialPathWarehouseTitle}
+                    Jalur bahan: Gudang (Path A)
                   </p>
                   <p className="text-muted-foreground text-xs leading-relaxed">
-                    {productionComponentLabels.materialPathWarehouseHelp}
+                    Issue bahan baku dilakukan di Gudang. SPK menunggu bahan hingga semua kebutuhan tersedia.
                   </p>
                 </>
               )}
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
                 <Link href="/warehouse" className="inline-flex items-center gap-1">
-                  {productionComponentLabels.openWarehouseForRm}
+                  Buka Gudang untuk bahan baku
                   <ExternalLink className="h-3 w-3" />
                 </Link>
               </Button>
@@ -75,14 +98,9 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
       )}
 
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Material Requirements</h3>
+        <h3 className="text-lg font-semibold">Kebutuhan Bahan</h3>
         <div className="flex items-center gap-2">
           <ManualProcurementDialog order={order} />
-          {/*
-            Path B (Extrusion/Packing/Rework): production may stage WIP (e.g. Mixing HD).
-            Path A (Mixing / standard): RM issue lives on Warehouse — no transfer CTA here.
-            Ad-hoc RM additives (pelembab): Warehouse only.
-          */}
           {isActive && isFloorPath && (
             <BatchIssueMaterialDialog
               order={order}
@@ -98,10 +116,10 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
           <table className="w-full text-sm text-left">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
-                <th className="p-3 pl-4">Material</th>
-                <th className="p-3 text-right">Plan</th>
-                <th className="p-3 text-right w-[25%]">Issued</th>
-                <th className="p-3 text-right">Variance</th>
+                <th className="p-3 pl-4">Bahan</th>
+                <th className="p-3 text-right">Rencana</th>
+                <th className="p-3 text-right w-[25%]">Keluar</th>
+                <th className="p-3 text-right">Selisih</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -165,7 +183,7 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
                           {item.productVariant.name}
                         </span>
                         <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">
-                          Planned
+                          Rencana
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {item.productVariant.skuCode}
@@ -276,7 +294,7 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
                           {sub.productVariant.name}
                         </span>
                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">
-                          Unplanned Issue
+                          Diluar rencana
                         </span>
                       </div>
                     </td>
@@ -292,7 +310,7 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
                         variant="outline"
                         className="text-amber-600 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/50 dark:bg-amber-900/20"
                       >
-                        Substitute
+                        Pengganti
                       </Badge>
                     </td>
                   </tr>
@@ -303,10 +321,10 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
       </Card>
 
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3">Issue History</h3>
+        <h3 className="text-lg font-semibold mb-3">Riwayat Pengeluaran</h3>
         {order.materialIssues.length === 0 ? (
           <p className="text-muted-foreground italic">
-            No materials issued yet.
+            Belum ada bahan yang dikeluarkan.
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -325,11 +343,11 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-muted-foreground">
-                      {format(new Date(issue.issuedAt), "PP p")}
+                      {format(new Date(issue.issuedAt), "d MMM yyyy HH:mm", { locale: idLocale })}
                     </span>
                     {issue.status === "VOIDED" && (
                       <span className="text-[10px] font-bold text-destructive uppercase tracking-tighter">
-                        Voided
+                        Void
                       </span>
                     )}
                   </div>

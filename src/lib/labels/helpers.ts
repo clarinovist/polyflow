@@ -1,6 +1,7 @@
 import {
   commonStatusLabels,
   productionStatusLabels,
+  productionPriorityLabels,
   warehouseStatusLabels,
   salesStatusLabels,
   financeStatusLabels,
@@ -34,4 +35,10 @@ export function getStatusLabel(status: string, domain?: StatusDomain): string {
     return domainMap[domain][status];
   }
   return (commonStatusLabels as Record<string, string>)[status] ?? status;
+}
+
+export function getPriorityLabel(priority: string): string {
+  return (
+    (productionPriorityLabels as Record<string, string>)[priority] ?? priority
+  );
 }

@@ -21,10 +21,17 @@ export const productionStatusLabels = {
   OPEN: 'Open',
   PENDING: 'Menunggu',
   CONFIRMED: 'Terkonfirmasi',
+  WAITING_MATERIAL: 'Menunggu Bahan',
   RELEASED: 'Siap Produksi',
   IN_PROGRESS: 'Sedang Diproduksi',
   COMPLETED: 'Produksi Selesai',
   CANCELLED: 'Dibatalkan',
+} as const;
+
+export const productionPriorityLabels = {
+  URGENT: 'Mendesak',
+  NORMAL: 'Normal',
+  LOW: 'Rendah',
 } as const;
 
 export const warehouseStatusLabels = {

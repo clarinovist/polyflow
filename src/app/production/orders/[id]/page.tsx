@@ -37,7 +37,7 @@ export default async function ProductionDetailPage(props: PageProps) {
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-6"
             >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="text-sm font-medium">Kembali ke Daftar Order</span>
+                <span className="text-sm font-medium">Kembali ke Daftar SPK</span>
             </Link>
 
             <ProductionOrderDetail

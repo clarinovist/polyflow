@@ -177,6 +177,8 @@ export const getProductionOrders = withTenant(
     machineId?: string;
     productTypes?: ProductType[];
     bomCategories?: BomCategory[];
+    q?: string;
+    late?: boolean;
   }) {
     const where: Prisma.ProductionOrderWhereInput = {};
     const bomWhere: Prisma.BomWhereInput = {};
@@ -186,6 +188,16 @@ export const getProductionOrders = withTenant(
     }
     if (filters?.machineId) {
       where.machineId = filters.machineId;
+    }
+    if (filters?.late) {
+      // late implies status in [RELEASED, IN_PROGRESS] + plannedEndDate < now
+      if (filters?.status) {
+        // Keep status if it's one of late statuses, else still apply late window
+        where.status = filters.status;
+      } else {
+        where.status = { in: ["RELEASED", "IN_PROGRESS"] as ProductionStatus[] };
+      }
+      where.plannedEndDate = { lt: new Date() };
     }
     if (filters?.productTypes && filters.productTypes.length > 0) {
       bomWhere.productVariant = {
@@ -203,8 +215,45 @@ export const getProductionOrders = withTenant(
       };
     }
 
+    // Build AND clauses so category/BOM filters compose cleanly with search OR
+    const andParts: Prisma.ProductionOrderWhereInput[] = [];
+
     if (Object.keys(bomWhere).length > 0) {
-      where.bom = { is: bomWhere };
+      andParts.push({ bom: { is: bomWhere } });
+    }
+
+    const q = filters?.q?.trim();
+    if (q) {
+      andParts.push({
+        OR: [
+          { orderNumber: { contains: q, mode: "insensitive" as const } },
+          {
+            bom: {
+              is: { name: { contains: q, mode: "insensitive" as const } },
+            },
+          },
+          {
+            bom: {
+              is: {
+                productVariant: {
+                  is: { name: { contains: q, mode: "insensitive" as const } },
+                },
+              },
+            },
+          },
+          {
+            machine: {
+              is: { code: { contains: q, mode: "insensitive" as const } },
+            },
+          },
+        ],
+      });
+    }
+
+    if (andParts.length === 1) {
+      Object.assign(where, andParts[0]);
+    } else if (andParts.length > 1) {
+      where.AND = andParts;
     }
 
     const orders = await prisma.productionOrder.findMany({

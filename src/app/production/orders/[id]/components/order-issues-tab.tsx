@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
@@ -21,7 +22,7 @@ export function OrderIssuesTab({ order }: OrderIssuesTabProps) {
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-          Production Issues
+          Isu Produksi
         </h3>
         {(order.status === "IN_PROGRESS" || order.status === "RELEASED") && (
           <AddIssueDialog orderId={order.id} />
@@ -31,9 +32,9 @@ export function OrderIssuesTab({ order }: OrderIssuesTabProps) {
       {!order.issues || order.issues.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
           <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-20" />
-          <p>No issues recorded for this order.</p>
+          <p>Belum ada isu tercatat untuk SPK ini.</p>
           <p className="text-xs mt-1">
-            Issues help track and resolve production problems.
+            Isu membantu melacak dan menyelesaikan masalah produksi.
           </p>
         </div>
       ) : (
@@ -71,16 +72,17 @@ export function OrderIssuesTab({ order }: OrderIssuesTabProps) {
                       {issue.description}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Reported:{" "}
-                      {format(new Date(issue.reportedAt), "MMM d, yyyy HH:mm")}
-                      {issue.reportedBy?.name && ` by ${issue.reportedBy.name}`}
+                      Dilaporkan:{" "}
+                      {format(new Date(issue.reportedAt), "d MMM yyyy HH:mm", { locale: idLocale })}
+                      {issue.reportedBy?.name && ` oleh ${issue.reportedBy.name}`}
                     </p>
                     {issue.resolvedAt && (
                       <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                        Resolved:{" "}
+                        Diselesaikan:{" "}
                         {format(
                           new Date(issue.resolvedAt),
-                          "MMM d, yyyy HH:mm",
+                          "d MMM yyyy HH:mm",
+                          { locale: idLocale }
                         )}
                         {issue.resolvedNotes && ` - ${issue.resolvedNotes}`}
                       </p>
@@ -106,7 +108,7 @@ export function OrderIssuesTab({ order }: OrderIssuesTabProps) {
                           }
                         }}
                       >
-                        Resolve
+                        Selesaikan
                       </Button>
                     )}
                 </div>

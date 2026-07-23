@@ -34,18 +34,21 @@ export const planningLabels = {
   brokenDown: 'Rusak / Down',
   requiresAttention: 'Perlu perhatian',
 
-  // Production Orders
+  // Production Orders - List page identity (Phase A)
+  listSpk: 'Daftar SPK',
+  listSpkDesc: 'Pantau dan kelola work order produksi.',
   createWorkOrder: 'Buat SPK',
   planNewJob: 'Rencanakan SPK baru',
   createOrder: 'Buat SPK',
-  totalOrders: 'Total Pesanan',
+  totalOrders: 'Total SPK',
   inProgress: 'Sedang Diproses',
   readyToRelease: 'Siap Dirilis',
   lateOverdue: 'Terlambat',
   all: 'Semua',
-  allOrders: 'Semua Pesanan',
-  searchOrders: 'Cari pesanan...',
-  orderNumber: 'No. Pesanan',
+  allOrders: 'Semua SPK',
+  searchOrders: 'Cari SPK / produk / mesin...',
+  searchSpkPlaceholder: 'Cari no. SPK, produk, BOM, mesin…',
+  orderNumber: 'No. SPK',
   product: 'Produk',
   status: 'Status',
   demandSource: 'Sumber Permintaan',
@@ -56,6 +59,11 @@ export const planningLabels = {
   actions: 'Aksi',
   internalStockBuildLabel: 'Stock Internal',
   noLinkedDemand: 'Stock Internal',
+  // List extras
+  noSpkFound: 'Tidak ada SPK cocok.',
+  clearFilters: 'Hapus Filter',
+  filterByStatus: 'Filter status',
+  lateOnly: 'Hanya terlambat',
 
   // Purchase Orders
   purchaseOrdersDesc: 'Kelola procurement dan pesanan supplier.',

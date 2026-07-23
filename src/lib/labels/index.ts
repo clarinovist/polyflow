@@ -22,4 +22,5 @@ export * from './products';
 export {
   getLabel,
   getStatusLabel,
+  getPriorityLabel,
 } from './helpers';

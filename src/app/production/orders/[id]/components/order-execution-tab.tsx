@@ -4,6 +4,7 @@ import { Machine, Location, Employee, WorkShift } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { Play, CheckCircle, TrendingUp as TrendingUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
 import { ShiftManager } from "@/components/production/ShiftManager";
@@ -31,7 +32,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Play className="w-4 h-4 text-blue-500 dark:text-blue-400" />{" "}
-            Operational Resources
+            Sumber Daya Operasional
           </h3>
         </div>
         <ShiftManager
@@ -53,7 +54,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <TrendingUpIcon className="w-4 h-4 text-amber-500 dark:text-amber-400" />{" "}
-              Production & Scrap
+              Produksi & Scrap
             </h3>
             {order.status === "IN_PROGRESS" && (
               <RecordScrapDialog order={order} locations={formData.locations} />
@@ -63,13 +64,13 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium">
-                Scrap Records
+                Catatan Scrap
               </CardTitle>
             </CardHeader>
             <CardContent>
               {order.scrapRecords.length === 0 ? (
                 <p className="text-muted-foreground text-sm italic py-4">
-                  No scrap recorded for this order.
+                  Belum ada scrap tercatat untuk SPK ini.
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -83,7 +84,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                           {scrap.productVariant.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {scrap.reason || "No reason provided"}
+                          {scrap.reason || "Tanpa alasan"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -114,7 +115,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-              Quality Control
+              Kontrol Kualitas
             </h3>
             {(order.status === "IN_PROGRESS" ||
               order.status === "COMPLETED") && <RecordQCDialog order={order} />}
@@ -123,7 +124,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium">
-                Inspection History
+                Riwayat Inspeksi
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -146,21 +147,21 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                         {insp.result}
                       </Badge>
                       <span className="text-[10px] text-muted-foreground">
-                        {format(new Date(insp.inspectedAt), "MMM d, HH:mm")}
+                        {format(new Date(insp.inspectedAt), "d MMM, HH:mm", { locale: idLocale })}
                       </span>
                     </div>
                     <p className="text-xs text-foreground line-clamp-2">
-                      {insp.notes || "No notes."}
+                      {insp.notes || "Tanpa catatan."}
                     </p>
                   </div>
                   <div className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
-                    {insp.inspector?.name?.split(" ")[0] || "System"}
+                    {insp.inspector?.name?.split(" ")[0] || "Sistem"}
                   </div>
                 </div>
               ))}
               {order.inspections.length === 0 && (
                 <p className="text-muted-foreground text-sm italic py-4">
-                  No inspections recorded.
+                  Belum ada inspeksi tercatat.
                 </p>
               )}
             </CardContent>
