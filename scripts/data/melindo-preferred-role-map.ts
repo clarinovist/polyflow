@@ -22,16 +22,23 @@ export const MELINDO_PREFERRED_MAP: PreferredMapping[] = [
     { role: 'sales-return',         code: '4-302',  name: 'Retur Penjualan',                     severity: 'high' },
     { role: 'bank-charges',         code: '8-200',  name: 'Biaya Admin Bank',                    severity: 'high' },
     { role: 'interest-income',      code: '7-100',  name: 'Pendapatan Bunga Bank',               severity: 'high' },
+    { role: 'adjustment-gain',      code: '7-101',  name: 'Pendapatan Lain-lain Diluar Usaha',   severity: 'high' },
+    { role: 'adjustment-loss',      code: '8-202',  name: 'Biaya Lain-lain Diluar Usaha',        severity: 'high' },
+    { role: 'opening-balance-equity', code: '3-200b', name: 'Laba Ditahan Rafia',                severity: 'high' },
+    { role: 'scrap',                code: '1-127',  name: 'Persediaan Bahan Penolong',           severity: 'high' },
 
     // === Medium severity ===
     { role: 'suspense-clearing',    code: '1-199',  name: 'Rekening Sementara',                  severity: 'medium' },
     { role: 'manufacturing-overhead', code: '5-023', name: 'Overhead Sewa Gudang',                severity: 'medium' },
     { role: 'inventory',            code: '1-130',  name: 'Persediaan Bahan Baku Rafia',         severity: 'medium' },
     { role: 'accrued-liabilities',  code: '2-112',  name: 'Hutang Biaya',                        severity: 'medium' },
+    { role: 'inventory-consumables', code: '1-134', name: 'Persediaan Alat Tulis',               severity: 'medium' },
+    { role: 'finished-goods',       code: '1-128',  name: 'Persediaan Barang Jadi Rafia',        severity: 'medium' },
+    { role: 'wip',                  code: '1-132',  name: 'Persediaan Barang dalam Proses Rafia', severity: 'medium' },
 
     // === Low severity (C1 placeholder — ops may change via UI) ===
     // Live Melindo: 4-101 = Penjualan Rafia Bal (one product line; multi-line sales is Phase 2.3)
-    { role: 'sales-revenue',        code: '4-101',  name: 'Penjualan Rafia Bal',                 severity: 'low' },
+    { role: 'sales-revenue',        code: '4-1000',  name: 'PENDAPATAN USAHA',                   severity: 'low' },
 ];
 
 /**

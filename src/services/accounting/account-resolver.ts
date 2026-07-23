@@ -191,15 +191,21 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Laba Ditahan" },
     { nameContains: "Retained Earnings" },
   ],
-  // === Adjustment ===
+  // === Adjustment === — Melindo-first
   "adjustment-gain": [
+    { code: "7-101" },
+    { code: "7-1000" },
     { code: "81100" },
     { nameContains: "Selisih Lebih" },
+    { nameContains: "Pendapatan Lain-lain" },
     { nameContains: "Adjustment Gain" },
   ],
   "adjustment-loss": [
+    { code: "8-202" },
+    { code: "8-1000" },
     { code: "91100" },
     { nameContains: "Selisih Kurang" },
+    { nameContains: "Biaya Lain-lain" },
     { nameContains: "Adjustment Loss" },
   ],
   // === Overhead / Accrual ===
@@ -216,7 +222,10 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Accrued" },
   ],
   "opening-balance-equity": [
+    { code: "3-200b" },
+    { code: "32000" },
     { code: "30000" },
+    { nameContains: "Laba Ditahan" },
     { nameContains: "Saldo Awal" },
     { nameContains: "Opening Balance" },
   ],
@@ -227,24 +236,24 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Biaya Pengiriman" },
     { nameContains: "Ongkos Kirim" },
   ],
-  // === NEW: Transaction type roles (Phase 1) ===
+  // === NEW: Transaction type roles (Phase 1) === — Melindo-first
   "inventory-consumables": [
-    { code: "11360" },
     { code: "1-134" },
+    { code: "11360" },
     { nameContains: "Inventory - Consumables" },
     { nameContains: "Consumable" },
     { nameContains: "Persediaan Alat Tulis" },
   ],
   "factory-electricity": [
-    { code: "53200" },
     { code: "5-031" },
+    { code: "53200" },
     { nameContains: "Factory Electricity" },
     { nameContains: "Pemakaian Listrik" },
     { nameContains: "Listrik Produksi" },
   ],
   "factory-maintenance": [
-    { code: "53300" },
     { code: "5-033" },
+    { code: "53300" },
     { nameContains: "Factory Maintenance" },
     { nameContains: "Maintenance Mesin Produksi" },
     { nameContains: "Maintenance Mesin" },
@@ -372,6 +381,10 @@ export function getAllAccountRoles(): AccountRole[] {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PatternDb = { account: { findUnique: (args: any) => Promise<any>; findFirst: (args: any) => Promise<any> } };
 
+const GHOST_CODES_SET = new Set([
+  '11110', '11300', '11310', '11340', '11350', '21200', '30000', '51100', '80000', '81000', '81100', '90000', '91000', '91100',
+]);
+
 export async function resolveByPatterns(
   role: AccountRole,
   db?: PatternDb,
@@ -387,11 +400,45 @@ export async function resolveByPatterns(
     if (pattern.code) {
       account = await target.account.findUnique({ where: { code: pattern.code } });
     } else if (pattern.nameContains) {
+      // skip inactive & prefer active melindo; also skip ghost-named fallbacks if ghost code inactive?
       account = await target.account.findFirst({
-        where: { name: { contains: pattern.nameContains, mode: "insensitive" } },
+        where: {
+          name: { contains: pattern.nameContains, mode: "insensitive" },
+          // ponytail: allow inactive ghost skip at pattern level; upgrade path: add isActive filter in index
+          isActive: true,
+        },
+        orderBy: { code: 'asc' },
       });
+      // fallback: if only inactive match exists, try without isActive
+      if (!account) {
+        account = await target.account.findFirst({
+          where: { name: { contains: pattern.nameContains, mode: "insensitive" } },
+        });
+      }
     }
     if (account) {
+      // Skip inactive accounts (ghost cleanup)
+      if (account.isActive === false) continue;
+      // Extra guard: if code is known ghost and role has melindo preferred, skip ghost even if active
+      // (melindo should never pick 11300/11310 etc when 1-130/1-127 exist)
+      if (GHOST_CODES_SET.has(account.code)) {
+        // check if melindo counterpart exists active
+        const melindoCounterpart = await target.account.findFirst({
+          where: { code: { startsWith: account.code.startsWith('1') ? '1-' : account.code.startsWith('7') ? '7-' : account.code.startsWith('8') ? '8-' : '3-' }, isActive: true },
+        });
+        // ponytail: this is heuristic; full mapping uses TenantAccountRole. Upgrade: remove after all tenants migrated.
+        // For melindo specifically, prefer melindo code even if ghost active
+        // We skip ghost only if we can find a better match later? For now allow ghost if it's the only match,
+        // but log warning for observability
+        if (melindoCounterpart && account.code !== melindoCounterpart.code) {
+          // don't return ghost yet, continue looking for melindo match later in pattern list
+          // but if this is the last pattern, ghost is still allowed (legacy tenant)
+          // To prioritize melindo, we ensure melindo codes are first in pattern list (done below)
+          // So here we just continue if we're in melindo tenant (detect by presence of 1-130)
+          const isMelindoTenant = await target.account.findUnique({ where: { code: '1-130' } });
+          if (isMelindoTenant) continue;
+        }
+      }
       return { id: account.id, code: account.code, name: account.name };
     }
   }
