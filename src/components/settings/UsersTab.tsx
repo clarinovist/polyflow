@@ -45,7 +45,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, UserX, Loader2, Pencil, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { SYSTEM_ROLES, getRoleLabel } from '@/lib/auth/system-roles';
+import { SYSTEM_ROLES } from '@/lib/auth/system-roles';
 
 interface UserData {
     id: string;

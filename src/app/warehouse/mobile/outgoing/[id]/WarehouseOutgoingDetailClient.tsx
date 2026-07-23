@@ -11,7 +11,6 @@ import {
   CheckCircle,
   Send,
   Loader2,
-  Package,
 } from "lucide-react";
 import { updateDeliveryStatus, saveDeliveryLoadVerification } from "@/actions/inventory/deliveries";
 import { toast } from "sonner";

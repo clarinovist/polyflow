@@ -12,7 +12,6 @@ import {
   AuthorizationError,
 } from "@/lib/errors/errors";
 import { getUserRoles, hasRole, isTenantAdmin } from "@/lib/auth/roles";
-import { MATRIX_ROLES } from "@/lib/auth/system-roles";
 
 export type ResourceKey = string;
 
