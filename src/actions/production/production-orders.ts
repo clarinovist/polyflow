@@ -463,7 +463,7 @@ export const getProductionOrder = withTenant(async function getProductionOrder(
       executions: {
         include: {
           operator: true,
-          shift: true,
+          shift: { include: { operator: true } },
         },
         orderBy: { startTime: "desc" },
       },

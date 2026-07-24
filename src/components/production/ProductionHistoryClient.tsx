@@ -40,7 +40,7 @@ interface ExecutionData {
   cekGram: string | null;
   operator: { name: string } | null;
   machine: { code: string } | null;
-  shift: { shiftName: string } | null;
+  shift: { shiftName: string; operator: { name: string } | null } | null;
   helpers: { name: string }[];
 }
 
@@ -166,7 +166,7 @@ function exportCsv(groups: GroupData[]) {
       const end = e.endTime ? formatWIB(e.endTime, 'yyyy-MM-dd HH:mm') : '';
       const dur = formatDuration(e.startTime, e.endTime);
       const machine = e.machine?.code || '';
-      const operator = e.operator?.name || '';
+      const operator = e.shift?.operator?.name || e.operator?.name || '';
       const shift = e.shift?.shiftName || '';
       const foto = e.photoUrl ? 'Ya' : 'Tidak';
       const notes = (e.notes || '').replace(/"/g, '""');
@@ -513,7 +513,7 @@ function ExecutionDetailRow({
         </div>
         {exec.operator && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <User className="h-3 w-3" /> {exec.operator.name}
+            <User className="h-3 w-3" /> {exec.shift?.operator?.name || exec.operator.name}
           </div>
         )}
         {exec.machine && (
@@ -663,7 +663,7 @@ function TimelineRow({ exec, group }: { exec: ExecutionData; group: GroupData })
       )}
 
       {exec.operator && (
-        <span className="text-xs text-muted-foreground truncate max-w-[80px] shrink-0">{exec.operator.name}</span>
+        <span className="text-xs text-muted-foreground truncate max-w-[80px] shrink-0">{exec.shift?.operator?.name || exec.operator.name}</span>
       )}
 
       <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs shrink-0">

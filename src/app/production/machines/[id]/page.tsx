@@ -130,6 +130,7 @@ export default async function MachineHistoryPage({ params }: { params: Promise<{
                                     bom: { name: string; productVariant: { name: string; primaryUnit: string } };
                                 } | null;
                                 operator: { name: string | null } | null;
+                                shift: { operator: { name: string | null } | null } | null;
                             }) => (
                                 <TableRow
                                     key={exec.id}
@@ -156,7 +157,7 @@ export default async function MachineHistoryPage({ params }: { params: Promise<{
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-xs">
-                                        {exec.operator?.name || '-'}
+                                        {exec.shift?.operator?.name || exec.operator?.name || '-'}
                                     </TableCell>
                                     <TableCell>
                                         <Badge

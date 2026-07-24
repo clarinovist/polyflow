@@ -16,9 +16,10 @@ describe('findActiveShift', () => {
     vi.clearAllMocks();
   });
 
-  it('returns shiftId when operator-specific shift is found', async () => {
+  it('returns shift with operatorId when operator-specific shift is found', async () => {
     vi.mocked(prisma.productionShift.findFirst).mockResolvedValueOnce({
       id: 'shift-1',
+      operatorId: 'op-1',
     } as never);
 
     const result = await findActiveShift({
@@ -26,7 +27,7 @@ describe('findActiveShift', () => {
       operatorId: 'op-1',
     });
 
-    expect(result).toBe('shift-1');
+    expect(result).toEqual({ id: 'shift-1', operatorId: 'op-1' });
     expect(prisma.productionShift.findFirst).toHaveBeenCalledTimes(1);
     expect(prisma.productionShift.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -44,6 +45,7 @@ describe('findActiveShift', () => {
     // Second call (fallback) returns shift
     vi.mocked(prisma.productionShift.findFirst).mockResolvedValueOnce({
       id: 'shift-2',
+      operatorId: 'op-2',
     } as never);
 
     const result = await findActiveShift({
@@ -51,7 +53,7 @@ describe('findActiveShift', () => {
       operatorId: 'op-1',
     });
 
-    expect(result).toBe('shift-2');
+    expect(result).toEqual({ id: 'shift-2', operatorId: 'op-2' });
     expect(prisma.productionShift.findFirst).toHaveBeenCalledTimes(2);
     // Second call should NOT have operatorId filter
     expect(prisma.productionShift.findFirst).toHaveBeenNthCalledWith(
@@ -82,13 +84,14 @@ describe('findActiveShift', () => {
   it('skips operator-specific query when no operatorId provided', async () => {
     vi.mocked(prisma.productionShift.findFirst).mockResolvedValueOnce({
       id: 'shift-3',
+      operatorId: null,
     } as never);
 
     const result = await findActiveShift({
       productionOrderId: 'po-1',
     });
 
-    expect(result).toBe('shift-3');
+    expect(result).toEqual({ id: 'shift-3', operatorId: null });
     expect(prisma.productionShift.findFirst).toHaveBeenCalledTimes(1);
   });
 

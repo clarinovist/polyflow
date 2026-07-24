@@ -46,15 +46,23 @@ export const startExecution = withTenant(async function startExecution(
 
       // Auto-detect active shift if not explicitly provided
       let shiftId = result.data.shiftId;
-      if (!shiftId && result.data.operatorId) {
-        shiftId = await findActiveShift({
+      let effectiveOperatorId = result.data.operatorId;
+      if (!shiftId) {
+        const activeShift = await findActiveShift({
           productionOrderId: result.data.productionOrderId,
           operatorId: result.data.operatorId,
-        }) ?? undefined;
+        });
+        if (activeShift) {
+          shiftId = activeShift.id;
+          if (activeShift.operatorId) {
+            effectiveOperatorId = activeShift.operatorId;
+          }
+        }
       }
 
       const execution = await ProductionService.startExecution({
         ...result.data,
+        operatorId: effectiveOperatorId,
         shiftId,
       });
 
@@ -273,7 +281,7 @@ export type ProductionHistoryExecution = {
   cekGram: string | null;
   operator: { name: string } | null;
   machine: { code: string } | null;
-  shift: { shiftName: string } | null;
+  shift: { shiftName: string; operator: { name: string } | null } | null;
   helpers: { name: string }[];
 };
 
@@ -439,7 +447,7 @@ export const getProductionHistory = withTenant(
           },
           operator: true,
           machine: true,
-          shift: true,
+          shift: { include: { operator: true } },
           helpers: true,
         },
         orderBy: { endTime: "desc" },
@@ -497,7 +505,7 @@ export const getProductionHistory = withTenant(
           cekGram: exec.cekGram || null,
           operator: exec.operator ? { name: exec.operator.name } : null,
           machine: exec.machine ? { code: exec.machine.code } : null,
-          shift: exec.shift ? { shiftName: exec.shift.shiftName } : null,
+          shift: exec.shift ? { shiftName: exec.shift.shiftName, operator: exec.shift.operator ? { name: exec.shift.operator.name } : null } : null,
           helpers: exec.helpers.map(h => ({ name: h.name })),
         });
         group.totalQuantity += Number(exec.quantityProduced || 0);
@@ -515,8 +523,9 @@ export const getProductionHistory = withTenant(
         if (exec.machine?.code && !group.machineCodes.includes(exec.machine.code)) {
           group.machineCodes.push(exec.machine.code);
         }
-        if (exec.operator?.name && !group.operatorNames.includes(exec.operator.name)) {
-          group.operatorNames.push(exec.operator.name);
+        const execOperatorName = exec.shift?.operator?.name || exec.operator?.name;
+        if (execOperatorName && !group.operatorNames.includes(execOperatorName)) {
+          group.operatorNames.push(execOperatorName);
         }
         if (exec.shift?.shiftName && !group.shiftNames.includes(exec.shift.shiftName)) {
           group.shiftNames.push(exec.shift.shiftName);

@@ -186,6 +186,7 @@ async function getMachineHistory(machineId: string) {
                         }
                     },
                     operator: true,
+                    shift: { include: { operator: true } },
                 },
                 orderBy: { startTime: 'desc' },
                 take: 100,

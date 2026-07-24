@@ -24,7 +24,7 @@ export type ExtendedProductionOrder = ProductionOrder & {
     materialIssues: (MaterialIssue & { productVariant: ProductVariant, createdBy: User | null })[];
     scrapRecords: (ScrapRecord & { productVariant: ProductVariant, createdBy: User | null })[];
     inspections: (QualityInspection & { inspector: User | null })[];
-    executions: (ProductionExecution & { operator: Employee | null, shift: ProductionShift | null })[];
+    executions: (ProductionExecution & { operator: Employee | null, shift: (ProductionShift & { operator: Employee | null }) | null })[];
     plannedMaterials: (ProductionMaterial & { productVariant: ProductVariant & { product: Product } })[];
     childOrders: (ProductionOrder & { bom: Bom & { productVariant: { name: string, id: string } } })[];
     parentOrder: ProductionOrder | null;
