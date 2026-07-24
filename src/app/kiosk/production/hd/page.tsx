@@ -1,7 +1,6 @@
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getMachines } from '@/actions/production/machines';
 import { getEmployees } from '@/actions/admin/employees';
-import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { ProductionStatus } from "@prisma/client";
 import { serializeData } from "@/lib/utils/utils";
 import HdProductionForm from "./HdProductionForm";
@@ -29,15 +28,9 @@ export default async function HdKioskPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const employees = (allEmployees as any[]).filter((e: any) => e.status === 'ACTIVE');
 
-    const shiftsRes = await getWorkShifts();
-    const allShifts = shiftsRes.success && shiftsRes.data ? shiftsRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const shifts = (allShifts as any[]).filter((s: any) => s.status === 'ACTIVE');
-
     const serializedOrders = serializeData(orders);
     const serializedMachines = serializeData(machines);
     const serializedEmployees = serializeData(employees);
-    const serializedShifts = serializeData(shifts);
 
     return (
         <div className="min-h-screen bg-background p-4 md:p-6 max-w-7xl mx-auto space-y-4">
@@ -54,7 +47,6 @@ export default async function HdKioskPage() {
                     orders={serializedOrders}
                     machines={serializedMachines}
                     employees={serializedEmployees}
-                    shifts={serializedShifts}
                 />
             </div>
         </div>

@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
+import { prisma } from "@/lib/core/prisma";
 
 export const addProductionShift = withTenant(
   async function addProductionShift(data: {
@@ -44,5 +45,25 @@ export const deleteProductionShift = withTenant(
         );
       }
     });
+  },
+);
+
+export const getProductionShiftsByOrder = withTenant(
+  async function getProductionShiftsByOrder(productionOrderId: string) {
+    try {
+      const shifts = await prisma.productionShift.findMany({
+        where: { productionOrderId },
+        select: {
+          id: true,
+          shiftName: true,
+          startTime: true,
+          endTime: true,
+        },
+        orderBy: { startTime: "asc" },
+      });
+      return { success: true, data: shifts };
+    } catch {
+      return { success: false, error: "Failed to fetch production shifts" };
+    }
   },
 );

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
 import { Unit } from '@prisma/client';
 import { productionLabels } from '@/lib/labels';
+import { getProductionShiftsByOrder } from '@/actions/production/production-shifts';
 
 const bulkSchema = z.object({
     reports: z.array(productionOutputSchema)
@@ -37,7 +38,7 @@ type Order = {
         }
     }
 };
-type Shift = { id: string; name: string; startTime: string; endTime: string };
+type Shift = { id: string; shiftName: string; startTime: string; endTime: string };
 
 /** Convert Date to `datetime-local` input value in LOCAL timezone (not UTC) */
 function toLocalDatetime(date: Date | string): string {
@@ -68,15 +69,16 @@ function makeEmpty(): BulkFormValues['reports'][0] {
 }
 
 export default function HdProductionForm({
-    orders, machines, employees, shifts
+    orders, machines, employees
 }: {
     orders: Order[];
     machines: Machine[];
     employees: Employee[];
-    shifts: Shift[];
 }) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [shiftsByOrder, setShiftsByOrder] = useState<Record<string, Shift[]>>({});
+    const [loadingShifts, setLoadingShifts] = useState<Record<string, boolean>>({});
 
     const form = useForm<BulkFormValues>({
         resolver: zodResolver(bulkSchema) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -86,6 +88,30 @@ export default function HdProductionForm({
     const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: "reports",
+    });
+
+    const fetchShiftsForOrder = useCallback(async (orderId: string) => {
+        if (!orderId || shiftsByOrder[orderId]) return;
+        setLoadingShifts(prev => ({ ...prev, [orderId]: true }));
+        try {
+            const result = await getProductionShiftsByOrder(orderId);
+            if (result.success && result.data) {
+                setShiftsByOrder(prev => ({ ...prev, [orderId]: result.data }));
+            }
+        } catch {
+            // silently fail
+        } finally {
+            setLoadingShifts(prev => ({ ...prev, [orderId]: false }));
+        }
+    }, [shiftsByOrder]);
+
+    useEffect(() => {
+        fields.forEach((_, index) => {
+            const orderId = form.watch(`reports.${index}.productionOrderId`);
+            if (orderId) {
+                fetchShiftsForOrder(orderId);
+            }
+        });
     });
 
     const onSubmit = async (data: BulkFormValues) => {
@@ -234,30 +260,39 @@ export default function HdProductionForm({
                                 )}
                             />
 
-                            {/* FIX: Shift dropdown now uses real DB IDs */}
+                            {/* FIX: Shift dropdown now uses ProductionShift from selected order */}
                             <FormField
                                 control={form.control}
                                 name={`reports.${index}.shiftId`}
-                                render={({ field }) => (
+                                render={({ field }) => {
+                                    const currentOrderId = form.watch(`reports.${index}.productionOrderId`);
+                                    const availableShifts = currentOrderId ? (shiftsByOrder[currentOrderId] || []) : [];
+                                    const isLoading = currentOrderId ? loadingShifts[currentOrderId] : false;
+
+                                    return (
                                     <FormItem>
                                         <FormLabel className="text-white/70 dark:text-white/80">Shift</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={!currentOrderId || isLoading}>
                                             <FormControl>
                                                 <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
-                                                    <SelectValue placeholder="Pilih Shift..." />
+                                                    <SelectValue placeholder={isLoading ? "Memuat shift..." : (!currentOrderId ? "Pilih WO dulu" : "Pilih Shift...")} />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {shifts.map(s => (
+                                                {availableShifts.map(s => (
                                                     <SelectItem key={s.id} value={s.id}>
-                                                        {s.name} ({s.startTime}–{s.endTime})
+                                                        {s.shiftName} ({new Date(s.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}–{new Date(s.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})
                                                     </SelectItem>
                                                 ))}
+                                                {availableShifts.length === 0 && !isLoading && currentOrderId && (
+                                                    <SelectItem value="none" disabled>Belum ada shift di WO ini</SelectItem>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
                                     </FormItem>
-                                )}
+                                    );
+                                }}
                             />
                         </div>
 
