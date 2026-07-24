@@ -1,626 +1,907 @@
 import { PrismaClient, HelpArticleStatus, HelpArticleSource } from '@prisma/client';
-
 const mainDb = new PrismaClient();
-
 interface SeedArticle {
-  slug: string;
-  title: string;
-  summary: string;
-  bodyMd: string;
-  modules: string[];
-  tags: string[];
-  errorCodes: string[];
-  source: HelpArticleSource;
+  slug: string; title: string; summary: string; bodyMd: string; modules: string[]; tags: string[]; errorCodes: string[]; source: HelpArticleSource;
 }
-
 const seedArticles: SeedArticle[] = [
-  {
-    slug: 'cara-buat-sales-order',
-    title: 'Cara Buat Sales Order (SO)',
-    summary: 'Panduan langkah-langkah membuat Sales Order baru di modul Sales.',
-    bodyMd: `## Langkah-langkah
+{
+slug: 'cara-buat-sales-order',
+title: 'Cara Buat Sales Order (SO)',
+summary: 'Buat SO customer di Penjualan dengan intent picker, customer, gudang sumber, harga customer, dan limit kredit.',
+bodyMd: `## Ringkas
+Menu: Penjualan → Sales Order
+Path: /sales/orders → tombol "Pesanan Baru"
+Tombol: Pesanan Baru, + Tambah Item, Simpan, Pesan Ulang
+Label: Penjualan (salesSidebarLabels.salesOrders), Katalog Produk (/dashboard/products), Customer (/sales/customers)
 
-1. Buka menu **Sales** → **Sales Order** di sidebar kiri.
-2. Klik tombol **+ Baru** di pojok kanan atas.
-3. Pilih **Customer** dari dropdown (ketik nama untuk filter).
-4. Isi **Tanggal Order** (default: hari ini).
-5. Tambahkan item produk:
-   - Klik **+ Tambah Item**.
-   - Pilih **Produk** dan **Variant** (misal: MP 15 - Roll).
-   - Masukkan **Quantity** dalam satuan yang benar (KG / Roll / Pcs).
-   - Harga otomatis terisi dari master harga; ubah manual jika perlu.
-6. Ulangi langkah 5 untuk setiap item pesanan.
-7. Cek **Total Amount** di bagian bawah — pastikan benar.
-8. Klik **Simpan** untuk menyimpan draft SO.
+## Langkah Real (SalesOrderForm + page create)
 
-## Setelah SO Dibuat
+1. Buka **Penjualan → Sales Order**. Path \`/sales/orders\` → header "Pesanan ke customer — dari stok, produksi, atau maklon." Tombol **Pesanan Baru** (salesLabels.newSalesOrder).
+2. Intent picker muncul jika tanpa ?intent & tanpa ?reorder (SalesOrderIntentPicker):
+   - Kirim dari Stok = MAKE_TO_STOCK
+   - Produksi Dulu = MAKE_TO_ORDER
+   - Maklon Jasa = MAKLON_JASA (jasa titipan, hanya SERVICE item)
+   Path real setelah pilih: \`/sales/orders/create?intent=stock|produce|maklon\` → lockedOrderType.
+3. Isi form:
+   - **Customer** (customer): combobox searchable + "Tambah Customer Baru" link. Wajib untuk SO customer. Jika legacy tanpa customer → arsip, tidak bisa invoice.
+   - **Gudang Sumber** (Source Warehouse): label dinamis "Gudang Sumber (Opsional)" vs "Gudang Customer" untuk Maklon. Options filtered by locationPurpose FINISHED_GOOD/PACKING/GENERAL_PURPOSE/RAW_MATERIAL/SCRAP vs CUSTOMER_OWNED untuk Maklon. Sentinel "__none__" tampil italic "Semua gudang". Walaupun opsional di form MTS, saat confirm WAJIB (kalau kosong error "Source location is required...").
+   - **Tipe Pesanan**: MAKE_TO_STOCK / MAKE_TO_ORDER / MAKLON_JASA dengan tooltip. Disabled jika lockedOrderType dari intent.
+   - **Tanggal Pesanan** (orderDate): default hari ini, date picker calendar caption dropdown fromYear 2000 toYear+1.
+   - **Estimasi Pengiriman** (expectedDate) hanya untuk MTO/Maklon, optional.
+   - **Catatan** (notes): placeholder "Catatan opsional..."
+   - **Ongkos Kirim** (shippingCost) optional number, tapi jika ada DeliveryOrder dengan totalCharge billable (isBillableDeliveryStatus) maka label "(dari armada)" muncul.
+4. Line items (Tabel Desktop min-w-[900px] + Mobile Card):
+   - Klik **+ Tambah Item** (actionLabels.add Item) → row baru qty 1 unitPrice 0 discount 0 tax 0 dppOther null ppnMode EXCLUDE.
+   - Pilih produk via Popover Command searchable "Cari produk..." list filtered: non-SERVICE untuk MTS/MTO, hanya SERVICE untuk MAKLON_JASA. Empty message khusus Maklon: "Tidak ada service item... Stok fisik di Maklon Packing Area dipakai saat production execution...".
+   - Setelah pilih, unitPrice auto = toDisplayUnitPrice(customer base price). Base price logic: customerPrices.find active untuk customerId tersebut. Label harga: "Harga khusus customer" vs "Harga default".
+   - Qty & Harga Satuan bisa dual-unit: jika variant punya salesUnit != primaryUnit & conversionFactor, tampil enteredQuantity & enteredUnit, baseQuantity = toBaseQuantity(entered * factor). Display helper getEnteredQuantityDisplay.
+   - Diskon: toggle PERCENT vs NOMINAL. Input raw format Indonesian price. Jika NOMINAL, percent auto = nominal/subtotal*100.
+   - Pajak: checkbox "Kena Pajak" (taxableItems map) → muncul Pajak/DPP. Auto DPP Other = DPP * 11/12.
+   - Subtotal & PPN dihitung via calculatePpn + computeOrderTotals. Footer tabel Total Keseluruhan (grandTotal).
+   - Custom item: jika produk tidak ada, QuickProductDialog atau inline custom (✏️ custom name) via CUSTOM_ITEM_PREFIX custom:.
+5. Cek banner **Kredit**: saat customer dipilih, useEffect fetch getCustomerCreditExposureAction → Alert merah jika over: "Batas kredit akan terlampaui" + grid Limit, Piutang belum lunas, SO aktif tanpa invoice, Exposure saat ini, Sisa headroom. Kuning jika near limit (>90%). Data dari credit-service checkCreditLimit.
+6. Klik **Simpan** (submitAction). Mode create → createSalesOrder, mode edit → updateSalesOrder dengan confirm dialog "Apakah Anda yakin ingin menyimpan perubahan...". Success push /sales.
 
-- SO masih berstatus **DRAFT**. Untuk memproses, lakukan **Konfirmasi SO**.
-- SO yang sudah dikonfirmasi akan muncul di daftar produksi dan warehouse.
+## Setelah Simpan
+- Status DRAFT. Detail di /sales/orders/[id] (SalesOrderDetailClient).
+- Tombol "Konfirmasi Order" (CheckCircle icon, bg-blue-600) jika DRAFT & bukan legacyInternal. Di sinilah reservasi & shortage logic jalan (lihat artikel confirm).
+- Tombol Edit visible untuk DRAFT/CONFIRMED/IN_PRODUCTION/READY_TO_SHIP.
+- Tombol Hapus DRAFT via AlertDialog "Apakah Anda yakin? ... menghapus draf order permanen."
+- Tombol Proses: Produksi Selesai / Siap Tutup Jasa (markReadyToShip) saat IN_PRODUCTION, Buat Surat Jalan (CreateDeliveryOrderDialog) jika tidak ada SJ aktif, Tambah ke Jadwal (/sales/delivery-schedules), dropdown Lainnya → Buat SJ + Kirim Cepat (ShipmentDialog), Batalkan (ghost red).
+- Banner alur kirim jika CONFIRMED/IN_PRODUCTION/READY_TO_SHIP non-maklon non-warehouse: "Untuk rute harian multi-toko: pakai Jadwal Kirim. Untuk 1 SO hot-load: Buat Surat Jalan. Muat & tandai dikirim di Portal Gudang."
+- Active SJ card border amber jika ada openDeliveryOrders PENDING/LOADING → list SJ dengan status & "stok belum dipotong" + Buka / ubah qty button ke /warehouse/outgoing/[id] atau /sales/deliveries/[id].
 
 ## Tips
-
-- Jika produk tidak muncul di dropdown, pastikan variant sudah aktif di **Master Data** → **Produk**.
-- Untuk SO repeat order, gunakan fitur **Duplikat** dari SO sebelumnya.
-- Catatan khusus (misal: warna, ukuran spesial) bisa diisi di field **Remarks**.
+- Produk tidak muncul cek Katalog Produk /dashboard/products variant aktif & productType.
+- SO repeat DELIVERED → Pesan Ulang /sales/orders/create?reorder=[id] prefill customer, sourceLocation, orderType, notes, shippingCost, items qty/unitPrice/discount/tax.
+- Tidak ada Duplikat generik.
+- Legacy SO tanpa customer muncul kuning alert Legacy Internal Stock Build di detail, tidak bisa Buat Invoice, disarankan pakai Production Order.
 
 ## Troubleshooting
+- "Source location is required before confirming..." → edit SO pilih gudang sumber.
+- CREDIT_LIMIT_EXCEEDED → kurangi qty atau minta admin naikkan limit di customer master.
+- Customer tidak muncul → Penjualan → Customer /sales/customers pastikan aktif.
+- Invoice tidak bisa dibuat → status harus SHIPPED/DELIVERED & punya customerId.
+`,
+modules: ['sales'], tags: ['sales-order','so','pesanan-baru'], errorCodes: ['CREDIT_LIMIT_EXCEEDED'], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-confirm-so-stok-kurang',
+title: 'Cara Confirm SO Ketika Stok Kurang',
+summary: 'Confirm SO tidak hard-fail — reservasi parsial plus shortage masuk Papan Permintaan FG, bukan error Insufficient Stock.',
+bodyMd: `## Ringkas
+Menu: Penjualan → Sales Order → Detail → Konfirmasi Order
+Path: /sales/orders/[id] → tombol "Konfirmasi Order" (SalesOrderDetailClient)
+Status: DRAFT → CONFIRMED (MTS cukup stok) atau DRAFT → IN_PRODUCTION (MTO/Maklon atau MTS shortage ada BOM)
+Error: CREDIT_LIMIT_EXCEEDED, MISSING_DEFAULT_BOM (warning), FG_DEMAND_QUEUED, WO_CREATE_FAILED
 
-- **"Stok tidak cukup"** saat konfirmasi → lihat artikel "Cara Confirm SO Stok Kurang".
-- **Customer tidak muncul** → pastikan customer sudah terdaftar di menu **Sales** → **Customer**.`,
-    modules: ['sales'],
-    tags: ['sales-order', 'so', 'order', 'cara-pakai'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-confirm-so-stok-kurang',
-    title: 'Cara Confirm SO Ketika Stok Kurang',
-    summary: 'Solusi ketika konfirmasi Sales Order gagal karena stok tidak mencukupi.',
-    bodyMd: `## Penyebab Error
+## Perilaku Real (orders-service.ts confirmOrder 470+)
 
-Error **"Insufficient Stock"** muncul ketika stok fisik produk di gudang kurang dari quantity yang diminta di Sales Order.
+- Validasi:
+  - findUnique SalesOrder + items + productVariant.product.
+  - if not found → NotFoundError.
+  - status !== DRAFT → BusinessRuleError "Only draft orders can be confirmed".
+  - !customerId → BusinessRuleError legacy internal stock build message.
+  - !sourceLocationId → BusinessRuleError "Source location is required before confirming..."
+- Credit: jika customerId && orderType != MAKE_TO_ORDER → checkCreditLimit(customerId, totalAmount). Jika over → error dengan Limit/Exposure/Baru/headroom & code CREDIT_LIMIT_EXCEEDED.
+- NextStatus default: MTO/MAKLON_JASA → IN_PRODUCTION else CONFIRMED (MTS).
+- Bulk inventory fetch: locationId + variantIds → quantity.toNumber(). Bulk reservation ACTIVE groupBy sum.
+- For each item (skip SERVICE productType):
+  - available = currentQty - reservedQty
+  - demand = item.quantity
+  - if available >= demand: activeReservationAmount=demand shortage=0 else active=max(0,available) shortage=demand-active.
+  - if active>0 → createStockReservation reservedFor SALES_ORDER referenceId order.id reservedUntil +7d.
+  - if shortage>0 push shortages.
+- Soft BOM check jika shortages:
+  - findMany bom where productVariantId in shortageVariantIds isDefault true isActive true.
+  - missing BOM variantIds → warning MISSING_DEFAULT_BOM dengan message "Order dikonfirmasi. Perintah produksi tidak dibuat otomatis karena BOM default belum ada untuk: ... Tim produksi/PPIC perlu membuat BOM lalu buat WO manual."
+  - creatable = shortage where BOM exists → hadCreatableShortage true → nextStatus=IN_PRODUCTION.
+  - else if MTS + only missing BOM → stay CONFIRMED.
+- Update salesOrder status nextStatus, logActivity SALES_ORDER_CONFIRMED dengan shortages & warnings.
+- Auto WO: flag env AUTO_CREATE_WO_ON_SO_CONFIRM default false. Jika true: re-query BOMs now & createOrderFromSales per shortage creatable via Promise.allSettled → productionOrdersCreated count, failures → WO_CREATE_FAILED warning.
+  - If MTS & productionOrdersCreated==0 & nextStatus IN_PRODUCTION → downgrade back to CONFIRMED + log adjustment.
+- Jika auto off & shortages>0 → warning FG_DEMAND_QUEUED message "Kekurangan stok masuk antrian produksi (Papan Permintaan FG). Buka Production → Papan Permintaan FG untuk membuat SPK."
 
-## Langkah Cek
+## Cara Cek Stok Kurang
+1. Stok → Stok /warehouse/inventory (bukan Warehouse→Inventory). Header "Pantau level stok dan status gudang".
+2. WarehouseNavigator multi-select ?locationId=id1&id2, total SKUs, lowStockCount.
+3. InventoryTable kolom: Produk (nama/SKU/type badge RM/FG/WIP/Scrap/Pack), Lokasi, Stok (physical), Terpesan (reservedStock), Tersedia = Stok-Terpesan, Status badge lowStock/out, Harga Satuan (jika canViewPrices / viewPrices permission), Nilai Stok.
+4. Filter: Filter tipe (warehouseComponentLabels) Semua Tipe/Bahan Baku/Barang Jadi/WIP/Scrap/Intermediate/Packaging/Service, lowStock toggle ?lowStock=true filter variantTotals < minStockAlert, Cari "Cari produk / SKU..." + "Cari SKU..." Quick Stock Check.
+5. Detail varian /warehouse/inventory/[id] history trend Riwayat Stok "Tren pergerakan stok dari waktu ke waktu.", Recent Transfers, etc.
+6. Threshold atur di Katalog Produk /dashboard/products → variant minStockAlert.
 
-1. Buka menu **Warehouse** → **Inventory**.
-2. Cari produk yang dimaksud.
-3. Periksa **Qty Fisik** di setiap lokasi gudang.
-4. Bandingkan dengan total quantity di SO (perhatikan: satu SO bisa punya beberapa baris produk yang sama — jumlahkan semuanya).
+## Solusi Shortage
+A) Buat SPK dari demand board (disarankan):
+- Produksi → Permintaan FG /production/requests → incomingRequestsTitle "Papan Permintaan FG" desc "Item FG yang perlu diproduksi berdasarkan Sales Order aktif". Di sini shortage muncul. Klik proses → Buat SPK prefill variantId & qtyHint ?variantId=&qty=&priority. SPK dibuat via production-order-form, after selesai stok naik.
 
-## Solusi
+B) Kurangi qty SO: Edit sebelum confirm (DRAFT only editable). Simpan, confirm ulang.
 
-### Opsi 1: Tunggu stok masuk
-- Jika ada Incoming Goods / produksi yang sedang berjalan, tunggu hingga stok tersedia.
-- Cek menu **Production** → **Production Orders** untuk melihat SPK yang sedang berjalan.
-
-### Opsi 2: Kurangi quantity SO
-- Edit SO, kurangi quantity item yang stoknya kurang.
-- Klik **Simpan** ulang, lalu **Konfirmasi**.
-
-### Opsi 3: Split SO
-- Pisahkan item yang stoknya cukup ke SO baru.
-- Konfirmasi SO yang stoknya tersedia.
-- SO sisa menunggu stok masuk.
+C) Cek incoming: Stok → Penerimaan Barang /warehouse/incoming antrean PO SENT/PARTIAL menunggu Terima.
 
 ## Pencegahan
+- Cek stok dulu, atur minStockAlert = (Avg Daily Usage × Lead days) + Safety.
+- Payment term & credit limit di customer.
 
-- Cek stok sebelum membuat SO (menu **Warehouse** → **Inventory**).
-- Atur **Minimum Stock Alert** di Master Produk agar dapat notifikasi stok rendah.`,
-    modules: ['sales', 'warehouse'],
-    tags: ['stok-kurang', 'insufficient-stock', 'konfirmasi', 'troubleshoot'],
-    errorCodes: ['STOCK_INSUFFICIENT'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-jadwal-kirim-dan-surat-jalan',
-    title: 'Cara Atur Jadwal Kirim & Buat Surat Jalan',
-    summary: 'Panduan menjadwalkan pengiriman dan mencetak surat jalan dari Sales Order.',
-    bodyMd: `## Prasyarat
+## Error Mapping Final
+- CREDIT_LIMIT_EXCEEDED → credit-service
+- MISSING_DEFAULT_BOM → warning bukan throw
+- FG_DEMAND_QUEUED → info antrian FG
+- STOCK_INSUFFICIENT generic → cocok untuk delivery/outgoing/transfer, bukan confirm SO.
+`,
+modules: ['sales','warehouse','production'], tags: ['stok-kurang','confirm-so','reservasi'], errorCodes: ['CREDIT_LIMIT_EXCEEDED','MISSING_DEFAULT_BOM','FG_DEMAND_QUEUED','WO_CREATE_FAILED'], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-jadwal-kirim-dan-surat-jalan',
+title: 'Cara Atur Jadwal Kirim & Buat Surat Jalan',
+summary: 'Jadwal Kirim dan Surat Jalan menu terpisah di Penjualan dengan flow draft PENDING LOADING SHIPPED dan verifikasi muat di Antrian Muat.',
+bodyMd: `## Ringkas
+Menu Jadwal: Penjualan → Jadwal Kirim /sales/delivery-schedules tombol Jadwal Baru
+Menu SJ: Penjualan → Surat Jalan /sales/deliveries tombol Buat Surat Jalan (CreateDeliveryOrderDialog) + filter tanggal this_month
+Detail SO tombol: Buat Surat Jalan, Tambah ke Jadwal (/sales/delivery-schedules), Lihat SJ aktif, dropdown Lainnya Buat SJ + Kirim Cepat
+Gudang: Stok → Antrian Muat /warehouse/outgoing → Mulai Muat → Verifikasi → Tandai Dikirim (potong stok)
 
-- Sales Order sudah **Confirmed** atau **In Production**.
+## Konsep
+- Jadwal Kirim = mingguan per armada, trips = vehicles, stops = orders, unlinked = orders tanpa DO. Status DRAFT/Aktif/Selesai mapping ACTIVE=CONFIRMED/IN_TRANSIT/CLOSED=COMPLETED. Multi-toko rute harian.
+- Surat Jalan DO = dokumen pengiriman resmi per SO, status PENDING (Menunggu draft muat stok belum dipotong) → LOADING (Sedang Dimuat) → SHIPPED (Dikirim stok terpotong) → IN_TRANSIT → ARRIVED → DELIVERED → RETURNED/CANCELLED terminal. State machine DELIVERY_TRANSITIONS & NEXT_STEP_LABELS: PENDING->Mulai Muat, LOADING->Tandai Dikirim, SHIPPED->Dalam Perjalanan, IN_TRANSIT->Sampai Tujuan, ARRIVED->Tandai Terkirim.
 
-## Langkah Jadwal Kirim
+## Prasyarat
+- SO CONFIRMED/IN_PRODUCTION/READY_TO_SHIP (DRAFT tidak bisa).
+- Tidak ada SJ PENDING/LOADING aktif lain untuk SO sama → blok "Sudah ada Surat Jalan aktif" (salesLabels.openDoExists) atau "Sudah ada SJ aktif, residual 0" message noEligibleSoForDo.
 
-1. Buka menu **Sales** → **Sales Order**.
-2. Klik SO yang ingin dijadwalkan.
-3. Klik tab **Delivery Schedule** atau tombol **Atur Pengiriman**.
-4. Isi:
-   - **Tanggal Rencana Kirim**.
-   - **Alamat Kirim** (default dari customer, bisa diubah).
-   - **Catatan Kurir** (opsional).
-5. Klik **Simpan Jadwal**.
+## Jadwal Kirim Detail (ScheduleListClient)
 
-## Buat Surat Jalan (SJ)
+1. Buka Penjualan → Jadwal Kirim /sales/delivery-schedules.
+2. Klik Jadwal Baru → Dialog Buat Jadwal Baru: "Pilih tanggal untuk minggu jadwal yang ingin dibuat. Sistem akan otomatis menentukan awal (Senin) dan akhir (Minggu) minggu dari tanggal tersebut." Input type=date selectedDate required. Submit → createDeliverySchedule({ weekStart: new Date(selectedDate) }).
+3. List Desktop Card Daftar Jadwal Badge count: filter status ALL/Draft/Aktif/Selesai (Select). Kolom No Jadwal (scheduleNumber link ke /sales/delivery-schedules/[id]), Periode weekStart — weekEnd locale id-ID (formatDate), Status badge (STATUS_STYLES/LABELS), Trip count, Stop count, Tanpa SJ (orange if >0 else green 0), Dibuat Oleh. Mobile Card serupa.
+4. Detail jadwal /sales/delivery-schedules/[id] (ScheduleDetailClient) kelola trips: pilih Armada (Vehicle plateNumber name), assign orders, kelola stops, status etc.
+5. Dari SO detail tambah ke jadwal.
 
-1. Dari detail SO, klik tombol **Buat Surat Jalan**.
-2. Periksa item dan quantity yang akan dikirim.
-3. Klik **Proses** → Surat Jalan otomatis terbuat.
-4. Cetak SJ dari menu **Warehouse** → **Outgoing** → **Delivery**.
+## Buat Surat Jalan Single SO
 
-## Tips
+1. Dari SO detail jika tidak ada SJ aktif → CreateDeliveryOrderDialog tombol Buat Surat Jalan (salesLabels.buatSuratJalan). Jika 1 SJ aktif → tombol Lihat SJ aktif (viewOpenDo) "Lihat SJ aktif (DO-xxx)" link ke /sales/deliveries/[id] atau /warehouse/outgoing/[id] jika warehouseMode. Jika >1 SJ aktif → info openDoExists + selectDoToShip.
+2. Dialog SJ: pilih SO? defaultSalesOrderId prefill, cek sisa residual (sisa SO belum terkirim). Simpan → DO PENDING. Banner sjDraft "Surat Jalan (Draft/Muat)" + "Dokumen pengiriman — stok belum dipotong" (sjPendingHint) + sjPendingBanner "Draft muat — stok belum dipotong. Qty masih bisa disesuaikan dengan real lapangan sebelum Tandai Dikirim."
+3. Edit qty lapangan: detail SJ PENDING/LOADING → Ubah qty kirim (editSjQty) → input number per item validation "Qty harus angka > 0" → Simpan qty (saveSjQty) success toast sjQtyUpdated "Qty Surat Jalan berhasil diperbarui." Help sjQtyHelp "Maksimal = sisa SO yang belum terkirim. Setelah Tandai Dikirim, qty tidak bisa diubah."
+4. Kirim cepat: SO detail dropdown Lainnya → Buat SJ + Kirim Cepat (Create and Ship) via ShipmentDialog, ada next step commitExistingDo vs createAndShip.
 
-- Pastikan stok sudah tersedia sebelum membuat SJ.
-- SJ yang sudah diproses tidak bisa dihapus — gunakan fitur **Void** jika perlu pembatalan.`,
-    modules: ['sales', 'warehouse'],
-    tags: ['surat-jalan', 'pengiriman', 'delivery', 'jadwal-kirim'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-terima-barang-gudang',
-    title: 'Cara Terima Barang di Gudang (Incoming)',
-    summary: 'Panduan menerima barang masuk dari supplier atau produksi ke gudang.',
-    bodyMd: `## Langkah-langkah
+## Eksekusi Gudang
 
-1. Buka menu **Warehouse** → **Incoming Goods**.
-2. Klik **+ Terima Barang Baru**.
-3. Pilih **Supplier** atau **Sumber** (dari Purchase Order / produksi internal).
-4. Jika dari PO:
-   - Pilih **Purchase Order** terkait.
-   - Item otomatis terisi dari PO.
-5. Untuk setiap item:
-   - Periksa **Quantity Diterima** sesuai fisik.
-   - Pilih **Lokasi Penyimpanan** di gudang.
-   - Catat jika ada **selisih** (qty diterima ≠ qty PO).
-6. Klik **Proses Penerimaan**.
+1. Stok → Antrian Muat /warehouse/outgoing (WarehouseOutgoingPage). Filter active: PENDING or LOADING only, LOADING first then PENDING sort deliveryDate. Empty "Belum ada perintah muat. Tunggu Sales membuat Surat Jalan." Button Riwayat Kirim /warehouse/outgoing/history.
+2. Detail /warehouse/outgoing/[id] (DeliveryOrderDetail warehouseMode true):
+   - Badges & next step button: PENDING→LOADING "Mulai Muat", LOADING→SHIPPED "Tandai Dikirim" (tandaiDikirim) disabled unless load verified (canShip=isLoadVerified). Tooltip "Kunci verifikasi muat dulu".
+   - Banner draft vs shipped: sjDraft vs sjShipped + banners.
+   - StockReadinessBanner if FG not ready (fetchDeliveryStockReadiness action).
+   - Item table with edit qty if canEditQty (PENDING/LOADING).
+   - LoadVerifyPanel: title Verifikasi Muat desc "Cek qty fisik vs perintah muat. Kunci verifikasi sebelum Tandai Dikirim." Table Produk, Perintah qty (getEnteredQuantityDisplay), Dihitung/Dimuat input, Status badges Sesuai (Check green) / Selisih (AlertTriangle amber) / Belum dicek gray. Buttons Samakan semua ke perintah (Copy), Simpan Verifikasi, Kunci Verifikasi (Lock). Logic: allItemsVerified vs allItemsMatch (Math.abs planned-physical <0.0001). Handle saveDeliveryLoadVerification & confirmDeliveryLoadVerified. Success toasts "Qty verifikasi tersimpan", "Verifikasi terkunci. Siap Tandai Dikirim." Badge Terverifikasi.
+   - After locked, Tandai Dikirim enabled → AlertDialog confirm: title "Tandai Dikirim?" desc tandaiDikirimConfirm "Ini akan memotong stok dari gudang. Pastikan produksi sudah diinput. Invoice draft akan dibuat otomatis." If not verified show amber warning "Verifikasi muat belum dikunci — lengkapi panel Verifikasi Muat dulu." Confirm → updateDeliveryStatus SHIPPED → stok terpotong, banner sjShippedBanner final.
+   - Timeline card statusSteps PENDING→DELIVERED with icons Clock/Package/Truck/MapPin/CheckCircle etc.
+   - Info cards: Customer, Asal Gudang, Tanggal Pengiriman, Disiapkan Oleh, Alamat Tujuan, Estimasi Berat.
+   - Armada & Tarif card: Kendaraan plateNumber name, Kepemilikan Pabrik/Perorangan, Sopir, Rute, Tipe Tarif Per Kg/Flat, Est Berat, Biaya Ops/Rate, Charge Rate, Total Biaya Ops & Charge. Edit via EditDeliveryPricingDialog (hide warehouseMode).
+   - Foto: Vehicle Photo statuses PENDING LOADING SHIPPED, POD statuses SHIPPED IN_TRANSIT ARRIVED DELIVERED. Upload to /api/upload/delivery-photo compressed then attachDeliveryPhoto. VehiclePhotoUrl & proofOfDeliveryUrl with Image unoptimized. ReceivedBy name required for POD.
+   - Cetak: button Cetak Surat Jalan opens PrintPreviewModal landscape SuratJalanDotMatrixPrint.
 
-## Setelah Barang Diterima
-
-- Stok otomatis bertambah di lokasi yang dipilih.
-- Status PO berubah menjadi **Received** (jika semua item diterima).
-- Cetak **Berita Acara Penerimaan** jika diperlukan.
+## Void/Batal/Retur
+- PENDING/LOADING: Batalkan button AlertDialog "Batalkan Delivery Order? ... tidak dapat diurungkan." → CANCELLED.
+- SHIPPED/IN_TRANSIT/ARRIVED: Retur button "Tandai sebagai Retur?" → RETURNED, hidden in warehouseMode.
+- After SHIPPED qty cannot edit, use Penjualan → Retur Penjualan /sales/returns.
 
 ## Tips
+- Filter tanggal deliveries memakai deliveryDate, tapi SJ draft/pending selalu tampil (openSjPendingList).
+- search SJ by nomor SJ or customer.
+- Foto truk saat PENDING/LOADING, bukti terima after SHIPPED.
+`,
+modules: ['sales','warehouse'], tags: ['surat-jalan','jadwal-kirim','do','antrian-muat'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-terima-barang-gudang',
+title: 'Cara Terima Barang di Gudang (Incoming)',
+summary: 'Terima barang dari antrean PO SENT/PARTIAL dan walk-in Nota dengan form GoodsReceiptForm validasi over-receipt dan WAC.',
+bodyMd: `## Ringkas
+Menu: Stok → Penerimaan Barang /warehouse/incoming
+Tombol: Terima dari Nota (emerald FileText), Terima / Terima Sisa (ArrowRight), Simpan Penerimaan Barang (Download), Riwayat (History)
+Path: /warehouse/incoming, /warehouse/incoming/create-receipt?poId=[id], /warehouse/incoming/from-nota, /warehouse/incoming/history, /warehouse/incoming/[id]
 
-- Lakukan pengecekan fisik sebelum proses penerimaan.
-- Jika ada kerusakan / selisih, catat di field **Notes** dan pilih status **Partial**.
-- Untuk retur, gunakan menu **Warehouse** → **Returns**.`,
-    modules: ['warehouse', 'purchasing'],
-    tags: ['terima-barang', 'incoming', 'penerimaan', 'gudang'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-cek-stok-per-lokasi',
-    title: 'Cara Cek Stok Per Lokasi Gudang',
-    summary: 'Melihat ketersediaan stok produk berdasarkan lokasi penyimpanan di gudang.',
-    bodyMd: `## Langkah-langkah
+## Data Source (page.tsx)
+- getOperationalData withTenant: listReceivablePurchaseOrders (PO SENT/PARTIAL) + getGoodsReceiptsForDay today. serializeData.
 
-1. Buka menu **Warehouse** → **Inventory**.
-2. Gunakan filter:
-   - **Produk**: ketik nama produk (misal: "MP 15").
-   - **Lokasi**: pilih lokasi gudang spesifik (misal: "Gudang A", "Rak B3").
-3. Tabel menampilkan:
-   - **Nama Produk** dan **Variant**.
-   - **Lokasi** penyimpanan.
-   - **Qty Fisik** (stok aktual).
-   - **Qty Reserved** (sudah dialokasikan ke SO).
-   - **Qty Available** (fisik - reserved).
+## IncomingOperationalClient Real
 
-## Membaca Data
+- Header: Penerimaan Barang subtitle Lihat antrean & catat barang masuk dari supplier. Buttons Terima dari Nota (/warehouse/incoming/from-nota emerald bg-emerald-600) + Riwayat (/history outline).
+- Card Menunggu Diterima: icon Truck blue, description PO yang sudah dikirim (SENT / partial) dan menunggu penerimaan di gudang. Badge count PO. Empty state ShoppingCart icon "Tidak ada PO menunggu. Barang datang tanpa PO? Terima dari Nota link emerald."
+- Each PO row: font-mono orderNumber, Badge status getStatusLabel (purchasingStatusLabels DRAFT/SENT/PARTIAL_RECEIVED), badge Dari Nota jika isWalkInPurchaseOrderNotes(notes) amber, supplier Building2 icon name, item count, sisa totalRemaining if PARTIAL, expectedDate Calendar icon dd MMM yyyy. Button Terima / Terima Sisa bg-emerald-600 + ArrowRight link /warehouse/incoming/create-receipt?poId=id.
+- Today receipts card if >0: PackageSearch icon Diterima Hari Ini, list receiptNumber mono emerald, orderNumber — supplier name, Dari Nota badge, ArrowRight link /warehouse/incoming/[id].
 
-- **Qty Fisik** = jumlah barang fisik di gudang.
-- **Qty Reserved** = jumlah yang sudah dipesan customer (belum dikirim).
-- **Qty Available** = Qty Fisik - Qty Reserved → ini yang bisa dijual lagi.
+## Form Penerimaan (GoodsReceiptForm)
 
-## Tips
+Path /warehouse/incoming/create-receipt?poId= (WarehouseCreateReceiptPage). Fetch PurchaseService.getPurchaseOrderById, getLocations. Map order.items → productName product.name || variant name, skuCode, orderedQty, receivedQty, unitPrice, unit enteredUnit || primaryUnit || pcs. Locations map id name.
 
-- Gunakan filter **"Stok Kritis"** untuk melihat produk yang di bawah minimum.
-- Export ke Excel dengan tombol **Export** di pojok kanan atas tabel.
-- Untuk melihat history mutasi stok, klik nama produk → tab **History**.`,
-    modules: ['warehouse'],
-    tags: ['stok', 'inventory', 'cek-stok', 'lokasi'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-outgoing-muat-kirim',
-    title: 'Cara Proses Outgoing & Muat Kirim',
-    summary: 'Panduan memproses barang keluar dari gudang untuk pengiriman ke customer.',
-    bodyMd: `## Prasyarat
+Form:
+- Resolver createGoodsReceiptSchema, default: purchaseOrderId, receivedDate new Date(), locationId defaultLocationId or '', notes "Penerimaan untuk pesanan {orderNumber}", items pendingItems.map orderedQty - receivedQty.
+- pendingItems = all items (allow over-receiving: PO qty estimate, show all).
+- Card Penerimaan Item header Package blue icon "Penerimaan Item" desc "Verifikasi kuantitas dan biaya untuk item yang diterima."
+- Each field row border rounded bg-muted/30 or amber if over (bg-amber-50 border-amber-300). Inside: productName bold, sku mono, badges Dipesan orderedQty blue, Diterima Sblm emerald, Over amber bold if wouldBeTotal > orderedQty "Over: X > Y".
+- Input Qty Masuk type text inputMode decimal rawQtyInputs state keeps raw string for comma/dot Indonesian. onChange parse raw replace comma dot Number, onBlur parseDecimalInput (function handles comma dot). class h-9.
+- Input Biaya Satuan Aktual (Rp) same pattern rawCostInputs.
+- Empty fields "Semua item telah diterima sepenuhnya." border dashed.
+- Card Informasi Tambahan notes textarea placeholder "Kondisi barang, deviasi, dll." label notes.
+- Header Penerimaan card: Destination Warehouse (purchasingLabels.destinationWarehouse label) Select location (getLocations), Tanggal Penerimaan date input type date value toISOString split T. Over receipt detection hasOverReceipt -> amber box Info icon "Over receipt terdeteksi: qty diterima melebihi PO. PO diperlakukan sebagai perkiraan, penerimaan akan tetap disimpan & stok bertambah." WAC info box amber "Konfirmasi penerimaan ini akan memperbarui tingkat stok otomatis dan menghitung kembali Weighted Average Cost (WAC)..." Button submit bg-blue-600 h-11 "Simpan Penerimaan Barang" with Download icon, disabled loading or fields empty. Loading "Memproses...".
+- Checklist Verifikasi card slate bg CheckCircle emerald: Title Checklist Verifikasi uppercase tracking wider, bullets: Kuantitas sesuai hitungan fisik, Biaya satuan sesuai invoice supplier, Kualitas batch dapat diterima.
+- onSubmit createGoodsReceipt action → if basePath includes /warehouse/incoming & receiptId → push /warehouse/incoming/[receiptId] else /purchasing/orders/[poId] + toast Penerimaan Barang berhasil dicatat.
 
-- Surat Jalan (SJ) sudah dibuat dari Sales Order.
+## Jalur B Walk-in Nota
+- /warehouse/incoming/from-nota: form supplier manual nota, item qty lokasi, Simpan → badge Dari Nota.
 
-## Langkah-langkah
+## Setelah Terima
+- Stok di /warehouse/inventory bertambah (inventory quantity + WAC recalc).
+- PO jadi PARTIAL_RECEIVED atau RECEIVED.
+- Muncul di Diterima Hari Ini & Riwayat /history.
 
-1. Buka menu **Warehouse** → **Outgoing**.
-2. Cari Surat Jalan berdasarkan **nomor SJ** atau **Customer**.
-3. Klik SJ untuk membuka detail.
-4. Untuk setiap item:
-   - Ambil barang dari **lokasi** yang tercatat.
-   - Scan atau verifikasi **quantity** sesuai SJ.
-   - Centang **"Ready"** jika barang sudah siap muat.
-5. Klik **Proses Muat** ketika semua item sudah ready.
-6. Stok otomatis berkurang sesuai quantity yang dikirim.
-
-## Setelah Muat
-
-- Status SJ berubah menjadi **Shipped**.
-- Customer bisa melacak status pengiriman.
-- Cetak **Delivery Note** untuk tanda terima customer.
+## Retur
+- Penjualan → Retur Penjualan /sales/returns, Pembelian → Retur /purchasing/returns. Tidak ada Warehouse→Returns.
 
 ## Tips
+- Selalu cek fisik sebelum Simpan.
+- Over-receipt diperbolehkan, PO estimate.
+- Jika PO tidak muncul di Menunggu Diterima cek Pembelian → Order Pembelian /purchasing/orders status SENT?
+- Decimal input bisa koma Indonesia 247,62 parsed.
+`,
+modules: ['warehouse','purchasing'], tags: ['incoming','penerimaan','PO','walk-in'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-cek-stok-per-lokasi',
+title: 'Cara Cek Stok Per Lokasi Gudang',
+summary: 'Stok di Stok dengan WarehouseNavigator multi-select, kolom Stok Terpesan Tersedia, Filter tipe, Low Stock ?lowStock=true, ABC, dan mutasi history.',
+bodyMd: `## Ringkas
+Menu: Stok → Stok /warehouse/inventory
+Path: /warehouse/inventory?locationId=id1&locationId=id2&lowStock=true&type=RAW_MATERIAL&asOf=&compareWith=
+Kolom: Produk (nama SKU badge RM/FG/WIP/Scrap...), Lokasi, Stok (physical), Terpesan (reserved), Tersedia (available=stock-reserved), Status (low/out), Harga Satuan (if viewPrices permission), Nilai Stok
+Tombol: Filter tipe, Cek Stok Cepat (Quick Stock Check), Transfer Stok, Penyesuaian Stok, Stock Opname, Aging Stok, History Logs (InventoryQuickActions + warehouseComponentLabels)
+History: /warehouse/inventory/history (dateRange), /warehouse/inventory/[id], /warehouse/inventory/transfer, /warehouse/inventory/adjustment, /warehouse/inventory/aging, /warehouse/analytics/history|adjustment|transfer etc
 
-- Jika stok tidak cukup saat muat, cek apakah ada SO lain yang belum dikirim (reserved).
-- Untuk pembatalan, gunakan fitur **Void** (butuh alasan pembatalan).`,
-    modules: ['warehouse', 'sales'],
-    tags: ['outgoing', 'muat', 'kirim', 'pengiriman'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-spk-batch-harian',
-    title: 'Cara Buat SPK Batch Harian Produksi',
-    summary: 'Panduan membuat Surat Perintah Kerja (SPK) untuk produksi batch harian.',
-    bodyMd: `## Langkah-langkah
+## Page Logic (WarehouseInventoryPage)
 
-1. Buka menu **Production** → **Production Orders**.
-2. Klik **+ SPK Baru**.
-3. Pilih **BOM (Bill of Materials)** — ini resep/formula produk.
-4. Isi:
-   - **Planned Quantity** = jumlah yang akan diproduksi.
-   - **Mesin** = pilih mesin yang akan digunakan.
-   - **Shift** = pagi / siang / malam.
-   - **Tanggal Mulai** = hari ini atau jadwal yang direncanakan.
-5. Klik **Simpan** → SPK berstatus **PLANNED**.
-6. Klik **Mulai Produksi** → status berubah **IN_PROGRESS**.
+- Parallel fetch: getInventoryStats (liveInventory), getLocations, getDashboardStats totalStock lowStockCount totalValue. canViewPrices permission.
+- asOf & compareWith handling: getInventoryAsOf for historical, comparisonData map key productVariantId-locationId.
+- activeLocationIds parse query locationId array.
+- tableInventory = live or historical mapped quantity 0 if not found.
+- processedInventory filter by activeLocationIds if any.
+- ABC via ABCAnalysisService.calculateABCClassification → abcMap productVariantId→class.
+- variantTotals reduce sum toDecimalNumber quantity per productVariantId.
+- isTableGlobalLowStock: liveInventory find threshold minStockAlert toDecimalNumber, if threshold && variantTotals < threshold true.
+- isLowStockFilter ?lowStock=true filter isTableGlobalLowStock.
+- locationSummaries per location totalSkus lowStockCount via isLiveGlobalLowStock.
+- displayedTotalStock vs dashboardStats.totalStock, internalDisplayValue vs customerOwnedDisplayValue per locationType CUSTOMER_OWNED.
+- serializeData → InventoryTable props inventory variantTotals comparisonData showComparison initialDate initialCompareDate showPrices abcMap totalStock totalValue customerOwnedValue.
 
-## Input Hasil Produksi
+## UI
 
-1. Dari detail SPK, klik tab **Output**.
-2. Input:
-   - **Quantity Output** = jumlah produk jadi.
-   - **Quantity Reject** = jumlah produk cacat (jika ada).
-3. Klik **Selesai Produksi** → status berubah **COMPLETED**.
+- Header flex: h1 Stok subtitle Pantau level stok dan status gudang. ContextualHelp title Panduan Stok prefill "Kenapa stok produk tidak cukup saat confirm SO?" links 3 artikel cara-cek-stok-per-lokasi, cara-terima-barang-gudang, error-backflush-atau-stok-bahan. InventoryQuickActions lowStockCount.
+- WarehouseNavigator: locations summaries totalSkus lowStockCount basePath /warehouse/inventory, activeLocationIds multi.
+- Card flex-1 min-h-0 border shadow-sm bg-card contains InventoryTable inventory variantTotals etc.
+- InventoryTable: search "Cari produk / SKU..." (warehouseComponentLabels.searchProduct) + Quick Stock Check "Cari SKU..." (searchSku), Filter tipe All Types/Semua Tipe Bahan Baku/Barang Jadi/WIP/Scrap/Intermediate/Packaging/Service (warehouseComponentLabels). Selection checkbox bulk Select All, selected count, Bulk Actions Export Selected (exportSelected). TableHeaders Product Location Stock Reserved Available Status UnitCost StockValue. Rows noInventoryData etc.
+- Low stock: filter chip or ?lowStock=true shows only variant totals < minStockAlert.
+- Price column only if showPrices via canViewPrices (viewPrices permission). Access Control toggle Lihat Harga.
+- ABC map maybe shows classification.
+- Click row → /warehouse/inventory/[id] detail varian biaya lokasi breakdown chart Stock History "Riwayat Stok" desc "Tren pergerakan stok..."
+
+## History & Mutasi
+
+- /warehouse/inventory/history with dateRange Start/End (warehouseComponentLabels dateRange startDate endDate).
+- Recent Transfers /warehouse/analytics history etc.
+- Transfer: /warehouse/inventory/transfer form Transfer Stok Transfer dari satu lokasi ke lokasi lain From/To/Quantity confirmTransfer.
+- Adjustment: /warehouse/inventory/adjustment form Penyesuaian Stok adjustStock desc Sesuaikan jumlah stok produk di lokasi tertentu selectProduct selectLocation adjustmentType addition/reduction reasonPlaceholder "contoh: Rusak, Expired, Ditemukan" quantity confirmAdjustment.
+- Aging: Aging Stok stockAging title.
+- Stock Opname: createOpname etc.
+
+## Tips
+- Tidak ada filter Stok Kritis generic lama — pakai lowStock filter.
+- Export via bulk atau QuickActions.
+- Untuk global sum jangan filter locationId lihat variantTotals.
+- Threshold atur di Katalog Produk /dashboard/products variant minStockAlert field minStockAlert minStockAlertDesc + bestPracticeFormula.
+- Customer-owned locations (Maklon) punya nilai terpisah customerOwnedValue — bukan milik pabrik.
+`,
+modules: ['warehouse'], tags: ['stok','inventory','lokasi'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-outgoing-muat-kirim',
+title: 'Cara Proses Outgoing & Muat Kirim',
+summary: 'Antrian Muat PENDING LOADING dengan StockReadinessBanner, edit qty lapangan, LoadVerifyPanel Samakan Kunci Verifikasi, Tandai Dikirim potong stok dan foto.',
+bodyMd: `## Ringkas
+Menu: Stok → Antrian Muat /warehouse/outgoing
+Tombol: Mulai Muat (NEXT_STEP_LABELS PENDING->LOADING), Kunci Verifikasi Muat, Tandai Dikirim (LOADING->SHIPPED) confirm potong stok + auto draft invoice, Ubah qty kirim/Simpan qty, Batalkan, Retur (sales mode), Riwayat Kirim /history, Cetak Surat Jalan PrintPreviewModal dotmatrix
+Alert real: "Surat Jalan di bawah adalah perintah muat. Mulai muat → cek qty fisik vs perintah (verifikasi) → Tandai Dikirim (potong stok). SJ dibuat di Sales; gudang mengeksekusi di sini."
+
+## Page WarehouseOutgoingPage
+
+- getDeliveryOrders no filter → allOrders serializeData.
+- openOrders filter status PENDING or LOADING active queue (outgoing). Sort LOADING first then PENDING by deliveryDate.
+- Header Antrian Muat (warehouseLabels.outgoing) subtitle "Perintah muat (Surat Jalan) siap atau sedang diproses gudang." Button Riwayat Kirim /warehouse/outgoing/history (outgoingHistory + History icon).
+- Alert blue border.Info: flow explanation.
+- Card Perintah Muat (count). Empty: "Belum ada perintah muat. Tunggu Sales membuat Surat Jalan." Else DeliveryOrderTable initialData openOrders basePath /warehouse/outgoing mode active.
+
+## Detail DeliveryOrderDetail (warehouseMode true)
+
+- Props order DeliveryOrderDetailData fields id orderNumber salesOrderId status deliveryDate carrier trackingNumber notes destinationAddress vehiclePhotoUrl proofOfDeliveryUrl proofOfDeliveryAt receivedBy loadVerifiedAt loadVerifiedById loadingStartedAt estimatedWeightKg appliedRateType appliedRouteName appliedCostRate appliedChargeRate totalCost totalCharge vehicle {plateNumber name ownershipType driverName} salesOrder orderNumber customer name shippingAddress billingAddress sourceLocation name createdBy name items array id quantity enteredQuantity enteredUnit verifiedQuantity productVariant name skuCode primaryUnit product name etc.
+- State: items = order.items ?? [], canEditQty = PENDING or LOADING, isLoadVerified = !!loadVerifiedAt, canShip = isLoadVerified, showPreview, uploadingVehicle/POD, receivedByName, stockReadiness state, editingQty qtyDraft Record id->string, savingQty, vehicleInputRef podInputRef router.
+- Stock readiness useEffect: if PENDING/LOADING fetchDeliveryStockReadiness(order.id) server action no Prisma client → setStockReadiness StockReadinessLine[].
+- Edit qty: startEditQty sets draft from quantity, handleSaveQty validation "Qty harus angka > 0" → updateDeliveryItemQuantities action deliveryOrderId items [{id quantity}] → toast sjQtyUpdated or error. Cancel edit.
+- handleStatusChange: updateDeliveryStatus id newStatus → toast getDeliveryStatusLabel + refresh.
+- NEXT_STEP_LABELS map status to next label real delivery-status.ts: PENDING {to LOADING label Mulai Muat}, LOADING {to SHIPPED label Tandai Dikirim}, SHIPPED {to IN_TRANSIT Dalam Perjalanan}, IN_TRANSIT {to ARRIVED Sampai Tujuan}, ARRIVED {to DELIVERED Tandai Terkirim}, DELIVERED null etc. DELIVERY_STATUS_LABELS mapping PENDING Menunggu LOADING Sedang Dimuat SHIPPED Dikirim etc.
+- VEHICLE_PHOTO_STATUSES PENDING LOADING SHIPPED, POD statuses SHIPPED IN_TRANSIT ARRIVED DELIVERED.
+- handlePhotoUpload compressImageForUpload then fetch /api/upload/delivery-photo FormData file deliveryOrderId photoType vehicle|proof_of_delivery publicUrl receivedBy if POD → attachDeliveryPhoto action → toast Foto truk/Bukti terima berhasil + refresh receivedByName clear.
+
+## UI Sections
+
+- Top: Back to basePath, header Delivery Order orderNumber (salesLabels.deliveryOrder) + status badge getStatusBadge styles yellow/orange/blue/indigo/teal/green/red/gray. If isLoadVerified && canEditQty badge green Muat terverifikasi. Next step button primary green Check icon label NEXT_STEP_LABELS.to unless SHIPPED special handling AlertDialog for Tandai Dikirim. Cancel button outline red XCircle Batalkan for PENDING/LOADING AlertDialog "Batalkan Delivery Order? ... tidak dapat diurungkan." Return button orange RotateCcw Retur for SHIPPED IN_TRANSIT ARRIVED hidden warehouseMode "Tandai sebagai Retur? DO ... akan ditandai RETURNED. Pastikan barang sudah kembali." Link to salesOrder /warehouse/outgoing/orders/[salesOrderId] or /sales/orders/[salesOrderId] if not warehouseMode. Cetak Surat Jalan button Printer opens PrintPreviewModal title Surat Jalan orderNumber landscape true contains SuratJalanDotMatrixPrint showButton false previewMode companyConfig.
+- Explainer banners if canEditQty amber border sjDraft sjPendingBanner, if SHIPPED emerald sjShipped sjShippedBanner.
+- StockReadinessBanner if stockReadiness length>0.
+- Tracking Banner if SHIPPED or IN_TRANSIT blue bg: icon Truck "Pengiriman dalam Perjalanan" carrier trackingNumber.
+- Main grid md 3 cols: 2 cols Item Pengiriman Card header title Item Pengiriman description sjQtyHelp if canEditQty else "Item yang termasuk dalam batch pengiriman ini" + button Ubah qty kirim / Batal + Simpan if editingQty. Table Produk SKU Qty (maybe enteredUnit). Editing renders Input number step 0.01 min 0.01 h-8 w-28 + unit label.
+- Then if canEditQty LoadVerifyPanel: Card Verifikasi Muat desc "Cek qty fisik vs perintah muat. Kunci verifikasi sebelum Tandai Dikirim." or "Verifikasi sudah terkunci." Badge Terverifikasi green Check if isVerified. Table Produk, Perintah qty getEnteredQuantityDisplay (quantity enteredUnit primaryUnit), Dihitung/Dimuat Input if canEdit else display verifiedQuantity via getEnteredQuantityDisplay else '-', Status Badge Sesuai green Check / Selisih amber AlertTriangle / Belum dicek gray. Actions if canEdit: Samakan semua ke perintah button Copy icon handleMatchAll sets verifyDraft to planned quantities, Simpan Verifikasi button disabled saving or !allItemsVerified, Kunci Verifikasi green bg-green-600 Lock icon disabled confirming or !allItemsMatch or isVerified. handleSave calls saveDeliveryLoadVerification deliveryOrderId items payload id verifiedQuantity Number, toast Qty verifikasi tersimpan etc + refresh. handleConfirm checks allItemsMatch else toast "Semua baris harus sesuai perintah sebelum dikunci" then save draft then confirmDeliveryLoadVerified. getItemStatus pending/match/mismatch via Math.abs(planned-physical)<0.0001.
+- Timeline Card Timeline before pseudo element, statusSteps array PENDING Pesanan Terkonfirmasi Clock, LOADING Sedang Dimuat Package, SHIPPED Dikirim Truck, IN_TRANSIT Dalam Perjalanan MapPin, ARRIVED Sampai Tujuan CheckCircle, DELIVERED Diterima CheckCircle2. isCompleted idx <= currentStatusIndex. Show time for LOADING? Actually format deliveryDate for idx1 if completed.
+- Sidebar: Informasi Pengiriman Card Customer name shippingAddress, Asal Gudang sourceLocation name, Tanggal Pengiriman format PPP, Disiapkan Oleh createdBy name or Sistem, Alamat Tujuan destinationAddress or customer shipping/billing, Estimasi Berat estimatedWeightKg Kg if exists. Notes card if present border-left yellow.
+- Armada & Tarif card Truck icon title Armada & Tarif + EditDeliveryPricingDialog if not warehouseMode & not CANCELLED. Grid 2 cols Kendaraan plateNumber — name, Kepemilikan Pabrik/Perorangan, Sopir driverName, Rute appliedRouteName or Semua Rute, Tipe Tarif Per Kg/Flat Rate/—, Est Berat, Biaya Ops/Rate format currency IDR, Charge Rate, Total Biaya Ops, Total Charge emerald. Border top if totalCost/totalCharge not null.
+- Foto Pengiriman Card Camera icon. Grid 2 cols Vehicle Photo: label Foto Truk Saat Muat, if vehiclePhotoUrl Image fill unoptimized object-cover h-48 border rounded overflow else dashed "Belum ada foto truk". If canUploadVehicle (PENDING LOADING SHIPPED) hidden input file image/jpeg/png/webp ref, Button outline Upload icon "Mengupload..." text Ganti Foto Truk or Upload Foto Truk.
+- Proof: label Bukti Terima, image if proofOfDeliveryUrl plus receivedBy & proofOfDeliveryAt formatted PPpp, else dashed "Belum ada bukti terima". If canUploadPOD (SHIPPED IN_TRANSIT ARRIVED DELIVERED) input nama penerima required, file input, Button disabled uploadingPOD or !receivedByName.trim() label Upload Bukti Terima.
+
+## Hapus/Void Generik
+- Seed lama bilang Void dengan alasan generic — real Batalkan CANCELLED via AlertDialog, tidak ada void reason field (kecuali mungkin di action but not UI). Untuk retur RETURNED.
+
+## Tips
+- Jika stok tidak cukup saat verifikasi cek Stok Terpesan tinggi reservasi SO lain atau produksi belum input output.
+- SJ portal gudang perintah muat only, master dokumen SJ di Penjualan.
+- Edit qty max residual, after SHIPPED cannot edit must Retur via sales.
+- Print dotmatrix uses companyConfig from getCompanyConfigWithOverridesAsync.
+`,
+modules: ['warehouse','sales'], tags: ['outgoing','antrian-muat','verifikasi-muat'], errorCodes: ['STOCK_INSUFFICIENT'], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-spk-batch-harian',
+title: 'Cara Buat SPK Batch Harian Produksi',
+summary: 'Buat SPK di Produksi SPK dengan stepper Spesifikasi Lokasi Review, lifecycle DRAFT WAITING_MATERIAL RELEASED IN_PROGRESS COMPLETED CANCELLED.',
+bodyMd: `## Ringkas
+Menu: Produksi → SPK /production/orders
+Tombol: Buat SPK / Buat SPK (Work Order) (planningLabels.createWorkOrder), Search "Cari no. SPK, produk, BOM, mesin…" (searchSpkPlaceholder)
+Status real: ALL_STATUSES DRAFT WAITING_MATERIAL RELEASED IN_PROGRESS COMPLETED CANCELLED. UI statusLabels productionStatusLabels: Draft, Menunggu Bahan (WAITING_MATERIAL), Siap Produksi (RELEASED), Sedang Diproduksi (IN_PROGRESS), Produksi Selesai (COMPLETED), Dibatalkan
+Kategori: ALL_CATEGORIES all Semua, mixing Mixing, extrusion Extrusion, packing Packing, rework Rework. BOM categories MIXING EXTRUSION STANDARD PACKING REWORK mapped.
+Action di detail: Rilis SPK, Mulai Produksi, Selesai SPK, Batalkan SPK (jika materialIssues 0 executions 0 actual 0), Hapus SPK (Trash icon if DRAFT/WAITING_MATERIAL), Tambah Output (Hasil Produksi), Catat Scrap, Catat QC, Transfer Material, Catat Pemakaian Bahan ad-hoc
+
+## List Page (ProductionOrdersPage)
+
+- Build href preserves category status q late.
+- validStatuses array includes WAITING_MATERIAL.
+- isLateFilter late=1.
+- getProductionOrders with bomCategories mapping mixing->MIXING, extrusion->EXTRUSION+STANDARD, packing->PACKING, rework->REWORK, status, q, late.
+- Stats cards: Total SPK (totalOrders) with Layers icon, Sedang Diproses (IN_PROGRESS) Activity emerald, Siap Dirilis (readyToRelease) "Draft + Siap + Tunggu Bahan" Clock blue, Terlambat lateOverdue AlertCircle red. Clickable links with ring primary when active filter. late filter red ring.
+- Category TabsList inline-flex: Semua Mixing Extrusion Packing Rework Links.
+- Status chips: Semua status + ALL_STATUSES map getStatusLabel(s,production) + Terlambat chip red.
+- Search form GET method: Search icon Input name q placeholder searchSpkPlaceholder aria-label Cari SPK, X clear link if searchQuery, Button Cari.
+- Table: No SPK (orderNumber link), Produk name + priority badge ProductionPriorityBadge + Maklon badge if isMaklon blue outline, BOM name, Status ProductionStatusBadge, Sumber Permintaan customer name or orderNumber orderType or Stock Internal badge internalStockBuildLabel, Mesin Badge code or -, Progress Progress bar Math.min(progress,100) h-2 w-16 + % text, Rencana getEnteredQuantityDisplay plannedQuantity plannedEnteredQuantity conversionFactor, Tanggal Mulai format d MMM yyyy id locale, Aksi ChevronRight link. Empty: noSpkFound + Hapus Filter + Buat SPK.
+
+## Form Create (ProductionOrderForm)
+
+- Path /production/orders/create. Props locations slug name locationPurpose, machines id name type, boms id name isDefault productVariantId category outputQuantity productVariant name primaryUnit salesUnit conversionFactor productType etc, customers, rawMaterials, salesOrderId, variantId, qtyHint, priorityHint.
+- formSchema createProductionOrderSchema, defaultValues plannedQuantity 0 plannedStartDate new Date() items [] locationId bomId machineId salesOrderId notes isMaklon false estimatedConversionCost 0 priority NORMAL.
+- Hooks: useCreateSpkDefaults locations stage isMaklon → sourceLocationId defaultSourceId outputLocationId activeLocations isRiskyOutput isRecommendedOutput. usePlanningIntent bomOutputQty productVariant baseQty → planningMode batch/weight/sales, batchCount, enteredTargetQty, unitMeta hasAlternateUnit salesUnit conversionFactor. useBomMaterialPreview bomId sourceLocationId plannedQty debounce 500 → items materialInfo suggestedSource isCalculating. useCompatibleMachines machines stage.
+- Derived products map variantId name filtered by stage category.
+- availableBoms filtered by selectedProductVariantId + stage.
+- outputIsRisky isRiskyOutput(watchLocationId) etc sourceLocationName.
+- getEffectiveQty: if batch → batchCount*bomOutputQty else if sales alternate → toBaseQuantity(enteredTargetQty, conversionFactor) else watchPlannedQty.
+- Effects: seed form.items from preview when settled if not dirty (itemsDirtyRef), clear when empty, reset dirty on qty/source changes, auto-select product if 1, auto-select BOM if 1, default output location, reset riskyConfirmed on location change, prefill variantId → map stage from BOM category stageFromBomCategory setStage selectedProductVariantId bomId locationId via resolveOutputLocationId, qtyHintRef apply plannedQuantity once, priorityHint.
+- Display items: form items if present else preview. mergedMaterialInfo rawMaterials meta + preview info. hasStockIssues check preview materialInfo currentStock.
+- Step 1 Spesifikasi: StageProductSection StageProductSection props stage onStageChange products selectedProductId onProductChange boms selectedBomId onBomChange selectedBom machines selectedMachineId onMachineChange plannedStartDate onDateChange plannedEndDate onEndDateChange. PlanningQuantitySection props planningMode onPlanningModeChange batchCount etc bomOutputQty. MaterialPreviewPanel sourceLocationName items displayItems materialInfo suggestedSource isCalculating hasStockIssues onAcceptSuggestedSource editable rawMaterials onItemQtyChange onAddItem onRemoveItem.
+- Step 2 Lokasi & Meta: LocationFlowCard stage sourceLocationName outputLocationId onOutputLocationChange activeLocations recommendedOutputId recommendedOutputName outputIsRisky outputIsRecommended outputManuallyOverridden onResetToDefault. MaklonSection form isMaklon onMaklonChange customers. OrderMetaSection form salesOrderId.
+- Step 3 Review & Buat: ReviewCommitSection stageLabelId(stage) productName bomName targetSummary machineName startDate formatLocalDate endDate sourceName outputName priority isMaklon predictedStatus MENUNGGU_BAHAN if hasStockIssues else DRAFT outputIsRisky isSubmitting isCalculating isFormValid.
+- Navigation: Batal router.back, Kembali step-1, Lanjut → validation canAdvanceFromStep1 bomId && getEffectiveQty>0 else toast "Pilih produk, resep, dan target > 0", canAdvanceFromStep2 locationId && (!isMaklon || maklonCustomerId) else toast "Lengkapi lokasi output" → setStep+1.
+- Shared submit doSubmit riskAck: calc effectiveQty inline, check >0 else warning "Target produksi harus lebih dari 0", check isCalculating warning "Tunggu perhitungan bahan selesai", if outputIsRisky && !riskAck → showRiskyDialog. setIsSubmitting then createProductionOrder with locationId materialSourceLocationId effectiveSourceId plannedQuantity effectiveQty plannedEnteredQuantity etc items formItems createPath sales_order/demand_board/manual. Response data status WAITING_MATERIAL ? "Menunggu Bahan" else "DRAFT" toast "SPK {orderNumber} berhasil dibuat Status: {statusLabel}" push /production/orders/[id].
+- Risky dialog RiskyOutputConfirmDialog open onOpenChange outputName onConfirm handleRiskyConfirm sets riskyConfirmed true + doSubmit(true).
+- Form hidden salesOrderId.
+
+## Lifecycle Real (order-status-actions.tsx)
+
+- ExtendedProductionOrder includes materialIssues executions shifts etc formData locations operators helpers workShifts machines rawMaterials.
+- handleDelete toast.promise deleteProductionOrder Menghapus SPK… success push /production/orders.
+- transition nextStatus toastMsg → updateProductionOrder id status → toast + refresh.
+- canCancel = (RELEASED or IN_PROGRESS) && materialIssues length 0 && executions length 0 && Number(actualQuantity||0)==0 → AlertDialog Batalkan SPK description "Ini akan mengubah status SPK menjadi Dibatalkan. Karena belum ada material yang dikeluarkan dan belum ada output yang dicatat, ini aman untuk menutup SPK duplikat atau yang tidak diperlukan." Button Konfirmasi Pembatalan red.
+- DRAFT/WAITING_MATERIAL: Trash icon delete + Button Rilis SPK → transition RELEASED.
+- RELEASED: cancelDialog + Mulai Produksi → IN_PROGRESS.
+- IN_PROGRESS: cancelDialog + AddOutputDialog order formData + Selesai SPK outline → COMPLETED.
+- COMPLETED disabled Selesai, CANCELLED disabled red SPK Dibatalkan.
+
+## Tabs di Detail SPK (production-order-detail)
+
+- Overview tab, Materials tab (OrderMaterialsTab), Execution tab (order-execution-tab) AddOutputDialog etc, Issues, Costing (order-costing-tab), etc.
+- MaterialsTab: ChildOrderList, waiting banner amber Package icon "SPK menunggu bahan — cek kebutuhan di bawah. Path A (Mixing): pengambilan bahan baku di Gudang..." Buka Gudang link /warehouse external. Active info Path A vs Path B floor_wip vs gudang. resolveMaterialPath(category) floor_wip vs ... Buttons ManualProcurementDialog + BatchIssueMaterialDialog if isActive && isFloorPath (floor_wip). Table Kebutuhan Bahan thead Bahan Rencana Keluar Selisih. Body plannedMaterials map item productVariant name badge Rencana blue sku, required fixed 2 primaryUnit, issued = manualIssued + backflushedQty (if !hasExplicitIssues && isBackflushCategory MIXING EXTRUSION PACKING REWORK && actualQty>0 && plannedQty>0 then backflushed = actual/planned*required) variance issued-required variancePercent color bg-emerald/red/amber progress bar. Substitute materials filtered materialIssues not in plannedMaterials group by variantId sum quantity yellow bg badge Diluar rencana badge Pengganti amber. Riwayat Pengeluaran grid materialIssues status VOIDED opacity line-through bg-muted/30 etc issuedAt formatted d MMM yyyy HH:mm id locale quantity primaryUnit.
+- Execution tab: Backflush hint "Stok akan dikonsumsi otomatis saat Anda mencatat output (Backflush)." etc.
+- AddOutputDialog: Dialog Catat Hasil Produksi grid 2 cols Left BrandCard Context & Team with Tercatat Pada now locale medium short, Shift select from shiftOptions (ProductionShift) if none message "Belum ada shift di SPK — tambah dulu di tab Sumber Daya" + active shift by time matchedShift, Operator select, Helper multi select Ctrl/Cmd, Right columns Good Quantity card with Total goodQuantity displayUnit, input Enter Roll Size/Qty displayUnit Add button, rolls grid no rolls empty Package icon "No rolls recorded...", each roll card with index weight displayUnit Trash2 hover. Scrap card Affal Prongkol/Daun kg inputs, warning banner if both 0 and !showScrapWarning "Scrap masih 0 Apakah yakin tidak ada affal/scrap?" buttons Isi Scrap vs Ya Tidak Ada Scrap. Notes textarea Catatan/Komentar placeholder. Footer Batal + Catat Hasil disabled if submitting or rolls empty && !scrap. doSubmit finalNotes append helpers names + auto-generated rolls, data quantityProduced baseQty etc enteredQuantity if alternate etc, call addProductionOutput.
+- Also ManualProcurementDialog for MRP etc.
+
+## Tips
+- Pastikan BOM benar di Produksi → BOM/Formula alias /dashboard/boms or /production/boms.
+- Jika warning "Peringatan: gudang bahan baku / lokasi berisiko. Transfer staging bisa gagal (asal = tujuan)." atau "Target kemungkinan Gudang. Pastikan Pesanan ini diatur ke Lokasi Produksi." → ganti ke produksi/staging.
+- QtyHint variantId prefill dari Papan Permintaan FG query ?variantId=&qty=&priority.
+- Source per item override enablePerItemSource/disablePerItemSource.
+- Output risky confirm dialog.
 
 ## Backflush
+- Consume otomatis saat catat output execution, materials tab shows backflushedQty derived.
+- Jika backflush gagal stok bahan kurang → cek Materials shortage, top up via gudang.
+`,
+modules: ['production'], tags: ['spk','work-order','batch','lifecycle'], errorCodes: ['MATERIAL_INSUFFICIENT','BACKFLUSH_FAILED'], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-input-hasil-kiosk',
+title: 'Cara Input Hasil Produksi via Kiosk',
+summary: 'Kiosk di /kiosk hub operator, /kiosk/jobs list dengan timer 30s filter mesin barcode, /kiosk/jobs/[orderId] wizard Catat Hasil Qty Bagus Prongkol Daun Foto Konfirmasi.',
+bodyMd: `## Ringkas
+Menu Kiosk: /kiosk (KioskHub), /kiosk/jobs (KioskJobList), /kiosk/jobs/[orderId] (KioskJobFocus), /kiosk/attendance (Absensi), /kiosk/production/hd (HdProductionForm), /kiosk/production/potongplong (PotongPlongProductionForm), /my (My Portal + QR)
+Labels kioskLabels: hubTitle Pilih Mode Kerja, hubSubtitle Mulai dari sini, tileProduksi Produksi/SPK desc Daftar SPK, mulai & catat hasil, tileAbsensi Absensi Masuk/pulang shift, tileProsesKhusus HD Potong-Plong, tileStatusSaya Status Saya Ringkas produksi & gaji, jobList Daftar SPK, selectJob Pilih SPK untuk mulai atau kelola produksi, startJob Mulai SPK, logOutput Catat Hasil, etc
+Auth: sessionStorage kiosk_operator_id
 
-- Jika BOM dikonfigurasi untuk backflush, bahan baku otomatis terpotong saat produksi selesai.
-- Jika backflush gagal (stok bahan kurang), cek error dan top up stok bahan baku.
+## Kiosk Hub (KioskPage + KioskHub.tsx)
 
-## Tips
+- getData withTenant: employees findMany status ACTIVE role OPERATOR select id name machineAssignments machineId isPrimary, machines findMany id name, executionMachines findMany where operatorId in ids machineId not null orderBy startTime desc select operatorId machineId startTime → machinesByOperator map push unique, activeJobCount count productionExecution where endTime null status not VOIDED.
+- Page maps employees to machineIds from assignments or fallback machinesByOperator get plus machineNames [].
+- KioskHub: state operatorId from sessionStorage kiosk_operator_id initial hydration isInitialized false shows spinner. If !operatorId render KioskOperatorGate employees machines onSelect handleOperatorSelect sets operatorId sessionStorage. Gate shows list operators searchable.
+- If operatorId: find currentEmployee, machineNames from machineIds map to names filter.
+- Chip bar bg-emerald-500/5 border-2 emerald-500/20 shadow-sm: KioskOperatorChip name machineNames + Button Destructive Logout Sesi LogOut icon kioskLabels.sessionLogout Keluar.
+- Title hubTitle uppercase tracking tighter + hubSubtitle muted.
+- Grid 2 cols Tiles:
+  - Produksi/SPK Link /kiosk/jobs group border-2 rounded-2xl p-6-8 hover border-primary shadow-lg active scale 0.98 emerald icon ClipboardList badge if activeJobCount>0 bg-emerald-600 text-xs "aktif" absolute top-4 right-4.
+  - Absensi Link /kiosk/attendance blue icon UserCheck tileAbsensi desc.
+  - Proses Khusus if hasProsesKhusus (default true): purple Wrench icon tileProsesKhusus desc HD Potong-Plong + 2 links HD /kiosk/production/hd and PotongPlong /kiosk/production/potongplong each flex-1 h-11 rounded-lg border-2 bg-purple-50 border-purple-200 text-purple-700 hover purple-100.
+  - Status Saya Link /my amber LayoutDashboard icon tileStatusSaya desc.
+- MyPortalQr component.
 
-- Pastikan BOM sudah benar sebelum membuat SPK.
-- Catat reject dan alasan di field **Notes** untuk quality control.`,
-    modules: ['production'],
-    tags: ['spk', 'produksi', 'batch', 'cara-pakai'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-input-hasil-kiosk',
-    title: 'Cara Input Hasil Produksi via Kiosk',
-    summary: 'Panduan menginput hasil produksi langsung dari mesin kiosk di lantai pabrik.',
-    bodyMd: `## Akses Kiosk
+## Kiosk Job List (KioskJobList.tsx)
 
-1. Buka browser di tablet/PC kiosk.
-2. Akses URL kiosk (biasanya: \`yourcompany.polyflow.uk/kiosk\`).
-3. Login dengan akun kiosk atau scan badge karyawan.
+- Props initialOrders (id orderNumber plannedQuantity actualQuantity status bom productVariant name skuCode primaryUnit salesUnit conversionFactor machine id name executions startTime endTime outputLogs etc), employees machineIds, machines operatorIds maybe.
+- State timeLeft 30 selectedOperatorId from sessionStorage, selectedMachineId ALL defaultMachineId logic: if operator has single machineIds assignment length 1 → that machine else ALL. useBarcodeScanner hook toast Scan code set query param q? searchParams.
+- Timer interval 1s decrement timeLeft reset 30, when 0 router.refresh transition.
+- clearFilter deletes q param.
+- searchQuery searchParams.get q, hasFilter has q.
+- operatorMachineIds from employees find selectedOperatorId machineIds.
+- getFilteredOrders: if operatorMachineIds>0 filter order.machine && includes, if selectedMachineId != ALL filter machine id.
+- availableMachines filtered by operatorMachineIds or all.
+- If !isInitialized spinner. If !selectedOperatorId center "Belum ada operator yang dipilih. Kembali ke Hub" button ArrowLeft.
+- Header bg-card p-4-6 rounded-xl border-2 shadow-sm: back ArrowLeft icon to /kiosk title jobList uppercase selectJob subtitle, right Filter chip if searchQuery FILTER: xxx primary/10 border primary/20, Refresh form action refreshKioskData button secondary size lg h-12-14 "SEGARKAN" uppercase font bold border-2 active scale 95 RefreshCcw icon.
+- Timer bar h-2 w-full bg-muted rounded-full border shadow-inner inner div h-full bg-primary transition duration 1000 ease-linear width timeLeft/30*100%.
+- Operator info bar emerald 5% border-2: left avatar circle emerald-600 text-white font-bold initial name char uppercase, sessionActive label uppercase tracking widest 10px muted, name uppercase tracking tight xl bold, machineNames join comma emerald-600 small. Right Filter Mesin select h-12 rounded-lg border-2 bg-card px-4 font-bold text-sm appearance none options -- SEMUA MESIN -- + availableMachines.
+- hasFilter show Hapus Filter button outline h-10 border-2 Search icon.
+- Operator no machine assignment warning amber-50 border-2 amber 200 text amber-800 dark amber-950 "Tidak ada Penugasan Mesin Anda belum ditugaskan ke mesin tertentu. Hubungi supervisor."
+- Jobs grid 1-2-3 cols gap-6 pb-24: if filteredOrders 0 check hasFilter -> emptyNoFilterMatch + searchQuery + ClearFilter link else if operatorMachineIds>0 -> emptyNoJobsForMachine uppercase + emptyWaitingRelease "Menunggu rilis SPK dari kantor perencanaan." else emptyNoJobsReady uppercase + emptyWaitingRelease. Else map KioskOrderCard order operatorId.
 
-## Input Hasil
+## Kiosk Job Focus (KioskJobFocus.tsx)
 
-1. Pilih **SPK** yang sedang berjalan dari daftar.
-2. Input **Quantity Output** (jumlah produk jadi).
-3. Input **Quantity Reject** jika ada produk cacat.
-4. Pilih **Alasan Reject** dari dropdown (jika tersedia).
-5. Klik **Submit**.
+- Order type similar but includes plannedEnteredQuantity etc helpers name, status, bom, machine, executions, outputLogs createdAt quantity, helpers.
+- State isLoading stopDialogOpen logDialogOpen operatorId from sessionStorage, isInitialized timeLeft 30 optimisticExecutionId, useTransition.
+- activeExecution find executions !endTime or optimistic fallback new Date id.
+- isRunning !!activeExecution.
+- unitMeta via getProductionUnitMeta productVariant (primaryUnit salesUnit conversionFactor displayUnit).
+- Gate redirect to /kiosk if no operator after initialized.
+- Clear optimistic when real execution lands.
+- Timer pause when dialogOpen log/stop.
+- handleStart: startExecution productionOrderId machineId operatorId → toast Operator diganti! or Produksi dimulai! set optimistic id refresh.
+- recentLogs outputLogs slice 0 3.
+- Progress numbers: actualBase actualQuantity||0 targetBase plannedQuantity, progressActual = hasAlternate? toDisplayQuantity(actualBase factor) : actualBase, same target displayUnit.
+- If !initialized or !operatorId spinner.
+- UI: timer bar h-1.5, back nav ArrowLeft to /kiosk/jobs title WO# orderNumber mono badge RUNNING emerald animate-pulse uppercase or getStatusLabel production status.
+- Job info card border-2 rounded-2xl p-6-8 if running border emerald shadow-lg else border-border: h1 productVariant name 2xl-3xl font-black, meta machine name operator Anda, KioskJobProgress actual target unit displayUnit.
+- CTA: if running: Button full h-16 text-lg/xl font-black bg-emerald-600 hover emerald-700 PlusCircle logOutput uppercase CATAT HASIL + grid 2 cols DowntimeDialog machineId machineName operatorId trigger Button outline h-14 font-bold border-2 Downtime label focusDowntime + Stop button destructive h-14 Square icon focusStop. Else: Start button Play icon startJob uppercase MULAI SPK disabled if COMPLETED.
+- Recent logs if >0 bg-muted/30 border rounded-xl p-4 title focusLogTerakhir uppercase tracking wider muted, each log flex qty toLocaleString id-ID primaryUnit + time toLocaleTimeString id-ID hour 2 digit minute.
+- Dialogs: if activeExecution KioskStopDialog open onOpenChange executionId productName primaryUnit salesUnit conversionFactor currentProduced targetQuantity logs operatorId onSuccess refresh + KioskLogOutputDialog executionId productName etc orderHelpers (helpers) etc. These dialogs have wizard steps: wizardStepQty Qty Bagus wizardQtyDesc, wizardStepScrap Scrap wizardScrapDesc Prongkol & Daun atau lewati, wizardStepFoto Bukti Foto wizardFotoDesc, wizardStepKonfirmasi Konfirmasi wizardKonfirmasiDesc, buttons Lanjut/Kembali/Kirim Hasil/ Lewati — Tanpa Scrap etc. Focus catat hasil focusCatatHasil etc.
 
-## Tips
+## Kondisi SPK Muncul
+- SPK harus RELEASED Siap Produksi or IN_PROGRESS. DRAFT/WAITING_MATERIAL tidak muncul.
+- Operator machineIds match machine id or fallback from executionMachines.
 
-- Input bisa dilakukan berkali-kali selama shift berjalan.
-- Total output diakumulasi di SPK.
-- Untuk melihat ringkasan, buka menu **Production** → **Production Orders** → detail SPK.
+## Proses Khusus
+- HD: /kiosk/production/hd HdProductionForm 39 symbols, Potong/Plong: PotongPlong page + form 38 symbols. These are special flows with own fields.
 
 ## Troubleshooting
+- Kiosk tidak bisa diakses cek jaringan tablet, /kiosk hub spinner 60vh.
+- SPK tidak muncul cek status rilis & mesin assignment.
+- Session hilang login ulang gate clear sessionStorage.
+- Foto gagal cek compressImageForUpload + R2.
+- Timer auto-refresh 30s bar.
+`,
+modules: ['production'], tags: ['kiosk','operator','catat-hasil','SPK'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'error-backflush-atau-stok-bahan',
+title: 'Error Backflush / Stok Bahan Baku Kurang',
+summary: 'Backflush consume otomatis saat catat output, cek Materials tab Rencana vs Keluar Selisih, atasi via penerimaan transfer penyesuaian atau PR.',
+bodyMd: `## Ringkas
+Kapan: saat catat hasil produksi execution backflush consume bahan
+Menu: Produksi → SPK → detail → Materials (Kebutuhan Bahan) + Riwayat Pengeluaran + Stok → Stok + Stok → Bahan Produksi + Transfer Stok + Penyesuaian Stok + Pembelian Order
+Error: MATERIAL_INSUFFICIENT, BACKFLUSH_FAILED
 
-- **Kiosk tidak bisa diakses** → pastikan tablet terhubung ke jaringan yang sama dengan server.
-- **SPK tidak muncul** → pastikan SPK sudah berstatus **IN_PROGRESS**.`,
-    modules: ['production'],
-    tags: ['kiosk', 'produksi', 'input-hasil', 'cara-pakai'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'error-backflush-atau-stok-bahan',
-    title: 'Error Backflush / Stok Bahan Baku Kurang',
-    summary: 'Solusi ketika proses backflush gagal karena stok bahan baku tidak mencukupi.',
-    bodyMd: `## Penyebab Error
+## Penyebab Real
 
-Error **"Backflush Failed"** atau **"Material Stock Insufficient"** terjadi ketika:
-- Produksi selesai tapi stok bahan baku di gudang kurang dari kebutuhan BOM.
-- BOM membutuhkan bahan X sejumlah Y, tapi stok X < Y.
+- BOM butuh X Y unit, stok di source lokasi < Y saat backflush. Backflush categories: MIXING EXTRUSION PACKING REWORK (isBackflushCategory). actualQuantity / plannedQuantity * required = backflushedQty if no explicit issues.
+- Dual-path materialPath resolveMaterialPath(category): floor_wip vs gudang. Floor WIP staging lantai (Path B) vs Gudang (Path A) Raw Material prioritas gudang. Jika mixing need RM → must issue from Gudang before Release.
+- Substitute materials allowed: materialIssues not in plannedMaterials grouped sum yellow bg "Diluar rencana" badge Pengganti.
 
-## Langkah Cek
+## Detail Materials Tab (OrderMaterialsTab.tsx)
 
-1. Buka detail SPK → tab **Materials**.
-2. Periksa **Required Qty** vs **Available Qty** untuk setiap bahan.
-3. Buka menu **Warehouse** → **Inventory** untuk cek stok aktual bahan baku.
+- Props order ExtendedProductionOrder formData locations rawMaterials. plannedQty Number, category bom.category, materialPath, isActive IN_PROGRESS RELEASED WAITING_MATERIAL, isFloorPath floor_wip, isWaitingMaterial.
+- ChildOrderList for sub-orders.
+- If isWaitingMaterial amber border Package icon "SPK menunggu bahan — cek kebutuhan di bawah. Path A (Mixing): pengambilan bahan baku di Gudang. Hubungi Gudang untuk issue bahan sebelum Rilis." Button Buka Gudang /warehouse external.
+- If isActive && !waiting: info card muted/40 Info icon "Jalur bahan: Staging lantai (Path B) WIP hasil mixing dapat di-staging di lantai. Ambil dari lantai saat produksi Extrusion/Packing. Bahan tambahan (mis. pelembab) hanya via Gudang." vs "Jalur bahan: Gudang (Path A) Issue bahan baku dilakukan di Gudang..." Button Buka Gudang untuk bahan baku /warehouse.
+- Buttons header Kebutuhan Bahan: ManualProcurementDialog (create Purchase Request for shortage) + if isActive && isFloorPath BatchIssueMaterialDialog (Transfer Material to Staging).
+- Table Kebutuhan Bahan: thead Bahan Rencana (text-right) Keluar Selisih. Body plannedMaterials map item productVariant name badge Rencana blue uppercase tracking wider sku, required fixed 2 primaryUnit muted, issued = manualIssued (materialIssues filter productVariantId status != VOIDED sum quantity) + backflushedQty (if !hasExplicitIssues && isBackflushCategory && actualQty>0 && plannedQty>0). variance issued-required variancePercent, color emerald-500/red-500/amber-500 progress bar width min(100, issued/required*100%). Variance badge font mono red if over, emerald if 0, amber if under with +/- value and percent. Progress color logic variancePercent>5 red <-5 amber else emerald.
+- Substitute rows: materialIssues filter status != VOIDED && not in plannedMaterials grouped by productVariantId sum quantity items yellow bg 10% hover 20% dark 15%/25% cols product name "Diluar rencana" amber uppercase bold, - in Rencana, quantity amber bold primaryUnit, badge Pengganti amber outline.
+- Section Riwayat Pengeluaran h3 + if 0 italic "Belum ada bahan yang dikeluarkan." else grid materialIssues map issue id productVariant name issuedAt format d MMM yyyy HH:mm id locale status VOIDED badge Void line-through opacity 50 muted bg, quantity mono bg-muted px-2 py-1 rounded.
+
+## Cek Stok
+
+- Stok → Stok /warehouse/inventory cek current stock Terpesan Tersedia.
+- Stok Lantai Produksi → Stok Lantai /production/inventory if WIP.
 
 ## Solusi
 
-### Opsi 1: Top up stok bahan baku
-- Lakukan penerimaan barang (Incoming) untuk bahan yang kurang.
-- Setelah stok bertambah, klik **Retry Backflush** di detail SPK.
+Opsi1 Top up RM via Gudang:
 
-### Opsi 2: Manual stock adjustment
-- Jika stok fisik ada tapi data tidak sinkron, lakukan **Stock Adjustment** di menu **Warehouse** → **Inventory** → **Adjustment**.
-- Setelah adjustment, retry backflush.
+- Stok → Penerimaan Barang /warehouse/incoming terima dari PO, or Pembelian → Order Pembelian /purchasing/orders buat PO.
+- Transfer: Stok → Transfer Stok /warehouse/inventory/transfer sourceLocation destinationLocation quantity confirmTransfer. Hindari asal=tujuan.
+- Setelah stok masuk, catat hasil lagi backflush retry otomatis next execution, no explicit Retry Backflush button (seed lama salah).
 
-### Opsi 3: Edit BOM
-- Jika BOM salah (terlalu banyak bahan), edit BOM di menu **Production** → **BOM**.
-- Setelah BOM benar, retry backflush.
+Opsi2 Penyesuaian cepat jika fisik ada data tidak sinkron:
+
+- Stok → Penyesuaian Stok /warehouse/inventory/adjustment label Penyesuaian Stok desc "Sesuaikan jumlah stok... " selectProduct selectLocation adjustmentType addition/reduction reasonPlaceholder "contoh: Rusak, Expired, Ditemukan" quantity confirmAdjustment. Bulk adjust Bulk Adjust etc. quickStockAdjustment label "Penyesuaian Stok Cepat".
+- After adjustment, ulang catat hasil.
+
+Opsi3 Cek/Edit BOM hati-hati:
+
+- BOM di Katalog Produk → BOM/Formula /dashboard/boms or Produksi → BOM/Formula /production/boms alias (PORTAL_ALIASES production boms canonical /dashboard/boms). Don't edit saat backflush error unless recipe wrong unit/conversion.
+- Substitute via Transfer Material to Staging BatchIssueMaterialDialog: useGlobalSource Ikuti lokasi sumber di atas, enablePerItemSource Sumber beda per material, sourcePerItem Asal stok, toDestination Ke, defaultLocation, overrideSourceLocation Ganti Lokasi Sumber, outputLocation Lokasi Output (Tujuan FG/WIP) help "Lokasi stok hasil / staging WO. Bukan gudang bahan baku.", stock, fixShortage Atasi Kekurangan, quickStockAdjustment Penyesuaian Stok Cepat, refreshStock Segarkan Stok, editingRowsWarning "Mengedit baris akan memperbarui Rencana Pesanan secara permanen." etc. Select substitute "Pilih pengganti...".
+
+Opsi4 PR:
+
+- ManualProcurementDialog in materials tab: procureMaterials Pengadaan Material selectMaterialsDescription, qtyToProcure, priority Normal/Urangent, additionalNotes, purchaseRequestInfo "Ini akan membuat Permintaan Pembelian baru untuk tim Pembelian. Tidak akan membuat Pesanan Pembelian langsung.", createPurchaseRequest. Use for shortage.
+
+## Ad-hoc Material Gudang RM
+
+- Stok → Bahan Produksi /warehouse/materials → Catat Pemakaian Bahan ad-hoc (recordAdHocUsage) help "Untuk bahan dari gudang RM (mis. pelembab). Stok langsung berkurang & masuk HPP WO. Idealnya dicatat oleh gudang di modul Warehouse." AdHocMaterial selectAdHocMaterial, reason placeholder "contoh: pelembab tambahan saat produksi", recording Mencatat..., nonPlanBlockedInExtrusi message. Don't transfer staging like Mixing HD.
 
 ## Pencegahan
 
-- Cek ketersediaan bahan baku sebelum mulai produksi.
-- Atur **Minimum Stock Alert** untuk bahan baku kritis.`,
-    modules: ['production', 'warehouse'],
-    tags: ['backflush', 'bahan-baku', 'stok-kurang', 'troubleshoot'],
-    errorCodes: ['MATERIAL_INSUFFICIENT', 'BACKFLUSH_FAILED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-lihat-invoice-belum-lunas',
-    title: 'Cara Melihat Invoice yang Belum Lunas',
-    summary: 'Panduan melihat daftar invoice customer yang masih outstanding atau overdue.',
-    bodyMd: `## Langkah-langkah
+- Cek preview materialPreviewPanel before rilis currentStock.
+- Atur Minimum Stock Alert bahan kritis /dashboard/products.
+- Use Bulk Transfer/Adjust for multi bahan.
 
-1. Buka menu **Finance** → **Invoices** (atau **Sales Invoices**).
-2. Gunakan filter **Status**:
-   - **Unpaid** = belum ada pembayaran sama sekali.
-   - **Partial** = sudah dibayar sebagian.
-   - **Overdue** = sudah jatuh tempo tapi belum lunas.
-3. Tabel menampilkan:
-   - **Nomor Invoice**.
-   - **Customer**.
-   - **Total Amount**.
-   - **Paid Amount**.
-   - **Sisa Tagihan** = Total - Paid.
-   - **Jatuh Tempo**.
+## Error Label
+- No explicit Retry Backflush button — next Add Output execution triggers consume.
+`,
+modules: ['production','warehouse'], tags: ['backflush','material-shortage','BOM'], errorCodes: ['MATERIAL_INSUFFICIENT','BACKFLUSH_FAILED'], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-lihat-invoice-belum-lunas',
+title: 'Cara Melihat Invoice yang Belum Lunas',
+summary: 'Piutang di Penjualan Invoice & Piutang / Finance Invoice Sales dengan filter status Belum Dibayar Partial Lewat Jatuh Tempo, tab Legacy Internal, outlier overdue, dan delete invoice & jurnal.',
+bodyMd: `## Ringkas
+Menu Sales: Penjualan → Invoice & Piutang /sales/invoices (SalesInvoicesShell maybe) title Invoice Penjualan desc Kelola invoice dan lacak pembayaran + cards Jumlah Belum Dibayar (outstandingAmount) "Invoice belum lunas atau sebagian" (unpaidPartial) + Invoice Lewat Tempo (overdueInvoices) "Perlu perhatian segera" (requiresImmediateAttention) + Semua Invoice (allInvoices) "Daftar semua invoice penjualan yang dibuat."
+Menu Finance: Finance → Invoice Sales /finance/invoices/sales title Invoice Sales subtitle Kelola tagihan customer dan lacak pembayaran tertunggak. Tabs Customer AR vs Legacy Internal (demand customer|legacy-internal) TabsList grid 2 md w-420px Customer AR link buildDemandHref customer, Legacy Internal link legacy-internal. Legacy alert amber border "Legacy internal review This tab is for historical invoices that originated from internal stock build flows before customer enforcement was added. Treat it as cleanup and audit review, not as a normal receivables workflow."
+Finance juga: Invoice Purchase /finance/invoices/purchase, etc.
+Payment: Finance → Terima Bayar /finance/payments/received (ReceivedPaymentsClient) & Bayar Supplier /sent.
 
-## Filter Tambahan
+## InvoiceTable Component (InvoiceTable.tsx)
 
-- **Per Customer**: ketik nama customer di filter.
-- **Per Tanggal**: pilih rentang tanggal invoice.
-- **Per Sales Order**: filter berdasarkan SO terkait.
+- Props invoices array id invoiceNumber invoiceDate dueDate totalAmount paidAmount status InvoiceStatus salesOrderId purchaseOrderId salesOrder orderNumber customer name purchaseOrder orderNumber supplier name + basePath initialStatus overdueMode.
+- State isDeleting, searchTerm, statusFilter initialStatus or urlStatus or ALL, isOverdueMode overdueMode or urlOverdue ?overdue=true.
+- useEffect sync statusFilter from initialStatus/urlStatus.
+- filteredInvoices useMemo: now new Date(), if isOverdueMode filter dueDate < now + remaining = total-paid >0 + overdueStatuses IN UNPAID PARTIAL OVERDUE else if statusFilter != ALL status != filter false. Then search lowSearch entityName salesOrder customer name or purchaseOrder supplier name or Legacy Internal Stock Build invoiceNum lower orderRef salesOrder orderNumber etc includes.
+- handleDelete deleteInvoice id type AR/AP → toast Invoice berhasil dihapus else error.
+- getStatusBadge styles UNPAID slate, PAID emerald, PARTIAL amber, OVERDUE red border red 200, CANCELLED red 50 etc Badge variant secondary getStatusLabel finance.
+- columns useMemo: invoiceNumber header No. Invoice, invoiceDate header date sorting datetime cell format PP, dueDate header Jatuh Tempo sorting accessor dueDate getTime cell red bold if OVERDUE, entity header Entitas accessor customer/supplier, orderReference header Order Referensi link basePath includes finance ? invoice.id : salesOrderId/purchaseOrderId/id link, status header status cell badge, totalAmount header Total right cell formatRupiah, actions header Aksi cell flex gap Button ghost ArrowRight link detail + AlertDialog Delete/Void Button Trash2 Loader2 when deleting disabled isDeleting==id class destructive, Dialog content "Apakah Anda benar-benar yakin? Tindakan ini akan menghapus invoice secara permanen **invoiceNumber** beserta jurnal akuntansinya dari buku besar. Tindakan ini tidak dapat dibatalkan." Buttons Batal vs Hapus Invoice & Jurnal bg-destructive.
+- getStatusBadgeStyle duplicate.
+- getEntityName.
+- renderMobileView: if 0 emptyInvoices text dashed. Else Card per invoice clickable router push basePath/linkId, CardHeader p-4 pb-2 Receipt icon primary/10, invoiceNumber bold, invoiceDate MMM d yyyy, Badge small 10px status, CardContent Entitas truncate Total primary, Jatuh tempo MMM d yyyy + Lihat Detail ChevronRight.
+- Return DataTable columns data filteredInvoices emptyMessage All notifications minWidth 900 renderMobileView + Children toolbar flex search relative Search icon left Input placeholder "Cari invoice, order, atau entitas..." value searchTerm + Select statusFilter onValueChange value ALL DRAFT UNPAID etc labels Semua Status Draft Belum Dibayar Dibayar Sebagian Lunas Lewat Jatuh Tempo Dibatalkan.
 
-## Tindakan
+## Page Finance Invoices Sales (page.tsx)
 
-- Klik invoice untuk melihat detail.
-- Untuk catat pembayaran, klik **Record Payment** dari detail invoice.
-- Kirim reminder ke customer dengan tombol **Send Reminder** (jika terkonfigurasi).
+- Query searchParams startDate endDate demand customer|legacy-internal default customer initialStatus status. Only filter by date when explicitly provided parseISO else undefined. buildDemandHref preserves startDate endDate status.
+- getInvoices dateRange demand → serializedInvoices serializeData.
+- Header flex title Invoice Sales subtitle, ContextualHelp title Panduan Invoice prefill "Kenapa error period locked saat posting invoice?" links Cara Lihat Invoice Belum Lunas + Error Period Locked, UrlTransactionDateFilter defaultPreset all align end.
+- Tabs defaultValue demand Customer AR / Legacy Internal. If legacy alert amber title legacy internal review desc. Then InvoiceTable invoices serialized basePath /finance/invoices/sales initialStatus.
+
+## Tindakan Payment
+
+- Catat pembayaran bukan Record Payment generic detail invoice. Real: Finance → Terima Bayar /finance/payments/received (ReceivedPaymentsClient) or Invoice & Piutang action terima bayar. Form invoice date method amount.
+- After payment status PARTIAL PAID Sisa Tagihan = Total - Paid (remainingAmount).
+- Export via actionLabels export.
+
+## Yang Tidak Ada
+- Send Reminder generic seed lama no.
+- After SHIPPED auto draft invoice maybe via updateDeliveryStatus creating invoice? Check auto journal.
 
 ## Tips
+- Cek overdue mode ?overdue=true or board filter: dueDate < now remaining>0 UNPAID PARTIAL OVERDUE.
+- Pipeline Potensi Omzet at Sales Orders page links.
+- Legacy internal cleanup not normal receivables.
+`,
+modules: ['finance','sales'], tags: ['invoice','piutang','overdue'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'error-period-locked-finance',
+title: 'Error Period Locked di Finance',
+summary: 'Periode fiskal di Finance Periode Fiskal dengan Buat Periode, Tutup dengan jurnal penutupan ke Laba Tahun Berjalan 33000, dan Buka Kembali.',
+bodyMd: `## Ringkas
+Menu: Finance → Periode Fiskal /finance/periods?year=2026
+Tombol: Buat Periode (Buat Periode), Tutup (Lock icon), Buka Kembali (LockOpen icon), Open New Period dialog (English Year Month Open Period Creating...), Konfirmasi & Generate Entri
+Error: PERIOD_LOCKED, POSTING_PERIOD_CLOSED
+Labels: fiscalPeriods Periode Fiskal (financeSidebarLabels)
 
-- Cek rutin invoice overdue setiap minggu untuk penagihan.
-- Gunakan **Export** untuk laporan piutang ke Excel.`,
-    modules: ['finance'],
-    tags: ['invoice', 'piutang', 'belum-lunas', 'finance'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'error-period-locked-finance',
-    title: 'Error Period Locked di Finance',
-    summary: 'Solusi ketika transaksi finance gagal karena periode akuntansi sudah dikunci.',
-    bodyMd: `## Penyebab Error
+## Penyebab
+- Transaksi invoice/payment/journal di periode CLOSED terkunci admin.
+- Admin tutup buku via Tutup.
 
-Error **"Period Locked"** atau **"Posting Period Closed"** muncul ketika:
-- Anda mencatat transaksi (invoice, payment, journal) di periode yang sudah dikunci.
-- Admin finance sudah menutup periode akuntansi tersebut.
+## Page & Components
 
-## Langkah Cek
+Finance periods page.tsx:
+- searchParams year string default currentYear new Date getFullYear. selectedYear parseInt or current. getFiscalPeriods selectedYear → initialPeriods.
+- Component PeriodManagementClient initialPeriods currentYear.
 
-1. Buka menu **Finance** → **Accounting** → **Period Locks** (atau **Settings**).
-2. Periksa periode mana yang sudah dikunci.
+PeriodManagementClient.tsx:
+- Props initialPeriods FiscalPeriod[] currentYear number.
+- State year currentYear string, isPending via useTransition, router, isConfirmOpen, selectedPeriod id name, closingSummary totalRevenue totalOpEx netIncome.
+- useEffect sync year from currentYear prop.
+- handleYearChange newYear setYear + startTransition router push /finance/periods?year=newYear. isYearTransitioning = isPending && year != currentYear.
+- handleGenerate startTransition generatePeriodsForYear parseInt year → toast Periode untuk tahun {year} berhasil digenerate. refresh else error.
+- handleCloseClick id name setSelectedPeriod + getIncomeStatementSummary id → if fail toast else setClosingSummary + setIsConfirmOpen true.
+- handleConfirmClose if selectedPeriod startTransition closePeriod id → toast Periode fiskal {name} berhasil ditutup dengan jurnal penutup. setIsConfirmOpen false refresh else error msg.
+- handleStatusChange if OPEN return else reopenPeriod id → toast Periode fiskal berhasil dibuka kembali. refresh.
+- UI:
+  - Flex header title Periode Fiskal subtitle Kelola periode akuntansi dan proses penutupan. Right Select year value year onValueChange handleYearChange disabled isPending Trigger w-120px shows Loader2 if transitioning else Value placeholder Tahun. Options 2024 2025 2026 2027.
+  - Card overflow hidden if isYearTransitioning overlay absolute inset bg-background/50 backdrop-blur 1px loader centered.
+  - CardHeader title flex justify between Periode Tahun {year} + if initialPeriods length 0 or transitioning Button onClick handleGenerate disabled isPending shows Loader2 if pending && !transitioning else CalendarPlus icon Buat Periode.
+  - CardContent Table thead Nama Periode Tanggal Mulai Tanggal Selesai Status Aksi. Body if 0 and not transitioning row colSpan 5 text-center h-24 muted "Tidak ada periode untuk {year}. Klik generate untuk memulai." else map initialPeriods TableRow: name font-medium, startDate format dd MMM yyyy, endDate same, status Badge variant default if OPEN else secondary text status, Aksi Button ghost sm onClick period OPEN ? handleCloseClick else handleStatusChange disabled isPending: if OPEN Lock icon Tutup else LockOpen Buka Kembali.
+  - AlertDialog open isConfirmOpen: Content max-w-md Title "Tutup Periode Fiskal: {selectedPeriod.name}" Description "Menutup periode ini akan otomatis membuat jurnal penutupan untuk mereset akun Revenue dan Expense. Tindakan ini penting untuk menjaga integritas keuangan." If closingSummary py-4 space-y-3 div flex justify between Total Pendapatan font-semibold formatRupiah totalRevenue, Total Beban destructive formatRupiah totalOpEx, Separator, Estimasi Laba Bersih base font-bold netIncome primary if >=0 else destructive formatRupiah, italic 10px "* Laba bersih akan dipindahkan ke Laba Tahun Berjalan (33000)." Footer Cancel Batal disabled isPending + Action Konfirmasi & Generate Entri bg-primary hover 90 disabled isPending loader.
+
+PeriodFormDialog.tsx:
+- Button outline CalendarPlus Open New Period trigger.
+- DialogContent sm max 425px form onSubmit handleSubmit prevents default loading true → createFiscalPeriod year month → toast success Periode fiskal berhasil dibuat. setOpen false else error.
+- State year currentYear string month currentMonth string.
+- Form: DialogHeader title Open Fiscal Period description Select the month and year to open for accounting entries. Grid Year label Select value year onValueChange setYear Trigger col-span-3 Value Year options currentYear-1 currentYear currentYear+1. Month label Select value month onValueChange Trigger Value Month options 1-12 locale long month. Footer Cancel Cancel button + Submit Open Period disabled loading Creating...
 
 ## Solusi
 
-### Opsi 1: Gunakan periode yang masih buka
-- Ubah tanggal transaksi ke periode yang masih terbuka.
-- Klik **Simpan** ulang.
+Opsi1: Gunakan periode OPEN ubah tanggal transaksi.
 
-### Opsi 2: Minta admin buka periode
-- Hubungi admin finance untuk membuka sementara periode yang terkunci.
-- Setelah transaksi diproses, admin mengunci kembali periode tersebut.
+Opsi2: Admin klik Buka Kembali untuk buka sementara, setelah transaksi diproses Tutup lagi (akan generate jurnal penutupan). Audit log.
 
 ## Pencegahan
-
-- Catat transaksi tepat waktu — jangan menumpuk di akhir periode.
-- Sebelum tutup buku, pastikan semua transaksi sudah diproses.
+- Catat tepat waktu jangan menumpuk akhir periode.
+- Sebelum tutup buku pastikan semua invoice/payment/journal posting.
+- Period Lock cegah ubah data audit — darurat saja.
 
 ## Catatan
+- Path lama Accounting→Period Locks salah, real Finance→Periode Fiskal (fiscalPeriods).
+- Closing generates closing journal to 33000 Laba Tahun Berjalan.
+- Year filter via query ?year=.
+`,
+modules: ['finance'], tags: ['period-locked','periode-fiskal','tutup-buku'], errorCodes: ['PERIOD_LOCKED','POSTING_PERIOD_CLOSED'], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-atur-role-permission-user',
+title: 'Cara Atur Role & Permission User',
+summary: 'Role permission diatur di Pengaturan ?tab=users access dengan tree auto-save, hint relogin, dan Lihat Harga toggle.',
+bodyMd: `## Ringkas
+Menu: Pengaturan /dashboard/settings?tab=general|company|notifications|users|access|system
+Header: Pengaturan h2 2xl font-bold with ContextualHelp Panduan Pengaturan prefill "Cara atur role dan permission user di Polyflow?" links Cara Atur Role & Menu Tidak Muncul
+Tombol/hint: Izin disimpan toast permissionSaved, Gagal memperbarui izin permissionSaveFailed, Perubahan tersimpan otomatis saat Anda mencentang. Tidak perlu tombol Simpan. permissionAutoSaveHint, Pengguna yang sudah login mungkin perlu login ulang agar menu/akses modul baru aktif penuh di sesi mereka. permissionReloginHint, Centang modul root = beri akses penuh... parent indeterminate permissionTreeHint, Buka Semua expandAll Tutup Semua collapseAll, Lihat Harga viewPrices desc Dapat melihat harga produk dan nilai inventaris viewPricesDesc, Modul ModuL FeaturePermissions etc settingsLabels.
 
-- Period Lock ada untuk mencegah perubahan data di periode yang sudah di-audit.
-- Jangan minta admin membuka periode terlalu sering — ini hanya untuk kasus darurat.`,
-    modules: ['finance'],
-    tags: ['period-locked', 'tutup-buku', 'accounting', 'troubleshoot'],
-    errorCodes: ['PERIOD_LOCKED', 'POSTING_PERIOD_CLOSED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-atur-role-permission-user',
-    title: 'Cara Atur Role & Permission User',
-    summary: 'Panduan mengatur role dan permission untuk mengontrol akses user ke menu dan fitur.',
-    bodyMd: `## Konsep
+## Settings Page (page.tsx)
 
-- **Role** = kumpulan permission (misal: "Admin Gudang", "Sales Staff", "Finance").
-- **Permission** = izin akses ke menu/fitur spesifik (misal: "Buat Sales Order", "Lihat Inventory").
-- Satu user bisa punya **banyak role**.
+- auth via auth() + headers tenant subdomain extraction. userRole session.user.role default WAREHOUSE, userRoles roles array, currentUserId, name email, fetch prisma.user locale avatarUrl if id.
+- Render div p-4 md:p-6 max-w-7xl mx-auto header Pengaturan title + ContextualHelp links. SettingsTabs props currentUserRole etc appVersion package.json.version environment NODE_ENV.
 
-## Langkah Atur Role
+## SettingsTabs.tsx
 
-1. Buka menu **Settings** → **Users** (atau **Access Control**).
-2. Klik tab **Roles**.
-3. Klik **+ Role Baru** untuk membuat role baru, atau klik role yang ada untuk edit.
-4. Atur permission:
-   - Centang permission yang ingin diberikan.
-   - Permission dikelompokkan per modul (Sales, Warehouse, Production, dll).
-5. Klik **Simpan**.
+- Role isTenantAdmin check from role & roles.
+- Props currentUserRole currentUserRoles currentUserId tenantName currentUserName etc appVersion environment.
+- activeTab from searchParams get tab as TabValue default general. setActiveTab pushes ?tab=...
+- tabs array: general label settingsLabels.general icon User desc generalDesc Kelola profil dan preferensi Anda, notifications Bell notificationsDesc Kelola preferensi notifikasi in-app, if isAdmin add company Building2 companyDesc Info perusahaan untuk dokumen cetak, users Users usersDesc Kelola pengguna sistem dan role, access Lock accessControlDesc Konfigurasi izin untuk setiap role, system Monitor systemDesc Lihat kesehatan sistem dan versi.
+- renderContent switch: general → GeneralSettings tenantName userName email locale avatarUrl, notifications → NotificationSettings, company → CompanySettings if admin, users → UsersTab currentUserId if admin, access → AccessControlTab if admin, system → Card max-w-2xl header SettingsIcon systemInfo erpVersion v{appVersion} environment capitalize serverStatus Online green.
+- Nav overflow-x-auto gap-1 border-b mb-6 tablist aria-label Settings sections buttons role tab aria-selected aria-current page onClick setActiveTab class border-b-2 primary if active else muted hover.
+- Content min-w-0 renderContent.
 
-## Assign Role ke User
+## Konsep Permission
 
-1. Buka menu **Settings** → **Users**.
-2. Klik user yang ingin diatur.
-3. Di tab **Roles**, pilih role yang akan diberikan.
-4. Klik **Simpan**.
+- Role = kumpulan resource path (master sales production warehouse purchasing finance hrd maklon etc) definisi di permission-catalog etc.
+- Permission = path string like /sales/orders /warehouse/inventory /production/orders etc resource tree, bukan 5 fixed roles.
+- Satu user multi role.
+- ViewPrices toggle terpisah.
 
-## Permission Umum
+## Access Tab Real
 
-| Role | Akses |
-|------|-------|
-| Admin | Semua menu + settings |
-| Sales Staff | Sales Order, Customer, Delivery |
-| Warehouse Staff | Inventory, Incoming, Outgoing |
-| Finance Staff | Invoice, Payment, Accounting |
-| Production Staff | SPK, BOM, Kiosk |
+- Tree permission Module > Feature > sub-feature with checkbox.
+- Buka Semua / Tutup Semua buttons.
+- Parent indeterminate (–) when partial children checked.
+- Changes auto-save immediately no Save button. Toast Izin disimpan after success fail Gagal memperbarui izin.
+- Hint relogin displayed maybe below tree.
+- Feature Permissions description featurePermissionsDesc.
+
+## Assign Role
+
+- Tab Users (UsersTab) list users, click user edit roles (multi roles array).
+- Save user. If self check General tab = profil.
+- After role change target user might need relogin.
 
 ## Tips
+- Jangan Admin semua orang.
+- Jika user bilang menu tidak muncul cek Kontrol Akses path existing.
+- Review quarterly.
+- Menu EN generic lama salah.
 
-- Jangan beri **Admin** role ke semua orang — gunakan role spesifik.
-- Jika user bilang "menu tidak muncul", cek apakah role-nya punya permission yang benar.`,
-    modules: ['access'],
-    tags: ['role', 'permission', 'user', 'akses'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'menu-tidak-muncul-permission',
-    title: 'Menu Tidak Muncul? Cek Permission',
-    summary: 'Solusi ketika user tidak bisa melihat menu tertentu di Polyflow.',
-    bodyMd: `## Penyebab
+## Path benar
+- Old SEED: Settings → Users / Access Control → Roles tab → + Role Baru → Simpan (wrong). Real /dashboard/settings?tab=access tree auto-save.
+`,
+modules: ['access'], tags: ['role','permission','pengaturan'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'menu-tidak-muncul-permission',
+title: 'Menu Tidak Muncul? Cek Permission',
+summary: 'Menu hilang karena permission resource path di Kontrol Akses ?tab=access, auto-save, dan butuh relogin plus desktop-only.',
+bodyMd: `## Ringkas
+Menu: Bantuan /support (mainNavLabels.help Bantuan) + Pengaturan /dashboard/settings?tab=... Bantuan docs Cara Pakai /support filter ?module= Troubleshooting /support/troubleshooting Tanya Virtual CS /support/cs
+Error: PERMISSION_DENIED ACCESS_DENIED
+Path settings: /dashboard/settings?tab=general umum, ?tab=users pengguna, ?tab=access kontrol akses, ?tab=system sistem
+Hint: Izin disimpan, Perubahan tersimpan otomatis, Buka Semua Tutup Semua
 
-Menu tidak muncul biasanya karena:
-1. **Role tidak punya permission** untuk menu tersebut.
-2. **User belum di-assign role** yang benar.
-3. **Fitur butuh akses desktop** (beberapa menu tidak tersedia di mobile).
+## Penyebab Real
+1. Role tidak punya permission resource path for menu.
+2. User not assigned correct role.
+3. Desktop-only feature: some menus only desktop (BOM editing, Accounting detail, Costing, etc) not available in /sales/mobile mode.
 
-## Langkah Cek
+## Cek Sendiri
 
-### Cek Permission Sendiri
-1. Buka menu **Settings** → **My Profile** (atau klik nama di pojok kanan atas).
-2. Lihat tab **Roles & Permissions** — daftar permission aktif Anda.
+- Open Pengaturan /dashboard/settings?tab=general (requires permission if not visible you are non-admin). Lihat profil Umum.
+- If admin: tab Pengguna ?tab=users search name role active. Then tab Kontrol Akses ?tab=access expand tree Buka Semua check centang for path missing (e.g. /sales/orders, /warehouse/inventory, /production/orders).
+- Toast Izin disimpan after check.
+- Access tab shows Module Feature etc plus viewPrices toggle.
 
-### Minta Admin Cek
-1. Hubungi admin / super-admin.
-2. Minta cek role Anda di menu **Settings** → **Users** → [Nama Anda].
+## Minta Admin Cek
+
+- Admin open Pengaturan → Pengguna → name cek role.
+- Kontrol Akses → find missing menu tree path → centang auto-save.
+- Minta relogin.
 
 ## Solusi
 
-1. **Tidak ada permission** → minta admin tambahkan role yang sesuai.
-2. **Role salah** → minta admin assign role yang benar.
-3. **Menu mobile** → beberapa menu (misal: Accounting, BOM editing) hanya tersedia di desktop. Buka Polyflow di browser desktop/PC.
+- No permission → admin centang Kontrol Akses + toast + relogin.
+- Role salah → assign correct role tab Users.
+- Mobile → some menus only desktop, open Polyflow desktop browser not /sales/mobile.
+- Lihat Harga toggle if user sees stock but not price check viewPrices in Access.
 
-## Tips untuk Admin
+## Beda Seed Lama
 
-- Gunakan role template (Admin, Sales Staff, Warehouse Staff, dll) untuk konsistensi.
-- Jangan buat role terlalu granular — susah dikelola.
-- Review permission secara berkala (quarterly).`,
-    modules: ['access'],
-    tags: ['menu-tidak-muncul', 'permission', 'akses', 'troubleshoot'],
-    errorCodes: ['PERMISSION_DENIED', 'ACCESS_DENIED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'apa-yang-bisa-virtual-cs',
-    title: 'Apa yang Bisa & Tidak Bisa Virtual CS?',
-    summary: 'Panduan tentang kemampuan dan batasan Virtual CS Polyflow.',
-    bodyMd: `## Yang Bisa Virtual CS Lakukan
+- My Profile → Roles & Permissions vs real Pengaturan → Umum profile, Users list, Kontrol Akses tree.
+- Role template table 5 fixed generic vs real path-based resource.
+- Support → Bantuan label ID.
+- ContextualHelp in pages links to these articles via ? support slug.
 
-### Cek Data Operasional
-- Cek stok produk di gudang.
-- Lihat Sales Order yang sedang pending.
-- Cek status produksi (SPK aktif).
-- Ringkasan finance (piutang / hutang).
+## Tips Admin
+- Don't granular too much hard manage but don't full Admin all.
+- Use Buka Semua/Tutup Semua review.
+- ViewPrices separate.
+`,
+modules: ['access'], tags: ['menu-tidak-muncul','permission','troubleshoot'], errorCodes: ['PERMISSION_DENIED','ACCESS_DENIED'], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'apa-yang-bisa-virtual-cs',
+title: 'Apa yang Bisa & Tidak Bisa Virtual CS?',
+summary: 'Virtual CS di /support/cs dengan chips cepat, grounded citation artikel, copy thumbs, read-only guardrail.',
+bodyMd: `## Ringkas
+Lokasi: Bantuan → Tanya Virtual CS /support/cs, Cara Pakai /support (SupportHowtoPage listPublishedArticles module filter ?module= limit 30), Troubleshooting /support/troubleshooting, detail /support/[slug]
+Guardrail read-only operasional grounded artikel
+Labels: Bantuan (mainNavLabels.help), QUICK_ASK_CHIPS 8 items, welcome message exact, CitedArticleCards
 
-### Panduan Penggunaan
-- Cara membuat Sales Order, PO, SPK, Invoice.
-- Cara terima barang, outgoing, stock opname.
-- Cara atur role dan permission.
-- Troubleshooting error umum.
+## Detail UI
 
-### Pencarian Knowledge Base
-- Mencari artikel panduan sesuai pertanyaan Anda.
-- Memberikan link ke artikel yang relevan.
+- Support layout: auth redirect /login, getMyPermissions + sessionAllowed fallback /support, SidebarNav + SidebarSpacer main.
+- Howto page: searchParams module tab legacy redirect ?tab=cs → /support/cs?q= and ?tab=troubleshoot → /support/troubleshooting?module=. moduleFilter ?module=, listPublishedArticles module limit 30, render SupportPageHeader title Cara Pakai subtitle Panduan langkah demi langkah penggunaan Polyflow per modul. + SupportModuleChips module basePath /support + ArticleGrid or EmptyState howto.
+- CS page: searchParams tab howto→/support troubleshoot→/troubleshooting, q param slice 500 initialQuestion. Header breadcrumb Bantuan › Tanya Virtual CS, h1 Tanya Virtual CS desc "Tanya cara pakai atau cek data operasional — jawaban grounded pakai artikel bila ada." Then PolyflowChatPanel embedded initialQuestion q.
+- ChatPanel: state question initialQuestion or '', isLoading longWait copiedId initialSent abortRef scrollContainerRef bottomRef isNearBottomRef, messages initial welcome role assistant text "Halo, saya Virtual CS Polyflow. Saya bisa bantu cek data operasional dan panduan pemakaian sistem. Saya tidak bisa mengubah data, jadi revisi tetap dilakukan lewat UI Polyflow ya." Quick chips array: 'Cara buat Sales Order?','Cek stok kritis','Cara terima barang?','SPK yang sedang jalan','Invoice belum lunas','Cara input stok awal','Role & permission user','Cara eskalasi masalah'. RenderRichText splits lines ol regex number. etc ul - * . headings ## . inlineFormat pattern code **bold** [label](url) http(s):// and /support/[slug] internal links rendered as <a> or Link. TypingDots with bounce delay and longWait after 12s "Masih memproses…". CitedArticleCards if articles length 0 return null else map slice 0 3 Link /support/slug flex items-start gap-2 rounded-xl border brand-border bg-brand-glass p-3 hover brand-glass-heavy group/card BookOpen icon primary/10, title line-clamp-1 font-semibold group hover primary, summary line-clamp-1 11px muted, Buka → 11px primary shrink. Chat state container border brand-border bg-brand-glass backdrop blur rounded-3xl shadow brand. Header brand-border bg-brand-glass-heavy px-5 py-4 gradient radial primary transparent + title Polyflow Support 11px uppercase tracking 0.18em primary, h2 Virtual CS (Read-Only) lg font-semibold, subtitle 11px muted Panduan & cek data · tidak mengubah transaksi + shield icon ShieldCheck primary border. Scroll area flex-1 overflow-y-auto onScroll checkNearBottom scrollTop scrollHeight clientHeight <120 near bottom. Messages map: assistant left Bot avatar 8x8 rounded-full bg-brand-glass-heavy primary border heavy shadow + bubble rounded-2xl rounded-tl-sm px-4 py-3 backdrop blur border brand-border bg-brand-glass-heavy text-foreground renderRichText + cited cards + copy button Copy/Check icons opacity 0 group hover 100 + feedback thumbs if interactionId and !feedback ThumbsUp green hover + ThumbsDown red hover. Feedback state shows span Terima kasih! green or Feedback dicatat red. User right User avatar bg-brand-glass border shadow + bubble gradient primary to primary/90 text primary-foreground rounded-tr-sm. isLoading shows TypingDots + Cancel button X icon Batalkan border border-border rounded-full px-3 py-1 muted hover foreground.
+- Form: border-t brand-border bg-brand-glass-heavy p-4 backdrop blur, if messages length <=1 show chips flex wrap gap-2 button chips rounded-full border brand-border bg-brand-glass hover heavy muted hover foreground. Input area flex items-end gap-2 rounded-xl border brand-border bg-brand-glass/50 p-2 shadow-inner focus-within border-heavy bg-heavy transition: Textarea min-h 44 max-h 120 flex-1 resize-none border-0 bg-transparent py-2.5 px-2 shadow-none focus ring 0 slate-900 dark slate-100 placeholder slate-500 font-medium value question onChange setQuestion placeholder "Ketik pertanyaan… Enter kirim, Shift+Enter baris baru" disabled isLoading autoFocus onKeyDown Enter without shift prevent if canSend sendQuestion. If isLoading Button outline X Cancel else Button submit disabled !canSend gap-2 shadow-md hover scale 1.02 Send icon Kirim. Below flex justify between hint 10px muted Enter kirim · Shift+Enter baris baru + nearLimit char count >=1800 shows count/2000 red if >=2000 amber else. canSend memo question trim length>0 && !isLoading, nearLimit >=1800, charCount length.
+- Feedback sendFeedback optimistic update prev feedback, fetch /api/chat/feedback POST interactionId feedback, if !ok revert.
+- sendQuestion payload incoming ?? question trim if !payload or loading return, push user message, setQuestion '' isLoading true longWait false, AbortController, fetch /api/chat POST question signal, json ChatApiResponse success error data answer interactionId citedArticles safety allowed blockedReason. If !ok push assistant error "Maaf, sistem sedang sibuk..." else push assistant data answer interactionId citedArticles. Catch AbortError "Permintaan dibatalkan." else "Koneksi ke server terputus."
 
-## Yang TIDAK Bisa Virtual CS Lakukan
+## Yang Bisa
+- Cek stok Stok → Stok /warehouse/inventory Stock Reserved Available
+- Sales Order pending active /sales/orders Active/Pending filter
+- SPK aktif /production/orders or /production/daily etc
+- Finance piutang Invoice & Piutang Terima Bayar
+- Panduan step (grounded) cara-buat-sales-order etc mention path Penjualan → Sales Order → Pesanan Baru etc
 
-### Tidak Bisa Ubah Data
-- Tidak bisa membuat / mengedit / menghapus transaksi.
-- Tidak bisa konfirmasi SO, proses delivery, atau ubah stok.
-- Semua perubahan data harus dilakukan lewat UI Polyflow.
+## Tidak Bisa
+- Mutasi data: tidak bisa membuat/edit/hapus transaksi SO SJ SPK stok invoice, konfirmasi SO tombol Konfirmasi Order harus UI, Tandai Dikirim harus gudang Antrian Muat, ubah stok via Penyesuaian Stok.
+- No sensitive password etc cross tenant.
+- No non-operational.
 
-### Tidak Bisa Akses Data Sensitif
-- Tidak bisa melihat password atau data pribadi user lain.
-- Tidak bisa melihat data tenant lain.
+## Cara Tanya Bagus
+- Spesifik "Cek stok MP 15 di Gudang A" vs generic.
+- Sebut nomor SO-2026-0001.
+- Path real Antrian Muat not Warehouse Outgoing lama.
 
-### Tidak Bisa Jawab Non-Operasional
-- Tidak bisa menjawab pertanyaan di luar konteks pabrik / ERP.
-- Tidak bisa memberikan saran investasi, politik, dll.
+## Beda Lama
+- Support → Bantuan mainNavLabels.help
+`,
+modules: ['global'], tags: ['virtual-cs','bantuan','chat','grounded'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
+{
+slug: 'cara-beri-feedback-dan-eskalasi',
+title: 'Cara Beri Feedback & Eskalasi ke Tim Support',
+summary: 'Feedback thumbs copy di Virtual CS dan eskalasi via Bantuan Cara Pakai Troubleshooting CS dan admin dengan template path real.',
+bodyMd: `## Ringkas
+Menu: Bantuan (sidebar mainNavLabels.help) → Cara Pakai /support Module Chips ?module= sales warehouse production finance access global + ArticleGrid, Troubleshooting /support/troubleshooting, Tanya Virtual CS /support/cs, Detail /support/[slug] (slug page)
+ContextualHelp component "Butuh bantuan?" title prefillQuestion links 2-3 articles quick in transaction pages (Sales Orders: Cara Buat Sales Order Cara Confirm SO Stok Kurang Jadwal Kirim & SJ; Inventory: Cara Cek Stok Cara Terima Barang Error Backflush; Finance Invoices: Cara Lihat Invoice Belum Lunas Error Period Locked; Production Orders: Cara Buat SPK Cara Input Hasil via Kiosk Error Backflush; Settings: Cara Atur Role & Permission Menu Tidak Muncul — ContextualHelpProps links title prefillQuestion)
+Tombol: 👍 👎 ThumbsUp ThumbsDown feedback, Copy Check, Send, Questions chips.
 
-## Cara Terbaik Bertanya
+## Feedback
 
-- **Spesifik**: "Cek stok MP 15" lebih baik dari "cek stok".
-- **Sebut nama/ID**: "Status SO-2026-0001" lebih cepat dari "SO Budi".
-- **Cara pakai**: "Cara buat Sales Order?" akan mengutip artikel KB.`,
-    modules: ['global'],
-    tags: ['virtual-cs', 'bantuan', 'cara-pakai', 'faq'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-beri-feedback-dan-eskalasi',
-    title: 'Cara Beri Feedback & Eskalasi ke Tim Support',
-    summary: 'Panduan memberikan feedback ke Virtual CS dan cara eskalasi jika butuh bantuan lebih.',
-    bodyMd: `## Feedback ke Virtual CS
+- Setelah Virtual CS jawab di /support/cs:
+  - Copy button Copy/Check icons.
+  - 👍 Membantu ThumbsUp green hover bg-green-50 dark green-950
+  - 👎 Tidak membantu ThumbsDown red hover
+  - Feedback recorded via /api/chat/feedback POST interactionId feedback UP|DOWN optimistic.
+  - Masuk HelpInteraction (question outcome etc) + HelpQuestionCluster for learning (only FAILED/PARTIAL/BLOCKED clustered).
+  - If wrong label suggest detail "Menu Sales→Sales Order tombol Pesanan Baru, bukan + Baru" etc improves article rewrite.
 
-Setelah Virtual CS menjawab pertanyaan Anda:
-- Klik **👍** jika jawaban membantu.
-- Klik **👎** jika jawaban kurang tepat / tidak membantu.
-- Feedback Anda membantu meningkatkan kualitas jawaban.
+## Eskalasi
 
-## Eskalasi ke Tim Support
+Opsi1 Chat konteks Virtual CS:
 
-Jika Virtual CS tidak bisa menjawab atau Anda butuh bantuan lebih:
+- Lanjut di /support/cs
+- Jelaskan detail: nomor order orderNumber SO-xxxx DO-xxxx SPK-xxxx, nama produk, SKU, screenshot error, path real you followed e.g. Stok → Antrian Muat /warehouse/outgoing/[id] → Mulai Muat → Verifikasi Muat Samakan semua ke perintah → Kunci Verifikasi → Tandai Dikirim fails.
+- Mention error codes toast: CREDIT_LIMIT_EXCEEDED, MISSING_DEFAULT_BOM, FG_DEMAND_QUEUED, WO_CREATE_FAILED, STOCK_INSUFFICIENT, MATERIAL_INSUFFICIENT, BACKFLUSH_FAILED, PERIOD_LOCKED, POSTING_PERIOD_CLOSED, PERMISSION_DENIED, ACCESS_DENIED.
+- Virtual CS will cite article.
 
-### Opsi 1: Chat dengan Context
-- Lanjutkan percakapan di chat Virtual CS.
-- Jelaskan masalah Anda dengan detail.
-- Virtual CS akan mencoba membantu atau mengarahkan ke artikel yang tepat.
+Opsi2 Hubungi admin perusahaan:
 
-### Opsi 2: Hubungi Admin
-- Hubungi admin perusahaan Anda untuk bantuan langsung.
-- Admin bisa mengubah data, atur permission, atau troubleshoot masalah teknis.
+- Admin di Pengaturan → Pengguna /dashboard/settings?tab=users tab list user role. Can edit data, permission access ?tab=access auto-save, period /finance/periods.
+- For stock reservation issues admin cek Stok → Stok /warehouse/inventory variantTotals Terpesan etc + Antrian Muat outgoing.
+- For permission admin check Kontrol Akses tree.
 
-### Opsi 3: Lihat Knowledge Base
-- Buka menu **Support** → **Cara Pakai** atau **Troubleshooting**.
-- Cari artikel sesuai masalah Anda.
+Opsi3 KB langsung:
 
-## Tips Eskalasi
+- Bantuan sidebar.
+- Cara Pakai /support list 15 published filter chip sales warehouse production finance access global.
+- Troubleshooting /support/troubleshooting error articles backflush period locked permission menu.
+- Tanya Virtual CS /support/cs chat grounded citedArticleCards.
+- From transaction pages ContextualHelp ? prefillQuestion e.g. "Cara membuat Sales Order di Polyflow?" + links 3 articles releven click opens /support/[slug].
 
-- **Sertakan detail**: nomor order, nama produk, screenshot error.
-- **Jelaskan sudah coba apa**: "Sudah cek stok tapi masih error".
-- **Sebutkan urgency**: mendesak atau bisa ditunggu.`,
-    modules: ['global'],
-    tags: ['feedback', 'eskalasi', 'support', 'cara-pakai'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
+## Template Eskalasi (copy)
+
+"Saya coba buat SO di Penjualan → Sales Order → Pesanan Baru path /sales/orders/create?intent=stock pilih Customer Budi Gudang Gudang A qty 10 BAL. Saat Konfirmasi Order di /sales/orders/[id] muncul warning FG_DEMAND_QUEUED. Sudah cek Stok → Stok /warehouse/inventory stok Tersedia 2 Terpesan 5 lowStock. Mohon cek apakah perlu buat SPK di Produksi → Permintaan FG /production/requests?"
+
+Tambah info: versi app v{appVersion} dari Pengaturan → Sistem ?tab=system shows erpVersion environment serverStatus Online.
+
+## Tips
+- Sertakan path real, tombol real exact label e.g. Pesanan Baru, Konfirmasi Order, Buat Surat Jalan, Tambah ke Jadwal, Lihat SJ aktif, Ubah qty kirim Simpan qty, Mulai Muat, Samakan semua ke perintah, Simpan Verifikasi, Kunci Verifikasi, Tandai Dikirim, Terima dari Nota, Terima / Terima Sisa, Simpan Penerimaan Barang, Buat SPK, Rilis SPK, Mulai Produksi, Selesai SPK, Catat Hasil, Kirim Hasil, Tutup/Buka Kembali, Buat Periode, Izin disimpan.
+- Status real: SO DRAFT CONFIRMED IN_PRODUCTION READY_TO_SHIP SHIPPED DELIVERED etc labels salesStatusLabels Draft Terkonfirmasi Dalam Produksi Siap Kirim Dikirim Terkirim. Delivery PENDING Menunggu LOADING Sedang Dimuat etc DELIVERY_STATUS_LABELS. Production DRAFT Draft WAITING_MATERIAL Menunggu Bahan RELEASED Siap Produksi IN_PROGRESS Sedang Diproduksi COMPLETED Produksi Selesai etc productionStatusLabels. Invoice UNPAID Belum Dibayar PARTIAL Dibayar Sebagian PAID Lunas OVERDUE Lewat Jatuh Tempo financeStatusLabels etc.
+- Jika butuh push deploy darurat jangan build di VPS — CI GitHub Actions production.yml build → ghcr.io/clarinovist/polyflow:latest → VPS docker compose pull + restart polyflow-app (container name). Check logs docker logs --tail 100 grep migrat|HelpQuestionCluster snapshot etc plus prisma migrate status harus Database schema is up to date! plus psql Help tables counts.
+
+## Beda Lama
+- Support → Bantuan
+- Seed sebut Support EN → real ID Bantuan
+`,
+modules: ['global'], tags: ['feedback','eskalasi','bantuan','template'], errorCodes: [], source: 'SEED' as HelpArticleSource,
+},
 ];
-
-async function seedHelpArticles() {
-  console.log('Seeding help articles...');
-
-  for (const article of seedArticles) {
-    const existing = await mainDb.helpArticle.findUnique({
-      where: { slug: article.slug },
-    });
-
-    if (existing) {
-      console.log(`  [SKIP] ${article.slug} (already exists)`);
-      continue;
-    }
-
-    await mainDb.helpArticle.create({
-      data: {
-        ...article,
-        status: HelpArticleStatus.PUBLISHED,
-        publishedAt: new Date(),
-        version: 1,
-      },
-    });
-
-    console.log(`  [OK] ${article.slug}`);
-  }
-
-  const total = await mainDb.helpArticle.count();
-  console.log(`\nDone. Total articles in DB: ${total}`);
+async function seedHelpArticles(){
+console.log('Seeding help articles (v2 refined)...');
+for(const article of seedArticles){
+const existing = await mainDb.helpArticle.findUnique({where:{slug:article.slug}});
+if(existing){
+await mainDb.helpArticle.update({where:{slug:article.slug}, data:{title:article.title,summary:article.summary,bodyMd:article.bodyMd,modules:article.modules,tags:article.tags,errorCodes:article.errorCodes,source:article.source}});
+console.log(`  [UPD] ${article.slug}`);
+continue;
 }
-
-seedHelpArticles()
-  .catch((e) => {
-    console.error('Seed failed:', e);
-    process.exit(1);
-  })
-  .finally(() => mainDb.$disconnect());
+await mainDb.helpArticle.create({data:{...article,status:HelpArticleStatus.PUBLISHED,publishedAt:new Date(),version:1}});
+console.log(`  [OK] ${article.slug}`);
+}
+const total = await mainDb.helpArticle.count();
+console.log(`\nDone total ${total}`);
+}
+seedHelpArticles().catch(e=>{console.error('Seed failed',e);process.exit(1)}).finally(()=>mainDb.$disconnect());
