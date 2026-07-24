@@ -321,7 +321,7 @@ export default async function SalesCommandBoardPage(props: { searchParams: Searc
                         <CalendarDays className="h-4 w-4 mr-1" /> Jadwal Kirim
                     </Button>
                 </Link>
-                <Link href="/sales/mobile">
+                <Link href="/field/sales">
                     <Button size="sm" variant="ghost">
                         <Smartphone className="h-4 w-4 mr-1" /> Mode Mobile
                     </Button>

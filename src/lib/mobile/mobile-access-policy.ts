@@ -30,6 +30,7 @@ export function isMobilePublicPath(pathname: string): boolean {
 // mobile (after RBAC).
 // ---------------------------------------------------------------------------
 const MOBILE_ALLOWLIST_PREFIXES = [
+  "/field",
   "/sales/mobile",
   "/kiosk",
   "/my",
@@ -41,11 +42,14 @@ export function isMobileAllowlistedPath(pathname: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Sales soft-landing — /sales/* (not /sales/mobile) → redirect to /sales/mobile
+// Sales soft-landing — /sales/* (not /sales/mobile, not /field) → redirect
+// to /field/sales (new operational field portal).
 // ---------------------------------------------------------------------------
 export function shouldSoftLandToSalesMobile(pathname: string): boolean {
   return (
-    pathname.startsWith("/sales") && !pathname.startsWith("/sales/mobile")
+    pathname.startsWith("/sales") &&
+    !pathname.startsWith("/sales/mobile") &&
+    !pathname.startsWith("/field")
   );
 }
 
@@ -94,7 +98,7 @@ export function getMobileHomeForUser(user: {
   roles?: string[];
 }): string | null {
   const roles = getUserRoles(user);
-  if (roles.includes("SALES")) return "/sales/mobile";
+  if (roles.includes("SALES")) return "/field/sales";
   if (roles.includes("WAREHOUSE")) return "/warehouse/mobile";
   if (roles.includes("PRODUCTION")) return "/kiosk";
   return null; // fallback → "Kembali ke login"

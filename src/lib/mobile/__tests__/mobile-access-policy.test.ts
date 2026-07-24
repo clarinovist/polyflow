@@ -179,8 +179,8 @@ describe('mobile-access-policy', () => {
 
   // ── getMobileHomeForUser ───────────────────────────────────────────
   describe('getMobileHomeForUser', () => {
-    it('SALES → /sales/mobile', () => {
-      expect(getMobileHomeForUser({ role: 'SALES' })).toBe('/sales/mobile');
+    it('SALES → /field/sales', () => {
+      expect(getMobileHomeForUser({ role: 'SALES' })).toBe('/field/sales');
     });
 
     it('PRODUCTION → /kiosk', () => {
@@ -199,8 +199,8 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeForUser({ role: 'WAREHOUSE' })).toBe('/warehouse/mobile');
     });
 
-    it('SALES+PRODUCTION → /sales/mobile (SALES matched first)', () => {
-      expect(getMobileHomeForUser({ roles: ['SALES', 'PRODUCTION'] })).toBe('/sales/mobile');
+    it('SALES+PRODUCTION → /field/sales (SALES matched first)', () => {
+      expect(getMobileHomeForUser({ roles: ['SALES', 'PRODUCTION'] })).toBe('/field/sales');
     });
 
     it('WAREHOUSE+PRODUCTION → /warehouse/mobile (WAREHOUSE before PRODUCTION)', () => {

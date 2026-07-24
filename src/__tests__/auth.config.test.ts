@@ -256,7 +256,7 @@ describe('auth.config', () => {
             expect(result).toBe(false);
         });
 
-        it('should soft-land SALES user on mobile /dashboard to /sales/mobile', async () => {
+        it('should soft-land SALES user on mobile /dashboard to /field/sales', async () => {
             // Arrange
             const { authConfig } = await import('@/auth.config');
             const { getWorkspaceFromPath } = await import('@/lib/auth/access-policy');
@@ -281,10 +281,10 @@ describe('auth.config', () => {
                     },
                 } as any);
 
-                // Assert — /dashboard soft-lands to /sales/mobile for SALES
+                // Assert — /dashboard soft-lands to /field/sales for SALES
                 expect(mockRedirect).toHaveBeenCalled();
                 const redirectUrl = mockRedirect.mock.calls[0][0];
-                expect(redirectUrl.pathname).toBe('/sales/mobile');
+                expect(redirectUrl.pathname).toBe('/field/sales');
             } finally {
                 Response.redirect = originalRedirect;
             }
@@ -304,7 +304,7 @@ describe('auth.config', () => {
             Response.redirect = mockRedirect;
 
             try {
-                // Act — SALES + bypass cookie on /dashboard → still soft-lands to /sales/mobile
+                // Act — SALES + bypass cookie on /dashboard → still soft-lands to /field/sales
                 await authorizedCallback({
                     auth: { user: { role: 'SALES' } },
                     request: {
@@ -320,7 +320,7 @@ describe('auth.config', () => {
                 // Assert — SALES bypass cookie doesn't help for /dashboard, soft-lands
                 expect(mockRedirect).toHaveBeenCalled();
                 const redirectUrl = mockRedirect.mock.calls[0][0];
-                expect(redirectUrl.pathname).toBe('/sales/mobile');
+                expect(redirectUrl.pathname).toBe('/field/sales');
             } finally {
                 Response.redirect = originalRedirect;
             }
@@ -445,7 +445,7 @@ describe('auth.config', () => {
             }
         });
 
-        it('should soft-land SALES on /sales/orders to /sales/mobile', async () => {
+        it('should soft-land SALES on /sales/orders to /field/sales', async () => {
             const { authConfig } = await import('@/auth.config');
             const authorizedCallback = authConfig.callbacks!.authorized!;
 
@@ -467,7 +467,7 @@ describe('auth.config', () => {
 
                 expect(mockRedirect).toHaveBeenCalled();
                 const redirectUrl = mockRedirect.mock.calls[0][0];
-                expect(redirectUrl.pathname).toBe('/sales/mobile');
+                expect(redirectUrl.pathname).toBe('/field/sales');
             } finally {
                 Response.redirect = originalRedirect;
             }

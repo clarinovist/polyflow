@@ -114,7 +114,7 @@ export function DailyJourneyPlan({ activeCustomers }: DailyJourneyPlanProps) {
           return (
             <Link
               key={item.id}
-              href={`/sales/mobile/customers/${item.id}`}
+              href={`/field/sales/customers/${item.id}`}
               className={`flex items-center justify-between p-3 border rounded-xl active:scale-[0.98] transition-all ${
                 isVisiting
                   ? "border-blue-200 bg-blue-50/20 dark:border-blue-900/30 dark:bg-blue-950/10"
