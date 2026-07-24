@@ -9,8 +9,12 @@ const ERROR_HELP_MAP: Record<string, { slug: string; title: string }> = {
     title: 'Stok kurang? Lihat panduan',
   },
   STOCK_INSUFFICIENT: {
+    slug: 'cara-outgoing-muat-kirim',
+    title: 'Stok kurang saat muat? Lihat panduan',
+  },
+  CREDIT_LIMIT_EXCEEDED: {
     slug: 'cara-confirm-so-stok-kurang',
-    title: 'Stok kurang? Lihat panduan',
+    title: 'Limit kredit? Lihat panduan',
   },
   MATERIAL_INSUFFICIENT: {
     slug: 'error-backflush-atau-stok-bahan',
@@ -68,6 +72,10 @@ export function getHelpLinkForMessage(message: string): { href: string; title: s
 
   if (lower.includes('permission') || lower.includes('akses ditolak') || lower.includes('access denied')) {
     return { href: '/support/menu-tidak-muncul-permission', title: 'Akses ditolak? Lihat panduan' };
+  }
+
+  if (lower.includes('kredit') || lower.includes('credit') || lower.includes('limit')) {
+    return { href: '/support/cara-confirm-so-stok-kurang', title: 'Limit kredit? Lihat panduan' };
   }
 
   return null;

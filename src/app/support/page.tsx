@@ -5,6 +5,7 @@ import {
   SupportArticleGrid,
   SupportEmptyState,
   SupportPageHeader,
+  SupportSearchBox,
 } from '@/components/support/support-article-list';
 
 export default async function SupportHowtoPage({
@@ -26,9 +27,11 @@ export default async function SupportHowtoPage({
   }
 
   const moduleFilter = typeof params.module === 'string' ? params.module : undefined;
+  const q = typeof params.q === 'string' ? params.q.slice(0, 200) : undefined;
 
   const articles = await listPublishedArticles({
     module: moduleFilter,
+    q,
     limit: 30,
   });
 
@@ -38,7 +41,16 @@ export default async function SupportHowtoPage({
         <SupportPageHeader title="Cara Pakai" subtitle="Panduan langkah demi langkah penggunaan Polyflow per modul." />
 
         <div className="space-y-4">
-          <SupportModuleChips module={moduleFilter} basePath="/support" />
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <SupportSearchBox basePath="/support" q={q} />
+            <SupportModuleChips module={moduleFilter} basePath="/support" />
+          </div>
+
+          {q && (
+            <p className="text-xs text-muted-foreground">
+              Hasil pencarian untuk <span className="font-medium">&ldquo;{q}&rdquo;</span> — {articles.length} artikel ditemukan.
+            </p>
+          )}
 
           {articles.length === 0 ? (
             <SupportEmptyState variant="howto" />
