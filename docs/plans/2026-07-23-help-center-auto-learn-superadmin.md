@@ -1,7 +1,7 @@
 # Plan: Help Center, Auto-Learn Knowledge & Super-Admin Control Plane
 
-> **Date:** 2026-07-23 · **Rev:** 2026-07-24b (Phase 1.6: Support IA — jangan “planet lain”; sidebar modul utuh + Bantuan 3 child, tanpa tab content)  
-> **Status:** ✅ Phase 0–3 done (lint/test/build green). 🚧 **Phase 1.6 NEXT** — fix isolasi nav di `/support` + IA sidebar children. Setelah itu: seed/publish di prod + auto-learn toggle ON saat traffic real.  
+> **Date:** 2026-07-23 · **Rev:** 2026-07-24c (Phase 1.6 DONE; audit cleanup; remaining = seed quality + portal sidebar + prod publish)  
+> **Status:** ✅ Phase 0–3 + 1.5 + 1.6 done (lint/test/build green). **Remaining:** seed tone rewrite, portal sidebar 3 child, article renderer, prod publish, auto-learn toggle ON saat traffic real.  
 > **Surface:**  
 > - Tenant UX: `/support/*` (Cara pakai / Troubleshooting / Tanya CS), floating `PolyflowChatWidget`, contextual help per modul  
 > - Super-admin: `/admin/help/*` di `admin.polyflow.uk`  
@@ -72,9 +72,9 @@
 | Floating widget | `PolyflowChatWidget` | ✅ Path-gated |
 | Nav Bantuan | sidebar → `/support` | ✅ |
 | Virtual CS agentic | `virtual-cs-service.ts` | ✅ Tools DB + LLM loop |
-| Guardrails | `guardrails.ts` | ⚠️ Perlu refine intent |
-| Audit event | `chat-audit.ts` + `logActivity` | ⚠️ Partial, question truncated, no outcome quality |
-| Metrics | `metrics.ts` | ⚠️ Process memory only — hilang saat restart, tidak multi-instance |
+| Guardrails | `guardrails.ts` | ✅ intent_v2 (panduan vs mutasi) + tests |
+| Audit event | `chat-audit.ts` + `logActivity` + `HelpInteraction` | ✅ Persist ke DB, outcome heuristic, feedback, citedArticles |
+| Metrics | `metrics.ts` + `/admin/help` dashboard | ✅ DB-backed (HelpInteraction) + in-memory hot cache |
 | Super-admin panel | `/admin/*` | ✅ Ada tenants, health, audit, impersonate, credits scaffolding |
 | SOP dokumen | `docs/SOP_*`, UAT, manual | ✅ Ada, **belum user-facing** |
 
@@ -378,8 +378,8 @@ Kerjakan **berurutan per slice**. Tiap slice harus build-green + UAT-able sendir
 
 #### Slice A — Schema `HelpArticle` (0.5–1 hari)
 
-- [ ] Enum: `HelpArticleStatus` (`DRAFT | PUBLISHED | ARCHIVED`), `HelpArticleSource` (`SEED | HUMAN | AUTO_LEARN`)
-- [ ] Model main DB (platform, via `getMainPrisma()`):
+- [x] Enum: `HelpArticleStatus` (`DRAFT | PUBLISHED | ARCHIVED`), `HelpArticleSource` (`SEED | HUMAN | AUTO_LEARN`)
+- [x] Model main DB (platform, via `getMainPrisma()`):
 
 ```text
 HelpArticle
@@ -398,7 +398,7 @@ HelpArticle
   @@index([slug])
 ```
 
-- [ ] Migration folder (main + deploy path yang dipakai superadmin/main DB)
+- [x] Migration folder (main + deploy path yang dipakai superadmin/main DB)
 - [ ] **Belum** perlu `HelpArticleVersion` di slice A (boleh Phase 2)
 - [ ] Optional: `HelpInteraction.citedArticleIds String[]` atau log di `changes` — boleh ditunda sampai retrieval hidup
 
@@ -414,12 +414,12 @@ Route:
 | `/admin/help/articles/new` | Create draft |
 | `/admin/help/articles/[id]` | Edit + Publish / Archive |
 
-- [ ] Server actions: `listHelpArticles`, `getHelpArticle`, `createHelpArticle`, `updateHelpArticle`, `publishHelpArticle`, `archiveHelpArticle`
-- [ ] Guard: super-admin only (sama pola `/admin/*`)
-- [ ] Form: title, slug (auto dari title), summary, bodyMd (textarea dulu; rich editor nanti), modules (multi), tags, errorCodes
-- [ ] Publish set `status=PUBLISHED`, `publishedAt=now()`, bump version
-- [ ] Link dari `/admin/help` dashboard → “Kelola artikel”
-- [ ] Audit log action `HELP_ARTICLE_PUBLISHED` / `UPDATED` (opsional tapi disarankan)
+- [x] Server actions: `listHelpArticles`, `getHelpArticle`, `createHelpArticle`, `updateHelpArticle`, `publishHelpArticle`, `archiveHelpArticle`
+- [x] Guard: super-admin only (sama pola `/admin/*`)
+- [x] Form: title, slug (auto dari title), summary, bodyMd (textarea dulu; rich editor nanti), modules (multi), tags, errorCodes
+- [x] Publish set `status=PUBLISHED`, `publishedAt=now()`, bump version
+- [x] Link dari `/admin/help` dashboard → “Kelola artikel”
+- [x] Audit log action `HELP_ARTICLE_PUBLISHED` / `UPDATED` (opsional tapi disarankan)
 
 **Done when:** super-admin bisa publish 1 artikel dummy dan lihat di list.
 
@@ -456,20 +456,20 @@ Prioritas seed (isi step UI nyata, bahasa ID, 5–12 langkah):
 | 14 | `apa-yang-bisa-virtual-cs` | global | how-to |
 | 15 | `cara-beri-feedback-dan-eskalasi` | global | how-to |
 
-- [ ] Sumber rewrite: `docs/SOP_*`, UAT, + 5–10 Q yang sering nanya ke founder
-- [ ] Seed via script `scripts/seed-help-articles.ts` (main DB) **atau** insert manual super-admin
-- [ ] Jangan copy raw eng docs — tulis langkah menu Polyflow
+- [x] Sumber rewrite: `docs/SOP_*`, UAT, + 5–10 Q yang sering nanya ke founder
+- [x] Seed via script `scripts/seed-help-articles.ts` (main DB) **atau** insert manual super-admin
+- [x] Jangan copy raw eng docs — tulis langkah menu Polyflow
 
 **Done when:** ≥12 artikel PUBLISHED di main DB staging/prod.
 
 #### Slice E — Virtual CS retrieval tool (1–2 hari)
 
-- [ ] `searchHelpArticles(query, module?)` di `src/lib/bot/` — keyword: title/summary/tags/bodyMd (ILIKE / simple scoring); **hanya PUBLISHED**
-- [ ] Register tool OpenAI: `search_help_articles`
-- [ ] System prompt update: how-to → **wajib coba tool KB dulu**; jawab + sebut judul + slug/link `/support/{slug}`
-- [ ] Log optional: outcome tetap; nanti cited articles
-- [ ] Unit tests: search ranking basic (exact title > tag > body)
-- [ ] Manual: tanya “cara buat SO” → jawaban mengutip artikel seed
+- [x] `searchHelpArticles(query, module?)` di `src/lib/bot/` — keyword: title/summary/tags/bodyMd (ILIKE / simple scoring); **hanya PUBLISHED**
+- [x] Register tool OpenAI: `search_help_articles`
+- [x] System prompt update: how-to → **wajib coba tool KB dulu**; jawab + sebut judul + slug/link `/support/{slug}`
+- [x] Log optional: outcome tetap; nanti cited articles
+- [x] Unit tests: search ranking basic (exact title > tag > body)
+- [x] Manual: tanya “cara buat SO” → jawaban mengutip artikel seed
 
 **Done when:** chat how-to mengutip KB, bukan pure hallucinated steps.
 
@@ -489,24 +489,24 @@ Pasang di **5 surface** (header page):
 | Finance invoices (sales or finance) | `/finance/invoices/sales` atau sales invoices | invoice belum lunas |
 | Settings users | `/dashboard/settings` atau users access | role permission |
 
-- [ ] Popover: 3–5 link artikel + “Tanya Virtual CS” → `/support/cs` (Phase 1.6; legacy `?tab=cs` redirect OK)
-- [ ] Jangan bloated; max 5 links
+- [x] Popover: 3–5 link artikel + “Tanya Virtual CS” → `/support/cs` (Phase 1.6; legacy `?tab=cs` redirect OK)
+- [x] Jangan bloated; max 5 links
 
 **Done when:** di 5 halaman, user lihat panduan tanpa buka sidebar Bantuan.
 
 #### Slice G — Error → help (0.5–1 hari, partial OK)
 
-- [ ] Identifikasi 2–3 error user-facing paling sering (mis. stok kurang confirm SO, period locked, permission denied)
-- [ ] Di toast/dialog: CTA “Lihat panduan” → `/support/{slug}` atau prefilled CS
-- [ ] Map `errorCodes` di artikel = key yang dipakai di throw/map error bila ada
+- [x] Identifikasi 2–3 error user-facing paling sering (mis. stok kurang confirm SO, period locked, permission denied)
+- [x] Di toast/dialog: CTA “Lihat panduan” → `/support/{slug}` atau prefilled CS
+- [x] Map `errorCodes` di artikel = key yang dipakai di throw/map error bila ada
 
 **Done when:** minimal 1 alur error punya CTA ke artikel.
 
 #### Slice H — Hardening kecil (bersamaan / akhir Phase 1)
 
-- [ ] Feedback ownership strict: `interaction.userId !== userId` → 403 (null owner tidak boleh)
-- [ ] Unit tests `resolveOutcome` (export helper)
-- [ ] Top Gaps dashboard optional include `PARTIAL`
+- [x] Feedback ownership strict: `interaction.userId !== userId` → 403 (null owner tidak boleh)
+- [x] Unit tests `resolveOutcome` (export helper)
+- [x] Top Gaps dashboard optional include `PARTIAL`
 - [ ] Update plan status Phase 1 checkboxes saat ship
 
 ---
@@ -635,8 +635,8 @@ Sambungkan sisa Phase 1 ke chat:
 
 - [x] `PolyflowChatPanel` baca `searchParams` / prop `initialQuestion?: string` (baseline)
 - [x] Prefill chat dari query `q` (baseline `?tab=cs&q=` — **canonical target Phase 1.6:** `/support/cs?q=`)
-- [ ] ContextualHelp / error CTA pakai path canonical `/support/cs?q=` setelah 1.6 (redirect lama `?tab=cs` OK sementara)
-- [ ] Error CTA “Tanya CS” → prefill pertanyaan netral (tanpa data tenant sensitif di query string bila bisa)
+- [x] ContextualHelp / error CTA pakai path canonical `/support/cs?q=` setelah 1.6 (redirect lama `?tab=cs` OK sementara)
+- [x] Error CTA “Tanya CS” → prefill pertanyaan netral (tanpa data tenant sensitif di query string bila bisa)
 
 **Done when:** dari error / `?` page, user land di CS dengan pertanyaan sudah siap kirim.
 
@@ -658,10 +658,10 @@ citedArticles?: Array<{
 // diisi dari hasil tool search_help_articles yang dipakai di turn ini (dedupe, max 3)
 ```
 
-- [ ] Kumpulkan hits tool `search_help_articles` di agent loop → map ke `{ slug, title, summary }`
-- [ ] Log ke `HelpInteraction` (field existing / `changes` / `citedArticleIds`) agar dashboard bisa hitung % grounded
-- [ ] System prompt: tetap sebut judul di jawaban; **card di UI mengandalkan `citedArticles`**, bukan parsing text
-- [ ] UI: di bawah bubble assistant, max **3** card:
+- [x] Kumpulkan hits tool `search_help_articles` di agent loop → map ke `{ slug, title, summary }`
+- [x] Log ke `HelpInteraction` (field existing / `changes` / `citedArticleIds`) agar dashboard bisa hitung % grounded
+- [x] System prompt: tetap sebut judul di jawaban; **card di UI mengandalkan `citedArticles`**, bukan parsing text
+- [x] UI: di bawah bubble assistant, max **3** card:
 
 ```text
 ┌──────────────────────────────────────┐
@@ -670,9 +670,9 @@ citedArticles?: Array<{
 └──────────────────────────────────────┘
 ```
 
-- [ ] Style: `rounded-xl border border-brand-border bg-brand-glass p-3 hover:bg-brand-glass-heavy`
-- [ ] `Link` ke `/support/{slug}` (same tab)
-- [ ] Empty: jika tool dipanggil tapi 0 hit → **jangan** empty card; biarkan prose + soft “Belum ada panduan spesifik — coba tab Cara pakai / eskalasi”
+- [x] Style: `rounded-xl border border-brand-border bg-brand-glass p-3 hover:bg-brand-glass-heavy`
+- [x] `Link` ke `/support/{slug}` (same tab)
+- [x] Empty: jika tool dipanggil tapi 0 hit → **jangan** empty card; biarkan prose + soft “Belum ada panduan spesifik — coba tab Cara pakai / eskalasi”
 
 **Done when:** tanya “cara buat SO” → card artikel seed muncul meski model tidak menulis URL sempurna.
 
@@ -682,12 +682,12 @@ citedArticles?: Array<{
 
 **Saat ini:** `whitespace-pre-wrap` saja.
 
-- [ ] Lightweight renderer (shared helper, reuse pola `support/[slug]` bila ada):  
+- [x] Lightweight renderer (shared helper, reuse pola `support/[slug]` bila ada):  
   `**bold**`, `*italic*`, `` `inline code` ``, URL → `<a>`, list `-` / `1.`, paragraph `\n\n`
-- [ ] **Jangan** tarik `react-markdown` full kecuali sudah ada di bundle dan trivial
-- [ ] External URL: `target="_blank" rel="noopener noreferrer"`; internal `/support/*` same tab
-- [ ] Sanitize: no raw HTML injection
-- [ ] Unit test kecil: bold + list + link
+- [x] **Jangan** tarik `react-markdown` full kecuali sudah ada di bundle dan trivial
+- [x] External URL: `target="_blank" rel="noopener noreferrer"`; internal `/support/*` same tab
+- [x] Sanitize: no raw HTML injection
+- [x] Unit test kecil: bold + list + link
 
 **Done when:** jawaban multi-langkah SOP terbaca sebagai list, bukan blok teks.
 
@@ -695,12 +695,12 @@ citedArticles?: Array<{
 
 #### Slice M3 — Loading trust + input polish (0.25–0.5 hari)
 
-- [ ] Typing indicator 3-dot (CSS `animate-bounce` staggered) di bubble glass; `role="status"` + sr-only
-- [ ] Setelah ~12–15s: teks “Masih memproses…” + **Batalkan** (`AbortController` di `fetch`)
-- [ ] Smart auto-scroll: hanya stick-to-bottom jika user sudah di dekat bottom (jangan ganggu saat scroll naik baca jawaban panjang)
-- [ ] Textarea auto-resize max ~4 baris; hint `Enter` kirim / `Shift+Enter` baris baru (jika belum jelas)
-- [ ] Copy jawaban assistant (icon hover / always on mobile)
-- [ ] Character near-limit: tampilkan sisa saat ≥1800/2000
+- [x] Typing indicator 3-dot (CSS `animate-bounce` staggered) di bubble glass; `role="status"` + sr-only
+- [x] Setelah ~12–15s: teks “Masih memproses…” + **Batalkan** (`AbortController` di `fetch`)
+- [x] Smart auto-scroll: hanya stick-to-bottom jika user sudah di dekat bottom (jangan ganggu saat scroll naik baca jawaban panjang)
+- [x] Textarea auto-resize max ~4 baris; hint `Enter` kirim / `Shift+Enter` baris baru (jika belum jelas)
+- [x] Copy jawaban assistant (icon hover / always on mobile)
+- [x] Character near-limit: tampilkan sisa saat ≥1800/2000
 
 **Out of scope M3:** framer-motion entry per message, time-of-day separators, char counter selalu visible.
 
@@ -714,26 +714,26 @@ Bukan redesign visual besar — **kurangi friksi menuju help**:
 
 **A. ContextualHelp**
 
-- [ ] Popover konsisten brand (border-brand, glass) — sama “bahasa visual” dengan chat
-- [ ] Primary CTA sekunder: “Tanya Virtual CS” dengan prefill (M0)
-- [ ] Max 5 links; label jelas (“Langkah confirm SO”, bukan slug mentah)
+- [x] Popover konsisten brand (border-brand, glass) — sama “bahasa visual” dengan chat
+- [x] Primary CTA sekunder: “Tanya Virtual CS” dengan prefill (M0)
+- [x] Max 5 links; label jelas (“Langkah confirm SO”, bukan slug mentah)
 
 **B. Error → help (melengkapi G)**
 
-- [ ] Pattern CTA seragam di 2–3 error top:  
+- [x] Pattern CTA seragam di 2–3 error top:  
   primary **Lihat panduan** | secondary **Tanya CS**  
-- [ ] Copy singkat di toast: *apa artinya* + *apa yang bisa dilakukan* (1 baris), bukan error code mentah saja
+- [x] Copy singkat di toast: *apa artinya* + *apa yang bisa dilakukan* (1 baris), bukan error code mentah saja
 
 **C. Chat empty / blocked / failed states**
 
-- [ ] Blocked mutasi: arahkan ke UI modul + optional link artikel terkait bila ada
-- [ ] Failed/network: “Coba lagi” + link hub Cara pakai (bukan dead end)
-- [ ] Welcome singkat + chips (existing) — **tanpa** redesign grid 2×4 di phase ini; cukup pastikan chips cover top pain founder
+- [x] Blocked mutasi: arahkan ke UI modul + optional link artikel terkait bila ada
+- [x] Failed/network: “Coba lagi” + link hub Cara pakai (bukan dead end)
+- [x] Welcome singkat + chips (existing) — **tanpa** redesign grid 2×4 di phase ini; cukup pastikan chips cover top pain founder
 
 **D. Widget**
 
-- [ ] Pastikan allowlist path cover pain surfaces (sales, warehouse, production, finance, purchasing, hrd, access)
-- [ ] Header widget: 1 baris trust (“Panduan & cek data · tidak mengubah transaksi”)
+- [x] Pastikan allowlist path cover pain surfaces (sales, warehouse, production, finance, purchasing, hrd, access)
+- [x] Header widget: 1 baris trust (“Panduan & cek data · tidak mengubah transaksi”)
 
 **Done when:** di 1 alur error + 1 halaman contextual, user bisa selesaikan tanpa buka sidebar manual.
 
@@ -840,7 +840,7 @@ Kunci keberhasilan = **F+G**, **seed yang jujur**, **citation grounding**, **chr
 
 ---
 
-### Phase 1.6 — Support IA: tetap di ERP (bukan planet lain) (S, 1–2 hari) ← **NEXT**
+### Phase 1.6 — Support IA: tetap di ERP (bukan planet lain) (S, 1–2 hari) ✅ DONE
 
 > **Temuan prod (kiyowo):** `/support` hanya menampilkan item Bantuan di sidebar — modul hilang.  
 > Root cause: `src/app/support/layout.tsx` → `permissions={['/support']}`.  
@@ -851,9 +851,9 @@ Kunci keberhasilan = **F+G**, **seed yang jujur**, **citation grounding**, **chr
 
 #### Slice N0 — Restore full module sidebar (P0, ≤0.25 hari)
 
-- [ ] `SupportLayout`: **jangan** hardcode `permissions={['/support']}`
-- [ ] Resolve permissions **sama pola** layout portal/dashboard lain (session user role → granted paths / `"ALL"` untuk admin)
-- [ ] Pastikan item Bantuan tetap visible + active state saat `pathname` starts with `/support`
+- [x] `SupportLayout`: **jangan** hardcode `permissions={['/support']}`
+- [x] Resolve permissions **sama pola** layout portal/dashboard lain (session user role → granted paths / `"ALL"` untuk admin)
+- [x] Pastikan item Bantuan tetap visible + active state saat `pathname` starts with `/support`
 - [ ] Smoke: login role terbatas (mis. hanya warehouse) → di `/support` tetap lihat modul yang diizinkan, **bukan** hanya Bantuan dan **bukan** bocor modul terlarang
 
 **Done when:** screenshot sidebar di `/support` mirip sidebar di `/sales` (modul tetap ada).
@@ -867,10 +867,10 @@ Kunci keberhasilan = **F+G**, **seed yang jujur**, **citation grounding**, **chr
 | `/support/cs` | Tanya Virtual CS | `PolyflowChatPanel` embedded full height |
 | `/support/[slug]` | Artikel detail | Tetap; breadcrumb `Bantuan › {title}` |
 
-- [ ] Extract shared list UI dari `support/page.tsx` (hindari duplikasi howto vs troubleshoot)
-- [ ] Hapus tab bar Cara pakai | Troubleshooting | Tanya CS dari content
-- [ ] Redirect kompatibilitas: `/support?tab=cs` → `/support/cs` (+ preserve `q`); `?tab=troubleshoot` → `/support/troubleshooting`
-- [ ] Update semua deep link internal: ContextualHelp, error-help-links, chat citation, empty-state copy
+- [x] Extract shared list UI dari `support/page.tsx` (hindari duplikasi howto vs troubleshoot)
+- [x] Hapus tab bar Cara pakai | Troubleshooting | Tanya CS dari content
+- [x] Redirect kompatibilitas: `/support?tab=cs` → `/support/cs` (+ preserve `q`); `?tab=troubleshoot` → `/support/troubleshooting`
+- [x] Update semua deep link internal: ContextualHelp, error-help-links, chat citation, empty-state copy
 
 **Done when:** tidak ada tab switcher di content; 3 route di atas UAT-able.
 
@@ -887,19 +887,19 @@ Bantuan                    ← collapsible; default open jika pathname.startsWit
   └─ Tanya Virtual CS      → /support/cs
 ```
 
-- [ ] `sidebar-nav.tsx` (dan `portal-sidebar-base` bila perlu konsistensi): ganti single link Bantuan → group + children
-- [ ] Active state per child (exact / prefix)
-- [ ] Collapsed sidebar: icon Bantuan + tooltip; expand flyout atau navigate ke `/support`
-- [ ] **Jangan** inject daftar `HelpArticle` ke sidebar (tetap di content)
-- [ ] Mobile drawer: children tetap accessible
+- [x] `sidebar-nav.tsx`: ganti single link Bantuan → group + children
+- [x] Active state per child (exact / prefix)
+- [x] Collapsed sidebar: icon Bantuan + tooltip; expand flyout atau navigate ke `/support`
+- [x] **Jangan** inject daftar `HelpArticle` ke sidebar (tetap di content)
+- [x] Mobile drawer: children tetap accessible
 
 **Done when:** user expand Bantuan, pilih Tanya CS, modul Sales masih di atas.
 
 #### Slice N3 — Content chrome selaras modul (0.25–0.5 hari)
 
-- [ ] Page header standar (seperti modul lain): title + 1 baris subtitle — kurangi hero “SUPPORT CENTER” terpisah bila terasa alien
-- [ ] Empty state: copy + **CTA chips** ke `/support/cs` / quick questions — bukan cuma “buka tab lain”
-- [ ] Breadcrumb path: `Bantuan` / `Bantuan › Troubleshooting` / `Bantuan › {artikel}`
+- [x] Page header standar (seperti modul lain): title + 1 baris subtitle — kurangi hero “SUPPORT CENTER” terpisah bila terasa alien
+- [x] Empty state: copy + **CTA chips** ke `/support/cs` / quick questions — bukan cuma “buka tab lain”
+- [x] Breadcrumb path: `Bantuan` / `Bantuan › Troubleshooting` / `Bantuan › {artikel}`
 - [ ] Pastikan seed **PUBLISHED di main DB prod** (empty list di tenant = first-door mati meski IA bagus)
 
 **Done when:** empty/full state terasa “halaman modul”, bukan landing terisolasi.
@@ -1082,7 +1082,7 @@ Parallel aman: review top gaps mingguan; konten seed || 1.6.
 | 0 | S | Rendah | Schema + logging — done |
 | 1 | M | Sedang | UX + seed; F+G first-door — done (tab IA = debt) |
 | 1.5 | S | Rendah | Grounding + first-door UX — done |
-| 1.6 | S | Rendah | **NEXT** — fix planet-lain: permissions + 3 child sidebar |
+| 1.6 | S | Rendah | ✅ DONE — permissions + routes + sidebar children |
 | 2 | M | Rendah–sedang | Super-admin — done |
 | 3 | M–L | Sedang | Auto-learn infra done; quality butuh traffic |
 | 4 | L | Sedang | Scope creep tenant-local + visual polish |
@@ -1098,7 +1098,9 @@ Risiko terbesar **bukan** teknis LLM, tapi:
 
 ---
 
-## 11) Keputusan yang perlu konfirmasi dari kamu
+## 11) Keputusan — sudah diputuskan ✅
+
+> Semua sudah diputuskan dan diimplementasi. Tabel di bawah arsip.
 
 Sebelum implementasi, konfirmasi ringkas:
 
@@ -1139,7 +1141,7 @@ Sebelum implementasi, konfirmasi ringkas:
 ## 14) Next step (status sekarang)
 
 1. ~~Phase 0–3 fitur inti~~ — done  
-2. **Phase 1.6 (NEXT):**  
+2. ~~**Phase 1.6:**~~ ✅ done (commit 1d1c4dee)  
    - N0: `SupportLayout` pakai permission user nyata (bukan `['/support']`)  
    - N1: route `/support`, `/support/troubleshooting`, `/support/cs` — hapus tab  
    - N2: sidebar Bantuan expandable + 3 child  

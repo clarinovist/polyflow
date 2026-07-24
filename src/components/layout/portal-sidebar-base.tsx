@@ -1,8 +1,9 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
-import { Menu, X, LogOut, Moon, Sun, Settings, PanelLeftClose, PanelLeftOpen, MessageCircleHeart } from 'lucide-react';
+import { ReactNode, useState, useEffect } from 'react';
+import { Menu, X, LogOut, Moon, Sun, Settings, PanelLeftClose, PanelLeftOpen, MessageCircleHeart, BookOpen, AlertTriangle, MessageCircle, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
@@ -34,6 +35,13 @@ export function PortalSidebarBase({
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const { isCollapsed, toggle: toggleCollapse } = useSidebarCollapse();
+    const pathname = usePathname();
+    const isSupportActive = pathname.startsWith('/support');
+    const [helpOpen, setHelpOpen] = useState(isSupportActive);
+
+    useEffect(() => {
+        if (isSupportActive) setHelpOpen(true);
+    }, [isSupportActive]);
 
     const cycleTheme = () => {
         if (theme === 'light') setTheme('dark');
@@ -124,19 +132,78 @@ export function PortalSidebarBase({
                     )}>
                         {children}
 
-                        {/* Help Link */}
+                        {/* Help Link - expandable with 3 children */}
                         <div className={isCollapsed ? "pt-2" : "pt-4 mt-auto"}>
-                            <Link
-                                href="/support"
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm",
-                                    "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                                )}
-                                title={mainNavLabels.help}
-                            >
-                                <MessageCircleHeart className="h-4 w-4" />
-                                {!isCollapsed && <span>{mainNavLabels.help}</span>}
-                            </Link>
+                            {isCollapsed ? (
+                                <Link
+                                    href="/support"
+                                    className={cn(
+                                        "flex items-center justify-center rounded-lg px-3 py-2 transition-colors font-medium text-sm",
+                                        isSupportActive
+                                            ? "bg-primary/10 text-primary"
+                                            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                    )}
+                                    title="Bantuan"
+                                >
+                                    <MessageCircleHeart className="h-4 w-4" />
+                                </Link>
+                            ) : (
+                                <div>
+                                    <button
+                                        onClick={() => setHelpOpen(!helpOpen)}
+                                        className={cn(
+                                            "flex items-center gap-3 w-full rounded-lg px-3 py-2 transition-colors font-medium text-sm",
+                                            isSupportActive
+                                                ? "text-primary"
+                                                : "text-muted-foreground hover:text-sidebar-foreground"
+                                        )}
+                                    >
+                                        <MessageCircleHeart className="h-4 w-4" />
+                                        <span className="flex-1 text-left">{mainNavLabels.help}</span>
+                                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", helpOpen && "rotate-180")} />
+                                    </button>
+                                    {helpOpen && (
+                                        <div className="ml-3 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
+                                            <Link
+                                                href="/support"
+                                                className={cn(
+                                                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs transition-colors",
+                                                    pathname === '/support'
+                                                        ? "bg-primary/10 text-primary font-medium"
+                                                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                                )}
+                                            >
+                                                <BookOpen className="h-3.5 w-3.5" />
+                                                Cara Pakai
+                                            </Link>
+                                            <Link
+                                                href="/support/troubleshooting"
+                                                className={cn(
+                                                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs transition-colors",
+                                                    pathname === '/support/troubleshooting'
+                                                        ? "bg-primary/10 text-primary font-medium"
+                                                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                                )}
+                                            >
+                                                <AlertTriangle className="h-3.5 w-3.5" />
+                                                Troubleshooting
+                                            </Link>
+                                            <Link
+                                                href="/support/cs"
+                                                className={cn(
+                                                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs transition-colors",
+                                                    pathname === '/support/cs'
+                                                        ? "bg-primary/10 text-primary font-medium"
+                                                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                                )}
+                                            >
+                                                <MessageCircle className="h-3.5 w-3.5" />
+                                                Tanya Virtual CS
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </nav>
 

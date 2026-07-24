@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
+import { ArticleBodyRenderer } from '@/components/support/article-renderer';
 
 export default async function ArticleDetailPage({
   params,
@@ -59,29 +60,9 @@ export default async function ArticleDetailPage({
 
         {/* Article Body */}
         <div className="rounded-2xl border border-slate-200 dark:border-zinc-700 bg-white/80 dark:bg-zinc-900/80 p-6 shadow-sm backdrop-blur-sm">
-          <div className="prose prose-slate dark:prose-invert max-w-none">
-            {article.bodyMd.split('\n').map((line, i) => {
-              if (line.startsWith('## ')) {
-                return <h2 key={i} className="text-lg font-bold mt-6 mb-2">{line.replace('## ', '')}</h2>;
-              }
-              if (line.startsWith('### ')) {
-                return <h3 key={i} className="text-base font-semibold mt-4 mb-1.5">{line.replace('### ', '')}</h3>;
-              }
-              if (line.startsWith('- ')) {
-                return <li key={i} className="text-sm ml-4">{line.replace('- ', '')}</li>;
-              }
-              if (/^\d+\.\s/.test(line)) {
-                return <li key={i} className="text-sm ml-4 list-decimal">{line.replace(/^\d+\.\s/, '')}</li>;
-              }
-              if (line.startsWith('> ')) {
-                return <blockquote key={i} className="border-l-4 border-primary/30 pl-4 text-sm italic text-muted-foreground my-2">{line.replace('> ', '')}</blockquote>;
-              }
-              if (line.trim() === '') {
-                return <br key={i} />;
-              }
-              return <p key={i} className="text-sm leading-relaxed">{line}</p>;
-            })}
-          </div>
+          <article className="prose prose-slate dark:prose-invert max-w-none">
+            <ArticleBodyRenderer bodyMd={article.bodyMd} />
+          </article>
         </div>
 
         {/* Footer CTA */}
