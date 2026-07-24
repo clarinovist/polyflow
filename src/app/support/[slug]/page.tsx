@@ -1,5 +1,4 @@
-import { auth } from '@/auth';
-import { redirect, notFound } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { getPublishedArticleBySlug } from '@/lib/bot/help-articles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,12 +10,6 @@ export default async function ArticleDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const session = await auth();
-
-  if (!session?.user) {
-    redirect('/login');
-  }
-
   const { slug } = await params;
   const article = await getPublishedArticleBySlug(slug);
 
@@ -25,7 +18,7 @@ export default async function ArticleDetailPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-100 dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900 p-4 md:p-6 lg:p-8">
+    <div className="p-4 md:p-6 lg:p-8">
       <div className="mx-auto max-w-3xl">
         {/* Header */}
         <div className="mb-6">
