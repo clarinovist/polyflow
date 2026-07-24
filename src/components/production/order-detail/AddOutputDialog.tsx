@@ -35,34 +35,43 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
     const [notes, setNotes] = useState("");
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
 
-    // Auto-detect Shift
-    const { matchedShift, defaultShift, defaultOperator } = useMemo(() => {
+    // Auto-detect ProductionShift (order-scoped). WorkShift is template only — FK needs ProductionShift.id.
+    const { matchedShift, defaultShift, defaultOperator, shiftOptions } = useMemo(() => {
+        const prodShifts = order.shifts || [];
         const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        const currentTimeVal = currentHour * 60 + currentMinute;
 
-        const matched = formData.workShifts.find(shift => {
+        const activeByTime = prodShifts.find((ps) => {
+            const start = new Date(ps.startTime).getTime();
+            const end = new Date(ps.endTime).getTime();
+            const t = now.getTime();
+            return t >= start && t <= end;
+        });
+
+        const matchedWorkShift = formData.workShifts.find((shift) => {
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeVal = currentHour * 60 + currentMinute;
             const [startH, startM] = shift.startTime.split(':').map(Number);
             const [endH, endM] = shift.endTime.split(':').map(Number);
             const startVal = startH * 60 + startM;
             const endVal = endH * 60 + endM;
-
             if (startVal <= endVal) {
                 return currentTimeVal >= startVal && currentTimeVal <= endVal;
-            } else {
-                return currentTimeVal >= startVal || currentTimeVal <= endVal;
             }
+            return currentTimeVal >= startVal || currentTimeVal <= endVal;
         });
 
-        const activeProdShift = matched
-            ? order.shifts?.find((ps) => ps.shiftName === matched.name)
+        const matchedByName = matchedWorkShift
+            ? prodShifts.find((ps) => ps.shiftName === matchedWorkShift.name)
             : null;
 
+        const activeProdShift = activeByTime || matchedByName || prodShifts[0] || null;
+
         return {
-            matchedShift: matched,
-            defaultShift: matched?.id || formData.workShifts[0]?.id,
-            defaultOperator: activeProdShift?.operatorId || formData.operators[0]?.id
+            matchedShift: matchedWorkShift,
+            defaultShift: activeProdShift?.id || '',
+            defaultOperator: activeProdShift?.operatorId || formData.operators[0]?.id,
+            shiftOptions: prodShifts,
         };
     }, [formData.workShifts, formData.operators, order.shifts]);
 
@@ -219,13 +228,19 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                                     name="shiftId"
                                                     defaultValue={defaultShift}
                                                     required
+                                                    disabled={shiftOptions.length === 0}
                                                     className="flex h-10 w-full items-center justify-between rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
                                                 >
-                                                    {formData.workShifts.map(s => (
-                                                        <option key={s.id} value={s.id}>
-                                                            {s.name} ({s.startTime} - {s.endTime})
-                                                        </option>
-                                                    ))}
+                                                    {shiftOptions.length === 0 ? (
+                                                        <option value="">Belum ada shift di SPK — tambah dulu di tab Sumber Daya</option>
+                                                    ) : (
+                                                        shiftOptions.map((s) => (
+                                                            <option key={s.id} value={s.id}>
+                                                                {s.shiftName}
+                                                                {s.operator?.name ? ` — ${s.operator.name}` : ''}
+                                                            </option>
+                                                        ))
+                                                    )}
                                                 </select>
                                                 <div className="pointer-events-none absolute right-3 top-3 opacity-50">
                                                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -233,8 +248,11 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                                     </svg>
                                                 </div>
                                             </div>
-                                            {matchedShift && (
+                                            {matchedShift && shiftOptions.length > 0 && (
                                                 <p className="text-[10px] text-success font-bold uppercase tracking-tight">Active: {matchedShift.name} ({matchedShift.startTime} - {matchedShift.endTime})</p>
+                                            )}
+                                            {shiftOptions.length === 0 && (
+                                                <p className="text-[10px] text-destructive font-bold uppercase tracking-tight">Tambah ProductionShift di detail SPK dulu</p>
                                             )}
                                         </div>
 
