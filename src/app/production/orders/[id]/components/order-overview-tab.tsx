@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { History, Factory, Camera } from "lucide-react";
+import { History, Factory, Camera, Package } from "lucide-react";
 import { cn, formatRupiah } from "@/lib/utils/utils";
 import {
   formatProductionQuantity,
@@ -13,8 +13,6 @@ import {
 } from "@/lib/utils/production-units";
 import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
-import { ReassignMachineButton } from "@/components/production/ReassignMachineButton";
-import { ReassignOutputLocationButton } from "@/components/production/ReassignOutputLocationButton";
 import { ExtendedProductionOrder } from "@/components/production/order-detail/types";
 import { VoidExecutionButton } from "@/components/production/VoidExecutionButton";
 
@@ -29,13 +27,13 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 interface OrderOverviewTabProps {
   order: ExtendedProductionOrder;
-  formData: {
+  formData?: {
     machines: Machine[];
     locations: Location[];
   };
 }
 
-export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
+export function OrderOverviewTab({ order, formData: _formData }: OrderOverviewTabProps) {
   const plannedQty = Number(order.plannedQuantity);
   const actualQty = Number(order.actualQuantity || 0);
   const progress = Math.min((actualQty / plannedQty) * 100, 100);
@@ -129,9 +127,9 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Order Details & Resources */}
-        <Card className="lg:col-span-1 h-fit">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* Column 1: Order Details */}
+        <Card className="h-fit">
           <CardHeader>
             <CardTitle className="text-base">Informasi SPK</CardTitle>
           </CardHeader>
@@ -150,27 +148,6 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
                     : "-"
                 }
               />
-              <div
-                id="output-location"
-                className="flex justify-between items-start border-b pb-2 gap-3 scroll-mt-24"
-              >
-                <span className="text-muted-foreground text-sm shrink-0">
-                  Lokasi Output
-                </span>
-                <div className="flex items-start gap-1.5 min-w-0 text-right">
-                  <span className="font-medium text-sm break-words">
-                    {order.location.name}
-                  </span>
-                  <ReassignOutputLocationButton
-                    orderId={order.id}
-                    orderNumber={order.orderNumber}
-                    orderStatus={order.status}
-                    currentLocationId={order.locationId}
-                    currentLocationName={order.location.name}
-                    locations={formData.locations}
-                  />
-                </div>
-              </div>
               <DetailRow label="Sumber Permintaan" value={demandSourceLabel} />
               {order.salesOrder && (
                 <DetailRow
@@ -204,34 +181,107 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
                 <Factory className="w-3 h-3" /> Sumber Daya
               </h4>
               <div className="space-y-4">
-                <div className="flex justify-between items-center border-b pb-2 last:border-0 last:pb-0">
-                  <span className="text-muted-foreground text-sm">Mesin</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">
-                      {order.machine?.name || "Belum ditugaskan"}
-                    </span>
-                    <ReassignMachineButton
-                      orderId={order.id}
-                      orderNumber={order.orderNumber}
-                      currentMachineId={order.machine?.id || null}
-                      machines={formData.machines}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Tenaga Kerja
-                  </p>
-                  <p className="text-sm font-medium">
-                    {order.shifts?.length || 0} Shift Ditugaskan
-                  </p>
-                </div>
+                <DetailRow
+                  label="Mesin"
+                  value={order.machine?.name || "Belum ditugaskan"}
+                />
+                <DetailRow
+                  label="Shift Ditugaskan"
+                  value={`${order.shifts?.length || 0} shift`}
+                />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Right Column: Production History */}
+        {/* Column 2: Materials Readiness */}
+        <Card className="h-fit">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="w-4 h-4" /> Kesiapan Bahan
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const total = order.plannedMaterials?.length || 0;
+              const ready = (order.plannedMaterials || []).filter((m) => {
+                const issued = (order.materialIssues || [])
+                  .filter(
+                    (mi) =>
+                      mi.productVariantId === m.productVariantId &&
+                      mi.status !== "VOIDED",
+                  )
+                  .reduce((sum, mi) => sum + Number(mi.quantity), 0);
+                return issued >= Number(m.quantity);
+              }).length;
+              const allReady = total > 0 && ready === total;
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Status Bahan
+                    </span>
+                    {allReady ? (
+                      <Badge
+                        variant="outline"
+                        className="text-xs border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400"
+                      >
+                        Siap ({ready}/{total})
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-xs border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-400"
+                      >
+                        Menunggu ({ready}/{total})
+                      </Badge>
+                    )}
+                  </div>
+                  {(order.plannedMaterials || []).slice(0, 5).map((m) => {
+                    const issued = (order.materialIssues || [])
+                      .filter(
+                        (mi) =>
+                          mi.productVariantId === m.productVariantId &&
+                          mi.status !== "VOIDED",
+                      )
+                      .reduce((sum, mi) => sum + Number(mi.quantity), 0);
+                    const req = Number(m.quantity);
+                    const pct = req > 0 ? Math.min((issued / req) * 100, 100) : 0;
+                    const isReady = issued >= req;
+
+                    return (
+                      <div key={m.id} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span
+                            className={
+                              isReady
+                                ? "text-emerald-700 dark:text-emerald-400"
+                                : "text-foreground"
+                            }
+                          >
+                            {m.productVariant.name}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {isReady ? "✓" : `${issued.toFixed(0)}/${req.toFixed(0)}`}
+                          </span>
+                        </div>
+                        <Progress value={pct} className="h-1" />
+                      </div>
+                    );
+                  })}
+                  {(order.plannedMaterials?.length || 0) > 5 && (
+                    <p className="text-xs text-muted-foreground">
+                      +{(order.plannedMaterials?.length || 0) - 5} bahan lainnya di tab Sumber Daya
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Column 3-4: Production History */}
         <Card className="lg:col-span-2 h-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

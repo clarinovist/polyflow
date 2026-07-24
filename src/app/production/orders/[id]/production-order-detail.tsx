@@ -15,7 +15,6 @@ import { ExtendedProductionOrder } from "@/components/production/order-detail/ty
 import { OrderWorkflowStepper } from "@/components/production/order-detail/OrderWorkflowStepper";
 
 import { OrderOverviewTab } from "./components/order-overview-tab";
-import { OrderMaterialsTab } from "./components/order-materials-tab";
 import { OrderExecutionTab } from "./components/order-execution-tab";
 import { OrderIssuesTab } from "./components/order-issues-tab";
 import { OrderCostingTab } from "./components/order-costing-tab";
@@ -37,9 +36,9 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
   const getDefaultTab = (status: string) => {
     switch (status) {
       case "WAITING_MATERIAL":
-        return "materials";
+        return "overview";
       case "RELEASED":
-        return "materials";
+        return "overview";
       case "IN_PROGRESS":
         return "execution";
       default:
@@ -54,13 +53,16 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
   const [loadingCosting, setLoadingCosting] = useState(false);
 
   useEffect(() => {
-    if (activeTab === "costing" && !costingData) {
+    if (activeTab === "issues_costing" && !costingData) {
       setLoadingCosting(true);
       getOrderCosting(order.id)
         .then(setCostingData)
         .finally(() => setLoadingCosting(false));
     }
   }, [activeTab, order.id, costingData]);
+
+  const openIssueCount =
+    order.issues?.filter((i) => i.status === "OPEN").length || 0;
 
   return (
     <div className="space-y-6">
@@ -70,39 +72,25 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto pb-2 custom-scrollbar">
-          <TabsList className="flex w-max min-w-full lg:grid lg:w-[600px] lg:grid-cols-5">
-            <TabsTrigger value="overview" className="px-6 lg:px-2">
-              Ringkasan
+          <TabsList className="flex w-max min-w-full lg:grid lg:w-[500px] lg:grid-cols-3">
+            <TabsTrigger value="overview" className="px-6 lg:px-4">
+              Operasional
             </TabsTrigger>
 
-            <TabsTrigger value="materials" className="relative px-6 lg:px-2">
-              Bahan
-              {order.status === "RELEASED" && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse dark:bg-blue-400" />
-              )}
-              {order.status === "WAITING_MATERIAL" && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse dark:bg-amber-400" />
-              )}
-            </TabsTrigger>
-
-            <TabsTrigger value="execution" className="relative px-6 lg:px-2">
-              Eksekusi
+            <TabsTrigger value="execution" className="relative px-6 lg:px-4">
+              Sumber Daya
               {order.status === "IN_PROGRESS" && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse dark:bg-amber-400" />
               )}
             </TabsTrigger>
 
-            <TabsTrigger value="issues" className="relative px-6 lg:px-2">
-              Isu
-              {order.issues?.some((i) => i.status === "OPEN") && (
+            <TabsTrigger value="issues_costing" className="relative px-6 lg:px-4">
+              Biaya & Isu
+              {openIssueCount > 0 && (
                 <span className="ml-1 px-1.5 text-[10px] bg-red-500 text-white rounded-full dark:bg-red-400">
-                  {order.issues.filter((i) => i.status === "OPEN").length}
+                  {openIssueCount}
                 </span>
               )}
-            </TabsTrigger>
-
-            <TabsTrigger value="costing" className="px-6 lg:px-2">
-              Biaya
             </TabsTrigger>
           </TabsList>
         </div>
@@ -111,24 +99,19 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
           <OrderOverviewTab order={order} formData={formData} />
         </TabsContent>
 
-        <TabsContent value="materials" className="mt-6">
-          <OrderMaterialsTab order={order} formData={formData} />
-        </TabsContent>
-
         <TabsContent value="execution" className="mt-6">
           <OrderExecutionTab order={order} formData={formData} />
         </TabsContent>
 
-        <TabsContent value="issues" className="mt-6">
-          <OrderIssuesTab order={order} />
-        </TabsContent>
-
-        <TabsContent value="costing" className="mt-6">
-          <OrderCostingTab
-            order={order}
-            costingData={costingData}
-            loadingCosting={loadingCosting}
-          />
+        <TabsContent value="issues_costing" className="mt-6">
+          <div className="space-y-6">
+            <OrderIssuesTab order={order} />
+            <OrderCostingTab
+              order={order}
+              costingData={costingData}
+              loadingCosting={loadingCosting}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
