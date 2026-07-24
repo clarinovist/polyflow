@@ -160,6 +160,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             id: user.id,
                             name: user.name,
                             email: user.email,
+                            image: user.avatarUrl || undefined,
                             role: activeRole as Role,     // ACTIVE role (login-selected)
                             roles: userRoles as Role[],   // ALL assigned roles
                             rememberMe: remember,

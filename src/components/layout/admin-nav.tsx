@@ -19,12 +19,15 @@ import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/layout/theme-provider';
 import { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface AdminNavProps {
     user: {
         name?: string | null;
         email?: string | null;
         role?: string | null;
+        image?: string | null;
+        avatarUrl?: string | null;
     }
 }
 
@@ -136,9 +139,14 @@ export function AdminNav({ user }: AdminNavProps) {
                     {/* User Section */}
                     <div className="border-t border-border p-4 bg-muted/30">
                         <div className="flex items-center gap-3 rounded-lg bg-background p-3 border border-border shadow-sm">
-                            <div className="h-9 w-9 rounded-full bg-red-600 flex items-center justify-center text-white shrink-0 font-medium text-sm shadow-inner cursor-default">
-                                {user.name ? user.name.charAt(0).toUpperCase() : 'A'}
-                            </div>
+                            <Avatar className="h-9 w-9 shrink-0">
+                                {(user.image || user.avatarUrl) && (
+                                    <AvatarImage src={(user.image || user.avatarUrl)!} alt={user.name || 'Admin'} className="object-cover" />
+                                )}
+                                <AvatarFallback className="bg-red-600 text-white font-medium text-sm">
+                                    {user.name ? user.name.charAt(0).toUpperCase() : 'A'}
+                                </AvatarFallback>
+                            </Avatar>
                             <div className="flex-1 overflow-hidden min-w-0">
                                 <p className="text-sm font-semibold text-foreground truncate">{user.name || 'Super Admin'}</p>
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">System Owner</p>

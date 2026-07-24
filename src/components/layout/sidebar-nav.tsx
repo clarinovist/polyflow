@@ -32,12 +32,15 @@ import { useTheme } from "@/components/layout/theme-provider";
 import { useState } from "react";
 import { mainNavLabels } from "@/lib/labels";
 import { useSidebarCollapse } from "@/components/layout/sidebar-collapse-context";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface SidebarNavProps {
   user: {
     name?: string | null;
     email?: string | null;
     role?: string | null;
+    image?: string | null;
+    avatarUrl?: string | null;
   };
   permissions: string[] | "ALL";
 }
@@ -309,9 +312,14 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                 isCollapsed ? "justify-center p-2" : "gap-3 p-3",
               )}
             >
-              <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0 font-medium text-sm text-white">
-                {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-              </div>
+              <Avatar className="h-9 w-9 shrink-0">
+                {(user.image || user.avatarUrl) && (
+                  <AvatarImage src={(user.image || user.avatarUrl)!} alt={user.name || "User"} className="object-cover" />
+                )}
+                <AvatarFallback className="bg-primary text-primary-foreground font-medium text-sm text-white">
+                  {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </AvatarFallback>
+              </Avatar>
               {!isCollapsed && (
                 <div className="flex-1 overflow-hidden min-w-0">
                   <p className="text-sm font-semibold text-sidebar-foreground truncate">

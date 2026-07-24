@@ -28,6 +28,7 @@ export default async function ProductionLayout({
         name: session.user?.name,
         email: session.user?.email,
         role: (session.user as { role?: string }).role || 'PRODUCTION',
+        image: session.user?.image,
     };
 
     const reqHeaders = await headers();

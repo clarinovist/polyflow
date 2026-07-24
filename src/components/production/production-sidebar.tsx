@@ -24,8 +24,8 @@ interface ProductionSidebarProps {
         name?: string | null;
         email?: string | null;
         role?: string | null;
+        image?: string | null;
     };
-    /** Fresh rolePermission resources; 'ALL' for tenant admin */
     permissions?: string[] | 'ALL';
 }
 

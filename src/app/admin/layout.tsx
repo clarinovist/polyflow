@@ -22,6 +22,7 @@ export default async function AdminLayout({
         name: session.user?.name,
         email: session.user?.email,
         role: (session.user as { role?: string }).role || 'WAREHOUSE',
+        image: session.user?.image,
     };
 
     return (

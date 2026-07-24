@@ -10,11 +10,15 @@ import { useTheme } from '@/components/layout/theme-provider';
 import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 import { mainNavLabels } from '@/lib/labels';
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 interface PortalSidebarBaseProps {
     user: {
         name?: string | null;
         email?: string | null;
         role?: string | null;
+        image?: string | null;
+        avatarUrl?: string | null;
     };
     portalName: string;
     accentColor?: 'primary' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose';
@@ -142,9 +146,14 @@ export function PortalSidebarBase({
                             "flex items-center rounded-lg bg-sidebar-accent/50 border border-sidebar-border",
                             isCollapsed ? "justify-center p-2" : "gap-3 p-3"
                         )}>
-                            <div className={cn("h-9 w-9 rounded-full flex items-center justify-center text-white shrink-0 font-medium text-sm", avatarColorClass)}>
-                                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                            </div>
+                            <Avatar className="h-9 w-9 shrink-0">
+                                {(user.image || user.avatarUrl) && (
+                                    <AvatarImage src={(user.image || user.avatarUrl)!} alt={user.name || 'User'} className="object-cover" />
+                                )}
+                                <AvatarFallback className={cn("text-white font-medium text-sm", avatarColorClass)}>
+                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                </AvatarFallback>
+                            </Avatar>
                             {!isCollapsed && (
                                 <div className="flex-1 overflow-hidden min-w-0">
                                     <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>

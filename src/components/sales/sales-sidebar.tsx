@@ -24,8 +24,8 @@ interface SalesSidebarProps {
         name?: string | null;
         email?: string | null;
         role?: string | null;
+        image?: string | null;
     };
-    /** Fresh rolePermission resources; 'ALL' for tenant admin */
     permissions?: string[] | 'ALL';
 }
 
@@ -86,7 +86,7 @@ export function SalesSidebar({ user, permissions }: SalesSidebarProps) {
             {/* Mobile Mode — footer entry */}
             <div className="mt-auto pt-4 border-t border-sidebar-border mx-3">
                 <Link
-                    href="/sales/mobile"
+                    href="/field/sales"
                     className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 >
                     <Smartphone className="h-4 w-4" />

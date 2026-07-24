@@ -12,6 +12,7 @@ import {
   shouldSoftLandDashboard,
   getMobileHomeForUser,
 } from '@/lib/mobile/mobile-access-policy';
+import { hasRole } from '@/lib/auth/roles';
 
 export const authConfig = {
     pages: {
@@ -193,9 +194,9 @@ export const authConfig = {
                             else if (isMobileAllowlistedPath(pathname)) {
                                 // fall through — RBAC will be checked by workspace/role logic
                             }
-                            // Sales soft-landing — /sales/* → /sales/mobile
+                            // Sales soft-landing — /sales/* → /field/sales
                             else if (shouldSoftLandToSalesMobile(pathname)) {
-                                return Response.redirect(new URL('/sales/mobile', nextUrl));
+                                return Response.redirect(new URL('/field/sales', nextUrl));
                             }
                             // Warehouse soft-landing — /warehouse/* → /warehouse/mobile
                             else if (shouldSoftLandToWarehouseMobile(pathname)) {
@@ -229,6 +230,19 @@ export const authConfig = {
                                 const redirectUrl = getDefaultRedirectForUser(user);
                                 return Response.redirect(new URL(redirectUrl, nextUrl));
                             }
+
+                            // === SALES-ONLY USER: /sales back-office → /field/sales ===
+                            // SALES-only (no ADMIN role) users should stay in the field portal.
+                            // Redirect any attempt to access /sales/* back-office to /field/sales.
+                            if (
+                                hasRole(user, 'SALES') &&
+                                !hasRole(user, 'ADMIN') &&
+                                pathname.startsWith('/sales') &&
+                                !pathname.startsWith('/field')
+                            ) {
+                                return Response.redirect(new URL('/field/sales', nextUrl));
+                            }
+
                             return true;
                         }
 
@@ -293,6 +307,7 @@ export const authConfig = {
             if (user) {
                 const u = user as {
                     id?: string;
+                    image?: string;
                     role?: string;
                     roles?: string[];
                     rememberMe?: boolean;
@@ -302,6 +317,7 @@ export const authConfig = {
                     impersonatedBy?: string;
                     impersonationExpiresAt?: number;
                 };
+                if (u.image) token.picture = u.image;
                 token.role = u.role;
                 token.roles = u.roles;
                 token.id = u.id;
@@ -360,6 +376,11 @@ export const authConfig = {
         },
         session({ session, token }) {
             if (session.user) {
+                if (typeof token.picture === 'string') {
+                    session.user.image = token.picture;
+                } else if (!token.picture) {
+                    session.user.image = undefined;
+                }
                 (session.user as { role?: unknown }).role = token.role;
                 (session.user as { roles?: unknown }).roles = token.roles;
                 (session.user as { id?: unknown }).id = token.id;
