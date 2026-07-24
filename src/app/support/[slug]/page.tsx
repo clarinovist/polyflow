@@ -89,7 +89,7 @@ export default async function ArticleDetailPage({
           <p className="text-sm text-muted-foreground mb-3">
             Masih butuh bantuan? Tanya Virtual CS untuk jawaban lebih spesifik.
           </p>
-          <Link href="/support?tab=cs">
+          <Link href={`/support/cs?q=${encodeURIComponent(article.title)}`}>
             <Button className="gap-2">
               <MessageCircle className="h-4 w-4" />
               Tanya Virtual CS

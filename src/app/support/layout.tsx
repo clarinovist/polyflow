@@ -1,4 +1,5 @@
 import { auth } from '@/auth';
+import { getMyPermissions } from '@/actions/admin/permissions';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
@@ -20,9 +21,16 @@ export default async function SupportLayout({
         role: (session.user as { role?: string }).role || 'WAREHOUSE',
     };
 
+    // Same permission resolution as dashboard/layout.tsx — support must NOT strip other modules
+    const permissionsRes = await getMyPermissions();
+    const sessionAllowed = (session.user as { allowedResources?: string[] })?.allowedResources || [];
+    const permissions = permissionsRes.success && permissionsRes.data
+        ? permissionsRes.data
+        : (sessionAllowed.length > 0 ? sessionAllowed : ['/support']);
+
     return (
         <div className="min-h-screen bg-secondary/30">
-            <SidebarNav user={user} permissions={['/support']} />
+            <SidebarNav user={user} permissions={permissions} />
 
             {/* Main Content */}
             <SidebarSpacer>

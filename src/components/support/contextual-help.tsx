@@ -18,8 +18,8 @@ interface ContextualHelpProps {
 export function ContextualHelp({ links, title = 'Butuh bantuan?', prefillQuestion }: ContextualHelpProps) {
   const [open, setOpen] = useState(false);
   const csHref = prefillQuestion
-    ? `/support?tab=cs&q=${encodeURIComponent(prefillQuestion)}`
-    : '/support?tab=cs';
+    ? `/support/cs?q=${encodeURIComponent(prefillQuestion)}`
+    : '/support/cs';
 
   if (!links.length) return null;
 
