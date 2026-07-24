@@ -16,7 +16,7 @@ const getOrdersData = withTenantPage(async (statusFilter?: PurchaseOrderStatus) 
 });
 
 export const metadata: Metadata = {
-    title: 'Order Pembelian (PO) | PolyFlow ERP',
+    title: 'Order Pembelian (PO)',
     description: 'Kelola procurement dan pesanan supplier.',
 };
 

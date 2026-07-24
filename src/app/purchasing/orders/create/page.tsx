@@ -6,7 +6,7 @@ import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
 
 export const metadata: Metadata = {
-    title: 'New Purchase Order | PolyFlow',
+    title: 'Buat Purchase Order Baru',
 };
 
 type ProductVariantWithProduct = {

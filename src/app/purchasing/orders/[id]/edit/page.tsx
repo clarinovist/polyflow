@@ -8,7 +8,7 @@ import { ShoppingCart } from "lucide-react";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Edit Purchase Order | PolyFlow",
+  title: "Edit Purchase Order",
 };
 
 interface PageProps {
