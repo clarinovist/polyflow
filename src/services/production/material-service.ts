@@ -14,40 +14,40 @@ import { AccountingService } from '../accounting/accounting-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { ValidationError, NotFoundError, InsufficientStockError, ProductionRuleViolationError } from '@/lib/errors/errors';
 
-export class ProductionMaterialService {
-
-    private static async getIssueUnitCost(
-        tx: Prisma.TransactionClient,
-        locationId: string,
-        productVariantId: string
-    ): Promise<number> {
-        const inventory = await tx.inventory.findUnique({
-            where: {
-                locationId_productVariantId: { locationId, productVariantId }
-            },
-            select: {
-                averageCost: true,
-                productVariant: {
-                    select: {
-                        standardCost: true,
-                        buyPrice: true,
-                        price: true
-                    }
+async function getIssueUnitCost(
+    tx: Prisma.TransactionClient,
+    locationId: string,
+    productVariantId: string
+): Promise<number> {
+    const inventory = await tx.inventory.findUnique({
+        where: {
+            locationId_productVariantId: { locationId, productVariantId }
+        },
+        select: {
+            averageCost: true,
+            productVariant: {
+                select: {
+                    standardCost: true,
+                    buyPrice: true,
+                    price: true
                 }
             }
-        });
-
-        if (inventory?.averageCost !== null && inventory?.averageCost !== undefined) {
-            return inventory.averageCost.toNumber();
         }
+    });
 
-        return Number(
-            inventory?.productVariant?.standardCost ??
-            inventory?.productVariant?.buyPrice ??
-            inventory?.productVariant?.price ??
-            0
-        );
+    if (inventory?.averageCost !== null && inventory?.averageCost !== undefined) {
+        return inventory.averageCost.toNumber();
     }
+
+    return Number(
+        inventory?.productVariant?.standardCost ??
+        inventory?.productVariant?.buyPrice ??
+        inventory?.productVariant?.price ??
+        0
+    );
+}
+
+export class ProductionMaterialService {
 
     // --- Material Issues ---
 
@@ -213,7 +213,7 @@ export class ProductionMaterialService {
 
                     if (batches.length === 0) {
                         // Fallback: Check if there's stock without batch record
-                        const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
+                        const unitCost = await getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                         await InventoryCoreService.validateAndLockStock(tx, itemLocationId, item.productVariantId, remainingToDeduct);
                         await InventoryCoreService.deductStock(tx, itemLocationId, item.productVariantId, remainingToDeduct);
 
@@ -243,7 +243,7 @@ export class ProductionMaterialService {
                         });
                         await AccountingService.recordInventoryMovement(moveOut, tx);
                     } else {
-                        const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
+                        const unitCost = await getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                         for (const batch of batches) {
                             if (remainingToDeduct <= 0) break;
 
@@ -298,7 +298,7 @@ export class ProductionMaterialService {
                     }
                 } else {
                     // Manual batchId selected
-                    const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
+                    const unitCost = await getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                     const batch = await tx.batch.findUnique({ where: { id: item.batchId } });
                     if (!batch || Number(batch.quantity) < remainingToDeduct) {
                         throw new InsufficientStockError(`Batch ${batch?.batchNumber || item.batchId} stoknya tidak mencukupi atau tidak ditemukan.`);
@@ -487,7 +487,7 @@ export class ProductionMaterialService {
                 // Validate and Lock Inventory Stock
                 await InventoryCoreService.validateAndLockStock(tx, locationId, item.productVariantId, item.quantity);
                 await InventoryCoreService.deductStock(tx, locationId, item.productVariantId, item.quantity);
-                const unitCost = await this.getIssueUnitCost(tx, locationId, item.productVariantId);
+                const unitCost = await getIssueUnitCost(tx, locationId, item.productVariantId);
 
                 if (batches.length === 0) {
                     deductedBatches.push({ batchId: null, quantity: item.quantity });
@@ -680,7 +680,7 @@ export class ProductionMaterialService {
             }
 
             // 3. Read WAC before deduct (cost may change after deduction)
-            const unitCost = await this.getIssueUnitCost(tx, locationId, productVariantId);
+            const unitCost = await getIssueUnitCost(tx, locationId, productVariantId);
 
             // 4. Validate + deduct stock
             await InventoryCoreService.validateAndLockStock(tx, locationId, productVariantId, quantity);
