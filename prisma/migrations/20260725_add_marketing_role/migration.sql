@@ -1,0 +1,2 @@
+-- AlterEnum: Add MARKETING to Role enum
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'MARKETING';

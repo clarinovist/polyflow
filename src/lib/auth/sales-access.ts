@@ -21,7 +21,7 @@ import { BusinessRuleError } from '@/lib/errors/errors';
 /** ADMIN or SALES — for create/edit/confirm/list actions. */
 export async function requireSalesAccess() {
   const session = await requireAuth();
-  if (!hasAnyRole(session.user, ['ADMIN', 'SALES'])) {
+  if (!hasAnyRole(session.user, ['ADMIN', 'SALES', 'MARKETING'])) {
     throw new BusinessRuleError(
       'Unauthorized: Akses sales hanya untuk admin atau sales.',
     );

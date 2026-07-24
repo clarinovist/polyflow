@@ -237,6 +237,7 @@ export const authConfig = {
                             if (
                                 hasRole(user, 'SALES') &&
                                 !hasRole(user, 'ADMIN') &&
+                                !hasRole(user, 'MARKETING') &&
                                 pathname.startsWith('/sales') &&
                                 !pathname.startsWith('/field')
                             ) {

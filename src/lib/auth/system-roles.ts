@@ -15,6 +15,7 @@ export const SYSTEM_ROLES: SystemRole[] = [
   { value: 'PRODUCTION', label: 'Produksi (lantai)', matrix: true, login: true },
   { value: 'PLANNING', label: 'Planning (PPIC)', matrix: true, login: true },
   { value: 'SALES', label: 'Sales', matrix: true, login: true },
+  { value: 'MARKETING', label: 'Marketing', matrix: true, login: true },
   { value: 'FINANCE', label: 'Finance', matrix: true, login: true },
   { value: 'PROCUREMENT', label: 'Purchasing', matrix: true, login: true },
   { value: 'HRD', label: 'HRD', matrix: true, login: true },

@@ -38,6 +38,10 @@ export const roleSelectionLabels = {
       title: 'Sales',
       description: 'Pesanan penjualan, penawaran, dan pelanggan.',
     },
+    MARKETING: {
+      title: 'Marketing',
+      description: 'Pemasaran, promosi, dan analisis penjualan.',
+    },
     FINANCE: {
       title: 'Finance',
       description: 'Faktur, tagihan, dan akuntansi keuangan.',

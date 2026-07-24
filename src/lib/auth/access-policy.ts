@@ -30,7 +30,7 @@ export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
     warehouse: ["ADMIN", "WAREHOUSE", "PRODUCTION", "PLANNING"],
     production: ["ADMIN", "PRODUCTION", "PLANNING", "PROCUREMENT"],
     finance: ["ADMIN", "FINANCE"],
-    sales: ["ADMIN", "SALES"],
+    sales: ["ADMIN", "SALES", "MARKETING"],
     // planning merged into production
     purchasing: ["ADMIN", "PROCUREMENT", "PLANNING"],
     // HRD: admin + finance + hrd role
@@ -217,5 +217,6 @@ export function getDefaultRedirectForUser(user: {
   if (activeRole === "HRD") return "/hrd";
   if (activeRole === "PROCUREMENT") return "/purchasing";
   if (activeRole === "PLANNING") return "/production";
+  if (activeRole === "MARKETING") return "/sales";
   return "/dashboard";
 }

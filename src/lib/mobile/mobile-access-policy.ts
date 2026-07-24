@@ -98,7 +98,7 @@ export function getMobileHomeForUser(user: {
   roles?: string[];
 }): string | null {
   const roles = getUserRoles(user);
-  if (roles.includes("SALES")) return "/field/sales";
+  if (roles.includes("SALES") && !roles.includes("MARKETING")) return "/field/sales";
   if (roles.includes("WAREHOUSE")) return "/warehouse/mobile";
   if (roles.includes("PRODUCTION")) return "/kiosk";
   return null; // fallback → "Kembali ke login"
@@ -113,7 +113,7 @@ export function getMobileHomeCtaKey(user: {
 } | null | undefined): MobileHomeCtaKey {
   if (!user) return null;
   const roles = getUserRoles(user);
-  if (roles.includes("SALES")) return "sales";
+  if (roles.includes("SALES") && !roles.includes("MARKETING")) return "sales";
   if (roles.includes("WAREHOUSE")) return "warehouse";
   if (roles.includes("PRODUCTION")) return "production";
   return null;

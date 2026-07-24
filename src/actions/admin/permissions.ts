@@ -341,6 +341,20 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/hrd/leave",
     "/hrd/disciplinary",
   ],
+  MARKETING: [
+    "/dashboard",
+    "/sales",
+    "/sales/quotations",
+    "/sales/orders",
+    "/sales/invoices",
+    "/sales/deliveries",
+    "/sales/delivery-schedules",
+    "/sales/returns",
+    "/sales/reports/sales-performance",
+    "/dashboard/products",
+    "/sales/customers",
+    "/warehouse/inventory",
+  ],
 };
 
 export const getMyPermissions = withTenant(async function getMyPermissions() {

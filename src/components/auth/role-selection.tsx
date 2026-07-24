@@ -6,6 +6,7 @@ import {
     Factory,
     ClipboardList,
     TrendingUp,
+    Megaphone,
     Receipt,
     Users,
     ShoppingCart,
@@ -15,7 +16,7 @@ import { cn } from '@/lib/utils/utils';
 import { roleSelectionLabels as L } from '@/lib/labels/auth';
 import { LOGIN_ROLES, getRoleLabel } from '@/lib/auth/system-roles';
 
-export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PLANNING' | 'SALES' | 'FINANCE' | 'PROCUREMENT' | 'HRD' | 'KIOSK';
+export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PLANNING' | 'SALES' | 'MARKETING' | 'FINANCE' | 'PROCUREMENT' | 'HRD' | 'KIOSK';
 
 type SelectableRole = keyof typeof L.roles;
 
@@ -25,6 +26,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
     PRODUCTION: Factory,
     PLANNING: ClipboardList,
     SALES: TrendingUp,
+    MARKETING: Megaphone,
     FINANCE: Receipt,
     PROCUREMENT: ShoppingCart,
     HRD: Users,
@@ -36,6 +38,7 @@ const COLOR_MAP: Record<string, string> = {
     PRODUCTION: 'text-emerald-500 bg-emerald-500/10',
     PLANNING: 'text-purple-500 bg-purple-500/10',
     SALES: 'text-rose-500 bg-rose-500/10',
+    MARKETING: 'text-pink-500 bg-pink-500/10',
     FINANCE: 'text-cyan-500 bg-cyan-500/10',
     PROCUREMENT: 'text-orange-500 bg-orange-500/10',
     HRD: 'text-indigo-500 bg-indigo-500/10',

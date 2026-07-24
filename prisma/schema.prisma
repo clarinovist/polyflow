@@ -1569,6 +1569,7 @@ enum Role {
   FINANCE
   PROCUREMENT
   HRD
+  MARKETING
 }
 
 enum ProductType {
