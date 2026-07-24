@@ -37,7 +37,7 @@ type Order = {
         }
     }
 };
-type Shift = { id: string; shiftName: string; startTime: string; endTime: string };
+type Shift = { id: string; shiftName: string; startTime: Date | string; endTime: Date | string };
 
 /** Convert Date to `datetime-local` input value in LOCAL timezone (not UTC) */
 function toLocalDatetime(date: Date | string): string {
