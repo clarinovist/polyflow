@@ -36,6 +36,7 @@ import { ProductionStatusBadge } from "@/components/production/production-status
 import { ProductionPriorityBadge } from "@/components/production/production-priority-badge";
 import { getStatusLabel } from "@/lib/labels/helpers";
 import { cn } from "@/lib/utils/utils";
+import { ContextualHelp } from "@/components/support/contextual-help";
 
 const ALL_STATUSES = [
   "DRAFT",
@@ -165,12 +166,23 @@ export default async function ProductionOrdersPage({
             </Link>
           )}
         </div>
-        <Link href="/production/orders/create" className="w-full sm:w-auto">
-          <Button className="w-full sm:w-auto gap-2">
-            <Plus className="h-4 w-4" />
-            {planningLabels.createWorkOrder}
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <ContextualHelp
+            title="Panduan SPK"
+            prefillQuestion="Cara buat SPK batch harian di Polyflow?"
+            links={[
+              { title: 'Cara Buat SPK Batch Harian', slug: 'cara-spk-batch-harian' },
+              { title: 'Cara Input Hasil via Kiosk', slug: 'cara-input-hasil-kiosk' },
+              { title: 'Error Backflush / Stok Bahan', slug: 'error-backflush-atau-stok-bahan' },
+            ]}
+          />
+          <Link href="/production/orders/create" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto gap-2">
+              <Plus className="h-4 w-4" />
+              {planningLabels.createWorkOrder}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards - clickable */}

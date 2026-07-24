@@ -17,6 +17,7 @@ export type VirtualCsAuditInput = {
   requesterName?: string;
   latencyMs: number;
   confidence?: number;
+  citedSlugs?: string[];
 };
 
 function compactQuestion(question: string): string {
@@ -49,16 +50,9 @@ export function resolveOutcome(input: VirtualCsAuditInput): HelpOutcome {
   if (!input.allowed) return 'BLOCKED';
 
   const answer = (input.answer || '').trim();
-
-  // Empty or very short answer = FAILED
   if (answer.length < 10) return 'FAILED';
-
-  // Generic failure / error messages = FAILED
   if (GENERIC_FAILURE_PATTERNS.some((p) => p.test(answer))) return 'FAILED';
-
-  // Weak / "I don't know" answers = PARTIAL
   if (WEAK_ANSWER_PATTERNS.some((p) => p.test(answer))) return 'PARTIAL';
-
   return 'SUCCESS';
 }
 
@@ -66,7 +60,6 @@ export async function logVirtualCsEvent(input: VirtualCsAuditInput): Promise<str
   recordVirtualCsMetric(input.channel, input.allowed, input.success);
 
   const level = input.success ? (input.allowed ? 'info' : 'warn') : 'error';
-
   const context = {
     module: 'VirtualCS',
     channel: input.channel,
@@ -76,13 +69,13 @@ export async function logVirtualCsEvent(input: VirtualCsAuditInput): Promise<str
     requesterName: input.requesterName,
     latencyMs: input.latencyMs,
     question: compactQuestion(input.question),
+    citedSlugs: input.citedSlugs || [],
   };
 
   if (level === 'error') logger.error('Virtual CS request failed', context);
   else if (level === 'warn') logger.warn('Virtual CS request blocked by guardrails', context);
   else logger.info('Virtual CS request served', context);
 
-  // Persist to HelpInteraction in main DB for learning pipeline
   let interactionId: string | null = null;
   try {
     const mainDb = getMainPrisma();
@@ -108,7 +101,6 @@ export async function logVirtualCsEvent(input: VirtualCsAuditInput): Promise<str
     });
   }
 
-  // Legacy audit log (backward compatible)
   const auditUserId = input.userId || process.env.OPENCLAW_SYSTEM_USER_ID;
   if (!auditUserId) return interactionId;
 
@@ -126,6 +118,7 @@ export async function logVirtualCsEvent(input: VirtualCsAuditInput): Promise<str
         blockedReason: input.blockedReason || null,
         requesterName: input.requesterName || null,
         latencyMs: input.latencyMs,
+        citedSlugs: input.citedSlugs || [],
       },
     });
   } catch (error) {
@@ -135,6 +128,19 @@ export async function logVirtualCsEvent(input: VirtualCsAuditInput): Promise<str
       error,
     });
   }
+
+  // Async clustering — best effort, never block chat response
+  // Only cluster FAILED/PARTIAL/BLOCKED questions for learning loop
+  try {
+    const outcome = resolveOutcome(input);
+    if (outcome === 'FAILED' || outcome === 'PARTIAL' || outcome === 'BLOCKED') {
+      const { sanitizeQuestion } = await import('./help-sanitizer');
+      const { upsertCluster } = await import('./help-clustering');
+      const sanitized = sanitizeQuestion(input.question);
+      // Fire-and-forget — don't await blocking
+      upsertCluster({ question: input.question.slice(0, 500), redactedSample: sanitized }).catch(() => {});
+    }
+  } catch { /* best effort */ }
 
   return interactionId;
 }

@@ -2692,3 +2692,61 @@ model HelpArticle {
   @@index([slug])
   @@index([status, modules])
 }
+
+// ─── Phase 3: Supervised auto-learn ───────────────────────────
+
+enum HelpClusterStatus {
+  OPEN
+  DRAFTED
+  RESOLVED
+  IGNORED
+}
+
+enum HelpLearningStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  MERGED
+}
+
+model HelpQuestionCluster {
+  id                String             @id @default(cuid())
+  canonicalQuestion String
+  normalizedKey     String             @unique // normalized canonical for dedup
+  hitCount          Int                @default(1)
+  suggestedModule   String?            // sales | warehouse | ...
+  sampleQuestions   String[]           // redacted, max 5
+  status            HelpClusterStatus  @default(OPEN)
+  lastSeenAt        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  drafts            HelpLearningDraft[]
+
+  @@index([status, hitCount])
+  @@index([lastSeenAt])
+}
+
+model HelpLearningDraft {
+  id            String              @id @default(cuid())
+  clusterId     String?
+  articleId     String?             // if editing existing article
+  draftTitle    String
+  draftBodyMd   String              @db.Text
+  summary       String              @default("")
+  modules       String[]            @default([])
+  tags          String[]            @default([])
+  status        HelpLearningStatus  @default(PENDING_REVIEW)
+  sourceSampleCount Int             @default(0)
+  modelMeta     String?             @db.Text // JSON: model name, prompt version
+  reviewedBy    String?
+  reviewNote    String?             @db.Text
+  reviewedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  cluster       HelpQuestionCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([clusterId])
+}

@@ -17,6 +17,7 @@ export default async function SupportPage({
   const params = await searchParams;
   const tab = typeof params[TAB_PARAM] === 'string' ? params[TAB_PARAM] as string : 'howto';
   const moduleFilter = typeof params.module === 'string' ? params.module : undefined;
+  const initialQuestion = typeof params.q === 'string' ? params.q.slice(0, 500) : undefined;
 
   const isTroubleshoot = tab === 'troubleshoot';
 
@@ -76,7 +77,7 @@ export default async function SupportPage({
 
         {/* Tab Content */}
         {tab === 'cs' ? (
-          <PolyflowChatPanel embedded />
+          <PolyflowChatPanel embedded initialQuestion={initialQuestion} />
         ) : (
           <div className="space-y-4">
             {/* Module filter chips */}

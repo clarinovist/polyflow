@@ -213,6 +213,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 <div className="flex items-center gap-2">
                     <ContextualHelp
                         title="Panduan SO"
+                        prefillQuestion="Cara membuat Sales Order di Polyflow?"
                         links={[
                             { title: 'Cara Buat Sales Order', slug: 'cara-buat-sales-order' },
                             { title: 'Cara Confirm SO Stok Kurang', slug: 'cara-confirm-so-stok-kurang' },

@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { headers } from 'next/headers';
 import { extractSubdomain } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
+import { ContextualHelp } from '@/components/support/contextual-help';
 import packageJson from '../../../../package.json';
 
 export default async function SettingsPage() {
@@ -39,7 +40,17 @@ export default async function SettingsPage() {
 
     return (
         <div className="p-4 md:p-6 max-w-7xl mx-auto">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground mb-6">Pengaturan</h1>
+            <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">Pengaturan</h1>
+                <ContextualHelp
+                    title="Panduan Pengaturan"
+                    prefillQuestion="Cara atur role dan permission user di Polyflow?"
+                    links={[
+                        { title: 'Cara Atur Role & Permission', slug: 'cara-atur-role-permission-user' },
+                        { title: 'Menu Tidak Muncul? Cek Permission', slug: 'menu-tidak-muncul-permission' },
+                    ]}
+                />
+            </div>
             <SettingsTabs
                 currentUserRole={userRole}
                 currentUserRoles={userRoles}

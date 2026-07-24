@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
   try {
     const mainDb = getMainPrisma();
 
-    // Ownership check: only the user who asked can give feedback
     const interaction = await mainDb.helpInteraction.findUnique({
       where: { id: interactionId },
       select: { id: true, userId: true, tenantId: true },
@@ -40,7 +39,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Interaction not found." }, { status: 404 });
     }
 
-    if (interaction.userId && interaction.userId !== userId) {
+    // Strict ownership: null owner → 403 (no anonymous feedback)
+    if (!interaction.userId) {
+      return NextResponse.json({ success: false, error: "Forbidden. Anonymous feedback not allowed." }, { status: 403 });
+    }
+    if (interaction.userId !== userId) {
       return NextResponse.json({ success: false, error: "Forbidden." }, { status: 403 });
     }
 

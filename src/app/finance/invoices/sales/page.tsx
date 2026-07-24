@@ -47,6 +47,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                 <div className="flex items-center gap-2">
                     <ContextualHelp
                         title="Panduan Invoice"
+                        prefillQuestion="Kenapa error period locked saat posting invoice?"
                         links={[
                             { title: 'Cara Lihat Invoice Belum Lunas', slug: 'cara-lihat-invoice-belum-lunas' },
                             { title: 'Error Period Locked', slug: 'error-period-locked-finance' },

@@ -12,9 +12,16 @@ export type VirtualCsRequest = {
   requesterName?: string;
 };
 
+export type CitedArticleForResponse = {
+  slug: string;
+  title: string;
+  summary?: string;
+};
+
 export type VirtualCsResponse = {
   answer: string;
   citations: string[];
+  citedArticles?: CitedArticleForResponse[];
   safety: {
     allowed: boolean;
     blockedReason?: string;
@@ -329,6 +336,25 @@ async function handleSearchHelpArticles(query: string, module?: string): Promise
   return `Artikel ditemukan di Knowledge Base:\n\n${lines.join('\n\n')}`;
 }
 
+type SearchToolResult = { text: string; articles: CitedArticleForResponse[] };
+
+async function handleSearchHelpArticlesWithMeta(query: string, module?: string): Promise<SearchToolResult> {
+  const results = await searchHelpArticles(query, module, 5);
+  if (!results.length) {
+    return { text: 'Tidak ditemukan artikel yang relevan di Knowledge Base.', articles: [] };
+  }
+  const articles: CitedArticleForResponse[] = results.map((r) => ({
+    slug: r.slug,
+    title: r.title,
+    summary: r.summary?.slice(0, 120),
+  }));
+  const lines = results.map((r, i) => {
+    const link = `/support/${r.slug}`;
+    return `${i + 1}. **${r.title}** (${r.modules.join(', ')})\n   ${r.summary}\n   Link: ${link}`;
+  });
+  return { text: `Artikel ditemukan di Knowledge Base:\n\n${lines.join('\n\n')}`, articles };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleToolCall(name: string, args: any): Promise<string> {
   try {
@@ -345,6 +371,21 @@ async function handleToolCall(name: string, args: any): Promise<string> {
     }
   } catch(e) {
     return `Error executing tool ${name}: ${e instanceof Error ? e.message : 'Unknown error'}`;
+  }
+}
+
+// Variant that also returns structured articles for citation cards
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleToolCallWithMeta(name: string, args: any): Promise<{ text: string; citedArticles: CitedArticleForResponse[] }> {
+  try {
+    if (name === 'search_help_articles') {
+      const res = await handleSearchHelpArticlesWithMeta(args.query || '', args.module);
+      return { text: res.text, citedArticles: res.articles };
+    }
+    const text = await handleToolCall(name, args);
+    return { text, citedArticles: [] };
+  } catch (e) {
+    return { text: `Error executing tool ${name}: ${e instanceof Error ? e.message : 'Unknown error'}`, citedArticles: [] };
   }
 }
 
@@ -391,7 +432,8 @@ Aturan Agentic:
 
   try {
     let finalAnswer = '';
-    
+    const collectedCited: CitedArticleForResponse[] = [];
+
     // Agentic Loop (max 4 iteration to avoid infinite loops)
     for (let loop = 0; loop < 4; loop++) {
       const completion = await openai.chat.completions.create({
@@ -408,7 +450,6 @@ Aturan Agentic:
 
       messages.push(responseMessage);
 
-      // Check if LLM invoked tools
       if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
         for (const toolCall of responseMessage.tool_calls) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -417,25 +458,31 @@ Aturan Agentic:
           if (AGENTIC_DEBUG) {
             console.debug(`[AGENTIC] Calling tool: ${fn.name} with args:`, args);
           }
-          const result = await handleToolCall(fn.name, args);
+          const result = await handleToolCallWithMeta(fn.name, args);
+          for (const ca of result.citedArticles) {
+            if (!collectedCited.some((c) => c.slug === ca.slug)) {
+              collectedCited.push(ca);
+            }
+          }
           messages.push({
             role: "tool",
             tool_call_id: toolCall.id,
-            content: result
+            content: result.text
           } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
         }
       } else {
         finalAnswer = responseMessage.content?.trim() || '';
-        break; // Finish reasoning
+        break;
       }
     }
+
+    const citedArticles = collectedCited.slice(0, 3);
 
     return {
       answer: finalAnswer || 'Maaf, saya tidak dapat merangkum analisis pada saat ini.',
       citations: ['db:polyflow-agentic', 'api:openrouter-tools'],
-      safety: {
-        allowed: true,
-      },
+      citedArticles,
+      safety: { allowed: true },
     };
   } catch (error) {
     const e = error as Error;

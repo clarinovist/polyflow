@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ActionResponse } from "@/lib/errors/error-handler";
 import { UseFormReturn, Path, FieldValues } from "react-hook-form";
+import { getHelpLinkForError, getHelpLinkForMessage } from "@/lib/errors/error-help-links";
 
 interface UseActionOptions<T, V extends FieldValues> {
     onSuccess?: (data: T) => void;
@@ -44,7 +45,18 @@ export function useAction<T, V extends FieldValues>(
                     }
 
                     if (result.error && !result.fieldErrors) {
-                        toast.error(result.error);
+                        const errMsg = result.error;
+                        const helpLink = result.code
+                            ? getHelpLinkForError(result.code)
+                            : getHelpLinkForMessage(errMsg);
+                        if (helpLink) {
+                            toast.error(errMsg, {
+                                action: { label: '📖 Panduan', onClick: () => window.open(helpLink.href, '_blank') },
+                                duration: 8000,
+                            });
+                        } else {
+                            toast.error(errMsg);
+                        }
                     }
 
                     options?.onError?.(result.error || "An error occurred");
@@ -52,7 +64,15 @@ export function useAction<T, V extends FieldValues>(
             } catch (e) {
                 const msg = e instanceof Error ? e.message : "An unexpected error occurred";
                 setError(msg);
-                toast.error(msg);
+                const helpLink = getHelpLinkForMessage(msg);
+                if (helpLink) {
+                    toast.error(msg, {
+                        action: { label: '📖 Panduan', onClick: () => window.open(helpLink.href, '_blank') },
+                        duration: 8000,
+                    });
+                } else {
+                    toast.error(msg);
+                }
                 options?.onError?.(msg);
             }
         });

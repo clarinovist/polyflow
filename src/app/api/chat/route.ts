@@ -65,6 +65,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
       tenantId,
       requesterName: session.user.name || undefined,
       latencyMs: Date.now() - startedAt,
+      citedSlugs: result.citedArticles?.map((a) => a.slug) || [],
     });
 
     return NextResponse.json({

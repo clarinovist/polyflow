@@ -184,6 +184,7 @@ export default async function WarehouseInventoryPage({
                 <div className="flex items-center gap-2">
                     <ContextualHelp
                         title="Panduan Stok"
+                        prefillQuestion="Kenapa stok produk tidak cukup saat confirm SO?"
                         links={[
                             { title: 'Cara Cek Stok Per Lokasi', slug: 'cara-cek-stok-per-lokasi' },
                             { title: 'Cara Terima Barang Gudang', slug: 'cara-terima-barang-gudang' },
