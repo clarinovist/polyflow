@@ -16,12 +16,14 @@ export type CitedArticleForResponse = {
   slug: string;
   title: string;
   summary?: string;
+  modules?: string[];
 };
 
 export type VirtualCsResponse = {
   answer: string;
   citations: string[];
   citedArticles?: CitedArticleForResponse[];
+  relatedArticles?: CitedArticleForResponse[];
   safety: {
     allowed: boolean;
     blockedReason?: string;
@@ -347,6 +349,7 @@ async function handleSearchHelpArticlesWithMeta(query: string, module?: string):
     slug: r.slug,
     title: r.title,
     summary: r.summary?.slice(0, 120),
+    modules: r.modules,
   }));
   const lines = results.map((r, i) => {
     const link = `/support/${r.slug}`;
@@ -478,10 +481,27 @@ Aturan Agentic:
 
     const citedArticles = collectedCited.slice(0, 3);
 
+    // Fetch related articles from same modules (exclude already cited)
+    const relatedArticles: CitedArticleForResponse[] = [];
+    if (citedArticles.length > 0) {
+      const citedSlugs = new Set(citedArticles.map((a) => a.slug));
+      const modules = [...new Set(citedArticles.flatMap((a) => a.modules || []))];
+      for (const mod of modules.slice(0, 2)) {
+        const related = await searchHelpArticles('', mod, 4);
+        for (const r of related) {
+          if (!citedSlugs.has(r.slug) && relatedArticles.length < 4) {
+            relatedArticles.push({ slug: r.slug, title: r.title, summary: r.summary?.slice(0, 80), modules: r.modules });
+            citedSlugs.add(r.slug);
+          }
+        }
+      }
+    }
+
     return {
       answer: finalAnswer || 'Maaf, saya tidak dapat merangkum analisis pada saat ini.',
       citations: ['db:polyflow-agentic', 'api:openrouter-tools'],
       citedArticles,
+      relatedArticles,
       safety: { allowed: true },
     };
   } catch (error) {

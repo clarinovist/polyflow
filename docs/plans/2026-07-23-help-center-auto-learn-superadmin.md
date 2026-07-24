@@ -743,9 +743,9 @@ Bukan redesign visual besar — **kurangi friksi menuju help**:
 
 **Bukan** keyword-hardcode follow-up (“kalau response ada kata stok…”).
 
-- [ ] Jika `citedArticles` / module dari retrieval ada → tampilkan 2 chip “Artikel terkait” (slug lain same module) **atau** “Buka panduan lengkap”
-- [ ] Click chip = navigate ke artikel, **bukan** auto-spam chat question
-- [ ] Jika tidak ada citation → hide (jangan chip generik “Tanya hal lain”)
+- [x] Jika `citedArticles` / module dari retrieval ada → tampilkan 2 chip “Artikel terkait” (slug lain same module) **atau** “Buka panduan lengkap”
+- [x] Click chip = navigate ke artikel, **bukan** auto-spam chat question
+- [x] Jika tidak ada citation → hide (jangan chip generik “Tanya hal lain”)
 
 Kalau tidak sempat → defer Phase 4.
 
@@ -968,7 +968,7 @@ PR-N3: N3 chrome + empty state + link sweep
 - [ ] Cost controls / credits integration (hubungkan roadmap credits)
 - [ ] Multi-locale (jika perlu)
 - [ ] **Chat visual polish (ex–Phase 1.5 gemuk):** message entry animation, time separators, welcome grid 2×4 + icons, streaming tokens
-- [ ] Related-article chips lanjutan / smart follow-up berbasis retrieval (bukan keyword kasar)
+- [x] Related-article chips (same-module suggestions via relatedArticles) berbasis retrieval (bukan keyword kasar)
 - [ ] (Jika 1.6 belum): polish lanjutan empty state / onboarding help per role — **prioritas tetap 1.6 dulu**
 
 ---
@@ -1082,7 +1082,7 @@ Parallel aman: review top gaps mingguan; konten seed || 1.6.
 | 0 | S | Rendah | Schema + logging — done |
 | 1 | M | Sedang | UX + seed; F+G first-door — done (tab IA = debt) |
 | 1.5 | S | Rendah | Grounding + first-door UX — done |
-| 1.6 | S | Rendah | ✅ DONE — permissions + routes + sidebar children |
+| 1.6 | S | Rendah | ✅ DONE (commit 1d1c4dee + ae8091bc + 11677577) — permissions + routes + sidebar children |
 | 2 | M | Rendah–sedang | Super-admin — done |
 | 3 | M–L | Sedang | Auto-learn infra done; quality butuh traffic |
 | 4 | L | Sedang | Scope creep tenant-local + visual polish |

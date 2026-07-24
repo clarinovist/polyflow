@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils/utils';
 type Role = 'assistant' | 'user';
 type Feedback = 'UP' | 'DOWN';
 
-type CitedArticle = { slug: string; title: string; summary?: string; };
+type CitedArticle = { slug: string; title: string; summary?: string; modules?: string[] };
 
 type ChatMessage = {
   id: string;
@@ -19,6 +19,7 @@ type ChatMessage = {
   interactionId?: string;
   feedback?: Feedback;
   citedArticles?: CitedArticle[];
+  relatedArticles?: CitedArticle[];
 };
 
 type ChatApiResponse = {
@@ -28,7 +29,8 @@ type ChatApiResponse = {
     answer: string;
     interactionId?: string;
     citedArticles?: CitedArticle[];
-    safety: { allowed: boolean; blockedReason?: string; };
+    relatedArticles?: CitedArticle[];
+    safety: { allowed: boolean; blockedReason?: string };
   };
 };
 
@@ -154,7 +156,7 @@ function TypingDots({ longWait }: { longWait: boolean }) {
   );
 }
 
-function CitedArticleCards({ articles }: { articles: CitedArticle[] }) {
+function CitedArticleCards({ articles, relatedArticles }: { articles: CitedArticle[]; relatedArticles?: CitedArticle[] }) {
   if (!articles.length) return null;
   return (
     <div className="mt-2 space-y-1.5">
@@ -174,6 +176,20 @@ function CitedArticleCards({ articles }: { articles: CitedArticle[] }) {
           <span className="text-[11px] text-primary shrink-0 self-center">Buka →</span>
         </Link>
       ))}
+      {relatedArticles && relatedArticles.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          <span className="text-[11px] text-muted-foreground self-center">Artikel terkait:</span>
+          {relatedArticles.slice(0, 3).map((a) => (
+            <Link
+              key={a.slug}
+              href={`/support/${a.slug}`}
+              className="text-[11px] px-2 py-1 rounded-full border border-brand-border bg-brand-glass hover:bg-brand-glass-heavy text-muted-foreground hover:text-primary transition-colors"
+            >
+              {a.title.length > 40 ? a.title.slice(0, 40) + '…' : a.title}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -223,10 +239,10 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
-  const pushMessage = (role: Role, text: string, interactionId?: string, citedArticles?: CitedArticle[]) => {
+  const pushMessage = (role: Role, text: string, interactionId?: string, citedArticles?: CitedArticle[], relatedArticles?: CitedArticle[]) => {
     setMessages((prev) => [
       ...prev,
-      { id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, role, text, interactionId, citedArticles },
+      { id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, role, text, interactionId, citedArticles, relatedArticles },
     ]);
   };
 
@@ -299,6 +315,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
         json.data?.answer || 'Maaf, belum ada jawaban yang bisa saya berikan.',
         json.data?.interactionId,
         json.data?.citedArticles,
+        json.data?.relatedArticles,
       );
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
@@ -361,7 +378,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
                   </div>
 
                   {msg.citedArticles && msg.citedArticles.length > 0 && (
-                    <CitedArticleCards articles={msg.citedArticles} />
+                    <CitedArticleCards articles={msg.citedArticles} relatedArticles={msg.relatedArticles} />
                   )}
 
                   <div className="flex items-center gap-1">
