@@ -266,48 +266,57 @@ export function ProductionHistoryClient({ groups }: ProductionHistoryClientProps
         </Button>
       </div>
 
-      {/* SPK Mode */}
+      {/* SPK Mode — Desktop Table */}
       {viewMode === 'spk' && (
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[30px]"></TableHead>
-                <TableHead className="min-w-[140px]">Waktu</TableHead>
-                <TableHead>No. SPK</TableHead>
-                <TableHead>Produk</TableHead>
-                <TableHead>Mesin</TableHead>
-                <TableHead>Operator</TableHead>
-                <TableHead>Shift</TableHead>
-                <TableHead className="text-right">Hasil</TableHead>
-                <TableHead className="text-right">Scrap</TableHead>
-                <TableHead className="text-right">%</TableHead>
-                <TableHead className="text-center">Entri</TableHead>
-                <TableHead className="text-center w-[60px]">Bukti</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groups.map((group) => {
-                const isExpanded = expandedId === group.productionOrder.id;
-                const scrapPct = group.totalQuantity + group.totalScrap > 0
-                  ? (group.totalScrap / (group.totalQuantity + group.totalScrap)) * 100
-                  : null;
-                const groupAnomalies = getGroupAnomalies(group);
+        <>
+          <div className="hidden md:block rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[30px]"></TableHead>
+                  <TableHead className="min-w-[140px]">Waktu</TableHead>
+                  <TableHead>No. SPK</TableHead>
+                  <TableHead>Produk</TableHead>
+                  <TableHead>Mesin</TableHead>
+                  <TableHead>Operator</TableHead>
+                  <TableHead>Shift</TableHead>
+                  <TableHead className="text-right">Hasil</TableHead>
+                  <TableHead className="text-right">Scrap</TableHead>
+                  <TableHead className="text-right">%</TableHead>
+                  <TableHead className="text-center">Entri</TableHead>
+                  <TableHead className="text-center w-[60px]">Bukti</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groups.map((group) => {
+                  const isExpanded = expandedId === group.productionOrder.id;
+                  const scrapPct = group.totalQuantity + group.totalScrap > 0
+                    ? (group.totalScrap / (group.totalQuantity + group.totalScrap)) * 100
+                    : null;
+                  const groupAnomalies = getGroupAnomalies(group);
 
-                return (
-                  <GroupRow
-                    key={group.productionOrder.id}
-                    group={group}
-                    isExpanded={isExpanded}
-                    scrapPct={scrapPct}
-                    groupAnomalies={groupAnomalies}
-                    onToggle={() => setExpandedId(isExpanded ? null : group.productionOrder.id)}
-                  />
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                  return (
+                    <GroupRow
+                      key={group.productionOrder.id}
+                      group={group}
+                      isExpanded={isExpanded}
+                      scrapPct={scrapPct}
+                      groupAnomalies={groupAnomalies}
+                      onToggle={() => setExpandedId(isExpanded ? null : group.productionOrder.id)}
+                    />
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* SPK Mode — Mobile Cards */}
+          <SpkMobileCards
+            groups={groups}
+            expandedId={expandedId}
+            setExpandedId={setExpandedId}
+          />
+        </>
       )}
 
       {/* Timeline Mode */}
@@ -713,6 +722,123 @@ function TimelineRow({ exec, group }: { exec: ExecutionData; group: GroupData })
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── SPK Mode: SpkMobileCards (Mobile Responsiveness) ─────────────────
+
+function SpkMobileCards({
+  groups,
+  expandedId,
+  setExpandedId,
+}: {
+  groups: GroupData[];
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+}) {
+  return (
+    <div className="space-y-3 md:hidden">
+      {groups.map((group) => {
+        const isExpanded = expandedId === group.productionOrder.id;
+        const unit = group.productionOrder.bom.productVariant.primaryUnit;
+        const scrapPct = group.totalQuantity + group.totalScrap > 0
+          ? (group.totalScrap / (group.totalQuantity + group.totalScrap)) * 100
+          : null;
+        const timeRange = group.earliestEndTime && group.latestEndTime
+          ? `${formatWIB(group.earliestEndTime, 'dd MMM HH:mm')} – ${formatWIB(group.latestEndTime, 'HH:mm')}`
+          : group.latestEndTime
+          ? formatWIB(group.latestEndTime, 'dd MMM HH:mm')
+          : '-';
+
+        return (
+          <div key={group.productionOrder.id} className="border rounded-lg p-3 bg-card shadow-sm space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link
+                    href={`/production/orders/${group.productionOrder.id}`}
+                    className="font-mono text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    {group.productionOrder.orderNumber}
+                    <ExternalLink className="h-3 w-3 opacity-70" />
+                  </Link>
+                  <span className="text-[10px] text-muted-foreground">{timeRange}</span>
+                </div>
+                <h4 className="text-sm font-medium leading-snug">{group.productionOrder.bom.productVariant.name}</h4>
+                <p className="text-xs text-muted-foreground">{group.productionOrder.bom.name}</p>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 shrink-0"
+                onClick={() => setExpandedId(isExpanded ? null : group.productionOrder.id)}
+              >
+                <span className="text-xs mr-1">{group.executions.length} log</span>
+                <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2 rounded-md">
+              <div>
+                <span className="text-muted-foreground block text-[10px] uppercase font-medium">Hasil Produksi</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {group.totalQuantity.toLocaleString()} {unit}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px] uppercase font-medium">Scrap</span>
+                <span className={cn("font-bold", group.totalScrap > 0 ? "text-destructive" : "text-muted-foreground")}>
+                  {group.totalScrap.toLocaleString()} {unit}
+                  {scrapPct !== null && scrapPct > 0 && (
+                    <span className="text-[10px] font-normal ml-1">({scrapPct.toFixed(1)}%)</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <MachineBadges codes={group.machineCodes} />
+                <OperatorNames names={group.operatorNames} />
+              </div>
+              {group.photoCount > 0 ? (
+                <PhotoGalleryDialog
+                  executions={group.executions.filter(e => e.photoUrl).map((e) => ({
+                    id: e.id,
+                    photoUrl: e.photoUrl,
+                    quantityProduced: Number(e.quantityProduced),
+                    endTime: e.endTime,
+                    notes: e.notes,
+                  }))}
+                  orderNumber={group.productionOrder.orderNumber}
+                />
+              ) : (
+                <span className="inline-flex items-center gap-1 text-amber-600 text-[10px]">
+                  <AlertTriangle className="h-3 w-3" /> 0 foto
+                </span>
+              )}
+            </div>
+
+            {isExpanded && (
+              <div className="pt-2 border-t space-y-1.5">
+                <div className="text-xs font-medium text-muted-foreground mb-1">Detail Entri ({group.executions.length}):</div>
+                {group.executions.map((exec, idx) => (
+                  <ExecutionDetailRow
+                    key={exec.id}
+                    exec={exec}
+                    idx={idx}
+                    unit={unit}
+                    orderNumber={group.productionOrder.orderNumber}
+                    productionOrderId={group.productionOrder.id}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
