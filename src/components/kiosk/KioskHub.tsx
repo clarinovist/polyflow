@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, UserCheck, Wrench, LayoutDashboard, LogOut } from "lucide-react";
@@ -8,6 +8,21 @@ import { kioskLabels } from "@/lib/labels";
 import { KioskOperatorGate } from "@/components/kiosk/KioskOperatorGate";
 import { KioskOperatorChip } from "@/components/kiosk/KioskOperatorChip";
 import { MyPortalQr } from "@/components/kiosk/MyPortalQr";
+import { KioskTodayStrip } from "@/components/kiosk/KioskTodayStrip";
+import {
+  getOperatorTodaySummary,
+  type OperatorTodaySummary,
+} from "@/actions/production/production-execution";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Employee {
   id: string;
@@ -26,20 +41,46 @@ interface KioskHubProps {
 export function KioskHub({ employees, machines, activeJobCount, hasProsesKhusus = true }: KioskHubProps) {
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [summary, setSummary] = useState<OperatorTodaySummary | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+
+  const fetchSummary = useCallback(async (id: string) => {
+    setIsLoadingSummary(true);
+    try {
+      const res = await getOperatorTodaySummary(id);
+      if (res.success && res.data) {
+        setSummary(res.data as OperatorTodaySummary);
+      } else {
+        setSummary(null);
+      }
+    } catch {
+      setSummary(null);
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  }, []);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('kiosk_operator_id');
-    if (saved) setOperatorId(saved);
+    if (saved) {
+      setOperatorId(saved);
+      fetchSummary(saved);
+    }
     setIsInitialized(true);
-  }, []);
+  }, [fetchSummary]);
 
   const handleOperatorSelect = (id: string) => {
     setOperatorId(id);
+    sessionStorage.setItem('kiosk_operator_id', id);
+    fetchSummary(id);
   };
 
-  const handleLogout = () => {
+  const handleConfirmLogout = () => {
     sessionStorage.removeItem('kiosk_operator_id');
     setOperatorId(null);
+    setSummary(null);
+    setIsLogoutDialogOpen(false);
   };
 
   if (!isInitialized) {
@@ -76,13 +117,68 @@ export function KioskHub({ employees, machines, activeJobCount, hasProsesKhusus 
         <Button
           variant="destructive"
           size="sm"
-          onClick={handleLogout}
+          onClick={() => setIsLogoutDialogOpen(true)}
           className="h-10 font-bold px-4"
         >
           <LogOut className="mr-2 h-4 w-4" />
           {kioskLabels.sessionLogout}
         </Button>
       </div>
+
+      {/* Progress Saya Hari Ini Strip */}
+      <KioskTodayStrip
+        operatorName={currentEmployee?.name || ''}
+        summary={summary}
+        isLoading={isLoadingSummary}
+      />
+
+      {/* Logout Confirmation Dialog with Shift Summary */}
+      <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keluar Sesi Operator?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2 text-sm text-foreground">
+                <p className="text-muted-foreground">
+                  Ringkasan shift hari ini untuk <strong>{currentEmployee?.name}</strong>:
+                </p>
+                {summary ? (
+                  <div className="rounded-lg border bg-muted/40 p-3 space-y-1.5 font-medium">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Job dikerjakan:</span>
+                      <span className="font-bold">{summary.jobCount} job</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Hasil bagus:</span>
+                      <span className="font-bold text-emerald-600">{summary.goodQty.toLocaleString('id-ID')} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Scrap:</span>
+                      <span className="font-bold text-amber-600">{summary.scrapQty.toLocaleString('id-ID')} kg</span>
+                    </div>
+                    {summary.activeJobsCount > 0 && (
+                      <p className="text-xs text-amber-600 font-semibold pt-1 border-t">
+                        ⚠️ Masih ada {summary.activeJobsCount} job aktif yang belum di-stop.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Tidak ada data shift hari ini.</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Pastikan pekerjaan telah tercatat dengan benar sebelum menyerahkan tablet ke operator berikutnya.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmLogout} className="bg-destructive hover:bg-destructive/90">
+              Keluar Sesi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Hub tiles */}
       <div>

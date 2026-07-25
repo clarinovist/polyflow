@@ -23,6 +23,7 @@ import { serializeData } from "@/lib/utils/utils";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
 import { findActiveShift, findLatestShiftForOrder } from "@/services/production/shift-service";
+import { getWibDayBounds, toBusinessDateString } from "@/lib/utils/timezone";
 
 export const startExecution = withTenant(async function startExecution(
   data: StartExecutionValues,
@@ -632,3 +633,51 @@ export const voidProductionOutput = withTenant(
     });
   },
 );
+
+export type OperatorTodaySummary = {
+  jobCount: number;
+  goodQty: number;
+  scrapQty: number;
+  activeJobsCount: number;
+};
+
+export const getOperatorTodaySummary = withTenant(
+  async function getOperatorTodaySummary(operatorId: string) {
+    return safeAction(async () => {
+      if (!operatorId) {
+        return { jobCount: 0, goodQty: 0, scrapQty: 0, activeJobsCount: 0 };
+      }
+      const todayStr = toBusinessDateString(new Date());
+      const { startOfDay, endOfDay } = getWibDayBounds(todayStr);
+
+      const executions = await prisma.productionExecution.findMany({
+        where: {
+          operatorId,
+          status: { not: "VOIDED" },
+          createdAt: { gte: startOfDay, lte: endOfDay },
+        },
+        select: {
+          id: true,
+          productionOrderId: true,
+          quantityProduced: true,
+          scrapQuantity: true,
+          endTime: true,
+        },
+      });
+
+      const uniqueOrders = new Set(executions.map((e) => e.productionOrderId));
+      const jobCount = uniqueOrders.size;
+      const goodQty = executions.reduce((sum, e) => sum + Number(e.quantityProduced || 0), 0);
+      const scrapQty = executions.reduce((sum, e) => sum + Number(e.scrapQuantity || 0), 0);
+      const activeJobsCount = executions.filter((e) => !e.endTime).length;
+
+      return serializeData({
+        jobCount,
+        goodQty,
+        scrapQty,
+        activeJobsCount,
+      });
+    });
+  },
+);
+

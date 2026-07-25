@@ -492,8 +492,8 @@ export function ProductionOrderForm({
         const serverStatus = (response.data as { status?: string }).status;
         const statusLabel =
           serverStatus === "WAITING_MATERIAL" ? "Menunggu Bahan" : "DRAFT";
-        toast.success(`SPK ${response.data.orderNumber} berhasil dibuat`, {
-          description: `Status: ${statusLabel}`,
+        toast.success(`SPK ${response.data.orderNumber} berhasil dibuat. Siap dijadwalkan & dijalankan di lantai produksi.`, {
+          description: `Status: ${statusLabel} · Target ${response.data.plannedQuantity.toLocaleString('id-ID')} unit.`,
         });
         router.push(`/production/orders/${response.data.id}`);
       }

@@ -9,6 +9,7 @@ import {
   encouragementForDate,
   getPortalCta,
   greetingForHour,
+  personalAttentionLine,
   isOpsPortalRole,
   roleDisplayName,
 } from '../role-dashboard-config';
@@ -115,4 +116,24 @@ describe('role-dashboard-config', () => {
     expect(evening).not.toBe(morningA); // different period → different pool
     expect(typeof evening).toBe('string');
   });
+
+  it('builds personal attention line correctly', () => {
+    expect(personalAttentionLine([])).toBe('Semua area operasional aman & lancar.');
+
+    const singleItem = [
+      { id: 'delayed-jobs', label: 'SPK lewat jadwal', count: 2, href: '/production/orders', severity: 'critical' as const },
+    ];
+    expect(personalAttentionLine(singleItem)).toBe(
+      'Hari ini untukmu: 1 area perlu perhatian — teratas: SPK lewat jadwal (2).'
+    );
+
+    const multiItem = [
+      { id: 'overdue-ar', label: 'Piutang overdue · Rp 15.000.000', count: 1, href: '/finance', severity: 'critical' as const },
+      { id: 'low-stock', label: 'Item stok rendah', count: 5, href: '/warehouse', severity: 'warning' as const },
+    ];
+    expect(personalAttentionLine(multiItem)).toBe(
+      'Hari ini untukmu: 2 area perlu perhatian — teratas: Piutang overdue · Rp 15.000.000.'
+    );
+  });
 });
+

@@ -355,7 +355,7 @@ export function CreateDeliveryOrderDialog({
         return;
       }
 
-      toast.success('Surat Jalan berhasil dibuat');
+      toast.success('Surat Jalan berhasil dibuat. Siap dimuat & dikirim dari gudang.');
       setOpen(false);
       resetForm();
       router.refresh();

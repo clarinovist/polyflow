@@ -17,6 +17,7 @@ import {
     getPortalCta,
     encouragementForDate,
     greetingForHour,
+    personalAttentionLine,
     isOpsPortalRole,
     roleDisplayName,
     type AttentionItem,
@@ -111,6 +112,7 @@ export default function DashboardClient({
     const modules = buildModuleShortcuts().filter((m) =>
         canAccessResource(permissions, m.resourceHint)
     );
+    const personalLine = personalAttentionLine(attention);
 
     return (
         <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto">
@@ -131,13 +133,18 @@ export default function DashboardClient({
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
                         {greeting}, {firstName}
                     </h1>
-                    <p
-                        className="text-sm md:text-base text-muted-foreground mt-1 max-w-xl"
-                        suppressHydrationWarning
-                    >
-                        {encouragement}
-                    </p>
+                    <div className="mt-1 max-w-xl" suppressHydrationWarning>
+                        <p className="text-sm md:text-base font-medium text-foreground">
+                            {personalLine}
+                        </p>
+                        {attention.length === 0 && (
+                            <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+                                {encouragement}
+                            </p>
+                        )}
+                    </div>
                 </div>
+
                 <div className="flex gap-2 items-center shrink-0">
                     <Button
                         variant="outline"

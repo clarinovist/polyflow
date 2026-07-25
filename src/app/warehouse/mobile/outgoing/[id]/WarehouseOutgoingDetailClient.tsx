@@ -57,7 +57,7 @@ export function WarehouseOutgoingDetailClient({ order }: { order: Order }) {
     try {
       const result = await updateDeliveryStatus(order.id, "LOADING");
       if (result.success) {
-        toast.success("Muat dimulai");
+        toast.success("Proses pemuatan barang dimulai.");
         router.refresh();
       } else {
         toast.error(result.error || "Gagal memulai muat");
@@ -89,7 +89,7 @@ export function WarehouseOutgoingDetailClient({ order }: { order: Order }) {
         items: payload,
       });
       if (result.success) {
-        toast.success("Verifikasi tersimpan");
+        toast.success("Verifikasi muat barang tersimpan.");
         router.refresh();
       } else {
         toast.error(result.error || "Gagal menyimpan verifikasi");
@@ -106,7 +106,7 @@ export function WarehouseOutgoingDetailClient({ order }: { order: Order }) {
     try {
       const result = await updateDeliveryStatus(order.id, "SHIPPED");
       if (result.success) {
-        toast.success("Berhasil dikirim! Stok terpotong.");
+        toast.success("Barang berhasil dikirim. Stok gudang terpotong.");
         router.push("/warehouse/mobile/outgoing");
       } else {
         toast.error(result.error || "Gagal menandai dikirim");

@@ -674,7 +674,7 @@ export function SalesOrderForm({
     },
     {
       form,
-      successMessage: `Sales Order ${mode === "create" ? "Created" : "Updated"}`,
+      successMessage: `Sales Order ${mode === "create" ? "berhasil dibuat" : "berhasil diperbarui"}.`,
       onSuccess: () => router.push("/sales/orders"),
     },
   );

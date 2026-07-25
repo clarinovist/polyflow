@@ -153,7 +153,7 @@ export function JournalListClient() {
       const ids = selectedRows.map((r) => r.original.id);
       const res = await batchPostJournals(ids);
       if (res.success) {
-        toast.success(`${ids.length} jurnal berhasil diposting.`);
+        toast.success(`${ids.length} jurnal berhasil diposting. Saldo buku besar telah diperbarui.`);
         setRowSelection({});
         fetchData();
       } else {

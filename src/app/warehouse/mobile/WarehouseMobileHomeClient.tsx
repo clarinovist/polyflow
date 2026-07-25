@@ -7,6 +7,8 @@ type HomeData = {
   loadingCount: number;
   pendingCount: number;
   receivableCount: number;
+  shippedTodayCount?: number;
+  receivedTodayCount?: number;
   recentLoading: {
     id: string;
     orderNumber: string;
@@ -24,6 +26,23 @@ export function WarehouseMobileHomeClient({ data }: { data: HomeData }) {
       <div>
         <h1 className="text-xl font-bold">Gudang Mobile</h1>
         <p className="text-sm text-muted-foreground">Ringkasan shift hari ini</p>
+      </div>
+
+      {/* Today Completed Summary Strip */}
+      <div className="p-3 border rounded-xl bg-card shadow-sm flex items-center justify-around text-center text-xs">
+        <div>
+          <p className="text-base font-bold text-emerald-600 tabular-nums">
+            {data.shippedTodayCount ?? 0}
+          </p>
+          <p className="text-muted-foreground">DO Dikirim Hari Ini</p>
+        </div>
+        <div className="h-8 w-px bg-border" />
+        <div>
+          <p className="text-base font-bold text-blue-600 tabular-nums">
+            {data.receivedTodayCount ?? 0}
+          </p>
+          <p className="text-muted-foreground">Penerimaan Selesai</p>
+        </div>
       </div>
 
       {/* Quick Stats */}

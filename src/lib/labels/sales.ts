@@ -39,11 +39,11 @@ export const salesLabels = {
   reason: "Alasan",
   condition: "Kondisi",
   items: "Item",
-  emptyQuotations: "Tidak ada penawaran penjualan.",
-  emptyOrders: "Tidak ada sales order.",
-  emptyDeliveries: "Tidak ada surat jalan.",
-  emptyInvoices: "Tidak ada invoice.",
-  emptyReturns: "Tidak ada retur penjualan.",
+  emptyQuotations: "Belum ada penawaran penjualan. Klik tombol 'Penawaran Baru' untuk mulai membuat penawaran ke customer.",
+  emptyOrders: "Belum ada sales order. Buat pesanan baru dari penawaran atau buat Sales Order secara langsung.",
+  emptyDeliveries: "Belum ada surat jalan. Buat Surat Jalan dari detail Sales Order yang telah dikonfirmasi.",
+  emptyInvoices: "Belum ada invoice penjualan. Invoice dapat dibuat setelah pesanan dikirim ke customer.",
+  emptyReturns: "Belum ada retur penjualan. Retur dibuat untuk mencatat pengembalian barang dari customer.",
   allReturns: "Semua Retur",
 
   // Sales Dashboard / Command Board

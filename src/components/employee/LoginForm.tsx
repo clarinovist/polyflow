@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Phone, Lock } from 'lucide-react';
 
+import { greetingForHour } from '@/lib/dashboard/role-dashboard-config';
+
 export function LoginForm() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
@@ -25,7 +27,8 @@ export function LoginForm() {
     try {
       const res = await loginEmployee(phone.trim(), pin.trim());
       if (res.success) {
-        toast.success(`Halo ${res.data?.name ?? ''}!`);
+        const greeting = greetingForHour(new Date().getHours());
+        toast.success(`${greeting}, ${res.data?.name ?? ''}! Selamat bekerja.`);
         router.push('/my');
         router.refresh();
       } else {

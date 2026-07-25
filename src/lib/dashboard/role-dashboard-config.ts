@@ -913,6 +913,26 @@ function dayOfYear(date: Date): number {
 }
 
 /**
+ * Generates a data-driven personal attention line for the dashboard header subtitle.
+ */
+export function personalAttentionLine(items: AttentionItem[]): string {
+  if (!items || items.length === 0) {
+    return 'Semua area operasional aman & lancar.';
+  }
+
+  const top = items[0];
+  const topDetail = top.label.includes('·') || top.label.includes('(')
+    ? top.label
+    : `${top.label} (${top.count})`;
+
+  if (items.length === 1) {
+    return `Hari ini untukmu: 1 area perlu perhatian — teratas: ${topDetail}.`;
+  }
+
+  return `Hari ini untukmu: ${items.length} area perlu perhatian — teratas: ${topDetail}.`;
+}
+
+/**
  * Pilih 1 baris semangat untuk tanggal & jam tertentu.
  * Stabil dalam 1 hari di slot waktu yang sama; ganti otomatis keesokan harinya.
  */
@@ -923,3 +943,4 @@ export function encouragementForDate(date: Date = new Date()): string {
   const seed = date.getFullYear() * 1000 + dayOfYear(date) * 4 + ['morning', 'afternoon', 'evening', 'night'].indexOf(period);
   return pool[seed % pool.length]!;
 }
+

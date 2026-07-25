@@ -131,7 +131,7 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
             });
 
             if (result.success) {
-                toast.success('Pembayaran berhasil dicatat');
+                toast.success(`Pembayaran ${formatRupiah(paymentAmount)} berhasil dicatat.`);
                 setIsPaymentDialogOpen(false);
                 setPaymentMethod(DEFAULT_PAYMENT_METHOD);
                 setReferenceNumber('');
@@ -176,7 +176,7 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
                                         status: 'UNPAID'
                                     });
                                     if (result.success) {
-                                        toast.success('Invoice berhasil dikonfirmasi');
+                                        toast.success(`Invoice ${invoice.invoiceNumber} dikonfirmasi. Siap ditagih.`);
                                         router.refresh();
                                     } else {
                                         toast.error(result.error || 'Gagal mengonfirmasi invoice. Silakan coba lagi.');

@@ -107,13 +107,23 @@ export function SalesOrderDetailClient({
     try {
       const result = await handler(order.id);
       if (result.success) {
-        const actionText =
-          action === "approve"
-            ? "disetujui"
-            : action === "cancel"
-              ? "dibatalkan"
-              : "diproses";
-        toast.success(`Pesanan berhasil ${actionText}`);
+        if (action === "confirm" || action === "confirmed") {
+          toast.success(`SO ${order.orderNumber} dikonfirmasi. Siap diproses ke gudang.`);
+        } else if (action === "ready to ship") {
+          toast.success(`Order ${order.orderNumber} selesai diproduksi. Siap dikirim.`);
+        } else if (action === "delivered") {
+          toast.success(`Order ${order.orderNumber} telah diterima customer.`);
+        } else if (action === "cancelled") {
+          toast.success(`Order ${order.orderNumber} dibatalkan.`);
+        } else {
+          const actionText =
+            action === "approve"
+              ? "disetujui"
+              : action === "cancel" || action === "cancelled"
+                ? "dibatalkan"
+                : "diproses";
+          toast.success(`Pesanan ${order.orderNumber} berhasil ${actionText}.`);
+        }
         if (onSuccess) {
           onSuccess(result.data);
         }
