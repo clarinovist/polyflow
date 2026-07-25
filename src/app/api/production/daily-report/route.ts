@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { withTenantRoute } from "@/lib/core/tenant";
+import { prisma } from "@/lib/core/prisma";
 import { ProductionExecutionService } from "@/services/production/execution-service";
 import { productionOutputSchema } from "@/lib/schemas/production";
 
 // We expect an array of valid production output objects
 const bulkDailyReportSchema = z.array(productionOutputSchema);
 
-export async function POST(req: NextRequest) {
+export const POST = withTenantRoute(async function POST(req: NextRequest) {
   try {
     // Auth strategy: accept EITHER a valid API key (for device/machine integrations)
     // OR a valid NextAuth session (for calls from the kiosk frontend)
@@ -46,6 +48,22 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < reports.length; i++) {
       const report = reports[i];
       try {
+        // Validate shift belongs to the same production order (defense-in-depth)
+        const validShift = await prisma.productionShift.findFirst({
+          where: {
+            id: report.shiftId,
+            productionOrderId: report.productionOrderId,
+          },
+          select: { id: true },
+        });
+        if (!validShift) {
+          errors.push({
+            index: i,
+            error: `Shift tidak valid untuk SPK ini. Pilih shift yang terdaftar di SPK.`,
+          });
+          continue;
+        }
+
         // Determine a generic system user footprint or omit userId to use internal automated logic
         // Using the addProductionOutput method which handles stock updates, backflush, scrap generation, etc.
         await ProductionExecutionService.addProductionOutput(report);
@@ -81,4 +99,4 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
-}
+});

@@ -15,6 +15,14 @@ import { kioskLabels } from "@/lib/labels";
 import { CameraCapture } from "@/components/ui/camera-capture";
 import { KioskStepHeader } from "@/components/kiosk/KioskStepHeader";
 
+interface ShiftInfo {
+    id: string;
+    shiftName: string;
+    startTime: Date | string;
+    endTime: Date | string;
+    operatorId: string | null;
+}
+
 interface KioskLogOutputDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -25,6 +33,7 @@ interface KioskLogOutputDialogProps {
     conversionFactor?: unknown;
     operatorId?: string;
     orderHelpers?: Array<{ id: string; name: string }>;
+    shifts?: ShiftInfo[];
     onSuccess?: () => void;
 }
 
@@ -47,6 +56,7 @@ export function KioskLogOutputDialog({
     conversionFactor,
     operatorId,
     orderHelpers = [],
+    shifts = [],
     onSuccess
 }: KioskLogOutputDialogProps) {
     const [step, setStep] = useState(0);
@@ -64,6 +74,41 @@ export function KioskLogOutputDialog({
         unit: string;
         hasPhoto: boolean;
     }>>([]);
+    const [selectedShiftId, setSelectedShiftId] = useState<string>('');
+
+    // Is any shift currently active by time window (startTime <= now <= endTime)?
+    // Mirrors findActiveShift server-side logic — used to detect stale/expired shifts.
+    const hasActiveShiftByTime = (() => {
+        if (shifts.length === 0) return false;
+        const now = Date.now();
+        return shifts.some(s => {
+            const start = new Date(s.startTime).getTime();
+            const end = new Date(s.endTime).getTime();
+            return now >= start && now <= end;
+        });
+    })();
+
+    // Auto-select shift: prefer operator's active shift, then operator's shift (any time),
+    // then latest shift overall (shifts prop is sorted startTime asc from server —
+    // mirrors findLatestShiftForOrder fallback used server-side in startExecution).
+    const autoSelectedShift = (() => {
+        if (shifts.length === 0) return null;
+        const now = Date.now();
+        const isActive = (s: ShiftInfo) => {
+            const start = new Date(s.startTime).getTime();
+            const end = new Date(s.endTime).getTime();
+            return now >= start && now <= end;
+        };
+        if (operatorId) {
+            const activeByOperator = shifts.find(s => s.operatorId === operatorId && isActive(s));
+            if (activeByOperator) return activeByOperator;
+            const byOperator = shifts.find(s => s.operatorId === operatorId);
+            if (byOperator) return byOperator;
+        }
+        const activeAny = shifts.find(isActive);
+        if (activeAny) return activeAny;
+        return shifts[shifts.length - 1]; // fallback: latest shift overall (findLatestShiftForOrder equivalent)
+    })();
 
     const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
 
@@ -107,6 +152,8 @@ export function KioskLogOutputDialog({
             ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
             : qtyNum;
 
+        const effectiveShiftId = selectedShiftId || autoSelectedShift?.id;
+
         setIsLoading(true);
         try {
             let photoUrl: string | undefined;
@@ -130,6 +177,7 @@ export function KioskLogOutputDialog({
                 operatorId: operatorId,
                 helperIds: helperIds.length > 0 ? helperIds : undefined,
                 photoUrl,
+                shiftId: effectiveShiftId || undefined,
             });
 
             if (result.success) {
@@ -220,6 +268,7 @@ export function KioskLogOutputDialog({
         setPhotoFile(null);
         setShowSuccess(false);
         setScrapConfirmMode('idle');
+        setSelectedShiftId('');
         setStep(0);
     };
 
@@ -505,6 +554,42 @@ export function KioskLogOutputDialog({
                                     </div>
                                 )}
                             </div>
+
+                            {/* Shift picker — shown when shifts exist */}
+                            {shifts.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                                        Shift
+                                    </Label>
+                                    {!hasActiveShiftByTime && (
+                                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                                            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                                            <p className="text-xs text-amber-700">
+                                                Semua shift untuk SPK ini sudah lewat. Sistem memilih shift terakhir secara otomatis — periksa kembali sebelum simpan, atau hubungi PPIC untuk tambah shift baru.
+                                            </p>
+                                        </div>
+                                    )}
+                                    <select
+                                        value={selectedShiftId || autoSelectedShift?.id || ''}
+                                        onChange={(e) => setSelectedShiftId(e.target.value)}
+                                        className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                    >
+                                        {shifts.map(s => (
+                                            <option key={s.id} value={s.id}>
+                                                {s.shiftName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {shifts.length === 0 && (
+                                <div className="rounded-lg border border-red-300 bg-red-50 p-3 flex items-start gap-2">
+                                    <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                                    <p className="text-xs text-red-700">
+                                        Belum ada shift di SPK ini — tambah shift dulu di detail SPK atau hubungi PPIC.
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Final validation warning */}
                             {qtyNum === 0 && totalScrap === 0 && (

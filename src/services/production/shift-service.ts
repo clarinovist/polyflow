@@ -49,3 +49,20 @@ export async function findActiveShift(params: {
 
   return fallbackShift ?? null;
 }
+
+/**
+ * Find the latest ProductionShift for a given production order (regardless of time window).
+ * Used as fallback when no active shift exists (e.g., stale shifts from prior days).
+ * Returns shift with its operatorId, or null if no shifts exist for the order.
+ */
+export async function findLatestShiftForOrder(
+  productionOrderId: string,
+): Promise<ActiveShiftResult | null> {
+  const shift = await prisma.productionShift.findFirst({
+    where: { productionOrderId },
+    orderBy: { startTime: 'desc' },
+    select: { id: true, operatorId: true },
+  });
+
+  return shift ?? null;
+}

@@ -54,11 +54,20 @@ export interface Order {
     }>;
 }
 
-interface KioskJobFocusProps {
-    order: Order;
+export interface Shift {
+    id: string;
+    shiftName: string;
+    startTime: Date | string;
+    endTime: Date | string;
+    operatorId: string | null;
 }
 
-export default function KioskJobFocus({ order }: KioskJobFocusProps) {
+interface KioskJobFocusProps {
+    order: Order;
+    shifts?: Shift[];
+}
+
+export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [stopDialogOpen, setStopDialogOpen] = useState(false);
@@ -326,6 +335,7 @@ export default function KioskJobFocus({ order }: KioskJobFocusProps) {
                         conversionFactor={unitMeta.conversionFactor}
                         operatorId={operatorId || undefined}
                         orderHelpers={order.helpers}
+                        shifts={shifts}
                         onSuccess={() => router.refresh()}
                     />
                 </>

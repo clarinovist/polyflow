@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -105,15 +105,6 @@ export default function HdProductionForm({
         }
     }, [shiftsByOrder]);
 
-    useEffect(() => {
-        fields.forEach((_, index) => {
-            const orderId = form.watch(`reports.${index}.productionOrderId`);
-            if (orderId) {
-                fetchShiftsForOrder(orderId);
-            }
-        });
-    });
-
     const onSubmit = async (data: BulkFormValues) => {
         setIsSubmitting(true);
         try {
@@ -191,28 +182,28 @@ export default function HdProductionForm({
 
                         {/* Top Config row: WO, Mesin, Operator, Shift */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <FormField
-                                control={form.control}
-                                name={`reports.${index}.productionOrderId`}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-white/70 dark:text-white/80">{productionLabels.workOrder}</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
-                                                    <SelectValue placeholder="Pilih WO..." />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {orders.map(o => (
-                                                    <SelectItem key={o.id} value={o.id}>{o.orderNumber} - {o.bom?.productVariant?.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                    <FormField
+                        control={form.control}
+                        name={`reports.${index}.productionOrderId`}
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-white/70 dark:text-white/80">{productionLabels.workOrder}</FormLabel>
+                                <Select onValueChange={(val) => { field.onChange(val); fetchShiftsForOrder(val); }} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
+                                            <SelectValue placeholder="Pilih WO..." />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {orders.map(o => (
+                                            <SelectItem key={o.id} value={o.id}>{o.orderNumber} - {o.bom?.productVariant?.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
                             <FormField
                                 control={form.control}
@@ -419,7 +410,11 @@ export default function HdProductionForm({
 
                     <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || fields.some((_, i) => {
+                            const orderId = form.watch(`reports.${i}.productionOrderId`);
+                            const shifts = orderId ? (shiftsByOrder[orderId] || []) : [];
+                            return orderId && shifts.length > 0 && !form.watch(`reports.${i}.shiftId`);
+                        })}
                         size="lg"
                         className="w-full md:w-auto font-black text-lg px-12 rounded-full shadow-[0_0_30px_rgba(59,130,246,0.3)] dark:shadow-[0_0_35px_rgba(59,130,246,0.4)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] dark:hover:shadow-[0_0_50px_rgba(59,130,246,0.6)] hover:scale-105 active:scale-95 transition-all"
                     >

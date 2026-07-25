@@ -536,6 +536,104 @@ describe('ProductionExecutionService.logRunningOutput', () => {
             })
         );
     });
+
+    it('prioritizes explicit shiftId over auto-detect when both are valid', async () => {
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            machineId: 'machine-1',
+            operatorId: 'op-1',
+            shiftId: 'shift-shell',
+            enteredQuantity: null,
+            enteredUnit: null,
+            notes: null,
+        } as never);
+        // Explicit shiftId validation: belongs to the order
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue({ id: 'shift-explicit' } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({ id: 'exec-1' } as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 100,
+            orderNumber: 'WO-001',
+            isMaklon: false,
+            locationId: 'loc-1',
+            bom: { productVariantId: 'pv-1', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-1',
+            quantityProduced: 25,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            shiftId: 'shift-explicit',
+            userId: 'user-1',
+        });
+
+        // Explicit shiftId should validate against the same production order
+        expect(tx.productionShift.findFirst).toHaveBeenCalledWith({
+            where: { id: 'shift-explicit', productionOrderId: 'po-1' },
+            select: { id: true },
+        });
+
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    shiftId: 'shift-explicit',
+                }),
+            })
+        );
+    });
+
+    it('ignores explicit shiftId when it does not belong to the production order (falls back to shell/auto-detect)', async () => {
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            machineId: 'machine-1',
+            operatorId: 'op-1',
+            shiftId: 'shift-shell',
+            enteredQuantity: null,
+            enteredUnit: null,
+            notes: null,
+        } as never);
+        // Explicit shiftId does NOT belong to this order
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue(null);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 100,
+            orderNumber: 'WO-001',
+            isMaklon: false,
+            locationId: 'loc-1',
+            bom: { productVariantId: 'pv-1', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-1',
+            quantityProduced: 25,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            shiftId: 'shift-from-other-wo',
+            userId: 'user-1',
+        });
+
+        // Falls back to the running shell's shiftId since explicit one is invalid
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    shiftId: 'shift-shell',
+                }),
+            })
+        );
+    });
 });
 
 describe('ProductionExecutionService.addProductionOutput', () => {
@@ -591,5 +689,59 @@ describe('ProductionExecutionService.addProductionOutput', () => {
                 userId: 'user-1',
             } as any)
         ).rejects.toThrow('Output quantity must be greater than 0');
+    });
+
+    it('should throw when shiftId does not belong to the production order', async () => {
+        // Arrange: shift lookup returns null → shift not found for this order
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue(null);
+
+        // Act & Assert
+        await expect(
+            ProductionExecutionService.addProductionOutput({
+                productionOrderId: 'po-1',
+                shiftId: 'shift-from-other-wo',
+                quantityProduced: 50,
+                scrapQuantity: 0,
+                startTime: new Date(),
+                endTime: new Date(),
+                userId: 'user-1',
+            } as any)
+        ).rejects.toThrow('Shift tidak valid untuk SPK ini');
+
+        expect(tx.productionShift.findFirst).toHaveBeenCalledWith({
+            where: { id: 'shift-from-other-wo', productionOrderId: 'po-1' },
+            select: { id: true },
+        });
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('should succeed when shiftId belongs to the production order', async () => {
+        // Arrange
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue({ id: 'shift-1' } as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-1' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 100,
+            orderNumber: 'WO-001',
+            isMaklon: false,
+            locationId: 'loc-1',
+            bom: { productVariantId: 'pv-1', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        // Act
+        await ProductionExecutionService.addProductionOutput({
+            productionOrderId: 'po-1',
+            shiftId: 'shift-1',
+            quantityProduced: 50,
+            scrapQuantity: 0,
+            startTime: new Date(),
+            endTime: new Date(),
+            userId: 'user-1',
+        } as any);
+
+        // Assert
+        expect(tx.productionExecution.create).toHaveBeenCalled();
     });
 });

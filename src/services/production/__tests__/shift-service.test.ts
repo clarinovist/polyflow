@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { findActiveShift } from '../shift-service';
+import { findActiveShift, findLatestShiftForOrder } from '../shift-service';
 
 vi.mock('@/lib/core/prisma', () => ({
   prisma: {
@@ -104,5 +104,49 @@ describe('findActiveShift', () => {
 
     expect(result).toBeNull();
     expect(prisma.productionShift.findFirst).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('findLatestShiftForOrder', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns the latest shift for the order ordered by startTime desc', async () => {
+    vi.mocked(prisma.productionShift.findFirst).mockResolvedValueOnce({
+      id: 'shift-latest',
+      operatorId: 'op-latest',
+    } as never);
+
+    const result = await findLatestShiftForOrder('po-1');
+
+    expect(result).toEqual({ id: 'shift-latest', operatorId: 'op-latest' });
+    expect(prisma.productionShift.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { productionOrderId: 'po-1' },
+        orderBy: { startTime: 'desc' },
+      }),
+    );
+  });
+
+  it('returns null when order has no shifts at all', async () => {
+    vi.mocked(prisma.productionShift.findFirst).mockResolvedValueOnce(null);
+
+    const result = await findLatestShiftForOrder('po-empty');
+
+    expect(result).toBeNull();
+  });
+
+  it('does not filter by time window (used as fallback for stale/expired shifts)', async () => {
+    vi.mocked(prisma.productionShift.findFirst).mockResolvedValueOnce({
+      id: 'shift-expired',
+      operatorId: null,
+    } as never);
+
+    await findLatestShiftForOrder('po-1');
+
+    const callArgs = vi.mocked(prisma.productionShift.findFirst).mock.calls[0]![0]!;
+    expect(callArgs.where).not.toHaveProperty('startTime');
+    expect(callArgs.where).not.toHaveProperty('endTime');
   });
 });

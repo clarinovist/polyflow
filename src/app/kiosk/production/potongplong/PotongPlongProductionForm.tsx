@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -104,15 +104,6 @@ export default function PotongPlongProductionForm({
         }
     }, [shiftsByOrder]);
 
-    useEffect(() => {
-        fields.forEach((_, index) => {
-            const orderId = form.watch(`reports.${index}.productionOrderId`);
-            if (orderId) {
-                fetchShiftsForOrder(orderId);
-            }
-        });
-    });
-
     const onSubmit = async (data: BulkFormValues) => {
         setIsSubmitting(true);
         try {
@@ -195,7 +186,7 @@ export default function PotongPlongProductionForm({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-purple-600 dark:text-purple-200/70">Work Order (SPK)</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={(val) => { field.onChange(val); fetchShiftsForOrder(val); }} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
                                                     <SelectValue placeholder="Pilih WO..." />
@@ -393,7 +384,11 @@ export default function PotongPlongProductionForm({
 
                     <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || fields.some((_, i) => {
+                            const orderId = form.watch(`reports.${i}.productionOrderId`);
+                            const shifts = orderId ? (shiftsByOrder[orderId] || []) : [];
+                            return orderId && shifts.length > 0 && !form.watch(`reports.${i}.shiftId`);
+                        })}
                         size="lg"
                         className="w-full md:w-auto font-black text-lg px-12 rounded-full shadow-[0_0_30px_rgba(168,85,247,0.4)] hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:scale-105 active:scale-95 transition-all bg-purple-600 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-400 text-white"
                     >

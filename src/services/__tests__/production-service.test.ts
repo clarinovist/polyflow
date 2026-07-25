@@ -61,6 +61,9 @@ vi.mock("@/lib/core/prisma", () => {
         .fn()
         .mockResolvedValue({ _sum: { quantity: { toNumber: () => 0 } } }),
     },
+    productionShift: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     $queryRaw: vi.fn().mockResolvedValue([{ quantity: 100 }]),
   };
   return { prisma: mockPrisma };
@@ -164,6 +167,9 @@ describe("ProductionService", () => {
     // No open execution → startExecution creates a new one (handover path skipped)
     (prisma.productionExecution.findFirst as any).mockResolvedValue(null);
 
+    // Shift validation: return a valid shift for any query
+    (prisma.productionShift.findFirst as any).mockResolvedValue({ id: "shift-1" });
+
     (prisma.productionExecution.findUniqueOrThrow as any).mockResolvedValue({
       id: "exec-1",
       productionOrderId: "po-1",
@@ -220,6 +226,21 @@ describe("ProductionService", () => {
         where: { id: "po-1" },
         data: { status: "IN_PROGRESS" },
       });
+    });
+
+    it("should reject startExecution when shiftId does not belong to the production order", async () => {
+      (prisma.productionShift.findFirst as any).mockResolvedValueOnce(null);
+
+      await expect(
+        ProductionService.startExecution({
+          productionOrderId: "po-1",
+          machineId: "mach-1",
+          operatorId: "op-1",
+          shiftId: "shift-from-other-wo",
+        }),
+      ).rejects.toThrow("Shift tidak valid untuk SPK ini");
+
+      expect(prisma.productionExecution.create).not.toHaveBeenCalled();
     });
 
     it("should change order status to COMPLETED on stopExecution with completed=true", async () => {

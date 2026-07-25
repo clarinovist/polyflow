@@ -22,7 +22,7 @@ import {
 import { serializeData } from "@/lib/utils/utils";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
-import { findActiveShift } from "@/services/production/shift-service";
+import { findActiveShift, findLatestShiftForOrder } from "@/services/production/shift-service";
 
 export const startExecution = withTenant(async function startExecution(
   data: StartExecutionValues,
@@ -56,6 +56,19 @@ export const startExecution = withTenant(async function startExecution(
           shiftId = activeShift.id;
           if (activeShift.operatorId) {
             effectiveOperatorId = activeShift.operatorId;
+          }
+        } else {
+          // No shift active by time window (e.g. all shifts for this WO have expired).
+          // Fall back to the latest defined shift rather than leaving shiftId unset —
+          // operator can still correct it later via the log-output shift picker.
+          const latestShift = await findLatestShiftForOrder(
+            result.data.productionOrderId,
+          );
+          if (latestShift) {
+            shiftId = latestShift.id;
+            if (latestShift.operatorId && !effectiveOperatorId) {
+              effectiveOperatorId = latestShift.operatorId;
+            }
           }
         }
       }

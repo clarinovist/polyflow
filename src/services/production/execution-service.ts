@@ -267,6 +267,19 @@ export class ProductionExecutionService {
     const { productionOrderId, machineId, operatorId, shiftId } = data;
 
     return await prisma.$transaction(async (tx) => {
+      // Validate: shift must belong to the same production order
+      if (shiftId) {
+        const shiftOk = await tx.productionShift.findFirst({
+          where: { id: shiftId, productionOrderId },
+          select: { id: true },
+        });
+        if (!shiftOk) {
+          throw new ProductionRuleViolationError(
+            "Shift tidak valid untuk SPK ini",
+          );
+        }
+      }
+
       // Handover: if SPK still running (paused without full stop), reassign operator/shift
       const existing = await tx.productionExecution.findFirst({
         where: { productionOrderId, endTime: null },
@@ -446,6 +459,7 @@ export class ProductionExecutionService {
       helperIds,
       photoUrl,
       userId,
+      shiftId: explicitShiftId,
     } = data;
 
     await prisma.$transaction(async (tx) => {
@@ -456,9 +470,23 @@ export class ProductionExecutionService {
 
       const productionOrderId = runningExecution.productionOrderId;
       const operatorId = requestOperatorId || runningExecution.operatorId;
-      let shiftId = runningExecution.shiftId;
 
-      if (requestOperatorId) {
+      // Priority: explicit shiftId from kiosk wizard > auto-detect > running shell
+      let shiftId: string | null = runningExecution.shiftId;
+
+      // Validate and use explicit shiftId if provided
+      if (explicitShiftId) {
+        const validShift = await tx.productionShift.findFirst({
+          where: { id: explicitShiftId, productionOrderId },
+          select: { id: true },
+        });
+        if (validShift) {
+          shiftId = explicitShiftId;
+        }
+      }
+
+      // Auto-detect if no explicit shift and operatorId provided
+      if (!explicitShiftId && requestOperatorId) {
         const now = new Date();
         const byOperator = await tx.productionShift.findFirst({
           where: {
@@ -482,17 +510,17 @@ export class ProductionExecutionService {
             select: { id: true },
           }));
         if (activeShift) shiftId = activeShift.id;
+      }
 
-        // Keep shell in sync so next log / UI shows current operator
-        if (
-          operatorId !== runningExecution.operatorId ||
-          shiftId !== runningExecution.shiftId
-        ) {
-          await tx.productionExecution.update({
-            where: { id: executionId },
-            data: { operatorId, shiftId },
-          });
-        }
+      // Keep shell in sync so next log / UI shows current operator
+      if (
+        operatorId !== runningExecution.operatorId ||
+        shiftId !== runningExecution.shiftId
+      ) {
+        await tx.productionExecution.update({
+          where: { id: executionId },
+          data: { operatorId, shiftId },
+        });
       }
 
       // 2. Resolve quantity
@@ -619,6 +647,19 @@ export class ProductionExecutionService {
         tx,
       });
       const resolvedBaseQty = resolved.baseQty;
+
+      // Validate: shift must belong to the same production order
+      if (shiftId) {
+        const shiftOk = await tx.productionShift.findFirst({
+          where: { id: shiftId, productionOrderId },
+          select: { id: true },
+        });
+        if (!shiftOk) {
+          throw new ProductionRuleViolationError(
+            "Shift tidak valid untuk SPK ini. Pilih shift yang terdaftar di SPK.",
+          );
+        }
+      }
 
       // Validate: qty=0 only allowed for REWORK orders
       if (resolvedBaseQty === 0) {

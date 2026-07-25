@@ -168,7 +168,9 @@ export const productionOutputSchema = z.object({
     machineId: z.string().optional().transform(v => v || undefined),
     operatorId: z.string().optional().transform(v => v || undefined),
     helperIds: z.array(z.string()).optional(),
-    shiftId: z.string().optional().transform(v => v || undefined),
+    // Required: every output must link to a ProductionShift on the same WO.
+    // App-layer required; DB stays nullable until backfill migration completes.
+    shiftId: z.string().min(1, "Shift wajib dipilih").trim(),
     quantityProduced: z.coerce.number().nonnegative("Quantity cannot be negative"),
     // UOM audit trail: operator-facing entry details
     enteredQuantity: z.coerce.number().positive("Entered quantity must be positive").optional(),
@@ -227,6 +229,8 @@ export const logRunningOutputSchema = z.object({
     operatorId: z.string().optional(),
     helperIds: z.array(z.string()).optional(),
     photoUrl: z.string().optional(),
+    // Optional: explicit shift from kiosk wizard. When set, overrides auto-detect.
+    shiftId: z.string().optional().transform(v => v || undefined),
 });
 
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;
