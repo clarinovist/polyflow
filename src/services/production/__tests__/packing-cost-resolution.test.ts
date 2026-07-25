@@ -147,7 +147,7 @@ describe('Packing and Costing Resolution Logic', () => {
                                 id: 'pv-fg-red',
                                 name: 'Packing Merah',
                                 skuCode: 'FG-PACK-RED',
-                                primaryUnit: 'PACK',
+                                primaryUnit: 'PCS',
                                 standardCost: 16650,
                                 product: { name: 'Packing Merah Product' }
                             }
@@ -168,7 +168,7 @@ describe('Packing and Costing Resolution Logic', () => {
                 productName: 'Packing Merah Product',
                 skuCode: 'FG-PACK-RED',
                 totalQuantity: 100,
-                primaryUnit: 'PACK',
+                primaryUnit: 'PCS',
                 workOrderCount: 1,
                 karungConsumed: 0,
                 karungCost: 0,
@@ -195,7 +195,7 @@ describe('Packing and Costing Resolution Logic', () => {
                     productVariant: {
                         name: 'Karung Besar',
                         skuCode: 'RMKAR001',
-                        primaryUnit: 'PACK',
+                        primaryUnit: 'PCS',
                         product: { productType: 'PACKAGING' }
                     }
                 } as any,
@@ -220,7 +220,7 @@ describe('Packing and Costing Resolution Logic', () => {
                     productVariant: {
                         name: 'Karung Besar',
                         skuCode: 'RMKAR001',
-                        primaryUnit: 'PACK',
+                        primaryUnit: 'PCS',
                         product: { productType: 'RAW_MATERIAL' }
                     }
                 } as any,
@@ -245,7 +245,7 @@ describe('Packing and Costing Resolution Logic', () => {
                     productVariant: {
                         name: 'Outer Bag Large',
                         skuCode: 'PKG001',
-                        primaryUnit: 'PACK',
+                        primaryUnit: 'PCS',
                         attributes: { consumptionRule: 'FLOOR_ENTERED_BAL' },
                         product: { productType: 'SERVICE' }
                     }
