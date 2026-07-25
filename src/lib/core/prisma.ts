@@ -108,6 +108,12 @@ export const prisma: typeof mainPrisma =
     globalForPrismaProxy.__polyflowPrismaProxy ??
     (globalForPrismaProxy.__polyflowPrismaProxy = new Proxy(mainPrisma, {
         get(target, prop, receiver) {
+            // Prisma internal properties (e.g. _extensions set by $extends) are
+            // non-configurable data properties. Routing them to a different
+            // target violates the Proxy invariant and throws TypeError.
+            if (typeof prop === 'string' && prop.startsWith('_')) {
+                return Reflect.get(target, prop, receiver);
+            }
             const tenantDb = tenantContext.getStore();
             if (tenantDb) {
                 return Reflect.get(tenantDb, prop, receiver);
