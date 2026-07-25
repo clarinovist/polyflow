@@ -46,9 +46,16 @@ export class PackingReportService {
                     bom: {
                         category: 'PACKING'
                     },
+                    // Kiyowo: packing_area. Melindo: packing product output → FG (not supplies).
                     location: {
-                        slug: 'packing_area'
-                    }
+                        OR: [
+                            { slug: 'packing_area' },
+                            { slug: 'fg_warehouse' },
+                            { slug: 'gudang-barang-jadi' },
+                            { locationPurpose: 'PACKING' },
+                            { locationPurpose: 'FINISHED_GOOD' },
+                        ],
+                    },
                 }
             },
             include: {

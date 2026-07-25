@@ -5,6 +5,11 @@
  * Melindo-style tenants use Indonesian slugs + locationPurpose
  * (gudang-bahan-baku / RAW_MATERIAL, gudang-wip-intermediate / WIP, …).
  *
+ * Important semantic split for PACKING:
+ * - Kiyowo `packing_area` = production floor + packaging *products* (output of packing stage)
+ * - Melindo `gudang-packaging` = packaging *supplies* only (etiket, karung) — not FG output
+ * See docs/LOCATION_TENANT_MAPPING.md
+ *
  * Resolve order:
  * 1. Canonical + known alias slugs (skip inactive)
  * 2. locationPurpose candidates (skip inactive)
@@ -31,7 +36,8 @@ export type LocationRole =
   | "FINISHED_GOOD"
   | "PACKING"
   | "SCRAP"
-  | "CUSTOMER_OWNED";
+  | "CUSTOMER_OWNED"
+  | "OPERATIONAL";
 
 export type ProductionStage = "mixing" | "extrusion" | "packing" | "rework";
 
@@ -49,6 +55,7 @@ const ROLE_SLUGS: Record<LocationRole, readonly string[]> = {
     "gudang-barang-jadi",
     "gudang-fg",
   ],
+  /** Process-floor packing (Kiyowo) + supplies warehouse (Melindo) — use helpers to distinguish */
   PACKING: [
     WAREHOUSE_SLUGS.PACKING_AREA,
     "gudang-packaging",
@@ -56,6 +63,7 @@ const ROLE_SLUGS: Record<LocationRole, readonly string[]> = {
   ],
   SCRAP: [WAREHOUSE_SLUGS.SCRAP, "gudang-scrap"],
   CUSTOMER_OWNED: [WAREHOUSE_SLUGS.CUSTOMER_OWNED],
+  OPERATIONAL: ["gudang-atk-kantor", "office_supplies", "atk_warehouse"],
 };
 
 /** Purpose fallbacks when slug miss (priority order) */
@@ -64,9 +72,11 @@ const ROLE_PURPOSES: Record<LocationRole, readonly string[]> = {
   MIXING: ["MIXING", "WIP"], // Melindo has no MIXING purpose → WIP
   WIP: ["WIP", "MIXING"],
   FINISHED_GOOD: ["FINISHED_GOOD"],
-  PACKING: ["PACKING", "FINISHED_GOOD"],
+  // Do NOT fall back PACKING → FINISHED_GOOD: that conflates supplies warehouse with FG
+  PACKING: ["PACKING"],
   SCRAP: ["SCRAP"],
   CUSTOMER_OWNED: [], // rely on slug / type elsewhere
+  OPERATIONAL: ["OPERATIONAL", "GENERAL_PURPOSE"],
 };
 
 export function isInactiveLocation(loc: LocationLike): boolean {
@@ -81,13 +91,64 @@ export function isInactiveLocation(loc: LocationLike): boolean {
 }
 
 /**
- * Output locations that are risky for WO staging (RM warehouse or inactive).
+ * True when PACKING role points at a *supplies* warehouse (Melindo-style),
+ * not a packing process floor / packaging-product store (Kiyowo packing_area).
+ *
+ * Supplies warehouses must not receive finished product output.
+ */
+export function isPackagingSuppliesWarehouse(
+  loc: LocationLike | null | undefined,
+): boolean {
+  if (!loc || isInactiveLocation(loc)) return false;
+  const slug = (loc.slug || "").toLowerCase();
+  // Explicit production floors — never treat as supplies-only
+  if (
+    slug === WAREHOUSE_SLUGS.PACKING_AREA ||
+    slug === "packing_area" ||
+    slug === MAKLON_STAGE_SLUGS.PACKING ||
+    slug === "maklon_packing"
+  ) {
+    return false;
+  }
+  if (
+    slug === "gudang-packaging" ||
+    slug.includes("pengemas") ||
+    slug.includes("bahan-pembantu") ||
+    slug.includes("packaging-supply")
+  ) {
+    return true;
+  }
+  const name = (loc.name || "").toLowerCase();
+  return (
+    name.includes("pembantu") ||
+    name.includes("pengemas") ||
+    name.includes("bahan kemasan") ||
+    (name.includes("packaging") && name.includes("supply"))
+  );
+}
+
+/**
+ * Production-floor packing location (Kiyowo packing_area / maklon_packing).
+ * Returns null for Melindo-style supplies warehouses.
+ */
+export function resolvePackingProcessLocation(
+  locations: LocationLike[],
+): LocationLike | null {
+  const pack = resolveLocationByRole(locations, "PACKING");
+  if (!pack) return null;
+  if (isPackagingSuppliesWarehouse(pack)) return null;
+  return pack;
+}
+
+/**
+ * Output locations that are risky for WO staging (RM, inactive, packaging supplies).
  * Used for create-SPK guardrails and transfer destination warnings.
  */
 export function isRiskyOutputLocation(loc: LocationLike | null | undefined): boolean {
   if (!loc) return true;
   if (isInactiveLocation(loc)) return true;
   if (loc.locationPurpose === "RAW_MATERIAL") return true;
+  if (isPackagingSuppliesWarehouse(loc)) return true;
   const slug = (loc.slug || "").toLowerCase();
   if (
     slug === WAREHOUSE_SLUGS.RAW_MATERIAL ||
@@ -110,7 +171,10 @@ export function stageLabelId(stage: ProductionStage): string {
 export function recommendedOutputHint(stage: ProductionStage): string {
   if (stage === "mixing") return "Gudang WIP / Mixing Area";
   if (stage === "extrusion") return "Gudang Barang Jadi (FG)";
-  if (stage === "packing") return "Packing Area / FG";
+  // Melindo: packing output = FG; Kiyowo: Packing Area (produk)
+  if (stage === "packing") {
+    return "Packing Area (produk) — atau FG bila packing = gudang supply";
+  }
   return "Gudang Barang Jadi (FG)";
 }
 
@@ -241,10 +305,10 @@ export function resolveOutputLocationId(
       return resolveLocationIdByRole(locations, "FINISHED_GOOD");
     }
     if (stage === "packing") {
-      return (
-        resolveLocationIdByRole(locations, "PACKING") ||
-        resolveLocationIdByRole(locations, "FINISHED_GOOD")
-      );
+      // Kiyowo packing_area = product output floor; Melindo gudang-packaging = supplies only
+      const processFloor = resolvePackingProcessLocation(locations);
+      if (processFloor) return processFloor.id;
+      return resolveLocationIdByRole(locations, "FINISHED_GOOD");
     }
     if (stage === "rework") {
       return resolveLocationIdByRole(locations, "FINISHED_GOOD");
@@ -269,9 +333,15 @@ export function resolveOutputLocationId(
     );
   }
   if (stage === "packing") {
+    // Prefer dedicated maklon packing floor; never send product to supplies warehouse
+    const maklonPack = activeLocations(locations).find(
+      (l) => l.slug === MAKLON_STAGE_SLUGS.PACKING,
+    );
+    if (maklonPack) return maklonPack.id;
+    const processFloor = resolvePackingProcessLocation(locations);
+    if (processFloor) return processFloor.id;
     return (
-      bySlug(MAKLON_STAGE_SLUGS.PACKING) ||
-      resolveLocationIdByRole(locations, "PACKING") ||
+      bySlug(MAKLON_STAGE_SLUGS.FINISHED_GOOD) ||
       resolveLocationIdByRole(locations, "FINISHED_GOOD")
     );
   }
@@ -281,6 +351,20 @@ export function resolveOutputLocationId(
       resolveLocationIdByRole(locations, "FINISHED_GOOD")
     );
   }
+  return "";
+}
+
+/**
+ * Default location for packaging *materials* (etiket, karung) consumption/source.
+ * Melindo: gudang-packaging. Kiyowo: packing_area if supplies live there, else PACKING role.
+ */
+export function resolvePackagingSuppliesLocationId(
+  locations: LocationLike[],
+): string {
+  const pack = resolveLocationByRole(locations, "PACKING");
+  if (pack && isPackagingSuppliesWarehouse(pack)) return pack.id;
+  // Kiyowo: materials often co-located on packing floor
+  if (pack) return pack.id;
   return "";
 }
 

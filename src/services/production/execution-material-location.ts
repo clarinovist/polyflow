@@ -117,7 +117,9 @@ export async function resolveMaterialLocation(
     }
 
     if (order.bom?.category === 'EXTRUSION' || order.bom?.category === 'MIXING') {
-        const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
+        const mixingLoc =
+            (await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } })) ||
+            (await tx.location.findUnique({ where: { slug: 'gudang-wip-intermediate' } }));
         if (mixingLoc) {
             return mixingLoc.id;
         }
@@ -135,16 +137,25 @@ export async function resolveMaterialLocation(
             return order.locationId;
         }
 
+        // Kiyowo: packing_area / fg_warehouse / rm_warehouse
+        // Melindo: gudang-packaging (supplies), gudang-barang-jadi (FG), gudang-bahan-baku
         const candidateLocationId = await findFirstStockLocation(tx, productVariantId, [
             WAREHOUSE_SLUGS.FINISHING,
+            'gudang-barang-jadi',
+            WAREHOUSE_SLUGS.PACKING_AREA,
+            'gudang-packaging',
             WAREHOUSE_SLUGS.RAW_MATERIAL,
-            WAREHOUSE_SLUGS.PACKING_AREA
+            'gudang-bahan-baku',
+            WAREHOUSE_SLUGS.WIP_STORAGE,
+            'gudang-wip-intermediate',
         ]);
         if (candidateLocationId) {
             return candidateLocationId;
         }
 
-        const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
+        const fgLoc =
+            (await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } })) ||
+            (await tx.location.findUnique({ where: { slug: 'gudang-barang-jadi' } }));
         if (fgLoc) {
             return fgLoc.id;
         }
@@ -162,7 +173,9 @@ export async function resolveMaterialLocation(
             return order.locationId;
         }
 
-        const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
+        const fgLoc =
+            (await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } })) ||
+            (await tx.location.findUnique({ where: { slug: 'gudang-barang-jadi' } }));
         if (fgLoc) {
             return fgLoc.id;
         }

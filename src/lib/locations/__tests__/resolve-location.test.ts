@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   isInactiveLocation,
+  isPackagingSuppliesWarehouse,
   isRiskyOutputLocation,
   locationMatchesRole,
   resolveLocationByRole,
   resolveOutputLocationId,
+  resolvePackagingSuppliesLocationId,
+  resolvePackingProcessLocation,
   resolveSourceLocationId,
   resolveTransferSourceLocationId,
   type LocationLike,
@@ -103,9 +106,33 @@ describe("resolveSourceLocationId / resolveOutputLocationId", () => {
     expect(resolveOutputLocationId(melindo, "extrusion")).toBe("fg-m");
   });
 
-  it("Melindo packing: source FG, output packaging", () => {
+  it("Melindo packing: source FG, output FG (not supplies warehouse)", () => {
     expect(resolveSourceLocationId(melindo, "packing")).toBe("fg-m");
-    expect(resolveOutputLocationId(melindo, "packing")).toBe("pack-m");
+    // gudang-packaging is supplies-only — product output must land on FG
+    expect(resolveOutputLocationId(melindo, "packing")).toBe("fg-m");
+    expect(resolveOutputLocationId(melindo, "packing")).not.toBe("pack-m");
+  });
+
+  it("Kiyowo packing: source FG (rolls), output packing_area (bags)", () => {
+    expect(resolveSourceLocationId(kiyowo, "packing")).toBe("fg");
+    expect(resolveOutputLocationId(kiyowo, "packing")).toBe("pack");
+  });
+});
+
+describe("isPackagingSuppliesWarehouse / packing process floor", () => {
+  it("flags Melindo gudang-packaging as supplies, not Kiyowo packing_area", () => {
+    expect(isPackagingSuppliesWarehouse(melindo[3])).toBe(true); // pack-m
+    expect(isPackagingSuppliesWarehouse(kiyowo[4])).toBe(false); // pack
+  });
+
+  it("resolvePackingProcessLocation null for Melindo, set for Kiyowo", () => {
+    expect(resolvePackingProcessLocation(melindo)).toBeNull();
+    expect(resolvePackingProcessLocation(kiyowo)?.id).toBe("pack");
+  });
+
+  it("resolvePackagingSuppliesLocationId returns Melindo packaging warehouse", () => {
+    expect(resolvePackagingSuppliesLocationId(melindo)).toBe("pack-m");
+    expect(resolvePackagingSuppliesLocationId(kiyowo)).toBe("pack");
   });
 });
 
@@ -117,10 +144,12 @@ describe("resolveTransferSourceLocationId", () => {
 });
 
 describe("isRiskyOutputLocation", () => {
-  it("flags RM and inactive as risky for WO output", () => {
+  it("flags RM, inactive, and packaging supplies as risky for WO output", () => {
     expect(isRiskyOutputLocation(melindo[0])).toBe(true); // RM
     expect(isRiskyOutputLocation(melindo[5])).toBe(true); // inactive
+    expect(isRiskyOutputLocation(melindo[3])).toBe(true); // packaging supplies
     expect(isRiskyOutputLocation(melindo[1])).toBe(false); // WIP
     expect(isRiskyOutputLocation(kiyowo[1])).toBe(false); // mixing area
+    expect(isRiskyOutputLocation(kiyowo[4])).toBe(false); // packing floor OK
   });
 });
