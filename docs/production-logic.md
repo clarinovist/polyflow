@@ -104,6 +104,7 @@ The FG Demand Board replaces the old "SO without WO" list. It aggregates **FG it
 - **openSpkPlanned**: total planned qty from open SPKs (via BOM.productVariantId)
 - **uncoveredNeed**: `max(0, needToMake − openSpkPlanned)`
 - **urgencyHint**: URGENT (≤2d), NORMAL (≤7d), LOW (>7d) — signal only, not auto-priority
+- **sourceSoItems**: breakdown of contributing SOs per variant (orderNumber, customerName, residualQty, expectedDate, status) — read-only, click "n SO" badge to view
 
 SPKs created from the board are **not linked to any SO** (`salesOrderId = null`). Demand decreases as:
 - FG stock increases (production output)

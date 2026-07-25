@@ -5,6 +5,17 @@ import {
   ProductionStatus,
 } from "@prisma/client";
 
+export interface FgSourceSoItem {
+  /** SalesOrderItem.id — unique key (a SO can have multiple lines for the same variant) */
+  soItemId: string;
+  soId: string;
+  orderNumber: string;
+  customerName: string | null;
+  residualQty: number;
+  expectedDate: Date | null;
+  status: string;
+}
+
 export interface FgDemandRow {
   productVariantId: string;
   productName: string;
@@ -29,6 +40,8 @@ export interface FgDemandRow {
   openSpkCount: number;
   /** Total planned qty across open SPKs */
   openSpkTotalQty: number;
+  /** Breakdown of source SO items contributing to demand */
+  sourceSoItems: FgSourceSoItem[];
 }
 
 export interface FgDemandFilters {
@@ -65,12 +78,19 @@ export async function listFgDemandBoard(
       },
     },
     select: {
+      id: true,
       productVariantId: true,
       quantity: true,
       deliveredQty: true,
       salesOrder: {
         select: {
+          id: true,
+          orderNumber: true,
+          status: true,
           expectedDate: true,
+          customer: {
+            select: { name: true },
+          },
         },
       },
       productVariant: {
@@ -94,6 +114,7 @@ export async function listFgDemandBoard(
       variant: (typeof soItems)[0]["productVariant"];
       totalResidual: number;
       earliestDue: Date | null;
+      sourceSoItems: FgSourceSoItem[];
     }
   >();
 
@@ -106,6 +127,16 @@ export async function listFgDemandBoard(
 
     const vid = item.productVariantId;
     const existing = demandMap.get(vid);
+    const sourceEntry: FgSourceSoItem = {
+      soItemId: item.id,
+      soId: item.salesOrder.id,
+      orderNumber: item.salesOrder.orderNumber,
+      customerName: item.salesOrder.customer?.name ?? null,
+      residualQty: residual,
+      expectedDate: item.salesOrder.expectedDate,
+      status: item.salesOrder.status,
+    };
+
     if (existing) {
       existing.totalResidual += residual;
       const due = item.salesOrder.expectedDate;
@@ -115,11 +146,13 @@ export async function listFgDemandBoard(
       ) {
         existing.earliestDue = due;
       }
+      existing.sourceSoItems.push(sourceEntry);
     } else {
       demandMap.set(vid, {
         variant: item.productVariant,
         totalResidual: residual,
         earliestDue: item.salesOrder.expectedDate,
+        sourceSoItems: [sourceEntry],
       });
     }
   }
@@ -231,6 +264,13 @@ export async function listFgDemandBoard(
       if (!match) continue;
     }
 
+    // Sort sourceSoItems by expectedDate ascending (nulls last)
+    data.sourceSoItems.sort((a, b) => {
+      const aTime = a.expectedDate?.getTime() ?? Infinity;
+      const bTime = b.expectedDate?.getTime() ?? Infinity;
+      return aTime - bTime;
+    });
+
     rows.push({
       productVariantId: vid,
       productName: data.variant.product.name,
@@ -246,6 +286,7 @@ export async function listFgDemandBoard(
       urgencyHint: computeUrgency(data.earliestDue),
       openSpkCount: spk?.count || 0,
       openSpkTotalQty: openSpkPlanned,
+      sourceSoItems: data.sourceSoItems,
     });
   }
 

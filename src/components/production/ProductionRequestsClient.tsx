@@ -30,6 +30,7 @@ import {
   Package,
 } from "lucide-react";
 import { CreateSpkFromDemandDialog } from "./CreateSpkFromDemandDialog";
+import { FgSourceSoDialog } from "./FgSourceSoDialog";
 
 interface FgDemandRow {
   productVariantId: string;
@@ -46,6 +47,15 @@ interface FgDemandRow {
   urgencyHint: "URGENT" | "NORMAL" | "LOW";
   openSpkCount: number;
   openSpkTotalQty: number;
+  sourceSoItems: {
+    soItemId: string;
+    soId: string;
+    orderNumber: string;
+    customerName: string | null;
+    residualQty: number;
+    expectedDate: string | null;
+    status: string;
+  }[];
 }
 
 interface Machine {
@@ -68,6 +78,10 @@ interface ProductionRequestsClientProps {
   machines: Machine[];
   locations: Location[];
 }
+
+/** Distinct SO count — a single SO can have multiple lines for the same variant */
+const countDistinctSo = (items: { soId: string }[]) =>
+  new Set(items.map((i) => i.soId)).size;
 
 const urgencyBadge = (urgency: string) => {
   switch (urgency) {
@@ -109,6 +123,8 @@ export function ProductionRequestsClient({
   const [onlyUncovered, setOnlyUncovered] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<FgDemandRow | null>(null);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [sourceRow, setSourceRow] = useState<FgDemandRow | null>(null);
 
   const filtered = useMemo(() => {
     return rows.filter((row) => {
@@ -128,6 +144,11 @@ export function ProductionRequestsClient({
   const handleCreateSpk = (row: FgDemandRow) => {
     setSelectedRow(row);
     setDialogOpen(true);
+  };
+
+  const handleViewSourceSo = (row: FgDemandRow) => {
+    setSourceRow(row);
+    setSourceDialogOpen(true);
   };
 
   const totalNeed = filtered.reduce((sum, r) => sum + r.needToMake, 0);
@@ -216,6 +237,7 @@ export function ProductionRequestsClient({
                     <TableHead className="text-right">Belum di-SPK</TableHead>
                     <TableHead className="text-right">Stok FG</TableHead>
                     <TableHead className="text-right">SPK open</TableHead>
+                    <TableHead className="text-right">SO</TableHead>
                     <TableHead>Due Terdekat</TableHead>
                     <TableHead>Sinyal</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
@@ -265,6 +287,15 @@ export function ProductionRequestsClient({
                           "—"
                         )}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleViewSourceSo(row)}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer underline underline-offset-2"
+                        >
+                          {countDistinctSo(row.sourceSoItems)} SO
+                        </button>
+                      </TableCell>
                       <TableCell>
                         {row.earliestDue ? (
                           format(new Date(row.earliestDue), "dd MMM yyyy", {
@@ -306,6 +337,18 @@ export function ProductionRequestsClient({
           defaultQuantity={selectedRow.uncoveredNeed}
           machines={machines}
           locations={locations}
+        />
+      )}
+
+      {sourceRow && (
+        <FgSourceSoDialog
+          open={sourceDialogOpen}
+          onOpenChange={setSourceDialogOpen}
+          productName={sourceRow.productName}
+          variantName={sourceRow.variantName}
+          skuCode={sourceRow.skuCode}
+          unit={sourceRow.unit}
+          sourceSoItems={sourceRow.sourceSoItems}
         />
       )}
     </div>

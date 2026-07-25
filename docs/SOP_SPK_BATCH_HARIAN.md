@@ -78,6 +78,7 @@
 2. Cek:
    - **Perlu (net stok):** demand FG dikurangi stok FG yang tersedia
    - **Belum di-SPK:** sisa yang belum ditutup SPK
+   - **SO:** jumlah SO aktif yang menyumbang demand (klik untuk melihat rincian: nomor SO, customer, residual, due)
    - Sinyal urgensi (🔴 URGENT / 🟡 NORMAL / 🟢 LOW)
 3. **Klik "Buat SPK"** pada item yang perlu diproduksi.
 4. Isi:
