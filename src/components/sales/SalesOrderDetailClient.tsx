@@ -722,8 +722,15 @@ export function SalesOrderDetailClient({
                   {order.items.map((item) => (
                     <tr key={item.id} className="hover:bg-muted/50">
                       <td className="p-4">
-                        <div className="font-medium">
-                          {item.productVariant.product.name}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="font-medium">
+                            {item.productVariant.product.name}
+                          </div>
+                          {(item.isFreeItem || Number(item.unitPrice) === 0) && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 h-4 font-normal bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                              Sampel / Gratis
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {item.productVariant.name} -{" "}

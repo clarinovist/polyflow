@@ -79,17 +79,25 @@ export async function GET(req: Request) {
         "@/lib/hrd/employment-reminder"
       );
       await dispatchReminders(prisma);
-
-      // 5. Sales: auto-expire quotations past validUntil
-      const { autoExpireQuotations } = await import(
-        "@/services/sales/orders-service"
-      );
-      await autoExpireQuotations();
     } catch (subErr) {
       console.error(
         "Failed to trigger subsystem notifications during cron: ",
         subErr,
       );
+    }
+
+    let expiredQuotationsCount = 0;
+    try {
+      // 5. Sales: auto-expire quotations past validUntil
+      const { autoExpireQuotations } = await import(
+        "@/services/sales/orders-service"
+      );
+      expiredQuotationsCount = await autoExpireQuotations();
+      if (expiredQuotationsCount > 0) {
+        console.log(`[Cron] Auto-expired ${expiredQuotationsCount} quotation(s) past validUntil.`);
+      }
+    } catch (expireErr) {
+      console.error("Failed to auto-expire quotations during cron:", expireErr);
     }
 
     return NextResponse.json({
@@ -99,6 +107,7 @@ export async function GET(req: Request) {
         auditLogs: auditLogCleanup.count,
         notifications: notificationCleanup.count,
       },
+      expiredQuotations: expiredQuotationsCount,
       executedAt: new Date().toISOString(),
     });
   } catch (error) {

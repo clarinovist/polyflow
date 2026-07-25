@@ -27,7 +27,3 @@ ALTER TABLE "SalesOrder"
 -- 4) Unique index for legacy quotation link
 CREATE UNIQUE INDEX IF NOT EXISTS "SalesOrder_legacyQuotationId_key"
   ON "SalesOrder"("legacyQuotationId");
-
--- 5) Add isFreeItem to SalesOrderItem
-ALTER TABLE "SalesOrderItem"
-  ADD COLUMN IF NOT EXISTS "isFreeItem" BOOLEAN NOT NULL DEFAULT false;

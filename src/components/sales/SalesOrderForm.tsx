@@ -207,6 +207,7 @@ export function SalesOrderForm({
       taxPercent?: number;
       dppOtherAmount?: number | null;
       ppnMode?: 'INCLUDE' | 'EXCLUDE';
+      isFreeItem?: boolean;
     }[];
     customItems?: {
       tempId: string;
@@ -1398,10 +1399,26 @@ export function SalesOrderForm({
                                 </div>
                               </FormControl>
                               {variant && (
-                                <span className="mt-1 text-[10px] text-muted-foreground text-right">
+                                <span className="mt-1 text-[10px] text-muted-foreground text-right block">
                                   {getPriceSourceLabel(variant)}
                                 </span>
                               )}
+                              <div className="flex items-center justify-end gap-1.5 mt-1">
+                                <Checkbox
+                                  id={`isFreeItem-${index}`}
+                                  checked={Boolean(form.watch('items')?.[index]?.isFreeItem)}
+                                  onCheckedChange={(checked) => {
+                                    form.setValue(`items.${index}.isFreeItem`, Boolean(checked), { shouldDirty: true });
+                                    if (checked) {
+                                      form.setValue(`items.${index}.unitPrice`, 0, { shouldDirty: true });
+                                      setRawPriceInputs(prev => ({ ...prev, [index]: '0' }));
+                                    }
+                                  }}
+                                />
+                                <label htmlFor={`isFreeItem-${index}`} className="text-[10px] text-muted-foreground cursor-pointer font-medium select-none whitespace-nowrap">
+                                  Sampel / Gratis
+                                </label>
+                              </div>
                             </div>
                           )}
                         />
