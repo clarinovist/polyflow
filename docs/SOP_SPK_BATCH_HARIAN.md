@@ -3,7 +3,7 @@
 **Untuk:** Kepala Produksi / Admin Produksi (Ika), Gudang RM, Operator, Supervisor  
 **Konteks:** Order/demand besar (contoh 1000 kg) dipecah SPK sesuai kapasitas mesin (contoh ~300 kg/hari)  
 **Mesin:** 1 SPK = 1 mesin  
-**Versi:** 1.1 · 2026-07-22 (update: Papan Permintaan FG + Prioritas SPK)
+**Versi:** 1.2 · 2026-07-25 (update: Shift wajib dipilih saat catat hasil + fallback shift lewat)
 
 ---
 
@@ -103,11 +103,15 @@
    - Qty bagus (dan scrap bila ada)
    - **Operator** yang benar-benar kerja
    - **Helper** yang membantu
-   - Shift aktual
+   - **Shift** — **wajib dipilih**, tidak bisa disubmit kosong
 3. **Shift kosong / orang tidak masuk**  
    → **Tidak perlu input apa pun.**  
    → Supervisor boleh re-assign operator untuk shift berikutnya di SPK **yang sama**.
 4. Jangan “timpa” qty kemarin. Setiap input = **baris hasil baru** (execution).
+5. **Kalau semua shift SPK sudah lewat jam-nya** (mis. lanjut kerja lewat tengah malam tanpa shift baru dibuat):
+   - Sistem otomatis memilih **shift terakhir** yang ada di SPK sebagai default.
+   - Muncul **banner kuning**: "Semua shift untuk SPK ini sudah lewat" — operator tetap bisa lanjut input, tapi sebaiknya **cek/ganti shift yang benar** di dropdown sebelum kirim.
+   - Kalau ini sering terjadi, **Admin harus tambah shift baru** di detail SPK (tab Sumber Daya) supaya jam-nya sesuai realita lapangan.
 
 ### 4.4 Akhir batch / complete (Sistem + Admin)
 
@@ -232,6 +236,12 @@ A: Kalau batch sebelumnya sudah complete (disarankan), dan masih ada sisa **dema
 
 **Q: Shift 2 tidak masuk, hasil siapa?**  
 A: Tidak ada baris hasil shift 2. Shift 3 catat atas nama operator shift 3 di SPK yang sama.
+
+**Q: Kenapa tidak bisa submit hasil tanpa pilih shift?**  
+A: Sejak update 2026-07-25, shift **wajib dipilih** saat catat hasil — supaya setiap hasil produksi jelas milik shift mana (untuk upah, laporan, dan audit). Kalau dropdown shift kosong ("Belum ada shift di SPK ini"), Admin harus tambah shift dulu di detail SPK.
+
+**Q: Muncul banner "shift sudah lewat" di kiosk, apa artinya?**  
+A: Semua shift yang terdaftar di SPK itu sudah habis jam-nya (mis. Shift Sore 09:00–17:00 tapi sekarang jam 20:00). Sistem tetap kasih pilihan shift terakhir sebagai default supaya operator bisa lanjut kerja, tapi Admin sebaiknya segera tambah shift baru yang sesuai jam realita.
 
 **Q: Siapa yang boleh tutup SPK di bawah target?**  
 A: **Admin.** Sistem hanya auto-complete jika produced ≥ planned.

@@ -61,9 +61,56 @@
 - Good Output: 480 KG
 - Scrap Prongkol: 10 KG
 - Scrap Daun: 10 KG
+- Shift: pilih dari dropdown
 → Submit
 
-**Diharapkan:** Output tercatat, stok barang jadi bertambah, stok scrap bertambah, backflush berjalan (bahan baku berkurang)
+**Diharapkan:** Output tercatat dengan shift yang benar, stok barang jadi bertambah, stok scrap bertambah, backflush berjalan (bahan baku berkurang)
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-004b: Log Output — Shift Wajib Dipilih
+| **ID** | TC-KSK-004b | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Saat order IN_PROGRESS dengan shift terdaftar → klik Log Output
+2. Isi qty tanpa memilih shift (biarkan default kosong jika memungkinkan)
+3. Coba Submit
+
+**Diharapkan:** Submit tertolak / tombol disabled sampai shift dipilih; muncul pesan "Shift wajib dipilih". Tidak ada execution tersimpan dengan shiftId kosong.
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-004c: Log Output — Semua Shift SPK Sudah Lewat
+| **ID** | TC-KSK-004c | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Siapkan SPK dengan shift yang semuanya sudah lewat waktu (mis. shift terakhir berakhir jam 17:00, tes jalankan jam 20:00)
+2. Buka job tersebut di kiosk (focus mode) → klik Log Output
+
+**Diharapkan:**
+- Muncul banner kuning "Semua shift untuk SPK ini sudah lewat"
+- Dropdown shift tetap terisi (default: shift terakhir), operator masih bisa pilih manual
+- Submit tetap berhasil dengan shift yang dipilih tersimpan benar
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-KSK-004d: Log Output — SPK Belum Punya Shift
+| **ID** | TC-KSK-004d | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Siapkan SPK yang belum ada `ProductionShift` sama sekali
+2. Buka job tersebut di kiosk → klik Log Output
+
+**Diharapkan:** Muncul banner merah "Belum ada shift di SPK ini — tambah shift dulu di detail SPK atau hubungi PPIC". Operator diarahkan untuk hubungi Admin/PPIC, bukan submit dengan shift kosong.
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
 
@@ -166,11 +213,12 @@
 2. Step 1: Masukkan qty bagus → tap Lanjut
 3. Step 2: Skip scrap (kosongkan) → tap Lanjut
 4. Step 3: Skip foto → tap Lanjut
-5. Step 4: Review ringkas → tap "Kirim Hasil"
+5. Step 4: Review ringkas → cek dropdown Shift terisi otomatis (atau ganti manual jika perlu) → tap "Kirim Hasil"
 
 **Diharapkan:**
 - Progress indicator 1/4 → 4/4
 - Setiap step bisa back tanpa hilang data
+- Step 4 menampilkan dropdown Shift (terisi otomatis berdasarkan operator/waktu aktif)
 - Setelah sukses: layar "Berhasil!" dengan opsi "Catat Lagi" atau "Selesai"
 - Actual quantity naik di focus mode
 
@@ -235,6 +283,6 @@
 
 | Total TC | Lulus | Gagal | Sebagian |
 |----------|-------|-------|----------|
-| 14 | | | |
+| 17 | | | |
 
 **Tanda Tangan Tester:** _________________________ **Tanggal:** ____/____/________
