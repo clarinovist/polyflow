@@ -6,7 +6,9 @@ import {
   buildQuickActions,
   canAccessResource,
   canSeeExecutiveChart,
+  encouragementForDate,
   getPortalCta,
+  greetingForHour,
   isOpsPortalRole,
   roleDisplayName,
 } from '../role-dashboard-config';
@@ -92,5 +94,25 @@ describe('role-dashboard-config', () => {
   it('maps role display names', () => {
     expect(roleDisplayName('WAREHOUSE')).toBe('Gudang');
     expect(roleDisplayName('FINANCE')).toBe('Finance');
+  });
+
+  it('maps hour to greeting', () => {
+    expect(greetingForHour(8)).toBe('Selamat pagi');
+    expect(greetingForHour(12)).toBe('Selamat siang');
+    expect(greetingForHour(16)).toBe('Selamat sore');
+    expect(greetingForHour(21)).toBe('Selamat malam');
+  });
+
+  it('returns stable daily encouragement that can change across days', () => {
+    const morningA = encouragementForDate(new Date(2026, 6, 26, 9, 0, 0));
+    const morningB = encouragementForDate(new Date(2026, 6, 26, 9, 30, 0));
+    const nextDay = encouragementForDate(new Date(2026, 6, 27, 9, 0, 0));
+    const evening = encouragementForDate(new Date(2026, 6, 26, 17, 0, 0));
+
+    expect(morningA.length).toBeGreaterThan(10);
+    expect(morningA).toBe(morningB); // same day + same period → stable
+    expect(nextDay).not.toBe(morningA); // next day → different pick
+    expect(evening).not.toBe(morningA); // different period → different pool
+    expect(typeof evening).toBe('string');
   });
 });

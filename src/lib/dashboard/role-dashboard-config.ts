@@ -852,3 +852,74 @@ export function greetingForHour(hour: number): string {
   if (hour < 18) return 'Selamat sore';
   return 'Selamat malam';
 }
+
+/**
+ * Sapaan semangat humanis di header dashboard.
+ * Rotasi harian (deterministik per tanggal + slot waktu) — tanpa AI,
+ * biar cepat, offline-safe, dan tidak berubah-ubah dalam 1 sesi di jam yang sama.
+ * Pool bisa diperluas nanti (termasuk personalisasi AI) tanpa ubah kontrak UI.
+ */
+const ENCOURAGEMENT_BY_PERIOD = {
+  morning: [
+    'Semangat pagi — langkah kecil yang rapi hari ini bikin alur kerja lebih enteng.',
+    'Pagi yang baik! Yuk mulai dari prioritas terpenting dulu.',
+    'Hari baru, energi baru. Satu tugas tuntas lebih berharga daripada sepuluh yang setengah.',
+    'Selamat memulai. Tim butuh kehadiranmu yang fokus, bukan yang sempurna.',
+    'Pagi produktif dimulai dari niat yang sederhana: bereskan yang penting dulu.',
+    'Semangat! Kerja rapi hari ini = lebih sedikit drama besok.',
+    'Kopi boleh menyusul — prioritas dulu. Kamu bisa.',
+  ],
+  afternoon: [
+    'Siang masih panjang. Ambil napas, lanjutkan dengan tenang.',
+    'Setengah hari sudah lewat — bagus. Sisa hari ini, satu kemenangan kecil lagi.',
+    'Jangan biarkan tumpukan tugas mengaturmu. Atur urutannya, lalu kerjakan.',
+    'Semangat siang. Cek dulu yang mendesak, sisanya bisa menunggu.',
+    'Masih ada ruang untuk progres hari ini. Satu langkah saja sudah cukup.',
+    'Siang yang baik untuk membereskan yang tertunda — pelan tapi pasti.',
+    'Fokus di sisa hari: kualitas lebih dulu, buru-buru belakangan.',
+  ],
+  evening: [
+    'Sore yang baik. Tutup hari dengan rapi, biar besok lebih ringan.',
+    'Hampir selesai. Selesaikan yang bisa, sisakan yang harus menunggu.',
+    'Semangat sore — kerja bagus yang konsisten mengalahkan sprint sesaat.',
+    'Sore hari: saat yang pas merapikan, bukan memaksakan semuanya.',
+    'Kamu sudah melewati banyak hari. Hari ini juga bisa dituntaskan dengan tenang.',
+    'Sore produktif: cek ulang, konfirmasi, lalu istirahat dengan lega.',
+    'Sedikit lagi. Tutup loop yang terbuka, biar kepala lebih lega malam ini.',
+  ],
+  night: [
+    'Malam yang tenang. Kalau masih kerja, jaga tempo — jangan paksa.',
+    'Semangat malam. Selesaikan yang perlu, sisanya untuk esok.',
+    'Kerja malam boleh, tapi jangan lupa istirahat juga bagian dari produktivitas.',
+    'Malam hari: fokus pada yang benar-benar penting, lalu cukupkan.',
+    'Terima kasih sudah bertahan hari ini. Tutup dengan rapi, istirahat yang cukup.',
+    'Kalau shift malam: satu langkah rapi lebih berharga daripada buru-buru.',
+    'Malam yang baik. Progress kecil di jam sepi tetap progress.',
+  ],
+} as const;
+
+function encouragementPeriod(hour: number): keyof typeof ENCOURAGEMENT_BY_PERIOD {
+  if (hour < 11) return 'morning';
+  if (hour < 15) return 'afternoon';
+  if (hour < 18) return 'evening';
+  return 'night';
+}
+
+/** Day-of-year 0–365 (non-leap aware enough for rotation). */
+function dayOfYear(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  return Math.floor(diff / 86_400_000);
+}
+
+/**
+ * Pilih 1 baris semangat untuk tanggal & jam tertentu.
+ * Stabil dalam 1 hari di slot waktu yang sama; ganti otomatis keesokan harinya.
+ */
+export function encouragementForDate(date: Date = new Date()): string {
+  const period = encouragementPeriod(date.getHours());
+  const pool = ENCOURAGEMENT_BY_PERIOD[period];
+  // Mix year + day + period salt so adjacent days & periods don't collide awkwardly
+  const seed = date.getFullYear() * 1000 + dayOfYear(date) * 4 + ['morning', 'afternoon', 'evening', 'night'].indexOf(period);
+  return pool[seed % pool.length]!;
+}

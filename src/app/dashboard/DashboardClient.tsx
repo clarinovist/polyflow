@@ -15,6 +15,7 @@ import {
     canAccessResource,
     canSeeExecutiveChart,
     getPortalCta,
+    encouragementForDate,
     greetingForHour,
     isOpsPortalRole,
     roleDisplayName,
@@ -76,9 +77,13 @@ export default function DashboardClient({
         year: 'numeric',
     });
 
-    const greeting = useMemo(() => {
-        // Client-only hour is fine; suppress hydration mismatch on badge date already used elsewhere
-        return greetingForHour(new Date().getHours());
+    const { greeting, encouragement } = useMemo(() => {
+        // Client-only clock is fine; suppress hydration mismatch on date already used elsewhere
+        const now = new Date();
+        return {
+            greeting: greetingForHour(now.getHours()),
+            encouragement: encouragementForDate(now),
+        };
     }, []);
 
     const firstName = userName.split(' ')[0] || userName;
@@ -126,10 +131,11 @@ export default function DashboardClient({
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
                         {greeting}, {firstName}
                     </h1>
-                    <p className="text-sm md:text-base text-muted-foreground mt-1">
-                        {opsCompact && portalCta
-                            ? portalCta.description
-                            : dashboardLabels.commandHomeSubtitle}
+                    <p
+                        className="text-sm md:text-base text-muted-foreground mt-1 max-w-xl"
+                        suppressHydrationWarning
+                    >
+                        {encouragement}
                     </p>
                 </div>
                 <div className="flex gap-2 items-center shrink-0">
