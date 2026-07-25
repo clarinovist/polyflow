@@ -11,6 +11,7 @@ import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { JournalActions } from './journal-actions';
 import { DETAIL_JOURNAL_TEMPLATES, type DetailJournalTemplateKey } from '@/lib/config/detail-journal-templates';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 interface JournalDetailPageProps {
     params: Promise<{ id: string }>;
@@ -212,6 +213,8 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                     </CardContent>
                 </Card>
             )}
+
+            <EntityStatusTimeline entityType="JournalEntry" entityId={journal.id} />
         </div>
     );
 }

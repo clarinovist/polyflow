@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { warehouseComponentLabels } from '@/lib/labels';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 
 export interface OpnameItem {
@@ -268,6 +269,8 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            <EntityStatusTimeline entityType="StockOpname" entityId={session.id} />
 
             {/* Add Item Dialog */}
             <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

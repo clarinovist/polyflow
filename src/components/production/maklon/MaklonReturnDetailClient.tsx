@@ -11,6 +11,7 @@ import { ArrowLeft } from 'lucide-react';
 import { MaklonMaterialReturnStatus } from '@prisma/client';
 import { MAKLON_STAGE_SLUGS } from '@/lib/constants/locations';
 import { useMaklonBasePath } from './useMaklonBasePath';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 type MaklonReturnLocation = {
     id: string;
@@ -32,6 +33,7 @@ type MaklonReturnItem = {
 };
 
 type MaklonReturnDetail = {
+    id: string;
     returnNumber: string;
     returnDate: string | Date;
     status: MaklonMaterialReturnStatus;
@@ -166,6 +168,8 @@ export function MaklonReturnDetailClient({ ret }: { ret: MaklonReturnDetail }) {
                     </ResponsiveTable>
                 </CardContent>
             </Card>
+
+            <EntityStatusTimeline entityType="MaklonMaterialReturn" entityId={ret.id} />
         </div>
     );
 }

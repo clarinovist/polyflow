@@ -65,6 +65,7 @@ import {
 } from "@/actions/finance/reconciliation-actions";
 import { formatRupiah } from "@/lib/utils/utils";
 import { toast } from "sonner";
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -886,6 +887,8 @@ export function BankReconciliationDetailClient({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <EntityStatusTimeline entityType="BankReconciliation" entityId={data.id} />
 
       {/* ---- Manual Match Dialog ---- */}
       <Dialog open={matchDialogOpen} onOpenChange={setMatchDialogOpen}>

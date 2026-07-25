@@ -36,6 +36,7 @@ import {
   scheduleSOWithTrip,
 } from '@/actions/sales/delivery-schedules';
 import { getVehicles } from '@/actions/sales/vehicles';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 // ============================================
 // Status styling + labels
@@ -833,6 +834,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
           )}
         </CardContent>
       </Card>
+
+      <EntityStatusTimeline entityType="DeliverySchedule" entityId={schedule.id} />
     </div>
   );
 }

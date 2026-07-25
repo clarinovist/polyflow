@@ -31,6 +31,7 @@ import { ReturnReason, ItemCondition } from "@prisma/client";
 import { CreateDeliveryOrderDialog } from "@/components/sales/CreateDeliveryOrderDialog";
 import { salesLabels } from "@/lib/labels";
 import Link from "next/link";
+import { EntityStatusTimeline } from "@/components/shared/EntityStatusTimeline";
 
 type OrderItem = {
   id: string;
@@ -348,6 +349,8 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
           ))}
         </div>
       </div>
+
+      <EntityStatusTimeline entityType="SalesOrder" entityId={order.id} />
 
       {/* Delivery Tracking Card */}
       {order.deliveryOrders.length > 0 && (
