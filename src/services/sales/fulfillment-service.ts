@@ -28,7 +28,9 @@ export async function markReadyToShip(id: string, userId: string) {
         entityId: id,
         details: order.orderType === 'MAKLON_JASA'
             ? `Sales Order ${order.orderNumber} marked as Ready for Service Closure`
-            : `Sales Order ${order.orderNumber} marked as Ready to Ship`
+            : `Sales Order ${order.orderNumber} marked as Ready to Ship`,
+        fromStatus: order.status,
+        toStatus: SalesOrderStatus.READY_TO_SHIP,
     });
 }
 
@@ -91,6 +93,8 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
             entityType: 'SalesOrder',
             entityId: id,
             details: `Sales Order ${order.orderNumber} closed as Maklon service order (no physical DO)`,
+            fromStatus: order.status,
+            toStatus: SalesOrderStatus.SHIPPED,
         });
         return { doNumber: null, created: false, serviceOnly: true };
     }
@@ -170,6 +174,8 @@ export async function deliverOrder(orderId: string, userId: string) {
                   (openDeliveryOrders.count > 0
                       ? ` (${openDeliveryOrders.count} delivery order(s) set to DELIVERED)`
                       : ''),
+            fromStatus: order.status,
+            toStatus: SalesOrderStatus.DELIVERED,
             tx
         });
     });

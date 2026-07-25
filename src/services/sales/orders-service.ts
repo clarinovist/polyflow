@@ -858,6 +858,8 @@ export async function cancelOrder(id: string, userId: string) {
       entityType: "SalesOrder",
       entityId: id,
       details: `Sales Order ${order.orderNumber} cancelled`,
+      fromStatus: order.status,
+      toStatus: SalesOrderStatus.CANCELLED,
       tx,
     });
   });
