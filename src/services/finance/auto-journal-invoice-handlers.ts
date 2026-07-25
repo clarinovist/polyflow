@@ -94,7 +94,18 @@ export async function handleSalesInvoiceCreated(invoiceId: string) {
 
   if (items.length > 0) {
     for (const item of items) {
-      const quantity = Number(item.quantity);
+      // #gap-8: use deliveredQty (physical shipped) for revenue split when available,
+      // fallback to ordered qty — so journal matches delivered-based invoice total.
+      const deliveredRaw = (item as Record<string, unknown>).deliveredQty as { toNumber?: () => number } | number | null | undefined;
+      let deliveredNum = NaN;
+      if (deliveredRaw != null) {
+        if (typeof (deliveredRaw as { toNumber?: unknown }).toNumber === 'function') {
+          deliveredNum = (deliveredRaw as { toNumber: () => number }).toNumber();
+        } else {
+          deliveredNum = Number(deliveredRaw);
+        }
+      }
+      const quantity = !isNaN(deliveredNum) && deliveredNum > 0 ? deliveredNum : Number(item.quantity);
       const unitPrice = Number(item.unitPrice);
       const lineSubtotal = quantity * unitPrice;
 

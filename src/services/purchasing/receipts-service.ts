@@ -508,13 +508,27 @@ export async function reverseGoodsReceipt(
             tx: db,
         });
 
-        return { success: true, receiptNumber: gr.receiptNumber };
+        return { success: true, receiptNumber: gr.receiptNumber, purchaseOrderId: gr.purchaseOrderId ?? null };
     };
 
-    if (tx) {
-        return run(tx);
+    const result = tx ? await run(tx) : await prisma.$transaction(run);
+
+    // #4: after commit, recalc linked invoice from remaining GRs and sync DRAFT invoice total
+    if (result.purchaseOrderId) {
+        try {
+            const { createDraftBillFromPo } = await import('@/services/purchasing/invoices-service');
+            await createDraftBillFromPo(result.purchaseOrderId, userId);
+        } catch (e) {
+            const { logger } = await import('@/lib/config/logger');
+            logger.error('Failed to recalc bill after reverseGoodsReceipt', {
+                error: e,
+                purchaseOrderId: result.purchaseOrderId,
+                module: 'ReceiptsService',
+            });
+        }
     }
-    return prisma.$transaction(run);
+
+    return result;
 }
 
 /**

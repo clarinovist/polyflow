@@ -283,6 +283,59 @@ export async function createDraftInvoiceFromOrder(
           details: `Invoice ${existingInvoice.invoiceNumber} total updated from ${existingTotal} to ${calculatedTotal} based on delivered quantities`,
         });
       }
+      return { ...existingInvoice, totalAmount: { toNumber: () => calculatedTotal } as never };
+    }
+    if (
+      existingInvoice.status === "UNPAID" ||
+      existingInvoice.status === "PARTIAL" ||
+      existingInvoice.status === "OVERDUE"
+    ) {
+      // #3: delivered increased after invoice locked — don't overwrite, but emit warning + create second DRAFT for remaining.
+      // Caller (delivery commit) will log mismatch; second draft creation attempted via createSecondaryInvoiceIfNeeded below.
+      const existingTotal = existingInvoice.totalAmount.toNumber();
+      if (calculatedTotal > existingTotal + 0.01) {
+        // There's additional delivered value not covered by existing locked invoice → create supplementary DRAFT
+        const remaining = calculatedTotal - existingTotal;
+        try {
+          const termOfPaymentDays = salesOrder.customer?.paymentTermDays ?? 30;
+          const invoiceNumber = await generateInvoiceNumber();
+          const invoiceDate = new Date();
+          const dueDate = addDays(invoiceDate, termOfPaymentDays);
+          const supplementary = await prisma.invoice.create({
+            data: {
+              invoiceNumber,
+              salesOrderId,
+              invoiceDate,
+              dueDate,
+              termOfPaymentDays,
+              totalAmount: remaining,
+              paidAmount: 0,
+              status: InvoiceStatus.DRAFT,
+              notes: `Suplementer: tambahan kirim setelah invoice ${existingInvoice.invoiceNumber} (sisa ${remaining}) — SO ${salesOrder.orderNumber}`,
+            },
+          });
+          await logActivity({
+            userId,
+            action: "CREATE_SUPPLEMENTARY_INVOICE",
+            entityType: "Invoice",
+            entityId: supplementary.id,
+            details: `Supplementary invoice ${invoiceNumber} for remaining ${remaining} after ${existingInvoice.invoiceNumber} (total delivered now ${calculatedTotal})`,
+          });
+          await AutoJournalService.handleSalesInvoiceCreated(supplementary.id).catch((err) => {
+            logger.error("Auto-Journal failed for supplementary invoice", {
+              error: err,
+              invoiceId: supplementary.id,
+              module: "FinanceInvoiceService",
+            });
+          });
+        } catch (e) {
+          logger.error("Failed to create supplementary invoice", {
+            error: e,
+            salesOrderId,
+            module: "FinanceInvoiceService",
+          });
+        }
+      }
     }
     return existingInvoice;
   }

@@ -504,6 +504,7 @@ describe('createDraftBillFromPo', () => {
             invoiceNumber: 'BILL-001',
             totalAmount: { toNumber: () => 2470000 },
             status: PurchaseInvoiceStatus.UNPAID,
+            paidAmount: { toNumber: () => 0 },
         };
 
         vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);
@@ -547,6 +548,7 @@ describe('createDraftBillFromPo', () => {
             invoiceNumber: 'BILL-001',
             totalAmount: { toNumber: () => 2500000 },
             status: PurchaseInvoiceStatus.UNPAID,
+            paidAmount: { toNumber: () => 1000 },
         };
 
         vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);

@@ -373,22 +373,81 @@ export async function createDraftBillFromPo(
     where: { purchaseOrderId },
   });
 
-  // Upsert: if invoice exists, sync totalAmount from GR; otherwise create new
+  // Upsert: only auto-sync when invoice is DRAFT (or UNPAID with paidAmount==0).
+  // If UNPAID/PARTIAL already paid>0 etc, don't silently mutate (align with SO DRAFT-only policy).
   if (existing) {
-    const existingTotal = existing.totalAmount.toNumber();
-    if (Math.abs(existingTotal - calculatedTotal) > 0.01) {
-      await prisma.purchaseInvoice.update({
-        where: { id: existing.id },
-        data: { totalAmount: calculatedTotal },
-      });
-      await logActivity({
-        userId,
-        action: "SYNC_BILL_FROM_GR",
-        entityType: "PurchaseInvoice",
-        entityId: existing.id,
-        details: `Bill ${existing.invoiceNumber} total updated from ${existingTotal} to ${calculatedTotal} based on GR received quantities`,
-      });
+    const existingPaid = existing.paidAmount?.toNumber?.() ?? 0;
+    const isDraftLike =
+      existing.status === PurchaseInvoiceStatus.DRAFT ||
+      (existing.status === PurchaseInvoiceStatus.UNPAID && existingPaid === 0);
+    if (isDraftLike) {
+      const existingTotal = existing.totalAmount.toNumber();
+      if (Math.abs(existingTotal - calculatedTotal) > 0.01) {
+        await prisma.purchaseInvoice.update({
+          where: { id: existing.id },
+          data: { totalAmount: calculatedTotal },
+        });
+        await logActivity({
+          userId,
+          action: "SYNC_BILL_FROM_GR",
+          entityType: "PurchaseInvoice",
+          entityId: existing.id,
+          details: `Bill ${existing.invoiceNumber} total updated from ${existingTotal} to ${calculatedTotal} based on GR received quantities`,
+        });
+      }
+      return { ...existing, totalAmount: { toNumber: () => calculatedTotal } as never };
     }
+    // #3 PO side: UNPAID already + GR new arrives → create supplementary DRAFT bill if delta >0
+    if (
+      existing.status === PurchaseInvoiceStatus.UNPAID ||
+      existing.status === PurchaseInvoiceStatus.PARTIAL ||
+      existing.status === PurchaseInvoiceStatus.OVERDUE
+    ) {
+      const existingTotal = existing.totalAmount.toNumber();
+      if (calculatedTotal > existingTotal + 0.01) {
+        const remaining = calculatedTotal - existingTotal;
+        try {
+          const rawTerm = po.supplier?.paymentTermDays;
+          const termOfPaymentDays = rawTerm != null && rawTerm >= 0 && rawTerm <= 365 ? rawTerm : 30;
+          const invoiceNumber = await generateBillNumber();
+          const invoiceDate = new Date();
+          const dueDate = addDays(invoiceDate, termOfPaymentDays);
+          const supplementary = await prisma.purchaseInvoice.create({
+            data: {
+              invoiceNumber,
+              purchaseOrderId,
+              invoiceDate,
+              dueDate,
+              termOfPaymentDays,
+              totalAmount: remaining,
+              status: PurchaseInvoiceStatus.DRAFT,
+              notes: `Suplementer: tambahan GR setelah ${existing.invoiceNumber} (sisa ${remaining}) — PO ${po.orderNumber}`,
+            },
+          });
+          await logActivity({
+            userId,
+            action: "CREATE_SUPPLEMENTARY_BILL",
+            entityType: "PurchaseInvoice",
+            entityId: supplementary.id,
+            details: `Supplementary bill ${invoiceNumber} for remaining ${remaining} after ${existing.invoiceNumber} (total GR now ${calculatedTotal})`,
+          });
+          await AutoJournalService.handlePurchaseInvoiceCreated(supplementary.id).catch((err) => {
+            logger.error("Auto-Journal failed for supplementary bill", {
+              error: err,
+              invoiceId: supplementary.id,
+              module: "PurchasingInvoicesService",
+            });
+          });
+        } catch (e) {
+          logger.error("Failed to create supplementary bill", {
+            error: e,
+            purchaseOrderId,
+            module: "PurchasingInvoicesService",
+          });
+        }
+      }
+    }
+    // UNPAID/PARTIAL(paid>0)/OVERDUE/PAID: don't overwrite, but keep for second invoice gap handling (#3)
     return existing;
   }
 

@@ -316,8 +316,9 @@ export async function commitDeliveryShipment(
       const productType = soItem.productVariant.product.productType;
       if (productType === ProductType.SERVICE) continue; // D12: skip SERVICE
 
-      // Validate residual: deliveredQty + DO qty <= SO qty
+      // Validate residual: deliveredQty + DO qty <= SO qty — allow 0 after physical correction
       const needed = doItem.quantity.toNumber();
+      if (needed <= 0) continue; // #7: qty fisik 0 → skip stock, DO still SHIPPED, invoiced as 0
       const delivered = soItem.deliveredQty.toNumber();
       const totalQty = soItem.quantity.toNumber();
       if (delivered + needed > totalQty) {
@@ -331,7 +332,30 @@ export async function commitDeliveryShipment(
     }
 
     if (stockLines.length === 0) {
-      throw new BusinessRuleError("Tidak ada item fisik yang bisa di-commit.");
+      // All lines corrected to 0 after physical check → still mark DO SHIPPED (nothing to deduct), SO stays, invoice 0
+      await tx.deliveryOrder.update({
+        where: { id: deliveryOrderId },
+        data: {
+          status: DeliveryStatus.SHIPPED,
+          stockCommittedAt: new Date(),
+          stockCommittedById: userId,
+          ...(opts?.trackingNumber && { trackingNumber: opts.trackingNumber }),
+          ...(opts?.carrier && { carrier: opts.carrier }),
+        },
+      });
+      await InvoiceService.createDraftInvoiceFromOrder(
+        doRecord.salesOrderId,
+        userId
+      );
+      await logActivity({
+        userId,
+        action: "COMMIT_DELIVERY_SHIPMENT",
+        entityType: "DeliveryOrder",
+        entityId: deliveryOrderId,
+        details: `DO ${doRecord.orderNumber} committed with all lines 0 after correction — no stock movement.`,
+        tx,
+      });
+      return { success: true };
     }
 
     // 5. Per physical line: consume reservations + validate + deduct stock

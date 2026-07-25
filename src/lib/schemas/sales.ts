@@ -160,7 +160,8 @@ export const saveDeliveryLoadVerificationSchema = z.object({
     .array(
       z.object({
         id: z.string().min(1),
-        verifiedQuantity: z.coerce.number().positive('Qty verifikasi harus > 0'),
+        // Allow 0 (lost/completely missing) — handled specially in correctDeliveryQtyToVerified
+        verifiedQuantity: z.coerce.number().min(0, 'Qty verifikasi tidak boleh negatif'),
       }),
     )
     .min(1),
