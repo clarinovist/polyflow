@@ -3,6 +3,8 @@
  * Extracted here for testability and reuse across OrderListClient and OrderDetailClient.
  */
 
+import { getSalesStatusLabel } from "@/lib/labels/status";
+
 export const STATUS_OPTIONS = [
   { value: "ALL", label: "Semua" },
   { value: "DRAFT", label: "Draft" },
@@ -37,9 +39,8 @@ export function getMobileStatusColor(status: string): string {
   }
 }
 
-export function getMobileStatusLabel(status: string): string {
-  const opt = STATUS_OPTIONS.find((o) => o.value === status);
-  return opt?.label || status;
+export function getMobileStatusLabel(status: string, orderType?: string): string {
+  return getSalesStatusLabel(status, orderType);
 }
 
 export type MobileOrder = {
@@ -47,6 +48,7 @@ export type MobileOrder = {
   orderNumber: string;
   orderDate: string;
   status: string;
+  orderType?: string;
   totalAmount: number | null;
   customerName: string;
   itemCount: number;

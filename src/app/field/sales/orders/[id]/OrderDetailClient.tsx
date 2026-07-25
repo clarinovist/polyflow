@@ -68,6 +68,7 @@ type Order = {
   orderNumber: string;
   orderDate: string;
   status: string;
+  orderType?: string;
   totalAmount: number | null;
   discountAmount: number | null;
   taxAmount: number | null;
@@ -271,7 +272,7 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
               variant="secondary"
               className={`text-[10px] px-1.5 h-4 shrink-0 ${getMobileStatusColor(order.status)}`}
             >
-              {getMobileStatusLabel(order.status)}
+              {getMobileStatusLabel(order.status, order.orderType)}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">

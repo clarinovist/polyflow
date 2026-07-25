@@ -37,7 +37,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { isInvoiceOverdue } from "@/lib/purchasing/payment-terms";
+import { isInvoiceOverdue } from "@/lib/finance/payment-terms";
 
 type InvoiceWithRelations = {
   id: string;
@@ -149,94 +149,67 @@ export function PurchaseInvoiceTable({
   const columns: ColumnDef<InvoiceWithRelations, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: "invoiceNumber",
+        id: "invoiceNumber",
         header: purchasingLabels.invoiceNumber,
-        size: 150,
-        cell: ({ row }) => (
-          <Link
-            href={`${basePath}/${basePath.includes("finance") ? row.original.id : row.original.purchaseOrder.id}`}
-            className="font-mono font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
-          >
-            {row.original.invoiceNumber}
-          </Link>
-        ),
-      },
-      {
-        id: "supplier",
-        header: purchasingLabels.supplier,
-        size: 180,
-        accessorFn: (row) => row.purchaseOrder.supplier.name,
-        cell: ({ row }) => (
-          <span className="font-medium">
-            {row.original.purchaseOrder.supplier.name}
-          </span>
-        ),
-      },
-      {
-        id: "orderNumber",
-        header: "Referensi PO",
-        size: 130,
-        accessorFn: (row) => row.purchaseOrder.orderNumber,
-        cell: ({ row }) => (
-          <Badge variant="secondary" className="font-mono text-[10px]">
-            {row.original.purchaseOrder.orderNumber}
-          </Badge>
-        ),
-      },
-      {
-        accessorKey: "invoiceDate",
-        header: purchasingLabels.invoiceDate,
-        size: 120,
-        sortingFn: "datetime",
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {format(new Date(row.original.invoiceDate), "dd MMM yyyy")}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "dueDate",
-        header: formLabels.dueDate,
-        size: 150,
-        sortingFn: "datetime",
+        size: 160,
+        accessorFn: (row) => row.invoiceNumber,
+        sortingFn: (a, b) =>
+          new Date(a.original.invoiceDate).getTime() -
+          new Date(b.original.invoiceDate).getTime(),
         cell: ({ row }) => {
           const inv = row.original;
           const overdue = isInvoiceOverdue(inv.dueDate, inv.status);
           return (
-            <div
-              className={`flex flex-col text-xs ${overdue ? "text-red-600 font-bold" : ""}`}
-            >
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-3 w-3" />
-                {inv.dueDate ? format(new Date(inv.dueDate), "dd MMM yyyy") : "-"}
-                {overdue && <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700">Terlambat</span>}
-              </span>
-              {inv.termOfPaymentDays != null && (
-                <span className="text-[11px] text-muted-foreground ml-4">
-                  {inv.termOfPaymentDays === 0 ? "Cash" : `${inv.termOfPaymentDays} hari`}
-                </span>
+            <div>
+              <Link
+                href={`${basePath}/${basePath.includes("finance") ? inv.id : inv.purchaseOrder.id}`}
+                className="font-mono font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+              >
+                {inv.invoiceNumber}
+              </Link>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {format(new Date(inv.invoiceDate), "dd MMM yyyy")}
+              </div>
+              {inv.dueDate && (
+                <div
+                  className={`text-[11px] mt-0.5 flex items-center gap-1 ${
+                    overdue ? "text-red-600 font-semibold" : "text-muted-foreground"
+                  }`}
+                >
+                  <Calendar className="h-3 w-3 shrink-0" />
+                  <span>Jt tempo: {format(new Date(inv.dueDate), "dd MMM yyyy")}</span>
+                  {overdue && (
+                    <span className="rounded bg-red-100 px-1 text-[10px] text-red-700 dark:bg-red-900/40 dark:text-red-300 font-normal">
+                      Terlambat
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           );
         },
       },
       {
-        accessorKey: "totalAmount",
-        header: () => <div className="text-right">Total Keseluruhan</div>,
-        size: 150,
+        id: "supplier",
+        header: purchasingLabels.supplier,
+        size: 200,
+        accessorFn: (row) => row.purchaseOrder.supplier.name,
         cell: ({ row }) => (
-          <div className="text-right font-medium">
-            {formatRupiah(row.original.totalAmount)}
-          </div>
-        ),
-      },
-      {
-        accessorKey: "paidAmount",
-        header: () => <div className="text-right">Jumlah Dibayar</div>,
-        size: 140,
-        cell: ({ row }) => (
-          <div className="text-right text-emerald-600 dark:text-emerald-400 font-medium">
-            {formatRupiah(row.original.paidAmount)}
+          <div className="min-w-0">
+            <div
+              className="font-medium truncate"
+              title={row.original.purchaseOrder.supplier.name}
+            >
+              {row.original.purchaseOrder.supplier.name}
+            </div>
+            <div className="mt-0.5 flex items-center gap-1">
+              <Badge
+                variant="secondary"
+                className="font-mono text-[10px] px-1.5 h-4 font-normal"
+              >
+                PO: {row.original.purchaseOrder.orderNumber}
+              </Badge>
+            </div>
           </div>
         ),
       },
@@ -245,6 +218,31 @@ export function PurchaseInvoiceTable({
         header: formLabels.status,
         size: 130,
         cell: ({ row }) => getStatusBadge(row.original),
+      },
+      {
+        accessorKey: "totalAmount",
+        header: () => <div className="text-right">Total</div>,
+        size: 150,
+        cell: ({ row }) => {
+          const inv = row.original;
+          const remaining =
+            (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0);
+          return (
+            <div className="text-right">
+              <div className="font-medium">{formatRupiah(inv.totalAmount)}</div>
+              {inv.paidAmount > 0 && (
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  Dibayar: {formatRupiah(inv.paidAmount)}
+                </div>
+              )}
+              {remaining > 0 && inv.paidAmount > 0 && (
+                <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  Sisa: {formatRupiah(remaining)}
+                </div>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "actions",
@@ -314,7 +312,7 @@ export function PurchaseInvoiceTable({
       columns={columns}
       data={filteredInvoices}
       emptyMessage={purchasingLabels.emptyInvoices}
-      minWidth={1000}
+      minWidth={780}
     >
       <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
         <div className="relative max-w-sm flex-1 sm:w-80">

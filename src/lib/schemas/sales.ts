@@ -34,6 +34,7 @@ export const customItemSchema = z.object({
 
 export const createSalesOrderSchema = z
   .object({
+    intent: z.enum(["order", "quotation"]).default("order"),
     customerId: z.string().optional(),
     sourceLocationId: z.string().optional().default(""),
     orderDate: z.coerce.date(),
@@ -43,31 +44,40 @@ export const createSalesOrderSchema = z
       .default(SalesOrderType.MAKE_TO_STOCK),
     notes: z.string().optional().transform(sanitizeHtml),
     shippingCost: z.coerce.number().min(0).optional().default(0),
+    // ── Quotation-phase commercial fields (optional) ──
+    validUntil: z.coerce.date().optional().nullable(),
+    subject: z.string().optional().nullable(),
+    paymentTerms: z.string().optional().nullable(),
+    shippingTerms: z.string().optional().nullable(),
+    termsConditions: z.string().optional().nullable(),
     items: z
       .array(salesOrderItemSchema)
       .min(1, "At least one item is required"),
     customItems: z.array(customItemSchema).optional().default([]),
   })
   .superRefine((data, ctx) => {
-    if (data.orderType === SalesOrderType.MAKE_TO_STOCK && !data.customerId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Customer is required for Sales Orders. Use Production Order for internal stock build.",
-        path: ["customerId"],
-      });
-    }
+    // Quotation intent: customer optional (can be filled later)
+    if (data.intent === "order") {
+      if (data.orderType === SalesOrderType.MAKE_TO_STOCK && !data.customerId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Customer is required for Sales Orders. Use Production Order for internal stock build.",
+          path: ["customerId"],
+        });
+      }
 
-    if (
-      (data.orderType === SalesOrderType.MAKE_TO_ORDER ||
-        data.orderType === SalesOrderType.MAKLON_JASA) &&
-      !data.customerId
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Customer is required for Make to Order / Maklon Jasa",
-        path: ["customerId"],
-      });
+      if (
+        (data.orderType === SalesOrderType.MAKE_TO_ORDER ||
+          data.orderType === SalesOrderType.MAKLON_JASA) &&
+        !data.customerId
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Customer is required for Make to Order / Maklon Jasa",
+          path: ["customerId"],
+        });
+      }
     }
 
     // Maklon Jasa still requires a source location (customer-owned warehouse)
@@ -88,6 +98,12 @@ export const updateSalesOrderSchema = z.object({
   expectedDate: z.coerce.date().optional().nullable(),
   notes: z.string().optional().transform(sanitizeHtml),
   shippingCost: z.coerce.number().min(0).optional().default(0),
+  // ── Quotation-phase commercial fields (optional on update) ──
+  validUntil: z.coerce.date().optional().nullable(),
+  subject: z.string().optional().nullable(),
+  paymentTerms: z.string().optional().nullable(),
+  shippingTerms: z.string().optional().nullable(),
+  termsConditions: z.string().optional().nullable(),
   items: z.array(salesOrderItemSchema).min(1, "At least one item is required"),
 });
 

@@ -59,39 +59,44 @@ export function SalesReturnTable({
         header: salesLabels.returnNumber,
         size: 160,
         accessorFn: (row) => row.returnNumber,
+        sortingFn: (a, b) =>
+          new Date(a.original.returnDate).getTime() -
+          new Date(b.original.returnDate).getTime(),
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <RotateCcw className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">{row.original.returnNumber}</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="font-medium">{row.original.returnNumber}</span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5 ml-6">
+              {format(new Date(row.original.returnDate), "dd MMM yyyy")}
+            </div>
+            {row.original.salesOrder?.orderNumber && (
+              <div className="text-[11px] text-muted-foreground mt-0.5 ml-6">
+                SO: {row.original.salesOrder.orderNumber}
+              </div>
+            )}
           </div>
         ),
       },
       {
-        accessorKey: "returnDate",
-        header: formLabels.date,
-        size: 120,
-        sortingFn: "datetime",
-        cell: ({ row }) =>
-          format(new Date(row.original.returnDate), "MMM d, yyyy"),
-      },
-      {
-        id: "orderRef",
-        header: "Ref SO",
-        size: 130,
-        accessorFn: (row) => row.salesOrder?.orderNumber || "",
-        cell: ({ row }) => row.original.salesOrder?.orderNumber || "-",
-      },
-      {
         id: "customer",
         header: salesLabels.customer,
-        size: 180,
+        size: 220,
         accessorFn: (row) => row.customer?.name || "",
-        cell: ({ row }) => row.original.customer?.name || "-",
+        cell: ({ row }) => {
+          const customerName = row.original.customer?.name || "-";
+          return (
+            <div className="min-w-0 font-medium truncate" title={customerName}>
+              {customerName}
+            </div>
+          );
+        },
       },
       {
         accessorKey: "status",
         header: formLabels.status,
-        size: 120,
+        size: 130,
         cell: ({ row }) => (
           <Badge
             variant="secondary"
@@ -102,25 +107,19 @@ export function SalesReturnTable({
         ),
       },
       {
-        id: "itemCount",
-        header: () => <div className="text-right">{salesLabels.items}</div>,
-        size: 80,
-        accessorFn: (row) => row._count.items,
-        cell: ({ row }) => (
-          <div className="text-right text-muted-foreground">
-            {row.original._count.items}
-          </div>
-        ),
-      },
-      {
         accessorKey: "totalAmount",
         header: () => <div className="text-right">Total Keseluruhan</div>,
         size: 150,
         cell: ({ row }) => (
-          <div className="text-right font-medium">
-            {row.original.totalAmount
-              ? formatRupiah(Number(row.original.totalAmount))
-              : "-"}
+          <div className="text-right">
+            <div className="font-medium">
+              {row.original.totalAmount
+                ? formatRupiah(Number(row.original.totalAmount))
+                : "-"}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {row.original._count.items} item
+            </div>
           </div>
         ),
       },
@@ -214,7 +213,7 @@ export function SalesReturnTable({
         columns={columns}
         data={initialData}
         emptyMessage={salesLabels.emptyReturns}
-        minWidth={900}
+        minWidth={720}
         renderMobileView={renderMobileView}
       />
     </div>

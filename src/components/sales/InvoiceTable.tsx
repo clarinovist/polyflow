@@ -42,6 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { isInvoiceOverdue } from "@/lib/finance/payment-terms";
 
 interface InvoiceData {
   id: string;
@@ -165,100 +166,108 @@ export function InvoiceTable({
   const columns: ColumnDef<InvoiceData, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: "invoiceNumber",
+        id: "invoiceNumber",
         header: `No. ${salesLabels.invoice}`,
-        size: 150,
-      },
-      {
-        accessorKey: "invoiceDate",
-        header: formLabels.date,
-        size: 120,
-        sortingFn: "datetime",
-        cell: ({ row }) => format(new Date(row.original.invoiceDate), "PP"),
-      },
-      {
-        id: "dueDate",
-        header: salesLabels.dueDate,
-        size: 120,
-        sortingFn: "datetime",
-        accessorFn: (row) =>
-          row.dueDate ? new Date(row.dueDate).getTime() : 0,
+        size: 160,
+        accessorFn: (row) => row.invoiceNumber,
+        sortingFn: (a, b) =>
+          new Date(a.original.invoiceDate).getTime() -
+          new Date(b.original.invoiceDate).getTime(),
         cell: ({ row }) => {
-          const { dueDate, status } = row.original;
+          const inv = row.original;
+          const isOverdue = isInvoiceOverdue(inv.dueDate, inv.status);
+          const orderNumber =
+            inv.salesOrder?.orderNumber || inv.purchaseOrder?.orderNumber;
+          const linkId = basePath.includes("finance")
+            ? inv.id
+            : inv.salesOrderId || inv.purchaseOrderId || inv.id;
           return (
-            <span
-              className={
-                status === ("OVERDUE" as InvoiceStatus)
-                  ? "text-red-600 font-bold"
-                  : ""
-              }
-            >
-              {dueDate ? format(new Date(dueDate), "PP") : "-"}
-            </span>
+            <div>
+              <span className="font-mono font-medium">{inv.invoiceNumber}</span>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {format(new Date(inv.invoiceDate), "dd MMM yyyy")}
+              </div>
+              {inv.dueDate && (
+                <div
+                  className={`text-[11px] mt-0.5 ${
+                    isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"
+                  }`}
+                >
+                  Jt tempo: {format(new Date(inv.dueDate), "dd MMM yyyy")}
+                  {isOverdue && (
+                    <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700 font-normal">
+                      Terlambat
+                    </span>
+                  )}
+                </div>
+              )}
+              {orderNumber && (
+                <div className="mt-0.5">
+                  <Link
+                    href={`${basePath}/${linkId}`}
+                    className="text-[11px] text-blue-600 hover:underline font-mono"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Ref: {orderNumber}
+                  </Link>
+                </div>
+              )}
+            </div>
           );
         },
       },
       {
         id: "entity",
         header: "Entitas",
-        size: 180,
+        size: 200,
         accessorFn: (row) =>
           row.salesOrder?.customer?.name ||
           row.purchaseOrder?.supplier?.name ||
           "",
         cell: ({ row }) => {
-          const { salesOrder, purchaseOrder } = row.original;
+          const name =
+            row.original.salesOrder?.customer?.name ||
+            row.original.purchaseOrder?.supplier?.name ||
+            "Legacy Internal Stock Build";
           return (
-            salesOrder?.customer?.name ||
-            purchaseOrder?.supplier?.name ||
-            "Legacy Internal Stock Build"
-          );
-        },
-      },
-      {
-        id: "orderReference",
-        header: "Order Referensi",
-        size: 150,
-        accessorFn: (row) =>
-          row.salesOrder?.orderNumber || row.purchaseOrder?.orderNumber || "",
-        cell: ({ row }) => {
-          const {
-            salesOrder,
-            purchaseOrder,
-            salesOrderId,
-            purchaseOrderId,
-            id,
-          } = row.original;
-          const orderNumber =
-            salesOrder?.orderNumber || purchaseOrder?.orderNumber || "-";
-          const linkId = basePath.includes("finance")
-            ? id
-            : salesOrderId || purchaseOrderId || id;
-          return (
-            <Link
-              href={`${basePath}/${linkId}`}
-              className="text-blue-600 hover:underline"
-            >
-              {orderNumber}
-            </Link>
+            <div className="min-w-0 font-medium truncate" title={name}>
+              {name}
+            </div>
           );
         },
       },
       {
         accessorKey: "status",
         header: formLabels.status,
-        size: 120,
+        size: 130,
         cell: ({ row }) => getStatusBadge(row.original.status),
       },
       {
         accessorKey: "totalAmount",
         header: () => <div className="text-right">{formLabels.total}</div>,
         size: 150,
-        cell: ({ row }) => (
-          <div className="text-right font-medium">
-            {formatRupiah(Number(row.original.totalAmount))}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const inv = row.original;
+          const remaining =
+            (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0);
+          return (
+            <div className="text-right">
+              <div className="font-medium">
+                {formatRupiah(Number(inv.totalAmount))}
+              </div>
+              {inv.paidAmount > 0 && (
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  Dibayar: {formatRupiah(Number(inv.paidAmount))}
+                </div>
+              )}
+              {remaining > 0 && inv.paidAmount > 0 && (
+                <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  Sisa: {formatRupiah(remaining)}
+                </div>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "actions",
@@ -428,7 +437,7 @@ export function InvoiceTable({
       columns={columns}
       data={filteredInvoices}
       emptyMessage={salesLabels.emptyInvoices}
-      minWidth={900}
+      minWidth={780}
       renderMobileView={renderMobileView}
     >
       <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">

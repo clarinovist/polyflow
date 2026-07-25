@@ -176,10 +176,11 @@ export function canRemoveTrip(
 
 /**
  * R-S1: Check if a Sales Order is eligible for scheduling.
- * SO must not be DRAFT or CANCELLED.
+ * SO must not be DRAFT, CANCELLED, or in quotation phase.
  */
 export function isSOSchedulable(soStatus: string): boolean {
-  return soStatus !== 'DRAFT' && soStatus !== 'CANCELLED';
+  const blocked = ['DRAFT', 'CANCELLED', 'QUOTATION', 'QUOTATION_SENT', 'QUOTATION_REJECTED', 'QUOTATION_EXPIRED'];
+  return !blocked.includes(soStatus);
 }
 
 /**

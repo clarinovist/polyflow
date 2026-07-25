@@ -81,7 +81,7 @@ export const getCustomerSalesAnalytics = withTenant(async function getCustomerSa
       where: {
         customerId,
         orderDate: { gte: sixMonthsAgo },
-        status: { notIn: ['DRAFT', 'CANCELLED'] },
+        status: { notIn: ['DRAFT', 'CANCELLED', 'QUOTATION', 'QUOTATION_SENT', 'QUOTATION_REJECTED', 'QUOTATION_EXPIRED'] },
       },
       select: { orderDate: true, totalAmount: true },
       orderBy: { orderDate: 'asc' },

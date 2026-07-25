@@ -60,6 +60,23 @@ export const salesStatusLabels = {
   CONVERTED: 'Dikonversi',
 } as const;
 
+/**
+ * Sales order status label with Maklon override.
+ * Shared across desktop (SalesOrderTable), mobile, and field surfaces.
+ */
+const MAKLON_STATUS_OVERRIDES: Partial<Record<string, string>> = {
+  READY_TO_SHIP: 'Siap penutupan jasa',
+  SHIPPED: 'Jasa ditutup',
+  DELIVERED: 'Jasa selesai',
+};
+
+export function getSalesStatusLabel(status: string, orderType?: string): string {
+  if (orderType === 'MAKLON_JASA' && MAKLON_STATUS_OVERRIDES[status]) {
+    return MAKLON_STATUS_OVERRIDES[status];
+  }
+  return salesStatusLabels[status as keyof typeof salesStatusLabels] ?? status;
+}
+
 export const financeStatusLabels = {
   DRAFT: 'Draft',
   OPEN: 'Open',

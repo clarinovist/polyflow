@@ -67,7 +67,7 @@ export function InventoryDesktopTable({
 }: InventoryDesktopTableProps) {
     return (
         <div className="flex-1 overflow-hidden relative hidden md:block">
-            <ResponsiveTable minWidth={900} className="h-full">
+            <ResponsiveTable minWidth={showPrices ? 900 : 780} className="h-full">
                 <Table>
                     <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
                         <TableRow className="bg-muted/50 hover:bg-muted/50">

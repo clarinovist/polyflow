@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Package, Factory, Wrench } from "lucide-react";
+import { Package, Factory, Wrench, FileText } from "lucide-react";
 import { salesLabels } from "@/lib/labels";
 
 const INTENTS = [
+  {
+    key: "quotation",
+    orderType: "MAKE_TO_STOCK",
+    icon: FileText,
+    title: "Buat Penawaran",
+    desc: "Nego harga dulu, order belakangan",
+    sub: "Penawaran harga",
+  },
   {
     key: "stock",
     orderType: "MAKE_TO_STOCK",

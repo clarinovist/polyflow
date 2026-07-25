@@ -238,7 +238,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
 
             {filteredVariants.length > 0 && (
             <div className="overflow-x-auto">
-                <ResponsiveTable minWidth={1000}>
+                <ResponsiveTable minWidth={showPrices ? 1000 : 780}>
                     <Table>
                         <TableHeader className="bg-muted/30">
                             <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">

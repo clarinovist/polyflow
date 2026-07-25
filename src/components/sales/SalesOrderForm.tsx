@@ -94,6 +94,7 @@ export function SalesOrderForm({
   products,
   mode,
   lockedOrderType,
+  documentIntent,
   initialData,
   reorderData,
 }: SalesOrderFormProps) {
@@ -663,8 +664,8 @@ export function SalesOrderForm({
     async (data: SalesOrderFormValues) => {
       const values =
         mode === "create"
-          ? (data as CreateSalesOrderValues)
-          : ({ ...data, id: initialData!.id } as UpdateSalesOrderValues);
+          ? { ...data, intent: documentIntent || "order" }
+          : { ...data, id: initialData!.id };
 
       return mode === "create"
         ? await createSalesOrder(values as CreateSalesOrderValues)
@@ -673,7 +674,7 @@ export function SalesOrderForm({
     {
       form,
       successMessage: `Sales Order ${mode === "create" ? "Created" : "Updated"}`,
-      onSuccess: () => router.push("/sales"),
+      onSuccess: () => router.push("/sales/orders"),
     },
   );
 

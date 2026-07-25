@@ -141,7 +141,7 @@ export function DataTable<TData, TValue>({
                       onClick={header.column.getToggleSortingHandler()}
                     >
                       {header.isPlaceholder ? null : (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                           {flexRender(
                             header.column.columnDef.header,
                             header.getContext(),

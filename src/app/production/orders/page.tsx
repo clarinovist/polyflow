@@ -376,17 +376,13 @@ export default async function ProductionOrdersPage({
           </CardHeader>
           <CardContent>
             <div className="rounded-md border overflow-x-auto custom-scrollbar">
-              <Table className="min-w-[800px]">
+              <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{planningLabels.orderNumber}</TableHead>
                     <TableHead>{planningLabels.product}</TableHead>
                     <TableHead>{planningLabels.status}</TableHead>
-                    <TableHead>{planningLabels.demandSource}</TableHead>
-                    <TableHead>{planningLabels.machine}</TableHead>
                     <TableHead>{planningLabels.progress}</TableHead>
-                    <TableHead>{planningLabels.planned}</TableHead>
-                    <TableHead>{planningLabels.startDate}</TableHead>
                     <TableHead className="text-right">
                       {planningLabels.actions}
                     </TableHead>
@@ -396,7 +392,7 @@ export default async function ProductionOrdersPage({
                   {orders.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={5}
                         className="text-center h-32 text-muted-foreground"
                       >
                         <div className="flex flex-col items-center gap-3 py-2">
@@ -434,15 +430,22 @@ export default async function ProductionOrdersPage({
                           key={order.id}
                           className="hover:bg-muted/50 group"
                         >
-                          <TableCell className="font-medium">
+                          <TableCell className="font-medium align-top py-3">
                             <Link
                               href={`/production/orders/${order.id}`}
-                              className="hover:underline text-foreground block py-1"
+                              className="hover:underline text-foreground block"
                             >
-                              {order.orderNumber}
+                              <span className="font-mono">{order.orderNumber}</span>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {format(
+                                  new Date(order.plannedStartDate),
+                                  "d MMM yyyy",
+                                  { locale: idLocale }
+                                )}
+                              </div>
                             </Link>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="align-top py-3">
                             <Link
                               href={`/production/orders/${order.id}`}
                               className="block"
@@ -463,12 +466,29 @@ export default async function ProductionOrdersPage({
                                   </Badge>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-muted-foreground mt-0.5">
                                 {order.bom.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5">
+                                {order.salesOrder ? (
+                                  <span>
+                                    Sumber: {order.salesOrder.customer?.name || order.salesOrder.orderNumber}
+                                  </span>
+                                ) : (
+                                  <span className="italic">
+                                    {planningLabels.internalStockBuildLabel}
+                                  </span>
+                                )}
+                                {order.machine && (
+                                  <>
+                                    <span>•</span>
+                                    <span>Mesin: {order.machine.code}</span>
+                                  </>
+                                )}
                               </div>
                             </Link>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="align-top py-3">
                             <Link
                               href={`/production/orders/${order.id}`}
                               className="block"
@@ -476,55 +496,7 @@ export default async function ProductionOrdersPage({
                               <ProductionStatusBadge status={order.status} />
                             </Link>
                           </TableCell>
-                          <TableCell>
-                            <Link
-                              href={`/production/orders/${order.id}`}
-                              className="block"
-                            >
-                              <div className="flex flex-col gap-1">
-                                {order.salesOrder ? (
-                                  <>
-                                    <span className="text-sm font-medium">
-                                      {order.salesOrder.customer?.name ||
-                                        order.salesOrder.orderNumber}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {order.salesOrder.orderNumber} •{" "}
-                                      {order.salesOrder.orderType.replace(
-                                        /_/g,
-                                        " ",
-                                      )}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs font-normal w-fit"
-                                  >
-                                    {planningLabels.internalStockBuildLabel}
-                                  </Badge>
-                                )}
-                              </div>
-                            </Link>
-                          </TableCell>
-                          <TableCell>
-                            <Link
-                              href={`/production/orders/${order.id}`}
-                              className="block"
-                            >
-                              {order.machine ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="font-normal text-xs"
-                                >
-                                  {order.machine.code}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="w-[150px]">
+                          <TableCell className="w-[160px] align-top py-3">
                             <Link
                               href={`/production/orders/${order.id}`}
                               className="block"
@@ -538,37 +510,20 @@ export default async function ProductionOrdersPage({
                                   {Math.round(progress)}%
                                 </span>
                               </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Target: {getEnteredQuantityDisplay({
+                                  ...order.bom.productVariant,
+                                  quantity: order.plannedQuantity,
+                                  enteredQuantity:
+                                    order.plannedEnteredQuantity,
+                                  enteredUnit: order.plannedEnteredUnit,
+                                  conversionFactorSnapshot:
+                                    order.plannedConversionFactorSnapshot,
+                                })}
+                              </div>
                             </Link>
                           </TableCell>
-                          <TableCell>
-                            <Link
-                              href={`/production/orders/${order.id}`}
-                              className="block"
-                            >
-                              {getEnteredQuantityDisplay({
-                                ...order.bom.productVariant,
-                                quantity: order.plannedQuantity,
-                                enteredQuantity:
-                                  order.plannedEnteredQuantity,
-                                enteredUnit: order.plannedEnteredUnit,
-                                conversionFactorSnapshot:
-                                  order.plannedConversionFactorSnapshot,
-                              })}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            <Link
-                              href={`/production/orders/${order.id}`}
-                              className="block"
-                            >
-                              {format(
-                                new Date(order.plannedStartDate),
-                                "d MMM yyyy",
-                                { locale: idLocale }
-                              )}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right align-top py-3">
                             <Link href={`/production/orders/${order.id}`}>
                               <Button
                                 variant="ghost"

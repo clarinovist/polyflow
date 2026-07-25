@@ -926,6 +926,15 @@ model SalesOrder {
   taxAmount        Decimal?                @db.Decimal(15, 2)
   shippingCost     Decimal?                @db.Decimal(15, 2)
   quotationId      String?
+  // ── Quotation-phase commercial fields ──
+  validUntil       DateTime?
+  subject          String?
+  paymentTerms     String?
+  shippingTerms    String?
+  termsConditions  String?
+  priceStatus      SalesPriceStatus?
+  quotationSentAt  DateTime?
+  legacyQuotationId String?               @unique
   deliveryOrders   DeliveryOrder[]
   scheduleStops    DeliveryScheduleOrder[]
   invoices         Invoice[]
@@ -1737,6 +1746,13 @@ enum SalesOrderType {
 }
 
 enum SalesOrderStatus {
+  // ── Commercial / quotation phase ──
+  QUOTATION
+  QUOTATION_SENT
+  QUOTATION_REJECTED
+  QUOTATION_EXPIRED
+
+  // ── Order phase ──
   DRAFT
   CONFIRMED
   IN_PRODUCTION
@@ -1744,6 +1760,12 @@ enum SalesOrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+}
+
+enum SalesPriceStatus {
+  PENDING
+  PROVISIONAL
+  FINAL
 }
 
 enum InvoiceStatus {

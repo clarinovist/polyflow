@@ -1,5 +1,5 @@
 import { addDays, format } from "date-fns";
-import { InvoiceStatus, JournalStatus } from "@prisma/client";
+import { InvoiceStatus, JournalStatus, SalesOrderStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
@@ -122,11 +122,28 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
       totalAmount: true,
       orderNumber: true,
       customerId: true,
+      status: true,
     },
   });
 
   if (!salesOrder) {
     throw new NotFoundError("Sales Order", salesOrderId);
+  }
+
+  // ── Status gate: block invoicing for quotation/draft/cancelled ──
+  const nonInvoicableStatuses: SalesOrderStatus[] = [
+    SalesOrderStatus.QUOTATION,
+    SalesOrderStatus.QUOTATION_SENT,
+    SalesOrderStatus.QUOTATION_REJECTED,
+    SalesOrderStatus.QUOTATION_EXPIRED,
+    SalesOrderStatus.DRAFT,
+    SalesOrderStatus.CANCELLED,
+  ];
+  if (nonInvoicableStatuses.includes(salesOrder.status)) {
+    throw new BusinessRuleError(
+      `Tidak bisa membuat invoice untuk SO status ${salesOrder.status}.`,
+      { salesOrderId, status: salesOrder.status },
+    );
   }
 
   if (!salesOrder.totalAmount) {

@@ -17,7 +17,7 @@ import { FileText, ChevronRight } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import {
-  getStatusLabel as getLocalizedStatusLabel,
+  getSalesStatusLabel,
   formLabels,
   salesLabels,
 } from "@/lib/labels";
@@ -88,20 +88,8 @@ export function SalesOrderTable({
     }
   };
 
-  const getSalesOrderStatusLabel = (order: SerializedSalesOrder) => {
-    if (!isMaklonOrder(order))
-      return getLocalizedStatusLabel(order.status, "sales");
-    switch (order.status) {
-      case "READY_TO_SHIP":
-        return "Siap penutupan jasa";
-      case "SHIPPED":
-        return "Jasa ditutup";
-      case "DELIVERED":
-        return "Jasa selesai";
-      default:
-        return getLocalizedStatusLabel(order.status, "sales");
-    }
-  };
+  const getSalesOrderStatusLabel = (order: SerializedSalesOrder) =>
+    getSalesStatusLabel(order.status, order.orderType);
 
   const getLocationLabel = (order: SerializedSalesOrder) => {
     const locationName = order.sourceLocation?.name || "-";
@@ -124,6 +112,14 @@ export function SalesOrderTable({
 
   const getStatusColor = (status: SalesOrderStatus) => {
     switch (status) {
+      case "QUOTATION":
+        return "bg-cyan-100 text-cyan-800 border-cyan-200";
+      case "QUOTATION_SENT":
+        return "bg-sky-100 text-sky-800 border-sky-200";
+      case "QUOTATION_REJECTED":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "QUOTATION_EXPIRED":
+        return "bg-orange-100 text-orange-800 border-orange-200";
       case "DRAFT":
         return "bg-slate-100 text-slate-800 border-slate-200";
       case "CONFIRMED":
@@ -178,102 +174,88 @@ export function SalesOrderTable({
         header: salesLabels.orderNumber,
         size: 160,
         accessorFn: (row) => row.orderNumber,
-        cell: ({ row }) => (
-          <button
-            onClick={() => router.push(`${basePath}/${row.original.id}`)}
-            className="flex items-center gap-2 text-left hover:underline cursor-pointer"
-          >
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">{row.original.orderNumber}</span>
-          </button>
-        ),
-      },
-      {
-        accessorKey: "orderDate",
-        header: formLabels.date,
-        size: 120,
-        sortingFn: "datetime",
-        cell: ({ row }) =>
-          format(new Date(row.original.orderDate), "MMM d, yyyy"),
-      },
-      {
-        id: "customer",
-        header: salesLabels.customer,
-        size: 180,
-        accessorFn: (row) => row.customer?.name || "",
+        sortingFn: (a, b) =>
+          new Date(a.original.orderDate).getTime() -
+          new Date(b.original.orderDate).getTime(),
         cell: ({ row }) => (
           <div>
-            <div className="font-medium">{getCustomerLabel(row.original)}</div>
-            {!row.original.customer && (
-              <div className="text-xs text-amber-700">
-                {formLabels.legacyInternalOrderHint}
-              </div>
-            )}
+            <button
+              onClick={() => router.push(`${basePath}/${row.original.id}`)}
+              className="flex items-center gap-2 text-left hover:underline cursor-pointer"
+            >
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">{row.original.orderNumber}</span>
+            </button>
+            <div className="text-xs text-muted-foreground ml-6">
+              {format(new Date(row.original.orderDate), "MMM d, yyyy")}
+            </div>
           </div>
         ),
       },
       {
-        id: "orderType",
-        header: formLabels.type,
-        size: 100,
-        accessorFn: (row) => getOrderTypeLabel(row),
-        cell: ({ row }) => (
-          <Badge variant="outline" className="font-normal">
-            {getOrderTypeLabel(row.original)}
-          </Badge>
-        ),
-      },
-      {
-        id: "location",
-        header: salesLabels.location,
-        size: 140,
-        accessorFn: (row) => row.sourceLocation?.name || "",
-        cell: ({ row }) => (
-          <Badge variant="outline" className="font-normal">
-            {getLocationLabel(row.original)}
-          </Badge>
-        ),
+        id: "customer",
+        header: salesLabels.customer,
+        size: 220,
+        accessorFn: (row) => row.customer?.name || "",
+        cell: ({ row }) => {
+          const locationLabel = getLocationLabel(row.original);
+          return (
+            <div className="min-w-0">
+              <div className="font-medium truncate" title={getCustomerLabel(row.original)}>
+                {getCustomerLabel(row.original)}
+              </div>
+              <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <Badge variant="outline" className="text-[10px] px-1.5 h-4 font-normal shrink-0">
+                  {getOrderTypeLabel(row.original)}
+                </Badge>
+                {locationLabel && locationLabel !== "-" && (
+                  <>
+                    <span>·</span>
+                    <span className="truncate" title={locationLabel}>{locationLabel}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "status",
         header: formLabels.status,
         size: 140,
-        cell: ({ row }) => (
-          <Badge
-            variant="secondary"
-            className={getStatusColor(row.original.status)}
-          >
-            {getSalesOrderStatusLabel(row.original)}
-          </Badge>
-        ),
-      },
-      {
-        id: "payment",
-        header: salesLabels.payment,
-        size: 120,
-        accessorFn: (row) => getPaymentSummary(row).label,
         cell: ({ row }) => {
-          const summary = getPaymentSummary(row.original);
+          const statusLabel = getSalesOrderStatusLabel(row.original);
           return (
-            <Badge variant="secondary" className={summary.badgeClass}>
-              {summary.label}
+            <Badge
+              variant="secondary"
+              className={getStatusColor(row.original.status)}
+              title={statusLabel}
+            >
+              {statusLabel}
             </Badge>
           );
         },
       },
       {
-        id: "items",
-        header: () => <div className="text-right">{salesLabels.items}</div>,
-        size: 180,
-        accessorFn: (row) => row._count.items,
-        cell: ({ row }) => (
-          <div className="text-right">
-            <div className="text-sm">{getItemSummary(row.original)}</div>
-            <div className="text-xs text-muted-foreground">
-              {row.original._count.items} item(s)
+        id: "payment",
+        header: salesLabels.payment,
+        size: 140,
+        accessorFn: (row) => getPaymentSummary(row).label,
+        cell: ({ row }) => {
+          const summary = getPaymentSummary(row.original);
+          return (
+            <div>
+              <Badge variant="secondary" className={summary.badgeClass}>
+                {summary.label}
+              </Badge>
+              {summary.outstanding > 0 && (
+                <div className="text-xs text-amber-700 mt-0.5 font-medium">
+                  {formatRupiah(summary.outstanding)}
+                </div>
+              )}
             </div>
-          </div>
-        ),
+          );
+        },
       },
       {
         accessorKey: "totalAmount",
@@ -286,22 +268,6 @@ export function SalesOrderTable({
               : "-"}
           </div>
         ),
-      },
-      {
-        id: "outstanding",
-        header: () => (
-          <div className="text-right">{salesLabels.outstanding}</div>
-        ),
-        size: 140,
-        accessorFn: (row) => getPaymentSummary(row).outstanding,
-        cell: ({ row }) => {
-          const outstanding = getPaymentSummary(row.original).outstanding;
-          return (
-            <div className="text-right font-medium">
-              {outstanding > 0 ? formatRupiah(outstanding) : "-"}
-            </div>
-          );
-        },
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -427,7 +393,7 @@ export function SalesOrderTable({
         columns={columns}
         data={initialData}
         emptyMessage={emptyMessage || salesLabels.emptyOrders}
-        minWidth={1000}
+        minWidth={780}
         renderMobileView={renderMobileView}
       />
     </div>

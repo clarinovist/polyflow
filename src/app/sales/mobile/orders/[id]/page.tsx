@@ -53,6 +53,7 @@ export default async function SalesMobileOrderDetailPage(props: {
     orderNumber: dbOrder.orderNumber,
     orderDate: String(dbOrder.orderDate),
     status: dbOrder.status,
+    orderType: dbOrder.orderType,
     totalAmount: dbOrder.totalAmount ? Number(dbOrder.totalAmount) : null,
     discountAmount: dbOrder.discountAmount ? Number(dbOrder.discountAmount) : null,
     taxAmount: dbOrder.taxAmount ? Number(dbOrder.taxAmount) : null,

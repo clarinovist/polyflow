@@ -52,59 +52,59 @@ export function DeliveryOrderTable({
   const columns: ColumnDef<any, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: "orderNumber",
+        id: "orderNumber",
         header: `No. ${salesLabels.deliveryOrder}`,
-        size: 150,
+        size: 160,
+        accessorFn: (row) => row.orderNumber,
+        sortingFn: (a, b) =>
+          new Date(a.original.deliveryDate).getTime() -
+          new Date(b.original.deliveryDate).getTime(),
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.orderNumber}</span>
-        ),
-      },
-      {
-        id: "salesOrderNumber",
-        header: salesLabels.salesOrder,
-        size: 150,
-        accessorFn: (row) => row.salesOrder?.orderNumber || "",
-        cell: ({ row }) => (
-          <Link
-            href={`/sales/orders/${row.original.salesOrderId}`}
-            className="text-blue-600 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {row.original.salesOrder?.orderNumber}
-          </Link>
+          <div>
+            <span className="font-medium">{row.original.orderNumber}</span>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {format(new Date(row.original.deliveryDate), "dd MMM yyyy")}
+            </div>
+            {row.original.salesOrder?.orderNumber && (
+              <div className="mt-0.5">
+                <Link
+                  href={`/sales/orders/${row.original.salesOrderId}`}
+                  className="text-[11px] text-blue-600 hover:underline font-mono"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  SO: {row.original.salesOrder.orderNumber}
+                </Link>
+              </div>
+            )}
+          </div>
         ),
       },
       {
         id: "customer",
         header: salesLabels.customer,
-        size: 180,
+        size: 220,
         accessorFn: (row) => row.salesOrder?.customer?.name || "",
-        cell: ({ row }) => row.original.salesOrder?.customer?.name || "-",
-      },
-      {
-        accessorKey: "deliveryDate",
-        header: salesLabels.deliveryDate,
-        size: 130,
-        sortingFn: "datetime",
-        cell: ({ row }) => format(new Date(row.original.deliveryDate), "PP"),
-      },
-      {
-        id: "sourceWarehouse",
-        header: salesLabels.sourceWarehouse,
-        size: 150,
-        accessorFn: (row) => row.sourceLocation?.name || "",
-        cell: ({ row }) => row.original.sourceLocation?.name,
-      },
-      {
-        accessorKey: "carrier",
-        header: salesLabels.carrier,
-        size: 120,
-        cell: ({ row }) => row.original.carrier || "-",
+        cell: ({ row }) => {
+          const customerName = row.original.salesOrder?.customer?.name || "-";
+          const locationName = row.original.sourceLocation?.name;
+          return (
+            <div className="min-w-0">
+              <div className="font-medium truncate" title={customerName}>
+                {customerName}
+              </div>
+              {locationName && (
+                <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                  Gudang: {locationName}
+                </div>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorKey: "status",
         header: formLabels.status,
-        size: 110,
+        size: 120,
         cell: ({ row }) => getStatusBadge(row.original.status),
       },
       {
@@ -206,7 +206,7 @@ export function DeliveryOrderTable({
       columns={columns}
       data={initialData}
       emptyMessage={salesLabels.emptyDeliveries}
-      minWidth={900}
+      minWidth={720}
       renderMobileView={renderMobileView}
     />
   );

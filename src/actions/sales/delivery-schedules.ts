@@ -663,7 +663,7 @@ export const listSchedulableSalesOrders = withTenant(
   }) {
     return safeAction(async () => {
       const where: Prisma.SalesOrderWhereInput = {
-        status: { notIn: ['DRAFT', 'CANCELLED'] },
+        status: { notIn: ['DRAFT', 'CANCELLED', 'QUOTATION', 'QUOTATION_SENT', 'QUOTATION_REJECTED', 'QUOTATION_EXPIRED'] },
       };
 
       if (filters?.customerId) {

@@ -79,7 +79,6 @@ const masterNavItems: NavItem[] = [
 const salesNavItems: NavItem[] = [
   { id: 'sales-dashboard', label: 'Papan Sales', href: '/sales', workspace: 'sales', section: 'ringkasan', owner: 'sales' },
   { id: 'sales-mobile', label: 'Mode Mobile', href: '/sales/mobile', workspace: 'sales', section: 'ringkasan', owner: 'sales' },
-  { id: 'sales-quotations', label: 'Penawaran', href: '/sales/quotations', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-orders', label: 'Sales Order', href: '/sales/orders', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-invoices', label: 'Invoice & Piutang', href: '/sales/invoices', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-returns', label: 'Retur Penjualan', href: '/sales/returns', workspace: 'sales', section: 'transaksi', owner: 'sales' },

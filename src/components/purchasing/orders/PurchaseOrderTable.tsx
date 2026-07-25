@@ -106,29 +106,48 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
       {
         id: "orderNumber",
         header: purchasingLabels.poNumber,
-        size: 150,
+        size: 160,
         accessorFn: (row) => row.orderNumber,
-        cell: ({ row }) => (
-          <span className="font-mono font-medium text-blue-600">
-            <Link
-              href={`/purchasing/orders/${row.original.id}`}
-              className="hover:underline"
-            >
-              {row.original.orderNumber}
-            </Link>
-          </span>
-        ),
+        sortingFn: (a, b) =>
+          new Date(a.original.orderDate).getTime() -
+          new Date(b.original.orderDate).getTime(),
+        cell: ({ row }) => {
+          const po = row.original;
+          return (
+            <div>
+              <Link
+                href={`/purchasing/orders/${po.id}`}
+                className="font-mono font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {po.orderNumber}
+              </Link>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {format(new Date(po.orderDate), "dd MMM yyyy")}
+              </div>
+              {po.expectedDate && (
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  ETA: {format(new Date(po.expectedDate), "dd MMM yyyy")}
+                </div>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "supplier",
         header: purchasingLabels.supplier,
-        size: 180,
+        size: 200,
         accessorFn: (row) => row.supplier.name,
         cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium">{row.original.supplier.name}</span>
+          <div className="min-w-0">
+            <div
+              className="font-medium truncate"
+              title={row.original.supplier.name}
+            >
+              {row.original.supplier.name}
+            </div>
             {row.original.supplier.code && (
-              <span className="text-[10px] text-muted-foreground uppercase">
+              <span className="text-[10px] text-muted-foreground uppercase block mt-0.5">
                 {row.original.supplier.code}
               </span>
             )}
@@ -136,59 +155,25 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
         ),
       },
       {
-        accessorKey: "orderDate",
-        header: purchasingLabels.poDate,
-        size: 120,
-        sortingFn: "datetime",
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {format(new Date(row.original.orderDate), "dd MMM yyyy")}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "expectedDate",
-        header: "Estimasi Pengiriman",
+        accessorKey: "status",
+        header: formLabels.status,
         size: 140,
-        sortingFn: "datetime",
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {row.original.expectedDate
-              ? format(new Date(row.original.expectedDate), "dd MMM yyyy")
-              : "-"}
-          </span>
-        ),
+        cell: ({ row }) => getStatusBadge(row.original.status),
       },
       {
         accessorKey: "totalAmount",
-        header: () => <div className="text-right">Total Keseluruhan</div>,
-        size: 160,
+        header: () => <div className="text-right">Total</div>,
+        size: 150,
         cell: ({ row }) => (
-          <div className="text-right font-medium tabular-nums">
-            {formatRupiah(row.original.totalAmount || 0)}
-          </div>
-        ),
-      },
-      {
-        id: "itemCount",
-        header: () => (
-          <div className="text-center">{purchasingLabels.itemsCount}</div>
-        ),
-        size: 80,
-        accessorFn: (row) => row._count.items,
-        cell: ({ row }) => (
-          <div className="text-center">
-            <Badge variant="secondary" className="font-normal">
+          <div className="text-right">
+            <div className="font-medium tabular-nums">
+              {formatRupiah(row.original.totalAmount || 0)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
               {row.original._count.items} item
-            </Badge>
+            </div>
           </div>
         ),
-      },
-      {
-        accessorKey: "status",
-        header: formLabels.status,
-        size: 130,
-        cell: ({ row }) => getStatusBadge(row.original.status),
       },
       {
         id: "actions",
@@ -198,7 +183,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
         cell: ({ row }) => (
           <div className="text-right">
             <Link href={`/purchasing/orders/${row.original.id}`}>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" title="Lihat Detail">
                 <Eye className="h-4 w-4" />
               </Button>
             </Link>
@@ -214,7 +199,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
       columns={columns}
       data={filteredOrders}
       emptyMessage={purchasingLabels.emptyOrders}
-      minWidth={1000}
+      minWidth={780}
     >
       <div className="flex items-center gap-2">
         <div className="relative">

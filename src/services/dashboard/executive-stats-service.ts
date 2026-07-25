@@ -140,7 +140,7 @@ export class ExecutiveStatsService {
             prisma.salesOrder.findMany({
                 where: {
                     orderDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
-                    status: { notIn: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT] }
+                    status: { notIn: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT, SalesOrderStatus.QUOTATION, SalesOrderStatus.QUOTATION_SENT, SalesOrderStatus.QUOTATION_REJECTED, SalesOrderStatus.QUOTATION_EXPIRED] }
                 },
                 select: { status: true }
             }),

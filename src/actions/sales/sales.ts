@@ -10,6 +10,12 @@ import {
   UpdateSalesOrderValues,
 } from "@/lib/schemas/sales";
 import { SalesService } from "@/services/sales/sales-service";
+import {
+  sendQuotation,
+  acceptQuotation,
+  rejectQuotation,
+  reopenQuotation,
+} from "@/services/sales/orders-service";
 import { SalesOrderStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/tools/auth-checks";
@@ -337,7 +343,7 @@ export const getSalesOrderStats = withTenant(
         rows.reduce((acc, r) => acc + r._count.status, 0);
 
       const isActive = (s: string) =>
-        ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "READY_TO_SHIP"].includes(s);
+        ["QUOTATION", "QUOTATION_SENT", "DRAFT", "CONFIRMED", "IN_PRODUCTION", "READY_TO_SHIP"].includes(s);
       const isDone = (s: string) => ["SHIPPED", "DELIVERED"].includes(s);
 
       const activeRows = stats.filter((s) => isActive(s.status));
@@ -359,6 +365,52 @@ export const getSalesOrderStats = withTenant(
         pipelineAmount: sum(pipelineRows),
         cancelledAmount: sum(cancelledRows),
       };
+    });
+  },
+);
+
+// ── Quotation lifecycle actions ──────────────────────────────────────
+
+export const sendQuotationOrder = withTenant(async function sendQuotationOrder(
+  id: string,
+) {
+  return safeAction(async () => {
+    const session = await requireAuth();
+    const result = await sendQuotation(id, session.user.id);
+    revalidatePath("/sales/orders");
+    return result;
+  });
+});
+
+export const acceptQuotationOrder = withTenant(
+  async function acceptQuotationOrder(id: string) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const result = await acceptQuotation(id, session.user.id);
+      revalidatePath("/sales/orders");
+      return result;
+    });
+  },
+);
+
+export const rejectQuotationOrder = withTenant(
+  async function rejectQuotationOrder(id: string, reason?: string) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const result = await rejectQuotation(id, session.user.id, reason);
+      revalidatePath("/sales/orders");
+      return result;
+    });
+  },
+);
+
+export const reopenQuotationOrder = withTenant(
+  async function reopenQuotationOrder(id: string) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const result = await reopenQuotation(id, session.user.id);
+      revalidatePath("/sales/orders");
+      return result;
     });
   },
 );

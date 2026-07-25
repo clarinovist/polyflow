@@ -266,6 +266,7 @@ export function QuickOrderWizard({
     setIsSubmitting(true);
     try {
       const result = await createSalesOrder({
+        intent: "order",
         customerId,
         sourceLocationId: locationId,
         orderDate: new Date(),

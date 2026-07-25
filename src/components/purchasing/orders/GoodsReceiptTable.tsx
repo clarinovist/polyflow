@@ -6,7 +6,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, User, Calendar, Building2 } from "lucide-react";
+import { Search, MapPin, User, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import {
@@ -82,110 +82,75 @@ export function GoodsReceiptTable({
       {
         id: "receiptNumber",
         header: purchasingLabels.grNumber,
-        size: 150,
+        size: 160,
         accessorFn: (row) => row.receiptNumber,
+        sortingFn: (a, b) =>
+          new Date(a.original.receivedDate).getTime() -
+          new Date(b.original.receivedDate).getTime(),
         cell: ({ row }) => (
-          <span className="font-mono font-medium">
+          <div>
             <Link
               href={`${basePath}/${row.original.id}`}
-              className="text-emerald-600 dark:text-emerald-400 hover:underline"
+              className="font-mono font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
             >
               {row.original.receiptNumber}
             </Link>
-          </span>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {format(new Date(row.original.receivedDate), "dd MMM yyyy")}
+            </div>
+          </div>
         ),
-      },
-      {
-        id: "reference",
-        header: "Referensi PO / Tipe",
-        size: 130,
-        accessorFn: (row) => row.purchaseOrder?.orderNumber || "Maklon",
-        cell: ({ row }) => {
-          const { purchaseOrder } = row.original;
-          return purchaseOrder ? (
-            <Badge
-              variant="outline"
-              className="border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10"
-            >
-              {purchaseOrder.orderNumber}
-            </Badge>
-          ) : (
-            <Badge
-              variant="outline"
-              className="border-purple-500/20 text-purple-600 dark:text-purple-400 bg-purple-500/10"
-            >
-              Maklon
-            </Badge>
-          );
-        },
-      },
-      {
-        id: "poStatus",
-        header: "Status PO",
-        size: 120,
-        accessorFn: (row) => row.purchaseOrder?.status || "",
-        cell: ({ row }) => {
-          const { purchaseOrder } = row.original;
-          return purchaseOrder ? (
-            <Badge
-              variant={
-                purchaseOrder.status === "COMPLETED"
-                  ? "default"
-                  : purchaseOrder.status === "PARTIAL_RECEIVED"
-                    ? "secondary"
-                    : "outline"
-              }
-              className={
-                purchaseOrder.status === "COMPLETED"
-                  ? "bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 border-none"
-                  : ""
-              }
-            >
-              {getStatusLabel(purchaseOrder.status, "purchasing")}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-muted-foreground">
-              -
-            </Badge>
-          );
-        },
       },
       {
         id: "entity",
         header: "Supplier / Customer",
-        size: 180,
+        size: 240,
         accessorFn: (row) =>
           row.purchaseOrder?.supplier.name || row.customer?.name || "",
         cell: ({ row }) => {
           const { purchaseOrder, customer } = row.original;
+          const name = purchaseOrder
+            ? purchaseOrder.supplier.name
+            : customer?.name || "Maklon Tidak Diketahui";
           return (
-            <div className="flex items-center gap-2 text-sm font-medium">
-              {purchaseOrder ? (
-                <>
-                  <Building2 className="h-3 w-3 text-muted-foreground" />
-                  {purchaseOrder.supplier.name}
-                </>
-              ) : (
-                <>
-                  <User className="h-3 w-3 text-muted-foreground" />
-                  {customer?.name || "Maklon Tidak Diketahui"}
-                </>
-              )}
+            <div className="min-w-0">
+              <div
+                className="flex items-center gap-1.5 font-medium text-sm truncate"
+                title={name}
+              >
+                {purchaseOrder ? (
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                ) : (
+                  <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                )}
+                <span className="truncate">{name}</span>
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 text-xs">
+                {purchaseOrder ? (
+                  <>
+                    <Badge
+                      variant="outline"
+                      className="border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10 text-[10px] px-1.5 h-4 font-normal shrink-0"
+                    >
+                      PO: {purchaseOrder.orderNumber}
+                    </Badge>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="text-[11px] text-muted-foreground truncate">
+                      {getStatusLabel(purchaseOrder.status, "purchasing")}
+                    </span>
+                  </>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="border-purple-500/20 text-purple-600 dark:text-purple-400 bg-purple-500/10 text-[10px] px-1.5 h-4 font-normal"
+                  >
+                    Maklon
+                  </Badge>
+                )}
+              </div>
             </div>
           );
         },
-      },
-      {
-        accessorKey: "receivedDate",
-        header: purchasingLabels.grDate,
-        size: 130,
-        sortingFn: "datetime",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-3 w-3 text-muted-foreground" />
-            {format(new Date(row.original.receivedDate), "dd MMM yyyy")}
-          </div>
-        ),
       },
       {
         id: "location",
@@ -193,9 +158,9 @@ export function GoodsReceiptTable({
         size: 140,
         accessorFn: (row) => row.location.name,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2 text-sm">
-            <MapPin className="h-3 w-3 text-muted-foreground" />
-            {row.original.location.name}
+          <div className="flex items-center gap-1.5 text-sm">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="truncate">{row.original.location.name}</span>
           </div>
         ),
       },
@@ -255,18 +220,6 @@ export function GoodsReceiptTable({
           );
         },
       },
-      {
-        id: "createdBy",
-        header: "Diterima Oleh",
-        size: 140,
-        accessorFn: (row) => row.createdBy.name,
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2 text-sm">
-            <User className="h-3 w-3 text-muted-foreground" />
-            {row.original.createdBy.name}
-          </div>
-        ),
-      },
     ],
     [basePath],
   );
@@ -276,7 +229,7 @@ export function GoodsReceiptTable({
       columns={columns}
       data={filteredReceipts}
       emptyMessage={purchasingLabels.emptyReceipts}
-      minWidth={1000}
+      minWidth={750}
     >
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />

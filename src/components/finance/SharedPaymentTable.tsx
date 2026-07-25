@@ -99,38 +99,40 @@ export function SharedPaymentTable({
   const columns: ColumnDef<Payment, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: "referenceNumber",
+        id: "referenceNumber",
         header: "Reference",
-        size: 150,
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.referenceNumber}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "date",
-        header: "Date",
-        size: 120,
-        sortingFn: "datetime",
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {format(new Date(row.original.date), "dd MMM yyyy")}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "entityName",
-        header: isReceived ? "Received From" : "Paid To",
-        size: 180,
-        cell: ({ row }) => (
-          <span className="font-medium">{row.original.entityName}</span>
-        ),
-      },
-      {
-        accessorKey: "method",
-        header: "Method",
         size: 160,
+        accessorFn: (row) => row.referenceNumber,
+        sortingFn: (a, b) =>
+          new Date(a.original.date).getTime() -
+          new Date(b.original.date).getTime(),
+        cell: ({ row }) => (
+          <div>
+            <span className="font-mono text-xs font-medium">
+              {row.original.referenceNumber}
+            </span>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {format(new Date(row.original.date), "dd MMM yyyy")}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "entityName",
+        header: isReceived ? "Received From" : "Paid To",
+        size: 200,
+        accessorFn: (row) => row.entityName,
+        cell: ({ row }) => (
+          <div className="min-w-0 font-medium truncate" title={row.original.entityName}>
+            {row.original.entityName}
+          </div>
+        ),
+      },
+      {
+        id: "amount",
+        header: () => <div className="text-right">Amount</div>,
+        size: 180,
+        accessorFn: (row) => row.amount,
         cell: ({ row }) => {
           const p = row.original;
           const label = getPaymentMethodLabel(p.method);
@@ -138,36 +140,27 @@ export function SharedPaymentTable({
           if (p.instrumentNumber) details.push(`No: ${p.instrumentNumber}`);
           if (p.destinationBank) details.push(p.destinationBank);
           return (
-            <div className="flex flex-col">
-              <span className="text-sm">{label}</span>
-              {details.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {details.join(" · ")}
-                </span>
-              )}
+            <div className="text-right">
+              <div className={`font-bold ${amountColor}`}>
+                {amountPrefix} {formatRupiah(p.amount)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {label}
+                {details.length > 0 && ` · ${details.join(" · ")}`}
+              </div>
             </div>
           );
         },
       },
       {
-        accessorKey: "amount",
-        header: () => <div className="text-right">Amount</div>,
-        size: 150,
-        cell: ({ row }) => (
-          <div className={`text-right font-bold ${amountColor}`}>
-            {amountPrefix} {formatRupiah(row.original.amount)}
-          </div>
-        ),
-      },
-      {
         accessorKey: "status",
         header: () => <div className="text-right">Status</div>,
-        size: 120,
+        size: 110,
         cell: ({ row }) => (
           <div className="text-right">
             <Badge
               variant="outline"
-              className="bg-emerald-50 text-emerald-700 border-emerald-200"
+              className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px]"
             >
               <CheckCircle2 className="h-3 w-3 mr-1" />
               {row.original.status || "Lunas"}
@@ -178,7 +171,7 @@ export function SharedPaymentTable({
       {
         id: "actions",
         header: () => <div className="text-right">Actions</div>,
-        size: 50,
+        size: 60,
         enableSorting: false,
         cell: ({ row }) => {
           const payment = row.original;
@@ -243,7 +236,7 @@ export function SharedPaymentTable({
           columns={columns}
           data={filteredPayments}
           emptyMessage="Tidak ada catatan pembayaran."
-          minWidth={800}
+          minWidth={750}
         >
           <div className="relative max-w-sm w-full">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />

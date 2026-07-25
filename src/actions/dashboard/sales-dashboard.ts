@@ -45,7 +45,7 @@ async function getSalesDashboardStats(dateRange?: DateRange) {
                 },
             }),
             prisma.salesOrder.count({
-                where: { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
+                where: { status: { notIn: ['DELIVERED', 'CANCELLED', 'QUOTATION', 'QUOTATION_SENT', 'QUOTATION_REJECTED', 'QUOTATION_EXPIRED'] } },
             }),
             prisma.customer.count({ where: { isActive: true } }),
         ]);

@@ -1,55 +1,6 @@
-import { getCustomers } from '@/actions/sales/customer';
-import { getProductVariants } from '@/actions/inventory/inventory';
-import { SalesQuotationForm } from '@/components/sales/quotations/SalesQuotationForm';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { redirect } from "next/navigation";
 
-export default async function CreateSalesQuotationPage() {
-    const [customersRes, productsRes] = await Promise.all([
-        getCustomers(),
-        getProductVariants()
-    ]);
-    
-    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
-    const products = productsRes.success && productsRes.data ? productsRes.data : [];
-
-    return (
-        <div className="p-6 max-w-5xl mx-auto">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Buat Penawaran Baru</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <SalesQuotationForm
-                        customers={customers.map(c => ({
-                            ...c,
-                            creditLimit: c.creditLimit ? Number(c.creditLimit) : null,
-                            discountPercent: c.discountPercent ? Number(c.discountPercent) : null
-                        }))}
-                        products={products
-                            .filter(p => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP')
-                            .map(p => ({
-                                ...p,
-                                price: p.price ? Number(p.price) : null,
-                                buyPrice: p.buyPrice ? Number(p.buyPrice) : null,
-                                sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
-                                conversionFactor: Number(p.conversionFactor),
-                                minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
-                                reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
-                                reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
-                                customerPrices: p.customerPrices?.map((price) => ({
-                                    customerId: price.customerId,
-                                    unitPrice: Number(price.unitPrice),
-                                    isActive: price.isActive,
-                                })) || [],
-                                inventories: p.inventories?.map((inv) => ({
-                                    locationId: inv.locationId,
-                                    quantity: Number(inv.quantity)
-                                })) || []
-                            }))}
-                        mode="create"
-                    />
-                </CardContent>
-            </Card>
-        </div>
-    );
+/** /sales/quotations/create → create order as quotation */
+export default function QuotationCreateRedirect() {
+  redirect("/sales/orders/create?intent=quotation");
 }

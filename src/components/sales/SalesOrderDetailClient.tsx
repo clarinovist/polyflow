@@ -30,6 +30,7 @@ import {
   Repeat,
   CalendarPlus,
   MoreHorizontal,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -38,6 +39,10 @@ import {
   cancelSalesOrder,
   deleteSalesOrder,
   markReadyToShip,
+  sendQuotationOrder,
+  acceptQuotationOrder,
+  rejectQuotationOrder,
+  reopenQuotationOrder,
 } from "@/actions/sales/sales";
 import { createInvoice } from "@/actions/finance/invoice";
 import { useState } from "react";
@@ -184,6 +189,14 @@ export function SalesOrderDetailClient({
 
   const getStatusBadge = (status: SalesOrderStatus) => {
     const styles: Record<string, string> = {
+      QUOTATION:
+        "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400",
+      QUOTATION_SENT:
+        "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400",
+      QUOTATION_REJECTED:
+        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+      QUOTATION_EXPIRED:
+        "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
       DRAFT:
         "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
       CONFIRMED:
@@ -263,12 +276,86 @@ export function SalesOrderDetailClient({
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {/* Button Place */}
 
-          {/* Edit button: visible for DRAFT, CONFIRMED, IN_PRODUCTION, READY_TO_SHIP */}
+          {/* ── Quotation-phase actions ── */}
+          {order.status === "QUOTATION" && (
+            <>
+              <Button
+                onClick={() => handleAction("dikirim", sendQuotationOrder)}
+                disabled={isLoading}
+                className="bg-sky-600 hover:bg-sky-700 text-white"
+              >
+                <Send className="mr-2 h-4 w-4" /> Kirim Penawaran
+              </Button>
+              <Button
+                onClick={() =>
+                  handleAction("diterima → draft", acceptQuotationOrder)
+                }
+                disabled={isLoading}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" /> Terima
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  handleAction("ditolak", rejectQuotationOrder)
+                }
+                disabled={isLoading}
+              >
+                Tolak
+              </Button>
+            </>
+          )}
+
+          {order.status === "QUOTATION_SENT" && (
+            <>
+              <Button
+                onClick={() =>
+                  handleAction("diterima → draft", acceptQuotationOrder)
+                }
+                disabled={isLoading}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" /> Terima
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  handleAction("ditolak", rejectQuotationOrder)
+                }
+                disabled={isLoading}
+              >
+                Tolak
+              </Button>
+            </>
+          )}
+
+          {order.status === "QUOTATION_REJECTED" && (
+            <Button
+              variant="outline"
+              onClick={() => handleAction("dibuka kembali", reopenQuotationOrder)}
+              disabled={isLoading}
+            >
+              Buka Kembali
+            </Button>
+          )}
+
+          {order.status === "QUOTATION_EXPIRED" && (
+            <Button
+              variant="outline"
+              onClick={() => handleAction("dibuka kembali", reopenQuotationOrder)}
+              disabled={isLoading}
+            >
+              Buka Kembali
+            </Button>
+          )}
+
+          {/* ── Edit button: visible for QUOTATION*, DRAFT, CONFIRMED+, READY_TO_SHIP ── */}
           {!warehouseMode &&
-            (order.status === "DRAFT" ||
+            (order.status === "QUOTATION" ||
+              order.status === "QUOTATION_SENT" ||
+              order.status === "DRAFT" ||
               order.status === "CONFIRMED" ||
               order.status === "IN_PRODUCTION" ||
               order.status === "READY_TO_SHIP") && (

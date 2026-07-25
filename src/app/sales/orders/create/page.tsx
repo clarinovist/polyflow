@@ -11,11 +11,17 @@ import type { SalesOrderType } from "@prisma/client";
 /** Map intent query param to SalesOrderType */
 function intentToOrderType(intent: string): SalesOrderType | undefined {
   switch (intent) {
+    case "quotation": return "MAKE_TO_STOCK";
     case "stock": return "MAKE_TO_STOCK";
     case "produce": return "MAKE_TO_ORDER";
     case "maklon": return "MAKLON_JASA";
     default: return undefined;
   }
+}
+
+/** Map intent to documentIntent */
+function intentToDocumentIntent(intent: string): "order" | "quotation" {
+  return intent === "quotation" ? "quotation" : "order";
 }
 
 interface CreateSalesOrderPageProps {
@@ -86,6 +92,7 @@ export default async function CreateSalesOrderPage({
 
   // Map intent to label for the page title
   const intentLabels: Record<string, string> = {
+    quotation: "Buat Penawaran",
     stock: "Kirim dari Stok",
     produce: "Produksi Dulu",
     maklon: "Maklon Jasa",
@@ -146,6 +153,7 @@ export default async function CreateSalesOrderPage({
               }))}
             mode="create"
             lockedOrderType={lockedOrderType}
+            documentIntent={intent ? intentToDocumentIntent(intent) : "order"}
             reorderData={reorderData || undefined}
           />
         </CardContent>

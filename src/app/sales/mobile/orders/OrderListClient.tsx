@@ -94,7 +94,7 @@ export function OrderListClient({ orders }: OrderListClientProps) {
                       variant="secondary"
                       className={`text-[10px] px-1.5 h-4 ${getMobileStatusColor(order.status)}`}
                     >
-                      {getMobileStatusLabel(order.status)}
+                      {getMobileStatusLabel(order.status, order.orderType)}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">

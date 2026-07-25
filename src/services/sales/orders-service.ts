@@ -258,12 +258,28 @@ export async function createOrder(
     items: itemsWithTotals,
   } = await processOrderItems(data.items, data.orderType);
 
-  if (data.customerId) {
+  const isQuotation = data.intent === "quotation";
+
+  // Credit check only for order intent (quotation = softwarn only)
+  if (!isQuotation && data.customerId) {
     await checkCreditLimit(data.customerId, totalAmount);
   }
 
   const shippingCost = data.shippingCost || 0;
   const finalTotal = totalAmount + shippingCost;
+
+  // Determine initial status and priceStatus
+  const initialStatus = isQuotation
+    ? SalesOrderStatus.QUOTATION
+    : SalesOrderStatus.DRAFT;
+
+  // priceStatus: PENDING if any line has 0 price, else PROVISIONAL for quotation, FINAL for order
+  const hasZeroPrice = itemsWithTotals.some((item) => item.unitPrice <= 0);
+  const priceStatus = isQuotation
+    ? hasZeroPrice
+      ? ("PENDING" as const)
+      : ("PROVISIONAL" as const)
+    : undefined; // orders don't need explicit priceStatus until confirm
 
   const order = await prisma.salesOrder.create({
     data: {
@@ -278,8 +294,15 @@ export async function createOrder(
       discountAmount: totalDiscount,
       taxAmount: totalTax,
       shippingCost: shippingCost > 0 ? shippingCost : null,
-      status: SalesOrderStatus.DRAFT,
+      status: initialStatus,
       createdById: userId,
+      // ── Quotation commercial fields ──
+      validUntil: data.validUntil ?? undefined,
+      subject: data.subject ?? undefined,
+      paymentTerms: data.paymentTerms ?? undefined,
+      shippingTerms: data.shippingTerms ?? undefined,
+      termsConditions: data.termsConditions ?? undefined,
+      priceStatus: priceStatus ?? undefined,
       items: {
         create: itemsWithTotals.map((item) => ({
           productVariantId: item.productVariantId,
@@ -303,10 +326,12 @@ export async function createOrder(
 
   await logActivity({
     userId,
-    action: 'SALES_ORDER_CREATED',
-    entityType: 'SalesOrder',
+    action: isQuotation ? "QUOTATION_CREATED" : "SALES_ORDER_CREATED",
+    entityType: "SalesOrder",
     entityId: order.id,
-    details: `Sales Order ${orderNumber} created. Total: ${finalTotal}`,
+    details: isQuotation
+      ? `Penawaran ${orderNumber} dibuat. Total: ${finalTotal}`
+      : `Sales Order ${orderNumber} created. Total: ${finalTotal}`,
   });
 
   return order;
@@ -334,11 +359,13 @@ export async function updateOrder(
 
   // === STATUS-BASED VALIDATION ===
 
-  // SHIPPED / DELIVERED / CANCELLED: no editing allowed
+  // Terminal / non-editable statuses
   if (
     status === SalesOrderStatus.SHIPPED ||
     status === SalesOrderStatus.DELIVERED ||
-    status === SalesOrderStatus.CANCELLED
+    status === SalesOrderStatus.CANCELLED ||
+    status === SalesOrderStatus.QUOTATION_REJECTED ||
+    status === SalesOrderStatus.QUOTATION_EXPIRED
   ) {
     throw new BusinessRuleError(
       `Cannot edit Sales Order with status ${status}.`,
@@ -458,6 +485,12 @@ export async function updateOrder(
         discountAmount: totalDiscount,
         taxAmount: totalTax,
         shippingCost: shippingCost > 0 ? shippingCost : null,
+        // ── Quotation commercial fields ──
+        validUntil: data.validUntil ?? undefined,
+        subject: data.subject ?? undefined,
+        paymentTerms: data.paymentTerms ?? undefined,
+        shippingTerms: data.shippingTerms ?? undefined,
+        termsConditions: data.termsConditions ?? undefined,
         items: {
           create: itemsToCreate,
         },
@@ -499,6 +532,20 @@ export async function confirmOrder(
   if (!order.sourceLocationId) {
     throw new BusinessRuleError(
       "Source location is required before confirming. Please edit the order and select a warehouse.",
+    );
+  }
+
+  // ── Price gate: reject zero-price items before confirm ────────
+  const zeroPriceItems = order.items.filter(
+    (item) => Number(item.unitPrice) <= 0,
+  );
+  if (zeroPriceItems.length > 0) {
+    const names = zeroPriceItems
+      .map((item) => item.productVariant?.name ?? item.productVariantId)
+      .join(", ");
+    throw new BusinessRuleError(
+      `Lengkapi harga semua item sebelum konfirmasi order. Item dengan harga 0: ${names}`,
+      { zeroPriceItems: zeroPriceItems.map((i) => i.id) },
     );
   }
 
@@ -652,7 +699,7 @@ export async function confirmOrder(
 
     await tx.salesOrder.update({
       where: { id },
-      data: { status: nextStatus },
+      data: { status: nextStatus, priceStatus: "FINAL" },
     });
 
     const warningSummary =
@@ -876,4 +923,179 @@ export async function deleteOrder(id: string) {
     );
 
   await prisma.salesOrder.delete({ where: { id } });
+}
+
+// ── Quotation lifecycle actions ──────────────────────────────────────
+
+export async function sendQuotation(id: string, userId: string) {
+  const order = await prisma.salesOrder.findUnique({ where: { id } });
+  if (!order) throw new NotFoundError("Sales Order", id);
+  if (order.status !== SalesOrderStatus.QUOTATION) {
+    throw new BusinessRuleError(
+      "Only quotations in QUOTATION status can be sent.",
+      { status: order.status },
+      "INVALID_ORDER_STATUS",
+    );
+  }
+
+  const updated = await prisma.salesOrder.update({
+    where: { id },
+    data: {
+      status: SalesOrderStatus.QUOTATION_SENT,
+      quotationSentAt: new Date(),
+    },
+  });
+
+  await logActivity({
+    userId,
+    action: "QUOTATION_SENT",
+    entityType: "SalesOrder",
+    entityId: id,
+    details: `Penawaran ${order.orderNumber} dikirim ke customer`,
+    fromStatus: order.status,
+    toStatus: SalesOrderStatus.QUOTATION_SENT,
+  });
+
+  return updated;
+}
+
+export async function acceptQuotation(id: string, userId: string) {
+  const order = await prisma.salesOrder.findUnique({ where: { id } });
+  if (!order) throw new NotFoundError("Sales Order", id);
+  if (
+    order.status !== SalesOrderStatus.QUOTATION &&
+    order.status !== SalesOrderStatus.QUOTATION_SENT
+  ) {
+    throw new BusinessRuleError(
+      "Only QUOTATION or QUOTATION_SENT can be accepted.",
+      { status: order.status },
+      "INVALID_ORDER_STATUS",
+    );
+  }
+
+  // Customer must be set before accepting into DRAFT (confirmOrder requires it)
+  if (!order.customerId) {
+    throw new BusinessRuleError(
+      "Lengkapi data customer sebelum menerima penawaran. Customer wajib diisi untuk melanjutkan ke draft order.",
+      { orderId: id },
+      "CUSTOMER_REQUIRED",
+    );
+  }
+
+  const updated = await prisma.salesOrder.update({
+    where: { id },
+    data: { status: SalesOrderStatus.DRAFT },
+  });
+
+  await logActivity({
+    userId,
+    action: "QUOTATION_ACCEPTED",
+    entityType: "SalesOrder",
+    entityId: id,
+    details: `Penawaran ${order.orderNumber} diterima → draft order`,
+    fromStatus: order.status,
+    toStatus: SalesOrderStatus.DRAFT,
+  });
+
+  return updated;
+}
+
+export async function rejectQuotation(
+  id: string,
+  userId: string,
+  reason?: string,
+) {
+  const order = await prisma.salesOrder.findUnique({ where: { id } });
+  if (!order) throw new NotFoundError("Sales Order", id);
+  if (
+    order.status !== SalesOrderStatus.QUOTATION &&
+    order.status !== SalesOrderStatus.QUOTATION_SENT
+  ) {
+    throw new BusinessRuleError(
+      "Only QUOTATION or QUOTATION_SENT can be rejected.",
+      { status: order.status },
+      "INVALID_ORDER_STATUS",
+    );
+  }
+
+  const updated = await prisma.salesOrder.update({
+    where: { id },
+    data: { status: SalesOrderStatus.QUOTATION_REJECTED },
+  });
+
+  await logActivity({
+    userId,
+    action: "QUOTATION_REJECTED",
+    entityType: "SalesOrder",
+    entityId: id,
+    details: `Penawaran ${order.orderNumber} ditolak${reason ? `: ${reason}` : ""}`,
+    fromStatus: order.status,
+    toStatus: SalesOrderStatus.QUOTATION_REJECTED,
+  });
+
+  return updated;
+}
+
+export async function expireQuotation(id: string, userId: string) {
+  const order = await prisma.salesOrder.findUnique({ where: { id } });
+  if (!order) throw new NotFoundError("Sales Order", id);
+  if (
+    order.status !== SalesOrderStatus.QUOTATION &&
+    order.status !== SalesOrderStatus.QUOTATION_SENT
+  ) {
+    throw new BusinessRuleError(
+      "Only QUOTATION or QUOTATION_SENT can be expired.",
+      { status: order.status },
+      "INVALID_ORDER_STATUS",
+    );
+  }
+
+  const updated = await prisma.salesOrder.update({
+    where: { id },
+    data: { status: SalesOrderStatus.QUOTATION_EXPIRED },
+  });
+
+  await logActivity({
+    userId,
+    action: "QUOTATION_EXPIRED",
+    entityType: "SalesOrder",
+    entityId: id,
+    details: `Penawaran ${order.orderNumber} kadarluarsa`,
+    fromStatus: order.status,
+    toStatus: SalesOrderStatus.QUOTATION_EXPIRED,
+  });
+
+  return updated;
+}
+
+export async function reopenQuotation(id: string, userId: string) {
+  const order = await prisma.salesOrder.findUnique({ where: { id } });
+  if (!order) throw new NotFoundError("Sales Order", id);
+  if (
+    order.status !== SalesOrderStatus.QUOTATION_REJECTED &&
+    order.status !== SalesOrderStatus.QUOTATION_EXPIRED
+  ) {
+    throw new BusinessRuleError(
+      "Only REJECTED or EXPIRED quotations can be reopened.",
+      { status: order.status },
+      "INVALID_ORDER_STATUS",
+    );
+  }
+
+  const updated = await prisma.salesOrder.update({
+    where: { id },
+    data: { status: SalesOrderStatus.QUOTATION },
+  });
+
+  await logActivity({
+    userId,
+    action: "QUOTATION_REOPENED",
+    entityType: "SalesOrder",
+    entityId: id,
+    details: `Penawaran ${order.orderNumber} dibuka kembali`,
+    fromStatus: order.status,
+    toStatus: SalesOrderStatus.QUOTATION,
+  });
+
+  return updated;
 }
