@@ -80,11 +80,11 @@ export default async function WarehouseLayout({
     }
 
     return (
-        <div className="min-h-screen bg-background flex text-foreground">
+        <div className="min-h-screen bg-background">
             {/* Dedicated Warehouse Sidebar */}
             <WarehouseSidebar user={user} permissions={permissions} />
 
-            <SidebarSpacer className="flex-1 flex flex-col min-h-screen">
+            <SidebarSpacer className="flex min-h-screen flex-col">
                 {/* Simplified Header for Utility (Clock, Context) */}
                 <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
                     <div>
@@ -97,7 +97,7 @@ export default async function WarehouseLayout({
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-auto bg-muted/20 p-6">
+                <main className="flex-1 bg-muted/20 p-6 min-w-0">
                     <PathBreadCrumb />
                     {children}
                 </main>

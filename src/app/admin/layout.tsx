@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { AdminNav } from '@/components/layout/admin-nav';
 import { redirect } from 'next/navigation';
 import { canAccessWorkspace } from '@/lib/auth/access-policy';
+import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 
 export default async function AdminLayout({
     children,
@@ -30,11 +31,13 @@ export default async function AdminLayout({
             <AdminNav user={user} />
 
             {/* Main Content */}
-            <main className="lg:ml-64 min-h-screen">
-                <div className="p-4 md:p-6 lg:p-8">
-                    {children}
-                </div>
-            </main>
+            <SidebarSpacer>
+                <main className="min-h-screen">
+                    <div className="p-4 md:p-6 lg:p-8">
+                        {children}
+                    </div>
+                </main>
+            </SidebarSpacer>
         </div>
     );
 }

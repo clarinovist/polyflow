@@ -18,7 +18,7 @@ export function SidebarSpacer({ children, className }: SidebarSpacerProps) {
 
     return (
         <div className={cn(
-            "transition-[margin-left] duration-300",
+            "transition-[margin-left] duration-300 min-w-0",
             isCollapsed ? "lg:ml-16" : "lg:ml-64",
             className
         )}>

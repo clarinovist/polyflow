@@ -77,10 +77,10 @@ export default async function ProductionLayout({
     }
 
     return (
-        <div className="min-h-screen bg-background flex">
+        <div className="min-h-screen bg-background">
             <ProductionSidebar user={user} permissions={permissions} />
 
-            <SidebarSpacer className="flex-1 flex flex-col min-h-screen">
+            <SidebarSpacer className="flex min-h-screen flex-col">
                 <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-3">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -95,7 +95,7 @@ export default async function ProductionLayout({
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-auto bg-muted/20 p-6">
+                <main className="flex-1 bg-muted/20 p-6 min-w-0">
                     <PathBreadCrumb />
                     {children}
                 </main>
