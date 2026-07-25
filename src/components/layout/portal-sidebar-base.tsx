@@ -35,6 +35,7 @@ export function PortalSidebarBase({
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const { isCollapsed, toggle: toggleCollapse } = useSidebarCollapse();
+    const effectiveCollapsed = isCollapsed && !isMobileOpen;
     const pathname = usePathname();
     const isSupportActive = pathname.startsWith('/support');
     const [helpOpen, setHelpOpen] = useState(isSupportActive);
@@ -87,16 +88,16 @@ export function PortalSidebarBase({
             {/* Sidebar aside */}
             <aside className={cn(
                 "fixed left-0 top-0 z-50 h-screen border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:translate-x-0",
-                isCollapsed ? "w-16" : "w-64",
+                effectiveCollapsed ? "w-16" : "w-64",
                 isMobileOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex h-full flex-col">
                     {/* Logo & Close Button (Mobile) */}
                     <div className={cn(
                         "flex h-16 items-center border-b border-sidebar-border justify-between",
-                        isCollapsed ? "px-3" : "px-6"
+                        effectiveCollapsed ? "px-3" : "px-6"
                     )}>
-                        {isCollapsed ? (
+                        {effectiveCollapsed ? (
                             <PolyFlowLogo showText={false} size="sm" />
                         ) : (
                             <PolyFlowLogo showText={true} size="md" />
@@ -128,13 +129,13 @@ export function PortalSidebarBase({
                     {/* Navigation */}
                     <nav className={cn(
                         "flex-1 overflow-y-auto space-y-6 mt-2 custom-scrollbar",
-                        isCollapsed ? "px-2 py-4" : "p-4"
+                        effectiveCollapsed ? "px-2 py-4" : "p-4"
                     )}>
                         {children}
 
                         {/* Help Link - expandable with 3 children */}
-                        <div className={isCollapsed ? "pt-2" : "pt-4 mt-auto"}>
-                            {isCollapsed ? (
+                        <div className={effectiveCollapsed ? "pt-2" : "pt-4 mt-auto"}>
+                            {effectiveCollapsed ? (
                                 <Link
                                     href="/support"
                                     className={cn(
@@ -211,7 +212,7 @@ export function PortalSidebarBase({
                     <div className="border-t border-sidebar-border p-3">
                         <div className={cn(
                             "flex items-center rounded-lg bg-sidebar-accent/50 border border-sidebar-border",
-                            isCollapsed ? "justify-center p-2" : "gap-3 p-3"
+                            effectiveCollapsed ? "justify-center p-2" : "gap-3 p-3"
                         )}>
                             <Avatar className="h-9 w-9 shrink-0">
                                 {(user.image || user.avatarUrl) && (
@@ -221,13 +222,13 @@ export function PortalSidebarBase({
                                     {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </AvatarFallback>
                             </Avatar>
-                            {!isCollapsed && (
+                            {!effectiveCollapsed && (
                                 <div className="flex-1 overflow-hidden min-w-0">
                                     <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>
                                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{portalName}</p>
                                 </div>
                             )}
-                            {!isCollapsed && (
+                            {!effectiveCollapsed && (
                                 <>
                                     <button
                                         onClick={cycleTheme}

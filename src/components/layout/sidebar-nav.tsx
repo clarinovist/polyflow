@@ -102,6 +102,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { isCollapsed, toggle: toggleCollapse } = useSidebarCollapse();
+  const effectiveCollapsed = isCollapsed && !isMobileOpen;
   const [helpOpen, setHelpOpen] = useState(() => isSupportActive(pathname));
 
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -169,14 +170,14 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
       <aside
         className={cn(
           "fixed left-0 top-0 z-50 h-screen border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:translate-x-0",
-          isCollapsed ? "w-16" : "w-64",
+          effectiveCollapsed ? "w-16" : "w-64",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex h-full flex-col">
-          <div className={cn("flex h-16 items-center border-b border-sidebar-border justify-between", isCollapsed ? "px-3" : "px-6")}>
+          <div className={cn("flex h-16 items-center border-b border-sidebar-border justify-between", effectiveCollapsed ? "px-3" : "px-6")}>
             <Link href="/dashboard">
-              {isCollapsed ? <PolyFlowLogo showText={false} size="sm" /> : <PolyFlowLogo showText={true} size="md" />}
+              {effectiveCollapsed ? <PolyFlowLogo showText={false} size="sm" /> : <PolyFlowLogo showText={true} size="md" />}
             </Link>
             <button
               onClick={() => setIsMobileOpen(false)}
@@ -198,14 +199,14 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
             </button>
           </div>
 
-          {!isCollapsed && (
+          {!effectiveCollapsed && (
             <div className="px-4 pt-4">
               <GlobalSearch className="w-full justify-start pl-2" />
             </div>
           )}
 
-          <nav className={cn("flex-1 overflow-y-auto space-y-6 custom-scrollbar", isCollapsed ? "px-2 py-4" : "p-4")}>
-            {isCollapsed
+          <nav className={cn("flex-1 overflow-y-auto space-y-6 custom-scrollbar", effectiveCollapsed ? "px-2 py-4" : "p-4")}>
+            {effectiveCollapsed
               ? filteredGroups.flatMap((group) => group.items).map((item) => (
                   <Link
                     key={item.href}
@@ -231,7 +232,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                 ))}
 
             {/* Help / Bantuan - expandable 3 children */}
-            {isCollapsed ? (
+            {effectiveCollapsed ? (
               <div className="px-2 pt-2">
                 <Link
                   href="/support"
@@ -286,20 +287,20 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
           </nav>
 
           <div className="border-t border-sidebar-border p-3">
-            <div className={cn("flex items-center rounded-lg bg-sidebar-accent/50 border border-sidebar-border", isCollapsed ? "justify-center p-2" : "gap-3 p-3")}>
+            <div className={cn("flex items-center rounded-lg bg-sidebar-accent/50 border border-sidebar-border", effectiveCollapsed ? "justify-center p-2" : "gap-3 p-3")}>
               <Avatar className="h-9 w-9 shrink-0">
                 {(user.image || user.avatarUrl) && <AvatarImage src={(user.image || user.avatarUrl)!} alt={user.name || "User"} className="object-cover" />}
                 <AvatarFallback className="bg-primary text-primary-foreground font-medium text-sm text-white">
                   {user.name ? user.name.charAt(0).toUpperCase() : "U"}
                 </AvatarFallback>
               </Avatar>
-              {!isCollapsed && (
+              {!effectiveCollapsed && (
                 <div className="flex-1 overflow-hidden min-w-0">
                   <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || "User"}</p>
                   <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{user.role || "Warehouse"}</p>
                 </div>
               )}
-              {!isCollapsed && (
+              {!effectiveCollapsed && (
                 <>
                   <Link href="/dashboard/settings" className="text-muted-foreground hover:text-primary transition-colors p-1" title="Settings" aria-label="Settings">
                     <Settings className="h-4 w-4" />

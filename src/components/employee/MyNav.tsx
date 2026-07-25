@@ -26,8 +26,8 @@ export function MyNav() {
   };
 
   return (
-    <nav className="p-2 lg:p-3 flex lg:flex-col gap-1 overflow-x-auto">
-      <div className="flex lg:flex-col gap-1 w-full">
+    <nav className="p-2 lg:p-3 flex lg:flex-col gap-1">
+      <div className="flex lg:flex-col gap-1 flex-1 overflow-x-auto lg:overflow-x-visible scrollbar-none">
         {ITEMS.map((it) => {
           const active = it.exact ? pathname === it.href : pathname.startsWith(it.href);
           return (
@@ -48,7 +48,7 @@ export function MyNav() {
       <div className="hidden lg:block flex-1" />
       <button
         onClick={onLogout}
-        className="ml-auto lg:ml-0 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20 whitespace-nowrap"
+        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20 whitespace-nowrap shrink-0"
       >
         <LogOut className="h-4 w-4" /> Keluar
       </button>
