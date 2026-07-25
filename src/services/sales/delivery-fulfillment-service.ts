@@ -231,6 +231,7 @@ export async function createDeliveryOrderFromSalesOrder(
     entityType: "DeliveryOrder",
     entityId: deliveryOrder.id,
     details: `Delivery Order ${doNumber} created for SO ${salesOrder.orderNumber} (status PENDING — no stock deducted)`,
+    toStatus: "PENDING",
   });
 
   return deliveryOrder;
@@ -444,6 +445,8 @@ export async function commitDeliveryShipment(
       details:
         `DO ${doRecord.orderNumber} committed: stock OUT for ${stockLines.length} items, ` +
         `SO ${doRecord.salesOrder.orderNumber} → SHIPPED, invoice DRAFT created.`,
+      fromStatus: doRecord.status as string,
+      toStatus: "SHIPPED",
       tx,
     });
 

@@ -253,6 +253,12 @@ export async function updateOrderStatus(
   status: PurchaseOrderStatus,
   userId: string,
 ) {
+  const existing = await prisma.purchaseOrder.findUnique({
+    where: { id },
+    select: { id: true, status: true, orderNumber: true },
+  });
+  if (!existing) throw new NotFoundError("Purchase Order", id);
+
   const order = await prisma.purchaseOrder.update({
     where: { id },
     data: { status },
@@ -264,6 +270,8 @@ export async function updateOrderStatus(
     entityType: "PurchaseOrder",
     entityId: id,
     details: `Updated PO ${order.orderNumber} status to ${status}`,
+    fromStatus: existing.status as unknown as string,
+    toStatus: status as unknown as string,
   });
 
   return order;

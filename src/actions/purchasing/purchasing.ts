@@ -254,14 +254,6 @@ export const updatePurchaseOrderStatus = withTenant(
         session.user.id,
       );
 
-      await logActivity({
-        userId: session.user.id,
-        action: `UPDATE_PO_STATUS`,
-        entityType: "PurchaseOrder",
-        entityId: order.id,
-        details: `Status changed to ${status}`,
-      });
-
       revalidatePath("/purchasing/orders");
       revalidatePath(`/purchasing/orders/${id}`);
       return serializeData(order);

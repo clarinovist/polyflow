@@ -242,6 +242,8 @@ async function updateDeliveryStatus(
       entityType: 'DeliveryOrder',
       entityId: deliveryOrderId,
       details: `DO ${doRecord.orderNumber}: ${doRecord.status} -> ${newStatus}`,
+      fromStatus: doRecord.status as string,
+      toStatus: newStatus as string,
     });
 
     revalidatePath('/sales/deliveries');

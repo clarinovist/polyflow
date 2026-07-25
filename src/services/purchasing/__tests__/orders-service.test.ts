@@ -75,6 +75,11 @@ describe('OrdersService (Purchasing)', () => {
 
     describe('updateOrderStatus', () => {
         it('should update status and log activity', async () => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({
+                id: 'po-1',
+                orderNumber: 'PO-TEST',
+                status: PurchaseOrderStatus.DRAFT,
+            } as never);
             vi.mocked(prisma.purchaseOrder.update).mockResolvedValue({
                 id: 'po-1',
                 orderNumber: 'PO-TEST',
@@ -88,9 +93,14 @@ describe('OrdersService (Purchasing)', () => {
                 where: { id: 'po-1' },
                 data: { status: PurchaseOrderStatus.SENT }
             });
-            // Audit log check
+            // Audit log check — includes fromStatus/toStatus
             const auditMock = await import('@/lib/tools/audit');
-            expect(auditMock.logActivity).toHaveBeenCalled();
+            expect(auditMock.logActivity).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    fromStatus: PurchaseOrderStatus.DRAFT,
+                    toStatus: PurchaseOrderStatus.SENT,
+                })
+            );
         });
     });
 
