@@ -57,6 +57,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { EntityStatusTimeline } from "@/components/shared/EntityStatusTimeline";
 import {
   Select,
   SelectContent,
@@ -673,6 +674,8 @@ export function PurchaseOrderDetailClient({
               )}
             </CardContent>
           </Card>
+
+          <EntityStatusTimeline entityType="PurchaseOrder" entityId={order.id} />
 
           <Card>
             <CardHeader>

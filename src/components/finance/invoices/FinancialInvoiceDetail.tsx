@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { AlertCircle, Printer } from "lucide-react";
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { type CompanyConfig } from '@/lib/config/company';
 
 type InvoiceLineItem = {
@@ -212,6 +213,8 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                     </div>
                 </CardContent>
             </Card>
+
+            <EntityStatusTimeline entityType="Invoice" entityId={invoice.id} />
 
             <div className="flex items-center gap-2 p-4 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg text-sm">
                 <AlertCircle className="h-4 w-4" />

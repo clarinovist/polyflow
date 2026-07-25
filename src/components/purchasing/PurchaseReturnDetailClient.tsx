@@ -18,6 +18,7 @@ import {
 } from '@/actions/purchasing/purchase-returns';
 import Link from 'next/link';
 import { getStatusLabel, purchasingLabels, formLabels } from '@/lib/labels';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 // Detailed type including relations
 type ReturnDetail = PurchaseReturn & {
@@ -218,6 +219,8 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                 </Card>
 
                 <div className="space-y-6">
+                    <EntityStatusTimeline entityType="PurchaseReturn" entityId={purchaseReturn.id} />
+
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-sm">Ringkasan</CardTitle>

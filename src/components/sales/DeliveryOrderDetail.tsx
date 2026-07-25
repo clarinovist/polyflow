@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { type CompanyConfig } from '@/lib/config/company';
 import { compressImageForUpload } from '@/lib/media/compress-image';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { Input } from '@/components/ui/input';
 
 
@@ -881,6 +882,8 @@ export function DeliveryOrderDetail({
                         </div>
                     </CardContent>
                 </Card>
+
+            <EntityStatusTimeline entityType="DeliveryOrder" entityId={order.id} />
 
             <PrintPreviewModal
                 open={showPreview}

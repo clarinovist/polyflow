@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from '@/lib/utils/production-units';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { SalesQuotationPrint } from './SalesQuotationPrint';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 // Type definition for serialized props (handling Dates/Decimals as needed or assuming standard object)
 // Since we use prisma objects directly in server component, and if serializeData is used, Decimals might be numbers/strings.
@@ -268,6 +269,8 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                 </Card>
 
                 <div className="space-y-6">
+                    <EntityStatusTimeline entityType="SalesQuotation" entityId={quotation.id} />
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Detail Customer</CardTitle>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { FinancialPurchaseInvoiceDetail } from '@/components/finance/invoices/FinancialPurchaseInvoiceDetail';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
@@ -31,6 +32,8 @@ export function FinancialPurchaseInvoicePageClient({ invoice }: { invoice: Param
       </div>
 
       <FinancialPurchaseInvoiceDetail invoice={invoice} />
+
+      <EntityStatusTimeline entityType="PurchaseInvoice" entityId={invoice.id} />
 
       <EditPurchaseInvoiceDueDateDialog open={editOpen} onOpenChange={setEditOpen} invoice={invoice} />
     </div>

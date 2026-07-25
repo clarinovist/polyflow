@@ -18,6 +18,7 @@ import {
     cancelSalesReturnAction 
 } from '@/actions/sales/sales-returns';
 import Link from 'next/link';
+import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 // Detailed type including relations
 type ReturnDetail = SalesReturn & {
@@ -207,6 +208,8 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                 </Card>
 
                 <div className="space-y-6">
+                    <EntityStatusTimeline entityType="SalesReturn" entityId={salesReturn.id} />
+
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-sm">Ringkasan</CardTitle>

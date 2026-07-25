@@ -19,6 +19,7 @@ import { OrderExecutionTab } from "./components/order-execution-tab";
 import { OrderIssuesTab } from "./components/order-issues-tab";
 import { OrderCostingTab } from "./components/order-costing-tab";
 import { OrderDetailHeader } from "./components/order-detail-header";
+import { EntityStatusTimeline } from "@/components/shared/EntityStatusTimeline";
 
 interface PageProps {
   order: ExtendedProductionOrder;
@@ -69,6 +70,8 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
       <OrderDetailHeader order={order} formData={formData} />
 
       <OrderWorkflowStepper status={order.status} />
+
+      <EntityStatusTimeline entityType="ProductionOrder" entityId={order.id} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto pb-2 custom-scrollbar">
