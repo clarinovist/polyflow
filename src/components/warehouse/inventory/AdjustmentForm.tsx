@@ -285,7 +285,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                             {/* Cost Input - Only for IN and Raw Material Location */}
                             {newItem.type === 'ADJUSTMENT_IN' && isRawMaterialLocation && (
                                 <FormItem>
-                                    <FormLabel className="text-xs text-muted-foreground">Unit Cost (Rp)</FormLabel>
+                                    <FormLabel className="text-xs text-muted-foreground">Biaya Per Unit (Rp)</FormLabel>
                                     <Input
                                         type="number"
                                         step="any"

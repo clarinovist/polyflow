@@ -92,7 +92,7 @@ export function InventoryDesktopTable({
                             {!isLocationSpecific && (
                                 <TableHead className="w-[20%] cursor-pointer hover:bg-muted transition-colors hidden md:table-cell" onClick={() => handleSort('location')}>
                                     <div className="flex items-center gap-2">
-                                        Location
+                                        Lokasi
                                         <SortIcon field="location" currentSortField={sortField} currentSortOrder={sortOrder} />
                                     </div>
                                 </TableHead>
@@ -100,16 +100,16 @@ export function InventoryDesktopTable({
 
                             <TableHead className="text-right w-[20%] cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSort('stock')}>
                                 <div className="flex items-center justify-end gap-2">
-                                    Stock
+                                    Stok
                                     <SortIcon field="stock" currentSortField={sortField} currentSortOrder={sortOrder} />
                                 </div>
                             </TableHead>
-                            <TableHead className="text-center hidden sm:table-cell">Reserved</TableHead>
-                            <TableHead className="text-center hidden sm:table-cell">Available</TableHead>
+                            <TableHead className="text-center hidden sm:table-cell">Terpesan</TableHead>
+                            <TableHead className="text-center hidden sm:table-cell">Tersedia</TableHead>
                             {showPrices && (
                                 <>
-                                    <TableHead className="text-right">Unit Cost</TableHead>
-                                    <TableHead className="text-right">Stock Value</TableHead>
+                                    <TableHead className="text-right">Biaya Per Unit</TableHead>
+                                    <TableHead className="text-right">Nilai Stok</TableHead>
                                 </>
                             )}
                             <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
@@ -226,8 +226,8 @@ export function InventoryDesktopTable({
 
                                             {item.waitingQuantity && item.waitingQuantity > 0 ? (
                                                 <Badge variant="outline" className="text-slate-500 dark:text-slate-400 border-slate-500/20 bg-slate-500/10 tabular-nums flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
-                                                    {formatQuantity(item.waitingQuantity)} Waiting
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                                    {formatQuantity(item.waitingQuantity)} Menunggu
                                                 </Badge>
                                             ) : null}
                                         </div>

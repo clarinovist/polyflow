@@ -155,7 +155,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                 name="destinationLocationId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Destination Location</FormLabel>
+                                        <FormLabel>Lokasi Tujuan</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
@@ -176,13 +176,12 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                     </FormItem>
                                 )}
                             />
-
                             <FormField
                                 control={form.control}
                                 name="notes"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Notes / Reference</FormLabel>
+                                        <FormLabel>Catatan / Referensi</FormLabel>
                                         <FormControl>
                                             <Input placeholder={warehouseComponentLabels.eGShipment} {...field} />
                                         </FormControl>
@@ -195,9 +194,9 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                         {/* Items Table */}
                         <div className="border rounded-md">
                             <div className="grid grid-cols-12 gap-2 p-3 bg-muted/50 text-sm font-medium border-b">
-                                <div className="col-span-6">Product</div>
-                                <div className="col-span-2 text-right">Available</div>
-                                <div className="col-span-4 text-right">Transfer Qty</div>
+                                <div className="col-span-6">Produk</div>
+                                <div className="col-span-2 text-right">Tersedia</div>
+                                <div className="col-span-4 text-right">Jumlah Transfer</div>
                             </div>
                             <div className="max-h-[300px] overflow-y-auto">
                                 {items.map((item, index) => (

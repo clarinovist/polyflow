@@ -61,7 +61,7 @@ export function ThresholdDialog({
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Product</p>
+                        <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Produk</p>
                         <p className="text-sm text-slate-900">{productName}</p>
                     </div>
                     <div className="space-y-2">

@@ -200,12 +200,12 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                         {/* Items Table */}
                         <div className="border rounded-md">
                             <div className="grid grid-cols-12 gap-2 p-3 bg-muted/50 text-sm font-medium border-b">
-                                <div className="col-span-4">Product</div>
-                                <div className="col-span-2 text-right">Current</div>
-                                <div className="col-span-2">Type</div>
-                                <div className="col-span-1">Qty</div>
-                                {isRawMaterialLocation && <div className="col-span-2">Unit Cost</div>}
-                                <div className={isRawMaterialLocation ? "col-span-1" : "col-span-3"}>Reason</div>
+                                <div className="col-span-4">Produk</div>
+                                <div className="col-span-2 text-right">Stok Saat Ini</div>
+                                <div className="col-span-2">Tipe</div>
+                                <div className="col-span-1">Jumlah</div>
+                                {isRawMaterialLocation && <div className="col-span-2">Biaya Per Unit</div>}
+                                <div className={isRawMaterialLocation ? "col-span-1" : "col-span-3"}>Alasan</div>
                             </div>
                             <div className="max-h-[300px] overflow-y-auto">
                                 {items.map((item, index) => (
