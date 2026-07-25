@@ -70,3 +70,15 @@ docker ps --filter name=polyflow-app --format "{{.Names}} {{.Status}} {{.Image}}
 - Setelah edit massal 5+ file / write ulang component, **WAJIB** `git status --short` + `git diff --stat` sebelum next step.
 - Pernah terjadi file revert hilang: `contextual-help.tsx` + `production/orders/page.tsx` + `support/page.tsx` + `chat-panel.tsx` + `virtual-cs-service.ts` dll reverted setelah write ulang — karena codegraph index lag + tool overwrite.
 - Jika file hilang dari `git status`, re-apply via `Write` atau `Edit` dan verify lagi `grep -n "citedArticles\|prefillQuestion"` ada.
+
+### Status Change Audit Policy (2026-07-25)
+
+- `withStatusAudit` extension di `src/lib/core/prisma-audit-extension.ts` intercept `update`/`updateMany` where `data.status` present → auto-log ke `AuditLog` dengan `fromStatus`/`toStatus`.
+- `AUDITABLE_MODELS` = 41 model (SalesOrder, ProductionOrder, DeliveryOrder, PO, Invoice, JournalEntry, StockOpname, dll).
+- Actor via `actorContext` (ALS) di-inject oleh `withTenant` / `withTenantRoute`. Fallback `system` user (seeded di migration `20260725_audit_log_status_trail`).
+- Manual `logActivity` tetap WAJIB untuk operasi kritis (cancel, confirm, ship) di dalam `$transaction` agar atomic.
+- Known limitation: extension create `AuditLog` pakai outer PrismaClient, bukan `tx` client. Rollback → false positive log. Mitigasi: critical path pakai manual log dalam tx.
+- UI: `EntityStatusTimeline` component di `src/components/shared/EntityStatusTimeline.tsx`, dipakai di 19 detail page (SO, PO, DO, Invoice, Journal, BankReconciliation, StockOpname, DeliverySchedule, MaklonReturn, PayrollPeriod, Field/Mobile SO).
+- Saat tambah model baru dengan field `status`: tambah nama model ke `AUDITABLE_MODELS` set di `prisma-audit-extension.ts`.
+- Migration: `fromStatus`/`toStatus` + 3 index + seed SYSTEM user.
+- Lib AGENTS detail: `src/lib/AGENTS.md` (force-tracked).
