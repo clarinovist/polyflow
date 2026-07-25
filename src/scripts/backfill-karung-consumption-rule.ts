@@ -41,7 +41,7 @@ async function main() {
         INNER JOIN "Bom" b ON b.id = bi."bomId"
         INNER JOIN "ProductVariant" pv ON pv.id = bi."productVariantId"
         WHERE b.category = 'PACKING'
-            AND pv."primaryUnit" = 'PACK'
+            AND pv."primaryUnit" = 'PCS'
             AND pv.attributes IS NULL
         ORDER BY pv.name
     `;

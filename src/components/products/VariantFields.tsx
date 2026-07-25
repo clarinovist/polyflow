@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Control, useWatch, useFormContext } from 'react-hook-form';
 import { CreateProductValues } from '@/lib/schemas/product';
 import { Unit, ProductType } from '@prisma/client';
+import { formatUnitLabel } from '@/lib/utils/unit-label';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -181,7 +182,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                 <SelectContent>
                                     {units.map((unit) => (
                                         <SelectItem key={unit} value={unit}>
-                                            {unit}
+                                            {formatUnitLabel(unit)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -211,7 +212,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                     <SelectContent>
                                         {units.map((unit) => (
                                             <SelectItem key={unit} value={unit}>
-                                                {unit}
+                                                {formatUnitLabel(unit)}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

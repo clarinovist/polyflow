@@ -106,7 +106,7 @@ export function ProductGlossary() {
                                 description={productGlossaryLabels.balDesc}
                             />
                             <GlossaryItem
-                                term="PACK"
+                                term="PCS"
                                 description={productGlossaryLabels.packDesc}
                             />
                             <GlossaryItem

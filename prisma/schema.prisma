@@ -1613,7 +1613,8 @@ enum Unit {
   KG
   ROLL
   BAL
-  PACK   @map("PCS")
+  /// Piece count (etiket, karung, pcs). DB label is PCS — was previously misnamed PACK in Prisma client.
+  PCS
   ZAK
   KARTON
 }

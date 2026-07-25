@@ -92,7 +92,7 @@ describe("ProductionService", () => {
             bom: {
               productVariant: {
                 primaryUnit: "KG",
-                salesUnit: "PACK",
+                salesUnit: "PCS",
                 conversionFactor: { toNumber: () => 0.25 },
               },
             },
@@ -409,9 +409,9 @@ describe("ProductionService", () => {
         operatorId: "op-1",
         shiftId: "shift-1",
         cekGram: undefined,
-        quantityProduced: 25, // base qty: 100 PACK * 0.25 = 25 KG
-        enteredQuantity: 100, // 100 PACK entered by operator
-        enteredUnit: "PACK" as any,
+        quantityProduced: 25, // base qty: 100 PCS * 0.25 = 25 KG
+        enteredQuantity: 100, // 100 PCS entered by operator
+        enteredUnit: "PCS" as any,
         baseQuantityProduced: 25,
         conversionFactorSnapshot: 0.25,
         scrapQuantity: 0,
@@ -419,7 +419,7 @@ describe("ProductionService", () => {
         scrapDaunQty: 0,
         startTime: new Date(),
         endTime: new Date(),
-        notes: "PACK conversion test",
+        notes: "PCS conversion test",
       });
 
       // Stock movement should receive base quantity 25, not 100
@@ -448,20 +448,20 @@ describe("ProductionService", () => {
       const executionCreateCall = (prisma.productionExecution.create as any)
         .mock.calls[0];
       expect(executionCreateCall[0].data.enteredQuantity).toBe(100);
-      expect(executionCreateCall[0].data.enteredUnit).toBe("PACK");
+      expect(executionCreateCall[0].data.enteredUnit).toBe("PCS");
       expect(Number(executionCreateCall[0].data.conversionFactorSnapshot)).toBe(
         0.25,
       );
     });
 
     it("should reject invalid unit mismatch", async () => {
-      // Mock to simulate variant with primaryUnit=KG, salesUnit=PACK
+      // Mock to simulate variant with primaryUnit=KG, salesUnit=PCS
 
       (prisma.productionOrder.findUnique as any).mockResolvedValueOnce({
         bom: {
           productVariant: {
             primaryUnit: "KG",
-            salesUnit: "PACK",
+            salesUnit: "PCS",
             conversionFactor: { toNumber: () => 0.25 },
           },
         },

@@ -45,7 +45,8 @@ export function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
         return true;
     }
 
-    return primaryUnit === 'PACK' &&
+    // Piece-count materials (etiket, karung, etc.) use PCS
+    return primaryUnit === 'PCS' &&
         isKarungLike &&
         (productType === 'PACKAGING' || productType === 'RAW_MATERIAL' || !productType);
 }

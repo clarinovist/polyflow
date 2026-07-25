@@ -140,7 +140,7 @@ export const productGlossaryLabels = {
   kgDesc: 'Kilogram - Pengukuran berat, paling umum untuk bahan baku dan granul',
   rollDesc: 'Gulungan - Untuk produk film, raffia, atau pita dalam bentuk gulungan',
   balDesc: 'Bale - Produk terikat/terbungkus (contoh: 1 bale = 5kg atau 10kg)',
-  packDesc: 'Piece - Untuk item yang dapat dihitung',
+  packDesc: 'PCS (piece) — satuan hitung per lembar/buah (etiket, karung, dll.)',
   zakDesc: 'Karung - Untuk unit kemasan curah',
   // Dual unit system
   primaryUnit: 'Satuan Utama',

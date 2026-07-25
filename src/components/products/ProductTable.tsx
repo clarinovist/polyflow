@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { useState, useMemo } from 'react';
 import { ProductType, Unit, Prisma } from '@prisma/client';
+import { formatUnitLabel } from '@/lib/utils/unit-label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -378,7 +379,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                     </TableCell>
                                     <TableCell>
                                         <span className="text-[11px] font-semibold text-muted-foreground">
-                                            {variant.primaryUnit}
+                                            {formatUnitLabel(variant.primaryUnit)}
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-right">
