@@ -308,6 +308,7 @@ export async function createOrder(
           productVariantId: item.productVariantId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          isFreeItem: item.isFreeItem ?? false,
           enteredQuantity: item.enteredQuantity,
           enteredUnit: item.enteredUnit,
           conversionFactorSnapshot: item.conversionFactorSnapshot,
@@ -458,6 +459,7 @@ export async function updateOrder(
         productVariantId: item.productVariantId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        isFreeItem: item.isFreeItem ?? false,
         enteredQuantity: item.enteredQuantity,
         enteredUnit: item.enteredUnit,
         conversionFactorSnapshot: item.conversionFactorSnapshot,
@@ -535,9 +537,9 @@ export async function confirmOrder(
     );
   }
 
-  // ── Price gate: reject zero-price items before confirm ────────
+  // ── Price gate: reject zero-price items before confirm (unless marked as free item) ──
   const zeroPriceItems = order.items.filter(
-    (item) => Number(item.unitPrice) <= 0,
+    (item) => Number(item.unitPrice) <= 0 && !item.isFreeItem,
   );
   if (zeroPriceItems.length > 0) {
     const names = zeroPriceItems
@@ -1098,4 +1100,34 @@ export async function reopenQuotation(id: string, userId: string) {
   });
 
   return updated;
+}
+
+/**
+ * Auto-expire all QUOTATION_SENT orders whose validUntil date has passed.
+ * Called by cleanup cron API or scheduled jobs.
+ */
+export async function autoExpireQuotations(): Promise<number> {
+  const now = new Date();
+  const expiredOrders = await prisma.salesOrder.findMany({
+    where: {
+      status: SalesOrderStatus.QUOTATION_SENT,
+      validUntil: {
+        lt: now,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (expiredOrders.length === 0) return 0;
+
+  const result = await prisma.salesOrder.updateMany({
+    where: {
+      id: { in: expiredOrders.map((o) => o.id) },
+    },
+    data: {
+      status: SalesOrderStatus.QUOTATION_EXPIRED,
+    },
+  });
+
+  return result.count;
 }

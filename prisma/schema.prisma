@@ -1001,6 +1001,7 @@ model SalesOrderItem {
   productVariantId         String
   quantity                 Decimal        @db.Decimal(15, 4)
   unitPrice                Decimal        @db.Decimal(15, 2)
+  isFreeItem               Boolean        @default(false)
   enteredQuantity          Decimal?       @db.Decimal(15, 4)
   enteredUnit              Unit?
   conversionFactorSnapshot Decimal?       @db.Decimal(10, 4)

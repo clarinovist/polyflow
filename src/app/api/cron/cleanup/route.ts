@@ -79,6 +79,12 @@ export async function GET(req: Request) {
         "@/lib/hrd/employment-reminder"
       );
       await dispatchReminders(prisma);
+
+      // 5. Sales: auto-expire quotations past validUntil
+      const { autoExpireQuotations } = await import(
+        "@/services/sales/orders-service"
+      );
+      await autoExpireQuotations();
     } catch (subErr) {
       console.error(
         "Failed to trigger subsystem notifications during cron: ",

@@ -282,6 +282,7 @@ export function QuickOrderWizard({
           taxPercent: 0,
           dppOtherAmount: null,
           ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
+          isFreeItem: false,
         })),
       });
 

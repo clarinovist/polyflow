@@ -19,12 +19,14 @@ type SalesLineInput = {
   taxPercent?: number;
   dppOtherAmount?: number | null;
   ppnMode?: 'INCLUDE' | 'EXCLUDE';
+  isFreeItem?: boolean;
 };
 
 type ProcessedItem = {
   productVariantId: string;
   quantity: number;
   unitPrice: number;
+  isFreeItem: boolean;
   enteredQuantity: number | undefined;
   enteredUnit: Unit | undefined;
   conversionFactorSnapshot: number | undefined;
@@ -126,6 +128,7 @@ function normalizeSalesLineItem(
       productVariantId: item.productVariantId,
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
+      isFreeItem: Boolean(item.isFreeItem),
       enteredQuantity: undefined,
       enteredUnit: undefined,
       conversionFactorSnapshot: undefined,
@@ -159,6 +162,7 @@ function normalizeSalesLineItem(
     productVariantId: item.productVariantId,
     quantity: baseQuantity,
     unitPrice: baseUnitPrice,
+    isFreeItem: Boolean(item.isFreeItem),
     enteredQuantity,
     enteredUnit: item.enteredUnit,
     conversionFactorSnapshot: factor,
