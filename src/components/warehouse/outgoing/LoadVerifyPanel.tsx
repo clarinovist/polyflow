@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import {
     saveDeliveryLoadVerification,
     confirmDeliveryLoadVerified,
+    correctDeliveryQtyToVerified,
 } from '@/actions/inventory/deliveries';
 import {
     getEnteredQuantityDisplay,
@@ -48,6 +49,7 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
     });
     const [saving, setSaving] = useState(false);
     const [confirming, setConfirming] = useState(false);
+    const [correcting, setCorrecting] = useState(false);
     const router = useRouter();
 
     const handleSave = async () => {
@@ -123,6 +125,48 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
             draft[item.id] = String(Number(item.quantity));
         }
         setVerifyDraft(draft);
+    };
+
+    const handleCorrectToPhysical = async () => {
+        setCorrecting(true);
+        try {
+            // Save current verified quantities first
+            const payload = Object.entries(verifyDraft)
+                .filter(([, v]) => v !== '')
+                .map(([id, v]) => ({
+                    id,
+                    verifiedQuantity: Number(v),
+                }));
+
+            if (payload.length === 0) {
+                toast.error('Isi minimal satu qty verifikasi sebelum koreksi');
+                setCorrecting(false);
+                return;
+            }
+
+            const saveResult = await saveDeliveryLoadVerification({
+                deliveryOrderId,
+                items: payload,
+            });
+            if (!saveResult.success) {
+                toast.error(saveResult.error || 'Gagal menyimpan verifikasi');
+                setCorrecting(false);
+                return;
+            }
+
+            // Now correct DO qty to match verified and lock
+            const result = await correctDeliveryQtyToVerified(deliveryOrderId);
+            if (result.success) {
+                toast.success('DO dikoreksi ke qty fisik & verifikasi terkunci. Siap Tandai Dikirim.');
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Gagal mengoreksi qty');
+            }
+        } catch {
+            toast.error('Gagal mengoreksi qty');
+        } finally {
+            setCorrecting(false);
+        }
     };
 
     const getItemStatus = (item: LoadVerifyItem) => {
@@ -258,10 +302,22 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                                 size="sm"
                                 variant="outline"
                                 onClick={handleMatchAll}
-                                disabled={saving}
+                                disabled={saving || correcting}
                             >
                                 <Copy className="h-3.5 w-3.5 mr-1" />
                                 Samakan semua ke perintah
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                                onClick={handleCorrectToPhysical}
+                                disabled={correcting || saving || isVerified || !allItemsVerified || allItemsMatch}
+                                title="Koreksi qty perintah muat ke qty fisik yang dihitung"
+                            >
+                                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                                {correcting ? 'Mengoreksi...' : 'Koreksi Perintah ke Qty Fisik'}
                             </Button>
                         </div>
                         <div className="flex items-center gap-2">

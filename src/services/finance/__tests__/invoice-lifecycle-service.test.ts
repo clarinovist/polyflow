@@ -6,6 +6,7 @@ import {
   createInvoice,
   updateInvoiceStatus,
   createDraftInvoiceFromOrder,
+  calculateSalesInvoiceTotalFromDelivered,
 } from "../invoice-lifecycle-service";
 import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
@@ -123,6 +124,10 @@ describe("invoice-lifecycle-service", () => {
       totalAmount: 1000,
       orderNumber: "SO-001",
       customerId: "cust-1",
+      items: [
+        { productVariantId: 'pv-1', quantity: { toNumber: () => 10 }, unitPrice: { toNumber: () => 100 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 0 } },
+      ],
+      deliveryOrders: [],
     };
 
     const mockInvoice = {
@@ -227,13 +232,14 @@ describe("invoice-lifecycle-service", () => {
       );
 
       // Assert
-      expect(logActivity).toHaveBeenCalledWith({
-        userId: "user-1",
-        action: "CREATE_INVOICE",
-        entityType: "Invoice",
-        entityId: "inv-1",
-        details: "Invoice INV-20260624-0001 created for Order SO-001",
-      });
+      expect(logActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-1",
+          action: "CREATE_INVOICE",
+          entityType: "Invoice",
+          entityId: "inv-1",
+        }),
+      );
     });
 
     it("should call AutoJournalService after invoice creation", async () => {
@@ -582,6 +588,10 @@ describe("invoice-lifecycle-service", () => {
       totalAmount: 1000,
       orderNumber: "SO-001",
       customerId: "cust-1",
+      items: [
+        { productVariantId: 'pv-1', quantity: { toNumber: () => 10 }, unitPrice: { toNumber: () => 100 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 0 } },
+      ],
+      deliveryOrders: [],
     };
 
     const mockInvoice = {
@@ -590,8 +600,8 @@ describe("invoice-lifecycle-service", () => {
       status: InvoiceStatus.DRAFT,
     };
 
-    it("should create draft invoice from sales order", async () => {
-      // Arrange
+    it("should create draft invoice from sales order using delivered qty", async () => {
+      // Arrange: no delivered items yet → fallback to SO totalAmount
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
         mockSalesOrder as any,
       );
@@ -601,16 +611,14 @@ describe("invoice-lifecycle-service", () => {
       // Act
       const result = await createDraftInvoiceFromOrder("so-1", "user-1");
 
-      // Assert
+      // Assert: no delivered → fallback to SO totalAmount
       expect(result).toEqual(mockInvoice);
       expect(prisma.invoice.create).toHaveBeenCalled();
       const createCall = vi.mocked(prisma.invoice.create).mock.calls[0][0];
       expect(createCall.data.status).toBe(InvoiceStatus.DRAFT);
       expect(createCall.data.paidAmount).toBe(0);
       expect(createCall.data.termOfPaymentDays).toBe(30);
-      expect(createCall.data.notes).toBe(
-        "System generated draft invoice for Order SO-001",
-      );
+      expect(createCall.data.totalAmount).toBe(1000);
     });
 
     it("should log activity after creating draft invoice", async () => {
@@ -625,14 +633,14 @@ describe("invoice-lifecycle-service", () => {
       await createDraftInvoiceFromOrder("so-1", "user-1");
 
       // Assert
-      expect(logActivity).toHaveBeenCalledWith({
-        userId: "user-1",
-        action: "AUTO_GENERATE_INVOICE",
-        entityType: "Invoice",
-        entityId: "inv-1",
-        details:
-          "Automated draft invoice INV-20260624-0001 generated for shipped Order SO-001",
-      });
+      expect(logActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-1",
+          action: "AUTO_GENERATE_INVOICE",
+          entityType: "Invoice",
+          entityId: "inv-1",
+        }),
+      );
     });
 
     it("should call AutoJournalService after draft invoice creation", async () => {
@@ -721,38 +729,179 @@ describe("invoice-lifecycle-service", () => {
       expect(prisma.invoice.create).not.toHaveBeenCalled();
     });
 
-    it("should return undefined when invoice sudah ada for the sales order", async () => {
-      // Arrange
-      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
-        mockSalesOrder as any,
-      );
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue({
-        id: "inv-existing",
-      } as any);
+    it("should update existing DRAFT invoice total when delivered qty changes", async () => {
+      const mockSOWithDelivery = {
+        ...mockSalesOrder,
+        totalAmount: 1000,
+        shippingCost: null,
+        items: [
+          { productVariantId: 'pv-1', quantity: { toNumber: () => 10 }, unitPrice: { toNumber: () => 100 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 10 } },
+        ],
+        deliveryOrders: [],
+      };
 
-      // Act
+      const existingInvoice = {
+        id: "inv-existing",
+        invoiceNumber: "INV-001",
+        status: "DRAFT",
+        totalAmount: { toNumber: () => 800 },
+      };
+
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
+        mockSOWithDelivery as any,
+      );
+      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(existingInvoice as any);
+      vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
+
       const result = await createDraftInvoiceFromOrder("so-1", "user-1");
 
-      // Assert
-      expect(result).toBeUndefined();
+      expect(result).toBeDefined();
+      expect(prisma.invoice.update).toHaveBeenCalledWith({
+        where: { id: "inv-existing" },
+        data: { totalAmount: 1000 },
+      });
+    });
+
+    it("should not update non-DRAFT invoice", async () => {
+      const mockSOWithDelivery = {
+        ...mockSalesOrder,
+        totalAmount: 1000,
+        shippingCost: null,
+        items: [
+          { productVariantId: 'pv-1', quantity: { toNumber: () => 10 }, unitPrice: { toNumber: () => 100 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 8 } },
+        ],
+        deliveryOrders: [],
+      };
+
+      const existingInvoice = {
+        id: "inv-existing",
+        invoiceNumber: "INV-001",
+        status: "UNPAID",
+        totalAmount: { toNumber: () => 1000 },
+      };
+
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
+        mockSOWithDelivery as any,
+      );
+      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(existingInvoice as any);
+
+      const result = await createDraftInvoiceFromOrder("so-1", "user-1");
+
+      expect(result).toBeDefined();
+      expect(prisma.invoice.update).not.toHaveBeenCalled();
       expect(prisma.invoice.create).not.toHaveBeenCalled();
     });
 
+    it("should use delivered qty for invoice total (not SO ordered qty)", async () => {
+      const mockSOWithDelivery = {
+        id: "so-1",
+        totalAmount: 1050000,
+        orderNumber: "SO-001",
+        customerId: "cust-1",
+        customer: { paymentTermDays: 30 },
+        shippingCost: { toNumber: () => 50000 },
+        items: [
+          { productVariantId: 'pv-1', quantity: { toNumber: () => 100 }, unitPrice: { toNumber: () => 10000 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 97 } },
+        ],
+        deliveryOrders: [
+          { totalCharge: { toNumber: () => 50000 }, items: [{ productVariantId: 'pv-1', quantity: { toNumber: () => 97 } }] },
+        ],
+      };
+
+      vi.mocked(prisma.salesOrder.findUnique).mockImplementation(async () => mockSOWithDelivery as any);
+      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as any);
+
+      const result = await createDraftInvoiceFromOrder("so-1", "user-1");
+
+      expect(result).toBeDefined();
+      expect(prisma.invoice.create).toHaveBeenCalled();
+      const createCall = vi.mocked(prisma.invoice.create).mock.calls[0][0];
+      expect(createCall.data.totalAmount).not.toBe(1050000);
+    });
+
     it("should calculate due date as 30 days from now", async () => {
-      // Arrange
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
         mockSalesOrder as any,
       );
       vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as any);
 
-      // Act
       await createDraftInvoiceFromOrder("so-1", "user-1");
 
-      // Assert
       const createCall = vi.mocked(prisma.invoice.create).mock.calls[0][0];
       const expectedDueDate = new Date(2026, 5, 24 + 30);
       expect(createCall.data.dueDate).toEqual(expectedDueDate);
     });
+  });
+});
+
+describe("calculateSalesInvoiceTotalFromDelivered", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should calculate total from delivered qty with no discount/PPN", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      totalAmount: 1000000,
+      shippingCost: null,
+      items: [
+        { productVariantId: 'pv-1', quantity: { toNumber: () => 100 }, unitPrice: { toNumber: () => 10000 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 97 } },
+      ],
+      deliveryOrders: [],
+    } as any);
+
+    const total = await calculateSalesInvoiceTotalFromDelivered("so-1");
+    expect(total).toBe(970000);
+  });
+
+  it("should calculate total with discount and PPN", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      totalAmount: 1000000,
+      shippingCost: null,
+      items: [
+        { productVariantId: 'pv-1', quantity: { toNumber: () => 100 }, unitPrice: { toNumber: () => 10000 }, discountPercent: { toNumber: () => 10 }, taxPercent: { toNumber: () => 11 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 90 } },
+      ],
+      deliveryOrders: [],
+    } as any);
+
+    const total = await calculateSalesInvoiceTotalFromDelivered("so-1");
+    expect(total).toBe(899100);
+  });
+
+  it("should add DO shipping cost when available", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      totalAmount: 1050000,
+      shippingCost: { toNumber: () => 50000 },
+      items: [
+        { productVariantId: 'pv-1', quantity: { toNumber: () => 100 }, unitPrice: { toNumber: () => 10000 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 97 } },
+      ],
+      deliveryOrders: [
+        { totalCharge: { toNumber: () => 50000 }, items: [] },
+      ],
+    } as any);
+
+    const total = await calculateSalesInvoiceTotalFromDelivered("so-1");
+    expect(total).toBe(1020000);
+  });
+
+  it("should fallback to SO totalAmount when no delivered qty", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      totalAmount: 1000000,
+      shippingCost: null,
+      items: [
+        { productVariantId: 'pv-1', quantity: { toNumber: () => 100 }, unitPrice: { toNumber: () => 10000 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 0 } },
+      ],
+      deliveryOrders: [],
+    } as any);
+
+    const total = await calculateSalesInvoiceTotalFromDelivered("so-1");
+    expect(total).toBe(1000000);
+  });
+
+  it("should return 0 when SO not found", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
+    const total = await calculateSalesInvoiceTotalFromDelivered("so-999");
+    expect(total).toBe(0);
   });
 });

@@ -11,6 +11,83 @@ import {
 import { logActivity } from "@/lib/tools/audit";
 
 import { AutoJournalService } from "./auto-journal-service";
+import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
+
+/**
+ * Calculate sales invoice total from actual delivered/shipped quantities (not SO ordered qty).
+ * Sum of (deliveredQty × unitPrice × discount × PPN) per SO item + shipping from DO.
+ * Fallback to so.totalAmount when no shipments exist yet.
+ */
+export async function calculateSalesInvoiceTotalFromDelivered(salesOrderId: string): Promise<number> {
+  const so = await prisma.salesOrder.findUnique({
+    where: { id: salesOrderId },
+    select: {
+      totalAmount: true,
+      shippingCost: true,
+      items: {
+        select: {
+          productVariantId: true,
+          quantity: true,
+          unitPrice: true,
+          discountPercent: true,
+          taxPercent: true,
+          ppnMode: true,
+          deliveredQty: true,
+        },
+      },
+      deliveryOrders: {
+        where: { status: { in: ["SHIPPED", "DELIVERED"] } },
+        select: {
+          totalCharge: true,
+          items: {
+            select: {
+              productVariantId: true,
+              quantity: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!so) return 0;
+
+  // Check if any items have been delivered
+  const hasDelivered = so.items.some(item => {
+    const val = item.deliveredQty;
+    return (typeof val?.toNumber === 'function' ? val.toNumber() : Number(val)) > 0;
+  });
+  if (!hasDelivered) {
+    const amt = so.totalAmount;
+    return (typeof amt?.toNumber === 'function' ? amt.toNumber() : Number(amt)) ?? 0;
+  }
+
+  let totalGoods = 0;
+  for (const soItem of so.items) {
+    const delivered = typeof soItem.deliveredQty?.toNumber === 'function' ? soItem.deliveredQty.toNumber() : Number(soItem.deliveredQty);
+    const raw = delivered * (typeof soItem.unitPrice?.toNumber === 'function' ? soItem.unitPrice.toNumber() : Number(soItem.unitPrice));
+    const discPct = typeof soItem.discountPercent?.toNumber === 'function' ? soItem.discountPercent.toNumber() : (Number(soItem.discountPercent) || 0);
+    const discount = raw * (discPct / 100);
+    const afterDiscount = raw - discount;
+    const taxPct = typeof soItem.taxPercent?.toNumber === 'function' ? soItem.taxPercent.toNumber() : (Number(soItem.taxPercent) || 0);
+    const ppnRes = calculatePpn(afterDiscount, taxPct, soItem.ppnMode as PpnMode);
+    totalGoods += ppnRes.total;
+  }
+
+  // Shipping from DO totalCharge sum (actual shipped) or SO shippingCost fallback
+  let shipping = 0;
+  if (so.deliveryOrders.length > 0) {
+    for (const doRecord of so.deliveryOrders) {
+      const charge = doRecord.totalCharge;
+      shipping += (typeof charge?.toNumber === 'function' ? charge.toNumber() : Number(charge)) ?? 0;
+    }
+  } else {
+    const shipCost = so.shippingCost;
+    shipping = (typeof shipCost?.toNumber === 'function' ? shipCost.toNumber() : Number(shipCost)) ?? 0;
+  }
+
+  return Math.round((totalGoods + shipping) * 100) / 100;
+}
 
 export async function generateInvoiceNumber(): Promise<string> {
   const dateStr = format(new Date(), "yyyyMMdd");
@@ -63,6 +140,9 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
     );
   }
 
+  // Calculate total from delivered qty (fallback to SO total if no deliveries yet)
+  const calculatedTotal = await calculateSalesInvoiceTotalFromDelivered(salesOrderId);
+
   const invoiceNumber = await generateInvoiceNumber();
 
   const invoice = await prisma.invoice.create({
@@ -72,7 +152,7 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
       invoiceDate,
       dueDate: finalDueDate,
       termOfPaymentDays: termOfPaymentDays || 0,
-      totalAmount: salesOrder.totalAmount,
+      totalAmount: calculatedTotal,
       paidAmount: 0,
       status: InvoiceStatus.UNPAID,
       notes,
@@ -84,7 +164,7 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
     action: "CREATE_INVOICE",
     entityType: "Invoice",
     entityId: invoice.id,
-    details: `Invoice ${invoiceNumber} created for Order ${salesOrder.orderNumber}`,
+    details: `Invoice ${invoiceNumber} created for Order ${salesOrder.orderNumber} (total from delivered: ${calculatedTotal})`,
   });
 
   await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(
@@ -179,11 +259,32 @@ export async function createDraftInvoiceFromOrder(
     return;
   }
 
+  // Calculate total from delivered qty
+  const calculatedTotal = await calculateSalesInvoiceTotalFromDelivered(salesOrderId);
+
   const existingInvoice = await prisma.invoice.findFirst({
     where: { salesOrderId },
   });
+
+  // Upsert: if DRAFT invoice exists, sync totalAmount from delivered qty
   if (existingInvoice) {
-    return;
+    if (existingInvoice.status === "DRAFT") {
+      const existingTotal = existingInvoice.totalAmount.toNumber();
+      if (Math.abs(existingTotal - calculatedTotal) > 0.01) {
+        await prisma.invoice.update({
+          where: { id: existingInvoice.id },
+          data: { totalAmount: calculatedTotal },
+        });
+        await logActivity({
+          userId,
+          action: "SYNC_INVOICE_FROM_DELIVERED",
+          entityType: "Invoice",
+          entityId: existingInvoice.id,
+          details: `Invoice ${existingInvoice.invoiceNumber} total updated from ${existingTotal} to ${calculatedTotal} based on delivered quantities`,
+        });
+      }
+    }
+    return existingInvoice;
   }
 
   const termOfPaymentDays = salesOrder.customer?.paymentTermDays ?? 30;
@@ -198,10 +299,10 @@ export async function createDraftInvoiceFromOrder(
       invoiceDate,
       dueDate,
       termOfPaymentDays,
-      totalAmount: salesOrder.totalAmount,
+      totalAmount: calculatedTotal,
       paidAmount: 0,
       status: InvoiceStatus.DRAFT,
-      notes: `System generated draft invoice for Order ${salesOrder.orderNumber}`,
+      notes: `System generated draft invoice for Order ${salesOrder.orderNumber} (based on delivered quantities)`,
     },
   });
 
@@ -210,7 +311,7 @@ export async function createDraftInvoiceFromOrder(
     action: "AUTO_GENERATE_INVOICE",
     entityType: "Invoice",
     entityId: invoice.id,
-    details: `Automated draft invoice ${invoiceNumber} generated for shipped Order ${salesOrder.orderNumber}`,
+    details: `Automated draft invoice ${invoiceNumber} generated for shipped Order ${salesOrder.orderNumber} (total from delivered: ${calculatedTotal})`,
   });
 
   await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(

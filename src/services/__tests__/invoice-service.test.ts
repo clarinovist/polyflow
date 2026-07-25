@@ -53,7 +53,11 @@ describe('InvoiceService', () => {
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
                 orderNumber: 'SO-001',
-                customerId: 'cust-1'
+                customerId: 'cust-1',
+                items: [
+                    { productVariantId: 'pv-1', quantity: { toNumber: () => 10 }, unitPrice: { toNumber: () => 100 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 0 } },
+                ],
+                deliveryOrders: [],
             });
 
             // Mock created invoice
@@ -97,7 +101,11 @@ describe('InvoiceService', () => {
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
                 orderNumber: 'SO-001',
-                customerId: 'cust-1'
+                customerId: 'cust-1',
+                items: [
+                    { productVariantId: 'pv-1', quantity: { toNumber: () => 10 }, unitPrice: { toNumber: () => 100 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE', deliveredQty: { toNumber: () => 0 } },
+                ],
+                deliveryOrders: [],
             });
 
             // Mock created invoice

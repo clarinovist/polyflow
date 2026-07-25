@@ -696,3 +696,100 @@ export const confirmDeliveryLoadVerified = withTenant(
     });
   },
 );
+
+/**
+ * One-click: correct DO line quantities to match verified (physical) quantities,
+ * then re-save verification and lock. All in one atomic action.
+ * Used when warehouse finds qty fisik ≠ perintah and wants to align DO to physical count.
+ */
+export const correctDeliveryQtyToVerified = withTenant(
+  async function correctDeliveryQtyToVerified(deliveryOrderId: string) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      const doRecord = await prisma.deliveryOrder.findUnique({
+        where: { id: deliveryOrderId },
+        include: { items: true },
+      });
+      if (!doRecord) throw new NotFoundError('Delivery Order', deliveryOrderId);
+      if (
+        doRecord.status !== DeliveryStatus.PENDING &&
+        doRecord.status !== DeliveryStatus.LOADING
+      ) {
+        throw new BusinessRuleError(
+          'Koreksi qty hanya saat SJ PENDING atau LOADING.',
+          { status: doRecord.status },
+          'INVALID_DELIVERY_STATUS',
+        );
+      }
+
+      // Check all items have verifiedQuantity set
+      const missingVerify = doRecord.items.filter(item => item.verifiedQuantity == null);
+      if (missingVerify.length > 0) {
+        throw new BusinessRuleError(
+          'Semua baris harus punya qty verifikasi sebelum dikoreksi.',
+          { missingItemIds: missingVerify.map(i => i.id) },
+          'LOAD_VERIFY_INCOMPLETE',
+        );
+      }
+
+      // Check there's actually a mismatch (otherwise just lock without updating)
+      const hasMismatch = doRecord.items.some(item => {
+        const planned = Number(item.quantity);
+        const verified = Number(item.verifiedQuantity!);
+        return Math.abs(planned - verified) > 1e-6;
+      });
+
+      await prisma.$transaction(async (tx) => {
+        if (hasMismatch) {
+          // Update DO line quantities to match verified (physical) quantities
+          for (const item of doRecord.items) {
+            const verified = Number(item.verifiedQuantity!);
+            const factor = item.conversionFactorSnapshot
+              ? Number(item.conversionFactorSnapshot)
+              : null;
+            const enteredQty =
+              factor && factor > 0
+                ? Math.round((verified / factor) * 10000) / 10000
+                : verified;
+
+            await tx.deliveryOrderItem.update({
+              where: { id: item.id },
+              data: {
+                quantity: verified,
+                enteredQuantity: enteredQty,
+                verifiedQuantity: verified,
+                verifiedAt: new Date(),
+                verifiedById: session.user.id,
+              },
+            });
+          }
+        }
+
+        // Lock header verification
+        await tx.deliveryOrder.update({
+          where: { id: deliveryOrderId },
+          data: {
+            loadVerifiedAt: new Date(),
+            loadVerifiedById: session.user.id,
+          },
+        });
+      });
+
+      await logActivity({
+        userId: session.user.id,
+        action: 'CORRECT_DELIVERY_QTY_TO_VERIFIED',
+        entityType: 'DeliveryOrder',
+        entityId: deliveryOrderId,
+        details: `DO ${doRecord.orderNumber}: DO quantities corrected to match verified physical count, verification locked`,
+      });
+
+      revalidatePath('/sales/deliveries');
+      revalidatePath(`/sales/deliveries/${deliveryOrderId}`);
+      revalidatePath('/warehouse/outgoing');
+      revalidatePath(`/warehouse/outgoing/${deliveryOrderId}`);
+
+      return { success: true };
+    });
+  },
+);

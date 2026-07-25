@@ -13,6 +13,74 @@ import {
   BusinessRuleError,
   NotFoundError,
 } from "@/lib/errors/errors";
+import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
+
+/**
+ * Calculate invoice total from actual GR received quantities (not PO ordered qty).
+ * Sum of (receivedQty × unitPrice × discount × PPN) per PO item + flat shipping.
+ * Fallback to po.totalAmount when no GR exists yet.
+ */
+export async function calculatePoInvoiceTotalFromReceipts(purchaseOrderId: string): Promise<number> {
+  const po = await prisma.purchaseOrder.findUnique({
+    where: { id: purchaseOrderId },
+    select: {
+      totalAmount: true,
+      shippingCost: true,
+      items: {
+        select: {
+          productVariantId: true,
+          quantity: true,
+          unitPrice: true,
+          discountPercent: true,
+          taxPercent: true,
+          ppnMode: true,
+        },
+      },
+      goodsReceipts: {
+        select: {
+          items: {
+            select: {
+              productVariantId: true,
+              receivedQty: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!po) return 0;
+  const poTotal = typeof po.totalAmount?.toNumber === 'function' ? po.totalAmount.toNumber() : (Number(po.totalAmount) || 0);
+  if (po.goodsReceipts.length === 0) return poTotal;
+
+  // Aggregate receivedQty per productVariantId across all GRs
+  const receivedMap = new Map<string, number>();
+  for (const gr of po.goodsReceipts) {
+    for (const item of gr.items) {
+      const pvId = item.productVariantId;
+      const qty = typeof item.receivedQty?.toNumber === 'function' ? item.receivedQty.toNumber() : Number(item.receivedQty);
+      receivedMap.set(pvId, (receivedMap.get(pvId) ?? 0) + qty);
+    }
+  }
+
+  let total = 0;
+  for (const poItem of po.items) {
+    const received = receivedMap.get(poItem.productVariantId) ?? 0;
+    const raw = received * (typeof poItem.unitPrice?.toNumber === 'function' ? poItem.unitPrice.toNumber() : Number(poItem.unitPrice));
+    const discPct = typeof poItem.discountPercent?.toNumber === 'function' ? poItem.discountPercent.toNumber() : (Number(poItem.discountPercent) || 0);
+    const discount = raw * (discPct / 100);
+    const afterDiscount = raw - discount;
+    const taxPct = typeof poItem.taxPercent?.toNumber === 'function' ? poItem.taxPercent.toNumber() : (Number(poItem.taxPercent) || 0);
+    const ppnRes = calculatePpn(afterDiscount, taxPct, poItem.ppnMode as PpnMode);
+    total += ppnRes.total;
+  }
+
+  // Add flat shipping cost once
+  const shipCost = typeof po.shippingCost?.toNumber === 'function' ? po.shippingCost.toNumber() : (Number(po.shippingCost) || 0);
+  total += shipCost;
+
+  return Math.round(total * 100) / 100;
+}
 
 export async function createInvoice(data: CreatePurchaseInvoiceValues) {
   // Priority: manualDueDate > dueDate > invoiceDate + termDays. Default 30 hari.
@@ -33,6 +101,9 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
 
   if (!po) throw new NotFoundError("Purchase Order", data.purchaseOrderId);
 
+  // Calculate total from GR received qty (fallback to PO total if no GR yet)
+  const calculatedTotal = await calculatePoInvoiceTotalFromReceipts(data.purchaseOrderId);
+
   const invoice = await prisma.purchaseInvoice.create({
     data: {
       invoiceNumber: data.invoiceNumber,
@@ -40,7 +111,7 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
       invoiceDate: data.invoiceDate,
       dueDate: finalDueDate,
       termOfPaymentDays: termDays,
-      totalAmount: po.totalAmount || 0,
+      totalAmount: calculatedTotal,
       status: PurchaseInvoiceStatus.UNPAID,
     },
   });
@@ -295,12 +366,33 @@ export async function createDraftBillFromPo(
 
   if (!po || !po.totalAmount) return;
 
+  // Calculate total from GR received qty
+  const calculatedTotal = await calculatePoInvoiceTotalFromReceipts(purchaseOrderId);
+
   const existing = await prisma.purchaseInvoice.findFirst({
     where: { purchaseOrderId },
   });
-  if (existing) return;
 
-  // ponytail: uses supplier.paymentTermDays (default 30). Invoice date = receipt date (now), due = invoice + term.
+  // Upsert: if invoice exists, sync totalAmount from GR; otherwise create new
+  if (existing) {
+    const existingTotal = existing.totalAmount.toNumber();
+    if (Math.abs(existingTotal - calculatedTotal) > 0.01) {
+      await prisma.purchaseInvoice.update({
+        where: { id: existing.id },
+        data: { totalAmount: calculatedTotal },
+      });
+      await logActivity({
+        userId,
+        action: "SYNC_BILL_FROM_GR",
+        entityType: "PurchaseInvoice",
+        entityId: existing.id,
+        details: `Bill ${existing.invoiceNumber} total updated from ${existingTotal} to ${calculatedTotal} based on GR received quantities`,
+      });
+    }
+    return existing;
+  }
+
+  // Create new bill
   const rawTerm = po.supplier?.paymentTermDays;
   const termOfPaymentDays =
     rawTerm != null && rawTerm >= 0 && rawTerm <= 365 ? rawTerm : 30;
@@ -321,9 +413,9 @@ export async function createDraftBillFromPo(
       invoiceDate,
       dueDate,
       termOfPaymentDays,
-      totalAmount: po.totalAmount,
+      totalAmount: calculatedTotal,
       status,
-      notes: `System generated bill for PO ${po.orderNumber}`,
+      notes: `System generated bill for PO ${po.orderNumber} (based on GR received quantities)`,
     },
   });
 
@@ -332,7 +424,7 @@ export async function createDraftBillFromPo(
     action: "AUTO_GENERATE_BILL",
     entityType: "PurchaseInvoice",
     entityId: invoice.id,
-    details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status} `,
+    details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status} (total from GR: ${calculatedTotal})`,
   });
 
   // Auto-Journaling Trigger
