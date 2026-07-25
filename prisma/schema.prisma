@@ -894,8 +894,14 @@ model AuditLog {
   entityId   String
   details    String?
   changes    Json?
+  fromStatus String?
+  toStatus   String?
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action])
 }
 
 // ==========================================

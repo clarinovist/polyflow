@@ -44,6 +44,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ProductionStatusCard } from "./ProductionStatusCard";
+import { EntityStatusTimeline } from "@/components/shared/EntityStatusTimeline";
 import { ShipmentDialog } from "./ShipmentDialog";
 import { CreateDeliveryOrderDialog } from "./CreateDeliveryOrderDialog";
 import { isBillableDeliveryStatus } from "@/lib/sales/delivery-status";
@@ -819,6 +820,11 @@ export function SalesOrderDetailClient({
               </CardContent>
             </Card>
           )}
+
+          <EntityStatusTimeline
+            entityType="SalesOrder"
+            entityId={order.id}
+          />
 
           <ProductionStatusCard
             salesOrderId={order.id}

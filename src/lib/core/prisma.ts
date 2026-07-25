@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { AsyncLocalStorage } from 'async_hooks';
+import { withStatusAudit } from '@/lib/core/prisma-audit-extension';
 
 // Default transaction timeout — complex operations (production backflush, period close)
 // were exceeding the Prisma default of 5s (observed: 5076ms, 5087ms).
@@ -61,7 +62,7 @@ export function getTenantDb(datasourceUrl: string): PrismaClient {
         const client = new PrismaClient({
             datasources: { db: { url: datasourceUrl } },
         });
-        clients.set(datasourceUrl, withTxTimeout(client));
+        clients.set(datasourceUrl, withStatusAudit(withTxTimeout(client)));
     }
     return clients.get(datasourceUrl)!;
 }
@@ -76,7 +77,7 @@ export async function disconnectAllTenants() {
 
 // Global Main/Fallback Prisma Client — MUST be global singleton in all environments
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
-const mainPrisma = globalForPrisma.prisma || withTxTimeout(new PrismaClient())
+const mainPrisma = globalForPrisma.prisma || withStatusAudit(withTxTimeout(new PrismaClient()))
 
 // Always cache on globalThis — prevents duplicate clients across SSR chunks
 globalForPrisma.prisma = mainPrisma

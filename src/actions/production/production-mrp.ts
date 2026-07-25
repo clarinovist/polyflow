@@ -5,6 +5,7 @@ import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
 import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
 import { requireAuth, requirePlanningRole } from "@/lib/tools/auth-checks";
+import { logActivity } from "@/lib/tools/audit";
 import { serializeData } from "@/lib/utils/utils";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
@@ -94,7 +95,7 @@ export const cancelOrderFromPlanning = withTenant(
   async function cancelOrderFromPlanning(salesOrderId: string) {
     return safeAction(async () => {
       try {
-        await requirePlanningRole();
+        const session = await requirePlanningRole();
 
         // Verify order exists and is cancellable
         const order = await prisma.salesOrder.findUnique({
@@ -133,6 +134,17 @@ export const cancelOrderFromPlanning = withTenant(
           await tx.salesOrder.update({
             where: { id: salesOrderId },
             data: { status: SalesOrderStatus.CANCELLED },
+          });
+
+          await logActivity({
+            userId: session.user.id,
+            action: "SALES_ORDER_CANCELLED",
+            entityType: "SalesOrder",
+            entityId: salesOrderId,
+            details: `Sales Order ${order.orderNumber} cancelled from production planning (MRP)`,
+            fromStatus: order.status,
+            toStatus: "CANCELLED",
+            tx,
           });
         });
 

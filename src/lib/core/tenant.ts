@@ -1,4 +1,5 @@
 import { getTenantDb, tenantContext, tenantIdContext } from '@/lib/core/prisma';
+import { actorContext } from '@/lib/core/actor-context';
 import { PrismaClient } from '@prisma/client';
 import { headers } from 'next/headers';
 
@@ -93,7 +94,15 @@ export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T
         const result = await resolveTenantContext(reqHeaders);
 
         if (result.type === 'NONE') {
-            return action(...args);
+            // Still inject actor context even without tenant
+            let actorUserId = SYSTEM_USER_ID;
+            try {
+                const session = await auth();
+                if (session?.user?.id) actorUserId = session.user.id;
+            } catch {
+                // No session — keep SYSTEM fallback
+            }
+            return actorContext.run({ userId: actorUserId }, () => action(...args));
         }
 
         if (result.type === 'NOT_FOUND') {
@@ -101,8 +110,19 @@ export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T
         }
 
         // Run the action inside the AsyncLocalStorage context
+        // Resolve actor from session (best-effort; falls back to SYSTEM for unauthenticated calls)
+        let actorUserId = SYSTEM_USER_ID;
+        try {
+            const session = await auth();
+            if (session?.user?.id) actorUserId = session.user.id;
+        } catch {
+            // No session (e.g. cron, script) — keep SYSTEM fallback
+        }
+
         return tenantContext.run(result.tenantDb, () =>
-            tenantIdContext.run(result.tenantId, () => action(...args))
+            tenantIdContext.run(result.tenantId, () =>
+                actorContext.run({ userId: actorUserId }, () => action(...args))
+            )
         );
     }) as T;
 }
@@ -111,6 +131,10 @@ export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T
  * Higher Order Function to wrap Next.js App Router API Handlers (GET, POST, etc.)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+
+/** Fallback userId for unauthenticated/system contexts. */
+const SYSTEM_USER_ID = 'system';
 
 /**
  * Helper for Server Component data fetching.
@@ -141,8 +165,18 @@ export function withTenantRoute(
             );
         }
 
+        let actorUserId = SYSTEM_USER_ID;
+        try {
+            const session = await auth();
+            if (session?.user?.id) actorUserId = session.user.id;
+        } catch {
+            // No session — keep SYSTEM fallback
+        }
+
         return tenantContext.run(result.tenantDb, () =>
-            tenantIdContext.run(result.tenantId, () => handler(req, ...args))
+            tenantIdContext.run(result.tenantId, () =>
+                actorContext.run({ userId: actorUserId }, () => handler(req, ...args))
+            )
         );
     };
 }

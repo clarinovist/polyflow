@@ -13,6 +13,8 @@ interface AuditLogParams {
     entityId: string;
     details?: string;
     changes?: Record<string, unknown>;
+    fromStatus?: string;
+    toStatus?: string;
     tx?: PrismaTransaction;
 }
 
@@ -23,6 +25,8 @@ export async function logActivity({
     entityId,
     details,
     changes,
+    fromStatus,
+    toStatus,
     tx
 }: AuditLogParams) {
     const data = {
@@ -32,6 +36,8 @@ export async function logActivity({
         entityId,
         details,
         changes: changes ? JSON.stringify(changes) : undefined,
+        fromStatus,
+        toStatus,
     };
 
     if (tx) {
