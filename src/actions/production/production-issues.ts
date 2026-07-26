@@ -2,7 +2,11 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
@@ -31,6 +35,7 @@ export const createProductionIssue = withTenant(
                 revalidatePath(`/production/orders/${data.productionOrderId}`);
                 return serializeData(issue);
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to create production issue', {
                     productionOrderId: data.productionOrderId,
@@ -66,6 +71,7 @@ export const updateProductionIssueStatus = withTenant(
 
                 return serializeData(issue);
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to update production issue status', {
                     issueId,
@@ -95,6 +101,7 @@ export const deleteProductionIssue = withTenant(
                 revalidatePath(`/production/orders/${productionOrderId}`);
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to delete production issue', {
                     issueId,

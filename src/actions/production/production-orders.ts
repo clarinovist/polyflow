@@ -4,7 +4,11 @@ import { withTenant } from '@/lib/core/tenant';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import { requirePlanningRole } from '@/lib/tools/auth-checks';
 import {
     createProductionOrderSchema,
@@ -83,6 +87,7 @@ export const createProductionOrder = withTenant(
                 revalidatePath('/sales');
                 return serializeData(order);
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to create production order', {
                     error,
@@ -171,6 +176,7 @@ export const quickCreateProductionOrder = withTenant(
                 revalidatePath('/production');
                 return serializeData(order);
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to quick create production order', {
                     error,
@@ -594,6 +600,7 @@ export const updateProductionOrder = withTenant(
                 revalidatePath('/production/schedule');
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 throw new BusinessRuleError(
                     error instanceof Error
@@ -618,6 +625,7 @@ export const deleteProductionOrder = withTenant(
                 revalidatePath('/production');
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 throw new BusinessRuleError(
                     error instanceof Error
@@ -703,6 +711,7 @@ export const splitProductionOrders = withTenant(
                 revalidatePath(`/sales/orders/${result.data.salesOrderId}`);
                 return serializeData(createdOrders);
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to split production orders', {
                     error,

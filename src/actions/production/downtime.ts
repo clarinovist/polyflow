@@ -6,7 +6,16 @@ import { revalidatePath } from 'next/cache';
 import { MachineStatus } from '@prisma/client';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { requireAuth } from '@/lib/tools/auth-checks';
 
+/**
+ * Kiosk variant of downtime logging: the shop-floor terminal runs without a
+ * NextAuth session, so `createdById` (the operator) stands in as attribution.
+ *
+ * The session-backed variant lives in `production-downtime.ts` and is what the
+ * barrel re-exports; this one exists for the kiosk and is called by
+ * `DowntimeDialog`.
+ */
 export const logMachineDowntime = withTenant(async function logMachineDowntime(
     machineId: string,
     reason: string,
@@ -15,6 +24,19 @@ export const logMachineDowntime = withTenant(async function logMachineDowntime(
     return safeAction(async () => {
         if (!machineId || !reason) {
             throw new BusinessRuleError('Machine ID and Reason are required');
+        }
+
+        // Same guard as the execution actions: a session, or an operator to
+        // attribute the record to. Never both missing — this writes a row and
+        // flips the machine to MAINTENANCE.
+        try {
+            await requireAuth();
+        } catch {
+            if (!createdById) {
+                throw new BusinessRuleError(
+                    'Autentikasi diperlukan atau ID operator harus diisi',
+                );
+            }
         }
 
         try {

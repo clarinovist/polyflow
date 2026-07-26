@@ -1,7 +1,11 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production/production-service';
 import { prisma } from '@/lib/core/prisma';
@@ -22,6 +26,7 @@ export const addProductionShift = withTenant(
                 revalidatePath(`/production/orders/${data.productionOrderId}`);
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 throw new BusinessRuleError(
                     error instanceof Error
@@ -41,6 +46,7 @@ export const deleteProductionShift = withTenant(
                 revalidatePath(`/production/orders/${orderId}`);
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 throw new BusinessRuleError(
                     error instanceof Error

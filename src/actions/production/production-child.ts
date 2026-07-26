@@ -7,6 +7,7 @@ import {
     safeAction,
     BusinessRuleError,
     NotFoundError,
+    isNextControlFlowError,
 } from '@/lib/errors/errors';
 import { requirePlanningRole } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
@@ -105,6 +106,7 @@ export const createChildProductionOrder = withTenant(
                 revalidatePath('/production');
                 return serializeData(result);
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to create child PO', {
                     parentOrderId,

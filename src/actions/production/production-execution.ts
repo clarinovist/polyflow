@@ -4,7 +4,11 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import {
     requireAuth,
     requireProductionLeaderRole,
@@ -91,6 +95,7 @@ export const startExecution = withTenant(async function startExecution(
             revalidatePath(`/kiosk/jobs/${result.data.productionOrderId}`);
             return serializeData(execution);
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             if (error instanceof BusinessRuleError) throw error;
             logger.error('Failed to start execution', {
                 error,
@@ -137,6 +142,7 @@ export const stopExecution = withTenant(async function stopExecution(
             revalidatePath('/kiosk', 'layout');
             return serializeData(execution);
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             if (error instanceof BusinessRuleError) throw error;
             logger.error('Failed to stop execution', {
                 error,
@@ -170,6 +176,7 @@ export const addProductionOutput = withTenant(
                 );
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
 
                 // Catch Prisma foreign key constraint violation (P2003)
@@ -253,6 +260,7 @@ export const logRunningOutput = withTenant(async function logRunningOutput(
             revalidatePath('/kiosk', 'layout');
             return null;
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             if (error instanceof BusinessRuleError) throw error;
             logger.error('Failed to log production output', {
                 error,
@@ -705,6 +713,7 @@ export const voidProductionOutput = withTenant(
                 revalidatePath('/dashboard');
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to void production output', {
                     executionId,

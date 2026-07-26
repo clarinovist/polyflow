@@ -190,6 +190,25 @@ export class ExternalServiceError extends ApplicationError {
  * }
  * ```
  */
+/**
+ * Is this a Next.js control-flow signal rather than a real failure?
+ *
+ * `redirect()` and `notFound()` work by throwing. A `catch` that rewrites every
+ * error into a domain error will swallow them, and the redirect silently never
+ * happens — so any handler that catches broadly must let these through first.
+ */
+export function isNextControlFlowError(error: unknown): boolean {
+    if (!error || typeof error !== 'object' || !('message' in error)) {
+        return false;
+    }
+    const err = error as { message: string; digest?: string };
+    return (
+        err.message === 'NEXT_REDIRECT' ||
+        err.message === 'NEXT_NOT_FOUND' ||
+        err.digest?.startsWith('NEXT_REDIRECT') === true
+    );
+}
+
 export async function safeAction<T>(fn: () => Promise<T>): Promise<
     | { success: true; data: T }
     | {
@@ -204,16 +223,7 @@ export async function safeAction<T>(fn: () => Promise<T>): Promise<
         return { success: true, data };
     } catch (error) {
         // Re-throw Next.js internal errors (redirect, notFound) — they use thrown errors as control flow
-        if (error && typeof error === 'object' && 'message' in error) {
-            const err = error as { message: string; digest?: string };
-            if (
-                err.message === 'NEXT_REDIRECT' ||
-                err.message === 'NEXT_NOT_FOUND' ||
-                err.digest?.startsWith('NEXT_REDIRECT')
-            ) {
-                throw error;
-            }
-        }
+        if (isNextControlFlowError(error)) throw error;
         if (error instanceof ApplicationError) {
             return {
                 success: false,

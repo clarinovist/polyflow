@@ -3,7 +3,11 @@
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import { requireAuth, requirePlanningRole } from '@/lib/tools/auth-checks';
 import { logActivity } from '@/lib/tools/audit';
 import { serializeData } from '@/lib/utils/utils';
@@ -34,6 +38,7 @@ export const getBomWithInventory = withTenant(
                 }
                 return result.value;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to calculate BOM requirements', {
                     error,
@@ -77,6 +82,7 @@ export const createProductionFromSalesOrder = withTenant(
                 revalidatePath('/sales');
                 return serializeData(result);
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to create WO from SO', {
                     salesOrderId,
@@ -154,6 +160,7 @@ export const cancelOrderFromPlanning = withTenant(
                 revalidatePath('/sales');
                 return true;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to cancel order from planning', {
                     salesOrderId,
@@ -179,6 +186,7 @@ export const simulateMrp = withTenant(async function simulateMrp(
                 await MrpService.simulateMaterialRequirements(salesOrderId);
             return serializeData(result);
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             if (error instanceof BusinessRuleError) throw error;
             throw new BusinessRuleError(
                 error instanceof Error

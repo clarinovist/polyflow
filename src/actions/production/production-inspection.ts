@@ -1,7 +1,11 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import {
     qualityInspectionSchema,
@@ -30,6 +34,7 @@ export const recordQualityInspection = withTenant(
                 );
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 throw new BusinessRuleError(
                     error instanceof Error

@@ -2,7 +2,11 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import {
     requireAuth,
     requireMaterialPathRole,
@@ -61,6 +65,7 @@ export const batchIssueMaterials = withTenant(
                 revalidatePath('/warehouse');
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to batch issue materials', {
                     error,
@@ -97,6 +102,7 @@ export const recordMaterialIssue = withTenant(
                 revalidatePath('/warehouse');
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 throw new BusinessRuleError(
                     error instanceof Error
@@ -126,6 +132,7 @@ export const deleteMaterialIssue = withTenant(
                 revalidatePath('/warehouse');
                 return null;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 throw new BusinessRuleError(
                     error instanceof Error
@@ -159,6 +166,7 @@ export const recordScrap = withTenant(async function recordScrap(
             );
             return null;
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             if (error instanceof BusinessRuleError) throw error;
             throw new BusinessRuleError(
                 error instanceof Error
@@ -182,6 +190,7 @@ export const deleteScrap = withTenant(async function deleteScrap(
             revalidatePath(`/production/orders/${productionOrderId}`);
             return null;
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             if (error instanceof BusinessRuleError) throw error;
             throw new BusinessRuleError(
                 error instanceof Error
@@ -216,6 +225,7 @@ export const consolidatedBatchIssueMaterials = withTenant(
                 revalidatePath('/warehouse');
                 return issueIds;
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to consolidated batch issue materials', {
                     error,
@@ -255,6 +265,7 @@ export const recordAdHocMaterialUsage = withTenant(
                 revalidatePath('/warehouse');
                 return { issueId, idempotent };
             } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
                 logger.error('Failed to record ad-hoc material usage', {
                     error,
