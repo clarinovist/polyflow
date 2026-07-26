@@ -1,13 +1,71 @@
 #!/usr/bin/env bash
-# Pre-commit hook: run AGENTS.md consistency check
-# Enable: git config core.hooksPath .githooks
+# Pre-commit hook
+#   1. AGENTS.md consistency check
+#   2. Data-file guard — keeps counterparty records out of this public repo
+#
+# Enable once per clone: git config core.hooksPath .githooks
+# Bypass the data guard for one commit: ALLOW_DATA_FILES=1 git commit ...
 
 set -euo pipefail
 
-# Check if any AGENTS.md file was modified
-CHANGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E "AGENTS\.md$" || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM || true)
+[ -n "$STAGED" ] || exit 0
+
+# ---------------------------------------------------------------- 1. AGENTS.md
+CHANGED_AGENTS=$(printf '%s\n' "$STAGED" | grep -E "AGENTS\.md$" || true)
 
 if [ -n "$CHANGED_AGENTS" ]; then
-  echo "AGENTS.md files changed, running consistency check..."
-  bash scripts/check-agents-consistency.sh
+    echo "AGENTS.md files changed, running consistency check..."
+    bash scripts/check-agents-consistency.sh
+fi
+
+# ---------------------------------------------------------- 2. Data-file guard
+# This repo is public. In 2026-07 a customer data-migration working set was
+# committed by accident: 146 customer names with phone numbers and addresses,
+# 53 suppliers with bank account numbers, AR/AP balances per counterparty.
+# Gitignore now covers those paths, but it only covers the paths we knew about —
+# the same mistake in a new folder would sail straight through. This checks the
+# shape of the file instead of its location.
+
+if [ "${ALLOW_DATA_FILES:-0}" = "1" ]; then
+    echo "pre-commit: ALLOW_DATA_FILES=1 set — data-file guard skipped."
+    exit 0
+fi
+
+BLOCKED=""
+
+# Tabular formats: no legitimate use in this tree so far.
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    BLOCKED="${BLOCKED}${f}  (tabular data)"$'\n'
+done < <(printf '%s\n' "$STAGED" | grep -iE '\.(csv|tsv|xlsx|xls|dump|parquet)$' || true)
+
+# SQL is mostly legitimate here — Prisma migrations are DDL and must pass.
+# Only flag SQL that carries data rows, and only outside prisma/migrations/.
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if git show ":$f" 2>/dev/null |
+        grep -qiE '^[[:space:]]*(INSERT[[:space:]]+INTO|COPY[[:space:]]+["a-z])'; then
+        BLOCKED="${BLOCKED}${f}  (SQL with INSERT/COPY rows)"$'\n'
+    fi
+done < <(printf '%s\n' "$STAGED" | grep -iE '\.sql$' | grep -v '^prisma/migrations/' || true)
+
+if [ -n "$BLOCKED" ]; then
+    echo ""
+    echo "  pre-commit: refusing to commit data files to a PUBLIC repo"
+    echo ""
+    printf '%s' "$BLOCKED" | sed 's/^/      /'
+    echo ""
+    echo "  Counterparty records (names, phones, addresses, tax IDs, bank"
+    echo "  accounts, balances) must not enter this repo's history — removing"
+    echo "  them later does not undo it, because forks keep the objects"
+    echo "  reachable even after a rewrite."
+    echo ""
+    echo "  If this file genuinely belongs here:"
+    echo "      ALLOW_DATA_FILES=1 git commit ..."
+    echo ""
+    echo "  If it is working data, keep it local — add it to .gitignore, then:"
+    echo "      git rm --cached <file>"
+    echo ""
+    exit 1
 fi
