@@ -23,7 +23,7 @@ describe("processOrderItems", () => {
       primaryUnit: "PCS",
       salesUnit: null,
       conversionFactor: 1,
-      product: { productType: ProductType.FINISHED_GOODS },
+      product: { productType: ProductType.FINISHED_GOOD },
     } as any);
 
     const result = await processOrderItems(
@@ -50,7 +50,7 @@ describe("processOrderItems", () => {
       primaryUnit: "KG",
       salesUnit: null,
       conversionFactor: 1,
-      product: { productType: ProductType.FINISHED_GOODS },
+      product: { productType: ProductType.FINISHED_GOOD },
     } as any);
 
     const result = await processOrderItems(
@@ -104,7 +104,7 @@ describe("processOrderItems", () => {
       primaryUnit: "KG",
       salesUnit: null,
       conversionFactor: 1,
-      product: { productType: ProductType.FINISHED_GOODS },
+      product: { productType: ProductType.FINISHED_GOOD },
     } as any);
 
     await expect(
@@ -128,7 +128,7 @@ describe("processOrderItems", () => {
       primaryUnit: "PCS",
       salesUnit: "BOX",
       conversionFactor: 100,
-      product: { productType: ProductType.FINISHED_GOODS },
+      product: { productType: ProductType.FINISHED_GOOD },
     } as any);
 
     const result = await processOrderItems(

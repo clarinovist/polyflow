@@ -808,7 +808,7 @@ describe("invoice-lifecycle-service", () => {
         ],
       };
 
-      vi.mocked(prisma.salesOrder.findUnique).mockImplementation(async () => mockSOWithDelivery as any);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockSOWithDelivery as never);
       vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as any);
 

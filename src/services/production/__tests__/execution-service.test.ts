@@ -467,6 +467,7 @@ describe('ProductionExecutionService.logRunningOutput', () => {
                     scrapProngkolQty: 0,
                     scrapDaunQty: 0,
                     notes: 'Partial log',
+                    shiftId: undefined,
                     userId: 'user-1',
                 });
 
@@ -516,6 +517,7 @@ describe('ProductionExecutionService.logRunningOutput', () => {
             scrapProngkolQty: 0,
             scrapDaunQty: 0,
             notes: '',
+            shiftId: undefined,
             operatorId: 'op-idris',
             userId: 'user-1',
         });

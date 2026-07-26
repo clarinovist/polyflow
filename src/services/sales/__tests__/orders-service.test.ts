@@ -135,6 +135,7 @@ describe("confirmOrder", () => {
     await expect(
       createOrder(
         {
+          intent: "order",
           customerId: "cust-1",
           sourceLocationId: "loc-internal",
           orderDate: new Date("2026-04-17T00:00:00.000Z"),
@@ -152,6 +153,7 @@ describe("confirmOrder", () => {
               taxPercent: 0,
               dppOtherAmount: null,
               ppnMode: "EXCLUDE",
+              isFreeItem: false,
             },
           ],
         },
@@ -193,6 +195,7 @@ describe("confirmOrder", () => {
               taxPercent: 0,
               dppOtherAmount: null,
               ppnMode: "EXCLUDE",
+              isFreeItem: false,
             },
           ],
         },
@@ -500,6 +503,7 @@ describe("confirmOrder", () => {
 
     await createOrder(
       {
+        intent: "order",
         customerId: "cust-1",
         sourceLocationId: "loc-1",
         orderDate: new Date("2026-04-17T00:00:00.000Z"),
@@ -521,6 +525,7 @@ describe("confirmOrder", () => {
             taxPercent: 0,
             dppOtherAmount: null,
             ppnMode: "EXCLUDE",
+            isFreeItem: false,
           },
         ],
       },

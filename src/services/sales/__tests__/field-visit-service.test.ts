@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mockedTransaction } from "./helpers/mock-prisma-transaction";
 
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
@@ -53,7 +54,7 @@ describe("field-visit-service", () => {
     it("returns existing visit if idempotent", async () => {
       const existing = { id: "existing" };
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         return fn({
           salesVisit: { findUnique: vi.fn().mockResolvedValue(existing), create: vi.fn(), update: vi.fn() },
           customer: { findUnique: vi.fn() },
@@ -77,7 +78,7 @@ describe("field-visit-service", () => {
 
     it("throws when customer not found", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         return fn({
           salesVisit: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn(), update: vi.fn() },
           customer: { findUnique: vi.fn().mockResolvedValue(null) },
@@ -92,7 +93,7 @@ describe("field-visit-service", () => {
 
     it("throws when route plan item not found", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         return fn({
           salesVisit: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn(), update: vi.fn() },
           customer: { findUnique: vi.fn().mockResolvedValue({ id: "cus-1" }) },
@@ -107,7 +108,7 @@ describe("field-visit-service", () => {
 
     it("creates with isExtraCall and extraReason", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           salesVisit: {
             findUnique: vi.fn().mockResolvedValue(null),
@@ -129,7 +130,7 @@ describe("field-visit-service", () => {
 
     it("creates without isExtraCall", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           salesVisit: {
             findUnique: vi.fn().mockResolvedValue(null),
@@ -153,7 +154,7 @@ describe("field-visit-service", () => {
   describe("completeFieldVisit", () => {
     it("completes visit and route item", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const checkInTime = new Date(Date.now() - 60000);
         return fn({
           salesVisit: {
@@ -173,7 +174,7 @@ describe("field-visit-service", () => {
 
     it("completes visit without route item", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const checkInTime = new Date(Date.now() - 30000);
         return fn({
           salesVisit: {
@@ -193,7 +194,7 @@ describe("field-visit-service", () => {
 
     it("throws when visit not found", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         return fn({
           salesVisit: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
           salesRoutePlanItem: { update: vi.fn() },

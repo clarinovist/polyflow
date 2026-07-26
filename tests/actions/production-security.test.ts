@@ -96,7 +96,8 @@ describe('Production Actions Security', () => {
                 scrapQuantity: 0,
                 scrapProngkolQty: 0,
                 scrapDaunQty: 0,
-                notes: ''
+                notes: '',
+                shiftId: undefined
             });
             expect(result.success).toBe(false);
              

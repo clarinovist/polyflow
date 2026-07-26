@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mockedTransaction } from "./helpers/mock-prisma-transaction";
 
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
@@ -54,7 +55,7 @@ describe("customer-assignment-service", () => {
 
     it("closes existing primary and creates new when reassigning primary", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           customerSalesAssignment: {
             findFirst: vi.fn()
@@ -78,7 +79,7 @@ describe("customer-assignment-service", () => {
     it("returns existing assignment if already assigned to same user", async () => {
       const { prisma } = await import("@/lib/core/prisma");
       // isPrimary=false skips the primary check, so findFirst is called only once for duplicate check
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           customerSalesAssignment: {
             findFirst: vi.fn().mockResolvedValue({ id: "existing", userId: "u1" }),
@@ -99,7 +100,7 @@ describe("customer-assignment-service", () => {
 
     it("does not close primary when isPrimary=false", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           customerSalesAssignment: {
             findFirst: vi.fn()
@@ -124,7 +125,7 @@ describe("customer-assignment-service", () => {
   describe("unassignCustomerFromSales", () => {
     it("sets unassignedAt on active assignment", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           customerSalesAssignment: {
             findFirst: vi.fn().mockResolvedValue({ id: "a1" }),
@@ -139,7 +140,7 @@ describe("customer-assignment-service", () => {
 
     it("returns null when no active assignment", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           customerSalesAssignment: {
             findFirst: vi.fn().mockResolvedValue(null),
@@ -156,7 +157,7 @@ describe("customer-assignment-service", () => {
   describe("autoAssignProspectToSales", () => {
     it("creates assignment with auto notes", async () => {
       const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+      mockedTransaction(prisma.$transaction).mockImplementation(async (fn) => {
         const tx = {
           customerSalesAssignment: {
             findFirst: vi.fn().mockResolvedValue(null),

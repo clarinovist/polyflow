@@ -124,8 +124,8 @@ describe("filterOrders", () => {
     expect(result[0].id).toBe("1");
   });
 
-  it("filters by status DELIVERED", () => {
-    const result = filterOrders(mockOrders, "", "DELIVERED");
+  it("filters by DONE group (DELIVERED)", () => {
+    const result = filterOrders(mockOrders, "", "DONE");
     expect(result).toHaveLength(1);
     expect(result[0].orderNumber).toBe("SO-003");
   });
@@ -163,9 +163,9 @@ describe("filterOrders", () => {
   });
 
   it("combines status filter and search query", () => {
-    const result = filterOrders(mockOrders, "sejahtera", "CONFIRMED");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("2");
+    // CV Sejahtera has SO-002 (CONFIRMED) and SO-005 (SHIPPED) — both ACTIVE.
+    const result = filterOrders(mockOrders, "sejahtera", "ACTIVE");
+    expect(result.map((o) => o.id)).toEqual(["2", "5"]);
   });
 
   it("returns empty when no match", () => {
@@ -174,7 +174,8 @@ describe("filterOrders", () => {
   });
 
   it("returns empty when status has no orders", () => {
-    const result = filterOrders(mockOrders, "", "IN_PRODUCTION");
+    // No order in the fixture is in the quotation phase.
+    const result = filterOrders(mockOrders, "", "PIPELINE");
     expect(result).toHaveLength(0);
   });
 });

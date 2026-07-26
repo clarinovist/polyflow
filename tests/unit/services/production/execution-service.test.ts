@@ -106,6 +106,7 @@ describe('ProductionExecutionService', () => {
                     scrapProngkolQty: 0,
                     scrapDaunQty: 0,
                     notes: 'test',
+                    shiftId: undefined,
                     userId: 'user-1',
                 });
 
@@ -189,7 +190,8 @@ describe('ProductionExecutionService', () => {
             productionOrderId: 'po-2',
             machineId: undefined,
             operatorId: undefined,
-            shiftId: undefined,
+            // Shift is mandatory on productionOutputSchema.
+            shiftId: 'shift-1',
             cekGram: undefined,
             quantityProduced: 200,
             scrapQuantity: 0,
