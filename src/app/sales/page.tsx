@@ -438,7 +438,7 @@ export default async function SalesCommandBoardPage(props: {
                         <Plus className="h-4 w-4 mr-1" /> Order Baru
                     </Button>
                 </Link>
-                <Link href="/sales/quotations/create">
+                <Link href="/sales/orders/create?intent=quotation">
                     <Button size="sm" variant="outline">
                         <Plus className="h-4 w-4 mr-1" /> Penawaran
                     </Button>

@@ -5,7 +5,7 @@
 | Field             | Detail                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------- |
 | **Modul**         | Quotation, Sales Order, Delivery Order, Invoice, Payment, Returns                              |
-| **Halaman**       | `/sales/quotations`, `/sales/orders`, `/sales/deliveries`, `/sales/invoices`, `/sales/returns` |
+| **Halaman**       | `/sales/orders`, `/sales/deliveries`, `/sales/invoices`, `/sales/returns` |
 | **Login Sebagai** | ADMIN atau SALES                                                                               |
 | **Tanggal UAT**   | \_**\_/\_\_**/**\_\_\_\_**                                                                     |
 | **Nama Tester**   | ************\_************                                                                     |
@@ -18,60 +18,77 @@
 
 ---
 
-## A. Sales Quotation (Penawaran)
+## A. Penawaran (fase Quotation pada Sales Order)
 
-### TC-SQ-001: Buat Quotation Baru
+> Penawaran bukan lagi modul terpisah. Sejak unifikasi lifecycle, penawaran
+> adalah Sales Order berstatus `QUOTATION` / `QUOTATION_SENT`. Tidak ada menu
+> "Penawaran" di sidebar — aksesnya lewat filter status di `/sales/orders`.
+
+### TC-SQ-001: Buat Penawaran Baru
 
 | **ID** | TC-SQ-001 | **Prioritas** | 🔴 P1 |
 | ------ | --------- | ------------- | ----- |
 
 **Langkah:**
 
-1. `/sales/quotations` → Buat Quotation
+1. `/sales/orders` → Pesanan Baru → pilih "Buat Penawaran"
 2. Pilih Customer, tanggal, masa berlaku
 3. Tambah item: produk, qty, harga satuan, diskon %, pajak %
 4. Simpan
 
-**Diharapkan:** Quotation tersimpan, nomor auto-generate, status DRAFT, subtotal/diskon/pajak terhitung benar
+**Diharapkan:** Order tersimpan dengan status `QUOTATION`, nomor auto-generate, subtotal/diskon/pajak terhitung benar
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** \_\_\_
 
 ---
 
-### TC-SQ-002: Kirim Quotation
+### TC-SQ-002: Kirim Penawaran
 
 | **ID** | TC-SQ-002 | **Prioritas** | 🔴 P1 |
 | ------ | --------- | ------------- | ----- |
 
-**Langkah:** Buka quotation DRAFT → klik Kirim/Send
+**Langkah:** Buka order berstatus `QUOTATION` → klik Kirim/Send
 
-**Diharapkan:** Status → SENT, quotation tidak bisa diedit lagi kecuali di-revisi
+**Diharapkan:** Status → `QUOTATION_SENT`
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** \_\_\_
 
 ---
 
-### TC-SQ-003: Terima Quotation → Buat Sales Order
+### TC-SQ-003: Terima Penawaran → Lanjut ke Order
 
 | **ID** | TC-SQ-003 | **Prioritas** | 🔴 P1 |
 | ------ | --------- | ------------- | ----- |
 
-**Langkah:** Quotation SENT → klik Accept/Terima → otomatis buat Sales Order
+**Langkah:** Order `QUOTATION` / `QUOTATION_SENT` → klik Accept/Terima
 
-**Diharapkan:** Status quotation → ACCEPTED, Sales Order otomatis dibuat dengan data dari quotation, link antara SO dan Quotation terlihat
+**Diharapkan:** Dokumen yang sama lanjut ke fase order (`DRAFT`) tanpa membuat dokumen baru — nomor dan item tetap
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** \_\_\_
 
 ---
 
-### TC-SQ-004: Tolak Quotation
+### TC-SQ-004: Tolak Penawaran
 
 | **ID** | TC-SQ-004 | **Prioritas** | 🟡 P2 |
 | ------ | --------- | ------------- | ----- |
 
-**Langkah:** Quotation SENT → klik Tolak/Reject
+**Langkah:** Order `QUOTATION` / `QUOTATION_SENT` → klik Tolak/Reject
 
-**Diharapkan:** Status → REJECTED, tidak ada Sales Order yang dibuat
+**Diharapkan:** Status → `QUOTATION_REJECTED`, tidak lanjut ke fase operasional
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** \_\_\_
+
+---
+
+### TC-SQ-005: Filter Penawaran di Daftar Sales Order
+
+| **ID** | TC-SQ-005 | **Prioritas** | 🟡 P2 |
+| ------ | --------- | ------------- | ----- |
+
+**Langkah:** `/sales/orders` → pilih filter status "Penawaran"
+
+**Diharapkan:** Hanya order `QUOTATION` / `QUOTATION_SENT` yang tampil. Membuka `/sales/quotations` (tautan lama) juga mendarat di daftar ini dengan filter yang sama
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** \_\_\_
 
@@ -527,8 +544,8 @@
 
 **Diharapkan:**
 
-- "+ Order Baru" → `/sales/orders/new`
-- "+ Penawaran" → `/sales/quotations/new`
+- "+ Order Baru" → `/sales/orders/create`
+- "+ Penawaran" → `/sales/orders/create?intent=quotation`
 - "Jadwal Kirim" → `/sales/delivery-schedules`
 - "Mode Mobile" → `/sales/mobile`
 
@@ -610,7 +627,7 @@
 **Diharapkan:**
 
 - Group "Hari Ini": Papan Sales
-- Group "Transaksi": Penawaran, Sales Order, Invoice & Piutang, Retur
+- Group "Transaksi": Sales Order, Invoice & Piutang, Retur (tidak ada menu "Penawaran" terpisah)
 - Group "Pengiriman": Jadwal Kirim, Surat Jalan, Armada
 - Group "Pelanggan": Customer
 - Group "Laporan": Performa Penjualan, Biaya Pengiriman

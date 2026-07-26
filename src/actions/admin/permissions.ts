@@ -294,7 +294,6 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     SALES: [
         '/dashboard',
         '/sales',
-        '/sales/quotations',
         '/sales/orders',
         '/sales/invoices',
         '/sales/deliveries',
@@ -351,7 +350,6 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     MARKETING: [
         '/dashboard',
         '/sales',
-        '/sales/quotations',
         '/sales/orders',
         '/sales/invoices',
         '/sales/deliveries',

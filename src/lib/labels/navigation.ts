@@ -124,7 +124,6 @@ export const financeSidebarLabels = {
 
 export const salesSidebarLabels = {
     salesDashboard: 'Papan Sales',
-    quotations: 'Penawaran',
     salesOrders: 'Sales Order',
     salesInvoices: 'Invoice & Piutang',
     deliveryTracking: 'Surat Jalan',

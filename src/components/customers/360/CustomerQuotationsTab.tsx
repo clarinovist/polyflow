@@ -13,12 +13,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { FileQuestion } from 'lucide-react';
 import { listCustomerQuotations } from '@/actions/sales/customer-360';
+import { ORDER_PHASE_LABELS } from '@/lib/sales/order-phase';
 import Link from 'next/link';
 
+/**
+ * Penawaran = SalesOrder fase quotation, jadi baris di sini adalah SalesOrder.
+ */
 type Row = {
     id: string;
-    quotationNumber: string;
-    quotationDate: string | Date;
+    orderNumber: string;
+    orderDate: string | Date;
     validUntil?: string | Date | null;
     totalAmount?: { toNumber(): number } | number | null;
     status: string;
@@ -65,11 +69,9 @@ export function CustomerQuotationsTab({ customerId }: { customerId: string }) {
                 <div className="flex items-center gap-3">
                     <FileQuestion className="h-5 w-5 text-primary" />
                     <div>
-                        <CardTitle className="text-base">
-                            Penawaran (Quotation)
-                        </CardTitle>
+                        <CardTitle className="text-base">Penawaran</CardTitle>
                         <p className="text-xs text-muted-foreground">
-                            {rows.length} quotation
+                            {rows.length} penawaran
                         </p>
                     </div>
                 </div>
@@ -81,16 +83,16 @@ export function CustomerQuotationsTab({ customerId }: { customerId: string }) {
                     </p>
                 ) : rows.length === 0 ? (
                     <p className="text-xs text-center py-8 text-muted-foreground">
-                        Belum ada quotation.
+                        Belum ada penawaran.
                     </p>
                 ) : (
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader className="bg-muted/30">
                                 <TableRow>
-                                    <TableHead>No. Quotation</TableHead>
+                                    <TableHead>No. Penawaran</TableHead>
                                     <TableHead>Tanggal</TableHead>
-                                    <TableHead>Valid Until</TableHead>
+                                    <TableHead>Berlaku Sampai</TableHead>
                                     <TableHead className="text-right">
                                         Total
                                     </TableHead>
@@ -102,14 +104,14 @@ export function CustomerQuotationsTab({ customerId }: { customerId: string }) {
                                     <TableRow key={r.id}>
                                         <TableCell className="font-mono text-sm">
                                             <Link
-                                                href={`/sales/quotations/${r.id}`}
+                                                href={`/sales/orders/${r.id}`}
                                                 className="hover:underline text-primary"
                                             >
-                                                {r.quotationNumber}
+                                                {r.orderNumber}
                                             </Link>
                                         </TableCell>
                                         <TableCell className="text-sm">
-                                            {fmtDate(r.quotationDate)}
+                                            {fmtDate(r.orderDate)}
                                         </TableCell>
                                         <TableCell className="text-sm">
                                             {fmtDate(r.validUntil)}
@@ -124,7 +126,8 @@ export function CustomerQuotationsTab({ customerId }: { customerId: string }) {
                                                 variant="outline"
                                                 className="text-[10px]"
                                             >
-                                                {r.status}
+                                                {ORDER_PHASE_LABELS[r.status] ??
+                                                    r.status}
                                             </Badge>
                                         </TableCell>
                                     </TableRow>

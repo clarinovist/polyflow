@@ -39,8 +39,6 @@ export const salesLabels = {
     reason: 'Alasan',
     condition: 'Kondisi',
     items: 'Item',
-    emptyQuotations:
-        "Belum ada penawaran penjualan. Klik tombol 'Penawaran Baru' untuk mulai membuat penawaran ke customer.",
     emptyOrders:
         'Belum ada sales order. Buat pesanan baru dari penawaran atau buat Sales Order secara langsung.',
     emptyDeliveries:
@@ -86,12 +84,6 @@ export const salesLabels = {
     archiveHintDetail:
         'Tidak bisa invoice baru. Stok internal → Production Order.',
     emptyOrdersArchive: 'Tidak ada pesanan tanpa customer.',
-
-    // Sales Quotations
-    salesQuotations: 'Penawaran Penjualan',
-    salesQuotationsDesc: 'Kelola penawaran dan proposal penjualan.',
-    newQuotation: 'Penawaran Baru',
-    recentQuotations: 'Penawaran Terbaru',
 
     // Deliveries
     deliveryOrders: 'Surat Jalan',

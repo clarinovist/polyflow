@@ -481,3 +481,26 @@ export const reopenQuotationOrder = withTenant(
         });
     },
 );
+
+/**
+ * Pastikan id pada tautan lama /sales/quotations/[id] benar-benar menunjuk
+ * SalesOrder yang ada, sebelum shim mengarahkan ke /sales/orders/[id].
+ *
+ * Tanpa cek ini, id dokumen penawaran lama akan diteruskan apa adanya dan
+ * mendarat di halaman order yang tidak ada.
+ *
+ * Mengembalikan id SalesOrder, atau null bila tidak ditemukan.
+ */
+export const resolveQuotationOrderId = withTenant(
+    async function resolveQuotationOrderId(id: string) {
+        return safeAction(async () => {
+            await requireAuth();
+
+            const order = await prisma.salesOrder.findUnique({
+                where: { id },
+                select: { id: true },
+            });
+            return order?.id ?? null;
+        });
+    },
+);

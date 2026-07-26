@@ -79,7 +79,6 @@ export const upsertCustomerProductPrice = withTenant(
 
             revalidatePath(`/sales/customers/${customerId}`);
             revalidatePath('/sales/orders/create');
-            revalidatePath('/sales/quotations/create');
             return true;
         });
     },
@@ -110,7 +109,6 @@ export const deactivateCustomerProductPrice = withTenant(
 
             revalidatePath(`/sales/customers/${customerId}`);
             revalidatePath('/sales/orders/create');
-            revalidatePath('/sales/quotations/create');
             return true;
         });
     },

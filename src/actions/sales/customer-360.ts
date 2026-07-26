@@ -4,6 +4,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { safeAction } from '@/lib/errors/errors';
+import { QUOTATION_STATUSES } from '@/lib/sales/order-phase';
 
 export const listCustomerInvoices = withTenant(
     async function listCustomerInvoices(customerId: string) {
@@ -55,13 +56,29 @@ export const listCustomerDeliveries = withTenant(
     },
 );
 
+/**
+ * Penawaran customer — dibaca dari SalesOrder fase quotation, bukan dari
+ * tabel legacy SalesQuotation. Sejak unifikasi lifecycle SO + penawaran,
+ * penawaran adalah SalesOrder berstatus QUOTATION*.
+ */
 export const listCustomerQuotations = withTenant(
     async function listCustomerQuotations(customerId: string) {
         return safeAction(async () => {
             await requireAuth();
-            return prisma.salesQuotation.findMany({
-                where: { customerId },
-                orderBy: { quotationDate: 'desc' },
+            return prisma.salesOrder.findMany({
+                where: {
+                    customerId,
+                    status: { in: [...QUOTATION_STATUSES] },
+                },
+                orderBy: { orderDate: 'desc' },
+                select: {
+                    id: true,
+                    orderNumber: true,
+                    orderDate: true,
+                    validUntil: true,
+                    totalAmount: true,
+                    status: true,
+                },
             });
         });
     },

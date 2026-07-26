@@ -43,11 +43,9 @@ const salesLinks = [
     {
         heading: 'Transaksi',
         items: [
-            {
-                href: '/sales/quotations',
-                icon: FileText,
-                label: salesSidebarLabels.quotations,
-            },
+            // Penawaran tidak lagi jadi menu terpisah — sudah menyatu ke
+            // lifecycle Sales Order (status QUOTATION/QUOTATION_SENT).
+            // Aksesnya lewat filter status di halaman Sales Order.
             {
                 href: '/sales/orders',
                 icon: ShoppingCart,

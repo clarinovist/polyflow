@@ -2,14 +2,18 @@
 
 ## Purpose
 
-Server actions for sales orders, quotations, customers, deliveries, returns, vehicles, and sales reporting.
+Server actions for sales orders, customers, deliveries, returns, vehicles, and sales reporting.
+
+Quotations are not a separate module: since the unified SO + quotation lifecycle
+migration, a quotation is a `SalesOrder` in a `QUOTATION*` status. Its actions
+live in `sales.ts` (`sendQuotationOrder`, `acceptQuotationOrder`, …) and its
+status helpers in `src/lib/sales/order-phase.ts`.
 
 ## Key Files
 
 | File                         | Purpose                             |
 | ---------------------------- | ----------------------------------- |
 | `sales.ts`                   | Sales order CRUD, status management |
-| `quotations.ts`              | Quotation management                |
 | `customer.ts`                | Customer management                 |
 | `customer-360.ts`            | 360° customer view                  |
 | `customer-product-prices.ts` | Customer-specific pricing           |
@@ -78,8 +82,7 @@ DRAFT → CONFIRMED → PROCESSING → READY → SHIPPED → DELIVERED
 Business logic lives in `src/services/sales/`:
 
 - `sales-service.ts` — Core sales logic
-- `orders-service.ts` — Order management
-- `quotation-service.ts` — Quotation logic
+- `orders-service.ts` — Order management, incl. quotation-phase transitions
 - `credit-service.ts` — Credit limit checking
 - `delivery-fulfillment-service.ts` — Delivery processing
 - `fulfillment-service.ts` — Order fulfillment

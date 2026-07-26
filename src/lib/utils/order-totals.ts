@@ -19,7 +19,7 @@ type OrderLineItem = {
 
 /**
  * Computes order totals from line items.
- * Shared by SalesOrderForm, SalesQuotationForm, PurchaseOrderForm, etc.
+ * Shared by SalesOrderForm, PurchaseOrderForm, etc.
  * Supports both INCLUDE and EXCLUDE PPN modes.
  */
 export function computeOrderTotals(items: OrderLineItem[]): OrderTotals {
