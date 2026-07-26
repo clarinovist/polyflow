@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { withTenantRoute } from "@/lib/core/tenant";
-import { getTenantIdFromContext } from "@/lib/core/prisma";
+import { getTenantIdFromContext, prisma } from "@/lib/core/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { generateVirtualCsReply } from "@/lib/bot/virtual-cs-service";
 import { POLYFLOW_PRODUCT_ID } from "@/lib/bot/product-scope";
@@ -81,6 +81,21 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
   }
 
   const tenantId = getTenantIdFromContext();
+
+  // Explicit session ↔ tenant binding: verify user exists in this tenant's DB
+  const sessionUserId = (session.user as { id?: string }).id;
+  if (sessionUserId) {
+    const userInTenant = await prisma.user.findUnique({
+      where: { id: sessionUserId },
+      select: { id: true },
+    });
+    if (!userInTenant) {
+      return NextResponse.json(
+        { success: false, error: "Session tidak valid untuk tenant ini." },
+        { status: 403 },
+      );
+    }
+  }
 
   try {
     // Build assistant context from session + tenant

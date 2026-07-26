@@ -5,6 +5,7 @@ import { getToolsForContext, toolsToOpenAiFormat, getToolByName } from './tool-r
 import { checkToolAuthorization } from './tool-authorization';
 import { evidenceToText } from './evidence';
 import { buildAssistantContext } from './assistant-context';
+import { prisma } from '@/lib/core/prisma';
 import {
   getOrCreateConversation,
   loadConversationContext,
@@ -12,6 +13,7 @@ import {
   buildLlmHistory,
 } from './conversation-service';
 import { checkPromptInjection, logInjectionAttempt } from './injection-defense';
+import { analyzeForClarification, resolvePronouns, calculateConfidence } from './clarifier';
 import type { AssistantUserContext, AssistantResponse, CitedArticleForResponse, ToolEvidence } from './assistant-types';
 
 const AGENTIC_DEBUG = process.env.AGENTIC_DEBUG === 'true';
@@ -155,6 +157,13 @@ Aturan Evidence:
 - Jika evidence tidak cukup, gunakan frasa "belum dapat dipastikan dari data yang tersedia".
 - Sertakan sumber data di akhir jawaban.
 
+Aturan Diagnosis (untuk pertanyaan "kenapa"):
+- Gabungkan data dari beberapa tools untuk menemukan akar masalah.
+- Sebutkan blocker utama dan blocker tambahan.
+- Jika ada data yang tidak bisa diakses karena permission, nyatakan dengan jelas.
+- Selalu sertakan "Langkah berikutnya:" dengan menu/polyflow path yang harus dibuka user.
+- Contoh: "Langkah berikutnya: Buka menu Sales > Orders untuk melihat detail SO."
+
 Tools yang tersedia:
 ${toolList || 'Tidak ada data tools yang tersedia untuk Anda saat ini.'}
 
@@ -169,8 +178,23 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
     }
   }
 
-  // 7. Add current question
-  messages.push({ role: 'user', content: input.question });
+  // 7. Add current question (with pronoun resolution for follow-ups)
+  let userQuestion = input.question;
+  if (activeConversationId) {
+    const convContext = await loadConversationContext(activeConversationId);
+    const pronounResult = resolvePronouns(input.question, convContext.resolvedEntities);
+    if (pronounResult.wasPronoun) {
+      userQuestion = pronounResult.resolved;
+      messages.push({ role: 'system', content: `[User merujuk ke: ${userQuestion}]` });
+    }
+
+    // Re-query hint: if follow-up asks for current/updated data, force fresh tool calls
+    const timeSensitivePattern = /\b(sekarang|saat\s+ini|terbaru|update|terkini|latest|real[\s-]?time|refresh)\b/i;
+    if (timeSensitivePattern.test(input.question)) {
+      messages.push({ role: 'system', content: '[IMPORTANT: User meminta data terkini. WAJIB panggil tools lagi untuk mendapatkan data terbaru, jangan gunakan data dari pesan sebelumnya.]' });
+    }
+  }
+  messages.push({ role: 'user', content: userQuestion });
 
   try {
     let finalAnswer = '';
@@ -229,7 +253,7 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
 
               // Log tool execution as denied
               logToolExecution({
-                conversationId: undefined,
+                conversationId: activeConversationId,
                 toolName,
                 permissionResource: toolDef.requiredResources.join(','),
                 allowed: false,
@@ -251,10 +275,16 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
             continue;
           }
 
-          // Execute tool
+          // Execute tool with timeout
           const startTime = Date.now();
+          const TOOL_TIMEOUT_MS = 15_000; // 15 seconds per tool
           try {
-            const evidence = await toolDef.execute(parseResult.data, assistantCtx!);
+            const evidence = await Promise.race([
+              toolDef.execute(parseResult.data, assistantCtx!),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Tool timeout')), TOOL_TIMEOUT_MS)
+              ),
+            ]);
             collectedEvidence.push(evidence);
 
             // Collect cited articles from search_help_articles
@@ -285,7 +315,7 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
 
             // Log successful tool execution
             logToolExecution({
-              conversationId: undefined,
+              conversationId: activeConversationId,
               toolName,
               permissionResource: toolDef.requiredResources.join(','),
               allowed: true,
@@ -303,7 +333,7 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
             } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
 
             logToolExecution({
-              conversationId: undefined,
+              conversationId: activeConversationId,
               toolName,
               permissionResource: toolDef.requiredResources.join(','),
               allowed: true,
@@ -335,6 +365,16 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
         }
       }
     }
+
+    // Analyze for clarification needs
+    const clarification = analyzeForClarification(
+      input.question,
+      collectedEvidence,
+      conversationHistory,
+    );
+
+    // Calculate confidence score
+    const confidence = calculateConfidence(collectedEvidence, clarification.needsClarification);
 
     // Build evidence chips for UI
     const evidenceChips = collectedEvidence.map((e) => ({
@@ -370,6 +410,9 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
       relatedArticles,
       evidence: evidenceChips,
       conversationId: activeConversationId,
+      needsClarification: clarification.needsClarification,
+      suggestions: clarification.suggestions,
+      confidence,
       safety: { allowed: true },
     };
   } catch (error) {
@@ -414,7 +457,7 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
 }
 
 // ---------------------------------------------------------------------------
-// Tool execution logging (in-memory, fire-and-forget)
+// Tool execution logging — persist to HelpToolExecution (fire-and-forget)
 // ---------------------------------------------------------------------------
 
 function logToolExecution(entry: {
@@ -428,6 +471,18 @@ function logToolExecution(entry: {
   if (AGENTIC_DEBUG) {
     console.debug(`[TOOL_AUDIT] ${entry.toolName} | allowed=${entry.allowed} | outcome=${entry.outcome} | ${entry.durationMs}ms`);
   }
+
+  // Persist to DB (fire-and-forget, never blocks response)
+  prisma.helpToolExecution.create({
+    data: {
+      conversationId: entry.conversationId || '',
+      toolName: entry.toolName,
+      permissionResource: entry.permissionResource,
+      allowed: entry.allowed,
+      outcome: entry.outcome,
+      durationMs: entry.durationMs,
+    },
+  }).catch(() => { /* non-blocking */ });
 }
 
 // ---------------------------------------------------------------------------

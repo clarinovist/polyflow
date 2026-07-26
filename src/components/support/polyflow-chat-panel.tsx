@@ -48,6 +48,7 @@ type ChatMessage = {
   evidenceChips?: EvidenceChip[];
   needsClarification?: boolean;
   suggestions?: string[];
+  confidence?: number;
 };
 
 type ChatApiResponse = {
@@ -62,6 +63,7 @@ type ChatApiResponse = {
     conversationId?: string;
     needsClarification?: boolean;
     suggestions?: string[];
+    confidence?: number;
     safety: { allowed: boolean; blockedReason?: string };
   };
 };
@@ -71,6 +73,7 @@ const CATEGORIZED_PROMPTS = [
     category: 'Stok & Gudang',
     icon: Package,
     color: 'from-amber-500/20 to-orange-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
+    requiredResources: ['/warehouse/inventory'],
     prompts: [
       'Stok barang MP 15 kok tidak bisa dipakai buat SO?',
       'Barang ada di gudang tapi stok dianggap kurang',
@@ -81,6 +84,7 @@ const CATEGORIZED_PROMPTS = [
     category: 'Penjualan (SO)',
     icon: ShoppingCart,
     color: 'from-blue-500/20 to-indigo-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400',
+    requiredResources: ['/sales/orders'],
     prompts: [
       'Kenapa pesanan Budi belum bisa dikirim?',
       'Pesanan mana yang sedang pending?',
@@ -91,6 +95,7 @@ const CATEGORIZED_PROMPTS = [
     category: 'Produksi (SPK)',
     icon: Factory,
     color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
+    requiredResources: ['/production/orders'],
     prompts: [
       'SPK ini berhenti di mana?',
       'Kenapa saya tidak bisa buka menu ini?',
@@ -101,6 +106,7 @@ const CATEGORIZED_PROMPTS = [
     category: 'Keuangan & Lainnya',
     icon: CreditCard,
     color: 'from-purple-500/20 to-pink-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400',
+    requiredResources: ['/finance'],
     prompts: [
       'Invoice customer ini sudah dibayar belum?',
       'Ringkasan piutang customer',
@@ -112,6 +118,7 @@ const CATEGORIZED_PROMPTS = [
 interface PolyflowChatPanelProps {
   embedded?: boolean;
   initialQuestion?: string;
+  allowedResources?: string[] | 'ALL';
 }
 
 function renderRichText(text: string) {
@@ -327,7 +334,7 @@ function CitedArticleCards({ articles, relatedArticles }: { articles: CitedArtic
   );
 }
 
-export function PolyflowChatPanel({ embedded = false, initialQuestion }: PolyflowChatPanelProps) {
+export function PolyflowChatPanel({ embedded = false, initialQuestion, allowedResources = 'ALL' }: PolyflowChatPanelProps) {
   const [question, setQuestion] = useState(initialQuestion || '');
   const [isLoading, setIsLoading] = useState(false);
   const [longWait, setLongWait] = useState(false);
@@ -373,6 +380,18 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
+  // Filter prompt categories based on user permissions
+  const filteredPromptCategories = useMemo(() => {
+    if (allowedResources === 'ALL') return CATEGORIZED_PROMPTS;
+    return CATEGORIZED_PROMPTS.filter((cat) =>
+      cat.requiredResources.some((resource) =>
+        allowedResources.some((allowed) =>
+          allowed === resource || resource.startsWith(allowed + '/') || allowed.startsWith(resource + '/'),
+        ),
+      ),
+    );
+  }, [allowedResources]);
+
   const pushMessage = (
     role: Role,
     text: string,
@@ -380,6 +399,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
     citedArticles?: CitedArticle[],
     relatedArticles?: CitedArticle[],
     evidenceChips?: EvidenceChip[],
+    confidence?: number,
   ) => {
     setMessages((prev) => [
       ...prev,
@@ -391,6 +411,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
         citedArticles,
         relatedArticles,
         evidenceChips,
+        confidence,
       },
     ]);
   };
@@ -483,6 +504,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
         json.data?.citedArticles,
         json.data?.relatedArticles,
         json.data?.evidence,
+        json.data?.confidence,
       );
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
@@ -578,7 +600,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {CATEGORIZED_PROMPTS.map((cat) => {
+                {filteredPromptCategories.map((cat) => {
                   const Icon = cat.icon;
                   return (
                     <div
@@ -652,6 +674,34 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
                             {chip.source === 'audit-log' && '🔍 '}
                             {chip.label}
                           </span>
+                        ))}
+                      </div>
+                    )}
+                    {msg.confidence !== undefined && (
+                      <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-muted-foreground">
+                        <span className={cn(
+                          'px-1.5 py-0.5 rounded-full font-medium',
+                          msg.confidence >= 0.8 && 'bg-emerald-500/10 text-emerald-600',
+                          msg.confidence >= 0.5 && msg.confidence < 0.8 && 'bg-amber-500/10 text-amber-600',
+                          msg.confidence < 0.5 && 'bg-red-500/10 text-red-600',
+                        )}>
+                          {msg.confidence >= 0.8 ? 'Tinggi' : msg.confidence >= 0.5 ? 'Sedang' : 'Rendah'}
+                        </span>
+                        <span>Confidence: {Math.round(msg.confidence * 100)}%</span>
+                      </div>
+                    )}
+                    {msg.suggestions && msg.suggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {msg.suggestions.map((suggestion, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => sendQuestion(suggestion)}
+                            className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/50 transition-colors font-medium"
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                            {suggestion.length > 50 ? suggestion.slice(0, 50) + '…' : suggestion}
+                          </button>
                         ))}
                       </div>
                     )}

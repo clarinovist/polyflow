@@ -1,4 +1,5 @@
 import type { AssistantUserContext, AuthorizationResult, ToolSensitivity } from './assistant-types';
+import { isFeatureEnabled } from './feature-flags';
 
 /**
  * Check if a user's allowedResources includes a given resource path.
@@ -52,6 +53,14 @@ export function checkToolAuthorization(
   },
   context: AssistantUserContext,
 ): AuthorizationResult {
+  // Phase 0: Check feature flags
+  if (tool.sensitivity === 'restricted' && !isFeatureEnabled('assistant.sensitiveDomains')) {
+    return {
+      allowed: false,
+      reason: 'Fitur ini belum diaktifkan untuk tenant Anda.',
+    };
+  }
+
   // Phase 1: Check tool-level required resources
   const missingResources: string[] = [];
 

@@ -893,6 +893,234 @@ export const toolRegistry: AssistantToolDefinition[] = [
       });
     },
   },
+
+  // --- Gap 11: Additional diagnosis workflows ---
+
+  // diagnose_production_blocker
+  {
+    name: 'diagnose_production_blocker',
+    description: 'Diagnosa mengapa SPK produksi tertahan: cek material, BOM, backflush, dan status.',
+    requiredResources: ['/production/orders', '/warehouse/inventory'],
+    sensitivity: 'normal',
+    inputSchema: z.object({
+      searchTerm: z.string().min(1, 'Nomor SPK harus diisi'),
+    }),
+    execute: async (args, _ctx): Promise<ToolEvidence> => {
+      const { searchTerm } = args as { searchTerm: string };
+      const facts: { label: string; value: string }[] = [];
+      const entities: { type: string; id: string; label: string; href: string }[] = [];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pos = await prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT po.id, po."orderNumber", po.status, po."plannedQuantity", po."actualQuantity",
+               b.id AS "bomId", p.name AS product
+        FROM "ProductionOrder" po
+        JOIN "Bom" b ON po."bomId" = b.id
+        JOIN "ProductVariant" pv ON b."productVariantId" = pv.id
+        JOIN "Product" p ON pv."productId" = p.id
+        WHERE po."orderNumber" ILIKE ${'%' + searchTerm + '%'}
+        ORDER BY po."createdAt" DESC LIMIT 1
+      `);
+
+      if (!pos.length) {
+        return createEvidence({
+          summary: `SPK dengan kata kunci '${searchTerm}' tidak ditemukan.`,
+          facts: [{ label: 'Pencarian', value: searchTerm }],
+          source: 'tenant-data',
+          completeness: 'partial',
+        });
+      }
+
+      const po = pos[0];
+      facts.push({ label: 'Status SPK', value: `${po.orderNumber} [${po.status}] — ${po.product}` });
+      facts.push({ label: 'Target vs Aktual', value: `Target: ${Number(po.plannedQuantity).toFixed(2)} — Aktual: ${Number(po.actualQuantity || 0).toFixed(2)}` });
+      entities.push({ type: 'ProductionOrder', id: po.id, label: po.orderNumber, href: '/production/orders' });
+
+      // Check BOM materials
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bomItems = await prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT p.name AS material, bi.quantity AS required,
+               COALESCE((SELECT SUM(i.quantity) FROM "Inventory" i WHERE i."productVariantId" = bi."productVariantId" AND i.quantity > 0), 0) AS available
+        FROM "BomItem" bi
+        JOIN "ProductVariant" pv ON bi."productVariantId" = pv.id
+        JOIN "Product" p ON pv."productId" = p.id
+        WHERE bi."bomId" = ${po.bomId}
+      `);
+
+      let hasShortage = false;
+      for (const item of bomItems) {
+        const required = Number(item.required);
+        const available = Number(item.available);
+        const status = available >= required ? '✅' : `❌ Kurang ${required - available}`;
+        facts.push({ label: `Material: ${item.material}`, value: `Diperlukan: ${required} — Tersedia: ${available} — ${status}` });
+        if (available < required) hasShortage = true;
+      }
+
+      return createEvidence({
+        summary: `Diagnosa SPK ${po.orderNumber}: ${hasShortage ? 'Ada material yang kurang' : 'Material mencukupi, periksa mesin/jadwal'}`,
+        facts,
+        entities,
+        source: 'tenant-data',
+        completeness: hasShortage ? 'partial' : 'complete',
+      });
+    },
+  },
+
+  // diagnose_po_invoice_mismatch
+  {
+    name: 'diagnose_po_invoice_mismatch',
+    description: 'Diagnosa mengapa PO belum bisa di-invoice: cek goods receipt, variance, dan status.',
+    requiredResources: ['/purchasing/orders', '/finance/invoices/purchase'],
+    sensitivity: 'financial',
+    inputSchema: z.object({
+      searchTerm: z.string().min(1, 'Nomor PO harus diisi'),
+    }),
+    execute: async (args, _ctx): Promise<ToolEvidence> => {
+      const { searchTerm } = args as { searchTerm: string };
+      const facts: { label: string; value: string }[] = [];
+      const entities: { type: string; id: string; label: string; href: string }[] = [];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pos = await prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT po.id, po."orderNumber", po.status, po."totalAmount",
+               s.name AS supplier
+        FROM "PurchaseOrder" po
+        LEFT JOIN "Supplier" s ON po."supplierId" = s.id
+        WHERE po."orderNumber" ILIKE ${'%' + searchTerm + '%'}
+        ORDER BY po."createdAt" DESC LIMIT 1
+      `);
+
+      if (!pos.length) {
+        return createEvidence({
+          summary: `PO dengan kata kunci '${searchTerm}' tidak ditemukan.`,
+          facts: [{ label: 'Pencarian', value: searchTerm }],
+          source: 'tenant-data',
+          completeness: 'partial',
+        });
+      }
+
+      const po = pos[0];
+      facts.push({ label: 'Status PO', value: `${po.orderNumber} [${po.status}] — ${po.supplier || '-'}` });
+      facts.push({ label: 'Total Amount', value: formatCurrency(Number(po.totalAmount)) });
+      entities.push({ type: 'PurchaseOrder', id: po.id, label: po.orderNumber, href: '/purchasing/orders' });
+
+      // Check goods receipts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const receipts = await prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT gr.id, gr."receiptNumber", gr.status, gr."totalAmount"
+        FROM "GoodsReceipt" gr
+        WHERE gr."purchaseOrderId" = ${po.id}
+      `);
+
+      if (receipts.length > 0) {
+        for (const r of receipts) {
+          facts.push({ label: `Receipt: ${r.receiptNumber}`, value: `${r.status} — ${formatCurrency(Number(r.totalAmount))}` });
+        }
+      } else {
+        facts.push({ label: 'Goods Receipt', value: 'Belum ada penerimaan barang' });
+      }
+
+      // Check linked invoices
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoices = await prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT pi.id, pi."invoiceNumber", pi.status
+        FROM "PurchaseInvoice" pi
+        WHERE pi."purchaseOrderId" = ${po.id}
+      `);
+
+      if (invoices.length > 0) {
+        for (const inv of invoices) {
+          facts.push({ label: `Invoice: ${inv.invoiceNumber}`, value: inv.status });
+        }
+      } else {
+        facts.push({ label: 'Invoice', value: 'Belum ada invoice' });
+      }
+
+      return createEvidence({
+        summary: `Diagnosa PO ${po.orderNumber}: ${receipts.length === 0 ? 'Belum ada penerimaan barang' : receipts.length + ' receipt ditemukan, ' + invoices.length + ' invoice'}`,
+        facts,
+        entities,
+        source: 'tenant-data',
+      });
+    },
+  },
+
+  // diagnose_invoice_payment
+  {
+    name: 'diagnose_invoice_payment',
+    description: 'Diagnosa mengapa invoice tampak belum lunas: cek payment allocation, amount, dan status.',
+    requiredResources: ['/finance/invoices/sales'],
+    sensitivity: 'financial',
+    inputSchema: z.object({
+      searchTerm: z.string().min(1, 'Nomor invoice harus diisi'),
+    }),
+    execute: async (args, _ctx): Promise<ToolEvidence> => {
+      const { searchTerm } = args as { searchTerm: string };
+      const facts: { label: string; value: string }[] = [];
+      const entities: { type: string; id: string; label: string; href: string }[] = [];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoices = await prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT i.id, i."invoiceNumber", i.status, i."totalAmount", i."paidAmount", i."dueDate",
+               c.name AS customer
+        FROM "Invoice" i
+        LEFT JOIN "Customer" c ON i."customerId" = c.id
+        WHERE i."invoiceNumber" ILIKE ${'%' + searchTerm + '%'}
+        ORDER BY i."createdAt" DESC LIMIT 1
+      `);
+
+      if (!invoices.length) {
+        return createEvidence({
+          summary: `Invoice dengan kata kunci '${searchTerm}' tidak ditemukan.`,
+          facts: [{ label: 'Pencarian', value: searchTerm }],
+          source: 'tenant-data',
+          completeness: 'partial',
+        });
+      }
+
+      const inv = invoices[0];
+      const total = Number(inv.totalAmount);
+      const paid = Number(inv.paidAmount);
+      const remaining = total - paid;
+
+      facts.push({ label: 'Status Invoice', value: `${inv.invoiceNumber} [${inv.status}] — ${inv.customer || '-'}` });
+      facts.push({ label: 'Total Amount', value: formatCurrency(total) });
+      facts.push({ label: 'Paid Amount', value: formatCurrency(paid) });
+      facts.push({ label: 'Remaining', value: formatCurrency(remaining) });
+      facts.push({ label: 'Due Date', value: inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('id-ID') : '-' });
+      entities.push({ type: 'Invoice', id: inv.id, label: inv.invoiceNumber, href: '/finance/invoices/sales' });
+
+      // Check payment allocations
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payments = await prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT pa.id, pa."paymentId", pa.amount, p."paymentNumber", p.status
+        FROM "PaymentAllocation" pa
+        JOIN "Payment" p ON pa."paymentId" = p.id
+        WHERE pa."invoiceId" = ${inv.id}
+      `);
+
+      if (payments.length > 0) {
+        for (const pmt of payments) {
+          facts.push({ label: `Payment: ${pmt.paymentNumber}`, value: `${formatCurrency(Number(pmt.amount))} — ${pmt.status}` });
+        }
+      } else {
+        facts.push({ label: 'Payments', value: 'Tidak ada pembayaran tercatat' });
+      }
+
+      const diagnosis = remaining <= 0
+        ? 'Invoice sudah lunas'
+        : payments.length === 0
+        ? 'Belum ada pembayaran'
+        : `Sisa ${formatCurrency(remaining)} belum teralokasi`;
+
+      return createEvidence({
+        summary: `Diagnosa Invoice ${inv.invoiceNumber}: ${diagnosis}`,
+        facts,
+        entities,
+        source: 'tenant-data',
+      });
+    },
+  },
 ];
 
 /**

@@ -64,12 +64,15 @@ model User {
   lockedPeriods                  PeriodLock[]
   salesVisits                    SalesVisit[]           @relation("SalesVisitCreator")
   routePlans                     SalesRoutePlan[]
+  customerSalesAssignments       CustomerSalesAssignment[] @relation("CustomerSalesAssignee")
+  customerAssignmentsCreated     CustomerSalesAssignment[] @relation("CustomerSalesAssignmentCreator")
   schedulesCreated               DeliverySchedule[]     @relation("ScheduleCreator")
   // ── Fase 4 ──
   disciplinaryActionsIssued      DisciplinaryAction[]
   leaveRequestsReviewed          LeaveRequest[]
   // ── Fase 5 ──
   loansApproved                  EmployeeLoan[]         @relation("LoanApprover")
+  customersCreated               Customer[]
 }
 
 model UserRole {
@@ -347,6 +350,14 @@ model Customer {
   village          String?
   defaultVehicleId String?
   defaultVehicle   Vehicle?               @relation("CustomerDefaultVehicle", fields: [defaultVehicleId], references: [id])
+  // ── Lifecycle & attribution ──
+  lifecycleStatus  CustomerLifecycleStatus @default(ACTIVE)
+  createdById      String?
+  createdBy        User?                  @relation(fields: [createdById], references: [id])
+  verifiedAt       DateTime?
+  verifiedById     String?
+  mergedIntoId     String?
+  source           String?
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   salesOrders      SalesOrder[]
@@ -358,6 +369,7 @@ model Customer {
   maklonReturns    MaklonMaterialReturn[] @relation("MaklonReturnCustomer")
   salesVisits      SalesVisit[]
   routePlanItems   SalesRoutePlanItem[]
+  salesAssignments CustomerSalesAssignment[]
 }
 
 model ApiKey {
@@ -1778,6 +1790,27 @@ enum SalesRoutePlanStatus {
   PUBLISHED
 }
 
+enum CustomerLifecycleStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  MERGED
+}
+
+enum SalesVisitExtraReason {
+  TOKO_BARU
+  DEKAT_RUTE
+  PERMINTAAN_DADAKAN
+  TOKO_TUTUP_GANTI
+}
+
+enum SalesVisitReviewStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum InvoiceStatus {
   UNPAID
   PARTIAL
@@ -2334,24 +2367,34 @@ model MachineOperator {
 }
 
 model SalesVisit {
-  id              String   @id @default(uuid())
+  id              String                    @id @default(uuid())
   customerId      String
-  customer        Customer @relation(fields: [customerId], references: [id])
+  customer        Customer                  @relation(fields: [customerId], references: [id])
   userId          String
-  user            User     @relation("SalesVisitCreator", fields: [userId], references: [id])
+  user            User                      @relation("SalesVisitCreator", fields: [userId], references: [id])
   checkInTime     DateTime
   checkOutTime    DateTime
   durationSeconds Int
-  latitude        Decimal  @db.Decimal(10, 7)
-  longitude       Decimal  @db.Decimal(10, 7)
+  latitude        Decimal                   @db.Decimal(10, 7)
+  longitude       Decimal                   @db.Decimal(10, 7)
   distance        Float
-  notes           String?  @db.Text
-  photoUrl        String?  @db.Text
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  notes           String?                   @db.Text
+  photoUrl        String?                   @db.Text
+  // ── EC & route integration ──
+  clientVisitId   String?
+  routePlanItemId String?
+  routePlanItem   SalesRoutePlanItem?       @relation(fields: [routePlanItemId], references: [id])
+  isExtraCall     Boolean                   @default(false)
+  extraReason     SalesVisitExtraReason?
+  reviewStatus    SalesVisitReviewStatus    @default(NOT_REQUIRED)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
 
+  @@unique([userId, clientVisitId])
   @@index([userId])
   @@index([customerId])
+  @@index([routePlanItemId])
+  @@index([isExtraCall, checkInTime])
 }
 
 // ==========================================
@@ -2386,9 +2429,33 @@ model SalesRoutePlanItem {
   extraReason  String?
   notes        String?         @db.Text
   createdAt    DateTime        @default(now())
+  visits       SalesVisit[]
 
   @@index([routePlanId])
   @@index([customerId])
+}
+
+// ==========================================
+// Customer Sales Assignment (ownership tracking)
+// ==========================================
+
+model CustomerSalesAssignment {
+  id           String                  @id @default(cuid())
+  customerId   String
+  customer     Customer                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                    @relation("CustomerSalesAssignee", fields: [userId], references: [id])
+  isPrimary    Boolean                 @default(true)
+  assignedAt   DateTime                @default(now())
+  unassignedAt DateTime?
+  assignedById String
+  assignedBy   User                    @relation("CustomerSalesAssignmentCreator", fields: [assignedById], references: [id])
+  notes        String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([userId, unassignedAt])
+  @@index([customerId, unassignedAt])
 }
 
 // ==========================================

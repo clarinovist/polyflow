@@ -9,6 +9,32 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_SUMMARY_LENGTH = 500;
 
 // ---------------------------------------------------------------------------
+// Audit helper
+// ---------------------------------------------------------------------------
+
+async function auditTenantKnowledge(input: {
+  action: string;
+  articleId: string;
+  tenantId: string;
+  userId?: string;
+  details?: string;
+}): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: input.userId || 'system',
+        action: input.action,
+        entityType: 'TenantKnowledgeArticle',
+        entityId: input.articleId,
+        details: input.details,
+      },
+    });
+  } catch {
+    // Non-blocking — audit failure should not break CRUD
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -39,7 +65,7 @@ export async function createTenantKnowledge(input: {
   allowedResources?: string[];
   createdBy?: string;
 }): Promise<TenantKnowledgeArticle> {
-  return prisma.tenantKnowledgeArticle.create({
+  const article = await prisma.tenantKnowledgeArticle.create({
     data: {
       tenantId: input.tenantId,
       slug: input.slug,
@@ -56,6 +82,16 @@ export async function createTenantKnowledge(input: {
       updatedBy: input.createdBy,
     },
   });
+
+  await auditTenantKnowledge({
+    action: 'KNOWLEDGE_CREATE',
+    articleId: article.id,
+    tenantId: input.tenantId,
+    userId: input.createdBy,
+    details: `Created article: ${input.title}`,
+  });
+
+  return article;
 }
 
 export async function updateTenantKnowledge(input: {
@@ -76,7 +112,7 @@ export async function updateTenantKnowledge(input: {
   });
   if (!existing) throw new Error('Article not found');
 
-  return prisma.tenantKnowledgeArticle.update({
+  const updated = await prisma.tenantKnowledgeArticle.update({
     where: { id: input.id },
     data: {
       ...(input.title !== undefined && { title: input.title.slice(0, MAX_TITLE_LENGTH) }),
@@ -90,6 +126,16 @@ export async function updateTenantKnowledge(input: {
       version: { increment: 1 },
     },
   });
+
+  await auditTenantKnowledge({
+    action: 'KNOWLEDGE_UPDATE',
+    articleId: input.id,
+    tenantId: input.tenantId,
+    userId: input.updatedBy,
+    details: `Updated article v${updated.version}`,
+  });
+
+  return updated;
 }
 
 export async function publishTenantKnowledge(
@@ -102,7 +148,7 @@ export async function publishTenantKnowledge(
   });
   if (!existing) throw new Error('Article not found');
 
-  return prisma.tenantKnowledgeArticle.update({
+  const published = await prisma.tenantKnowledgeArticle.update({
     where: { id },
     data: {
       status: 'PUBLISHED',
@@ -110,6 +156,16 @@ export async function publishTenantKnowledge(
       updatedBy: publishedBy,
     },
   });
+
+  await auditTenantKnowledge({
+    action: 'KNOWLEDGE_PUBLISH',
+    articleId: id,
+    tenantId,
+    userId: publishedBy,
+    details: `Published article: ${existing.title}`,
+  });
+
+  return published;
 }
 
 export async function archiveTenantKnowledge(
@@ -122,13 +178,23 @@ export async function archiveTenantKnowledge(
   });
   if (!existing) throw new Error('Article not found');
 
-  return prisma.tenantKnowledgeArticle.update({
+  const archived = await prisma.tenantKnowledgeArticle.update({
     where: { id },
     data: {
       status: 'ARCHIVED',
       updatedBy: archivedBy,
     },
   });
+
+  await auditTenantKnowledge({
+    action: 'KNOWLEDGE_ARCHIVE',
+    articleId: id,
+    tenantId,
+    userId: archivedBy,
+    details: `Archived article: ${existing.title}`,
+  });
+
+  return archived;
 }
 
 export async function listTenantKnowledge(input: {
