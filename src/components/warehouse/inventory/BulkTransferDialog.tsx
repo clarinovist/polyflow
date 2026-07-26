@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/schemas/inventory';
 import { transferStockBulk } from '@/actions/inventory/inventory';
@@ -69,8 +69,9 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
     const sourceLocationName = items.length > 0 ? items[0].location.name : '';
 
     const form = useForm<BulkTransferStockValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(bulkTransferStockSchema) as any,
+        resolver: zodResolver(
+            bulkTransferStockSchema,
+        ) as Resolver<BulkTransferStockValues>,
         defaultValues: {
             sourceLocationId: sourceLocationId,
             destinationLocationId: '',

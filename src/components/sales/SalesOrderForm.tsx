@@ -1,6 +1,11 @@
 "use client";
 
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  useWatch,
+  type Resolver,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   createSalesOrderSchema,
@@ -219,7 +224,7 @@ export function SalesOrderForm({
   const form = useForm<SalesOrderFormValues>({
     resolver: zodResolver(
       mode === "create" ? createSalesOrderSchema : updateSalesOrderSchema,
-    ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    ) as unknown as Resolver<SalesOrderFormValues>,
     defaultValues: initialData
       ? {
           ...initialData,

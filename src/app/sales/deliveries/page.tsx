@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { getDeliveryOrders } from '@/actions/inventory/deliveries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
@@ -63,8 +64,13 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <DeliveryOrderTable initialData={serializedOrders as any} />
+                    <DeliveryOrderTable
+                        initialData={
+                            serializedOrders as unknown as ComponentProps<
+                                typeof DeliveryOrderTable
+                            >['initialData']
+                        }
+                    />
                 </CardContent>
             </Card>
         </div >

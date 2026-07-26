@@ -79,8 +79,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
             }
             if (result.data) {
                 toast.success('Quotation berhasil dikonversi menjadi Sales Order!');
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                router.push(`/sales/orders/${(result.data as any).id}`);
+                router.push(`/sales/orders/${(result.data as { id: string }).id}`);
             }
         } catch {
             toast.error("Gagal mengonversi quotation. Silakan coba lagi.");

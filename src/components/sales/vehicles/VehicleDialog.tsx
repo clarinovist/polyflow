@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createVehicleSchema, CreateVehicleValues } from '@/lib/schemas/sales';
 import { createVehicle, updateVehicle } from '@/actions/sales/vehicles';
@@ -65,8 +65,9 @@ export function VehicleDialog({ mode, initialData, trigger, open: externalOpen, 
 
   const form = useForm<CreateVehicleValues>({
     // cast: z.coerce makes input type diverge from output (Zod 4 + RHF)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createVehicleSchema) as any,
+    resolver: zodResolver(
+      createVehicleSchema,
+    ) as unknown as Resolver<CreateVehicleValues>,
     defaultValues: {
       plateNumber: initialData?.plateNumber || '',
       name: initialData?.name || '',

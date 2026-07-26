@@ -25,11 +25,9 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
     const machines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
     const ordersRes = await getProductionOrders();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allOrders = ordersRes as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const orders = allOrders.filter((o: any) =>
-        [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.DRAFT, ProductionStatus.WAITING_MATERIAL].includes(o.status)
+    const allOrders = ordersRes;
+    const orders = allOrders.filter((o) =>
+        ([ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.DRAFT, ProductionStatus.WAITING_MATERIAL] as ProductionStatus[]).includes(o.status)
     );
 
     // Parse ?from=YYYY-MM-DD for week navigation
@@ -44,8 +42,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
     const timelineDays = Array.from({ length: 7 }, (_, i) => addDays(timelineStart, i));
 
     // Map orders to shape expected by client components
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const clientOrders = orders.map((o: any) => ({
+    const clientOrders = orders.map((o) => ({
         id: o.id,
         orderNumber: o.orderNumber,
         bomName: o.bom?.name ?? '',
@@ -56,8 +53,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
     }));
 
     // Map machines to shape expected by client components
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const clientMachines = machines.map((m: any) => ({
+    const clientMachines = machines.map((m) => ({
         id: m.id,
         code: m.code,
         type: m.type,

@@ -13,13 +13,18 @@ interface EditJournalPageProps {
     params: Promise<{ id: string }>;
 }
 
+type JournalEntryData = NonNullable<
+    Extract<Awaited<ReturnType<typeof getJournalById>>, { success: true }>['data']
+>;
+type JournalGlLine = JournalEntryData['lines'][number];
+type JournalDetailRow = JournalEntryData['details'][number];
+
 export default async function EditJournalPage({ params }: EditJournalPageProps) {
     const { id } = await params;
 
     // Load journal
     const journalRes = await getJournalById(id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const journal: any = journalRes.success && journalRes.data ? journalRes.data : null;
+    const journal: JournalEntryData | null = journalRes.success && journalRes.data ? journalRes.data : null;
 
     if (!journal) {
         notFound();
@@ -42,10 +47,8 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
         const template = DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey];
 
         // Infer direction by matching journal lines against template primaryCodes.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const debitLine = journal.lines.find((l: any) => Number(l.debit) > 0);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const creditLine = journal.lines.find((l: any) => Number(l.credit) > 0);
+        const debitLine = journal.lines.find((l: JournalGlLine) => Number(l.debit) > 0);
+        const creditLine = journal.lines.find((l: JournalGlLine) => Number(l.credit) > 0);
 
         // Resolve account codes from the two GL lines
         const debitAccount = debitLine
@@ -68,7 +71,7 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
         }
 
         const defaultValues = {
-            type: detailType,
+            type: detailType as DetailJournalTemplateKey,
             entryDate: new Date(journal.entryDate),
             description: journal.description,
             reference: journal.reference || '',
@@ -76,8 +79,7 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
             counterAccountId: direction === 'OUTFLOW' ? creditLine?.accountId || '' : debitLine?.accountId || '',
             direction,
             templateKey: detailType,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            details: journal.details.map((d: any) => ({
+            details: journal.details.map((d: JournalDetailRow) => ({
                 description: d.description,
                 amount: Number(d.amount),
             })),
@@ -119,8 +121,7 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
         entryDate: new Date(journal.entryDate),
         description: journal.description,
         reference: journal.reference || '',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        lines: journal.lines.map((line: any) => ({
+        lines: journal.lines.map((line: JournalGlLine) => ({
             accountId: line.accountId,
             description: line.description || '',
             debit: Number(line.debit),

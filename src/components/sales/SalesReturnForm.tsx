@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createSalesReturnSchema, CreateSalesReturnValues } from '@/lib/schemas/returns';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,27 @@ import { toast } from 'sonner';
 import { createSalesReturnAction } from '@/actions/sales/sales-returns';
 import Link from 'next/link';
 
-// Using partial types for props
+// Minimal view types for the fields this form actually reads from lookup data
+type CustomerOption = { id: string; name: string };
+type LocationOption = { id: string; name: string };
+type ProductOption = {
+    id: string;
+    skuCode: string;
+    name: string;
+    sellPrice: number | null;
+};
+type SalesOrderOption = {
+    id: string;
+    orderNumber: string;
+    customerId?: string | null;
+    customer?: { name: string | null } | null;
+};
+
 type FormProps = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    customers: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    locations: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    products: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    salesOrders: any[];
+    customers: CustomerOption[];
+    locations: LocationOption[];
+    products: ProductOption[];
+    salesOrders: SalesOrderOption[];
     initialData?: CreateSalesReturnValues & { id?: string };
     mode: 'create' | 'edit';
 };
@@ -36,8 +47,9 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const form = useForm<CreateSalesReturnValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(createSalesReturnSchema) as any,
+        resolver: zodResolver(
+            createSalesReturnSchema,
+        ) as unknown as Resolver<CreateSalesReturnValues>,
         defaultValues: initialData || ({
             customerId: '',
             salesOrderId: '',
@@ -225,8 +237,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Item yang Diretur</CardTitle>
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ productVariantId: '', returnedQty: 1, unitPrice: 0, condition: 'GOOD', reason: 'OTHER' } as any)}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => append({ productVariantId: '', returnedQty: 1, unitPrice: 0, condition: 'GOOD', reason: 'OTHER' })}>
                             <Plus className="h-4 w-4 mr-2" /> {actionLabels.add} Item
                         </Button>
                     </CardHeader>

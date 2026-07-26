@@ -100,8 +100,7 @@ export function JournalListClient() {
         limit,
       });
       if (res.success && res.data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setData(res.data.data as any);
+        setData(res.data.data as JournalEntryWithDetails[]);
         setTotal(res.data.meta.total);
       } else if (!res.success) {
         toast.error(res.error || "Gagal mengambil jurnal");
@@ -127,8 +126,7 @@ export function JournalListClient() {
   // Table Instance
   const table = useReactTable({
     data,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    columns: cols as any,
+    columns: cols,
     state: {
       rowSelection,
       sorting,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, useFieldArray, useWatch, SubmitHandler } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, type SubmitHandler, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { bulkAdjustStockSchema, BulkAdjustStockValues } from '@/lib/schemas/inventory';
 import { adjustStockBulk } from '@/actions/inventory/inventory';
@@ -48,8 +48,9 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
     });
 
     const form = useForm<BulkAdjustStockValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(bulkAdjustStockSchema) as any,
+        resolver: zodResolver(
+            bulkAdjustStockSchema,
+        ) as Resolver<BulkAdjustStockValues>,
         defaultValues: {
             locationId: '',
             items: [],

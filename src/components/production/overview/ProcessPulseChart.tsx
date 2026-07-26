@@ -55,24 +55,34 @@ const PROCESS_COLORS: Record<ProcessKey, string> = {
   OTHER: '#8a97a8',
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomTooltip = ({ active, payload, label }: any) => {
+type TooltipPayloadItem = {
+  dataKey?: string | number;
+  name?: string | number;
+  value?: number | string;
+  color?: string;
+  fill?: string;
+};
+
+type CustomTooltipProps = {
+  active?: boolean;
+  label?: string | number;
+  payload?: TooltipPayloadItem[];
+};
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border bg-background/95 p-3 shadow-xl backdrop-blur-sm text-xs">
       <p className="font-bold mb-1.5">{label}</p>
       <div className="space-y-1">
-        {payload.map(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (p: any) => (
-            <p key={p.dataKey} className="flex justify-between gap-4" style={{ color: p.color || p.fill }}>
-              <span>{p.name}:</span>
-              <span className="font-mono font-bold">
-                {Number(p.value).toLocaleString('id-ID', { maximumFractionDigits: 1 })}
-              </span>
-            </p>
-          )
-        )}
+        {payload.map((p: TooltipPayloadItem) => (
+          <p key={p.dataKey} className="flex justify-between gap-4" style={{ color: p.color || p.fill }}>
+            <span>{p.name}:</span>
+            <span className="font-mono font-bold">
+              {Number(p.value).toLocaleString('id-ID', { maximumFractionDigits: 1 })}
+            </span>
+          </p>
+        ))}
       </div>
     </div>
   );

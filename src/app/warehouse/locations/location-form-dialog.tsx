@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { createLocationSchema, CreateLocationValues } from '@/lib/schemas/inventory';
 import { createLocation, updateLocation } from '@/actions/inventory/locations';
 import { Button } from '@/components/ui/button';
@@ -51,9 +52,12 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
 
-    const form = useForm<CreateLocationValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(createLocationSchema) as any,
+    const form = useForm<
+        z.input<typeof createLocationSchema>,
+        unknown,
+        CreateLocationValues
+    >({
+        resolver: zodResolver(createLocationSchema),
         defaultValues: {
             name: initialData?.name || '',
             slug: initialData?.slug || '',

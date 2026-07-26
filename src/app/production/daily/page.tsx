@@ -21,22 +21,19 @@ export default async function DailyProductionPage() {
   // This includes orders from previous days that are still in progress
   const ordersRes = await getProductionOrders();
   const allOrders = ordersRes;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const orders = (allOrders as any[]).filter((o: any) =>
-    [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.WAITING_MATERIAL].includes(o.status)
+  const orders = allOrders.filter((o) =>
+    ([ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.WAITING_MATERIAL] as ProductionStatus[]).includes(o.status)
   );
 
   // Fetch BOMs with default flag for Quick Produce dialog
   const bomsRes = await getBoms();
   const allBoms = bomsRes.success && bomsRes.data ? bomsRes.data : [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const boms = (allBoms as any[]).filter((b: any) => b.isDefault);
+  const boms = allBoms.filter((b) => b.isDefault);
 
   // Fetch active machines
   const machinesRes = await getMachines();
   const allMachines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const machines = (allMachines as any[]).filter((m: any) => m.status === 'ACTIVE');
+  const machines = allMachines.filter((m) => m.status === 'ACTIVE');
 
   return (
     <div className="flex flex-col gap-6">

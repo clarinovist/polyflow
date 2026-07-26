@@ -27,8 +27,15 @@ type ReturnDetail = SalesReturn & {
     salesOrder: { orderNumber: string } | null;
     deliveryOrder: { deliveryNumber: string } | null;
     createdBy: { name: string } | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    items: any[];
+    items: {
+        condition: string;
+        returnedQty: number | string;
+        unitPrice: number | string;
+        productVariant: {
+            skuCode: string;
+            product: { name: string } | null;
+        } | null;
+    }[];
 };
 
 interface SalesReturnDetailClientProps {
@@ -37,8 +44,7 @@ interface SalesReturnDetailClientProps {
     basePath?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath = '/sales/returns' }: SalesReturnDetailClientProps) {
+export function SalesReturnDetailClient({ salesReturn, basePath = '/sales/returns' }: SalesReturnDetailClientProps) {
     const router = useRouter();
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 

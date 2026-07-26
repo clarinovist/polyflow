@@ -17,7 +17,10 @@ import { OrderWorkflowStepper } from "@/components/production/order-detail/Order
 import { OrderOverviewTab } from "./components/order-overview-tab";
 import { OrderExecutionTab } from "./components/order-execution-tab";
 import { OrderIssuesTab } from "./components/order-issues-tab";
-import { OrderCostingTab } from "./components/order-costing-tab";
+import {
+  OrderCostingTab,
+  type OrderCostingData,
+} from "./components/order-costing-tab";
 import { OrderDetailHeader } from "./components/order-detail-header";
 import { EntityStatusTimeline } from "@/components/shared/EntityStatusTimeline";
 
@@ -49,15 +52,14 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
 
   const [activeTab, setActiveTab] = useState(getDefaultTab(order.status));
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [costingData, setCostingData] = useState<any>(null);
+  const [costingData, setCostingData] = useState<OrderCostingData>(null);
   const [loadingCosting, setLoadingCosting] = useState(false);
 
   useEffect(() => {
     if (activeTab === "issues_costing" && !costingData) {
       setLoadingCosting(true);
       getOrderCosting(order.id)
-        .then(setCostingData)
+        .then((res) => setCostingData(res.success ? res.data : null))
         .finally(() => setLoadingCosting(false));
     }
   }, [activeTab, order.id, costingData]);

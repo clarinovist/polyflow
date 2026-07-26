@@ -11,8 +11,7 @@ export const metadata: Metadata = {
     title: 'Movement History | PolyFlow Warehouse',
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default async function WarehouseHistoryPage({ searchParams }: { searchParams: Promise<any> }) {
+export default async function WarehouseHistoryPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
     const params = await searchParams;
     const startDate = params.from ? new Date(params.from) : undefined;
     const endDate = params.to ? new Date(params.to) : undefined;

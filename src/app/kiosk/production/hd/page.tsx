@@ -26,9 +26,8 @@ export default async function HdKioskPage() {
 
     const ordersRes = await getProductionOrders();
     const allOrders = ordersRes;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const orders = (allOrders as any[]).filter((o: any) =>
-      [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS].includes(o.status)
+    const orders = allOrders.filter((o) =>
+      ([ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] as ProductionStatus[]).includes(o.status)
     );
 
     const machinesRes = await getMachines();
@@ -36,8 +35,7 @@ export default async function HdKioskPage() {
 
     const employeesRes = await getEmployees();
     const allEmployees = employeesRes.success && employeesRes.data ? employeesRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const employees = (allEmployees as any[]).filter((e: any) => e.status === 'ACTIVE');
+    const employees = allEmployees.filter((e) => e.status === 'ACTIVE');
 
     const serializedOrders = serializeData(orders);
     const serializedMachines = serializeData(machines);

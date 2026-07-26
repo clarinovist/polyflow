@@ -4,6 +4,14 @@ import { getProductVariants } from '@/actions/inventory/inventory';
 import { MaklonReturnForm } from '@/components/production/maklon/MaklonReturnForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { serializeData } from '@/lib/utils/utils';
+import type { Serialized } from '@/lib/types/serialized';
+
+type SerializedProductRow = Serialized<
+    Extract<
+        Awaited<ReturnType<typeof getProductVariants>>,
+        { success: true }
+    >['data'][number]
+>;
 
 export default async function WarehouseCreateMaklonReturnPage() {
     const [customersRes, locationsRes, productsRes] = await Promise.all([
@@ -16,8 +24,7 @@ export default async function WarehouseCreateMaklonReturnPage() {
     const locations = locationsRes.success && locationsRes.data ? serializeData(locationsRes.data) : [];
     const rawProducts = productsRes.success && productsRes.data ? serializeData(productsRes.data) : [];
 
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const products = rawProducts.map((p: any) => ({
+    const products = rawProducts.map((p: SerializedProductRow) => ({
         ...p,
         price: p.price ? Number(p.price) : null,
         buyPrice: p.buyPrice ? Number(p.buyPrice) : null,
@@ -27,12 +34,11 @@ export default async function WarehouseCreateMaklonReturnPage() {
         minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
         reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
         reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
-        inventories: p.inventories?.map((inv: any) => ({
+        inventories: p.inventories?.map((inv) => ({
             locationId: inv.locationId,
             quantity: inv.quantity ? Number(inv.quantity) : 0
         })) || []
     }));
-    /* eslint-enable @typescript-eslint/no-explicit-any */
 
     return (
         <div className="flex flex-col gap-6">

@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -35,8 +36,14 @@ export default async function MaklonReturnsPage({
 
       {res.success && res.data ? (
         <div className="bg-white dark:bg-sidebar rounded-xl border p-0 sm:p-2">
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <MaklonReturnTable initialData={res.data as any} basePath="/maklon/returns" />
+          <MaklonReturnTable
+            initialData={
+              res.data as unknown as ComponentProps<
+                typeof MaklonReturnTable
+              >["initialData"]
+            }
+            basePath="/maklon/returns"
+          />
         </div>
       ) : (
         <Alert variant="destructive">

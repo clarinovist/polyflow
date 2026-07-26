@@ -10,7 +10,7 @@ import { MonthPicker } from './MonthPicker';
 
 import { withTenantPage } from '@/lib/core/tenant';
 
-const getPackingData = withTenantPage(async (month) => {
+const getPackingData = withTenantPage(async (month: string) => {
     return PackingReportService.getMonthlyPackingReport(month);
 });
 export const dynamic = 'force-dynamic';

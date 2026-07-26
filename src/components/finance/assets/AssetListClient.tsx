@@ -57,7 +57,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-type AssetWithAccounts = FixedAsset & {
+type AssetWithAccounts = Omit<FixedAsset, "purchaseValue" | "scrapValue"> & {
+  // getAssets serializes Decimal columns to numbers before returning.
+  purchaseValue: number;
+  scrapValue: number;
   assetAccount: Account;
   accumDepreciationAccount: Account;
   depreciationExpenseAccount: Account;

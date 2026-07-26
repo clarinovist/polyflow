@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
-import { Prisma, JournalStatus } from '@prisma/client';
+import { Prisma, JournalStatus, ReferenceType } from '@prisma/client';
 import { postBulkJournals } from '@/services/accounting/journals-service';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
@@ -46,8 +46,7 @@ async function getJournalEntries(params: JournalFilterParams) {
                 startDate ? { entryDate: { gte: startDate } } : {},
                 endDate ? { entryDate: { lte: endDate } } : {},
                 status ? { status } : {},
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                referenceType ? { referenceType: referenceType as any } : {}
+                referenceType ? { referenceType: referenceType as ReferenceType } : {}
             ]
         };
 

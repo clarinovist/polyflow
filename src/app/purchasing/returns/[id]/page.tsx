@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { getPurchaseReturnById } from '@/actions/purchasing/purchase-returns';
 import { notFound } from 'next/navigation';
 import { PurchaseReturnDetailClient } from '@/components/purchasing/PurchaseReturnDetailClient';
@@ -24,8 +25,15 @@ export default async function PurchaseReturnDetailPage({ params }: PageProps) {
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseReturnDetailClient purchaseReturn={serializedReturn as any} currentUserRole={currentUserRole} basePath="/purchasing/returns" />
+            <PurchaseReturnDetailClient
+                purchaseReturn={
+                    serializedReturn as unknown as ComponentProps<
+                        typeof PurchaseReturnDetailClient
+                    >['purchaseReturn']
+                }
+                currentUserRole={currentUserRole}
+                basePath="/purchasing/returns"
+            />
         </div>
     );
 }

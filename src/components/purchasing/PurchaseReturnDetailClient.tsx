@@ -20,14 +20,24 @@ import Link from 'next/link';
 import { getStatusLabel, purchasingLabels, formLabels } from '@/lib/labels';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
+// View shape of a returned line item (only the fields this component reads)
+type ReturnDetailItem = {
+    condition?: string | null;
+    returnedQty: number;
+    unitCost: number;
+    productVariant: {
+        skuCode: string;
+        product: { name: string } | null;
+    } | null;
+};
+
 // Detailed type including relations
 type ReturnDetail = PurchaseReturn & {
     supplier: Supplier | null;
     sourceLocation: Location | null;
     purchaseOrder: { orderNumber: string } | null;
     createdBy: { name: string } | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    items: any[];
+    items: ReturnDetailItem[];
 };
 
 interface PurchaseReturnDetailClientProps {
@@ -44,8 +54,12 @@ const REASON_LABELS: Record<string, string> = {
     OTHER: 'Lainnya',
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, basePath = '/purchasing/returns' }: PurchaseReturnDetailClientProps) {
+export function PurchaseReturnDetailClient({
+    purchaseReturn,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    currentUserRole,
+    basePath = '/purchasing/returns',
+}: PurchaseReturnDetailClientProps) {
     const router = useRouter();
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 

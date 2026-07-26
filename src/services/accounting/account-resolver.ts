@@ -6,6 +6,7 @@
  * (Melindo "Piutang Dagang" format). Results are cached with TTL.
  */
 import { ValidationError, NotFoundError } from "@/lib/errors/errors";
+import type { Account, PrismaClient } from "@prisma/client";
 
 export type AccountRole =
   | "accounts-receivable"
@@ -378,8 +379,7 @@ export function getAllAccountRoles(): AccountRole[] {
  * Resolve account by Phase 1 patterns (code → Melindo code → name).
  * Extracted so seed + tests can call directly without DB mapping dependency.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PatternDb = { account: { findUnique: (args: any) => Promise<any>; findFirst: (args: any) => Promise<any> } };
+type PatternDb = Pick<PrismaClient, "account">;
 
 const GHOST_CODES_SET = new Set([
   '11110', '11300', '11310', '11340', '11350', '21200', '30000', '51100', '80000', '81000', '81100', '90000', '91000', '91100',
@@ -409,7 +409,7 @@ export async function resolveByPatterns(
   const tenantIsMelindo = await isMelindoTenantDb(target);
 
   for (const pattern of patterns) {
-    let account = null;
+    let account: Account | null = null;
     if (pattern.code) {
       // Tenant-aware ghost skip: if melindo tenant + code is ghost blocklist, skip fetching unless it's a melindo code
       if (tenantIsMelindo && GHOST_CODES_SET.has(pattern.code) && !pattern.code.startsWith('1-') && !pattern.code.startsWith('7-') && !pattern.code.startsWith('8-') && !pattern.code.startsWith('3-200')) {

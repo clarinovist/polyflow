@@ -9,8 +9,9 @@ import { calculateBomItemCost } from './current-cost';
  * @param items Array of BOM items with productVariant (containing standardCost or buyPrice), quantity, and scrapPercentage
  * @returns Total calculated cost
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function calculateBomCost(items: any[]): number {
+type BomCostItem = Parameters<typeof calculateBomItemCost>[0];
+
+export function calculateBomCost(items: BomCostItem[]): number {
     return items.reduce((acc, item) => {
         return acc + calculateBomItemCost(item);
     }, 0);

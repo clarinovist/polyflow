@@ -18,16 +18,27 @@ interface CostingDashboardClientProps {
     initialDateRange?: { from: Date; to: Date };
 }
 
+type CostRow = NonNullable<
+    Extract<
+        Awaited<ReturnType<typeof getProductionCostReport>>,
+        { success: true }
+    >['data']
+>[number];
+type WipData = NonNullable<
+    Extract<
+        Awaited<ReturnType<typeof getWipValuation>>,
+        { success: true }
+    >['data']
+>;
+
 export function CostingDashboardClient({ initialDateRange: _initialDateRange }: CostingDashboardClientProps) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
         to: new Date()
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [costData, setCostData] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [wipData, setWipData] = useState<any>(null);
+    const [costData, setCostData] = useState<CostRow[]>([]);
+    const [wipData, setWipData] = useState<WipData | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isLoading, setIsLoading] = useState(true);
 
@@ -55,18 +66,15 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
     }, [dateRange]);
 
     // KPI Calculations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalProductionCost = costData.reduce((sum: number, item: any) => sum + item.totalCost, 0);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-    const avgUnitCost = costData.length > 0 ? totalProductionCost / costData.reduce((sum: number, item: any) => sum + item.quantity, 0) : 0;
+    const totalProductionCost = costData.reduce((sum: number, item) => sum + item.totalCost, 0);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const avgUnitCost = costData.length > 0 ? totalProductionCost / costData.reduce((sum: number, item) => sum + item.quantity, 0) : 0;
     const materialRatio = costData.length > 0
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? (costData.reduce((sum: number, item: any) => sum + item.materialCost, 0) / totalProductionCost) * 100
+        ? (costData.reduce((sum: number, item) => sum + item.materialCost, 0) / totalProductionCost) * 100
         : 0;
 
     // Chart Data Preparation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chartData = costData.slice(0, 10).map((item: any) => ({
+    const chartData = costData.slice(0, 10).map((item) => ({
         name: item.orderNumber,
         Material: item.materialCost,
         Conversion: item.conversionCost
@@ -147,8 +155,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                         <Tooltip
                                             cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                                             contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            formatter={(value: any) => [formatRupiah(Number(value || 0)), '']}
+                                            formatter={(value: number | string | ReadonlyArray<number | string> | undefined) => [formatRupiah(Number(value || 0)), '']}
                                         />
                                         <Legend iconType="circle" />
                                         <Bar dataKey="Material" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
@@ -174,8 +181,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-700">
-                                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                            {costData.map((item: any) => (
+                                            {costData.map((item) => (
                                                 <tr key={item.id} className="hover:bg-zinc-50/50 hover:dark:bg-zinc-800/50 transition-colors">
                                                     <td className="p-3 font-medium text-zinc-900 dark:text-zinc-100">{item.orderNumber}</td>
                                                     <td className="p-3">
@@ -218,8 +224,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-700">
-                                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                        {wipData?.orders.map((item: any) => (
+                                        {wipData?.orders.map((item) => (
                                             <tr key={item.id} className="hover:bg-zinc-50/50 hover:dark:bg-zinc-800/50 transition-colors">
                                                 <td className="p-3 font-medium text-zinc-900 dark:text-zinc-100">{item.orderNumber}</td>
                                                 <td className="p-3">{item.productName}</td>

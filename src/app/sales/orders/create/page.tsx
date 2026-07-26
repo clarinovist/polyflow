@@ -8,6 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SalesOrderFormProps } from "@/components/sales/sales-order-types";
 import type { SalesOrderType } from "@prisma/client";
 
+type ReorderSource = NonNullable<
+  Extract<Awaited<ReturnType<typeof getSalesOrderById>>, { success: true }>["data"]
+>;
+type ReorderSourceItem = ReorderSource["items"][number];
+
 /** Map intent query param to SalesOrderType */
 function intentToOrderType(intent: string): SalesOrderType | undefined {
   switch (intent) {
@@ -69,16 +74,14 @@ export default async function CreateSalesOrderPage({
   if (params.reorder) {
     const orderRes = await getSalesOrderById(params.reorder);
     if (orderRes.success && orderRes.data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const o = orderRes.data as any;
+      const o = orderRes.data;
       reorderData = {
         customerId: o.customerId || "",
         sourceLocationId: o.sourceLocationId || "",
         orderType: o.orderType || "MAKE_TO_STOCK",
         notes: o.notes || "",
         shippingCost: Number(o.shippingCost) || 0,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        items: (o.items || []).map((item: any) => ({
+        items: (o.items || []).map((item: ReorderSourceItem) => ({
           productVariantId: item.productVariantId,
           quantity: Number(item.enteredQuantity) || Number(item.quantity) || 1,
           unitPrice:

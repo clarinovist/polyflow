@@ -2,21 +2,25 @@ import { getDeliverySchedules } from "@/actions/sales/delivery-schedules";
 import { ScheduleListClient } from "@/components/sales/schedules/ScheduleListClient";
 import { salesLabels } from "@/lib/labels";
 import { CalendarDays } from "lucide-react";
+import type { ComponentProps } from "react";
+
+type ScheduleRow = NonNullable<
+  Extract<Awaited<ReturnType<typeof getDeliverySchedules>>, { success: true }>["data"]
+>[number];
 
 export default async function DeliverySchedulesPage() {
   const schedulesRes = await getDeliverySchedules();
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   const rawSchedules =
     schedulesRes.success && schedulesRes.data ? schedulesRes.data : [];
   // Serialize Date fields for client
-  const schedules = (rawSchedules as any[]).map((s: any) => ({
+  const schedules = rawSchedules.map((s: ScheduleRow) => ({
     ...s,
     weekStart: s.weekStart?.toISOString?.() || s.weekStart,
     weekEnd: s.weekEnd?.toISOString?.() || s.weekEnd,
     createdAt: s.createdAt?.toISOString?.() || s.createdAt,
     updatedAt: s.updatedAt?.toISOString?.() || s.updatedAt,
     // Bridge: schema renamed vehicles→trips, component still expects `vehicles`
-    vehicles: (s.trips || []).map((sv: any) => ({
+    vehicles: (s.trips || []).map((sv: ScheduleRow["trips"][number]) => ({
       id: sv.id,
       vehicleId: sv.vehicleId,
       vehicle: sv.vehicle,
@@ -36,7 +40,13 @@ export default async function DeliverySchedulesPage() {
         </div>
       </div>
 
-      <ScheduleListClient schedules={schedules} />
+      <ScheduleListClient
+        schedules={
+          schedules as unknown as ComponentProps<
+            typeof ScheduleListClient
+          >["schedules"]
+        }
+      />
     </div>
   );
 }

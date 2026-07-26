@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { transactionWizardSchema, TransactionWizardValues } from '@/lib/schemas/transaction-wizard';
 import { createWizardTransaction } from '@/actions/core/transaction-wizard';
@@ -69,8 +69,9 @@ export default function TransactionWizardForm({
     const [selectedType, setSelectedType] = useState<TransactionTypeConfig | null>(null);
 
     const form = useForm<TransactionWizardValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(transactionWizardSchema) as any,
+        resolver: zodResolver(
+            transactionWizardSchema,
+        ) as Resolver<TransactionWizardValues>,
         defaultValues: {
             transactionTypeId: '',
             amount: 0,

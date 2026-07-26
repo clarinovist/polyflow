@@ -31,8 +31,10 @@ export default async function CreateMaklonReturnPage() {
       ? serializeData(productsRes.data)
       : [];
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const products = rawProducts.map((p: any) => ({
+  type RawProduct = (typeof rawProducts)[number];
+  type RawInventory = NonNullable<RawProduct["inventories"]>[number];
+
+  const products = rawProducts.map((p: RawProduct) => ({
     ...p,
     price: p.price ? Number(p.price) : null,
     buyPrice: p.buyPrice ? Number(p.buyPrice) : null,
@@ -43,12 +45,11 @@ export default async function CreateMaklonReturnPage() {
     reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
     reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
     inventories:
-      p.inventories?.map((inv: any) => ({
+      p.inventories?.map((inv: RawInventory) => ({
         locationId: inv.locationId,
         quantity: inv.quantity ? Number(inv.quantity) : 0,
       })) || [],
   }));
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   return (
     <div className="flex flex-col gap-6">

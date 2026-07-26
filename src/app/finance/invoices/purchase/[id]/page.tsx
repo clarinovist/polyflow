@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { withTenantPage } from '@/lib/core/tenant';
 import { FinancialPurchaseInvoicePageClient } from './page.client';
 
-const getInvoice = withTenantPage(async (id) => {
+const getInvoice = withTenantPage(async (id: string) => {
     return PurchaseService.getPurchaseInvoiceById(id);
 });
 interface PageProps {

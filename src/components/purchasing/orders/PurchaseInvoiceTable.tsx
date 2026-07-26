@@ -42,7 +42,8 @@ import { isInvoiceOverdue } from "@/lib/finance/payment-terms";
 type InvoiceWithRelations = {
   id: string;
   invoiceNumber: string;
-  invoiceDate: Date;
+  // Dates arrive serialized (ISO string) from server components.
+  invoiceDate: Date | string;
   dueDate: Date | string | null;
   status: PurchaseInvoiceStatus;
   totalAmount: number;
@@ -50,7 +51,7 @@ type InvoiceWithRelations = {
   termOfPaymentDays?: number | null;
   purchaseOrderId: string;
   purchaseOrder: {
-    id: string;
+    id?: string;
     orderNumber: string;
     supplier: {
       name: string;

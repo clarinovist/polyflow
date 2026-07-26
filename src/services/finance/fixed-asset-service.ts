@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { ReferenceType, AssetStatus, JournalStatus } from '@prisma/client';
+import { ReferenceType, AssetStatus, JournalStatus, Prisma } from '@prisma/client';
 import { CreateJournalEntryInput } from '@/services/accounting/types';
 import { createJournalEntry, postJournal } from '@/services/accounting/journals-service';
 import { resolveAccount, type AccountRole } from '@/services/accounting/account-resolver';
@@ -36,8 +36,7 @@ export class FixedAssetService {
      * Called inside a transaction from receipts-service.
      */
     static async createFromGoodsReceipt(params: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tx: any; // Prisma.TransactionClient
+        tx: Prisma.TransactionClient;
         productVariantId: string;
         purchaseOrderId?: string | null;
         goodsReceiptId: string;
@@ -48,8 +47,7 @@ export class FixedAssetService {
         locationId: string;
         userId: string;
     }) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tx = params.tx as any; // Prisma.TransactionClient
+        const tx = params.tx;
 
         // Reject non-integer qty
         if (!Number.isInteger(params.receivedQty) || params.receivedQty < 1) {

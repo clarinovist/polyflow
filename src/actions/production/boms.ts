@@ -2,6 +2,7 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
+import { Prisma } from '@prisma/client';
 import { createBomSchema, CreateBomValues, duplicateBomSchema, DuplicateBomValues, archiveBomSchema } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
@@ -72,10 +73,9 @@ function enrichBomCurrentCosts<T extends {
 export const getBoms = withTenant(
 async function getBoms(category?: string, status?: 'ACTIVE' | 'ARCHIVED' | 'ALL') {
     return safeAction(async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const where: any = {};
+        const where: Prisma.BomWhereInput = {};
         if (category && category !== 'ALL') {
-            where.category = category;
+            where.category = category as Prisma.BomWhereInput["category"];
         }
         // Status filter (default: ACTIVE only)
         const effectiveStatus = status || 'ACTIVE';

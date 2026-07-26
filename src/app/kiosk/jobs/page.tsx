@@ -18,8 +18,7 @@ const getData = withTenantPage(async function getData() {
             machine: true,
             executions: {
                 where: {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    endTime: { equals: null as any }
+                    endTime: { equals: null }
                 },
                 orderBy: { startTime: 'desc' },
                 take: 1

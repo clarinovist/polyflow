@@ -15,9 +15,7 @@ type UpdateCostOptions = {
     defaultOnlyCascade?: boolean;
 };
 
-// Workaround for missing generated types in the current environment
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ExtendedClient = Prisma.TransactionClient & { costHistory: any };
+type ExtendedClient = Prisma.TransactionClient;
 
 export const getCostHistory = withTenant(
 async function getCostHistory(variantId: string) {

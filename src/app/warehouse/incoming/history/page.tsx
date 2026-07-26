@@ -10,9 +10,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
-const getReceipts = withTenantPage(async (opts) => {
-    return PurchaseService.getGoodsReceipts(opts);
-});
+const getReceipts = withTenantPage(
+    async (opts: Parameters<typeof PurchaseService.getGoodsReceipts>[0]) => {
+        return PurchaseService.getGoodsReceipts(opts);
+    },
+);
 
 export const metadata: Metadata = {
     title: 'Riwayat Penerimaan Barang | Warehouse | PolyFlow',
@@ -51,8 +53,7 @@ export default async function WarehouseIncomingHistoryPage({
                 </div>
                 <UrlTransactionDateFilter defaultPreset="this_month" />
             </div>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <GoodsReceiptTable receipts={serializedReceipts as any} basePath="/warehouse/incoming" />
+            <GoodsReceiptTable receipts={serializedReceipts as unknown as React.ComponentProps<typeof GoodsReceiptTable>['receipts']} basePath="/warehouse/incoming" />
         </div>
     );
 }

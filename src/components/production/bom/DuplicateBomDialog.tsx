@@ -40,8 +40,12 @@ interface DuplicateBomDialogProps {
     };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ProductVariant = any;
+type ProductVariant = NonNullable<
+    Extract<
+        Awaited<ReturnType<typeof getProductVariants>>,
+        { success: true }
+    >['data']
+>[number];
 
 export function DuplicateBomDialog({
     open,

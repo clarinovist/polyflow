@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Account, AccountType, AccountCategory } from '@prisma/client';
@@ -60,8 +60,7 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
     const router = useRouter();
 
     const form = useForm<AccountFormValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(accountSchema) as any,
+        resolver: zodResolver(accountSchema) as Resolver<AccountFormValues>,
         defaultValues: {
             code: account?.code || '',
             name: account?.name || '',
@@ -85,9 +84,10 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                 setOpen(false);
                 router.refresh();
                 if (!account) form.reset();
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (error: any) {
-                toast.error(error.message || 'Gagal menyimpan akun');
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : 'Gagal menyimpan akun',
+                );
             }
         });
     };

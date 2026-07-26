@@ -26,6 +26,17 @@ interface ProductionPlanningDialogProps {
     onOrderCreated?: () => void;
 }
 
+// Single-arg call resolves to the MRP conversion result (not the single-order variant).
+type CreateFromSoResult = Extract<
+    NonNullable<
+        Extract<
+            Awaited<ReturnType<typeof createProductionFromSalesOrder>>,
+            { success: true }
+        >['data']
+    >,
+    { orderCount: number }
+>;
+
 export function ProductionPlanningDialog({
     salesOrderId,
     salesOrderNumber,
@@ -64,8 +75,7 @@ export function ProductionPlanningDialog({
                 return;
             }
             if (result.data) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setSimulationResult(result.data as any);
+                setSimulationResult(result.data);
                 setHasSimulated(true);
             }
         } catch (_error) {
@@ -80,8 +90,7 @@ export function ProductionPlanningDialog({
         try {
             const result = await createProductionFromSalesOrder(salesOrderId);
             if (result.success) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const data = result as any;
+                const data = result.data as CreateFromSoResult;
 
                 if (data.orderCount > 0) {
                     toast.success(`${data.orderCount} Work Order berhasil dibuat. Status: ${data.status}`);
@@ -103,8 +112,7 @@ export function ProductionPlanningDialog({
                 }
                 onClose();
             } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                toast.error((result as any).error || 'Gagal membuat Work Order');
+                toast.error(result.error || 'Gagal membuat Work Order');
             }
         } catch (_error) {
             toast.error('Gagal membuat Work Order');

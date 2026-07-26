@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { Prisma } from '@prisma/client';
 import type { TenantKnowledgeArticle, TenantKnowledgeStatus } from '@prisma/client';
 import { searchHelpArticles } from './help-articles';
 import type { ToolEvidence } from './assistant-types';
@@ -205,8 +206,7 @@ export async function listTenantKnowledge(input: {
   limit?: number;
   offset?: number;
 }): Promise<{ items: TenantKnowledgeArticle[]; total: number }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {
+  const where: Prisma.TenantKnowledgeArticleWhereInput = {
     tenantId: input.tenantId,
   };
 
@@ -247,8 +247,7 @@ export async function searchCombinedKnowledge(
   const globalResults = await searchHelpArticles(query, module, limit);
 
   // 2. Search tenant knowledge (PUBLISHED only, scoped to tenantId)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {
+  const where: Prisma.TenantKnowledgeArticleWhereInput = {
     tenantId,
     status: 'PUBLISHED',
   };

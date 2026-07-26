@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+import { Prisma } from '@prisma/client';
 import { getReceivedPayments } from '@/actions/finance/finance';
 import { ReceivedPaymentsClient } from '@/components/finance/payments/ReceivedPaymentsClient';
 import { getSalesInvoices } from '@/actions/finance/invoices';
@@ -13,6 +15,24 @@ export const dynamic = 'force-dynamic';
 import { parseISO } from 'date-fns';
 
 const loadPaymentBanks = withTenantPage(async () => getPaymentBanksSetting());
+
+// Fields read by the outstanding-invoice filter. customerId is not part of the
+// getSalesInvoices select, so it is modelled as optional here.
+type UnpaidSalesInvoice = {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: Prisma.Decimal;
+    paidAmount: Prisma.Decimal;
+    salesOrder: {
+        orderNumber: string;
+        customerId?: string | null;
+        customer: { name: string } | null;
+    } | null;
+};
+
+type UnpaidInvoicesProp = ComponentProps<
+    typeof ReceivedPaymentsClient
+>['unpaidInvoices'];
 
 export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
     const params = await searchParams;
@@ -41,8 +61,7 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
     // Fetch invoices with outstanding balance (Outstanding > 0)
     const unpaidInvoicesRes = await getSalesInvoices();
     const allInvoices = unpaidInvoicesRes.success && unpaidInvoicesRes.data ? unpaidInvoicesRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const unpaidInvoices = (allInvoices as any[]).filter((inv: any) => {
+    const unpaidInvoices = (allInvoices as UnpaidSalesInvoice[]).filter((inv) => {
         const hasOutstanding = Number(inv.totalAmount) - Number(inv.paidAmount) > 0;
         if (!hasOutstanding) return false;
         if (demand === 'customer') {
@@ -84,8 +103,7 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
             )}
             <ReceivedPaymentsClient
                 payments={payments.data}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                unpaidInvoices={serializeData(unpaidInvoices) as any}
+                unpaidInvoices={serializeData(unpaidInvoices) as UnpaidInvoicesProp}
                 demandType={demand}
                 paymentBanks={paymentBanks}
             />

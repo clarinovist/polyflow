@@ -87,9 +87,8 @@ export async function resolveTenantContext(
  * Higher Order Function to wrap Next.js Server Actions.
  * It extracts the subdomain from headers and runs the action within an `AsyncLocalStorage` context.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T): T {
-    return (async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+export function withTenant<T extends (...args: never[]) => Promise<unknown>>(action: T): T {
+    return (async (...args: Parameters<T>) => {
         const reqHeaders = await headers();
         const result = await resolveTenantContext(reqHeaders);
 
@@ -141,17 +140,17 @@ const SYSTEM_USER_ID = 'system';
  * Usage: const getData = withTenantPage(async () => { ... });
  *        export default async function Page() { const data = await getData(); }
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withTenantPage<T extends (...args: any[]) => Promise<any>>(fetchData: T): T {
+export function withTenantPage<T extends (...args: never[]) => Promise<unknown>>(fetchData: T): T {
     return withTenant(fetchData);
 }
 
+/** Route-handler context arg (Next.js passes `{ params }` as the second argument). */
+type RouteContext = { params: Promise<Record<string, string | string[]>> };
+
 export function withTenantRoute(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler: (req: NextRequest, ...args: any[]) => Promise<NextResponse | Response | undefined | void> | NextResponse | Response | undefined | void
+    handler: (req: NextRequest, ...args: RouteContext[]) => Promise<NextResponse | Response | undefined | void> | NextResponse | Response | undefined | void
 ) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return async (req: NextRequest, ...args: any[]) => {
+    return async (req: NextRequest, ...args: RouteContext[]) => {
         const result = await resolveTenantContext(req.headers);
 
         if (result.type === 'NONE') {

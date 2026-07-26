@@ -21,11 +21,13 @@ const getAbcData = withTenantPage(async () => {
     return ABCAnalysisService.calculateABCClassification();
 });
 
-interface SimplifiedInventory {
-    productVariantId: string;
-    locationId: string;
-    quantity: number;
-}
+/**
+ * Table rows are either live inventory (Decimal quantity) or historical/as-of
+ * rows where quantity is recomputed to a plain number. This covers both.
+ */
+type TableInventoryItem = Omit<InventoryWithRelations, 'quantity'> & {
+    quantity: InventoryWithRelations['quantity'] | number;
+};
 
 export default async function WarehouseInventoryPage({
     searchParams,
@@ -66,8 +68,7 @@ export default async function WarehouseInventoryPage({
         : [];
 
     // Initialize table inventory with live data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let tableInventory: any[] = liveInventory;
+    let tableInventory: TableInventoryItem[] = liveInventory;
 
     if (asOfDate) {
         const historicalInventoryRes = await getInventoryAsOf(asOfDate);
@@ -116,7 +117,7 @@ export default async function WarehouseInventoryPage({
         return acc;
     }, {} as Record<string, number>);
 
-    const isTableGlobalLowStock = (item: (InventoryWithRelations | SimplifiedInventory)) => {
+    const isTableGlobalLowStock = (item: TableInventoryItem) => {
         const liveItem = liveInventory.find(li => li.productVariantId === item.productVariantId);
         const threshold = toDecimalNumber(liveItem?.productVariant.minStockAlert);
         if (!threshold) return false;

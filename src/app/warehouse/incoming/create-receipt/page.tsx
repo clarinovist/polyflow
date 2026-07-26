@@ -23,6 +23,21 @@ interface PageProps {
     }>;
 }
 
+/** Fields consumed from a serialized purchase-order item when building the receipt form. */
+type ReceiptOrderItem = {
+    productVariantId: string;
+    quantity: number;
+    receivedQty?: number | null;
+    unitPrice: number;
+    enteredUnit?: string | null;
+    productVariant?: {
+        name?: string | null;
+        skuCode?: string | null;
+        primaryUnit?: string | null;
+        product?: { name?: string | null } | null;
+    } | null;
+};
+
 export default async function WarehouseCreateReceiptPage({ searchParams }: PageProps) {
     const params = await searchParams;
     const poId = params.poId;
@@ -61,8 +76,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
     const formProps = {
         purchaseOrderId: order.id,
         orderNumber: order.orderNumber,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        items: (order.items || []).map((item: any) => ({
+        items: (order.items || []).map((item: ReceiptOrderItem) => ({
             productVariantId: item.productVariantId,
             productName: item.productVariant?.product?.name || item.productVariant?.name || '',
             skuCode: item.productVariant?.skuCode || '',
@@ -71,8 +85,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
             unitPrice: Number(item.unitPrice),
             unit: item.enteredUnit || item.productVariant?.primaryUnit || 'pcs',
         })),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        locations: locations.map((loc: any) => ({ id: loc.id, name: loc.name })),
+        locations: locations.map((loc) => ({ id: loc.id, name: loc.name })),
     };
 
     return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createSupplierSchema, updateSupplierSchema, CreateSupplierValues, UpdateSupplierValues } from '@/lib/schemas/partner';
 import { createSupplier, updateSupplier } from '@/actions/purchasing/supplier';
@@ -42,8 +42,9 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
     const router = useRouter();
 
     const form = useForm<CreateSupplierValues | UpdateSupplierValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(mode === 'create' ? createSupplierSchema : updateSupplierSchema) as any,
+        resolver: zodResolver(
+            mode === 'create' ? createSupplierSchema : updateSupplierSchema,
+        ) as Resolver<CreateSupplierValues | UpdateSupplierValues>,
         defaultValues: mode === 'edit' && initialData ? {
             id: initialData.id,
             name: initialData.name,

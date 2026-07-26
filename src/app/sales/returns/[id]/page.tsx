@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { getSalesReturnById } from '@/actions/sales/sales-returns';
 import { notFound } from 'next/navigation';
 import { SalesReturnDetailClient } from '@/components/sales/SalesReturnDetailClient';
@@ -24,8 +25,15 @@ export default async function SalesReturnDetailPage({ params }: PageProps) {
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <SalesReturnDetailClient salesReturn={serializedReturn as any} currentUserRole={currentUserRole} basePath="/sales/returns" />
+            <SalesReturnDetailClient
+                salesReturn={
+                    serializedReturn as unknown as ComponentProps<
+                        typeof SalesReturnDetailClient
+                    >['salesReturn']
+                }
+                currentUserRole={currentUserRole}
+                basePath="/sales/returns"
+            />
         </div>
     );
 }

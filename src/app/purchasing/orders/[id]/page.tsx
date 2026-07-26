@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { notFound } from 'next/navigation';
 import { PurchaseOrderDetailClient } from '@/components/purchasing/orders/PurchaseOrderDetailClient';
@@ -6,7 +7,7 @@ import { serializeData } from '@/lib/utils/utils';
 
 import { withTenantPage } from '@/lib/core/tenant';
 
-const getOrder = withTenantPage(async (id) => {
+const getOrder = withTenantPage(async (id: string) => {
     return PurchaseService.getPurchaseOrderById(id);
 });
 interface PageProps {
@@ -36,8 +37,13 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseOrderDetailClient order={serializedOrder as any} />
+            <PurchaseOrderDetailClient
+                order={
+                    serializedOrder as unknown as ComponentProps<
+                        typeof PurchaseOrderDetailClient
+                    >['order']
+                }
+            />
         </div>
     );
 }

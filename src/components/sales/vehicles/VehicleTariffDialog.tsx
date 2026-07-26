@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createVehicleTariffSchema, CreateVehicleTariffValues } from '@/lib/schemas/sales';
 import { createVehicleTariff, updateVehicleTariff } from '@/actions/sales/vehicle-tariffs';
@@ -71,8 +71,9 @@ export function VehicleTariffDialog({ mode, vehicleId, initialData, trigger, ope
 
   const form = useForm<CreateVehicleTariffValues>({
     // cast: z.coerce makes input type diverge from output (Zod 4 + RHF)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createVehicleTariffSchema) as any,
+    resolver: zodResolver(
+      createVehicleTariffSchema,
+    ) as unknown as Resolver<CreateVehicleTariffValues>,
     defaultValues: getDefaultValues(),
   });
 

@@ -55,10 +55,8 @@ export default async function ProductionMachinesPage() {
 
     const ordersRes = await getProductionOrders();
     const allOrders = ordersRes;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const releasedOrdersRaw = (allOrders as any[]).filter((o: any) => o.status === ProductionStatus.RELEASED);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const inProgressOrdersRaw = (allOrders as any[]).filter((o: any) => o.status === ProductionStatus.IN_PROGRESS);
+    const releasedOrdersRaw = allOrders.filter((o) => o.status === ProductionStatus.RELEASED);
+    const inProgressOrdersRaw = allOrders.filter((o) => o.status === ProductionStatus.IN_PROGRESS);
 
     const employeesRes = await getEmployees();
     const employeesRaw = employeesRes.success && employeesRes.data ? employeesRes.data : [];
@@ -68,8 +66,8 @@ export default async function ProductionMachinesPage() {
 
     // Serialize
     const machines = serializeData(machinesRaw) as unknown as SerializedMachine[];
-    const releasedOrders = serializeData(releasedOrdersRaw) as SerializedProductionOrder[];
-    const inProgressOrders = serializeData(inProgressOrdersRaw) as SerializedProductionOrder[];
+    const releasedOrders = serializeData(releasedOrdersRaw) as unknown as SerializedProductionOrder[];
+    const inProgressOrders = serializeData(inProgressOrdersRaw) as unknown as SerializedProductionOrder[];
     const employees = serializeData(employeesRaw) as unknown as SerializedEmployee[];
     const workShifts = serializeData(workShiftsRaw) as unknown as SerializedWorkShift[];
 

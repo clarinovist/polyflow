@@ -61,8 +61,7 @@ export default async function WarehouseOutgoingPage() {
                         </div>
                     ) : (
                         <DeliveryOrderTable
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            initialData={openOrders as any}
+                            initialData={openOrders}
                             basePath="/warehouse/outgoing"
                             mode="active"
                         />

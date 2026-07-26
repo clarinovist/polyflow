@@ -31,14 +31,18 @@ import {
     getCostSourceTone,
 } from '@/lib/utils/cost-diagnostics';
 import { recalculateBomCostChain } from '@/actions/production/boms';
+import type { getBom } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
 import { useBomBasePath } from './useBomBasePath';
 import { DuplicateBomDialog } from './DuplicateBomDialog';
 
+type BomDetail = NonNullable<
+    Extract<Awaited<ReturnType<typeof getBom>>, { success: true }>['data']
+>;
+
 interface BOMDetailsProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bom: any;
+    bom: BomDetail;
     showPrices?: boolean;
 }
 
@@ -94,8 +98,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
         .filter((entry: BomIngredientWithDiagnostics) => entry.diagnostics.flags.length > 0);
 
     // Calculate total cost
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalCost = bom.items.reduce((acc: number, item: any) => {
+    const totalCost = bom.items.reduce((acc: number, item) => {
         return acc + calculateBomItemCost(item);
     }, 0);
 
@@ -318,8 +321,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                {bom.items.map((item: any, index: number) => {
+                                {bom.items.map((item, index: number) => {
                                     const scrapPct = Number(item.scrapPercentage || 0);
                                     const baseQty = Number(item.quantity);
                                     const totalQty = baseQty * (1 + (scrapPct / 100));

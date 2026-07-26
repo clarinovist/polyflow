@@ -14,14 +14,12 @@ export default async function ProductionInventoryPage() {
     // 1. Fetch Current Floor Stock (Mixing Area)
     const inventoryRes = await getInventoryList();
     const allInventory = inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const floorInventory = (allInventory as any[]).filter((item: any) => item.location?.slug === WAREHOUSE_SLUGS.MIXING);
+    const floorInventory = allInventory.filter((item) => item.location?.slug === WAREHOUSE_SLUGS.MIXING);
 
     // 2. Fetch Recent Handover Activity (Recent Transfers to Mixing Area)
     const movementsRes = await getStockMovements();
     const allMovements = movementsRes.success && movementsRes.data ? movementsRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recentHandovers = (allMovements as any[]).filter((move: any) =>
+    const recentHandovers = allMovements.filter((move) =>
         move.toLocation?.slug === WAREHOUSE_SLUGS.MIXING && move.type === 'TRANSFER'
     ).slice(0, 5);
 

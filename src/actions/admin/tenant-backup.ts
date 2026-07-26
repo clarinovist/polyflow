@@ -280,8 +280,7 @@ export async function restoreTenantBackup(
         if (!resp.Body) throw new BusinessRuleError("File backup kosong di R2.");
         // Collect stream body into a buffer, then write to temp file.
         const chunks: Uint8Array[] = [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for await (const chunk of resp.Body as any) {
+        for await (const chunk of resp.Body as AsyncIterable<Uint8Array | string>) {
             chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
         }
         const buf = Buffer.concat(chunks);

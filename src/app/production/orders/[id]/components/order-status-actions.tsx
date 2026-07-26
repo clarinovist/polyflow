@@ -52,9 +52,7 @@ export function OrderStatusActions({ order, formData }: Props) {
       await toast.promise(deleteProductionOrder(order.id), {
         loading: "Menghapus SPK…",
         success: (result) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const r = result as any;
-          if (r?.success === false) throw new Error(r.error);
+          if (result?.success === false) throw new Error(result.error);
           router.push("/production/orders");
           return "SPK berhasil dihapus";
         },
@@ -72,9 +70,7 @@ export function OrderStatusActions({ order, formData }: Props) {
         id: order.id,
         status: nextStatus as never,
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const typed = res as any;
-      if (typed?.success === false) throw new Error(typed.error);
+      if (res?.success === false) throw new Error(res.error);
       toast.success(toastMsg);
       router.refresh();
     } catch (e) {

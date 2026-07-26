@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { notFound } from "next/navigation";
 import { getMaklonReceipt } from "@/actions/maklon/maklon-receipt";
 import { MaklonReceiptDetail } from "@/components/maklon/MaklonReceiptDetail";
@@ -20,6 +21,13 @@ export default async function MaklonReceiptDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <MaklonReceiptDetail receipt={receipt as any} />;
+  return (
+    <MaklonReceiptDetail
+      receipt={
+        receipt as unknown as ComponentProps<
+          typeof MaklonReceiptDetail
+        >["receipt"]
+      }
+    />
+  );
 }

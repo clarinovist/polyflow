@@ -1,4 +1,4 @@
-import React from "react";
+import React, { type ComponentProps } from "react";
 import { PurchaseService } from "@/services/purchasing/purchase-service";
 import { GoodsReceiptTable } from "@/components/purchasing/orders/GoodsReceiptTable";
 import { PackageSearch } from "lucide-react";
@@ -10,9 +10,11 @@ import { parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { PageHeader } from "@/components/ui/page-header";
 import { withTenantPage } from "@/lib/core/tenant";
 
-const getReceipts = withTenantPage(async (opts) => {
-  return PurchaseService.getGoodsReceipts(opts);
-});
+const getReceipts = withTenantPage(
+  async (opts: Parameters<typeof PurchaseService.getGoodsReceipts>[0]) => {
+    return PurchaseService.getGoodsReceipts(opts);
+  },
+);
 
 export default async function MaklonReceiptsPage({
   searchParams,
@@ -55,8 +57,11 @@ export default async function MaklonReceiptsPage({
         }
       />
       <GoodsReceiptTable
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        receipts={serializedReceipts as any}
+        receipts={
+          serializedReceipts as unknown as ComponentProps<
+            typeof GoodsReceiptTable
+          >["receipts"]
+        }
         basePath="/maklon/receipts"
       />
     </div>

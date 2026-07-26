@@ -14,8 +14,7 @@ export default async function BudgetInputPage(props: {
   const budgetsRes = await getBudgets(year);
   const accountsRes = await getAccounts();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const budgets = budgetsRes.success ? (budgetsRes.data as any[]) : [];
+  const budgets = budgetsRes.success && budgetsRes.data ? budgetsRes.data : [];
   const accounts =
     accountsRes.success && accountsRes.data ? accountsRes.data : [];
 

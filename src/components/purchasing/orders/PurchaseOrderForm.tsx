@@ -6,6 +6,7 @@ import {
   useFieldArray,
   SubmitHandler,
   useWatch,
+  type Resolver,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -122,7 +123,7 @@ export function PurchaseOrderForm({
   const form = useForm<CreatePurchaseOrderValues & { id?: string }>({
     resolver: zodResolver(
       mode === "create" ? createPurchaseOrderSchema : updatePurchaseOrderSchema,
-    ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    ) as Resolver<CreatePurchaseOrderValues & { id?: string }>,
     defaultValues: initialData
       ? {
           id: initialData.id,

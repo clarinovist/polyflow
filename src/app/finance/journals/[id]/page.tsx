@@ -17,12 +17,34 @@ interface JournalDetailPageProps {
     params: Promise<{ id: string }>;
 }
 
+type JournalEntryData = NonNullable<
+    Extract<Awaited<ReturnType<typeof getJournalById>>, { success: true }>['data']
+>;
+type JournalGlLine = JournalEntryData['lines'][number];
+type JournalDetailRow = JournalEntryData['details'][number];
+
+// Local view-types: only the fields read here (getSalesInvoices/getPurchaseInvoices
+// select the party name; notes is read defensively and may be absent).
+type SalesInvoiceView = {
+    id: string;
+    salesOrder: {
+        customer: { name: string } | null;
+        notes?: string | null;
+    } | null;
+};
+type PurchaseInvoiceView = {
+    id: string;
+    purchaseOrder: {
+        supplier: { name: string } | null;
+        notes?: string | null;
+    } | null;
+};
+
 export default async function JournalDetailPage({ params }: JournalDetailPageProps) {
     const { id } = await params;
 
     const journalRes = await getJournalById(id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const journal: any = journalRes.success && journalRes.data ? journalRes.data : null;
+    const journal: JournalEntryData | null = journalRes.success && journalRes.data ? journalRes.data : null;
 
     if (!journal) {
         notFound();
@@ -35,25 +57,21 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
     if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
         const invoiceRes = await getSalesInvoices();
         const allInvoices = invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const invoice = (allInvoices as any[]).find((inv: any) => inv.id === journal.referenceId);
+        const invoice = (allInvoices as SalesInvoiceView[]).find((inv) => inv.id === journal.referenceId);
         partyName = invoice?.salesOrder?.customer?.name ?? null;
         orderNotes = invoice?.salesOrder?.notes ?? null;
         partyLabel = 'Pembeli';
     } else if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
         const invoiceRes = await getPurchaseInvoices();
         const allInvoices = invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const invoice = (allInvoices as any[]).find((inv: any) => inv.id === journal.referenceId);
+        const invoice = (allInvoices as PurchaseInvoiceView[]).find((inv) => inv.id === journal.referenceId);
         partyName = invoice?.purchaseOrder?.supplier?.name ?? null;
         orderNotes = invoice?.purchaseOrder?.notes ?? null;
         partyLabel = 'Pemasok';
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalDebit = journal.lines.reduce((sum: number, line: any) => sum + Number(line.debit), 0);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalCredit = journal.lines.reduce((sum: number, line: any) => sum + Number(line.credit), 0);
+    const totalDebit = journal.lines.reduce((sum: number, line: JournalGlLine) => sum + Number(line.debit), 0);
+    const totalCredit = journal.lines.reduce((sum: number, line: JournalGlLine) => sum + Number(line.credit), 0);
 
     // Check if this journal has detail entries
     const hasDetails = journal.details && journal.details.length > 0;
@@ -108,8 +126,7 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                    {journal.lines.map((line: any) => (
+                                    {journal.lines.map((line: JournalGlLine) => (
                                         <TableRow key={line.id}>
                                             <TableCell>
                                                 <div className="font-medium">{line.account.code}</div>
@@ -188,8 +205,7 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                    {journal.details.map((detail: any) => (
+                                    {journal.details.map((detail: JournalDetailRow) => (
                                         <TableRow key={detail.id}>
                                             <TableCell className="text-muted-foreground">
                                                 {detail.sortOrder + 1}
@@ -203,8 +219,7 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                                     <TableRow className="bg-muted/50 font-bold">
                                         <TableCell colSpan={2} className="text-right">Total</TableCell>
                                         <TableCell className="text-right">
-                                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                            {formatRupiah(journal.details.reduce((sum: number, d: any) => sum + Number(d.amount), 0))}
+                                            {formatRupiah(journal.details.reduce((sum: number, d: JournalDetailRow) => sum + Number(d.amount), 0))}
                                         </TableCell>
                                     </TableRow>
                                 </TableBody>

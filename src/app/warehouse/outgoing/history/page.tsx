@@ -56,8 +56,7 @@ export default async function WarehouseOutgoingHistoryPage({
                 </CardHeader>
                 <CardContent>
                     <DeliveryOrderTable
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        initialData={closedOrders as any}
+                        initialData={closedOrders}
                         basePath="/warehouse/outgoing"
                         mode="history"
                     />

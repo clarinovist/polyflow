@@ -70,7 +70,7 @@ export function MobileReceiptClient({
           unitCost: item.unitPrice,
         };
       })
-      .filter(Boolean);
+      .filter((item): item is NonNullable<typeof item> => item !== null);
 
     if (items.length === 0) {
       toast.error("Isi minimal satu qty terima");
@@ -90,8 +90,7 @@ export function MobileReceiptClient({
         locationId,
         notes,
         isMaklon: false,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        items: items as any,
+        items,
       });
 
       if (result.success) {

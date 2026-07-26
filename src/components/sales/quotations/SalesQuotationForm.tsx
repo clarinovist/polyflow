@@ -1,6 +1,11 @@
 'use client';
 
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import {
+  useForm,
+  useFieldArray,
+  useWatch,
+  type Resolver,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createSalesQuotationSchema, CreateSalesQuotationValues, UpdateSalesQuotationValues, updateSalesQuotationSchema } from '@/lib/schemas/quotation';
 import { createQuotation, updateQuotation } from '@/actions/sales/quotations';
@@ -104,8 +109,9 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
     };
 
     const form = useForm<SalesQuotationFormValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(mode === 'create' ? createSalesQuotationSchema : updateSalesQuotationSchema) as any,
+        resolver: zodResolver(
+            mode === 'create' ? createSalesQuotationSchema : updateSalesQuotationSchema,
+        ) as unknown as Resolver<SalesQuotationFormValues>,
         defaultValues: initialData ? {
             ...initialData,
             validUntil: initialData.validUntil ? new Date(initialData.validUntil) : undefined, // Ensure date object

@@ -4,7 +4,7 @@ import { authConfig } from './auth.config';
 import { z } from 'zod';
 import { prisma } from '@/lib/core/prisma';
 import { extractSubdomain } from '@/lib/core/tenant';
-import { Role } from '@prisma/client';
+import { Role, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { SESSION_POLICY } from '@/lib/auth/session-policy';
 
@@ -56,8 +56,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     }
 
                     let user;
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    let tenantDbRef: any = null;
+                    let tenantDbRef: PrismaClient | null = null;
 
                     if (subdomain) {
                         try {

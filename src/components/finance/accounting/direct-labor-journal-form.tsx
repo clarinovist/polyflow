@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { directLaborJournalSchema, DirectLaborJournalValues } from '@/lib/schemas/journal';
 import { createDirectLaborJournalAction, updateDirectLaborJournalAction } from '@/actions/finance/journal';
@@ -44,8 +44,9 @@ export default function DirectLaborJournalForm({
     const [loading, setLoading] = useState(false);
 
     const form = useForm<DirectLaborJournalValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(directLaborJournalSchema) as any,
+        resolver: zodResolver(
+            directLaborJournalSchema,
+        ) as Resolver<DirectLaborJournalValues>,
         defaultValues: defaultValues || {
             entryDate: new Date(),
             description: '',

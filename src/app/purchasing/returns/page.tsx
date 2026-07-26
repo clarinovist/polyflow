@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { getPurchaseReturns } from '@/actions/purchasing/purchase-returns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,8 +90,14 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
                     <CardTitle>{planningLabels.allReturns}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <PurchaseReturnTable initialData={serializedReturns as any} basePath="/purchasing/returns" />
+                    <PurchaseReturnTable
+                        initialData={
+                            serializedReturns as unknown as ComponentProps<
+                                typeof PurchaseReturnTable
+                            >['initialData']
+                        }
+                        basePath="/purchasing/returns"
+                    />
                 </CardContent>
             </Card>
         </div>

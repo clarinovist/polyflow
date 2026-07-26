@@ -218,8 +218,9 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
 
       if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
         for (const toolCall of responseMessage.tool_calls) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const fn = (toolCall as any).function;
+          const fn = (
+            toolCall as OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall
+          ).function;
           const toolName = fn.name;
           const rawArgs = JSON.parse(fn.arguments || '{}');
 

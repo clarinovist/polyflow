@@ -51,9 +51,10 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                 await deleteAccount(id);
                 toast.success(`Akun ${code} berhasil dihapus.`);
                 router.refresh();
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (error: any) {
-                toast.error(error.message || 'Gagal menghapus akun');
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : 'Gagal menghapus akun',
+                );
             }
         });
     };

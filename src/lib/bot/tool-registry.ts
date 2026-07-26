@@ -90,8 +90,7 @@ async function executeGetSalesOrderLines(
   const facts: { label: string; value: string }[] = [];
 
   for (const order of orders) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items = await prisma.$queryRaw<any[]>(Prisma.sql`
+    const items = await prisma.$queryRaw<{ variant: string; quantity: Prisma.Decimal }[]>(Prisma.sql`
       SELECT pv.name as variant, soi.quantity
       FROM "SalesOrderItem" soi
       JOIN "ProductVariant" pv ON soi."productVariantId" = pv.id
@@ -464,8 +463,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
     }),
     execute: async (args, _ctx): Promise<ToolEvidence> => {
       const { searchTerm } = args as { searchTerm: string };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const rows = await prisma.$queryRaw<{ id: string; orderNumber: string; status: string; customer: string | null; deliveryDate: Date | null }[]>(Prisma.sql`
         SELECT d.id, d."orderNumber", d.status, d."deliveryDate", d."estimatedArrival",
                c.name AS customer, so."orderNumber" AS soNumber
         FROM "DeliveryOrder" d
@@ -519,8 +517,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
     }),
     execute: async (args, _ctx): Promise<ToolEvidence> => {
       const { searchTerm } = args as { searchTerm: string };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const rows = await prisma.$queryRaw<{ id: string; invoiceNumber: string; status: string; totalAmount: Prisma.Decimal; paidAmount: Prisma.Decimal; dueDate: Date | null; customer: string | null }[]>(Prisma.sql`
         SELECT i.id, i."invoiceNumber", i.status, i."totalAmount", i."paidAmount",
                i."dueDate", c.name AS customer
         FROM "Invoice" i
@@ -577,8 +574,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
     }),
     execute: async (args, _ctx): Promise<ToolEvidence> => {
       const { searchTerm } = args as { searchTerm: string };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const rows = await prisma.$queryRaw<{ id: string; orderNumber: string; status: string; totalAmount: Prisma.Decimal; supplier: string | null; orderDate: Date | null }[]>(Prisma.sql`
         SELECT po.id, po."orderNumber", po.status, po."totalAmount",
                s.name AS supplier, po."orderDate"
         FROM "PurchaseOrder" po
@@ -632,8 +628,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
     execute: async (args, _ctx): Promise<ToolEvidence> => {
       const { productName, limit: rowLimit } = args as { productName: string; limit?: number };
       const cap = rowLimit ?? 10;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const rows = await prisma.$queryRaw<{ type: string; quantity: Prisma.Decimal; createdAt: Date; reference: string | null; location: string | null }[]>(Prisma.sql`
         SELECT sm.type, sm.quantity, sm."createdAt", sm.reference,
                p.name AS product, l.name AS location
         FROM "StockMovement" sm
@@ -685,8 +680,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       let hasPartial = false;
 
       // Step 1: Resolve SO
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const orders = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const orders = await prisma.$queryRaw<{ id: string; orderNumber: string; status: string; customer: string | null }[]>(Prisma.sql`
         SELECT so.id, so."orderNumber", so.status, c.name AS customer
         FROM "SalesOrder" so
         LEFT JOIN "Customer" c ON so."customerId" = c.id
@@ -708,8 +702,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       entities.push({ type: 'SalesOrder', id: order.id, label: order.orderNumber, href: '/sales/orders' });
 
       // Step 2: Check line items and stock availability
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const items = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const items = await prisma.$queryRaw<{ variant: string; requested: Prisma.Decimal; available: Prisma.Decimal }[]>(Prisma.sql`
         SELECT pv.name AS variant, soi.quantity AS requested,
                COALESCE((SELECT SUM(i.quantity) FROM "Inventory" i WHERE i."productVariantId" = soi."productVariantId" AND i.quantity > 0), 0) AS available
         FROM "SalesOrderItem" soi
@@ -726,8 +719,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       }
 
       // Step 3: Check linked production orders
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const productionOrders = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const productionOrders = await prisma.$queryRaw<{ orderNumber: string; status: string }[]>(Prisma.sql`
         SELECT po."orderNumber", po.status
         FROM "ProductionOrder" po
         WHERE po."salesOrderId" = ${order.id}
@@ -743,8 +735,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       }
 
       // Step 4: Check delivery schedule
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const deliveries = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const deliveries = await prisma.$queryRaw<{ orderNumber: string; status: string }[]>(Prisma.sql`
         SELECT d."orderNumber", d.status
         FROM "DeliveryOrder" d
         WHERE d."salesOrderId" = ${order.id}
@@ -782,8 +773,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       const facts: { label: string; value: string }[] = [];
 
       // Step 1: Check total stock
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const stockRows = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const stockRows = await prisma.$queryRaw<{ product: string; totalStock: Prisma.Decimal }[]>(Prisma.sql`
         SELECT p.name AS product, SUM(i.quantity) AS totalStock
         FROM "Inventory" i
         JOIN "ProductVariant" pv ON i."productVariantId" = pv.id
@@ -805,8 +795,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       facts.push({ label: 'Total Stok Fisik', value: `${totalStock.toFixed(2)}` });
 
       // Step 2: Check reserved stock (pending SO)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const reservedRows = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const reservedRows = await prisma.$queryRaw<{ reserved: Prisma.Decimal | null }[]>(Prisma.sql`
         SELECT SUM(soi.quantity) AS reserved
         FROM "SalesOrderItem" soi
         JOIN "SalesOrder" so ON soi."salesOrderId" = so.id
@@ -852,8 +841,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       const from = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30));
       const to = endDate ? new Date(endDate) : new Date();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const where: any = {
+      const where: { date: { gte: Date; lte: Date }; employee?: { name: { contains: string; mode: 'insensitive' } } } = {
         date: { gte: from, lte: to },
       };
 
@@ -861,8 +849,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
         where.employee = { name: { contains: employeeName, mode: 'insensitive' } };
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const rows = await prisma.$queryRaw<{ employee: string; date: Date; status: string; checkInTime: string | null; checkOutTime: string | null }[]>(Prisma.sql`
         SELECT e.name AS employee, a.date, a.status, a."checkInTime", a."checkOutTime"
         FROM "Attendance" a
         JOIN "Employee" e ON a."employeeId" = e.id
@@ -910,8 +897,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       const facts: { label: string; value: string }[] = [];
       const entities: { type: string; id: string; label: string; href: string }[] = [];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pos = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const pos = await prisma.$queryRaw<{ id: string; orderNumber: string; status: string; plannedQuantity: Prisma.Decimal; actualQuantity: Prisma.Decimal | null; bomId: string; product: string }[]>(Prisma.sql`
         SELECT po.id, po."orderNumber", po.status, po."plannedQuantity", po."actualQuantity",
                b.id AS "bomId", p.name AS product
         FROM "ProductionOrder" po
@@ -937,8 +923,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       entities.push({ type: 'ProductionOrder', id: po.id, label: po.orderNumber, href: '/production/orders' });
 
       // Check BOM materials
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bomItems = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const bomItems = await prisma.$queryRaw<{ material: string; required: Prisma.Decimal; available: Prisma.Decimal }[]>(Prisma.sql`
         SELECT p.name AS material, bi.quantity AS required,
                COALESCE((SELECT SUM(i.quantity) FROM "Inventory" i WHERE i."productVariantId" = bi."productVariantId" AND i.quantity > 0), 0) AS available
         FROM "BomItem" bi
@@ -980,8 +965,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       const facts: { label: string; value: string }[] = [];
       const entities: { type: string; id: string; label: string; href: string }[] = [];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pos = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const pos = await prisma.$queryRaw<{ id: string; orderNumber: string; status: string; totalAmount: Prisma.Decimal; supplier: string | null }[]>(Prisma.sql`
         SELECT po.id, po."orderNumber", po.status, po."totalAmount",
                s.name AS supplier
         FROM "PurchaseOrder" po
@@ -1005,8 +989,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       entities.push({ type: 'PurchaseOrder', id: po.id, label: po.orderNumber, href: '/purchasing/orders' });
 
       // Check goods receipts
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const receipts = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const receipts = await prisma.$queryRaw<{ id: string; receiptNumber: string; status: string; totalAmount: Prisma.Decimal }[]>(Prisma.sql`
         SELECT gr.id, gr."receiptNumber", gr.status, gr."totalAmount"
         FROM "GoodsReceipt" gr
         WHERE gr."purchaseOrderId" = ${po.id}
@@ -1021,8 +1004,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       }
 
       // Check linked invoices
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const invoices = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const invoices = await prisma.$queryRaw<{ id: string; invoiceNumber: string; status: string }[]>(Prisma.sql`
         SELECT pi.id, pi."invoiceNumber", pi.status
         FROM "PurchaseInvoice" pi
         WHERE pi."purchaseOrderId" = ${po.id}
@@ -1059,8 +1041,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       const facts: { label: string; value: string }[] = [];
       const entities: { type: string; id: string; label: string; href: string }[] = [];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const invoices = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const invoices = await prisma.$queryRaw<{ id: string; invoiceNumber: string; status: string; totalAmount: Prisma.Decimal; paidAmount: Prisma.Decimal; dueDate: Date | null; customer: string | null }[]>(Prisma.sql`
         SELECT i.id, i."invoiceNumber", i.status, i."totalAmount", i."paidAmount", i."dueDate",
                c.name AS customer
         FROM "Invoice" i
@@ -1091,8 +1072,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
       entities.push({ type: 'Invoice', id: inv.id, label: inv.invoiceNumber, href: '/finance/invoices/sales' });
 
       // Check payment allocations
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const payments = await prisma.$queryRaw<any[]>(Prisma.sql`
+      const payments = await prisma.$queryRaw<{ id: string; paymentId: string; amount: Prisma.Decimal; paymentNumber: string; status: string }[]>(Prisma.sql`
         SELECT pa.id, pa."paymentId", pa.amount, p."paymentNumber", p.status
         FROM "PaymentAllocation" pa
         JOIN "Payment" p ON pa."paymentId" = p.id

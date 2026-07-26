@@ -36,8 +36,7 @@ export async function authenticate(
         if (error instanceof AuthError) {
             // Auth.js wraps errors thrown from authorize() as CredentialsSignin;
             // the original Error message is available on `.cause?.err?.message`.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const causeMessage = (error as any)?.cause?.err?.message as string | undefined;
+            const causeMessage = (error as { cause?: { err?: { message?: string } } })?.cause?.err?.message;
 
             if (causeMessage === 'TenantSuspended') {
                 return 'Akun tenant ini telah dinonaktifkan (suspended). Silakan hubungi administrator.';

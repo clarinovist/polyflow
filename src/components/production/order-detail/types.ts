@@ -2,7 +2,7 @@ import {
     ProductionOrder, Bom, Machine, Location, User, MaterialIssue, ScrapRecord, QualityInspection,
     ProductVariant, Employee, ProductionExecution, ProductionMaterial,
     ProductionShift, Product, ProductionIssue, Customer, SalesOrder, SalesOrderType,
-    Unit
+    Unit, MaklonCostType
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -15,8 +15,7 @@ export type ExtendedProductionOrder = ProductionOrder & {
             conversionFactor: Decimal
         },
         category: 'STANDARD' | 'MIXING' | 'EXTRUSION' | 'PACKING' | 'REWORK',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        items: { id: string; productVariantId: string; productVariant: ProductVariant & { product: { name: string } }; quantity: any }[]
+        items: { id: string; productVariantId: string; productVariant: ProductVariant & { product: { name: string } }; quantity: number }[]
     };
     machine: Machine | null;
     location: Location;
@@ -32,6 +31,12 @@ export type ExtendedProductionOrder = ProductionOrder & {
     isMaklon?: boolean;
     maklonCustomer?: Customer | null;
     estimatedConversionCost?: number;
+    maklonCostItems?: {
+        id: string;
+        costType: MaklonCostType;
+        description: string | null;
+        amount: string | number;
+    }[];
     salesOrder?: Pick<SalesOrder, 'id' | 'orderNumber'> & {
         orderType: SalesOrderType;
         customer: Pick<Customer, 'id' | 'name' | 'email' | 'phone'> | null;

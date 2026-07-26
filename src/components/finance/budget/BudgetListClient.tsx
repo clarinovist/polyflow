@@ -16,9 +16,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { upsertBudget } from '@/actions/finance/budget-actions';
 import { toast } from 'sonner';
 
+interface BudgetRow {
+    id: string;
+    accountId: string;
+    year: number;
+    month: number;
+    amount: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 interface BudgetListClientProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    initialBudgets: any[];
+    initialBudgets: BudgetRow[];
     accounts: Account[];
     year: number;
 }
@@ -62,16 +71,14 @@ export function BudgetListClient({ initialBudgets, accounts, year: initialYear }
             );
 
             if (existingIndex >= 0) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                newBudgets[existingIndex] = { ...newBudgets[existingIndex], amount: (parseFloat(editValue) as any) };
+                newBudgets[existingIndex] = { ...newBudgets[existingIndex], amount: parseFloat(editValue) || 0 };
             } else {
                 newBudgets.push({
                     id: 'temp-' + Date.now(),
                     accountId: editingCell.accountId,
                     year: parseInt(year),
                     month: editingCell.month,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    amount: (parseFloat(editValue) as any),
+                    amount: parseFloat(editValue) || 0,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 });

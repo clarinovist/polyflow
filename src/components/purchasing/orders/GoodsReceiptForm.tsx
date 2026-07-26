@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray, SubmitHandler } from 'react-hook-form';
+import {
+    useForm,
+    useFieldArray,
+    SubmitHandler,
+    type Resolver,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createGoodsReceiptSchema, CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createGoodsReceipt } from '@/actions/purchasing/purchasing';
@@ -58,8 +63,9 @@ export function GoodsReceiptForm({
     const pendingItems = items;
 
     const form = useForm<CreateGoodsReceiptValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(createGoodsReceiptSchema) as any,
+        resolver: zodResolver(
+            createGoodsReceiptSchema,
+        ) as Resolver<CreateGoodsReceiptValues>,
         defaultValues: {
             purchaseOrderId,
             receivedDate: new Date(),

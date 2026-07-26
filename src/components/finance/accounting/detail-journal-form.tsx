@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { detailJournalSchema, DetailJournalValues } from '@/lib/schemas/journal';
 import { createDetailJournalAction, updateDetailJournalAction } from '@/actions/finance/journal';
@@ -70,8 +70,7 @@ export default function DetailJournalForm({
   }, [template, accounts, mode, defaultValues?.counterAccountId]);
 
   const form = useForm<DetailJournalValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(detailJournalSchema) as any,
+    resolver: zodResolver(detailJournalSchema) as Resolver<DetailJournalValues>,
     defaultValues: defaultValues || {
       type: initialTemplateKey as DetailJournalValues['type'],
       entryDate: new Date(),
@@ -124,8 +123,7 @@ export default function DetailJournalForm({
     if (!newTemplate) return;
 
     setSelectedTemplateKey(newKey);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setValue('type', newKey as any);
+    setValue('type', newKey as DetailJournalValues['type']);
     setValue('direction', newTemplate.defaultDirection);
 
     // Set default accounts

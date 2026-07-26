@@ -59,12 +59,9 @@ export default async function FromNotaPage() {
                 </p>
             </div>
             <WalkInReceiptForm
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                suppliers={serializeData(data.suppliers) as any}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                locations={serializeData(data.locations) as any}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                productVariants={serializeData(data.productVariants) as any}
+                suppliers={serializeData(data.suppliers)}
+                locations={serializeData(data.locations)}
+                productVariants={serializeData(data.productVariants)}
             />
         </div>
     );

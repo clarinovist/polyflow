@@ -19,8 +19,7 @@ import { useRouter } from 'next/navigation';
 type SerializedMaklonReturn = MaklonMaterialReturn & {
     customer: Customer | null;
     _count?: { items: number };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    items?: any[];
+    items?: unknown[];
 };
 
 interface MaklonReturnTableProps {

@@ -157,7 +157,9 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
             conversionFactorSnapshot: useAlternateUnit ? conversionFactor : undefined,
         };
 
-        const result = await addProductionOutput(data as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const result = await addProductionOutput(
+            data as Parameters<typeof addProductionOutput>[0],
+        );
         setIsSubmitting(false);
         if (result.success) {
             toast.success("Hasil produksi berhasil dicatat");

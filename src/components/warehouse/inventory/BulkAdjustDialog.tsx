@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { bulkAdjustStockSchema, BulkAdjustStockValues } from '@/lib/schemas/inventory';
 import { adjustStockBulk } from '@/actions/inventory/inventory';
@@ -71,8 +71,9 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
     const isRawMaterialLocation = locationName.toLowerCase().includes('raw material');
 
     const form = useForm<BulkAdjustStockValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(bulkAdjustStockSchema) as any,
+        resolver: zodResolver(
+            bulkAdjustStockSchema,
+        ) as Resolver<BulkAdjustStockValues>,
         defaultValues: {
             locationId: locationId,
             items: items.map(item => ({

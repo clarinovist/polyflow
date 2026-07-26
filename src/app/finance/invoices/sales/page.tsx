@@ -1,4 +1,4 @@
-
+import type { ComponentProps } from "react";
 import { getInvoices } from "@/actions/finance/invoice";
 import { InvoiceTable } from "@/components/sales/InvoiceTable";
 
@@ -77,8 +77,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                 </Alert>
             )}
 
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <InvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/sales" initialStatus={initialStatus} />
+            <InvoiceTable invoices={serializedInvoices as ComponentProps<typeof InvoiceTable>['invoices']} basePath="/finance/invoices/sales" initialStatus={initialStatus} />
         </div>
     );
 }

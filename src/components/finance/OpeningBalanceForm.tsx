@@ -50,11 +50,14 @@ const formSchema = z.object({
 
 type OpeningBalanceFormValues = z.infer<typeof formSchema>;
 
+interface SelectableEntity {
+    id: string;
+    name: string;
+}
+
 interface OpeningBalanceFormProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    customers: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    suppliers: any[];
+    customers: SelectableEntity[];
+    suppliers: SelectableEntity[];
 }
 
 export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormProps) {

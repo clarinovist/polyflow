@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ComponentProps } from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseInvoiceTable } from '@/components/purchasing/orders/PurchaseInvoiceTable';
 import { Metadata } from 'next';
@@ -49,8 +50,7 @@ export default async function PurchaseInvoicesPage({ searchParams }: { searchPar
                 </div>
             </div>
 
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseInvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/purchase" initialStatus={initialStatus} overdueMode={overdueMode} />
+            <PurchaseInvoiceTable invoices={serializedInvoices as ComponentProps<typeof PurchaseInvoiceTable>['invoices']} basePath="/finance/invoices/purchase" initialStatus={initialStatus} overdueMode={overdueMode} />
         </div>
     );
 }

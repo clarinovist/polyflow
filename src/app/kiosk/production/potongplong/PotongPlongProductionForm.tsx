@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { productionOutputSchema } from '@/lib/schemas/production';
@@ -64,7 +64,7 @@ function makeEmpty(): BulkFormValues['reports'][0] {
         startTime: new Date(),
         endTime: new Date(),
         notes: ''
-    } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    };
 }
 
 export default function PotongPlongProductionForm({
@@ -80,7 +80,7 @@ export default function PotongPlongProductionForm({
     const [loadingShifts, setLoadingShifts] = useState<Record<string, boolean>>({});
 
     const form = useForm<BulkFormValues>({
-        resolver: zodResolver(bulkSchema) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(bulkSchema) as Resolver<BulkFormValues>,
         defaultValues: { reports: [makeEmpty()] }
     });
 

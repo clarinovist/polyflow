@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, MaklonMaterialReturnStatus } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 
@@ -90,8 +90,7 @@ export class MaklonReturnService {
         }
 
         if (params?.status) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            where.status = params.status as any;
+            where.status = params.status as MaklonMaterialReturnStatus;
         }
 
         if (params?.startDate && params?.endDate) {

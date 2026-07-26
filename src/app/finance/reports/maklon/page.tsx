@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { getMaklonReport, getMaklonCustomers } from '@/actions/maklon/maklon-report';
 import { MaklonReportClient } from '@/components/maklon/MaklonReportClient';
 import { Factory } from 'lucide-react';
@@ -44,8 +45,10 @@ export default async function MaklonReportPage() {
                     Track service revenue, internal conversion costs, and gross margin per Maklon order.
                 </p>
             </div>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <MaklonReportClient initialReport={report as any} customers={customers} />
+            <MaklonReportClient
+                initialReport={report as ComponentProps<typeof MaklonReportClient>['initialReport']}
+                customers={customers}
+            />
         </div>
     );
 }

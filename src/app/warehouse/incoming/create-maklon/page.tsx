@@ -20,15 +20,13 @@ export default async function CreateMaklonReceiptPage() {
 
     const locationsRes = await getLocations();
     const allLocations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const locations = (allLocations as any[]).filter((l: any) => l.locationType === 'CUSTOMER_OWNED');
+    const locations = allLocations.filter((l) => l.locationType === 'CUSTOMER_OWNED');
 
     const productVariantsRes = await getProductVariants();
     const productVariants = productVariantsRes.success && productVariantsRes.data ? productVariantsRes.data : [];
 
     // 2. Format product variants for the form
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const formattedVariants = (productVariants as any[]).map((v: any) => ({
+    const formattedVariants = productVariants.map((v) => ({
         id: v.id,
         name: v.product?.name || v.name,
         skuCode: v.skuCode,

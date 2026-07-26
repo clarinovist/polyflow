@@ -565,8 +565,7 @@ async function generateEntryNumber(
   tx?: Prisma.TransactionClient,
   _retryCount = 0,
 ): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = (tx || prisma) as any;
+  const db = tx || prisma;
   // Use WIB calendar year to match the user's intended date, not UTC
   const dateStr = toBusinessDateString(date); // "YYYY-MM-DD" in WIB
   const year = parseInt(dateStr.split('-')[0], 10);

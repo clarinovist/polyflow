@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { getPurchaseRequests } from "@/actions/purchasing/purchasing";
 import { getSuppliers } from "@/actions/purchasing/supplier";
 import { RequestList } from "./RequestList";
@@ -49,8 +50,12 @@ export default async function PurchaseRequestsPage(props: {
           )}
         </div>
       </div>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <RequestList requests={requests as any} suppliers={suppliers} />
+      <RequestList
+        requests={
+          requests as unknown as ComponentProps<typeof RequestList>["requests"]
+        }
+        suppliers={suppliers}
+      />
     </div>
   );
 }

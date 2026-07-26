@@ -498,8 +498,7 @@ export const AttendanceService = {
    * List attendance records by date with optional filters.
    */
   async listByDate(db: PrismaClient, date: Date, filters?: ListFilters): Promise<AttendanceRecordResult[]> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: Record<string, any> = { workDate: date };
+    const where: Prisma.AttendanceRecordWhereInput = { workDate: date };
     if (filters?.workShiftId) where.workShiftId = filters.workShiftId;
 
     const records = await db.attendanceRecord.findMany({

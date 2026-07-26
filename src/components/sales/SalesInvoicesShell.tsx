@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import type { ComponentProps } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -128,8 +129,13 @@ export function SalesInvoicesShell({
           <CardDescription>{filter === "all" ? `Periode ${periodLabel}` : `Invoice status: ${filter} — periode ${periodLabel}`}</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <InvoiceTable invoices={serialized as any[]} />
+          <InvoiceTable
+            invoices={
+              serialized as unknown as ComponentProps<
+                typeof InvoiceTable
+              >["invoices"]
+            }
+          />
         </CardContent>
       </Card>
     </>

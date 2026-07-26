@@ -1,6 +1,7 @@
 import { getSalesOrderById } from '@/actions/sales/sales';
 import { notFound } from 'next/navigation';
 import { SalesOrderDetailClient } from '@/components/sales/SalesOrderDetailClient';
+import type { SerializedSalesOrder } from '@/components/sales/sales-order-types';
 import { serializeData } from '@/lib/utils/utils';
 
 interface PageProps {
@@ -24,8 +25,7 @@ export default async function WarehouseOutgoingSODetailPage({ params }: PageProp
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <SalesOrderDetailClient
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                order={serializedOrder as any}
+                order={serializedOrder as unknown as SerializedSalesOrder}
                 basePath="/warehouse/outgoing/orders"
                 warehouseMode={true}
             />

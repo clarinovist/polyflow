@@ -6,11 +6,16 @@ import { Calculator, Info, TrendingUp as TrendingUpIcon } from "lucide-react";
 import { formatRupiah } from "@/lib/utils/utils";
 import { ExtendedProductionOrder } from "@/components/production/order-detail/types";
 import { MaklonCostManager } from "@/components/maklon/MaklonCostManager";
+import type { getOrderCosting } from "@/actions/finance/finance";
+
+export type OrderCostingData = Extract<
+  Awaited<ReturnType<typeof getOrderCosting>>,
+  { success: true }
+>["data"];
 
 interface OrderCostingTabProps {
   order: ExtendedProductionOrder;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  costingData: any;
+  costingData: OrderCostingData;
   loadingCosting: boolean;
 }
 
@@ -25,8 +30,7 @@ export function OrderCostingTab({
       {order.isMaklon && (
         <MaklonCostManager
           productionOrderId={order.id}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          initialItems={(order as any).maklonCostItems ?? []}
+          initialItems={order.maklonCostItems ?? []}
         />
       )}
 

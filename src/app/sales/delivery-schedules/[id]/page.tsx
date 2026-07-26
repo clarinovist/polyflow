@@ -1,6 +1,17 @@
 import { getDeliverySchedule } from "@/actions/sales/delivery-schedules";
 import { ScheduleDetailClient } from "@/components/sales/schedules/ScheduleDetailClient";
 import { redirect } from "next/navigation";
+import type { ComponentProps } from "react";
+
+type Schedule = NonNullable<
+  Extract<Awaited<ReturnType<typeof getDeliverySchedule>>, { success: true }>["data"]
+>;
+type Trip = Schedule["trips"][number];
+type OrderStop = Trip["orders"][number];
+type DeliveryOrderItem = NonNullable<
+  NonNullable<OrderStop["deliveryOrder"]>["salesOrder"]
+>["items"][number];
+type SalesOrderItem = NonNullable<OrderStop["salesOrder"]>["items"][number];
 
 export default async function ScheduleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,7 +22,6 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
   }
 
   // Serialize Decimal fields for client
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   const schedule = {
     ...result.data,
     weekStart: result.data.weekStart.toISOString(),
@@ -19,7 +29,7 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
     createdAt: result.data.createdAt.toISOString(),
     updatedAt: result.data.updatedAt.toISOString(),
     // Bridge: schema renamed vehicles→trips, but component still expects `vehicles`
-    vehicles: result.data.trips.map((sv: any) => ({
+    vehicles: result.data.trips.map((sv: Trip) => ({
       id: sv.id,
       vehicleId: sv.vehicleId,
       departureDate: sv.departureDate?.toISOString() || null,
@@ -29,7 +39,7 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
       notes: sv.notes,
       createdAt: sv.createdAt.toISOString(),
       vehicle: sv.vehicle,
-      orders: sv.orders.map((so: any) => ({
+      orders: sv.orders.map((so: OrderStop) => ({
         ...so,
         createdAt: so.createdAt.toISOString(),
         plannedWeightKg: so.plannedWeightKg ? Number(so.plannedWeightKg) : null,
@@ -47,7 +57,8 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
               orderDate: so.deliveryOrder.salesOrder.orderDate.toISOString(),
               totalAmount: so.deliveryOrder.salesOrder.totalAmount ? Number(so.deliveryOrder.salesOrder.totalAmount) : null,
               customer: so.deliveryOrder.salesOrder.customer,
-              items: so.deliveryOrder.salesOrder.items.map((item: any) => ({
+              items: so.deliveryOrder.salesOrder.items.map(
+                (item: DeliveryOrderItem) => ({
                 id: item.id,
                 quantity: Number(item.quantity),
                 deliveredQty: Number(item.deliveredQty),
@@ -65,7 +76,7 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
             orderDate: so.salesOrder.orderDate?.toISOString() || null,
             totalAmount: so.salesOrder.totalAmount ? Number(so.salesOrder.totalAmount) : null,
             customer: so.salesOrder.customer,
-            items: so.salesOrder.items.map((item: any) => ({
+            items: so.salesOrder.items.map((item: SalesOrderItem) => ({
               id: item.id,
               quantity: Number(item.quantity),
               deliveredQty: Number(item.deliveredQty),
@@ -80,5 +91,13 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
     createdBy: result.data.createdBy,
   };
 
-  return <ScheduleDetailClient schedule={schedule} />;
+  return (
+    <ScheduleDetailClient
+      schedule={
+        schedule as unknown as ComponentProps<
+          typeof ScheduleDetailClient
+        >["schedule"]
+      }
+    />
+  );
 }

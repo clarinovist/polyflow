@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type ComponentProps } from 'react';
 import { Metadata } from 'next';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseOrderTable } from '@/components/purchasing/orders/PurchaseOrderTable';
@@ -42,8 +42,13 @@ export default async function PurchaseOrdersPage(props: { searchParams: SearchPa
                 </div>
             </div>
 
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseOrderTable orders={serializeData(orders) as any} />
+            <PurchaseOrderTable
+                orders={
+                    serializeData(orders) as unknown as ComponentProps<
+                        typeof PurchaseOrderTable
+                    >['orders']
+                }
+            />
         </div>
     );
 }

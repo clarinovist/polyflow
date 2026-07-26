@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { assetSchema, AssetFormValues } from '@/lib/schemas/finance';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,14 @@ import { cn } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 
+// Decimal columns may arrive already serialized to numbers (e.g. from getAssets).
+type ExistingAsset = Omit<FixedAsset, 'purchaseValue' | 'scrapValue'> & {
+    purchaseValue: FixedAsset['purchaseValue'] | number;
+    scrapValue: FixedAsset['scrapValue'] | number;
+};
+
 interface AssetFormProps {
-    existingAsset?: FixedAsset;
+    existingAsset?: ExistingAsset;
     accounts: Account[];
     onSuccess?: () => void;
 }
@@ -32,8 +38,7 @@ export function AssetForm({ existingAsset, accounts, onSuccess }: AssetFormProps
     // In a real app, you'd filter: Asset Accounts, Expense Accounts (Depreciation), Accum Depr Accounts
 
     const form = useForm<AssetFormValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(assetSchema) as any,
+        resolver: zodResolver(assetSchema) as Resolver<AssetFormValues>,
         defaultValues: {
             name: existingAsset?.name || '',
             assetCode: existingAsset?.assetCode || '',

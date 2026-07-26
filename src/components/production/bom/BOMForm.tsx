@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, Save, Loader2, ArrowLeft, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/production/boms';
+import type { getBom, getProductVariants } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
 import { useBomBasePath } from './useBomBasePath';
@@ -55,11 +56,19 @@ import {
     getCostSourceTone,
 } from '@/lib/utils/cost-diagnostics';
 
+type BomForEdit = NonNullable<
+    Extract<Awaited<ReturnType<typeof getBom>>, { success: true }>['data']
+>;
+type BomVariant = NonNullable<
+    Extract<
+        Awaited<ReturnType<typeof getProductVariants>>,
+        { success: true }
+    >['data']
+>[number];
+
 interface BOMFormProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bom?: any; // If present, we are editing
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    productVariants: any[];
+    bom?: BomForEdit; // If present, we are editing
+    productVariants: BomVariant[];
     showPrices?: boolean;
 }
 
@@ -103,8 +112,7 @@ export function BOMForm({
     const basePath = useBomBasePath();
 
     const form = useForm<CreateBomValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(createBomSchema) as any,
+        resolver: zodResolver(createBomSchema) as Resolver<CreateBomValues>,
         defaultValues: {
             name: '',
             productVariantId: '',
@@ -156,8 +164,7 @@ export function BOMForm({
                 outputQuantity: Number(bom.outputQuantity),
                 isDefault: bom.isDefault,
                 category: bom.category || 'STANDARD',
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                items: bom.items.map((item: any) => ({
+                items: bom.items.map((item) => ({
                     productVariantId: item.productVariantId,
                     quantity: Number(item.quantity),
                     scrapPercentage: Number(item.scrapPercentage || 0)

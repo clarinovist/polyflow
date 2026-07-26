@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   createCustomerSchema,
@@ -133,8 +133,7 @@ export function CustomerDialog({
   const form = useForm<CreateCustomerValues | UpdateCustomerValues>({
     resolver: zodResolver(
       mode === "create" ? createCustomerSchema : updateCustomerSchema,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ) as any,
+    ) as Resolver<CreateCustomerValues | UpdateCustomerValues>,
     defaultValues:
       mode === "edit" && initialData
         ? {

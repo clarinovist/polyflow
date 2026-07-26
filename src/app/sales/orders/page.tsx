@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { getSalesOrders, getSalesOrderStats } from '@/actions/sales/sales';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -194,8 +195,15 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                         </p>
                     </CardHeader>
                     <CardContent>
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" emptyMessage={emptyMessage} />
+                        <SalesOrderTable
+                            initialData={
+                                serializedOrders as unknown as ComponentProps<
+                                    typeof SalesOrderTable
+                                >['initialData']
+                            }
+                            basePath="/sales/orders"
+                            emptyMessage={emptyMessage}
+                        />
                     </CardContent>
                 </Card>
             </div>
@@ -324,8 +332,15 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" emptyMessage={emptyMessage} />
+                    <SalesOrderTable
+                        initialData={
+                            serializedOrders as unknown as ComponentProps<
+                                typeof SalesOrderTable
+                            >['initialData']
+                        }
+                        basePath="/sales/orders"
+                        emptyMessage={emptyMessage}
+                    />
                 </CardContent>
             </Card>
 

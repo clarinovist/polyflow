@@ -21,6 +21,7 @@ import { calculateBomItemCost } from '@/lib/utils/current-cost';
 import { productionComponentLabels } from '@/lib/labels';
 import { useBomBasePath } from './useBomBasePath';
 import { bulkArchiveBom } from '@/actions/production/boms';
+import type { getBoms } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import {
     AlertDialog,
@@ -33,9 +34,12 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+type BomListItem = NonNullable<
+    Extract<Awaited<ReturnType<typeof getBoms>>, { success: true }>['data']
+>[number];
+
 interface BOMListProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    boms: any[];
+    boms: BomListItem[];
     showPrices?: boolean;
 }
 
@@ -63,10 +67,8 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
     const activeBoms = useMemo(() => boms.filter((b) => b.isActive !== false), [boms]);
     const archivedBoms = useMemo(() => boms.filter((b) => b.isActive === false), [boms]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const getUnitCost = (bom: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalCost = bom.items.reduce((acc: number, item: any) => {
+    const getUnitCost = (bom: BomListItem) => {
+        const totalCost = bom.items.reduce((acc: number, item) => {
             return acc + calculateBomItemCost(item);
         }, 0);
         return totalCost / Number(bom.outputQuantity || 1);
@@ -263,8 +265,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                     </TableRow>
                                                 ) : (
                                                     filteredBoms.map((bom) => {
-                                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                                        const totalCost = bom.items.reduce((acc: number, item: any) => {
+                                                        const totalCost = bom.items.reduce((acc: number, item) => {
                                                             return acc + calculateBomItemCost(item);
                                                         }, 0);
                                                         const usageCount = bom._count?.ProductionOrder ?? 0;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createProductionOrderSchema } from "@/lib/schemas/production";
 import {
@@ -114,8 +114,7 @@ export function ProductionOrderForm({
   const locationLikes = useMemo(() => locations as LocationLike[], [locations]);
 
   const form = useForm<FormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema) as Resolver<FormValues>,
     defaultValues: {
       plannedQuantity: 0,
       plannedStartDate: new Date(),

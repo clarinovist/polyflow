@@ -13,9 +13,23 @@ import Link from "next/link";
 import { salesLabels, formLabels } from "@/lib/labels";
 import { getDeliveryStatusLabel } from "@/lib/sales/delivery-status";
 
+/** Serialized delivery-order row shape consumed by this table (Decimals/Dates already serialized). */
+interface DeliveryOrderRow {
+  id: string;
+  orderNumber: string;
+  deliveryDate: string | Date;
+  status: string;
+  salesOrderId?: string | null;
+  carrier?: string | null;
+  salesOrder?: {
+    orderNumber: string;
+    customer?: { name: string } | null;
+  } | null;
+  sourceLocation?: { name: string } | null;
+}
+
 interface DeliveryOrderTableProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  initialData: any[];
+  initialData: DeliveryOrderRow[];
   /** Detail/list base path — sales or warehouse portal */
   basePath?: string;
   /** active = open queue; history = closed archive (UI copy only for now) */
@@ -48,8 +62,7 @@ export function DeliveryOrderTable({
     );
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const columns: ColumnDef<any, unknown>[] = useMemo(
+  const columns: ColumnDef<DeliveryOrderRow, unknown>[] = useMemo(
     () => [
       {
         id: "orderNumber",
@@ -126,8 +139,7 @@ export function DeliveryOrderTable({
     [basePath],
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderMobileView = (orders: any[]) => (
+  const renderMobileView = (orders: DeliveryOrderRow[]) => (
     <>
       {orders.length === 0 ? (
         <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">

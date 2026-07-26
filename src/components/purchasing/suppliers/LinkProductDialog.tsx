@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -71,8 +71,7 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
     const [isFetchingVariants, setIsFetchingVariants] = useState(false);
 
     const form = useForm<FormValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(formSchema) as any,
+        resolver: zodResolver(formSchema) as Resolver<FormValues>,
         defaultValues: {
             productVariantId: '',
             unitPrice: 0,

@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { useForm, useFieldArray, SubmitHandler } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  type SubmitHandler,
+  type Resolver,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   createWalkInReceiptSchema,
@@ -63,8 +68,9 @@ export function WalkInReceiptForm({
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<CreateWalkInReceiptValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createWalkInReceiptSchema) as any,
+    resolver: zodResolver(
+      createWalkInReceiptSchema,
+    ) as Resolver<CreateWalkInReceiptValues>,
     defaultValues: {
       supplierId: "",
       supplierRefNo: "",

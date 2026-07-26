@@ -12,6 +12,7 @@ import {
     getCompanySettings,
     updateCompanySettings,
     uploadCompanyLogo,
+    type UpdateCompanyInput,
 } from '@/actions/settings/company-actions';
 
 interface BankRow {
@@ -168,8 +169,7 @@ export function CompanySettings() {
             payload.bankAccountsPPN = JSON.stringify(
                 banksPPN.filter((r) => r.account.trim() || r.holder.trim() || r.bank.trim()),
             );
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const res = await updateCompanySettings(payload as any);
+            const res = await updateCompanySettings(payload as UpdateCompanyInput);
             if (res.success) {
                 toast.success('Pengaturan perusahaan disimpan. Akan dipakai pada dokumen cetak berikutnya.');
             } else {

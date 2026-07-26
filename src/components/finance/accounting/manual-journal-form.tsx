@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { manualJournalSchema, ManualJournalValues } from '@/lib/schemas/journal';
 import { createManualJournal, updateManualJournal } from '@/actions/finance/journal';
@@ -45,8 +45,7 @@ export default function ManualJournalForm({
     const [loading, setLoading] = useState(false);
 
     const form = useForm<ManualJournalValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(manualJournalSchema) as any,
+        resolver: zodResolver(manualJournalSchema) as Resolver<ManualJournalValues>,
         defaultValues: defaultValues || {
             entryDate: new Date(),
             description: '',

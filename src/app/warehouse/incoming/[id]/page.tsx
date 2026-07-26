@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { notFound } from 'next/navigation';
 import { GoodsReceiptDetailClient } from '@/components/purchasing/orders/GoodsReceiptDetailClient';
@@ -6,7 +7,7 @@ import { serializeData } from '@/lib/utils/utils';
 
 import { withTenantPage } from '@/lib/core/tenant';
 
-const getReceipt = withTenantPage(async (id) => {
+const getReceipt = withTenantPage(async (id: string) => {
     return PurchaseService.getGoodsReceiptById(id);
 });
 interface PageProps {
@@ -36,8 +37,7 @@ export default async function WarehouseGoodsReceiptDetailPage({ params }: PagePr
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <GoodsReceiptDetailClient receipt={serializedReceipt as any} basePath="/warehouse/incoming" />
+            <GoodsReceiptDetailClient receipt={serializedReceipt as unknown as ComponentProps<typeof GoodsReceiptDetailClient>['receipt']} basePath="/warehouse/incoming" />
         </div>
     );
 }
