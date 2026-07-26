@@ -1,21 +1,24 @@
-import { getSalesOrderStats } from "@/actions/sales/sales";
+import { getSalesOrderStats, getRecentPipelineOrders } from "@/actions/sales/sales";
 import { getOutstandingInvoices } from "@/actions/finance/invoice";
 import { getCustomers } from "@/actions/sales/customer";
-import { ShoppingCart, CheckCircle, XCircle, Plus, Search } from "lucide-react";
+import { Plus, Search, ShoppingCart, Package, ReceiptText, MapPin } from "lucide-react";
 import Link from "next/link";
-import { DailyJourneyPlan } from "@/components/sales/mobile/DailyJourneyPlan";
+import { RouteTodaySection } from "@/components/field/RouteTodaySection";
+import { PipelineSummaryCard } from "@/components/field/PipelineSummaryCard";
 import { VisitSyncBanner } from "@/components/sales/mobile/VisitSyncBanner";
 import { formatRupiah } from "@/lib/utils/utils";
 
 export default async function FieldSalesDashboardPage() {
-  const [statsRes, invoicesRes, customersRes] = await Promise.all([
+  const [statsRes, invoicesRes, customersRes, recentPipelineRes] = await Promise.all([
     getSalesOrderStats(),
     getOutstandingInvoices(),
     getCustomers(),
+    getRecentPipelineOrders(),
   ]);
   const stats = statsRes?.success && statsRes.data ? statsRes.data : null;
   const invoices = invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
   const customers = customersRes?.success && customersRes.data ? customersRes.data : [];
+  const recentPipeline = recentPipelineRes?.success && recentPipelineRes.data ? recentPipelineRes.data : [];
 
   const totalOutstanding = invoices.reduce(
     (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)),
@@ -31,22 +34,51 @@ export default async function FieldSalesDashboardPage() {
       city: c.city,
     }));
 
+  const now = new Date();
+  const greeting =
+    now.getHours() < 12
+      ? "Selamat pagi"
+      : now.getHours() < 17
+      ? "Selamat siang"
+      : "Selamat sore";
+  const dateStr = now.toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
   return (
     <div className="p-4 space-y-4">
-      {/* Header */}
+      {/* Header — Today-first greeting */}
       <div>
-        <h1 className="text-xl font-bold">Sales Lapangan</h1>
-        <p className="text-sm text-muted-foreground">Ringkasan keseluruhan • Outstanding & order aktif</p>
+        <h1 className="text-xl font-bold">
+          {greeting} 👋
+        </h1>
+        <p className="text-sm text-muted-foreground">{dateStr}</p>
       </div>
 
       {/* Sync Banner */}
       <VisitSyncBanner />
 
-      {/* Quick Actions */}
+      {/* Rute Hari Ini — Above fold priority */}
+      <RouteTodaySection activeCustomers={activeCustomers} />
+
+      {/* Pipeline Saya — Stacked hybrid counts + next 3 */}
+      <PipelineSummaryCard
+        activeCount={stats?.activeCount ?? 0}
+        pipelineAmount={stats?.pipelineAmount ?? 0}
+        openQuotationCount={stats?.openQuotationCount ?? 0}
+        openQuotationAmount={stats?.openQuotationAmount ?? 0}
+        followUpCount={0}
+        topItems={recentPipeline}
+      />
+
+      {/* Quick Actions — Aksi cepat */}
       <div className="grid grid-cols-2 gap-3">
         <Link
           href="/field/sales/orders/create"
-          className="flex items-center gap-3 p-4 bg-primary text-primary-foreground rounded-xl active:scale-95 transition-transform"
+          className="flex items-center gap-3 p-4 bg-primary text-primary-foreground rounded-xl active:scale-95 transition-transform min-h-[48px]"
         >
           <Plus className="h-6 w-6" />
           <div>
@@ -56,7 +88,7 @@ export default async function FieldSalesDashboardPage() {
         </Link>
         <Link
           href="/field/sales/customers"
-          className="flex items-center gap-3 p-4 bg-muted rounded-xl active:scale-95 transition-transform"
+          className="flex items-center gap-3 p-4 bg-muted rounded-xl active:scale-95 transition-transform min-h-[48px]"
         >
           <Search className="h-6 w-6 text-muted-foreground" />
           <div>
@@ -66,69 +98,51 @@ export default async function FieldSalesDashboardPage() {
         </Link>
       </div>
 
-      {/* Journey Plan */}
-      <DailyJourneyPlan activeCustomers={activeCustomers} />
-
-      {/* Stats Cards */}
+      {/* Summary — Field KPI, no batal/total */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="p-4 border rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <ShoppingCart className="h-4 w-4 text-blue-500" />
-            <span className="text-xs text-muted-foreground">Order Aktif</span>
+        <Link
+          href="/field/sales/receivables"
+          className="flex items-center gap-3 p-3 border rounded-xl text-sm active:scale-[0.98] transition-transform min-h-[48px]"
+        >
+          <ReceiptText className="h-5 w-5 text-rose-500 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground">Piutang Outstanding</p>
+            <p className="font-bold text-sm text-rose-600 dark:text-rose-400 truncate">
+              {formatRupiah(totalOutstanding)}
+            </p>
           </div>
-          <p className="text-2xl font-bold">{stats?.activeCount ?? 0}</p>
-          {(stats as { pipelineAmount?: number } | null | undefined)?.pipelineAmount != null && (
-            <p className="text-xs text-muted-foreground mt-1">{formatRupiah((stats as { pipelineAmount: number }).pipelineAmount)}</p>
-          )}
-        </div>
-        <div className="p-4 border rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="h-4 w-4 text-emerald-500" />
-            <span className="text-xs text-muted-foreground">Selesai</span>
+        </Link>
+        <div className="flex items-center gap-3 p-3 border rounded-xl min-h-[48px]">
+          <ShoppingCart className="h-5 w-5 text-blue-500 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground">Order Aktif</p>
+            <p className="font-bold text-sm">{stats?.activeCount ?? 0}</p>
           </div>
-          <p className="text-2xl font-bold">{stats?.completedCount ?? 0}</p>
-        </div>
-        <div className="p-4 border rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <XCircle className="h-4 w-4 text-red-500" />
-            <span className="text-xs text-muted-foreground">Dibatalkan</span>
-          </div>
-          <p className="text-2xl font-bold">{stats?.cancelledCount ?? 0}</p>
-        </div>
-        <div className="p-4 border rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Total Order</span>
-          </div>
-          <p className="text-2xl font-bold">{stats?.totalOrders ?? 0}</p>
         </div>
       </div>
 
-      {/* Links */}
+      {/* Links — Quick access */}
       <div className="space-y-2">
         <Link
-          href="/field/sales/receivables"
-          className="block p-3 border rounded-xl text-sm font-semibold active:scale-[0.98] transition-transform bg-rose-50/50 dark:bg-rose-950/10 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900/30"
-        >
-          💰 Total Piutang: <span className="font-bold">{formatRupiah(totalOutstanding)}</span>
-        </Link>
-        <Link
-          href="/field/sales/stock"
-          className="block p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform"
-        >
-          📦 Cek Stok Produk
-        </Link>
-        <Link
           href="/field/sales/orders"
-          className="block p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform"
+          className="flex items-center gap-3 p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform min-h-[48px]"
         >
-          📋 Lihat Semua Order
+          <ReceiptText className="h-4 w-4 text-muted-foreground" />
+          Lihat Semua Order
         </Link>
         <Link
           href="/field/sales/visits"
-          className="block p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform"
+          className="flex items-center gap-3 p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform min-h-[48px]"
         >
-          🚗 Lihat Riwayat Kunjungan
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          Riwayat Kunjungan
+        </Link>
+        <Link
+          href="/field/sales/stock"
+          className="flex items-center gap-3 p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform min-h-[48px]"
+        >
+          <Package className="h-4 w-4 text-muted-foreground" />
+          Cek Stok Produk
         </Link>
       </div>
     </div>

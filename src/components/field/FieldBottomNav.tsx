@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, ShoppingBag, Package, ClipboardList } from "lucide-react";
+import { Home, Users, ClipboardList, MapPin, Package } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
 import { canSeeNavHref } from "@/lib/auth/permission-match";
 
@@ -10,7 +10,7 @@ const tabs = [
   { href: "/field/sales", label: "Beranda", icon: Home, badgeKey: "home" as const },
   { href: "/field/sales/customers", label: "Customer", icon: Users, badgeKey: "customers" as const },
   { href: "/field/sales/orders", label: "Order", icon: ClipboardList, badgeKey: "orders" as const },
-  { href: "/field/sales/orders/create", label: "Baru", icon: ShoppingBag, badgeKey: "create" as const },
+  { href: "/field/sales/visits", label: "Kunjungan", icon: MapPin, badgeKey: "visits" as const },
   { href: "/field/sales/stock", label: "Stok", icon: Package, resource: "/warehouse/inventory", badgeKey: "stock" as const },
 ];
 
@@ -35,7 +35,7 @@ export function FieldBottomNav({ permissions, badges }: FieldBottomNavProps) {
           const isActive =
             tab.href === "/field/sales"
               ? pathname === tab.href
-              : tab.href === "/field/sales/orders"
+              : pathname === "/field/sales/orders"
                 ? pathname === tab.href
                 : pathname.startsWith(tab.href);
           const badgeCount = badges?.[tab.badgeKey];
@@ -44,7 +44,7 @@ export function FieldBottomNav({ permissions, badges }: FieldBottomNavProps) {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "relative flex flex-col items-center justify-center gap-0.5 text-xs transition-colors",
+                "relative flex flex-col items-center justify-center gap-0.5 text-xs transition-colors min-h-[48px]",
                 isActive
                   ? "text-primary font-medium"
                   : "text-muted-foreground active:text-primary",

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, Calendar, Clock, MapPin, FileText, Navigation, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ArrowLeft, Calendar, Clock, MapPin, FileText, Navigation, Trash2, CloudLightning, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { getServerVisits } from "@/actions/sales/route-plans";
 
 type VisitLog = {
   id: string;
@@ -20,22 +21,47 @@ type VisitLog = {
   synced?: boolean;
 };
 
-type JourneyItem = {
-  id: string;
-  status: "PENDING" | "VISITING" | "COMPLETED";
-};
-
 export default function SalesMobileVisitsHistoryPage() {
   const router = useRouter();
-  
-  // Lazily initialize state from localStorage to avoid set-state-in-effect warning
-  const [logs, setLogs] = useState<VisitLog[]>(() => {
+
+  const [localLogs, setLocalLogs] = useState<VisitLog[]>([]);
+  const [serverLogs, setServerLogs] = useState<VisitLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load local logs
+  useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("visit_logs");
-      if (saved) return JSON.parse(saved) as VisitLog[];
+      if (saved) setLocalLogs(JSON.parse(saved) as VisitLog[]);
     }
-    return [];
-  });
+  }, []);
+
+  // Fetch server logs
+  useEffect(() => {
+    const fetchServer = async () => {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const result = await getServerVisits(today);
+        if (result?.success && result.data) {
+          setServerLogs(result.data as VisitLog[]);
+        }
+      } catch {
+        // Silently fail — local logs still work
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchServer();
+  }, []);
+
+  // Merge: server logs first (synced), then local unsynced (deduped by customerId+checkInTime)
+  const allLogs = useMemo(() => {
+    const serverIds = new Set(serverLogs.map((l) => l.id));
+    const unsyncedLocal = localLogs.filter(
+      (l) => !serverIds.has(l.id) && l.synced === false
+    );
+    return [...serverLogs, ...unsyncedLocal];
+  }, [serverLogs, localLogs]);
 
   const formatDuration = (totalSeconds: number) => {
     if (totalSeconds < 60) return `${totalSeconds} detik`;
@@ -45,18 +71,18 @@ export default function SalesMobileVisitsHistoryPage() {
   };
 
   const clearHistory = () => {
-    if (confirm("Apakah Anda yakin ingin menghapus semua riwayat kunjungan?")) {
+    if (confirm("Apakah Anda yakin ingin menghapus semua riwayat kunjungan lokal?")) {
       localStorage.removeItem("visit_logs");
-      // Reset call plan statuses to PENDING for demo testing
-      const savedPlan = localStorage.getItem("today_journey_plan");
-      if (savedPlan) {
-        const plan = JSON.parse(savedPlan) as JourneyItem[];
-        const reset = plan.map((item) => ({ ...item, status: "PENDING" as const }));
-        localStorage.setItem("today_journey_plan", JSON.stringify(reset));
-      }
-      setLogs([]);
+      setLocalLogs([]);
     }
   };
+
+  const stats = useMemo(() => {
+    const total = allLogs.length;
+    const unsynced = allLogs.filter((l) => l.synced === false).length;
+    const synced = allLogs.filter((l) => l.synced === true).length;
+    return { total, unsynced, synced };
+  }, [allLogs]);
 
   return (
     <div className="p-4 space-y-4 pb-20">
@@ -76,21 +102,46 @@ export default function SalesMobileVisitsHistoryPage() {
             <p className="text-sm text-muted-foreground">Log aktivitas lapangan Anda</p>
           </div>
         </div>
-        {logs.length > 0 && (
+        {localLogs.length > 0 && (
           <Button
             variant="ghost"
             size="icon"
             onClick={clearHistory}
             className="text-destructive hover:bg-destructive/10"
-            title="Hapus Riwayat"
+            title="Hapus Riwayat Lokal"
           >
             <Trash2 className="h-5 w-5" />
           </Button>
         )}
       </div>
 
+      {/* Stats Summary */}
+      {allLogs.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+          <span className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+            Total: {stats.total}
+          </span>
+          {stats.synced > 0 && (
+            <span className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+              <CheckCircle className="inline h-3 w-3 mr-1" />
+              Server: {stats.synced}
+            </span>
+          )}
+          {stats.unsynced > 0 && (
+            <span className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+              <CloudLightning className="inline h-3 w-3 mr-1" />
+              Belum sync: {stats.unsynced}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* History list */}
-      {logs.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-16">
+          <p className="text-sm text-muted-foreground">Memuat data kunjungan...</p>
+        </div>
+      ) : allLogs.length === 0 ? (
         <div className="text-center py-16 border border-dashed rounded-2xl bg-muted/5">
           <MapPin className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-40" />
           <p className="text-sm font-semibold text-muted-foreground">Belum ada kunjungan hari ini</p>
@@ -100,17 +151,19 @@ export default function SalesMobileVisitsHistoryPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {logs.map((log) => {
+          {allLogs.map((log) => {
             const date = new Date(log.checkInTime);
+            const isSynced = log.synced === true;
+
             return (
               <div
                 key={log.id}
                 className="border rounded-2xl p-4 bg-card shadow-xs space-y-3.5 relative overflow-hidden"
               >
-                {/* Accent border left */}
-                <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-emerald-500" />
+                <div className={`absolute top-0 bottom-0 left-0 w-1.5 ${
+                  isSynced ? "bg-emerald-500" : "bg-amber-500"
+                }`} />
 
-                {/* Top Info */}
                 <div className="pl-1.5 flex justify-between items-start gap-2">
                   <div className="min-w-0">
                     <h3 className="font-bold text-sm text-foreground truncate">{log.customerName}</h3>
@@ -119,12 +172,17 @@ export default function SalesMobileVisitsHistoryPage() {
                       {format(date, "dd MMM yyyy, HH:mm")}
                     </span>
                   </div>
-                  <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 font-bold border-emerald-100 shrink-0 text-[10px]">
-                    Selesai
+                  <Badge
+                    className={`font-bold border shrink-0 text-[10px] ${
+                      isSynced
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100"
+                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100"
+                    }`}
+                  >
+                    {isSynced ? "Server" : "Belum sync"}
                   </Badge>
                 </div>
 
-                {/* Grid details */}
                 <div className="pl-1.5 grid grid-cols-2 gap-3 pt-2.5 border-t text-xs">
                   <div className="space-y-1">
                     <span className="flex items-center gap-1 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">
@@ -140,20 +198,18 @@ export default function SalesMobileVisitsHistoryPage() {
                   </div>
                 </div>
 
-                {/* Visit Notes */}
                 <div className="pl-1.5 p-3 bg-muted/40 rounded-xl space-y-1 text-xs">
                   <span className="flex items-center gap-1 text-muted-foreground font-semibold text-[10px]">
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground/60" /> Catatan Hasil Kunjungan:
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground/60" /> Catatan:
                   </span>
                   <p className="text-foreground italic leading-relaxed whitespace-pre-line">
                     &quot;{log.notes}&quot;
                   </p>
                 </div>
 
-                {/* Visit Photo Attachment */}
                 {log.photoUrl && (
                   <div className="pl-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground block mb-1">📸 Foto Bukti Kunjungan:</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground block mb-1">Foto Bukti:</span>
                     <div className="relative border rounded-xl overflow-hidden h-32 w-44 bg-muted/20 shadow-xs">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={log.photoUrl} className="w-full h-full object-cover" alt="Bukti Kunjungan" />

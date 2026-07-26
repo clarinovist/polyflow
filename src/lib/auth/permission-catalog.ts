@@ -33,6 +33,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
       { key: "/sales/mobile", label: "Mode Mobile" },
       { key: "/sales/quotations", label: "Penawaran" },
       { key: "/sales/orders", label: "Sales Order" },
+      { key: "/sales/routes", label: "Rute Harian" },
       { key: "/sales/invoices", label: "Invoice & Piutang" },
       { key: "/sales/returns", label: "Retur Penjualan" },
       { key: "/sales/delivery-schedules", label: "Jadwal Kirim" },

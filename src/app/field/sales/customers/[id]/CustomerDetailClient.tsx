@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { formatRupiah } from "@/lib/utils/utils";
 import { VisitCheckInCard } from "@/components/sales/mobile/VisitCheckInCard";
+import { useState, useEffect } from "react";
 
 type Customer = {
   id: string;
@@ -67,6 +68,23 @@ export function CustomerDetailClient({
   outstandingInvoices,
 }: CustomerDetailClientProps) {
   const router = useRouter();
+  const [isOutsideRoute, setIsOutsideRoute] = useState(false);
+
+  useEffect(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const key = `today_journey_plan_${yyyy}-${mm}-${dd}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const plan = JSON.parse(saved) as { id: string }[];
+      const inRoute = plan.some((item) => item.id === customer.id);
+      setIsOutsideRoute(!inRoute);
+    } else {
+      setIsOutsideRoute(true);
+    }
+  }, [customer.id]);
 
   const totalOutstanding = outstandingInvoices.reduce(
     (sum, inv) => sum + (inv.totalAmount - inv.paidAmount),
@@ -145,6 +163,7 @@ export function CustomerDetailClient({
         customerName={customer.name}
         targetLatitude={customer.latitude}
         targetLongitude={customer.longitude}
+        isOutsideRoute={isOutsideRoute}
       />
 
       {/* Address */}
@@ -259,6 +278,39 @@ export function CustomerDetailClient({
           </div>
         )}
       </div>
+
+      {/* Open Penawaran */}
+      {recentOrders.filter((o) => ["QUOTATION", "QUOTATION_SENT"].includes(o.status)).length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3">Penawaran Terbuka</h3>
+          <div className="space-y-2">
+            {recentOrders
+              .filter((o) => ["QUOTATION", "QUOTATION_SENT"].includes(o.status))
+              .map((order) => (
+                <Link
+                  key={order.id}
+                  href={`/field/sales/orders/${order.id}`}
+                  className="flex items-center justify-between p-3 border rounded-lg bg-blue-50/30 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/30 active:scale-[0.98] transition-transform"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{order.orderNumber}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(order.orderDate), "MMM d, yyyy")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-sm">
+                      {order.totalAmount ? formatRupiah(order.totalAmount) : "-"}
+                    </p>
+                    <Badge variant="outline" className="text-[10px] mt-0.5 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">
+                      Penawaran
+                    </Badge>
+                  </div>
+                </Link>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent Orders */}
       <div>

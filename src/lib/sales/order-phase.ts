@@ -189,3 +189,35 @@ export const ORDER_PHASE_LABELS: Record<string, string> = {
 export function getOrderPhaseLabel(status: SalesOrderStatus): string {
   return ORDER_PHASE_LABELS[status] ?? status;
 }
+
+// ── Pipeline helpers (for field CRM) ──────────────────────────────
+
+/**
+ * Statuses visible in the field pipeline view — open quotation + active orders.
+ */
+export const PIPELINE_STATUSES: readonly SalesOrderStatus[] = [
+  "QUOTATION",
+  "QUOTATION_SENT",
+  "DRAFT",
+  "CONFIRMED",
+  "IN_PRODUCTION",
+  "READY_TO_SHIP",
+] as const;
+
+/** Is this order visible in the field pipeline? */
+export function isPipeline(status: SalesOrderStatus): boolean {
+  return (PIPELINE_STATUSES as readonly SalesOrderStatus[]).includes(status);
+}
+
+/**
+ * Statuses for "needs follow-up" — open quotation with no recent activity.
+ */
+export const FOLLOW_UP_STATUSES: readonly SalesOrderStatus[] = [
+  "QUOTATION",
+  "QUOTATION_SENT",
+] as const;
+
+/** Should this order appear in "needs follow-up"? */
+export function needsFollowUp(status: SalesOrderStatus): boolean {
+  return (FOLLOW_UP_STATUSES as readonly SalesOrderStatus[]).includes(status);
+}

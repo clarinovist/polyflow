@@ -345,26 +345,71 @@ export const getSalesOrderStats = withTenant(
       const isActive = (s: string) =>
         ["QUOTATION", "QUOTATION_SENT", "DRAFT", "CONFIRMED", "IN_PRODUCTION", "READY_TO_SHIP"].includes(s);
       const isDone = (s: string) => ["SHIPPED", "DELIVERED"].includes(s);
+      const isQuotationPhase = (s: string) =>
+        ["QUOTATION", "QUOTATION_SENT"].includes(s);
 
       const activeRows = stats.filter((s) => isActive(s.status));
       const doneRows = stats.filter((s) => isDone(s.status));
       const cancelledRows = stats.filter((s) => s.status === "CANCELLED");
+      const quotationRows = stats.filter((s) => isQuotationPhase(s.status));
 
-      // Pipeline = aktif non-batal — jawaban original request "kalau semua terkonversi"
-      const pipelineRows = activeRows; // never includes CANCELLED/DONE
+      // Pipeline = aktif non-batal
+      const pipelineRows = activeRows;
 
       return {
         totalOrders: count(stats),
         activeCount: count(activeRows),
         completedCount: count(doneRows),
         cancelledCount: count(cancelledRows),
+        openQuotationCount: count(quotationRows),
 
         totalAmount: sum(stats),
         activeAmount: sum(activeRows),
         completedAmount: sum(doneRows),
         pipelineAmount: sum(pipelineRows),
         cancelledAmount: sum(cancelledRows),
+        openQuotationAmount: sum(quotationRows),
       };
+    });
+  },
+);
+
+export const getRecentPipelineOrders = withTenant(
+  async function getRecentPipelineOrders() {
+    return safeAction(async () => {
+      const session = await requireAuth();
+      const userId = session.user.id;
+
+      const orders = await prisma.salesOrder.findMany({
+        where: {
+          customerId: { not: null },
+          status: {
+            in: ["QUOTATION", "QUOTATION_SENT", "DRAFT", "CONFIRMED", "IN_PRODUCTION", "READY_TO_SHIP"],
+          },
+          createdById: userId,
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          totalAmount: true,
+          status: true,
+          orderDate: true,
+          customer: {
+            select: { name: true },
+          },
+        },
+        orderBy: { orderDate: "desc" },
+        take: 3,
+      });
+
+      return orders.map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customerName: o.customer?.name ?? "-",
+        totalAmount: o.totalAmount != null ? Number(o.totalAmount) : null,
+        status: o.status,
+        orderDate: o.orderDate.toISOString(),
+      }));
     });
   },
 );

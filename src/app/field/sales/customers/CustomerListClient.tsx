@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,6 +31,23 @@ interface CustomerListClientProps {
 
 export function CustomerListClient({ customers }: CustomerListClientProps) {
   const [search, setSearch] = useState("");
+  const [routeCustomerIds, setRouteCustomerIds] = useState<Set<string>>(new Set());
+
+  // Load today's route from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      const key = `today_journey_plan_${yyyy}-${mm}-${dd}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const plan = JSON.parse(saved) as { id: string; status: string }[];
+        setRouteCustomerIds(new Set(plan.map((p) => p.id)));
+      }
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     if (!search) return customers;
@@ -71,74 +88,83 @@ export function CustomerListClient({ customers }: CustomerListClientProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((customer) => (
-            <Link
-              key={customer.id}
-              href={`/field/sales/customers/${customer.id}`}
-              className="block p-3 border rounded-xl active:scale-[0.98] transition-transform"
-            >
-              <div className="flex items-start gap-3">
-                {customer.photoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={customer.photoUrl}
-                    alt={customer.name}
-                    className="w-12 h-12 rounded-lg object-cover shrink-0"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-sm truncate">
-                      {customer.name}
-                    </h3>
-                    {!customer.isActive && (
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] shrink-0"
-                      >
-                        Non-aktif
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {customer.code || "-"}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1">
-                    {customer.phone && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Phone className="h-3 w-3" />
-                        {customer.phone}
-                      </span>
-                    )}
-                    {customer.city && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {customer.city}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  {customer.latitude && customer.longitude && (
-                    <a
-                      href={`https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Navigation className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                    </a>
+          {filtered.map((customer) => {
+            const inRoute = routeCustomerIds.has(customer.id);
+            return (
+              <Link
+                key={customer.id}
+                href={`/field/sales/customers/${customer.id}`}
+                className="block p-3 border rounded-xl active:scale-[0.98] transition-transform"
+              >
+                <div className="flex items-start gap-3">
+                  {customer.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={customer.photoUrl}
+                      alt={customer.name}
+                      className="w-12 h-12 rounded-lg object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                    </div>
                   )}
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-sm truncate">
+                        {customer.name}
+                      </h3>
+                      {!customer.isActive && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] shrink-0"
+                        >
+                          Non-aktif
+                        </Badge>
+                      )}
+                      {inRoute && (
+                        <Badge className="text-[10px] shrink-0 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-100 dark:border-blue-900/30">
+                          <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                          Di Rute
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {customer.code || "-"}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      {customer.phone && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          {customer.phone}
+                        </span>
+                      )}
+                      {customer.city && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          {customer.city}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {customer.latitude && customer.longitude && (
+                      <a
+                        href={`https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Navigation className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      </a>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

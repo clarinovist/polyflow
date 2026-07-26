@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MapPin, Play, Square, AlertTriangle, Loader2 } from "lucide-react";
+import { MapPin, Play, Square, AlertTriangle, Loader2, ShoppingCart, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { compressImageForUpload, fileToDataUrl } from "@/lib/media/compress-image";
+import Link from "next/link";
 
 type VisitCheckInCardProps = {
   customerId: string;
   customerName: string;
   targetLatitude: number | null;
   targetLongitude: number | null;
+  isOutsideRoute?: boolean;
 };
 
 type ActiveVisit = {
@@ -34,6 +36,8 @@ type VisitLog = {
   notes: string;
   photoUrl: string | null;
   synced: boolean;
+  isOutsideRoute?: boolean;
+  extraReason?: string | null;
 };
 
 type JourneyItem = {
@@ -46,6 +50,7 @@ export function VisitCheckInCard({
   customerName,
   targetLatitude,
   targetLongitude,
+  isOutsideRoute = false,
 }: VisitCheckInCardProps) {
   // Lazily load active visit on mount to avoid set-state-in-effect warning
   const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(() => {
@@ -70,6 +75,7 @@ export function VisitCheckInCard({
   const [tempVisitData, setTempVisitData] = useState<ActiveVisit | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [compressingPhoto, setCompressingPhoto] = useState(false);
+  const [extraReason, setExtraReason] = useState<string | null>(null);
 
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -184,13 +190,18 @@ export function VisitCheckInCard({
   };
 
   const updateJourneyPlanStatus = (id: string, status: "PENDING" | "VISITING" | "COMPLETED") => {
-    const savedPlan = localStorage.getItem("today_journey_plan");
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const key = `today_journey_plan_${yyyy}-${mm}-${dd}`;
+    const savedPlan = localStorage.getItem(key);
     if (savedPlan) {
       const plan = JSON.parse(savedPlan) as JourneyItem[];
-      const updated = plan.map((item) => 
+      const updated = plan.map((item) =>
         item.id === id ? { ...item, status } : item
       );
-      localStorage.setItem("today_journey_plan", JSON.stringify(updated));
+      localStorage.setItem(key, JSON.stringify(updated));
     }
   };
 
@@ -219,6 +230,8 @@ export function VisitCheckInCard({
       notes,
       photoUrl,
       synced: false,
+      isOutsideRoute: isOutsideRoute || false,
+      extraReason: isOutsideRoute ? extraReason : undefined,
     };
 
     // Save to logs
@@ -293,6 +306,35 @@ export function VisitCheckInCard({
         </div>
       )}
 
+      {/* EC Banner — Outside Route */}
+      {isOutsideRoute && !activeVisit && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs rounded-lg border border-amber-200 dark:border-amber-900/30 space-y-2">
+          <div className="flex gap-2 items-start">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="font-semibold">Di Luar Rute Hari Ini</p>
+          </div>
+          <p className="text-[10px] text-amber-700/80 dark:text-amber-400/80">
+            Kunjungan ini akan dicatat sebagai Extra Call (EC) dan terpisah dari compliance rute.
+          </p>
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+              Alasan kunjungan luar rute *
+            </label>
+            <select
+              value={extraReason || ""}
+              onChange={(e) => setExtraReason(e.target.value || null)}
+              className="w-full h-9 px-2 border border-amber-300 rounded-lg bg-white dark:bg-amber-950/30 text-xs"
+            >
+              <option value="">Pilih alasan...</option>
+              <option value="TOKO_BARU">Toko Baru</option>
+              <option value="DEKAT_RUTE">Dekat Rute</option>
+              <option value="PERMINTAAN_DADAKAN">Permintaan Dadakan</option>
+              <option value="TOKO_TUTUP_GANTI">Toko Tutup Ganti</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {activeVisit ? (
         <div className="space-y-3">
           {/* Active Visit UI */}
@@ -307,6 +349,24 @@ export function VisitCheckInCard({
                 {activeVisit.distance} meter
               </p>
             </div>
+          </div>
+
+          {/* Guided Actions — Next best actions */}
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href={`/field/sales/orders/create?customer=${customerId}`}
+              className="flex items-center justify-center gap-2 p-3 bg-primary text-primary-foreground rounded-xl font-semibold text-sm active:scale-95 transition-transform min-h-[44px]"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              Buat Order
+            </Link>
+            <Link
+              href={`/field/sales/orders/create?customer=${customerId}`}
+              className="flex items-center justify-center gap-2 p-3 bg-muted border rounded-xl font-semibold text-sm active:scale-95 transition-transform min-h-[44px]"
+            >
+              <FileText className="h-4 w-4" />
+              Buat Penawaran
+            </Link>
           </div>
 
           <Button

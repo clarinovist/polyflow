@@ -63,6 +63,7 @@ export const viewport: Viewport = {
 import { SessionProvider } from "@/components/auth/SessionProvider";
 import SessionTimeoutHandler from "@/components/auth/SessionTimeoutHandler";
 import { AutoChangelogBanner } from "@/components/layout/auto-changelog-banner";
+import { PolyflowChatWidget } from "@/components/support/polyflow-chat-widget";
 
 export default function RootLayout({
     children,
@@ -80,6 +81,7 @@ export default function RootLayout({
                         <SidebarCollapseProvider>
                             {children}
                             <AutoChangelogBanner />
+                            <PolyflowChatWidget />
                             <Toaster position="bottom-right" richColors />
                             <SessionTimeoutHandler />
                         </SidebarCollapseProvider>

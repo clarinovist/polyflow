@@ -63,8 +63,8 @@ describe("getMobileStatusColor", () => {
     expect(getMobileStatusColor("DRAFT")).toContain("slate");
   });
 
-  it("returns blue for CONFIRMED", () => {
-    expect(getMobileStatusColor("CONFIRMED")).toContain("blue");
+  it("returns amber for CONFIRMED", () => {
+    expect(getMobileStatusColor("CONFIRMED")).toContain("amber");
   });
 
   it("returns amber for IN_PRODUCTION", () => {
@@ -87,6 +87,10 @@ describe("getMobileStatusColor", () => {
     expect(getMobileStatusColor("CANCELLED")).toContain("red");
   });
 
+  it("returns blue for QUOTATION", () => {
+    expect(getMobileStatusColor("QUOTATION")).toContain("blue");
+  });
+
   it("returns slate default for unknown status", () => {
     expect(getMobileStatusColor("UNKNOWN")).toContain("slate");
   });
@@ -94,12 +98,13 @@ describe("getMobileStatusColor", () => {
 
 // --- getMobileStatusLabel ---
 describe("getMobileStatusLabel", () => {
-  it.each(STATUS_OPTIONS.filter((o) => o.value !== "ALL"))(
-    'returns "$label" for $value',
-    ({ value, label }) => {
-      expect(getMobileStatusLabel(value)).toBe(label);
-    },
-  );
+  it.each(
+    STATUS_OPTIONS.filter(
+      (o) => !["ALL", "PIPELINE", "ACTIVE", "DONE", "CANCELLED"].includes(o.value)
+    )
+  )('returns "$label" for $value', ({ value, label }) => {
+    expect(getMobileStatusLabel(value)).toBe(label);
+  });
 
   it("returns raw status for unknown value", () => {
     expect(getMobileStatusLabel("WEIRD_STATUS")).toBe("WEIRD_STATUS");
@@ -123,6 +128,26 @@ describe("filterOrders", () => {
     const result = filterOrders(mockOrders, "", "DELIVERED");
     expect(result).toHaveLength(1);
     expect(result[0].orderNumber).toBe("SO-003");
+  });
+
+  it("filters by PIPELINE group (QUOTATION + QUOTATION_SENT)", () => {
+    const pipelineOrders = [
+      { ...mockOrders[0], id: "10", status: "QUOTATION" },
+      { ...mockOrders[0], id: "11", status: "QUOTATION_SENT" },
+      ...mockOrders,
+    ];
+    const result = filterOrders(pipelineOrders, "", "PIPELINE");
+    expect(result).toHaveLength(2);
+  });
+
+  it("filters by ACTIVE group", () => {
+    const result = filterOrders(mockOrders, "", "ACTIVE");
+    expect(result).toHaveLength(2); // CONFIRMED + SHIPPED
+  });
+
+  it("filters by DONE group", () => {
+    const result = filterOrders(mockOrders, "", "DONE");
+    expect(result).toHaveLength(1); // DELIVERED
   });
 
   it("filters by search query (order number)", () => {
@@ -182,6 +207,10 @@ describe("getMobileOrderActions", () => {
 
   it("returns empty for CANCELLED (terminal)", () => {
     expect(getMobileOrderActions("CANCELLED")).toEqual([]);
+  });
+
+  it("returns accept + reject + cancel for QUOTATION", () => {
+    expect(getMobileOrderActions("QUOTATION")).toEqual(["accept", "reject", "cancel"]);
   });
 
   it("returns empty for unknown status", () => {

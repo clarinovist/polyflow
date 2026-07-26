@@ -407,9 +407,13 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
     };
   }
 
+  const apiKey = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY || process.env.FIREWORKS_API_KEY || '';
+  const baseURL = process.env.LLM_BASE_URL || (process.env.FIREWORKS_API_KEY && !process.env.LLM_BASE_URL ? 'https://api.fireworks.ai/inference/v1' : 'http://localhost:11434/v1');
+  const model = process.env.LLM_MODEL || process.env.FIREWORKS_MODEL_ID || 'deepseek-r1:7b';
+
   const openai = new OpenAI({
-    apiKey: process.env.LLM_API_KEY || '',
-    baseURL: process.env.LLM_BASE_URL || 'http://localhost:11434/v1',
+    apiKey,
+    baseURL,
   });
 
   const greeting = input.requesterName ? `Sapa user dengan nama ${input.requesterName} di awal pesan Anda.` : '';
@@ -417,18 +421,20 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     {
       role: 'system',
-      content: `Anda adalah Virtual CS Polyflow, ERP pabrik plastik. Gunakan bahasa Indonesia yang ramah dan profesional.
-Anda dilengkapi dengan TOOLS untuk mengecek database operasional pabrik DAN mencari artikel panduan dari Knowledge Base.
-${greeting}
+      content: `Anda adalah Virtual CS Polyflow — asisten cerdas, ramah, dan interaktif yang siap membantu pengguna memahami dan mengoperasikan sistem ERP pabrik plastik Polyflow.
 
-Aturan Agentic:
-1. JIKA user bertanya CARA PAKAI / tutorial / "bagaimana cara" / troubleshooting → WAJIB panggil search_help_articles DULU, lalu jawab berdasarkan hasil + sebutkan judul artikel. Jangan hallucinate langkah jika KB punya jawaban.
-2. JIKA user bertanya info spesifik data (ex: kenapa order Budi gagal, cek stok MP 15), panggil tools data (get_product_stock, get_sales_order_lines, dll).
-3. Jika perlu investigasi (seperti insufficient stock), hubungkan data dari get_sales_order_lines lalu bandingkan dengan get_product_stock. 
-   PERHATIAN! Sebuah pesanan bisa memiliki beberapa baris produk yang sama. Jumlahkan total pesanan tersebut BUKAN dari satu baris, lalu bandingkan dengan total inventori fisik!
-4. Jika tools tidak menemukan data yang cukup untuk menjawab, akui keterbatasan tersebut.
-5. Anda read-only. Operasional perubahan data harus dilakukan manual melalui aplikasi UI Polyflow.
-6. Saat mengutip artikel, sebutkan judul dan sarankan user membuka link /support/{slug} untuk panduan lengkap.`
+Gaya Komunikasi:
+- Gunakan bahasa Indonesia yang santai, sopan, ramah, dan mudah dipahami.
+- Berikan penjelasan langkah demi langkah yang terstruktur rapi dengan poin-poin.
+- ${greeting}
+
+Aturan Agentic & Data:
+1. JIKA user bertanya CARA PAKAI / tutorial / "bagaimana cara" / troubleshooting → WAJIB panggil search_help_articles DULU, lalu jelaskan hasilnya secara interaktif dan sebutkan judul artikel panduan terkait.
+2. JIKA user bertanya info data operasional (stok barang, status pesanan/SO, SPK aktif, invoice/utang-piutang), gunakan tools data yang tersedia (get_product_stock, get_sales_order_lines, dll).
+3. Jika perlu investigasi (seperti insufficient stock), hubungkan data dari get_sales_order_lines lalu bandingkan dengan get_product_stock.
+4. Anda bekerja dalam mode Read-Only. Untuk perubahan atau transaksi data, berikan petunjuk menu UI mana yang harus digunakan pengguna.
+5. Saat mengutip artikel, sebutkan judul dan sarankan user membuka link /support/{slug} untuk panduan lengkap.
+6. Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara ramah.`
     },
     { role: 'user', content: input.question }
   ];
@@ -440,9 +446,9 @@ Aturan Agentic:
     // Agentic Loop (max 4 iteration to avoid infinite loops)
     for (let loop = 0; loop < 4; loop++) {
       const completion = await openai.chat.completions.create({
-        model: process.env.LLM_MODEL || 'deepseek-r1:7b',
+        model,
         messages: messages,
-        temperature: 0.2,
+        temperature: 0.3,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tools: agentTools as any,
         tool_choice: 'auto'
@@ -498,17 +504,44 @@ Aturan Agentic:
     }
 
     return {
-      answer: finalAnswer || 'Maaf, saya tidak dapat merangkum analisis pada saat ini.',
-      citations: ['db:polyflow-agentic', 'api:openrouter-tools'],
+      answer: finalAnswer || 'Maaf, saya belum dapat merangkum analisis pada saat ini.',
+      citations: ['db:polyflow-agentic', 'api:llm-tools'],
       citedArticles,
       relatedArticles,
       safety: { allowed: true },
     };
   } catch (error) {
     const e = error as Error;
-    console.error('[OPENROUTER/LLM] Failed:', e?.message || e);
+    console.error('[VIRTUAL_CS_LLM] Failed:', e?.message || e);
+
+    // Smart Fallback: Search Knowledge Base directly if LLM is offline or failing
+    try {
+      const fallbackResults = await searchHelpArticles(input.question, undefined, 4);
+      if (fallbackResults.length > 0) {
+        const citedArticles: CitedArticleForResponse[] = fallbackResults.slice(0, 3).map((r) => ({
+          slug: r.slug,
+          title: r.title,
+          summary: r.summary?.slice(0, 120),
+          modules: r.modules,
+        }));
+
+        const articleLines = fallbackResults
+          .map((r, i) => `${i + 1}. **[${r.title}](/support/${r.slug})**\n   ${r.summary}`)
+          .join('\n\n');
+
+        return {
+          answer: `Halo! Saat ini jaringan AI sedang lambat, tetapi saya tetap menemukan beberapa artikel panduan Knowledge Base yang relevan untuk pertanyaan Anda:\n\n${articleLines}\n\nSilakan klik salah satu artikel di atas atau kunjungi pusat bantuan kami di [Pusat Bantuan Polyflow](/support).`,
+          citations: ['kb:direct-fallback'],
+          citedArticles,
+          safety: { allowed: true },
+        };
+      }
+    } catch {
+      /* ignore fallback error */
+    }
+
     return {
-      answer: 'Maaf, saya sedang mengalami gangguan koneksi (Network Error) ke OpenRouter Agent Network. Silakan coba lagi nanti.',
+      answer: 'Maaf, layanan AI sedang mengalami kendala koneksi sementara. Anda bisa melihat daftar panduan lengkap di menu [Pusat Bantuan](/support) atau mencoba bertanya kembali beberapa saat lagi.',
       citations: [],
       safety: {
         allowed: false,

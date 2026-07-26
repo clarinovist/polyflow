@@ -7,8 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PolyflowChatPanel } from '@/components/support/polyflow-chat-panel';
 
-const HIDDEN_PATH_PREFIXES = ['/login', '/register', '/kiosk'];
-const ENABLED_PATH_PREFIXES = ['/dashboard', '/warehouse', '/production', '/sales', '/finance', '/planning', '/purchasing', '/hrd', '/maklon', '/support'];
+const HIDDEN_PATH_PREFIXES = ['/login', '/register', '/kiosk', '/logout', '/api'];
+const ENABLED_PATH_PREFIXES = [
+  '/dashboard',
+  '/warehouse',
+  '/production',
+  '/sales',
+  '/finance',
+  '/planning',
+  '/purchasing',
+  '/hrd',
+  '/maklon',
+  '/support',
+  '/admin',
+  '/settings',
+  '/master-data',
+  '/reports',
+  '/report',
+  '/profile',
+];
 
 export function PolyflowChatWidget() {
   const pathname = usePathname();
@@ -16,7 +33,7 @@ export function PolyflowChatWidget() {
   const shouldHide = useMemo(() => {
     if (!pathname) return true;
     if (HIDDEN_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
-    return !ENABLED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+    return !ENABLED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix) || pathname === '/');
   }, [pathname]);
 
   if (shouldHide) {

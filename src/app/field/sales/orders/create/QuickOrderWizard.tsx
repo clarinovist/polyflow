@@ -95,6 +95,8 @@ export function QuickOrderWizard({
 
   // Step 3: Review
   const [notes, setNotes] = useState("");
+  const [isQuotation, setIsQuotation] = useState(false);
+  const [validUntil, setValidUntil] = useState("");
 
   // Quick-add dialog state
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -266,7 +268,7 @@ export function QuickOrderWizard({
     setIsSubmitting(true);
     try {
       const result = await createSalesOrder({
-        intent: "order",
+        intent: isQuotation ? "quotation" : "order",
         customerId,
         sourceLocationId: locationId,
         orderDate: new Date(),
@@ -274,6 +276,7 @@ export function QuickOrderWizard({
         notes: notes || "",
         shippingCost: 0,
         customItems: [],
+        validUntil: isQuotation && validUntil ? new Date(validUntil) : undefined,
         items: items.map((item) => ({
           productVariantId: item.productVariantId,
           quantity: item.quantity,
@@ -287,7 +290,7 @@ export function QuickOrderWizard({
       });
 
       if (result.success) {
-        toast.success("Order berhasil dibuat!");
+        toast.success(isQuotation ? "Penawaran berhasil dibuat!" : "Order berhasil dibuat!");
         router.push("/field/sales");
       } else {
         toast.error(result.error || "Gagal membuat order");
@@ -714,6 +717,47 @@ export function QuickOrderWizard({
             />
           </div>
 
+          {/* Quotation Toggle */}
+          <div className="flex items-center justify-between p-3 border rounded-xl bg-muted/30">
+            <div>
+              <p className="text-sm font-medium">Simpan sebagai penawaran</p>
+              <p className="text-[10px] text-muted-foreground">
+                Harga belum final, bisa dilengkapi sebelum konfirmasi
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsQuotation(!isQuotation)}
+              className={`w-11 h-6 rounded-full transition-colors relative ${
+                isQuotation ? "bg-primary" : "bg-muted-foreground/30"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  isQuotation ? "left-5.5 translate-x-0" : "left-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Valid Until (only for quotation) */}
+          {isQuotation && (
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Berlaku Hingga (opsional)
+              </label>
+              <Input
+                type="date"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
+                className="h-11 mt-1"
+              />
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Tanggal kedaluwarsa penawaran
+              </p>
+            </div>
+          )}
+
           {/* Total */}
           <div className="p-4 bg-muted rounded-xl">
             <div className="flex justify-between items-center">
@@ -732,7 +776,7 @@ export function QuickOrderWizard({
             ) : (
               <Check className="h-5 w-5 mr-2" />
             )}
-            {isSubmitting ? "Membuat Order..." : "Buat Order"}
+            {isSubmitting ? "Membuat Order..." : isQuotation ? "Buat Penawaran" : "Buat Order"}
           </Button>
           <MobileStickyActionsSpacer />
           <MobileStickyActions aboveBottomNav>
@@ -746,7 +790,7 @@ export function QuickOrderWizard({
               ) : (
                 <Check className="h-5 w-5 mr-2" />
               )}
-              {isSubmitting ? "Membuat..." : "Buat Order"}
+              {isSubmitting ? "Membuat..." : isQuotation ? "Buat Penawaran" : "Buat Order"}
             </Button>
           </MobileStickyActions>
         </div>

@@ -63,6 +63,7 @@ model User {
   voidedPettyCashReports         PettyCashDailyReport[] @relation("PettyCashReportVoider")
   lockedPeriods                  PeriodLock[]
   salesVisits                    SalesVisit[]           @relation("SalesVisitCreator")
+  routePlans                     SalesRoutePlan[]
   schedulesCreated               DeliverySchedule[]     @relation("ScheduleCreator")
   // ── Fase 4 ──
   disciplinaryActionsIssued      DisciplinaryAction[]
@@ -356,6 +357,7 @@ model Customer {
   maklonReceipts   GoodsReceipt[]         @relation("MaklonGoodsReceiptCustomer")
   maklonReturns    MaklonMaterialReturn[] @relation("MaklonReturnCustomer")
   salesVisits      SalesVisit[]
+  routePlanItems   SalesRoutePlanItem[]
 }
 
 model ApiKey {
@@ -935,6 +937,7 @@ model SalesOrder {
   priceStatus      SalesPriceStatus?
   quotationSentAt  DateTime?
   legacyQuotationId String?               @unique
+  nextFollowUpDate DateTime?
   deliveryOrders   DeliveryOrder[]
   scheduleStops    DeliveryScheduleOrder[]
   invoices         Invoice[]
@@ -1770,6 +1773,11 @@ enum SalesPriceStatus {
   FINAL
 }
 
+enum SalesRoutePlanStatus {
+  DRAFT
+  PUBLISHED
+}
+
 enum InvoiceStatus {
   UNPAID
   PARTIAL
@@ -2343,6 +2351,43 @@ model SalesVisit {
   updatedAt       DateTime @updatedAt
 
   @@index([userId])
+  @@index([customerId])
+}
+
+// ==========================================
+// Sales Route Plan (Admin assigns daily route to reps)
+// ==========================================
+
+model SalesRoutePlan {
+  id          String                 @id @default(cuid())
+  date        DateTime               @db.Date
+  userId      String
+  user        User                   @relation(fields: [userId], references: [id])
+  status      SalesRoutePlanStatus   @default(DRAFT)
+  items       SalesRoutePlanItem[]
+  createdBy   String
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([date, userId])
+  @@index([date])
+  @@index([userId])
+}
+
+model SalesRoutePlanItem {
+  id           String          @id @default(cuid())
+  routePlanId  String
+  routePlan    SalesRoutePlan  @relation(fields: [routePlanId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  sortOrder    Int
+  status       String          @default("PENDING") // PENDING, VISITING, COMPLETED, SKIPPED
+  isExtraCall  Boolean         @default(false)
+  extraReason  String?
+  notes        String?         @db.Text
+  createdAt    DateTime        @default(now())
+
+  @@index([routePlanId])
   @@index([customerId])
 }
 
