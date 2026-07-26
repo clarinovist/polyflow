@@ -239,4 +239,70 @@ describe('MrpService', () => {
             ).rejects.toThrow(/tidak ditemukan/i);
         });
     });
+
+    // Ported from tests/mrp-service.test.ts, which never ran under vitest's
+    // include glob. Only manufacturable product types need a BOM.
+    describe('missing BOM detection by product type', () => {
+        beforeEach(() => {
+            vi.mocked(prisma.bom.findFirst).mockResolvedValue(null as never);
+            vi.mocked(prisma.inventory.aggregate).mockResolvedValue({
+                _sum: { quantity: { toNumber: () => 0 } },
+            } as never);
+            vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({
+                _sum: { quantity: { toNumber: () => 0 } },
+            } as never);
+        });
+
+        function orderForVariant(
+            productVariantId: string,
+            name: string,
+            productType: string,
+        ) {
+            vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+                id: 'so-1',
+                items: [{ productVariantId, quantity: 10 }],
+            } as never);
+            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+                id: productVariantId,
+                name,
+                primaryUnit: 'KG',
+                product: { productType },
+            } as never);
+        }
+
+        it.each([
+            ['FINISHED_GOOD', 'Finished Good Item'],
+            ['INTERMEDIATE', 'Intermediate Item'],
+            ['WIP', 'WIP Item'],
+        ])('flags a %s with no BOM as unproducible', async (type, name) => {
+            // Arrange
+            orderForVariant('pv-1', name, type);
+
+            // Act
+            const result =
+                await MrpService.simulateMaterialRequirements('so-1');
+
+            // Assert
+            expect(result.missingBoms).toEqual([
+                { productName: name, productVariantId: 'pv-1' },
+            ]);
+            expect(result.canProduce).toBe(false);
+        });
+
+        it('does not expect a BOM for a RAW_MATERIAL, which is bought not made', async () => {
+            // Arrange
+            orderForVariant('pv-rm', 'Raw Material Item', 'RAW_MATERIAL');
+            vi.mocked(prisma.inventory.aggregate).mockResolvedValue({
+                _sum: { quantity: { toNumber: () => 1000 } },
+            } as never);
+
+            // Act
+            const result =
+                await MrpService.simulateMaterialRequirements('so-1');
+
+            // Assert
+            expect(result.missingBoms).toHaveLength(0);
+            expect(result.canProduce).toBe(true);
+        });
+    });
 });

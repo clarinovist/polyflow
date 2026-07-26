@@ -33,6 +33,11 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
 - **Test Scope**: `npm run test` atau scoped test sesuai area yang diubah (contoh: `npm run test -- packing`, `vitest run src/modules/foo`).
     - Pilih scope paling relevan dengan perubahan, jangan asal full test kalau scope kecil — tapi minimal scope tersebut harus lolos.
     - Jika ada test terkait di `docs/plan`, jalankan itu.
+    - Semua test wajib berada di dalam `src/`, memakai folder `__tests__`. Glob
+      `include` milik vitest hanya mencakup `src/`, jadi test di luar itu tidak
+      pernah dijalankan — direktori `tests/` di root sempat mati diam-diam
+      selama 5 bulan karena hal ini.
+- **Typecheck**: `npx tsc --noEmit` — wajib 0 error. Error di file test tetap dihitung; vitest lolos bukan berarti typecheck lolos.
 - Jika lint/test gagal: balik ke step 2 (FIX), update residual gap.
 
 ### 5. BUILD — terakhir, dengan koordinasi terminal
