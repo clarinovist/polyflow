@@ -2716,6 +2716,8 @@ model HelpInteraction {
   confidence     Float?
   latencyMs      Int
   blockedReason  String?
+  conversationId String?      // links to HelpConversation
+  citedSlugs     String[]     // evidence article slugs
   createdAt      DateTime     @default(now())
 
   @@index([tenantId, createdAt])
@@ -2825,4 +2827,121 @@ model HelpLearningDraft {
 
   @@index([status, createdAt])
   @@index([clusterId])
+}
+
+// ─── Phase 2: Conversation persistence ─────────────────────────
+
+enum HelpConversationStatus {
+  ACTIVE
+  CLOSED
+  EXPIRED
+}
+
+enum HelpMessageRole {
+  USER
+  ASSISTANT
+}
+
+model HelpConversation {
+  id            String                 @id @default(cuid())
+  tenantId      String
+  userId        String
+  channel       String                 @default("web")
+  title         String?
+  status        HelpConversationStatus @default(ACTIVE)
+  lastMessageAt DateTime               @default(now())
+  summary       String?                @db.Text
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  messages      HelpMessage[]
+  toolExecutions HelpToolExecution[]
+
+  @@index([tenantId, userId, lastMessageAt(sort: Desc)])
+  @@index([tenantId, status])
+}
+
+model HelpMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           HelpMessageRole
+  content        String   @db.Text
+  evidenceJson   Json?
+  createdAt      DateTime @default(now())
+
+  conversation   HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt(sort: Asc)])
+}
+
+model HelpToolExecution {
+  id                 String   @id @default(cuid())
+  conversationId     String
+  interactionId      String?
+  toolName           String
+  permissionResource String   @default("")
+  allowed            Boolean  @default(true)
+  outcome            String   @default("SUCCESS")
+  durationMs         Int      @default(0)
+  evidenceMetaJson   Json?
+  createdAt          DateTime @default(now())
+
+  conversation       HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([toolName])
+}
+
+// ─── Phase 5: Tenant-private knowledge ─────────────────────────
+
+enum TenantKnowledgeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TenantKnowledgeSensitivity {
+  INTERNAL
+  RESTRICTED
+}
+
+enum TenantKnowledgeSource {
+  HUMAN
+  IMPORTED
+  AUTO_DRAFT
+}
+
+model TenantKnowledgeArticle {
+  id               String                  @id @default(cuid())
+  tenantId         String
+  slug             String
+  title            String
+  summary          String                  @default("")
+  bodyMd           String                  @db.Text
+  status           TenantKnowledgeStatus   @default(DRAFT)
+  modules          String[]
+  tags             String[]
+  sensitivity      TenantKnowledgeSensitivity @default(INTERNAL)
+  allowedResources String[]
+  source           TenantKnowledgeSource   @default(HUMAN)
+  version          Int                     @default(1)
+  publishedAt      DateTime?
+  createdBy        String?
+  updatedBy        String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status, updatedAt(sort: Desc)])
+  @@index([tenantId, status, modules])
+}
+
+model TenantAlias {
+  id        String   @id @default(cuid())
+  tenantId  String
+  term      String
+  aliases   String[]
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, term])
 }

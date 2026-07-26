@@ -30,6 +30,13 @@ type Feedback = 'UP' | 'DOWN';
 
 type CitedArticle = { slug: string; title: string; summary?: string; modules?: string[] };
 
+type EvidenceChip = {
+  source: 'tenant-data' | 'global-kb' | 'tenant-kb' | 'audit-log';
+  label: string;
+  checkedAt: string;
+  href?: string;
+};
+
 type ChatMessage = {
   id: string;
   role: Role;
@@ -38,6 +45,9 @@ type ChatMessage = {
   feedback?: Feedback;
   citedArticles?: CitedArticle[];
   relatedArticles?: CitedArticle[];
+  evidenceChips?: EvidenceChip[];
+  needsClarification?: boolean;
+  suggestions?: string[];
 };
 
 type ChatApiResponse = {
@@ -48,6 +58,10 @@ type ChatApiResponse = {
     interactionId?: string;
     citedArticles?: CitedArticle[];
     relatedArticles?: CitedArticle[];
+    evidence?: EvidenceChip[];
+    conversationId?: string;
+    needsClarification?: boolean;
+    suggestions?: string[];
     safety: { allowed: boolean; blockedReason?: string };
   };
 };
@@ -58,9 +72,9 @@ const CATEGORIZED_PROMPTS = [
     icon: Package,
     color: 'from-amber-500/20 to-orange-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
     prompts: [
-      'Cek stok produk di Gudang Utama',
-      'Cara terima barang dari PO Supplier',
-      'Cara cek stok menipis (reorder)',
+      'Stok barang MP 15 kok tidak bisa dipakai buat SO?',
+      'Barang ada di gudang tapi stok dianggap kurang',
+      'Stok kritis minggu ini apa saja?',
     ],
   },
   {
@@ -68,9 +82,9 @@ const CATEGORIZED_PROMPTS = [
     icon: ShoppingCart,
     color: 'from-blue-500/20 to-indigo-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400',
     prompts: [
-      'Cara buat Sales Order (SO) baru',
-      'Cara confirm SO ketika stok kurang',
-      'Cara atur jadwal kirim & Surat Jalan',
+      'Kenapa pesanan Budi belum bisa dikirim?',
+      'Pesanan mana yang sedang pending?',
+      'Cara buat Sales Order baru',
     ],
   },
   {
@@ -78,19 +92,19 @@ const CATEGORIZED_PROMPTS = [
     icon: Factory,
     color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
     prompts: [
-      'Lihat SPK yang sedang diproduksi',
+      'SPK ini berhenti di mana?',
+      'Kenapa saya tidak bisa buka menu ini?',
       'Cara input hasil produksi via Kiosk',
-      'Solusi error backflush stok bahan',
     ],
   },
   {
-    category: 'Keuangan & Akses',
+    category: 'Keuangan & Lainnya',
     icon: CreditCard,
     color: 'from-purple-500/20 to-pink-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400',
     prompts: [
-      'Daftar invoice sales belum lunas',
-      'Cara atur role & permission user',
-      'Solusi error Period Locked finance',
+      'Invoice customer ini sudah dibayar belum?',
+      'Ringkasan piutang customer',
+      'Urutan menerima barang dari supplier',
     ],
   },
 ];
@@ -319,6 +333,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
   const [longWait, setLongWait] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [initialSent, setInitialSent] = useState(false);
+  const [conversationId, setConversationId] = useState<string | undefined>();
   const abortRef = useRef<AbortController | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -327,7 +342,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
   const initialWelcomeMsg: ChatMessage = {
     id: 'welcome',
     role: 'assistant',
-    text: 'Halo! Saya **Virtual CS Polyflow** 🤖\n\nSaya siap membantu Anda mengecek **data operasional live** (stok gudang, status Sales Order, SPK produksi, & invoice) serta memberikan panduan penggunaan sistem.\n\n*Catatan: Saya beroperasi dalam mode Read-Only (aman & tidak dapat mengubah transaksi).*',
+    text: 'Halo! Saya **Asisten Kerja Polyflow** 🤖\n\nCeritakan saja apa yang ingin Anda ketahui atau kendala yang sedang terjadi. Saya dapat membantu mencari data yang boleh Anda lihat, menjelaskan penyebab, atau menunjukkan langkah yang perlu dilakukan.\n\n*Saya tidak akan mengubah transaksi. Untuk perubahan data, silakan gunakan menu yang tersedia.*',
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([initialWelcomeMsg]);
@@ -363,7 +378,8 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
     text: string,
     interactionId?: string,
     citedArticles?: CitedArticle[],
-    relatedArticles?: CitedArticle[]
+    relatedArticles?: CitedArticle[],
+    evidenceChips?: EvidenceChip[],
   ) => {
     setMessages((prev) => [
       ...prev,
@@ -374,6 +390,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
         interactionId,
         citedArticles,
         relatedArticles,
+        evidenceChips,
       },
     ]);
   };
@@ -382,6 +399,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
     if (isLoading) handleCancel();
     setMessages([initialWelcomeMsg]);
     setQuestion('');
+    setConversationId(undefined);
   };
 
   const handleCopy = async (id: string, text: string) => {
@@ -442,7 +460,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: payload }),
+        body: JSON.stringify({ question: payload, conversationId }),
         signal: controller.signal,
       });
 
@@ -453,12 +471,18 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
         return;
       }
 
+      // Update conversationId from response
+      if (json.data?.conversationId) {
+        setConversationId(json.data.conversationId);
+      }
+
       pushMessage(
         'assistant',
         json.data?.answer || 'Maaf, belum ada jawaban yang bisa saya berikan.',
         json.data?.interactionId,
         json.data?.citedArticles,
-        json.data?.relatedArticles
+        json.data?.relatedArticles,
+        json.data?.evidence,
       );
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
@@ -497,14 +521,14 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-foreground tracking-tight">Virtual CS Polyflow</h2>
+                <h2 className="text-base font-bold text-foreground tracking-tight">Asisten Kerja Polyflow</h2>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   <Sparkles className="h-3 w-3" /> AI Assistant
                 </span>
               </div>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                <span>Read-Only & Live Operational Query</span>
+                <span>Tanyakan kendala kerja dengan bahasa sehari-hari</span>
               </p>
             </div>
           </div>
@@ -544,10 +568,10 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-foreground tracking-tight">
-                      Apa yang bisa saya bantu hari ini?
+                      Ceritakan kendala Anda
                     </h3>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed">
-                      Pilih dari rekomendasi pertanyaan cepat di bawah ini atau ketikkan pertanyaan bebas terkait data persediaan, status pesanan, produksi, atau keuangan.
+                      Jelaskan masalah atau pertanyaan Anda dengan bahasa sehari-hari. Saya akan mencari data, menjelaskan penyebab, atau menunjukkan langkah yang perlu dilakukan.
                     </p>
                   </div>
                 </div>
@@ -608,6 +632,28 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
                     <div className="max-w-none break-words leading-relaxed">{renderRichText(msg.text)}</div>
                     {msg.citedArticles && msg.citedArticles.length > 0 && (
                       <CitedArticleCards articles={msg.citedArticles} relatedArticles={msg.relatedArticles} />
+                    )}
+                    {msg.evidenceChips && msg.evidenceChips.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/40">
+                        {msg.evidenceChips.map((chip, i) => (
+                          <span
+                            key={i}
+                            className={cn(
+                              'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border',
+                              chip.source === 'tenant-data' && 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
+                              chip.source === 'global-kb' && 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+                              chip.source === 'tenant-kb' && 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400',
+                              chip.source === 'audit-log' && 'bg-gray-500/10 border-gray-500/20 text-gray-600 dark:text-gray-400',
+                            )}
+                          >
+                            {chip.source === 'tenant-data' && '📊 '}
+                            {chip.source === 'global-kb' && '📘 '}
+                            {chip.source === 'tenant-kb' && '📋 '}
+                            {chip.source === 'audit-log' && '🔍 '}
+                            {chip.label}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
 
@@ -708,7 +754,7 @@ export function PolyflowChatPanel({ embedded = false, initialQuestion }: Polyflo
             <Textarea
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="Tanyakan sesuatu… (contoh: Cek stok MP 15 di Gudang Utama atau Cara confirm SO)"
+              placeholder="Ceritakan kendala atau pertanyaan Anda..."
               className="min-h-[46px] max-h-[140px] flex-1 resize-none border-0 bg-transparent py-3 px-3 shadow-none focus-visible:ring-0 text-sm placeholder:text-muted-foreground/70 font-medium"
               disabled={isLoading}
               autoFocus

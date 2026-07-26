@@ -6,6 +6,28 @@ import { generateVirtualCsReply } from "@/lib/bot/virtual-cs-service";
 import { POLYFLOW_PRODUCT_ID } from "@/lib/bot/product-scope";
 import { logVirtualCsEvent } from "@/lib/bot/chat-audit";
 
+// Simple in-memory rate limiter: 20 requests per minute per user
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 20;
+const RATE_WINDOW_MS = 60_000;
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+
+  if (entry.count >= RATE_LIMIT) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
 export const POST = withTenantRoute(async function POST(req: NextRequest) {
   const startedAt = Date.now();
   const session = await auth();
@@ -19,10 +41,24 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     );
   }
 
+  // Rate limit check
+  const userId = (session.user as { id?: string }).id || '';
+  if (userId && !checkRateLimit(userId)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Terlalu banyak permintaan. Silakan tunggu sebentar sebelum bertanya lagi.",
+      },
+      { status: 429 },
+    );
+  }
+
   const body = (await req.json().catch(() => null)) as {
     question?: string;
+    conversationId?: string;
   } | null;
   const question = body?.question?.trim();
+  const conversationId = body?.conversationId;
 
   if (!question) {
     return NextResponse.json(
@@ -47,11 +83,26 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
   const tenantId = getTenantIdFromContext();
 
   try {
-    const result = await generateVirtualCsReply({
-      question,
-      channel: "web",
-      requesterName: session.user.name || undefined,
-    });
+    // Build assistant context from session + tenant
+    const result = await generateVirtualCsReply(
+      {
+        question,
+        channel: "web",
+        requesterName: session.user.name || undefined,
+      },
+      {
+        tenantId,
+        sessionUser: session.user as {
+          id?: string;
+          name?: string | null;
+          role?: string;
+          roles?: string[];
+          isSuperAdmin?: boolean;
+          allowedResources?: string[] | "ALL";
+        },
+        conversationId,
+      },
+    );
 
     const interactionId = await logVirtualCsEvent({
       channel: "web",
