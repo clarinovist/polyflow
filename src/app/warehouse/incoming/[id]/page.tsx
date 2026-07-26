@@ -16,15 +16,21 @@ interface PageProps {
     }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+    params,
+}: PageProps): Promise<Metadata> {
     const { id } = await params;
     const receipt = await getReceipt(id);
     return {
-        title: receipt ? `${receipt.receiptNumber} | PolyFlow Warehouse` : 'Receipt Not Found',
+        title: receipt
+            ? `${receipt.receiptNumber} | PolyFlow Warehouse`
+            : 'Receipt Not Found',
     };
 }
 
-export default async function WarehouseGoodsReceiptDetailPage({ params }: PageProps) {
+export default async function WarehouseGoodsReceiptDetailPage({
+    params,
+}: PageProps) {
     const { id } = await params;
     const receipt = await getReceipt(id);
 
@@ -37,7 +43,14 @@ export default async function WarehouseGoodsReceiptDetailPage({ params }: PagePr
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
-            <GoodsReceiptDetailClient receipt={serializedReceipt as unknown as ComponentProps<typeof GoodsReceiptDetailClient>['receipt']} basePath="/warehouse/incoming" />
+            <GoodsReceiptDetailClient
+                receipt={
+                    serializedReceipt as unknown as ComponentProps<
+                        typeof GoodsReceiptDetailClient
+                    >['receipt']
+                }
+                basePath="/warehouse/incoming"
+            />
         </div>
     );
 }

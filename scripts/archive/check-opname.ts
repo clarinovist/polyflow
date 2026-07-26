@@ -7,28 +7,28 @@ async function main() {
     console.log(`Searching for StockOpname with number: ${opnameStr}`);
     const opname = await prisma.stockOpname.findUnique({
         where: { opnameNumber: opnameStr },
-        include: { items: true }
+        include: { items: true },
     });
 
     if (!opname) {
-        console.log("NOT FOUND!");
+        console.log('NOT FOUND!');
         return;
     }
 
-    console.log("Opname:", JSON.stringify(opname, null, 2));
+    console.log('Opname:', JSON.stringify(opname, null, 2));
 
     const movements = await prisma.stockMovement.findMany({
-        where: { reference: opnameStr }
+        where: { reference: opnameStr },
     });
 
-    console.log("Associated Movements:", movements.length);
+    console.log('Associated Movements:', movements.length);
     console.log(JSON.stringify(movements, null, 2));
 
     const journals = await prisma.journalEntry.findMany({
-        where: { reference: opnameStr }
+        where: { reference: opnameStr },
     });
 
-    console.log("Associated Journals:", journals.length);
+    console.log('Associated Journals:', journals.length);
     console.log(JSON.stringify(journals, null, 2));
 }
 

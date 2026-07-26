@@ -48,7 +48,10 @@ interface AccountFormDialogProps {
     mode?: 'create' | 'edit';
 }
 
-export function AccountFormDialog({ account, mode = 'create' }: AccountFormDialogProps) {
+export function AccountFormDialog({
+    account,
+    mode = 'create',
+}: AccountFormDialogProps) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -56,7 +59,7 @@ export function AccountFormDialog({ account, mode = 'create' }: AccountFormDialo
         name: account?.name || '',
         type: (account?.type || 'ASSET') as AccountType,
         category: (account?.category || 'CURRENT_ASSET') as AccountCategory,
-        description: account?.description || ''
+        description: account?.description || '',
     });
 
     const categoriesForType = CATEGORIES[formData.type] || [];
@@ -76,24 +79,35 @@ export function AccountFormDialog({ account, mode = 'create' }: AccountFormDialo
                 name: formData.name,
                 type: formData.type,
                 category: formData.category,
-                description: formData.description
+                description: formData.description,
             };
 
-            const result = mode === 'create'
-                ? await createAccount(data)
-                : await updateAccount(account!.id, data);
+            const result =
+                mode === 'create'
+                    ? await createAccount(data)
+                    : await updateAccount(account!.id, data);
 
             if (result.success) {
-                toast.success(mode === 'create' ? 'Akun berhasil dibuat.' : 'Akun berhasil diperbarui.');
+                toast.success(
+                    mode === 'create'
+                        ? 'Akun berhasil dibuat.'
+                        : 'Akun berhasil diperbarui.',
+                );
                 setOpen(false);
                 if (mode === 'create') {
-                    setFormData({ code: '', name: '', type: 'ASSET' as AccountType, category: 'CURRENT_ASSET' as AccountCategory, description: '' });
+                    setFormData({
+                        code: '',
+                        name: '',
+                        type: 'ASSET' as AccountType,
+                        category: 'CURRENT_ASSET' as AccountCategory,
+                        description: '',
+                    });
                 }
             } else {
                 toast.error(result.error || 'Gagal menyimpan akun');
             }
         } catch (_error) {
-            toast.error("Gagal menyimpan akun. Silakan coba lagi.")
+            toast.error('Gagal menyimpan akun. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -116,81 +130,134 @@ export function AccountFormDialog({ account, mode = 'create' }: AccountFormDialo
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>{mode === 'create' ? 'Add New Account' : 'Edit Account'}</DialogTitle>
+                        <DialogTitle>
+                            {mode === 'create'
+                                ? 'Add New Account'
+                                : 'Edit Account'}
+                        </DialogTitle>
                         <DialogDescription>
-                            Enter the details for the account below. Account code must be unique.
+                            Enter the details for the account below. Account
+                            code must be unique.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="code" className="text-right">Code</Label>
+                            <Label htmlFor="code" className="text-right">
+                                Code
+                            </Label>
                             <Input
                                 id="code"
                                 value={formData.code}
-                                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        code: e.target.value,
+                                    })
+                                }
                                 className="col-span-3 font-mono"
                                 required
                                 placeholder="e.g. 1101"
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="name" className="text-right">Name</Label>
+                            <Label htmlFor="name" className="text-right">
+                                Name
+                            </Label>
                             <Input
                                 id="name"
                                 value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        name: e.target.value,
+                                    })
+                                }
                                 className="col-span-3"
                                 required
                                 placeholder="e.g. Cash at Bank"
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="type" className="text-right">Type</Label>
+                            <Label htmlFor="type" className="text-right">
+                                Type
+                            </Label>
                             <Select
                                 value={formData.type}
-                                onValueChange={(v) => handleTypeChange(v as AccountType)}
+                                onValueChange={(v) =>
+                                    handleTypeChange(v as AccountType)
+                                }
                             >
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue placeholder="Select type" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ASSET">ASSET</SelectItem>
-                                    <SelectItem value="LIABILITY">LIABILITY</SelectItem>
-                                    <SelectItem value="EQUITY">EQUITY</SelectItem>
-                                    <SelectItem value="REVENUE">REVENUE</SelectItem>
-                                    <SelectItem value="EXPENSE">EXPENSE</SelectItem>
+                                    <SelectItem value="LIABILITY">
+                                        LIABILITY
+                                    </SelectItem>
+                                    <SelectItem value="EQUITY">
+                                        EQUITY
+                                    </SelectItem>
+                                    <SelectItem value="REVENUE">
+                                        REVENUE
+                                    </SelectItem>
+                                    <SelectItem value="EXPENSE">
+                                        EXPENSE
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="category" className="text-right">Category</Label>
+                            <Label htmlFor="category" className="text-right">
+                                Category
+                            </Label>
                             <Select
                                 value={formData.category}
-                                onValueChange={(v) => setFormData({ ...formData, category: v as AccountCategory })}
+                                onValueChange={(v) =>
+                                    setFormData({
+                                        ...formData,
+                                        category: v as AccountCategory,
+                                    })
+                                }
                             >
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue placeholder="Select category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categoriesForType.map(cat => (
-                                        <SelectItem key={cat} value={cat}>{cat.replace('_', ' ')}</SelectItem>
+                                    {categoriesForType.map((cat) => (
+                                        <SelectItem key={cat} value={cat}>
+                                            {cat.replace('_', ' ')}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="description" className="text-right">Notes</Label>
+                            <Label htmlFor="description" className="text-right">
+                                Notes
+                            </Label>
                             <Textarea
                                 id="description"
                                 value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        description: e.target.value,
+                                    })
+                                }
                                 className="col-span-3"
                                 placeholder="Optional description..."
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Batal
+                        </Button>
                         <Button type="submit" disabled={loading}>
                             {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
                         </Button>

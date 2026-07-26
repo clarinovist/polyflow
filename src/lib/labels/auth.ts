@@ -1,94 +1,97 @@
 /** Auth / login page labels */
 export const loginFormLabels = {
-  backToRoleSelection: 'Kembali ke pilihan peran',
-  workspaceBadge: 'Workspace',
-  signIn: 'Masuk',
-  signInHeader: 'Masuk',
-  emailAddress: 'Alamat Email',
-  password: 'Kata Sandi',
-  emailPlaceholder: 'Johndoe@gmail.com',
-  passwordPlaceholder: '••••••••',
-  hidePassword: 'Sembunyikan kata sandi',
-  showPassword: 'Tampilkan kata sandi',
-  rememberMe: 'Ingat saya',
+    backToRoleSelection: 'Kembali ke pilihan peran',
+    workspaceBadge: 'Workspace',
+    signIn: 'Masuk',
+    signInHeader: 'Masuk',
+    emailAddress: 'Alamat Email',
+    password: 'Kata Sandi',
+    emailPlaceholder: 'Johndoe@gmail.com',
+    passwordPlaceholder: '••••••••',
+    hidePassword: 'Sembunyikan kata sandi',
+    showPassword: 'Tampilkan kata sandi',
+    rememberMe: 'Ingat saya',
 } as const;
 
 /** Role selection labels */
 export const roleSelectionLabels = {
-  heading: 'Siapa Anda?',
-  subtitle: 'Pilih peran kerja Anda untuk sesi ini.',
-  roles: {
-    ADMIN: {
-      title: 'Administrator',
-      description: 'Akses penuh ke pengaturan dan manajemen sistem.',
+    heading: 'Siapa Anda?',
+    subtitle: 'Pilih peran kerja Anda untuk sesi ini.',
+    roles: {
+        ADMIN: {
+            title: 'Administrator',
+            description: 'Akses penuh ke pengaturan dan manajemen sistem.',
+        },
+        WAREHOUSE: {
+            title: 'Gudang',
+            description:
+                'Inventaris, pergerakan stok, dan pengeluaran material.',
+        },
+        PRODUCTION: {
+            title: 'Produksi (lantai)',
+            description: 'SPK aktif, papan mesin, kiosk operator, stok lantai.',
+        },
+        PLANNING: {
+            title: 'Planning (PPIC)',
+            description:
+                'Jadwal, MRP, SPK perencanaan, stok & pembelian terkait.',
+        },
+        SALES: {
+            title: 'Sales',
+            description: 'Pesanan penjualan, penawaran, dan pelanggan.',
+        },
+        MARKETING: {
+            title: 'Marketing',
+            description: 'Pemasaran, promosi, dan analisis penjualan.',
+        },
+        FINANCE: {
+            title: 'Finance',
+            description: 'Faktur, tagihan, dan akuntansi keuangan.',
+        },
+        PROCUREMENT: {
+            title: 'Purchasing',
+            description: 'Pembelian, purchase order, dan manajemen supplier.',
+        },
+        HRD: {
+            title: 'HRD',
+            description: 'Kehadiran, payroll, cuti, dan manajemen karyawan.',
+        },
     },
-    WAREHOUSE: {
-      title: 'Gudang',
-      description: 'Inventaris, pergerakan stok, dan pengeluaran material.',
-    },
-    PRODUCTION: {
-      title: 'Produksi (lantai)',
-      description: 'SPK aktif, papan mesin, kiosk operator, stok lantai.',
-    },
-    PLANNING: {
-      title: 'Planning (PPIC)',
-      description: 'Jadwal, MRP, SPK perencanaan, stok & pembelian terkait.',
-    },
-    SALES: {
-      title: 'Sales',
-      description: 'Pesanan penjualan, penawaran, dan pelanggan.',
-    },
-    MARKETING: {
-      title: 'Marketing',
-      description: 'Pemasaran, promosi, dan analisis penjualan.',
-    },
-    FINANCE: {
-      title: 'Finance',
-      description: 'Faktur, tagihan, dan akuntansi keuangan.',
-    },
-    PROCUREMENT: {
-      title: 'Purchasing',
-      description: 'Pembelian, purchase order, dan manajemen supplier.',
-    },
-    HRD: {
-      title: 'HRD',
-      description: 'Kehadiran, payroll, cuti, dan manajemen karyawan.',
-    },
-  },
 } as const;
 
 /** Workspace discovery labels */
 export const workspaceDiscoveryLabels = {
-  signInToWorkspace: 'Masuk ke workspace Anda',
-  description: 'Masukkan URL workspace Anda untuk melanjutkan ke dashboard ERP.',
-  protocolPrefix: 'https://',
-  domainSuffix: '.polyflow.uk',
-  placeholder: 'your-company',
-  connecting: 'Menghubungkan...',
-  continueToWorkspace: 'Lanjut ke Workspace',
-  notSure: 'Tidak yakin dengan URL workspace Anda?',
-  checkEmail: 'Periksa email selamat datang dari administrator.',
-  noWorkspace: 'Belum memiliki workspace?',
-  registerNewCompany: 'Daftar Perusahaan Baru',
+    signInToWorkspace: 'Masuk ke workspace Anda',
+    description:
+        'Masukkan URL workspace Anda untuk melanjutkan ke dashboard ERP.',
+    protocolPrefix: 'https://',
+    domainSuffix: '.polyflow.uk',
+    placeholder: 'your-company',
+    connecting: 'Menghubungkan...',
+    continueToWorkspace: 'Lanjut ke Workspace',
+    notSure: 'Tidak yakin dengan URL workspace Anda?',
+    checkEmail: 'Periksa email selamat datang dari administrator.',
+    noWorkspace: 'Belum memiliki workspace?',
+    registerNewCompany: 'Daftar Perusahaan Baru',
 } as const;
 
 /** Error boundary labels */
 export const errorBoundaryLabels = {
-  title: 'Gagal memproses',
-  description: 'Silakan coba lagi atau hubungi admin.',
-  reloadPage: 'Muat Ulang Halaman',
+    title: 'Gagal memproses',
+    description: 'Silakan coba lagi atau hubungi admin.',
+    reloadPage: 'Muat Ulang Halaman',
 } as const;
 
 /** Brand panel labels */
 export const brandPanelLabels = {
-  welcomeTo: 'Selamat datang di',
-  signInDescription:
-    'Masuk untuk mengakses dashboard ERP, kelola alur kerja produksi, dan lacak inventaris Anda secara mulus.',
-  brandDescription:
-    'PolyFlow membantu bisnis membangun operasi yang terorganisir dan terstruktur dengan modul yang indah dan kaya fitur. Bergabunglah dan mulailah membangun bisnis Anda hari ini.',
-  enterprisePortal: 'Portal enterprise didukung oleh PolyFlow',
-  joinUs: 'Lebih dari 1K orang telah bergabung, giliran Anda',
-  streamlineTitle: 'Optimalkan operasi bisnis Anda hari ini',
-  streamlineDescription:
-    'Jadilah salah satu pengusaha pertama yang merasakan cara termudah mengelola bisnis.',
+    welcomeTo: 'Selamat datang di',
+    signInDescription:
+        'Masuk untuk mengakses dashboard ERP, kelola alur kerja produksi, dan lacak inventaris Anda secara mulus.',
+    brandDescription:
+        'PolyFlow membantu bisnis membangun operasi yang terorganisir dan terstruktur dengan modul yang indah dan kaya fitur. Bergabunglah dan mulailah membangun bisnis Anda hari ini.',
+    enterprisePortal: 'Portal enterprise didukung oleh PolyFlow',
+    joinUs: 'Lebih dari 1K orang telah bergabung, giliran Anda',
+    streamlineTitle: 'Optimalkan operasi bisnis Anda hari ini',
+    streamlineDescription:
+        'Jadilah salah satu pengusaha pertama yang merasakan cara termudah mengelola bisnis.',
 } as const;

@@ -1,25 +1,27 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { AccountType, AccountCategory, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    NotFoundError,
+} from '@/lib/errors/errors';
 
-export const getAccounts = withTenant(
-async function getAccounts() {
+export const getAccounts = withTenant(async function getAccounts() {
     return safeAction(async () => {
         return await prisma.account.findMany({
             orderBy: { code: 'asc' },
             include: {
                 parent: {
-                    select: { code: true, name: true }
-                }
-            }
+                    select: { code: true, name: true },
+                },
+            },
         });
     });
-}
-);
+});
 
 export type UpsertAccountInput = {
     id?: string;
@@ -33,11 +35,25 @@ export type UpsertAccountInput = {
 };
 
 const GHOST_BLOCKLIST_MELINDO = new Set([
-    '11110', '11300', '11310', '11340', '11350', '21200', '30000', '51100', '80000', '81000', '81100', '90000', '91000', '91100',
+    '11110',
+    '11300',
+    '11310',
+    '11340',
+    '11350',
+    '21200',
+    '30000',
+    '51100',
+    '80000',
+    '81000',
+    '81100',
+    '90000',
+    '91000',
+    '91100',
 ]);
 
-export const upsertAccount = withTenant(
-async function upsertAccount(data: UpsertAccountInput) {
+export const upsertAccount = withTenant(async function upsertAccount(
+    data: UpsertAccountInput,
+) {
     return safeAction(async () => {
         const { id, ...rest } = data;
 
@@ -45,11 +61,13 @@ async function upsertAccount(data: UpsertAccountInput) {
         // Kiyowo tenant is NOT affected — it legitimately uses 11300 etc.
         // Detection: Melindo has 1-130 marker; Kiyowo does NOT have 1-130.
         if (!id && GHOST_BLOCKLIST_MELINDO.has(rest.code)) {
-            const isMelindoTenant = await prisma.account.findUnique({ where: { code: '1-130' } });
+            const isMelindoTenant = await prisma.account.findUnique({
+                where: { code: '1-130' },
+            });
             if (isMelindoTenant) {
                 throw new BusinessRuleError(
                     `Kode akun ${rest.code} adalah format Kiyowo (ghost) dan sudah di-migrasikan ke format Melindo. ` +
-                    `Gunakan 1-127/1-130/7-101/8-202. Jika butuh re-aktivasi ghost, hubungi superadmin.`,
+                        `Gunakan 1-127/1-130/7-101/8-202. Jika butuh re-aktivasi ghost, hubungi superadmin.`,
                     { code: rest.code },
                 );
             }
@@ -59,18 +77,20 @@ async function upsertAccount(data: UpsertAccountInput) {
             if (id) {
                 await prisma.account.update({
                     where: { id },
-                    data: rest
+                    data: rest,
                 });
             } else {
                 await prisma.account.create({
-                    data: rest
+                    data: rest,
                 });
             }
         } catch (error) {
             if (error instanceof Prisma.PrismaClientKnownRequestError) {
                 // P2002 is the error code for unique constraint violation
                 if (error.code === 'P2002') {
-                    throw new BusinessRuleError(`Account code ${rest.code} already exists.`);
+                    throw new BusinessRuleError(
+                        `Account code ${rest.code} already exists.`,
+                    );
                 }
             }
             throw error;
@@ -78,35 +98,41 @@ async function upsertAccount(data: UpsertAccountInput) {
 
         revalidatePath('/finance/coa');
     });
-}
-);
+});
 
-export const deleteAccount = withTenant(
-async function deleteAccount(id: string) {
+export const deleteAccount = withTenant(async function deleteAccount(
+    id: string,
+) {
     return safeAction(async () => {
         // Check for journal entries
-        const usageCount = await prisma.journalLine.count({ where: { accountId: id } });
+        const usageCount = await prisma.journalLine.count({
+            where: { accountId: id },
+        });
         if (usageCount > 0) {
-            throw new BusinessRuleError(`Cannot delete account. It is used in ${usageCount} journal entries.`);
+            throw new BusinessRuleError(
+                `Cannot delete account. It is used in ${usageCount} journal entries.`,
+            );
         }
 
         // Check for child accounts
-        const childCount = await prisma.account.count({ where: { parentId: id } });
+        const childCount = await prisma.account.count({
+            where: { parentId: id },
+        });
         if (childCount > 0) {
-            throw new BusinessRuleError(`Cannot delete account. Please reassign or delete its ${childCount} sub-accounts first.`);
+            throw new BusinessRuleError(
+                `Cannot delete account. Please reassign or delete its ${childCount} sub-accounts first.`,
+            );
         }
 
         await prisma.account.delete({ where: { id } });
         revalidatePath('/finance/coa');
     });
-}
-);
+});
 
-export const getAccountLedger = withTenant(
-async function getAccountLedger(
+export const getAccountLedger = withTenant(async function getAccountLedger(
     accountId: string,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
 ) {
     return safeAction(async () => {
         // Get account details
@@ -114,9 +140,9 @@ async function getAccountLedger(
             where: { id: accountId },
             include: {
                 parent: {
-                    select: { code: true, name: true }
-                }
-            }
+                    select: { code: true, name: true },
+                },
+            },
         });
 
         if (!account) {
@@ -134,8 +160,8 @@ async function getAccountLedger(
             };
         } = {
             journalEntry: {
-                status: 'POSTED'
-            }
+                status: 'POSTED',
+            },
         };
         if (startDate || endDate) {
             if (startDate) {
@@ -156,8 +182,10 @@ async function getAccountLedger(
                 accountId,
                 journalEntry: {
                     status: 'POSTED',
-                    ...(dateFilter.journalEntry?.entryDate ? { entryDate: dateFilter.journalEntry.entryDate } : {})
-                }
+                    ...(dateFilter.journalEntry?.entryDate
+                        ? { entryDate: dateFilter.journalEntry.entryDate }
+                        : {}),
+                },
             },
             include: {
                 journalEntry: {
@@ -167,14 +195,14 @@ async function getAccountLedger(
                         entryDate: true,
                         description: true,
                         reference: true,
-                        referenceType: true
-                    }
-                }
+                        referenceType: true,
+                    },
+                },
             },
             orderBy: [
                 { journalEntry: { entryDate: 'asc' } },
-                { journalEntry: { entryNumber: 'asc' } }
-            ]
+                { journalEntry: { entryNumber: 'asc' } },
+            ],
         });
 
         // Calculate beginning balance (all entries before startDate)
@@ -185,12 +213,12 @@ async function getAccountLedger(
                     accountId,
                     journalEntry: {
                         status: 'POSTED',
-                        entryDate: { lt: startDate }
-                    }
-                }
+                        entryDate: { lt: startDate },
+                    },
+                },
             });
 
-            preLines.forEach(line => {
+            preLines.forEach((line) => {
                 const d = Number(line.debit);
                 const c = Number(line.credit);
                 if (account.type === 'ASSET' || account.type === 'EXPENSE') {
@@ -203,7 +231,7 @@ async function getAccountLedger(
 
         // Calculate running balance starting from beginning balance
         let runningBalance = beginningBalance;
-        const ledgerEntries = lines.map(line => {
+        const ledgerEntries = lines.map((line) => {
             const debit = Number(line.debit);
             const credit = Number(line.credit);
 
@@ -224,7 +252,7 @@ async function getAccountLedger(
                 referenceType: line.journalEntry.referenceType,
                 debit,
                 credit,
-                balance: runningBalance
+                balance: runningBalance,
             };
         });
 
@@ -235,16 +263,18 @@ async function getAccountLedger(
                 name: account.name,
                 type: account.type,
                 category: account.category,
-                parent: account.parent
+                parent: account.parent,
             },
             entries: ledgerEntries,
             summary: {
                 beginningBalance,
                 totalDebit: ledgerEntries.reduce((sum, e) => sum + e.debit, 0),
-                totalCredit: ledgerEntries.reduce((sum, e) => sum + e.credit, 0),
-                endingBalance: runningBalance
-            }
+                totalCredit: ledgerEntries.reduce(
+                    (sum, e) => sum + e.credit,
+                    0,
+                ),
+                endingBalance: runningBalance,
+            },
         };
     });
-}
-);
+});

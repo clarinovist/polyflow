@@ -1,8 +1,14 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { PurchaseSpendTrend, TopSupplierItem, PurchaseByStatusItem, APAgingItem, DateRange } from '@/types/analytics';
+import {
+    PurchaseSpendTrend,
+    TopSupplierItem,
+    PurchaseByStatusItem,
+    APAgingItem,
+    DateRange,
+} from '@/types/analytics';
 import { safeAction } from '@/lib/errors/errors';
 
 function safePercentage(numerator: number, denominator: number): number {
@@ -11,107 +17,154 @@ function safePercentage(numerator: number, denominator: number): number {
 }
 
 export const getPurchaseSpendReport = withTenant(
-async function getPurchaseSpendReport(
-    dateRange: DateRange
-): Promise<{ success: boolean, data?: PurchaseSpendTrend, error?: string }> {
-    return safeAction(async () => {
-        const now = new Date();
-        // Trend starts from Jan 1st of current year
-        const trendStartDate = new Date(now.getFullYear(), 0, 1);
-        const trendEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-        const monthsInTrend = (trendEndDate.getFullYear() - trendStartDate.getFullYear()) * 12 + trendEndDate.getMonth() + 1;
+    async function getPurchaseSpendReport(dateRange: DateRange): Promise<{
+        success: boolean;
+        data?: PurchaseSpendTrend;
+        error?: string;
+    }> {
+        return safeAction(async () => {
+            const now = new Date();
+            // Trend starts from Jan 1st of current year
+            const trendStartDate = new Date(now.getFullYear(), 0, 1);
+            const trendEndDate = new Date(
+                now.getFullYear(),
+                now.getMonth() + 1,
+                0,
+                23,
+                59,
+                59,
+                999,
+            );
+            const monthsInTrend =
+                (trendEndDate.getFullYear() - trendStartDate.getFullYear()) *
+                    12 +
+                trendEndDate.getMonth() +
+                1;
 
-        // 1. Fetch Current Period Data
-        const orders = await prisma.purchaseOrder.findMany({
-            where: {
-                orderDate: {
-                    gte: trendStartDate < dateRange.from ? trendStartDate : dateRange.from,
-                    lte: trendEndDate > dateRange.to ? trendEndDate : dateRange.to,
+            // 1. Fetch Current Period Data
+            const orders = await prisma.purchaseOrder.findMany({
+                where: {
+                    orderDate: {
+                        gte:
+                            trendStartDate < dateRange.from
+                                ? trendStartDate
+                                : dateRange.from,
+                        lte:
+                            trendEndDate > dateRange.to
+                                ? trendEndDate
+                                : dateRange.to,
+                    },
+                    status: {
+                        not: 'CANCELLED',
+                    },
                 },
-                status: {
-                    not: 'CANCELLED'
-                }
-            },
-            select: {
-                orderDate: true,
-                totalAmount: true,
-                id: true
-            },
-            orderBy: { orderDate: 'asc' }
-        });
-
-        // 2. Fetch Previous Period Data for Trends (KPIs only)
-        const duration = dateRange.to.getTime() - dateRange.from.getTime();
-        const prevFrom = new Date(dateRange.from.getTime() - duration);
-        const prevTo = dateRange.from;
-
-        const prevOrders = await prisma.purchaseOrder.findMany({
-            where: {
-                orderDate: {
-                    gte: prevFrom,
-                    lt: prevTo,
+                select: {
+                    orderDate: true,
+                    totalAmount: true,
+                    id: true,
                 },
-                status: {
-                    not: 'CANCELLED'
-                }
-            },
-            select: { totalAmount: true }
-        });
+                orderBy: { orderDate: 'asc' },
+            });
 
-        // Filter orders for KPI calculations
-        const kpiOrders = orders.filter(o => o.orderDate >= dateRange.from && o.orderDate <= dateRange.to);
+            // 2. Fetch Previous Period Data for Trends (KPIs only)
+            const duration = dateRange.to.getTime() - dateRange.from.getTime();
+            const prevFrom = new Date(dateRange.from.getTime() - duration);
+            const prevTo = dateRange.from;
 
-        // Calculate Totals
-        const currentSpend = kpiOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
-        const prevSpend = prevOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+            const prevOrders = await prisma.purchaseOrder.findMany({
+                where: {
+                    orderDate: {
+                        gte: prevFrom,
+                        lt: prevTo,
+                    },
+                    status: {
+                        not: 'CANCELLED',
+                    },
+                },
+                select: { totalAmount: true },
+            });
 
-        const currentCount = kpiOrders.length;
-        const prevCount = prevOrders.length;
+            // Filter orders for KPI calculations
+            const kpiOrders = orders.filter(
+                (o) =>
+                    o.orderDate >= dateRange.from &&
+                    o.orderDate <= dateRange.to,
+            );
 
-        // Calculate Growth
-        const spendGrowth = safePercentage(currentSpend - prevSpend, prevSpend);
-        const orderCountGrowth = safePercentage(currentCount - prevCount, prevCount);
+            // Calculate Totals
+            const currentSpend = kpiOrders.reduce(
+                (sum, o) => sum + (Number(o.totalAmount) || 0),
+                0,
+            );
+            const prevSpend = prevOrders.reduce(
+                (sum, o) => sum + (Number(o.totalAmount) || 0),
+                0,
+            );
 
-        const chartMap: Record<string, number> = {};
+            const currentCount = kpiOrders.length;
+            const prevCount = prevOrders.length;
 
-        // Initialize monthly map for the whole year
-        for (let i = 0; i < monthsInTrend; i++) {
-            const date = new Date(trendStartDate.getFullYear(), trendStartDate.getMonth() + i, 1);
-            const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-            chartMap[key] = 0;
-        }
+            // Calculate Growth
+            const spendGrowth = safePercentage(
+                currentSpend - prevSpend,
+                prevSpend,
+            );
+            const orderCountGrowth = safePercentage(
+                currentCount - prevCount,
+                prevCount,
+            );
 
-        orders.forEach(order => {
-            const date = new Date(order.orderDate);
-            const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            const chartMap: Record<string, number> = {};
 
-            if (chartMap[key] !== undefined) {
-                chartMap[key] += Number(order.totalAmount) || 0;
+            // Initialize monthly map for the whole year
+            for (let i = 0; i < monthsInTrend; i++) {
+                const date = new Date(
+                    trendStartDate.getFullYear(),
+                    trendStartDate.getMonth() + i,
+                    1,
+                );
+                const key = date.toLocaleString('default', {
+                    month: 'short',
+                    year: 'numeric',
+                });
+                chartMap[key] = 0;
             }
+
+            orders.forEach((order) => {
+                const date = new Date(order.orderDate);
+                const key = date.toLocaleString('default', {
+                    month: 'short',
+                    year: 'numeric',
+                });
+
+                if (chartMap[key] !== undefined) {
+                    chartMap[key] += Number(order.totalAmount) || 0;
+                }
+            });
+
+            const chartData = Object.entries(chartMap).map(
+                ([period, spend]) => ({
+                    period,
+                    spend: spend as number,
+                    orderCount: 0, // We aren't tracking monthly count in UI but keep type compatibility
+                }),
+            );
+
+            return {
+                spendGrowth,
+                orderCountGrowth,
+                periodSpend: currentSpend,
+                periodOrderCount: currentCount,
+                chartData,
+            };
         });
-
-        const chartData = Object.entries(chartMap).map(([period, spend]) => ({
-            period,
-            spend: spend as number,
-            orderCount: 0 // We aren't tracking monthly count in UI but keep type compatibility
-        }));
-
-        return {
-            spendGrowth,
-            orderCountGrowth,
-            periodSpend: currentSpend,
-            periodOrderCount: currentCount,
-            chartData
-        };
-    });
-}
+    },
 );
 
-export const getTopSuppliers = withTenant(
-async function getTopSuppliers(
+export const getTopSuppliers = withTenant(async function getTopSuppliers(
     dateRange: DateRange,
-    limit: number = 5
-): Promise<{ success: boolean, data?: TopSupplierItem[], error?: string }> {
+    limit: number = 5,
+): Promise<{ success: boolean; data?: TopSupplierItem[]; error?: string }> {
     return safeAction(async () => {
         const suppliers = await prisma.purchaseOrder.groupBy({
             by: ['supplierId'],
@@ -120,122 +173,144 @@ async function getTopSuppliers(
                     gte: dateRange.from,
                     lte: dateRange.to,
                 },
-                status: { not: 'CANCELLED' }
+                status: { not: 'CANCELLED' },
             },
             _sum: {
-                totalAmount: true
+                totalAmount: true,
             },
             _count: {
-                id: true
+                id: true,
             },
             _max: {
-                orderDate: true
+                orderDate: true,
             },
             orderBy: {
                 _sum: {
-                    totalAmount: 'desc'
-                }
+                    totalAmount: 'desc',
+                },
             },
-            take: limit
+            take: limit,
         });
 
-    // Need to fetch supplier names
-    const supplierIds = suppliers.map(s => s.supplierId);
-    const supplierDetails = await prisma.supplier.findMany({
-        where: { id: { in: supplierIds } },
-        select: { id: true, name: true }
-    });
+        // Need to fetch supplier names
+        const supplierIds = suppliers.map((s) => s.supplierId);
+        const supplierDetails = await prisma.supplier.findMany({
+            where: { id: { in: supplierIds } },
+            select: { id: true, name: true },
+        });
 
-    return suppliers.map(s => {
-        const detail = supplierDetails.find(d => d.id === s.supplierId);
-        return {
-            supplierId: s.supplierId,
-            supplierName: detail?.name || 'Unknown',
-            totalSpend: Number(s._sum.totalAmount) || 0,
-            orderCount: s._count.id,
-            lastOrderDate: s._max.orderDate
-        };
+        return suppliers.map((s) => {
+            const detail = supplierDetails.find((d) => d.id === s.supplierId);
+            return {
+                supplierId: s.supplierId,
+                supplierName: detail?.name || 'Unknown',
+                totalSpend: Number(s._sum.totalAmount) || 0,
+                orderCount: s._count.id,
+                lastOrderDate: s._max.orderDate,
+            };
+        });
     });
-    });
-}
-);
+});
 
 export const getPurchaseStatusSummary = withTenant(
-async function getPurchaseStatusSummary(
-    dateRange: DateRange
-): Promise<{ success: boolean, data?: PurchaseByStatusItem[], error?: string }> {
-    return safeAction(async () => {
-        const groups = await prisma.purchaseOrder.groupBy({
-            by: ['status'],
-            where: {
-                orderDate: {
-                    gte: dateRange.from,
-                    lte: dateRange.to,
-                }
-            },
-            _count: { id: true },
-            _sum: { totalAmount: true }
+    async function getPurchaseStatusSummary(dateRange: DateRange): Promise<{
+        success: boolean;
+        data?: PurchaseByStatusItem[];
+        error?: string;
+    }> {
+        return safeAction(async () => {
+            const groups = await prisma.purchaseOrder.groupBy({
+                by: ['status'],
+                where: {
+                    orderDate: {
+                        gte: dateRange.from,
+                        lte: dateRange.to,
+                    },
+                },
+                _count: { id: true },
+                _sum: { totalAmount: true },
+            });
+
+            const totalValue = groups.reduce(
+                (sum, g) => sum + (Number(g._sum.totalAmount) || 0),
+                0,
+            );
+
+            return groups
+                .map((g) => ({
+                    status: g.status,
+                    count: g._count.id,
+                    value: Number(g._sum.totalAmount) || 0,
+                    percentage: safePercentage(
+                        Number(g._sum.totalAmount) || 0,
+                        totalValue,
+                    ),
+                }))
+                .sort((a, b) => b.value - a.value);
         });
-
-        const totalValue = groups.reduce((sum, g) => sum + (Number(g._sum.totalAmount) || 0), 0);
-
-    return groups.map(g => ({
-        status: g.status,
-        count: g._count.id,
-        value: Number(g._sum.totalAmount) || 0,
-        percentage: safePercentage(Number(g._sum.totalAmount) || 0, totalValue)
-    })).sort((a, b) => b.value - a.value);
-    });
-}
+    },
 );
 
 export const getAPAgingReport = withTenant(
-async function getAPAgingReport(): Promise<{ success: boolean, data?: APAgingItem[], error?: string }> {
-    return safeAction(async () => {
-        const unpaidInvoices = await prisma.purchaseInvoice.findMany({
-            where: {
-                status: { notIn: ['PAID', 'CANCELLED'] }
-            },
-            select: {
-                id: true,
-                totalAmount: true,
-                paidAmount: true,
-                dueDate: true,
-                invoiceDate: true
+    async function getAPAgingReport(): Promise<{
+        success: boolean;
+        data?: APAgingItem[];
+        error?: string;
+    }> {
+        return safeAction(async () => {
+            const unpaidInvoices = await prisma.purchaseInvoice.findMany({
+                where: {
+                    status: { notIn: ['PAID', 'CANCELLED'] },
+                },
+                select: {
+                    id: true,
+                    totalAmount: true,
+                    paidAmount: true,
+                    dueDate: true,
+                    invoiceDate: true,
+                },
+            });
+
+            const categories: Record<string, APAgingItem> = {
+                Current: { range: 'Current', amount: 0, invoiceCount: 0 },
+                '1-30 Days': { range: '1-30 Days', amount: 0, invoiceCount: 0 },
+                '31-60 Days': {
+                    range: '31-60 Days',
+                    amount: 0,
+                    invoiceCount: 0,
+                },
+                '61-90 Days': {
+                    range: '61-90 Days',
+                    amount: 0,
+                    invoiceCount: 0,
+                },
+                '> 90 Days': { range: '> 90 Days', amount: 0, invoiceCount: 0 },
+            };
+
+            const now = new Date();
+
+            for (const inv of unpaidInvoices) {
+                const due = inv.dueDate || inv.invoiceDate;
+                const outstanding =
+                    Number(inv.totalAmount) - Number(inv.paidAmount);
+
+                const diffTime = now.getTime() - due.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                let categoryKey = 'Current';
+                if (diffDays <= 0) categoryKey = 'Current';
+                else if (diffDays <= 30) categoryKey = '1-30 Days';
+                else if (diffDays <= 60) categoryKey = '31-60 Days';
+                else if (diffDays <= 90) categoryKey = '61-90 Days';
+                else categoryKey = '> 90 Days';
+
+                categories[categoryKey].amount += outstanding;
+                categories[categoryKey].invoiceCount += 1;
             }
+
+            return Object.values(categories);
         });
-
-    const categories: Record<string, APAgingItem> = {
-        'Current': { range: 'Current', amount: 0, invoiceCount: 0 },
-        '1-30 Days': { range: '1-30 Days', amount: 0, invoiceCount: 0 },
-        '31-60 Days': { range: '31-60 Days', amount: 0, invoiceCount: 0 },
-        '61-90 Days': { range: '61-90 Days', amount: 0, invoiceCount: 0 },
-        '> 90 Days': { range: '> 90 Days', amount: 0, invoiceCount: 0 },
-    };
-
-    const now = new Date();
-
-    for (const inv of unpaidInvoices) {
-        const due = inv.dueDate || inv.invoiceDate;
-        const outstanding = Number(inv.totalAmount) - Number(inv.paidAmount);
-
-        const diffTime = now.getTime() - due.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        let categoryKey = 'Current';
-        if (diffDays <= 0) categoryKey = 'Current';
-        else if (diffDays <= 30) categoryKey = '1-30 Days';
-        else if (diffDays <= 60) categoryKey = '31-60 Days';
-        else if (diffDays <= 90) categoryKey = '61-90 Days';
-        else categoryKey = '> 90 Days';
-
-        categories[categoryKey].amount += outstanding;
-        categories[categoryKey].invoiceCount += 1;
-    }
-
-    return Object.values(categories);
-    });
-}
+    },
 );
 
 export type OverdueAPLine = {
@@ -247,8 +322,9 @@ export type OverdueAPLine = {
 };
 
 /** Top overdue purchase invoices for actionable analytics list. */
-export const getOverdueAPLines = withTenant(
-async function getOverdueAPLines(limit = 10) {
+export const getOverdueAPLines = withTenant(async function getOverdueAPLines(
+    limit = 10,
+) {
     return safeAction(async () => {
         const now = new Date();
         const rows = await prisma.purchaseInvoice.findMany({
@@ -264,7 +340,9 @@ async function getOverdueAPLines(limit = 10) {
                 totalAmount: true,
                 paidAmount: true,
                 dueDate: true,
-                purchaseOrder: { select: { supplier: { select: { name: true } } } },
+                purchaseOrder: {
+                    select: { supplier: { select: { name: true } } },
+                },
             },
         });
 
@@ -276,36 +354,55 @@ async function getOverdueAPLines(limit = 10) {
             dueDate: inv.dueDate?.toISOString() ?? '',
         }));
     });
-}
-);
+});
 
 export const getPurchasingAnalytics = withTenant(
-async function getPurchasingAnalytics(dateRange?: DateRange) {
-    return safeAction(async () => {
-        const today = new Date();
-        const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+    async function getPurchasingAnalytics(dateRange?: DateRange) {
+        return safeAction(async () => {
+            const today = new Date();
+            const startOfCurrentMonth = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                1,
+            );
+            const endOfCurrentMonth = new Date(
+                today.getFullYear(),
+                today.getMonth() + 1,
+                0,
+                23,
+                59,
+                59,
+                999,
+            );
 
-        const queryRange = dateRange || { from: startOfCurrentMonth, to: endOfCurrentMonth };
+            const queryRange = dateRange || {
+                from: startOfCurrentMonth,
+                to: endOfCurrentMonth,
+            };
 
-        const [spendTrendData, topSuppliersData, statusBreakdownData, apAgingData] = await Promise.all([
-            getPurchaseSpendReport(queryRange),
-            getTopSuppliers(queryRange, 5),
-            getPurchaseStatusSummary(queryRange),
-            getAPAgingReport()
-        ]);
+            const [
+                spendTrendData,
+                topSuppliersData,
+                statusBreakdownData,
+                apAgingData,
+            ] = await Promise.all([
+                getPurchaseSpendReport(queryRange),
+                getTopSuppliers(queryRange, 5),
+                getPurchaseStatusSummary(queryRange),
+                getAPAgingReport(),
+            ]);
 
-        const spendTrend = spendTrendData.data;
-        const topSuppliers = topSuppliersData.data;
-        const statusBreakdown = statusBreakdownData.data;
-        const apAging = apAgingData.data;
+            const spendTrend = spendTrendData.data;
+            const topSuppliers = topSuppliersData.data;
+            const statusBreakdown = statusBreakdownData.data;
+            const apAging = apAgingData.data;
 
-        return {
-            spendTrend,
-            topSuppliers,
-            statusBreakdown,
-            apAging
-        };
-    });
-}
+            return {
+                spendTrend,
+                topSuppliers,
+                statusBreakdown,
+                apAging,
+            };
+        });
+    },
 );

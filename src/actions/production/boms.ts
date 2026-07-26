@@ -1,17 +1,27 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
-import { createBomSchema, CreateBomValues, duplicateBomSchema, DuplicateBomValues, archiveBomSchema } from '@/lib/schemas/production';
+import {
+    createBomSchema,
+    CreateBomValues,
+    duplicateBomSchema,
+    DuplicateBomValues,
+    archiveBomSchema,
+} from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { calculateBomCost } from '@/lib/utils/production-utils';
 import { updateStandardCost } from '@/actions/finance/cost-history';
 import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { logActivity } from "@/lib/tools/audit";
-import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { logActivity } from '@/lib/tools/audit';
+import {
+    safeAction,
+    BusinessRuleError,
+    NotFoundError,
+} from '@/lib/errors/errors';
 import {
     getCurrentUnitCost,
     getVariantCostDiagnostics,
@@ -27,7 +37,7 @@ import { BomLifecycleService } from '@/services/production/bom-lifecycle-service
 async function unsetOtherDefaultBoms(
     tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
     productVariantId: string,
-    exceptBomId?: string
+    exceptBomId?: string,
 ) {
     const where: Record<string, unknown> = {
         productVariantId,
@@ -42,7 +52,13 @@ async function unsetOtherDefaultBoms(
     });
 }
 
-function enrichVariantCurrentCost<T extends { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } & Record<string, unknown>>(variant: T): T & {
+function enrichVariantCurrentCost<
+    T extends {
+        inventories?: Array<{ quantity?: unknown; averageCost?: unknown }>;
+    } & Record<string, unknown>,
+>(
+    variant: T,
+): T & {
     currentCost: number;
     costDiagnostics: VariantCostDiagnostics & { inventoryCount: number };
 } {
@@ -56,10 +72,21 @@ function enrichVariantCurrentCost<T extends { inventories?: Array<{ quantity?: u
     };
 }
 
-function enrichBomCurrentCosts<T extends {
-    productVariant: Record<string, unknown> & { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> };
-    items: Array<{ productVariant: Record<string, unknown> & { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } }>;
-}>(bom: T): T {
+function enrichBomCurrentCosts<
+    T extends {
+        productVariant: Record<string, unknown> & {
+            inventories?: Array<{ quantity?: unknown; averageCost?: unknown }>;
+        };
+        items: Array<{
+            productVariant: Record<string, unknown> & {
+                inventories?: Array<{
+                    quantity?: unknown;
+                    averageCost?: unknown;
+                }>;
+            };
+        }>;
+    },
+>(bom: T): T {
     return {
         ...bom,
         productVariant: enrichVariantCurrentCost(bom.productVariant),
@@ -70,12 +97,14 @@ function enrichBomCurrentCosts<T extends {
     };
 }
 
-export const getBoms = withTenant(
-async function getBoms(category?: string, status?: 'ACTIVE' | 'ARCHIVED' | 'ALL') {
+export const getBoms = withTenant(async function getBoms(
+    category?: string,
+    status?: 'ACTIVE' | 'ARCHIVED' | 'ALL',
+) {
     return safeAction(async () => {
         const where: Prisma.BomWhereInput = {};
         if (category && category !== 'ALL') {
-            where.category = category as Prisma.BomWhereInput["category"];
+            where.category = category as Prisma.BomWhereInput['category'];
         }
         // Status filter (default: ACTIVE only)
         const effectiveStatus = status || 'ACTIVE';
@@ -96,9 +125,9 @@ async function getBoms(category?: string, status?: 'ACTIVE' | 'ARCHIVED' | 'ALL'
                             select: {
                                 quantity: true,
                                 averageCost: true,
-                            }
-                        }
-                    }
+                            },
+                        },
+                    },
                 },
                 items: {
                     include: {
@@ -109,52 +138,54 @@ async function getBoms(category?: string, status?: 'ACTIVE' | 'ARCHIVED' | 'ALL'
                                     select: {
                                         quantity: true,
                                         averageCost: true,
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
                 _count: {
                     select: { ProductionOrder: true },
-                }
+                },
             },
-            orderBy: { updatedAt: 'desc' }
+            orderBy: { updatedAt: 'desc' },
         });
         return serializeData(boms.map(enrichBomCurrentCosts));
     });
-}
-);
+});
 
 export const getProductVariants = withTenant(
-async function getProductVariants() {
-    return safeAction(async () => {
-        const variants = await prisma.productVariant.findMany({
-            include: {
-                product: true,
-                inventories: {
-                    select: {
-                        quantity: true,
-                        averageCost: true,
-                    }
-                }
-            },
-            orderBy: { name: 'asc' }
+    async function getProductVariants() {
+        return safeAction(async () => {
+            const variants = await prisma.productVariant.findMany({
+                include: {
+                    product: true,
+                    inventories: {
+                        select: {
+                            quantity: true,
+                            averageCost: true,
+                        },
+                    },
+                },
+                orderBy: { name: 'asc' },
+            });
+            return serializeData(variants.map(enrichVariantCurrentCost));
         });
-        return serializeData(variants.map(enrichVariantCurrentCost));
-    });
-}
+    },
 );
 
-export const createBom = withTenant(
-async function createBom(data: CreateBomValues) {
+export const createBom = withTenant(async function createBom(
+    data: CreateBomValues,
+) {
     return safeAction(async () => {
         const session = await requireAuth();
         const validated = createBomSchema.parse(data);
 
         await BomCostCascadeService.validateNoBomCycle({
             outputVariantId: validated.productVariantId,
-            itemVariantIds: validated.items.map((item) => item.productVariantId),
+            itemVariantIds: validated.items.map(
+                (item) => item.productVariantId,
+            ),
         });
 
         try {
@@ -167,18 +198,20 @@ async function createBom(data: CreateBomValues) {
                 return tx.bom.create({
                     data: {
                         name: validated.name,
-                        productVariant: { connect: { id: validated.productVariantId } },
+                        productVariant: {
+                            connect: { id: validated.productVariantId },
+                        },
                         outputQuantity: validated.outputQuantity,
                         isDefault: validated.isDefault,
                         category: validated.category,
                         items: {
-                            create: validated.items.map(item => ({
+                            create: validated.items.map((item) => ({
                                 productVariantId: item.productVariantId,
                                 quantity: item.quantity,
-                                scrapPercentage: item.scrapPercentage
-                            }))
-                        }
-                    }
+                                scrapPercentage: item.scrapPercentage,
+                            })),
+                        },
+                    },
                 });
             });
 
@@ -193,20 +226,26 @@ async function createBom(data: CreateBomValues) {
                                         select: {
                                             quantity: true,
                                             averageCost: true,
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             });
 
             if (createdBom) {
                 const totalCost = calculateBomCost(createdBom.items);
-                const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
+                const unitCost =
+                    totalCost / Number(createdBom.outputQuantity || 1);
 
-                const rootCostUpdate = await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', bom.id);
+                const rootCostUpdate = await updateStandardCost(
+                    validated.productVariantId,
+                    unitCost,
+                    'BOM_UPDATE',
+                    bom.id,
+                );
                 if (!rootCostUpdate.success) {
                     throw new BusinessRuleError(rootCostUpdate.error);
                 }
@@ -224,22 +263,25 @@ async function createBom(data: CreateBomValues) {
                 action: 'CREATE_BOM',
                 entityType: 'Bom',
                 entityId: bom.id,
-                details: `Created Recipe (BOM) ${bom.name}`
+                details: `Created Recipe (BOM) ${bom.name}`,
             });
 
             revalidatePath('/dashboard/boms');
             revalidatePath('/production/boms');
             return serializeData(bom);
         } catch (error) {
-            logger.error("Failed to create BOM", { error, module: 'BomActions' });
-            throw new BusinessRuleError("Gagal membuat Resep (BOM). Periksa detailnya.");
+            logger.error('Failed to create BOM', {
+                error,
+                module: 'BomActions',
+            });
+            throw new BusinessRuleError(
+                'Gagal membuat Resep (BOM). Periksa detailnya.',
+            );
         }
     });
-}
-);
+});
 
-export const getBom = withTenant(
-async function getBom(id: string) {
+export const getBom = withTenant(async function getBom(id: string) {
     return safeAction(async () => {
         const bom = await prisma.bom.findUnique({
             where: { id },
@@ -251,9 +293,9 @@ async function getBom(id: string) {
                             select: {
                                 quantity: true,
                                 averageCost: true,
-                            }
-                        }
-                    }
+                            },
+                        },
+                    },
                 },
                 items: {
                     include: {
@@ -264,34 +306,37 @@ async function getBom(id: string) {
                                     select: {
                                         quantity: true,
                                         averageCost: true,
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
                 _count: {
                     select: { ProductionOrder: true },
-                }
-            }
+                },
+            },
         });
 
-        if (!bom) throw new NotFoundError("Recipe", id);
+        if (!bom) throw new NotFoundError('Recipe', id);
 
         return serializeData(enrichBomCurrentCosts(bom));
     });
-}
-);
+});
 
-export const updateBom = withTenant(
-async function updateBom(id: string, data: CreateBomValues) {
+export const updateBom = withTenant(async function updateBom(
+    id: string,
+    data: CreateBomValues,
+) {
     return safeAction(async () => {
         const session = await requireAuth();
         const validated = createBomSchema.parse(data);
 
         await BomCostCascadeService.validateNoBomCycle({
             outputVariantId: validated.productVariantId,
-            itemVariantIds: validated.items.map((item) => item.productVariantId),
+            itemVariantIds: validated.items.map(
+                (item) => item.productVariantId,
+            ),
             ignoreBomId: id,
         });
 
@@ -299,29 +344,35 @@ async function updateBom(id: string, data: CreateBomValues) {
             const result = await prisma.$transaction(async (tx) => {
                 // Unset other default BOMs on target variant when updating to default
                 if (validated.isDefault) {
-                    await unsetOtherDefaultBoms(tx, validated.productVariantId, id);
+                    await unsetOtherDefaultBoms(
+                        tx,
+                        validated.productVariantId,
+                        id,
+                    );
                 }
 
                 const updatedBom = await tx.bom.update({
                     where: { id },
                     data: {
                         name: validated.name,
-                        productVariant: { connect: { id: validated.productVariantId } },
+                        productVariant: {
+                            connect: { id: validated.productVariantId },
+                        },
                         outputQuantity: validated.outputQuantity,
                         isDefault: validated.isDefault,
                         category: validated.category,
-                    }
+                    },
                 });
 
                 await tx.bomItem.deleteMany({ where: { bomId: id } });
 
                 await tx.bomItem.createMany({
-                    data: validated.items.map(item => ({
+                    data: validated.items.map((item) => ({
                         bomId: id,
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
-                        scrapPercentage: item.scrapPercentage
-                    }))
+                        scrapPercentage: item.scrapPercentage,
+                    })),
                 });
 
                 const newItemsWithCosts = await tx.bomItem.findMany({
@@ -333,17 +384,24 @@ async function updateBom(id: string, data: CreateBomValues) {
                                     select: {
                                         quantity: true,
                                         averageCost: true,
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                    },
+                                },
+                            },
+                        },
+                    },
                 });
 
                 const totalCost = calculateBomCost(newItemsWithCosts);
-                const unitCost = totalCost / Number(updatedBom.outputQuantity || 1);
+                const unitCost =
+                    totalCost / Number(updatedBom.outputQuantity || 1);
 
-                const rootCostUpdate = await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', id, tx);
+                const rootCostUpdate = await updateStandardCost(
+                    validated.productVariantId,
+                    unitCost,
+                    'BOM_UPDATE',
+                    id,
+                    tx,
+                );
                 if (!rootCostUpdate.success) {
                     throw new BusinessRuleError(rootCostUpdate.error);
                 }
@@ -363,96 +421,100 @@ async function updateBom(id: string, data: CreateBomValues) {
                 action: 'UPDATE_BOM',
                 entityType: 'Bom',
                 entityId: id,
-                details: `Updated Recipe (BOM) ${validated.name}`
+                details: `Updated Recipe (BOM) ${validated.name}`,
             });
 
             revalidatePath('/dashboard/boms');
             revalidatePath('/production/boms');
             return serializeData(result);
         } catch (error) {
-            logger.error("Failed to update BOM", { error, module: 'BomActions' });
-            throw new BusinessRuleError("Gagal memperbarui Resep (BOM). Coba lagi.");
+            logger.error('Failed to update BOM', {
+                error,
+                module: 'BomActions',
+            });
+            throw new BusinessRuleError(
+                'Gagal memperbarui Resep (BOM). Coba lagi.',
+            );
         }
     });
-}
-);
+});
 
 export const recalculateBomCostChain = withTenant(
-async function recalculateBomCostChain(id: string) {
-    return safeAction(async () => {
-        const session = await requireAuth();
+    async function recalculateBomCostChain(id: string) {
+        return safeAction(async () => {
+            const session = await requireAuth();
 
-        const bom = await prisma.bom.findUnique({
-            where: { id },
-            include: {
-                items: {
-                    include: {
-                        productVariant: {
-                            include: {
-                                inventories: {
-                                    select: {
-                                        quantity: true,
-                                        averageCost: true,
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            const bom = await prisma.bom.findUnique({
+                where: { id },
+                include: {
+                    items: {
+                        include: {
+                            productVariant: {
+                                include: {
+                                    inventories: {
+                                        select: {
+                                            quantity: true,
+                                            averageCost: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            if (!bom) {
+                throw new NotFoundError('Recipe', id);
             }
+
+            const totalCost = calculateBomCost(bom.items);
+            const unitCost = totalCost / Number(bom.outputQuantity || 1);
+
+            const rootCostUpdate = await updateStandardCost(
+                bom.productVariantId,
+                unitCost,
+                'BOM_UPDATE',
+                `manual-recalc:${id}`,
+                undefined,
+                { skipCascade: true },
+            );
+
+            if (!rootCostUpdate.success) {
+                throw new BusinessRuleError(rootCostUpdate.error);
+            }
+
+            const cascadeResult =
+                await BomCostCascadeService.cascadeFromVariants({
+                    rootVariantIds: [bom.productVariantId],
+                    defaultOnly: true,
+                    referenceId: `manual-recalc:${id}`,
+                    userId: session.user.id,
+                });
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'RECALCULATE_BOM_COST_CHAIN',
+                entityType: 'Bom',
+                entityId: id,
+                details: `Recalculated cost chain for Recipe (BOM) ${bom.name} with ${cascadeResult.updatedCount} parent updates`,
+            });
+
+            revalidatePath('/dashboard/boms');
+            revalidatePath('/production/boms');
+            revalidatePath(`/dashboard/boms/${id}`);
+            revalidatePath(`/production/boms/${id}`);
+
+            return serializeData({
+                bomId: id,
+                updatedParentCount: cascadeResult.updatedCount,
+                updatedVariants: cascadeResult.updatedVariantIds,
+            });
         });
-
-        if (!bom) {
-            throw new NotFoundError('Recipe', id);
-        }
-
-        const totalCost = calculateBomCost(bom.items);
-        const unitCost = totalCost / Number(bom.outputQuantity || 1);
-
-        const rootCostUpdate = await updateStandardCost(
-            bom.productVariantId,
-            unitCost,
-            'BOM_UPDATE',
-            `manual-recalc:${id}`,
-            undefined,
-            { skipCascade: true }
-        );
-
-        if (!rootCostUpdate.success) {
-            throw new BusinessRuleError(rootCostUpdate.error);
-        }
-
-        const cascadeResult = await BomCostCascadeService.cascadeFromVariants({
-            rootVariantIds: [bom.productVariantId],
-            defaultOnly: true,
-            referenceId: `manual-recalc:${id}`,
-            userId: session.user.id,
-        });
-
-        await logActivity({
-            userId: session.user.id,
-            action: 'RECALCULATE_BOM_COST_CHAIN',
-            entityType: 'Bom',
-            entityId: id,
-            details: `Recalculated cost chain for Recipe (BOM) ${bom.name} with ${cascadeResult.updatedCount} parent updates`
-        });
-
-        revalidatePath('/dashboard/boms');
-        revalidatePath('/production/boms');
-        revalidatePath(`/dashboard/boms/${id}`);
-        revalidatePath(`/production/boms/${id}`);
-
-        return serializeData({
-            bomId: id,
-            updatedParentCount: cascadeResult.updatedCount,
-            updatedVariants: cascadeResult.updatedVariantIds,
-        });
-    });
-}
+    },
 );
 
-export const deleteBom = withTenant(
-async function deleteBom(id: string) {
+export const deleteBom = withTenant(async function deleteBom(id: string) {
     return safeAction(async () => {
         const session = await requireAuth();
 
@@ -480,23 +542,26 @@ async function deleteBom(id: string) {
             action: 'DELETE_BOM',
             entityType: 'Bom',
             entityId: id,
-            details: `Deleted Recipe (BOM) ${bomName}`
+            details: `Deleted Recipe (BOM) ${bomName}`,
         });
 
         revalidatePath('/dashboard/boms');
         revalidatePath('/production/boms');
         return null;
     });
-}
-);
+});
 
-export const archiveBom = withTenant(
-async function archiveBom(data: { bomId: string; newDefaultBomId?: string }) {
+export const archiveBom = withTenant(async function archiveBom(data: {
+    bomId: string;
+    newDefaultBomId?: string;
+}) {
     return safeAction(async () => {
         const session = await requireAuth();
         const validated = archiveBomSchema.parse(data);
 
-        const bom = await prisma.bom.findUnique({ where: { id: validated.bomId } });
+        const bom = await prisma.bom.findUnique({
+            where: { id: validated.bomId },
+        });
         if (!bom) throw new NotFoundError('Resep', validated.bomId);
         const bomName = bom.name;
 
@@ -518,18 +583,18 @@ async function archiveBom(data: { bomId: string; newDefaultBomId?: string }) {
             action: 'ARCHIVE_BOM',
             entityType: 'Bom',
             entityId: validated.bomId,
-            details: `Archived Recipe (BOM) ${bomName} (used in ${usage.productionOrderCount} PO, replacement: ${validated.newDefaultBomId || 'none'})`
+            details: `Archived Recipe (BOM) ${bomName} (used in ${usage.productionOrderCount} PO, replacement: ${validated.newDefaultBomId || 'none'})`,
         });
 
         revalidatePath('/dashboard/boms');
         revalidatePath('/production/boms');
         return null;
     });
-}
-);
+});
 
-export const reactivateBom = withTenant(
-async function reactivateBom(id: string) {
+export const reactivateBom = withTenant(async function reactivateBom(
+    id: string,
+) {
     return safeAction(async () => {
         const session = await requireAuth();
 
@@ -549,25 +614,32 @@ async function reactivateBom(id: string) {
             action: 'REACTIVATE_BOM',
             entityType: 'Bom',
             entityId: id,
-            details: `Reactivated Recipe (BOM) ${bomName}`
+            details: `Reactivated Recipe (BOM) ${bomName}`,
         });
 
         revalidatePath('/dashboard/boms');
         revalidatePath('/production/boms');
         return null;
     });
-}
-);
+});
 
-export const bulkArchiveBom = withTenant(
-async function bulkArchiveBom(ids: string[]) {
+export const bulkArchiveBom = withTenant(async function bulkArchiveBom(
+    ids: string[],
+) {
     return safeAction(async () => {
         const session = await requireAuth();
         if (!ids || ids.length === 0) {
-            throw new BusinessRuleError('Pilih minimal satu resep untuk dinonaktifkan.', undefined, 'BULK_ARCHIVE_EMPTY');
+            throw new BusinessRuleError(
+                'Pilih minimal satu resep untuk dinonaktifkan.',
+                undefined,
+                'BULK_ARCHIVE_EMPTY',
+            );
         }
 
-        const results: { success: string[]; failed: { id: string; reason: string }[] } = {
+        const results: {
+            success: string[];
+            failed: { id: string; reason: string }[];
+        } = {
             success: [],
             failed: [],
         };
@@ -585,13 +657,21 @@ async function bulkArchiveBom(ids: string[]) {
                 }
                 // If default, skip (needs manual replacement selection)
                 if (bom.isDefault) {
-                    results.failed.push({ id, reason: 'Default — pilih pengganti manual' });
+                    results.failed.push({
+                        id,
+                        reason: 'Default — pilih pengganti manual',
+                    });
                     continue;
                 }
-                await BomLifecycleService.archive(id, { userId: session.user.id });
+                await BomLifecycleService.archive(id, {
+                    userId: session.user.id,
+                });
                 results.success.push(id);
             } catch (error) {
-                const message = error instanceof BusinessRuleError ? error.message : 'Gagal menonaktifkan';
+                const message =
+                    error instanceof BusinessRuleError
+                        ? error.message
+                        : 'Gagal menonaktifkan';
                 results.failed.push({ id, reason: message });
             }
         }
@@ -610,11 +690,11 @@ async function bulkArchiveBom(ids: string[]) {
         revalidatePath('/production/boms');
         return serializeData(results);
     });
-}
-);
+});
 
-export const duplicateBom = withTenant(
-async function duplicateBom(data: DuplicateBomValues) {
+export const duplicateBom = withTenant(async function duplicateBom(
+    data: DuplicateBomValues,
+) {
     return safeAction(async () => {
         const session = await requireAuth();
         const validated = duplicateBomSchema.parse(data);
@@ -628,11 +708,13 @@ async function duplicateBom(data: DuplicateBomValues) {
         });
 
         if (!sourceBom) {
-            throw new NotFoundError("Recipe", validated.sourceBomId);
+            throw new NotFoundError('Recipe', validated.sourceBomId);
         }
 
         if (sourceBom.items.length === 0) {
-            throw new BusinessRuleError("BOM sumber tidak memiliki bahan untuk diduplikasi.");
+            throw new BusinessRuleError(
+                'BOM sumber tidak memiliki bahan untuk diduplikasi.',
+            );
         }
 
         // 2. Verify target variant exists
@@ -641,13 +723,18 @@ async function duplicateBom(data: DuplicateBomValues) {
         });
 
         if (!targetVariant) {
-            throw new NotFoundError("ProductVariant", validated.productVariantId);
+            throw new NotFoundError(
+                'ProductVariant',
+                validated.productVariantId,
+            );
         }
 
         // 3. Validate no BOM cycle
         await BomCostCascadeService.validateNoBomCycle({
             outputVariantId: validated.productVariantId,
-            itemVariantIds: sourceBom.items.map((item) => item.productVariantId),
+            itemVariantIds: sourceBom.items.map(
+                (item) => item.productVariantId,
+            ),
         });
 
         // 4. Scale quantities and validate results
@@ -667,12 +754,13 @@ async function duplicateBom(data: DuplicateBomValues) {
         const zeroItems = scaledItems.filter((item) => item.quantity <= 0);
         if (zeroItems.length > 0) {
             throw new BusinessRuleError(
-                "Some ingredients resulted in zero or negative quantity after scaling. Increase the scale factor."
+                'Some ingredients resulted in zero or negative quantity after scaling. Increase the scale factor.',
             );
         }
 
         try {
-            const outputQuantity = validated.outputQuantity ?? Number(sourceBom.outputQuantity);
+            const outputQuantity =
+                validated.outputQuantity ?? Number(sourceBom.outputQuantity);
 
             const newBom = await prisma.$transaction(async (tx) => {
                 // 5. Unset other defaults on target variant if new BOM is default
@@ -684,7 +772,9 @@ async function duplicateBom(data: DuplicateBomValues) {
                 return tx.bom.create({
                     data: {
                         name: validated.name,
-                        productVariant: { connect: { id: validated.productVariantId } },
+                        productVariant: {
+                            connect: { id: validated.productVariantId },
+                        },
                         outputQuantity,
                         isDefault: validated.isDefault,
                         category: sourceBom.category,
@@ -723,13 +813,14 @@ async function duplicateBom(data: DuplicateBomValues) {
 
             if (createdBom) {
                 const totalCost = calculateBomCost(createdBom.items);
-                const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
+                const unitCost =
+                    totalCost / Number(createdBom.outputQuantity || 1);
 
                 const rootCostUpdate = await updateStandardCost(
                     validated.productVariantId,
                     unitCost,
                     'BOM_UPDATE',
-                    newBom.id
+                    newBom.id,
                 );
                 if (!rootCostUpdate.success) {
                     throw new BusinessRuleError(rootCostUpdate.error);
@@ -759,12 +850,19 @@ async function duplicateBom(data: DuplicateBomValues) {
             return serializeData(newBom);
         } catch (error) {
             // Re-throw known business errors (NotFoundError, BusinessRuleError)
-            if (error instanceof NotFoundError || error instanceof BusinessRuleError) {
+            if (
+                error instanceof NotFoundError ||
+                error instanceof BusinessRuleError
+            ) {
                 throw error;
             }
-            logger.error("Failed to duplicate BOM", { error, module: 'BomActions' });
-            throw new BusinessRuleError("Gagal menduplikasi Resep. Periksa detailnya.");
+            logger.error('Failed to duplicate BOM', {
+                error,
+                module: 'BomActions',
+            });
+            throw new BusinessRuleError(
+                'Gagal menduplikasi Resep. Periksa detailnya.',
+            );
         }
     });
-}
-);
+});

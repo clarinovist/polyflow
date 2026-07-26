@@ -4,19 +4,19 @@
 //   product-mutations (createProduct, updateProduct, deleteProduct, deleteVariant)
 
 export {
-  getProducts,
-  getProductById,
-  getUnits,
-  getProductTypes,
-  getVariants,
-  getNextSKU,
-  type ProductWithVariantsAndStock,
-} from "./product/product-queries";
+    getProducts,
+    getProductById,
+    getUnits,
+    getProductTypes,
+    getVariants,
+    getNextSKU,
+    type ProductWithVariantsAndStock,
+} from './product/product-queries';
 
 export {
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  deleteVariant,
-  quickCreateProduct,
-} from "./product/product-mutations";
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    deleteVariant,
+    quickCreateProduct,
+} from './product/product-mutations';

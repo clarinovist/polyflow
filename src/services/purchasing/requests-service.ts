@@ -1,14 +1,22 @@
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
-import { PurchaseOrderStatus, PurchaseRequestStatus, Prisma } from '@prisma/client';
+import {
+    PurchaseOrderStatus,
+    PurchaseRequestStatus,
+    Prisma,
+} from '@prisma/client';
 import { CreatePurchaseRequestValues } from '@/lib/schemas/purchasing';
 import {
-  BusinessRuleError,
-  NotFoundError,
-  ValidationError,
+    BusinessRuleError,
+    NotFoundError,
+    ValidationError,
 } from '@/lib/errors/errors';
 
-export async function createPurchaseRequest(data: CreatePurchaseRequestValues, userId: string, tx?: Prisma.TransactionClient) {
+export async function createPurchaseRequest(
+    data: CreatePurchaseRequestValues,
+    userId: string,
+    tx?: Prisma.TransactionClient,
+) {
     const client = tx || prisma;
 
     const year = new Date().getFullYear();
@@ -17,7 +25,7 @@ export async function createPurchaseRequest(data: CreatePurchaseRequestValues, u
     const lastPr = await client.purchaseRequest.findFirst({
         where: { requestNumber: { startsWith: prefix } },
         orderBy: { requestNumber: 'desc' },
-        select: { requestNumber: true }
+        select: { requestNumber: true },
     });
 
     let nextNumber = 1;
@@ -37,37 +45,42 @@ export async function createPurchaseRequest(data: CreatePurchaseRequestValues, u
             status: PurchaseRequestStatus.OPEN,
             createdById: userId,
             items: {
-                create: data.items.map(item => ({
+                create: data.items.map((item) => ({
                     productVariantId: item.productVariantId,
                     quantity: item.quantity,
-                    notes: item.notes
-                }))
-            }
+                    notes: item.notes,
+                })),
+            },
         },
-        include: { items: true }
+        include: { items: true },
     });
 }
 
-export async function convertRequestToOrder(requestId: string, supplierId: string, userId: string) {
+export async function convertRequestToOrder(
+    requestId: string,
+    supplierId: string,
+    userId: string,
+) {
     return await prisma.$transaction(async (tx) => {
         const pr = await tx.purchaseRequest.findUnique({
             where: { id: requestId },
-            include: { items: { include: { productVariant: true } } }
+            include: { items: { include: { productVariant: true } } },
         });
 
-        if (!pr) throw new NotFoundError("Purchase Request", requestId);
-        if (pr.status === PurchaseRequestStatus.CONVERTED) throw new BusinessRuleError(
-          "Request already converted",
-          { status: pr.status, requestId },
-          "INVALID_PURCHASE_REQUEST_STATUS",
-        );
+        if (!pr) throw new NotFoundError('Purchase Request', requestId);
+        if (pr.status === PurchaseRequestStatus.CONVERTED)
+            throw new BusinessRuleError(
+                'Request already converted',
+                { status: pr.status, requestId },
+                'INVALID_PURCHASE_REQUEST_STATUS',
+            );
 
         const year = new Date().getFullYear();
         const prefix = `PO-${year}-`;
         const lastOrder = await tx.purchaseOrder.findFirst({
             where: { orderNumber: { startsWith: prefix } },
             orderBy: { orderNumber: 'desc' },
-            select: { orderNumber: true }
+            select: { orderNumber: true },
         });
         let nextNumber = 1;
         if (lastOrder?.orderNumber) {
@@ -76,17 +89,20 @@ export async function convertRequestToOrder(requestId: string, supplierId: strin
         }
         const orderNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
-        const itemsWithCost = pr.items.map(item => {
+        const itemsWithCost = pr.items.map((item) => {
             const unitPrice = item.productVariant.standardCost?.toNumber() || 0;
             return {
                 productVariantId: item.productVariantId,
                 quantity: item.quantity.toNumber(),
                 unitPrice: unitPrice,
-                subtotal: item.quantity.toNumber() * unitPrice
+                subtotal: item.quantity.toNumber() * unitPrice,
             };
         });
 
-        const totalAmount = itemsWithCost.reduce((sum, item) => sum + item.subtotal, 0);
+        const totalAmount = itemsWithCost.reduce(
+            (sum, item) => sum + item.subtotal,
+            0,
+        );
 
         const po = await tx.purchaseOrder.create({
             data: {
@@ -98,25 +114,25 @@ export async function convertRequestToOrder(requestId: string, supplierId: strin
                 notes: `Converted from PR ${pr.requestNumber}`,
                 createdById: userId,
                 items: {
-                    create: itemsWithCost.map(item => ({
+                    create: itemsWithCost.map((item) => ({
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
                         unitPrice: item.unitPrice,
-                        subtotal: item.subtotal
-                    }))
+                        subtotal: item.subtotal,
+                    })),
                 },
                 purchaseRequests: {
-                    connect: { id: requestId }
-                }
-            }
+                    connect: { id: requestId },
+                },
+            },
         });
 
         await tx.purchaseRequest.update({
             where: { id: requestId },
             data: {
                 status: PurchaseRequestStatus.CONVERTED,
-                convertedToPoId: po.id
-            }
+                convertedToPoId: po.id,
+            },
         });
 
         await logActivity({
@@ -125,51 +141,74 @@ export async function convertRequestToOrder(requestId: string, supplierId: strin
             entityType: 'PurchaseOrder',
             entityId: po.id,
             details: `Converted PR ${pr.requestNumber} to PO ${po.orderNumber}`,
-            tx
+            tx,
         });
 
         return po;
     });
 }
 
-export async function consolidateRequestsToOrder(requestIds: string[], supplierId: string, userId: string) {
-    if (requestIds.length === 0) throw new ValidationError("Tidak ada permintaan yang dipilih untuk konsolidasi");
+export async function consolidateRequestsToOrder(
+    requestIds: string[],
+    supplierId: string,
+    userId: string,
+) {
+    if (requestIds.length === 0)
+        throw new ValidationError(
+            'Tidak ada permintaan yang dipilih untuk konsolidasi',
+        );
 
     return await prisma.$transaction(async (tx) => {
         const prs = await tx.purchaseRequest.findMany({
             where: { id: { in: requestIds } },
-            include: { items: { include: { productVariant: true } } }
+            include: { items: { include: { productVariant: true } } },
         });
 
-        if (prs.length !== requestIds.length) throw new NotFoundError("Purchase Request", requestIds.join(', '));
-        const alreadyConverted = prs.find(pr => pr.status === PurchaseRequestStatus.CONVERTED);
-        if (alreadyConverted) throw new BusinessRuleError(
-          `Request ${alreadyConverted.requestNumber} is already converted`,
-          { requestNumber: alreadyConverted.requestNumber, status: alreadyConverted.status },
-          "INVALID_PURCHASE_REQUEST_STATUS",
+        if (prs.length !== requestIds.length)
+            throw new NotFoundError('Purchase Request', requestIds.join(', '));
+        const alreadyConverted = prs.find(
+            (pr) => pr.status === PurchaseRequestStatus.CONVERTED,
         );
+        if (alreadyConverted)
+            throw new BusinessRuleError(
+                `Request ${alreadyConverted.requestNumber} is already converted`,
+                {
+                    requestNumber: alreadyConverted.requestNumber,
+                    status: alreadyConverted.status,
+                },
+                'INVALID_PURCHASE_REQUEST_STATUS',
+            );
 
-        const aggregatedItems = new Map<string, {
-            productVariantId: string;
-            quantity: number;
-            unitPrice: number;
-            notes: string[];
-        }>();
+        const aggregatedItems = new Map<
+            string,
+            {
+                productVariantId: string;
+                quantity: number;
+                unitPrice: number;
+                notes: string[];
+            }
+        >();
 
         for (const pr of prs) {
             for (const item of pr.items) {
                 const existing = aggregatedItems.get(item.productVariantId);
-                const unitPrice = item.productVariant.standardCost?.toNumber() || 0;
+                const unitPrice =
+                    item.productVariant.standardCost?.toNumber() || 0;
 
                 if (existing) {
                     existing.quantity += item.quantity.toNumber();
-                    if (item.notes) existing.notes.push(`${pr.requestNumber}: ${item.notes}`);
+                    if (item.notes)
+                        existing.notes.push(
+                            `${pr.requestNumber}: ${item.notes}`,
+                        );
                 } else {
                     aggregatedItems.set(item.productVariantId, {
                         productVariantId: item.productVariantId,
                         quantity: item.quantity.toNumber(),
                         unitPrice,
-                        notes: item.notes ? [`${pr.requestNumber}: ${item.notes}`] : [`From ${pr.requestNumber}`]
+                        notes: item.notes
+                            ? [`${pr.requestNumber}: ${item.notes}`]
+                            : [`From ${pr.requestNumber}`],
                     });
                 }
             }
@@ -180,7 +219,7 @@ export async function consolidateRequestsToOrder(requestIds: string[], supplierI
         const lastOrder = await tx.purchaseOrder.findFirst({
             where: { orderNumber: { startsWith: prefix } },
             orderBy: { orderNumber: 'desc' },
-            select: { orderNumber: true }
+            select: { orderNumber: true },
         });
         let nextNumber = 1;
         if (lastOrder?.orderNumber) {
@@ -199,7 +238,7 @@ export async function consolidateRequestsToOrder(requestIds: string[], supplierI
                 productVariantId: item.productVariantId,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
-                subtotal
+                subtotal,
             });
         }
 
@@ -210,23 +249,23 @@ export async function consolidateRequestsToOrder(requestIds: string[], supplierI
                 orderDate: new Date(),
                 status: PurchaseOrderStatus.DRAFT,
                 totalAmount,
-                notes: `Consolidated from PRs: ${prs.map(pr => pr.requestNumber).join(', ')}`,
+                notes: `Consolidated from PRs: ${prs.map((pr) => pr.requestNumber).join(', ')}`,
                 createdById: userId,
                 items: {
-                    create: poItemsData
+                    create: poItemsData,
                 },
                 purchaseRequests: {
-                    connect: requestIds.map(id => ({ id }))
-                }
-            }
+                    connect: requestIds.map((id) => ({ id })),
+                },
+            },
         });
 
         await tx.purchaseRequest.updateMany({
             where: { id: { in: requestIds } },
             data: {
                 status: PurchaseRequestStatus.CONVERTED,
-                convertedToPoId: po.id
-            }
+                convertedToPoId: po.id,
+            },
         });
 
         await logActivity({
@@ -235,7 +274,7 @@ export async function consolidateRequestsToOrder(requestIds: string[], supplierI
             entityType: 'PurchaseOrder',
             entityId: po.id,
             details: `Consolidated ${prs.length} PRs into PO ${po.orderNumber}`,
-            tx
+            tx,
         });
 
         return po;

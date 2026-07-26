@@ -25,17 +25,26 @@ export default async function CreatePurchaseOrderPage() {
         getProductVariants(),
     ]);
 
-    const suppliers = suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
-    const products = productsRes.success && productsRes.data ? (productsRes.data as ProductVariantWithProduct[]) : [];
+    const suppliers =
+        suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
+    const products =
+        productsRes.success && productsRes.data
+            ? (productsRes.data as ProductVariantWithProduct[])
+            : [];
 
     const formattedProducts = products.map((p) => ({
         ...p,
-        buyPrice: p.buyPrice && typeof p.buyPrice === 'object' && 'toNumber' in p.buyPrice ? (p.buyPrice as { toNumber: () => number }).toNumber() : Number(p.buyPrice || 0),
+        buyPrice:
+            p.buyPrice &&
+            typeof p.buyPrice === 'object' &&
+            'toNumber' in p.buyPrice
+                ? (p.buyPrice as { toNumber: () => number }).toNumber()
+                : Number(p.buyPrice || 0),
         productType: p.product?.productType || p.productType,
         assetCategory: p.product?.assetCategory || null,
     }));
 
-    const formattedSuppliers = suppliers.map(s => ({
+    const formattedSuppliers = suppliers.map((s) => ({
         id: s.id,
         name: s.name,
         code: s.code,
@@ -49,7 +58,9 @@ export default async function CreatePurchaseOrderPage() {
                     <ShoppingCart className="h-3 w-3" />
                     <span>Procurement / Purchase Orders / New</span>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight">Create Purchase Order</h1>
+                <h1 className="text-2xl font-bold tracking-tight">
+                    Create Purchase Order
+                </h1>
                 <p className="text-muted-foreground">
                     Draft a new order to send to your supplier.
                 </p>

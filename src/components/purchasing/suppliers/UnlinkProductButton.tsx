@@ -14,7 +14,8 @@ export function UnlinkProductButton({ id }: UnlinkProductButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
 
     async function handleUnlink() {
-        if (!confirm('Apakah Anda yakin ingin melepas tautan produk ini?')) return;
+        if (!confirm('Apakah Anda yakin ingin melepas tautan produk ini?'))
+            return;
 
         setIsLoading(true);
         try {
@@ -22,7 +23,10 @@ export function UnlinkProductButton({ id }: UnlinkProductButtonProps) {
             if (result.success) {
                 toast.success('Tautan produk berhasil dilepas');
             } else {
-                toast.error(result.error || 'Gagal melepas tautan produk. Silakan coba lagi.');
+                toast.error(
+                    result.error ||
+                        'Gagal melepas tautan produk. Silakan coba lagi.',
+                );
             }
         } catch (_error) {
             toast.error('Gagal memproses. Silakan coba lagi.');
@@ -39,7 +43,11 @@ export function UnlinkProductButton({ id }: UnlinkProductButtonProps) {
             disabled={isLoading}
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
         >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+                <Trash2 className="h-4 w-4" />
+            )}
         </Button>
     );
 }

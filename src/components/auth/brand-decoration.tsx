@@ -21,8 +21,14 @@ export default function BrandDecoration() {
             <div className="absolute -top-10 -right-20 pointer-events-none opacity-15">
                 <div className="relative w-[350px] h-[350px]">
                     {LOGO_LAYERS.map((layer, i) => (
-                        <div key={i} className={`absolute inset-0 transform ${layer.translate}`}>
-                            <svg viewBox="0 0 200 200" className="w-full h-full">
+                        <div
+                            key={i}
+                            className={`absolute inset-0 transform ${layer.translate}`}
+                        >
+                            <svg
+                                viewBox="0 0 200 200"
+                                className="w-full h-full"
+                            >
                                 <path
                                     d={LOGO_PATH}
                                     stroke={layer.stroke}
@@ -40,16 +46,42 @@ export default function BrandDecoration() {
             {/* Accent triangle */}
             <div className="absolute top-20 right-10 w-24 h-24 opacity-30 pointer-events-none">
                 <svg viewBox="0 0 100 100" className="w-full h-full">
-                    <polygon points="50,10 90,90 10,90" fill="none" stroke="#555" strokeWidth="2" />
+                    <polygon
+                        points="50,10 90,90 10,90"
+                        fill="none"
+                        stroke="#555"
+                        strokeWidth="2"
+                    />
                 </svg>
             </div>
 
             {/* Diagonal lines */}
             <div className="absolute top-0 right-0 w-64 h-64 pointer-events-none">
                 <svg viewBox="0 0 100 100" className="w-full h-full opacity-20">
-                    <line x1="20" y1="0" x2="100" y2="80" stroke="#555" strokeWidth="0.5" />
-                    <line x1="40" y1="0" x2="100" y2="60" stroke="#555" strokeWidth="0.5" />
-                    <line x1="60" y1="0" x2="100" y2="40" stroke="#555" strokeWidth="0.5" />
+                    <line
+                        x1="20"
+                        y1="0"
+                        x2="100"
+                        y2="80"
+                        stroke="#555"
+                        strokeWidth="0.5"
+                    />
+                    <line
+                        x1="40"
+                        y1="0"
+                        x2="100"
+                        y2="60"
+                        stroke="#555"
+                        strokeWidth="0.5"
+                    />
+                    <line
+                        x1="60"
+                        y1="0"
+                        x2="100"
+                        y2="40"
+                        stroke="#555"
+                        strokeWidth="0.5"
+                    />
                 </svg>
             </div>
         </>

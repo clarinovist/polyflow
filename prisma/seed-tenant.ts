@@ -1,65 +1,67 @@
-import { PrismaClient, Role } from '@prisma/client'
+import { PrismaClient, Role } from '@prisma/client';
 import { seedCoA } from './seed-coa';
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-    console.log('Seeding minimal tenant database...')
+    console.log('Seeding minimal tenant database...');
 
     // 0. Cleanup
-    console.log('Cleaning up existing data...')
-    await prisma.auditLog.deleteMany()
-    await prisma.invoice.deleteMany()
-    await prisma.purchaseInvoice.deleteMany()
-    await prisma.purchasePayment.deleteMany()
-    await prisma.deliveryOrderItem.deleteMany()
-    await prisma.deliveryOrder.deleteMany()
-    await prisma.salesOrderItem.deleteMany()
-    await prisma.salesOrder.deleteMany()
-    await prisma.salesQuotationItem.deleteMany()
-    await prisma.salesQuotation.deleteMany()
-    await prisma.goodsReceiptItem.deleteMany()
-    await prisma.goodsReceipt.deleteMany()
-    await prisma.purchaseOrderItem.deleteMany()
-    await prisma.purchaseOrder.deleteMany()
-    await prisma.purchaseRequestItem.deleteMany()
-    await prisma.purchaseRequest.deleteMany()
-    await prisma.qualityInspection.deleteMany()
-    await prisma.scrapRecord.deleteMany()
-    await prisma.materialIssue.deleteMany()
-    await prisma.productionMaterial.deleteMany()
-    await prisma.productionExecution.deleteMany()
-    await prisma.productionShift.deleteMany()
-    await prisma.productionOrder.deleteMany()
-    await prisma.stockReservation.deleteMany()
-    await prisma.stockOpnameItem.deleteMany()
-    await prisma.stockOpname.deleteMany()
-    await prisma.batch.deleteMany()
-    await prisma.bomItem.deleteMany()
-    await prisma.bom.deleteMany()
-    await prisma.stockMovement.deleteMany()
-    await prisma.inventory.deleteMany()
-    await prisma.machine.deleteMany()
-    await prisma.employee.deleteMany()
-    await prisma.jobRole.deleteMany()
-    await prisma.productVariant.deleteMany()
-    await prisma.product.deleteMany()
-    await prisma.supplier.deleteMany()
-    await prisma.customer.deleteMany()
-    await prisma.location.deleteMany()
-    await prisma.fixedAsset.deleteMany()
-    await prisma.journalLine.deleteMany()
-    await prisma.journalEntry.deleteMany()
-    await prisma.account.deleteMany()
-    await prisma.workShift.deleteMany()
-    await prisma.user.deleteMany()
+    console.log('Cleaning up existing data...');
+    await prisma.auditLog.deleteMany();
+    await prisma.invoice.deleteMany();
+    await prisma.purchaseInvoice.deleteMany();
+    await prisma.purchasePayment.deleteMany();
+    await prisma.deliveryOrderItem.deleteMany();
+    await prisma.deliveryOrder.deleteMany();
+    await prisma.salesOrderItem.deleteMany();
+    await prisma.salesOrder.deleteMany();
+    await prisma.salesQuotationItem.deleteMany();
+    await prisma.salesQuotation.deleteMany();
+    await prisma.goodsReceiptItem.deleteMany();
+    await prisma.goodsReceipt.deleteMany();
+    await prisma.purchaseOrderItem.deleteMany();
+    await prisma.purchaseOrder.deleteMany();
+    await prisma.purchaseRequestItem.deleteMany();
+    await prisma.purchaseRequest.deleteMany();
+    await prisma.qualityInspection.deleteMany();
+    await prisma.scrapRecord.deleteMany();
+    await prisma.materialIssue.deleteMany();
+    await prisma.productionMaterial.deleteMany();
+    await prisma.productionExecution.deleteMany();
+    await prisma.productionShift.deleteMany();
+    await prisma.productionOrder.deleteMany();
+    await prisma.stockReservation.deleteMany();
+    await prisma.stockOpnameItem.deleteMany();
+    await prisma.stockOpname.deleteMany();
+    await prisma.batch.deleteMany();
+    await prisma.bomItem.deleteMany();
+    await prisma.bom.deleteMany();
+    await prisma.stockMovement.deleteMany();
+    await prisma.inventory.deleteMany();
+    await prisma.machine.deleteMany();
+    await prisma.employee.deleteMany();
+    await prisma.jobRole.deleteMany();
+    await prisma.productVariant.deleteMany();
+    await prisma.product.deleteMany();
+    await prisma.supplier.deleteMany();
+    await prisma.customer.deleteMany();
+    await prisma.location.deleteMany();
+    await prisma.fixedAsset.deleteMany();
+    await prisma.journalLine.deleteMany();
+    await prisma.journalEntry.deleteMany();
+    await prisma.account.deleteMany();
+    await prisma.workShift.deleteMany();
+    await prisma.user.deleteMany();
 
     // 1. Setup Tenant Admin
-    console.log('Seeding tenant admin...')
+    console.log('Seeding tenant admin...');
 
     const adminEmail = process.env.TENANT_ADMIN_EMAIL || 'admin@polyflow.uk';
     const adminName = process.env.TENANT_ADMIN_NAME || 'Admin User';
-    const adminPasswordHash = process.env.TENANT_ADMIN_PASSWORD_HASH || '$2b$10$685SgQ9PlWgUVPVboe41IeSTp91HZbbUC1smuzHclY.Qdl4TglIaW';
+    const adminPasswordHash =
+        process.env.TENANT_ADMIN_PASSWORD_HASH ||
+        '$2b$10$685SgQ9PlWgUVPVboe41IeSTp91HZbbUC1smuzHclY.Qdl4TglIaW';
 
     await prisma.user.create({
         data: {
@@ -67,35 +69,65 @@ async function main() {
             name: adminName,
             password: adminPasswordHash,
             role: Role.ADMIN,
-        }
-    })
+        },
+    });
 
     // 2. Chart of Accounts (Required for Auto-Journaling)
-    console.log('Seeding Chart of Accounts...')
+    console.log('Seeding Chart of Accounts...');
     await seedCoA();
 
     // 3. Work Shifts (Required for Attendance/Kiosk)
-    console.log('Seeding work shifts...')
+    console.log('Seeding work shifts...');
     await prisma.workShift.createMany({
         data: [
             // 8-hour shifts (3-shift rotation)
-            { name: 'Shift 1 (08-16)', startTime: '08:00', endTime: '16:00', plannedHours: 8,  status: 'ACTIVE' },
-            { name: 'Shift 2 (16-24)', startTime: '16:00', endTime: '24:00', plannedHours: 8,  status: 'ACTIVE' },
-            { name: 'Shift 3 (00-08)', startTime: '00:00', endTime: '08:00', plannedHours: 8,  status: 'ACTIVE' },
+            {
+                name: 'Shift 1 (08-16)',
+                startTime: '08:00',
+                endTime: '16:00',
+                plannedHours: 8,
+                status: 'ACTIVE',
+            },
+            {
+                name: 'Shift 2 (16-24)',
+                startTime: '16:00',
+                endTime: '24:00',
+                plannedHours: 8,
+                status: 'ACTIVE',
+            },
+            {
+                name: 'Shift 3 (00-08)',
+                startTime: '00:00',
+                endTime: '08:00',
+                plannedHours: 8,
+                status: 'ACTIVE',
+            },
             // 12-hour shifts (2-shift rotation)
-            { name: 'Shift 1 (08-20)', startTime: '08:00', endTime: '20:00', plannedHours: 12, status: 'ACTIVE' },
-            { name: 'Shift 2 (20-08)', startTime: '20:00', endTime: '08:00', plannedHours: 12, status: 'ACTIVE' },
+            {
+                name: 'Shift 1 (08-20)',
+                startTime: '08:00',
+                endTime: '20:00',
+                plannedHours: 12,
+                status: 'ACTIVE',
+            },
+            {
+                name: 'Shift 2 (20-08)',
+                startTime: '20:00',
+                endTime: '08:00',
+                plannedHours: 12,
+                status: 'ACTIVE',
+            },
         ],
     });
 
-    console.log('Minimal tenant seeding completed.')
+    console.log('Minimal tenant seeding completed.');
 }
 
 main()
     .catch((e) => {
-        console.error(e)
-        process.exit(1)
+        console.error(e);
+        process.exit(1);
     })
     .finally(async () => {
-        await prisma.$disconnect()
-    })
+        await prisma.$disconnect();
+    });

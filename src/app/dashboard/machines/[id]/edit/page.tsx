@@ -8,11 +8,14 @@ interface EditMachinePageProps {
     params: Promise<{ id: string }>;
 }
 
-export default async function EditMachinePage({ params }: EditMachinePageProps) {
+export default async function EditMachinePage({
+    params,
+}: EditMachinePageProps) {
     const { id } = await params;
     const result = await getMachineById(id);
     const locationsRes = await getLocations();
-    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const locations =
+        locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     if (!result.success || !result.data) {
         notFound();
@@ -29,7 +32,9 @@ export default async function EditMachinePage({ params }: EditMachinePageProps) 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Edit Machine Details</h1>
+                <h1 className="text-3xl font-bold tracking-tight">
+                    Edit Machine Details
+                </h1>
                 <p className="text-muted-foreground mt-1">
                     Update configuration for {machine.name}.
                 </p>
@@ -37,7 +42,14 @@ export default async function EditMachinePage({ params }: EditMachinePageProps) 
 
             <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-xl border-0 overflow-hidden">
                 <CardContent className="pt-6">
-                    <MachineForm initialData={machineData as unknown as Parameters<typeof MachineForm>[0]['initialData']} locations={locations} />
+                    <MachineForm
+                        initialData={
+                            machineData as unknown as Parameters<
+                                typeof MachineForm
+                            >[0]['initialData']
+                        }
+                        locations={locations}
+                    />
                 </CardContent>
             </Card>
         </div>

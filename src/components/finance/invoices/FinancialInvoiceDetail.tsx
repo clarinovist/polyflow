@@ -1,14 +1,17 @@
 'use client';
 
 import React from 'react';
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { formatRupiah } from "@/lib/utils/utils";
-import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from "@/lib/utils/production-units";
-import { InvoiceStatus, Invoice } from "@prisma/client";
-import { format } from "date-fns";
-import { AlertCircle, Printer } from "lucide-react";
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { formatRupiah } from '@/lib/utils/utils';
+import {
+    getEnteredQuantityDisplay,
+    getEnteredUnitPriceDisplay,
+} from '@/lib/utils/production-units';
+import { InvoiceStatus, Invoice } from '@prisma/client';
+import { format } from 'date-fns';
+import { AlertCircle, Printer } from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
@@ -46,7 +49,10 @@ interface FinancialInvoiceDetailProps {
     companyConfig?: CompanyConfig;
 }
 
-export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvoiceDetailProps) {
+export function FinancialInvoiceDetail({
+    invoice,
+    companyConfig,
+}: FinancialInvoiceDetailProps) {
     const [showPreview, setShowPreview] = React.useState(false);
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
@@ -55,9 +61,12 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
         const styles: Record<string, string> = {
             UNPAID: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
             PAID: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-            PARTIALLY_PAID: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-            OVERDUE: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900',
-            CANCELLED: 'bg-red-50 text-red-500 dark:bg-red-950/30 dark:text-red-400',
+            PARTIALLY_PAID:
+                'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+            OVERDUE:
+                'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900',
+            CANCELLED:
+                'bg-red-50 text-red-500 dark:bg-red-950/30 dark:text-red-400',
         };
         return (
             <Badge variant="secondary" className={styles[status]}>
@@ -94,9 +103,14 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold">{invoice.invoiceNumber}</span>
+                                <span className="text-2xl font-bold">
+                                    {invoice.invoiceNumber}
+                                </span>
                                 {salesOrder?.orderType === 'MAKLON_JASA' && (
-                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                    <Badge
+                                        variant="outline"
+                                        className="bg-purple-50 text-purple-700 border-purple-200"
+                                    >
                                         Maklon Service
                                     </Badge>
                                 )}
@@ -105,27 +119,57 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p className="text-muted-foreground">Invoice Date</p>
-                                <p className="font-medium">{format(new Date(invoice.invoiceDate), 'PP')}</p>
-                            </div>
-                            <div>
-                                <p className="text-muted-foreground">Due Date</p>
-                                <p className={invoice.status === 'OVERDUE' ? 'text-red-600 font-bold' : 'font-medium'}>
-                                    {invoice.dueDate ? format(new Date(invoice.dueDate), 'PP') : '-'}
+                                <p className="text-muted-foreground">
+                                    Invoice Date
+                                </p>
+                                <p className="font-medium">
+                                    {format(
+                                        new Date(invoice.invoiceDate),
+                                        'PP',
+                                    )}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-muted-foreground">Customer</p>
-                                <p className="font-medium">{salesOrder?.customer?.name || 'N/A'}</p>
+                                <p className="text-muted-foreground">
+                                    Due Date
+                                </p>
+                                <p
+                                    className={
+                                        invoice.status === 'OVERDUE'
+                                            ? 'text-red-600 font-bold'
+                                            : 'font-medium'
+                                    }
+                                >
+                                    {invoice.dueDate
+                                        ? format(
+                                              new Date(invoice.dueDate),
+                                              'PP',
+                                          )
+                                        : '-'}
+                                </p>
                             </div>
                             <div>
-                                <p className="text-muted-foreground">Reference Order</p>
-                                <p className="font-medium text-blue-600">{salesOrder?.orderNumber || 'N/A'}</p>
+                                <p className="text-muted-foreground">
+                                    Customer
+                                </p>
+                                <p className="font-medium">
+                                    {salesOrder?.customer?.name || 'N/A'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-muted-foreground">
+                                    Reference Order
+                                </p>
+                                <p className="font-medium text-blue-600">
+                                    {salesOrder?.orderNumber || 'N/A'}
+                                </p>
                             </div>
                         </div>
                         {!salesOrder && (
                             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                Sales order reference is missing for this invoice. Financial totals are still shown using invoice data.
+                                Sales order reference is missing for this
+                                invoice. Financial totals are still shown using
+                                invoice data.
                             </div>
                         )}
                     </CardContent>
@@ -140,19 +184,28 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-center py-1">
                             <span>Total Amount</span>
-                            <span className="font-bold text-lg">{formatRupiah(Number(invoice.totalAmount))}</span>
+                            <span className="font-bold text-lg">
+                                {formatRupiah(Number(invoice.totalAmount))}
+                            </span>
                         </div>
                         <Separator />
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Paid Amount</span>
+                            <span className="text-muted-foreground">
+                                Paid Amount
+                            </span>
                             <span className="font-medium text-emerald-600">
                                 {formatRupiah(Number(invoice.paidAmount))}
                             </span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Remaining Balance</span>
+                            <span className="text-muted-foreground">
+                                Remaining Balance
+                            </span>
                             <span className="font-medium text-red-600">
-                                {formatRupiah(Number(invoice.totalAmount) - Number(invoice.paidAmount))}
+                                {formatRupiah(
+                                    Number(invoice.totalAmount) -
+                                        Number(invoice.paidAmount),
+                                )}
                             </span>
                         </div>
                     </CardContent>
@@ -167,7 +220,8 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                 <CardContent>
                     <div className="rounded-md border p-4 bg-muted/20">
                         <p className="text-sm text-muted-foreground mb-4">
-                            Operational details (quantity, delivery status) are hidden in this view.
+                            Operational details (quantity, delivery status) are
+                            hidden in this view.
                         </p>
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm font-medium border-b pb-2">
@@ -176,18 +230,36 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                             </div>
                             {salesOrder?.items?.length ? (
                                 salesOrder.items.map((item, index) => {
-                                    const productVariant = item.productVariant || {};
-                                    const price = getEnteredUnitPriceDisplay({ ...item, ...productVariant });
+                                    const productVariant =
+                                        item.productVariant || {};
+                                    const price = getEnteredUnitPriceDisplay({
+                                        ...item,
+                                        ...productVariant,
+                                    });
                                     // item.subtotal includes tax; DPP = subtotal - taxAmount
-                                    const itemDpp = Number(item.subtotal || 0) - Number(item.taxAmount || 0);
+                                    const itemDpp =
+                                        Number(item.subtotal || 0) -
+                                        Number(item.taxAmount || 0);
                                     return (
-                                        <div key={item.id || index} className="flex justify-between gap-4 text-sm py-2 border-b last:border-0">
+                                        <div
+                                            key={item.id || index}
+                                            className="flex justify-between gap-4 text-sm py-2 border-b last:border-0"
+                                        >
                                             <div>
                                                 <div className="font-medium">
-                                                    {productVariant.product?.name || productVariant.name || 'Sales Item'}
+                                                    {productVariant.product
+                                                        ?.name ||
+                                                        productVariant.name ||
+                                                        'Sales Item'}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground">
-                                                    {getEnteredQuantityDisplay({ ...item, ...productVariant })} × {formatRupiah(price.price)}/{price.unit}
+                                                    {getEnteredQuantityDisplay({
+                                                        ...item,
+                                                        ...productVariant,
+                                                    })}{' '}
+                                                    ×{' '}
+                                                    {formatRupiah(price.price)}/
+                                                    {price.unit}
                                                 </div>
                                             </div>
                                             <span>{formatRupiah(itemDpp)}</span>
@@ -197,7 +269,12 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                             ) : (
                                 <div className="flex justify-between text-sm py-2">
                                     <span>Sales Order Items Total</span>
-                                    <span>{formatRupiah(Number(invoice.totalAmount) - taxAmount)}</span>
+                                    <span>
+                                        {formatRupiah(
+                                            Number(invoice.totalAmount) -
+                                                taxAmount,
+                                        )}
+                                    </span>
                                 </div>
                             )}
                             <div className="flex justify-between text-sm py-2">
@@ -207,7 +284,9 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                             <Separator className="my-2" />
                             <div className="flex justify-between font-bold">
                                 <span>Total</span>
-                                <span>{formatRupiah(Number(invoice.totalAmount))}</span>
+                                <span>
+                                    {formatRupiah(Number(invoice.totalAmount))}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -219,7 +298,8 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
             <div className="flex items-center gap-2 p-4 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <p>
-                    This is a read-only financial view. To manage delivery or edit items, switch to the Sales module.
+                    This is a read-only financial view. To manage delivery or
+                    edit items, switch to the Sales module.
                 </p>
             </div>
 
@@ -234,18 +314,33 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                         ...invoice,
                         totalAmount: Number(invoice.totalAmount),
                         paidAmount: Number(invoice.paidAmount),
-                        salesOrder: invoice.salesOrder ? {
-                            ...invoice.salesOrder,
-                            taxAmount: invoice.salesOrder.taxAmount != null ? Number(invoice.salesOrder.taxAmount) : 0,
-                            items: invoice.salesOrder.items?.map((item) => ({
-                                ...item,
-                                quantity: Number(item.quantity),
-                                unitPrice: Number(item.unitPrice),
-                                subtotal: Number(item.subtotal),
-                                enteredQuantity: item.enteredQuantity != null ? Number(item.enteredQuantity) : undefined,
-                                enteredUnitPrice: item.enteredUnitPrice != null ? Number(item.enteredUnitPrice) : undefined,
-                            })),
-                        } : undefined,
+                        salesOrder: invoice.salesOrder
+                            ? {
+                                  ...invoice.salesOrder,
+                                  taxAmount:
+                                      invoice.salesOrder.taxAmount != null
+                                          ? Number(invoice.salesOrder.taxAmount)
+                                          : 0,
+                                  items: invoice.salesOrder.items?.map(
+                                      (item) => ({
+                                          ...item,
+                                          quantity: Number(item.quantity),
+                                          unitPrice: Number(item.unitPrice),
+                                          subtotal: Number(item.subtotal),
+                                          enteredQuantity:
+                                              item.enteredQuantity != null
+                                                  ? Number(item.enteredQuantity)
+                                                  : undefined,
+                                          enteredUnitPrice:
+                                              item.enteredUnitPrice != null
+                                                  ? Number(
+                                                        item.enteredUnitPrice,
+                                                    )
+                                                  : undefined,
+                                      }),
+                                  ),
+                              }
+                            : undefined,
                     }}
                     showButton={false}
                     previewMode={true}

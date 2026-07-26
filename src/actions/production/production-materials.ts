@@ -1,244 +1,271 @@
-"use server";
+'use server';
 
-import { withTenant } from "@/lib/core/tenant";
-import { logger } from "@/lib/config/logger";
-import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
+import { withTenant } from '@/lib/core/tenant';
+import { logger } from '@/lib/config/logger';
+import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import {
-  requireAuth,
-  requireMaterialPathRole,
-  requireWarehouseStockRole,
-} from "@/lib/tools/auth-checks";
+    requireAuth,
+    requireMaterialPathRole,
+    requireWarehouseStockRole,
+} from '@/lib/tools/auth-checks';
 import {
-  materialIssueSchema,
-  MaterialIssueValues,
-  scrapRecordSchema,
-  ScrapRecordValues,
-  batchMaterialIssueSchema,
-  BatchMaterialIssueValues,
-  consolidatedBatchMaterialIssueSchema,
-  ConsolidatedBatchMaterialIssueValues,
-  adHocMaterialUsageSchema,
-  AdHocMaterialUsageValues,
-} from "@/lib/schemas/production";
-import { revalidatePath } from "next/cache";
-import { ProductionService } from "@/services/production/production-service";
-import { resolveMaterialPath } from "@/lib/production/material-path";
-import { prisma } from "@/lib/core/prisma";
+    materialIssueSchema,
+    MaterialIssueValues,
+    scrapRecordSchema,
+    ScrapRecordValues,
+    batchMaterialIssueSchema,
+    BatchMaterialIssueValues,
+    consolidatedBatchMaterialIssueSchema,
+    ConsolidatedBatchMaterialIssueValues,
+    adHocMaterialUsageSchema,
+    AdHocMaterialUsageValues,
+} from '@/lib/schemas/production';
+import { revalidatePath } from 'next/cache';
+import { ProductionService } from '@/services/production/production-service';
+import { resolveMaterialPath } from '@/lib/production/material-path';
+import { prisma } from '@/lib/core/prisma';
 
 async function resolveOrderMaterialPath(productionOrderId: string) {
-  const order = await prisma.productionOrder.findUnique({
-    where: { id: productionOrderId },
-    select: { bom: { select: { category: true } } },
-  });
-  if (!order) {
-    throw new BusinessRuleError("Work order tidak ditemukan.");
-  }
-  return resolveMaterialPath(order.bom?.category);
+    const order = await prisma.productionOrder.findUnique({
+        where: { id: productionOrderId },
+        select: { bom: { select: { category: true } } },
+    });
+    if (!order) {
+        throw new BusinessRuleError('Work order tidak ditemukan.');
+    }
+    return resolveMaterialPath(order.bom?.category);
 }
 
 export const batchIssueMaterials = withTenant(
-  async function batchIssueMaterials(data: BatchMaterialIssueValues) {
-    return safeAction(async () => {
-      const result = batchMaterialIssueSchema.safeParse(data);
-      if (!result.success) {
-        throw new BusinessRuleError(result.error.issues[0].message);
-      }
+    async function batchIssueMaterials(data: BatchMaterialIssueValues) {
+        return safeAction(async () => {
+            const result = batchMaterialIssueSchema.safeParse(data);
+            if (!result.success) {
+                throw new BusinessRuleError(result.error.issues[0].message);
+            }
 
-      try {
-        const path = await resolveOrderMaterialPath(
-          result.data.productionOrderId,
-        );
-        const session = await requireMaterialPathRole(path);
+            try {
+                const path = await resolveOrderMaterialPath(
+                    result.data.productionOrderId,
+                );
+                const session = await requireMaterialPathRole(path);
 
-        await ProductionService.batchIssueMaterials({
-          ...result.data,
-          userId: session?.user?.id,
+                await ProductionService.batchIssueMaterials({
+                    ...result.data,
+                    userId: session?.user?.id,
+                });
+
+                revalidatePath(
+                    `/production/orders/${result.data.productionOrderId}`,
+                );
+                revalidatePath('/warehouse');
+                return null;
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                logger.error('Failed to batch issue materials', {
+                    error,
+                    module: 'ProductionActions',
+                });
+                throw new BusinessRuleError(
+                    'Failed to issue materials. Please try again.',
+                );
+            }
         });
-
-        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
-        revalidatePath("/warehouse");
-        return null;
-      } catch (error) {
-        if (error instanceof BusinessRuleError) throw error;
-        logger.error("Failed to batch issue materials", {
-          error,
-          module: "ProductionActions",
-        });
-        throw new BusinessRuleError(
-          "Failed to issue materials. Please try again.",
-        );
-      }
-    });
-  },
+    },
 );
 
 export const recordMaterialIssue = withTenant(
-  async function recordMaterialIssue(data: MaterialIssueValues) {
-    return safeAction(async () => {
-      const result = materialIssueSchema.safeParse(data);
-      if (!result.success) {
-        throw new BusinessRuleError(result.error.issues[0].message);
-      }
+    async function recordMaterialIssue(data: MaterialIssueValues) {
+        return safeAction(async () => {
+            const result = materialIssueSchema.safeParse(data);
+            if (!result.success) {
+                throw new BusinessRuleError(result.error.issues[0].message);
+            }
 
-      try {
-        // Single-line issue treated as Path A (warehouse RM)
-        const session = await requireWarehouseStockRole();
+            try {
+                // Single-line issue treated as Path A (warehouse RM)
+                const session = await requireWarehouseStockRole();
 
-        await ProductionService.recordMaterialIssue({
-          ...result.data,
-          userId: session?.user?.id,
+                await ProductionService.recordMaterialIssue({
+                    ...result.data,
+                    userId: session?.user?.id,
+                });
+
+                revalidatePath(
+                    `/production/orders/${result.data.productionOrderId}`,
+                );
+                revalidatePath('/warehouse');
+                return null;
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                throw new BusinessRuleError(
+                    error instanceof Error
+                        ? error.message
+                        : 'An unknown error occurred',
+                );
+            }
         });
-
-        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
-        revalidatePath("/warehouse");
-        return null;
-      } catch (error) {
-        if (error instanceof BusinessRuleError) throw error;
-        throw new BusinessRuleError(
-          error instanceof Error ? error.message : "An unknown error occurred",
-        );
-      }
-    });
-  },
+    },
 );
 
 export const deleteMaterialIssue = withTenant(
-  async function deleteMaterialIssue(
-    issueId: string,
-    productionOrderId: string,
-  ) {
-    return safeAction(async () => {
-      try {
-        await requireWarehouseStockRole();
+    async function deleteMaterialIssue(
+        issueId: string,
+        productionOrderId: string,
+    ) {
+        return safeAction(async () => {
+            try {
+                await requireWarehouseStockRole();
 
-        await ProductionService.deleteMaterialIssue(issueId, productionOrderId);
+                await ProductionService.deleteMaterialIssue(
+                    issueId,
+                    productionOrderId,
+                );
 
-        revalidatePath(`/production/orders/${productionOrderId}`);
-        revalidatePath("/warehouse");
-        return null;
-      } catch (error) {
-        if (error instanceof BusinessRuleError) throw error;
-        throw new BusinessRuleError(
-          error instanceof Error ? error.message : "An unknown error occurred",
-        );
-      }
-    });
-  },
+                revalidatePath(`/production/orders/${productionOrderId}`);
+                revalidatePath('/warehouse');
+                return null;
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                throw new BusinessRuleError(
+                    error instanceof Error
+                        ? error.message
+                        : 'An unknown error occurred',
+                );
+            }
+        });
+    },
 );
 
 export const recordScrap = withTenant(async function recordScrap(
-  data: ScrapRecordValues,
+    data: ScrapRecordValues,
 ) {
-  return safeAction(async () => {
-    const result = scrapRecordSchema.safeParse(data);
-    if (!result.success) {
-      throw new BusinessRuleError(result.error.issues[0].message);
-    }
+    return safeAction(async () => {
+        const result = scrapRecordSchema.safeParse(data);
+        if (!result.success) {
+            throw new BusinessRuleError(result.error.issues[0].message);
+        }
 
-    try {
-      const session = await requireAuth();
+        try {
+            const session = await requireAuth();
 
-      await ProductionService.recordScrap({
-        ...result.data,
-        userId: session?.user?.id,
-      });
+            await ProductionService.recordScrap({
+                ...result.data,
+                userId: session?.user?.id,
+            });
 
-      revalidatePath(`/production/orders/${result.data.productionOrderId}`);
-      return null;
-    } catch (error) {
-      if (error instanceof BusinessRuleError) throw error;
-      throw new BusinessRuleError(
-        error instanceof Error ? error.message : "An unknown error occurred",
-      );
-    }
-  });
+            revalidatePath(
+                `/production/orders/${result.data.productionOrderId}`,
+            );
+            return null;
+        } catch (error) {
+            if (error instanceof BusinessRuleError) throw error;
+            throw new BusinessRuleError(
+                error instanceof Error
+                    ? error.message
+                    : 'An unknown error occurred',
+            );
+        }
+    });
 });
 
 export const deleteScrap = withTenant(async function deleteScrap(
-  scrapId: string,
-  productionOrderId: string,
+    scrapId: string,
+    productionOrderId: string,
 ) {
-  return safeAction(async () => {
-    await requireAuth();
+    return safeAction(async () => {
+        await requireAuth();
 
-    try {
-      await ProductionService.deleteScrap(scrapId, productionOrderId);
+        try {
+            await ProductionService.deleteScrap(scrapId, productionOrderId);
 
-      revalidatePath(`/production/orders/${productionOrderId}`);
-      return null;
-    } catch (error) {
-      if (error instanceof BusinessRuleError) throw error;
-      throw new BusinessRuleError(
-        error instanceof Error ? error.message : "An unknown error occurred",
-      );
-    }
-  });
+            revalidatePath(`/production/orders/${productionOrderId}`);
+            return null;
+        } catch (error) {
+            if (error instanceof BusinessRuleError) throw error;
+            throw new BusinessRuleError(
+                error instanceof Error
+                    ? error.message
+                    : 'An unknown error occurred',
+            );
+        }
+    });
 });
 
 export const consolidatedBatchIssueMaterials = withTenant(
-  async function consolidatedBatchIssueMaterials(data: ConsolidatedBatchMaterialIssueValues) {
-    return safeAction(async () => {
-      const result = consolidatedBatchMaterialIssueSchema.safeParse(data);
-      if (!result.success) {
-        throw new BusinessRuleError(result.error.issues[0].message);
-      }
+    async function consolidatedBatchIssueMaterials(
+        data: ConsolidatedBatchMaterialIssueValues,
+    ) {
+        return safeAction(async () => {
+            const result = consolidatedBatchMaterialIssueSchema.safeParse(data);
+            if (!result.success) {
+                throw new BusinessRuleError(result.error.issues[0].message);
+            }
 
-      try {
-        // Consolidated pick list = Path A warehouse
-        const session = await requireWarehouseStockRole();
+            try {
+                // Consolidated pick list = Path A warehouse
+                const session = await requireWarehouseStockRole();
 
-        const issueIds = await ProductionService.consolidatedBatchIssueMaterials({
-          ...result.data,
-          userId: session?.user?.id,
+                const issueIds =
+                    await ProductionService.consolidatedBatchIssueMaterials({
+                        ...result.data,
+                        userId: session?.user?.id,
+                    });
+
+                revalidatePath('/production/orders');
+                revalidatePath('/warehouse');
+                return issueIds;
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                logger.error('Failed to consolidated batch issue materials', {
+                    error,
+                    module: 'ProductionActions',
+                });
+                throw new BusinessRuleError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Failed to consolidated batch issue materials. Please try again.',
+                );
+            }
         });
-
-        revalidatePath("/production/orders");
-        revalidatePath("/warehouse");
-        return issueIds;
-      } catch (error) {
-        if (error instanceof BusinessRuleError) throw error;
-        logger.error("Failed to consolidated batch issue materials", {
-          error,
-          module: "ProductionActions",
-        });
-        throw new BusinessRuleError(
-          error instanceof Error ? error.message : "Failed to consolidated batch issue materials. Please try again.",
-        );
-      }
-    });
-  },
+    },
 );
 
 export const recordAdHocMaterialUsage = withTenant(
-  async function recordAdHocMaterialUsage(data: AdHocMaterialUsageValues) {
-    return safeAction(async () => {
-      const result = adHocMaterialUsageSchema.safeParse(data);
-      if (!result.success) {
-        throw new BusinessRuleError(result.error.issues[0].message);
-      }
+    async function recordAdHocMaterialUsage(data: AdHocMaterialUsageValues) {
+        return safeAction(async () => {
+            const result = adHocMaterialUsageSchema.safeParse(data);
+            if (!result.success) {
+                throw new BusinessRuleError(result.error.issues[0].message);
+            }
 
-      try {
-        // Ad-hoc additives from RM (pelembab, etc.) = Path A warehouse only
-        const session = await requireWarehouseStockRole();
+            try {
+                // Ad-hoc additives from RM (pelembab, etc.) = Path A warehouse only
+                const session = await requireWarehouseStockRole();
 
-        const { issueId, idempotent } = await ProductionService.recordAdHocMaterialUsage({
-          ...result.data,
-          userId: session?.user?.id,
+                const { issueId, idempotent } =
+                    await ProductionService.recordAdHocMaterialUsage({
+                        ...result.data,
+                        userId: session?.user?.id,
+                    });
+
+                revalidatePath(
+                    `/production/orders/${result.data.productionOrderId}`,
+                );
+                revalidatePath('/warehouse');
+                return { issueId, idempotent };
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                logger.error('Failed to record ad-hoc material usage', {
+                    error,
+                    module: 'ProductionActions',
+                });
+                throw new BusinessRuleError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Gagal mencatat pemakaian bahan. Silakan coba lagi.',
+                );
+            }
         });
-
-        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
-        revalidatePath("/warehouse");
-        return { issueId, idempotent };
-      } catch (error) {
-        if (error instanceof BusinessRuleError) throw error;
-        logger.error("Failed to record ad-hoc material usage", {
-          error,
-          module: "ProductionActions",
-        });
-        throw new BusinessRuleError(
-          error instanceof Error ? error.message : "Gagal mencatat pemakaian bahan. Silakan coba lagi.",
-        );
-      }
-    });
-  },
+    },
 );

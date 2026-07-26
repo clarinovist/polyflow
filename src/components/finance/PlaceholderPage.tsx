@@ -9,7 +9,11 @@ interface PlaceholderPageProps {
     moduleName: string;
 }
 
-export function PlaceholderPage({ title, description, moduleName }: PlaceholderPageProps) {
+export function PlaceholderPage({
+    title,
+    description,
+    moduleName,
+}: PlaceholderPageProps) {
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 space-y-6">
             <div className="bg-slate-100 p-6 rounded-full dark:bg-slate-800">
@@ -21,7 +25,8 @@ export function PlaceholderPage({ title, description, moduleName }: PlaceholderP
             </div>
             <div className="p-4 border rounded-lg bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/30 dark:border-orange-900 dark:text-orange-400">
                 <p className="text-sm font-medium">
-                    Modul <strong>{moduleName}</strong> saat ini sedang dalam pengembangan.
+                    Modul <strong>{moduleName}</strong> saat ini sedang dalam
+                    pengembangan.
                 </p>
                 <p className="text-xs mt-1 opacity-80">
                     Silakan cek kembali dalam waktu dekat untuk pembaruan.

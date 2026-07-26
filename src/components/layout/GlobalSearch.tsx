@@ -2,7 +2,16 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Calculator, Settings, Search, Package, Warehouse, FileText, Factory, MonitorPlay } from 'lucide-react';
+import {
+    Calculator,
+    Settings,
+    Search,
+    Package,
+    Warehouse,
+    FileText,
+    Factory,
+    MonitorPlay,
+} from 'lucide-react';
 
 import {
     CommandDialog,
@@ -46,8 +55,8 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
             <Button
                 variant="outline"
                 className={cn(
-                    "relative h-10 w-full justify-start rounded-lg bg-muted/50 px-4 text-sm font-normal text-muted-foreground shadow-none",
-                    className
+                    'relative h-10 w-full justify-start rounded-lg bg-muted/50 px-4 text-sm font-normal text-muted-foreground shadow-none',
+                    className,
                 )}
                 onClick={() => setOpen(true)}
                 {...props}
@@ -61,41 +70,83 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                 <CommandList>
                     <CommandEmpty>Tidak ada hasil ditemukan.</CommandEmpty>
                     <CommandGroup heading="Ganti Aplikasi">
-                        <CommandItem onSelect={() => runCommand(() => router.push('/kiosk'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() => router.push('/kiosk'))
+                            }
+                        >
                             <MonitorPlay className="mr-2 h-4 w-4" />
                             <span>Operator Kiosk</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() => router.push('/warehouse'))
+                            }
+                        >
                             <Warehouse className="mr-2 h-4 w-4" />
                             <span>Warehouse Portal</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push('/production'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() => router.push('/production'))
+                            }
+                        >
                             <Factory className="mr-2 h-4 w-4" />
                             <span>Production Floor</span>
                         </CommandItem>
                     </CommandGroup>
                     <CommandSeparator />
                     <CommandGroup heading="Navigasi Cepat">
-                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/inventory'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() =>
+                                    router.push('/warehouse/inventory'),
+                                )
+                            }
+                        >
                             <Warehouse className="mr-2 h-4 w-4" />
                             <span>Inventaris</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/products'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() =>
+                                    router.push('/dashboard/products'),
+                                )
+                            }
+                        >
                             <Package className="mr-2 h-4 w-4" />
                             <span>Produk</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/opname'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() =>
+                                    router.push('/warehouse/opname'),
+                                )
+                            }
+                        >
                             <Calculator className="mr-2 h-4 w-4" />
                             <span>Stock Opname</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/inventory/history'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() =>
+                                    router.push('/warehouse/inventory/history'),
+                                )
+                            }
+                        >
                             <FileText className="mr-2 h-4 w-4" />
                             <span>Riwayat Stok</span>
                         </CommandItem>
                     </CommandGroup>
                     <CommandSeparator />
                     <CommandGroup heading="Pengaturan">
-                        <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/settings'))}>
+                        <CommandItem
+                            onSelect={() =>
+                                runCommand(() =>
+                                    router.push('/dashboard/settings'),
+                                )
+                            }
+                        >
                             <Settings className="mr-2 h-4 w-4" />
                             <span>Pengaturan</span>
                             <CommandShortcut>⌘S</CommandShortcut>

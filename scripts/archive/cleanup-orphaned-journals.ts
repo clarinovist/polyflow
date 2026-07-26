@@ -3,14 +3,19 @@ import { PrismaClient, JournalStatus } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function cleanupOrphans() {
-    console.log("Starting cleanup of orphaned journal entries...");
+    console.log('Starting cleanup of orphaned journal entries...');
 
     const jes = await prisma.journalEntry.findMany({
         where: {
             referenceType: { in: ['PURCHASE_INVOICE', 'SALES_INVOICE'] },
-            status: JournalStatus.POSTED
+            status: JournalStatus.POSTED,
         },
-        select: { id: true, entryNumber: true, referenceId: true, referenceType: true }
+        select: {
+            id: true,
+            entryNumber: true,
+            referenceId: true,
+            referenceType: true,
+        },
     });
 
     let count = 0;
@@ -19,25 +24,31 @@ async function cleanupOrphans() {
 
         let exists = false;
         if (je.referenceType === 'PURCHASE_INVOICE') {
-            const pi = await prisma.purchaseInvoice.findUnique({ where: { id: je.referenceId } });
+            const pi = await prisma.purchaseInvoice.findUnique({
+                where: { id: je.referenceId },
+            });
             exists = !!pi;
         } else if (je.referenceType === 'SALES_INVOICE') {
-            const si = await prisma.invoice.findUnique({ where: { id: je.referenceId } });
+            const si = await prisma.invoice.findUnique({
+                where: { id: je.referenceId },
+            });
             exists = !!si;
         }
 
         if (!exists) {
-            console.log(`Voiding orphaned JE: ${je.entryNumber} (Ref ID: ${je.referenceId})`);
+            console.log(
+                `Voiding orphaned JE: ${je.entryNumber} (Ref ID: ${je.referenceId})`,
+            );
 
             // Delete lines to ensure they don't affect reports if reports use lines directly
             // even if status is checked (double safety)
             await prisma.journalLine.deleteMany({
-                where: { journalEntryId: je.id }
+                where: { journalEntryId: je.id },
             });
 
             await prisma.journalEntry.update({
                 where: { id: je.id },
-                data: { status: JournalStatus.VOIDED }
+                data: { status: JournalStatus.VOIDED },
             });
             count++;
         }
@@ -47,7 +58,7 @@ async function cleanupOrphans() {
 }
 
 cleanupOrphans()
-    .catch(e => console.error(e))
+    .catch((e) => console.error(e))
     .finally(async () => {
         await prisma.$disconnect();
     });

@@ -1,9 +1,9 @@
 /**
  * PolyFlow Structured Logger
- * 
- * Centralized logging with severity levels, timestamps, 
+ *
+ * Centralized logging with severity levels, timestamps,
  * and module context. Replaces scattered console.log calls.
- * 
+ *
  * Usage:
  *   import { logger } from '@/lib/config/logger';
  *   logger.info('Order created', { orderId: '123', module: 'sales' });
@@ -48,12 +48,14 @@ function formatEntry(entry: LogEntry): string {
     const moduleTag = entry.context?.module ? ` [${entry.context.module}]` : '';
     const ctx = entry.context
         ? ` ${JSON.stringify(
-            Object.fromEntries(
-                Object.entries(entry.context).filter(([k]) => k !== 'module')
-            )
-        )}`
+              Object.fromEntries(
+                  Object.entries(entry.context).filter(([k]) => k !== 'module'),
+              ),
+          )}`
         : '';
-    const err = entry.error ? ` | ${entry.error.name}: ${entry.error.message}` : '';
+    const err = entry.error
+        ? ` | ${entry.error.name}: ${entry.error.message}`
+        : '';
 
     return `${prefix}${moduleTag} ${entry.message}${ctx}${err}`;
 }
@@ -62,7 +64,7 @@ function createEntry(
     level: LogLevel,
     message: string,
     context?: LogContext,
-    error?: unknown
+    error?: unknown,
 ): LogEntry {
     const entry: LogEntry = {
         level,
@@ -82,7 +84,12 @@ function createEntry(
     return entry;
 }
 
-function log(level: LogLevel, message: string, context?: LogContext, error?: unknown) {
+function log(
+    level: LogLevel,
+    message: string,
+    context?: LogContext,
+    error?: unknown,
+) {
     if (!shouldLog(level)) return;
 
     const entry = createEntry(level, message, context, error);
@@ -108,9 +115,12 @@ function log(level: LogLevel, message: string, context?: LogContext, error?: unk
 }
 
 export const logger = {
-    debug: (message: string, context?: LogContext) => log('debug', message, context),
-    info: (message: string, context?: LogContext) => log('info', message, context),
-    warn: (message: string, context?: LogContext) => log('warn', message, context),
+    debug: (message: string, context?: LogContext) =>
+        log('debug', message, context),
+    info: (message: string, context?: LogContext) =>
+        log('info', message, context),
+    warn: (message: string, context?: LogContext) =>
+        log('warn', message, context),
     error: (message: string, context?: LogContext & { error?: unknown }) => {
         const { error: err, ...ctx } = context || {};
         log('error', message, ctx, err);

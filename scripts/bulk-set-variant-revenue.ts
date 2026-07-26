@@ -17,22 +17,34 @@ import path from 'path';
 
 const mainPrisma = new PrismaClient();
 
-function parseCSV(content: string): Array<{ skuCode: string; revenueAccountCode: string }> {
-    const lines = content.trim().split('\n').filter(l => l.trim() && !l.startsWith('#'));
-    return lines.map(line => {
-        const [skuCode, revenueAccountCode] = line.split(',').map(s => s.trim());
-        return { skuCode, revenueAccountCode };
-    }).filter(r => r.skuCode && r.revenueAccountCode);
+function parseCSV(
+    content: string,
+): Array<{ skuCode: string; revenueAccountCode: string }> {
+    const lines = content
+        .trim()
+        .split('\n')
+        .filter((l) => l.trim() && !l.startsWith('#'));
+    return lines
+        .map((line) => {
+            const [skuCode, revenueAccountCode] = line
+                .split(',')
+                .map((s) => s.trim());
+            return { skuCode, revenueAccountCode };
+        })
+        .filter((r) => r.skuCode && r.revenueAccountCode);
 }
 
 async function main() {
     const args = process.argv.slice(2);
     const isApply = args.includes('--apply');
-    const fileArg = args.find(a => a.startsWith('--file='))?.split('=')[1];
-    const tenantArg = args.find(a => a.startsWith('--tenant='))?.split('=')[1] || 'melindo';
+    const fileArg = args.find((a) => a.startsWith('--file='))?.split('=')[1];
+    const tenantArg =
+        args.find((a) => a.startsWith('--tenant='))?.split('=')[1] || 'melindo';
 
     if (!fileArg) {
-        console.error('Usage: --file=path/to/csv.csv [--apply] [--tenant=melindo]');
+        console.error(
+            'Usage: --file=path/to/csv.csv [--apply] [--tenant=melindo]',
+        );
         process.exit(1);
     }
 
@@ -42,11 +54,18 @@ async function main() {
     console.log(`File: ${fileArg}\n`);
 
     // Find tenant
-    const tenant = await mainPrisma.tenant.findFirst({ where: { subdomain: tenantArg } });
-    if (!tenant) { console.error(`❌ Tenant "${tenantArg}" not found`); process.exit(1); }
+    const tenant = await mainPrisma.tenant.findFirst({
+        where: { subdomain: tenantArg },
+    });
+    if (!tenant) {
+        console.error(`❌ Tenant "${tenantArg}" not found`);
+        process.exit(1);
+    }
 
     // Connect to tenant DB
-    const tenantDb = new PrismaClient({ datasources: { db: { url: tenant.dbUrl } } });
+    const tenantDb = new PrismaClient({
+        datasources: { db: { url: tenant.dbUrl } },
+    });
 
     // Parse CSV
     const csvPath = path.resolve(fileArg);
@@ -54,25 +73,47 @@ async function main() {
     const rows = parseCSV(csvContent);
     console.log(`Parsed ${rows.length} rows from CSV\n`);
 
-    let matched = 0, notFound = 0, accountNotFound = 0, alreadySet = 0;
-    const changes: Array<{ sku: string; oldAccountId: string | null; newAccountId: string; newCode: string }> = [];
+    let matched = 0,
+        notFound = 0,
+        accountNotFound = 0,
+        alreadySet = 0;
+    const changes: Array<{
+        sku: string;
+        oldAccountId: string | null;
+        newAccountId: string;
+        newCode: string;
+    }> = [];
 
     for (const row of rows) {
         // Find variant by SKU
         const variant = await tenantDb.productVariant.findUnique({
             where: { skuCode: row.skuCode },
-            select: { id: true, skuCode: true, name: true, revenueAccountId: true },
+            select: {
+                id: true,
+                skuCode: true,
+                name: true,
+                revenueAccountId: true,
+            },
         });
-        if (!variant) { notFound++; continue; }
+        if (!variant) {
+            notFound++;
+            continue;
+        }
 
         // Find account by code
         const account = await tenantDb.account.findUnique({
             where: { code: row.revenueAccountCode },
             select: { id: true, code: true, name: true, isActive: true },
         });
-        if (!account || !account.isActive) { accountNotFound++; continue; }
+        if (!account || !account.isActive) {
+            accountNotFound++;
+            continue;
+        }
 
-        if (variant.revenueAccountId === account.id) { alreadySet++; continue; }
+        if (variant.revenueAccountId === account.id) {
+            alreadySet++;
+            continue;
+        }
 
         matched++;
         changes.push({
@@ -84,14 +125,19 @@ async function main() {
     }
 
     // Print summary
-    console.log(`Matched: ${matched} | Not found SKU: ${notFound} | Account missing: ${accountNotFound} | Already set: ${alreadySet}\n`);
+    console.log(
+        `Matched: ${matched} | Not found SKU: ${notFound} | Account missing: ${accountNotFound} | Already set: ${alreadySet}\n`,
+    );
 
     if (changes.length > 0) {
         console.log('Changes:');
         for (const c of changes.slice(0, 20)) {
-            console.log(`  ${c.sku.padEnd(20)} ${c.oldAccountId ?? '(none)'.padEnd(12)} → ${c.newCode}`);
+            console.log(
+                `  ${c.sku.padEnd(20)} ${c.oldAccountId ?? '(none)'.padEnd(12)} → ${c.newCode}`,
+            );
         }
-        if (changes.length > 20) console.log(`  ... and ${changes.length - 20} more`);
+        if (changes.length > 20)
+            console.log(`  ... and ${changes.length - 20} more`);
     }
 
     if (!isApply) {

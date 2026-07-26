@@ -55,12 +55,18 @@ export function getCostAlertShortLabel(flag: CostAnomalyFlag): string {
     }
 }
 
-export function getCostGapPercent(currentCost: number, standardCost: number): number | null {
+export function getCostGapPercent(
+    currentCost: number,
+    standardCost: number,
+): number | null {
     if (standardCost <= 0) return null;
     return ((currentCost - standardCost) / standardCost) * 100;
 }
 
-export function formatCostGapLabel(currentCost: number, standardCost: number): string | null {
+export function formatCostGapLabel(
+    currentCost: number,
+    standardCost: number,
+): string | null {
     const gapPercent = getCostGapPercent(currentCost, standardCost);
     if (gapPercent === null) return null;
 

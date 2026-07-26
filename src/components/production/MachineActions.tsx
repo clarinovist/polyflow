@@ -8,7 +8,13 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import {
+    MoreHorizontal,
+    Pencil,
+    Trash2,
+    AlertCircle,
+    Loader2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { deleteMachine, setMachineStatus } from '@/actions/production/machines';
 import { toast } from 'sonner';
@@ -70,7 +76,9 @@ export function MachineActions({ id, name }: MachineActionsProps) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>{productionComponentLabels.actions}</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                        {productionComponentLabels.actions}
+                    </DropdownMenuLabel>
                     <Link href={`/dashboard/machines/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
@@ -95,18 +103,27 @@ export function MachineActions({ id, name }: MachineActionsProps) {
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialog
+                open={showDeleteDialog}
+                onOpenChange={setShowDeleteDialog}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            Apakah Anda benar-benar yakin?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Ini akan menghapus permanen mesin <strong>{name}</strong>.
-                            Tindakan ini tidak dapat dibatalkan.
+                            Ini akan menghapus permanen mesin{' '}
+                            <strong>{name}</strong>. Tindakan ini tidak dapat
+                            dibatalkan.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
                             Hapus
                         </AlertDialogAction>
                     </AlertDialogFooter>

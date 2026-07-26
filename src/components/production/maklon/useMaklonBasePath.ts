@@ -2,7 +2,11 @@
 
 import { usePathname } from 'next/navigation';
 
-const MAKLON_BASE_PATHS = ['/maklon', '/warehouse/maklon', '/dashboard/maklon'] as const;
+const MAKLON_BASE_PATHS = [
+    '/maklon',
+    '/warehouse/maklon',
+    '/dashboard/maklon',
+] as const;
 
 /**
  * Returns the Maklon base path based on the current URL.

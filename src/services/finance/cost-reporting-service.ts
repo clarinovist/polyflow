@@ -31,22 +31,36 @@ type OrderCostSeed = {
     orderNumber: string;
 };
 
-function loadMaterialCostByOrder(movements: Array<{ id: string; productionOrderId: string | null; reference: string | null; cost: Prisma.Decimal | null; quantity: Prisma.Decimal }>, orders: OrderCostSeed[]): Map<string, number> {
+function loadMaterialCostByOrder(
+    movements: Array<{
+        id: string;
+        productionOrderId: string | null;
+        reference: string | null;
+        cost: Prisma.Decimal | null;
+        quantity: Prisma.Decimal;
+    }>,
+    orders: OrderCostSeed[],
+): Map<string, number> {
     const costByOrderId = new Map<string, number>();
-    const orderById = new Map(orders.map(order => [order.id, order]));
+    const orderById = new Map(orders.map((order) => [order.id, order]));
 
-    const referenceMatchers = orders.map(order => ({
+    const referenceMatchers = orders.map((order) => ({
         orderId: order.id,
-        needle: `PO-${order.orderNumber}`
+        needle: `PO-${order.orderNumber}`,
     }));
 
     for (const movement of movements) {
         let targetOrderId: string | null = null;
 
-        if (movement.productionOrderId && orderById.has(movement.productionOrderId)) {
+        if (
+            movement.productionOrderId &&
+            orderById.has(movement.productionOrderId)
+        ) {
             targetOrderId = movement.productionOrderId;
         } else if (movement.reference) {
-            const matched = referenceMatchers.find(ref => movement.reference?.includes(ref.needle));
+            const matched = referenceMatchers.find((ref) =>
+                movement.reference?.includes(ref.needle),
+            );
             targetOrderId = matched?.orderId ?? null;
         }
 
@@ -55,7 +69,7 @@ function loadMaterialCostByOrder(movements: Array<{ id: string; productionOrderI
         const current = costByOrderId.get(targetOrderId) ?? 0;
         const cost = Number(movement.cost || 0);
         const qty = Number(movement.quantity);
-        costByOrderId.set(targetOrderId, current + (cost * qty));
+        costByOrderId.set(targetOrderId, current + cost * qty);
     }
 
     return costByOrderId;
@@ -65,15 +79,18 @@ export class CostReportingService {
     /**
      * Get Costing Report for Finished Goods (Completed Orders)
      */
-    static async getFinishedGoodsCosting(startDate?: Date, endDate?: Date): Promise<PoCostResult[]> {
+    static async getFinishedGoodsCosting(
+        startDate?: Date,
+        endDate?: Date,
+    ): Promise<PoCostResult[]> {
         const where: Prisma.ProductionOrderWhereInput = {
-            status: ProductionStatus.COMPLETED
+            status: ProductionStatus.COMPLETED,
         };
 
         if (startDate && endDate) {
             where.actualEndDate = {
                 gte: startDate,
-                lte: endDate
+                lte: endDate,
             };
         }
 
@@ -83,39 +100,44 @@ export class CostReportingService {
                 bom: {
                     include: {
                         productVariant: {
-                            include: { product: true }
-                        }
-                    }
-                }
+                            include: { product: true },
+                        },
+                    },
+                },
             },
-            orderBy: { actualEndDate: 'desc' }
+            orderBy: { actualEndDate: 'desc' },
         });
 
         if (orders.length === 0) return [];
 
-        const orderIds = orders.map(order => order.id);
-        const referenceFilters = orders.map(order => ({ reference: { contains: `PO-${order.orderNumber}` } }));
+        const orderIds = orders.map((order) => order.id);
+        const referenceFilters = orders.map((order) => ({
+            reference: { contains: `PO-${order.orderNumber}` },
+        }));
 
         const movements = await prisma.stockMovement.findMany({
             where: {
                 type: MovementType.OUT,
                 OR: [
                     { productionOrderId: { in: orderIds } },
-                    ...referenceFilters
-                ]
+                    ...referenceFilters,
+                ],
             },
             select: {
                 id: true,
                 productionOrderId: true,
                 reference: true,
                 cost: true,
-                quantity: true
-            }
+                quantity: true,
+            },
         });
 
         const materialCostByOrder = loadMaterialCostByOrder(
             movements,
-            orders.map(order => ({ id: order.id, orderNumber: order.orderNumber }))
+            orders.map((order) => ({
+                id: order.id,
+                orderNumber: order.orderNumber,
+            })),
         );
 
         const results: PoCostResult[] = [];
@@ -138,7 +160,7 @@ export class CostReportingService {
                 materialCost,
                 conversionCost,
                 totalCost,
-                unitCost
+                unitCost,
             });
         }
 
@@ -153,51 +175,59 @@ export class CostReportingService {
         const orders = await prisma.productionOrder.findMany({
             where: {
                 status: {
-                    in: [ProductionStatus.IN_PROGRESS, ProductionStatus.RELEASED]
-                }
+                    in: [
+                        ProductionStatus.IN_PROGRESS,
+                        ProductionStatus.RELEASED,
+                    ],
+                },
             },
             include: {
                 bom: {
                     include: {
                         productVariant: {
-                            include: { product: true }
-                        }
-                    }
-                }
-            }
+                            include: { product: true },
+                        },
+                    },
+                },
+            },
         });
 
         if (orders.length === 0) {
             return {
                 totalWipValue: 0,
                 orderCount: 0,
-                orders: []
+                orders: [],
             };
         }
 
-        const orderIds = orders.map(order => order.id);
-        const referenceFilters = orders.map(order => ({ reference: { contains: `PO-${order.orderNumber}` } }));
+        const orderIds = orders.map((order) => order.id);
+        const referenceFilters = orders.map((order) => ({
+            reference: { contains: `PO-${order.orderNumber}` },
+        }));
 
         const movements = await prisma.stockMovement.findMany({
             where: {
                 type: MovementType.OUT,
                 OR: [
                     { productionOrderId: { in: orderIds } },
-                    ...referenceFilters
-                ]
+                    ...referenceFilters,
+                ],
             },
             select: {
                 id: true,
                 productionOrderId: true,
                 reference: true,
                 cost: true,
-                quantity: true
-            }
+                quantity: true,
+            },
         });
 
         const materialCostByOrder = loadMaterialCostByOrder(
             movements,
-            orders.map(order => ({ id: order.id, orderNumber: order.orderNumber }))
+            orders.map((order) => ({
+                id: order.id,
+                orderNumber: order.orderNumber,
+            })),
         );
 
         let totalWipValue = 0;
@@ -216,7 +246,7 @@ export class CostReportingService {
                     orderNumber: order.orderNumber,
                     productName: order.bom.productVariant.product.name,
                     currentMaterialCost,
-                    startDate: order.actualStartDate || order.plannedStartDate
+                    startDate: order.actualStartDate || order.plannedStartDate,
                 });
             }
         }
@@ -224,25 +254,27 @@ export class CostReportingService {
         return {
             totalWipValue,
             orderCount: activeOrders.length,
-            orders: activeOrders
+            orders: activeOrders,
         };
     }
 
     /**
      * Get Detailed Costing for a Specific Order
      */
-    static async getOrderCosting(orderId: string): Promise<PoCostResult | null> {
+    static async getOrderCosting(
+        orderId: string,
+    ): Promise<PoCostResult | null> {
         const order = await prisma.productionOrder.findUnique({
             where: { id: orderId },
             include: {
                 bom: {
                     include: {
                         productVariant: {
-                            include: { product: true }
-                        }
-                    }
-                }
-            }
+                            include: { product: true },
+                        },
+                    },
+                },
+            },
         });
 
         if (!order) return null;
@@ -250,12 +282,12 @@ export class CostReportingService {
         const movements = await prisma.stockMovement.findMany({
             where: {
                 reference: { contains: `PO-${order.orderNumber}` },
-                type: MovementType.OUT
-            }
+                type: MovementType.OUT,
+            },
         });
 
         let materialCost = 0;
-        movements.forEach(m => {
+        movements.forEach((m) => {
             const cost = Number(m.cost || 0);
             const qty = Number(m.quantity);
             materialCost += cost * qty;
@@ -276,7 +308,7 @@ export class CostReportingService {
             materialCost,
             conversionCost,
             totalCost,
-            unitCost
+            unitCost,
         };
     }
 }

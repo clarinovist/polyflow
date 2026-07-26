@@ -20,7 +20,9 @@ export function MonthPicker({ defaultValue }: { defaultValue: string }) {
 
     return (
         <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Periode:</span>
+            <span className="text-sm font-medium text-muted-foreground">
+                Periode:
+            </span>
             <Input
                 type="month"
                 defaultValue={defaultValue}

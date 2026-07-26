@@ -1,4 +1,10 @@
-export type SortField = 'name' | 'sku' | 'location' | 'stock' | 'type' | 'status';
+export type SortField =
+    | 'name'
+    | 'sku'
+    | 'location'
+    | 'stock'
+    | 'type'
+    | 'status';
 export type SortOrder = 'asc' | 'desc';
 
 export interface InventoryItem {

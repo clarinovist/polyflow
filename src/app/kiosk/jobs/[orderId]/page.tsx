@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/core/prisma";
-import { withTenantPage } from "@/lib/core/tenant";
-import { serializeData } from "@/lib/utils/utils";
-import { notFound } from "next/navigation";
-import KioskJobFocus, { type Order, type Shift } from "./KioskJobFocus";
+import { prisma } from '@/lib/core/prisma';
+import { withTenantPage } from '@/lib/core/tenant';
+import { serializeData } from '@/lib/utils/utils';
+import { notFound } from 'next/navigation';
+import KioskJobFocus, { type Order, type Shift } from './KioskJobFocus';
 
 const getOrder = withTenantPage(async function getOrder(orderId: string) {
     const order = await prisma.productionOrder.findUnique({
@@ -10,21 +10,21 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
         include: {
             bom: {
                 include: {
-                    productVariant: true
-                }
+                    productVariant: true,
+                },
             },
             machine: true,
             executions: {
                 orderBy: { startTime: 'desc' },
-                take: 5
+                take: 5,
             },
             helpers: {
                 select: {
                     id: true,
-                    name: true
-                }
-            }
-        }
+                    name: true,
+                },
+            },
+        },
     });
 
     if (!order) return null;
@@ -34,10 +34,12 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
         prisma.stockMovement.findMany({
             where: {
                 reference: {
-                    in: orderNumbers.map(n => `Production Partial Output: WO#${n}`)
-                }
+                    in: orderNumbers.map(
+                        (n) => `Production Partial Output: WO#${n}`,
+                    ),
+                },
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
         }),
         prisma.productionShift.findMany({
             where: { productionOrderId: orderId },
@@ -48,14 +50,18 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
                 endTime: true,
                 operatorId: true,
             },
-            orderBy: { startTime: 'asc' }
-        })
+            orderBy: { startTime: 'asc' },
+        }),
     ]);
 
     return { order, movements, shifts };
 });
 
-export default async function KioskFocusPage({ params }: { params: Promise<{ orderId: string }> }) {
+export default async function KioskFocusPage({
+    params,
+}: {
+    params: Promise<{ orderId: string }>;
+}) {
     const { orderId } = await params;
     const data = await getOrder(orderId);
 
@@ -66,12 +72,16 @@ export default async function KioskFocusPage({ params }: { params: Promise<{ ord
     const orderWithLogs = {
         ...order,
         outputLogs: movements
-            .filter(l => l.reference === `Production Partial Output: WO#${order.orderNumber}`)
-            .map(l => ({
+            .filter(
+                (l) =>
+                    l.reference ===
+                    `Production Partial Output: WO#${order.orderNumber}`,
+            )
+            .map((l) => ({
                 id: l.id,
                 quantity: l.quantity.toNumber(),
-                createdAt: l.createdAt
-            }))
+                createdAt: l.createdAt,
+            })),
     };
 
     return (

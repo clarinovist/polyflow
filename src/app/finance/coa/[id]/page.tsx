@@ -11,7 +11,10 @@ interface PageProps {
     searchParams: Promise<{ startDate?: string; endDate?: string }>;
 }
 
-export default async function AccountLedgerPage({ params, searchParams }: PageProps) {
+export default async function AccountLedgerPage({
+    params,
+    searchParams,
+}: PageProps) {
     const { id } = await params;
     const { startDate, endDate } = await searchParams;
 
@@ -23,7 +26,7 @@ export default async function AccountLedgerPage({ params, searchParams }: PagePr
     const ledgerData = await getAccountLedger(
         id,
         startDate ? new Date(startDate) : defaultStart,
-        endDate ? new Date(endDate) : defaultEnd
+        endDate ? new Date(endDate) : defaultEnd,
     ).catch((error) => {
         console.error('Error fetching account ledger:', error);
         notFound();
@@ -33,9 +36,5 @@ export default async function AccountLedgerPage({ params, searchParams }: PagePr
         notFound();
     }
 
-    return (
-        <AccountLedgerClient
-            ledgerData={serializeData(ledgerData.data)}
-        />
-    );
+    return <AccountLedgerClient ledgerData={serializeData(ledgerData.data)} />;
 }

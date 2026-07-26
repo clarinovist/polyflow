@@ -20,10 +20,20 @@ import {
     AlertCircle,
     AlertTriangle,
     Loader2,
-    FileDown
+    FileDown,
 } from 'lucide-react';
-import { parseImportFile, downloadCSVTemplate, downloadExcelTemplate, downloadErrorReport, rowsToProducts } from '@/lib/utils/csv-parser';
-import { validateImportRows, ValidationResult, getValidationSummary } from '@/lib/utils/import-validator';
+import {
+    parseImportFile,
+    downloadCSVTemplate,
+    downloadExcelTemplate,
+    downloadErrorReport,
+    rowsToProducts,
+} from '@/lib/utils/csv-parser';
+import {
+    validateImportRows,
+    ValidationResult,
+    getValidationSummary,
+} from '@/lib/utils/import-validator';
 import { importProducts, getExistingSKUs } from '@/actions/core/import';
 import { ImportPreviewTable } from './ImportPreviewTable';
 
@@ -33,7 +43,9 @@ export function ImportDialog() {
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<ImportStep>('upload');
     const [_file, setFile] = useState<File | null>(null);
-    const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
+    const [validationResults, setValidationResults] = useState<
+        ValidationResult[]
+    >([]);
     const [isProcessing, setIsProcessing] = useState(false);
     interface ImportResult {
         success: boolean;
@@ -61,7 +73,9 @@ export function ImportDialog() {
             setStatusMessage('Checking for duplicates...');
             const existingSKUsResult = await getExistingSKUs();
             if (!existingSKUsResult.success) {
-                throw new Error(existingSKUsResult.error || "Failed to fetch existing SKUs");
+                throw new Error(
+                    existingSKUsResult.error || 'Failed to fetch existing SKUs',
+                );
             }
             const existingSKUs = new Set(existingSKUsResult.data || []);
 
@@ -76,7 +90,7 @@ export function ImportDialog() {
             setStatusMessage('');
             setStep('preview');
         } catch {
-            alert("Gagal membaca file. Format file tidak valid.");
+            alert('Gagal membaca file. Format file tidak valid.');
         } finally {
             setIsProcessing(false);
         }
@@ -87,8 +101,8 @@ export function ImportDialog() {
 
         try {
             // Get only valid rows
-            const validResults = validationResults.filter(r => r.isValid);
-            const validRows = validResults.map(r => r.data);
+            const validResults = validationResults.filter((r) => r.isValid);
+            const validRows = validResults.map((r) => r.data);
 
             // Convert to product structure
             const products = rowsToProducts(validRows);
@@ -100,7 +114,9 @@ export function ImportDialog() {
                     success: false,
                     products: 0,
                     variants: 0,
-                    errors: result.error ? [result.error] : ['Unknown import error']
+                    errors: result.error
+                        ? [result.error]
+                        : ['Unknown import error'],
                 });
                 setStep('result');
                 return;
@@ -109,14 +125,14 @@ export function ImportDialog() {
                 setImportResult({
                     success: true,
                     products: result.data.products,
-                    variants: result.data.variants
+                    variants: result.data.variants,
                 });
             }
 
             // Move to result step
             setStep('result');
         } catch {
-            alert("Gagal mengimpor produk. Periksa format file dan coba lagi.");
+            alert('Gagal mengimpor produk. Periksa format file dan coba lagi.');
         } finally {
             setIsProcessing(false);
         }
@@ -150,7 +166,8 @@ export function ImportDialog() {
                         Impor Produk
                     </DialogTitle>
                     <DialogDescription>
-                        {step === 'upload' && 'Unggah file CSV berisi data produk'}
+                        {step === 'upload' &&
+                            'Unggah file CSV berisi data produk'}
                         {step === 'preview' && 'Tinjau dan validasi data impor'}
                         {step === 'result' && 'Impor selesai'}
                     </DialogDescription>
@@ -160,9 +177,12 @@ export function ImportDialog() {
                 {step === 'upload' && (
                     <div className="space-y-6">
                         <div>
-                            <h3 className="font-semibold mb-2">Langkah 1: Unduh Template</h3>
+                            <h3 className="font-semibold mb-2">
+                                Langkah 1: Unduh Template
+                            </h3>
                             <p className="text-sm text-muted-foreground mb-3">
-                                Pertama kali impor? Unduh template dengan contoh data
+                                Pertama kali impor? Unduh template dengan contoh
+                                data
                             </p>
                             <div className="flex gap-2">
                                 <Button
@@ -185,19 +205,33 @@ export function ImportDialog() {
                         </div>
 
                         <div>
-                            <h3 className="font-semibold mb-2">Step 2: Upload Filled File</h3>
+                            <h3 className="font-semibold mb-2">
+                                Step 2: Upload Filled File
+                            </h3>
                             <div
                                 className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:bg-muted/10 transition-colors cursor-pointer"
-                                onClick={() => document.getElementById('file-upload')?.click()}
+                                onClick={() =>
+                                    document
+                                        .getElementById('file-upload')
+                                        ?.click()
+                                }
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => {
                                     e.preventDefault();
                                     const droppedFile = e.dataTransfer.files[0];
-                                    const fileName = droppedFile.name.toLowerCase();
-                                    if (droppedFile && (fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls'))) {
+                                    const fileName =
+                                        droppedFile.name.toLowerCase();
+                                    if (
+                                        droppedFile &&
+                                        (fileName.endsWith('.csv') ||
+                                            fileName.endsWith('.xlsx') ||
+                                            fileName.endsWith('.xls'))
+                                    ) {
                                         handleFileSelect(droppedFile);
                                     } else {
-                                        alert('Please upload a CSV or Excel file');
+                                        alert(
+                                            'Please upload a CSV or Excel file',
+                                        );
                                     }
                                 }}
                             >
@@ -217,7 +251,8 @@ export function ImportDialog() {
                                     accept=".csv,.xlsx,.xls"
                                     className="hidden"
                                     onChange={(e) => {
-                                        const selectedFile = e.target.files?.[0];
+                                        const selectedFile =
+                                            e.target.files?.[0];
                                         if (selectedFile) {
                                             handleFileSelect(selectedFile);
                                         }
@@ -230,7 +265,9 @@ export function ImportDialog() {
                             <div className="space-y-3">
                                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                                     <Loader2 className="h-5 w-5 animate-spin" />
-                                    <span>{statusMessage || 'Processing file...'}</span>
+                                    <span>
+                                        {statusMessage || 'Processing file...'}
+                                    </span>
                                 </div>
                                 <Progress value={progress} className="h-2" />
                             </div>
@@ -268,7 +305,9 @@ export function ImportDialog() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => downloadErrorReport(validationResults)}
+                                onClick={() =>
+                                    downloadErrorReport(validationResults)
+                                }
                             >
                                 <FileDown className="h-4 w-4 mr-2" />
                                 Unduh Laporan Error
@@ -276,15 +315,21 @@ export function ImportDialog() {
                         )}
 
                         <div className="flex justify-between pt-4">
-                            <Button variant="outline" onClick={() => setStep('upload')}>
+                            <Button
+                                variant="outline"
+                                onClick={() => setStep('upload')}
+                            >
                                 ← Kembali
                             </Button>
                             <Button
                                 onClick={handleImport}
                                 disabled={summary.valid === 0 || isProcessing}
                             >
-                                {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                Import {summary.valid} Valid Row{summary.valid !== 1 ? 's' : ''}
+                                {isProcessing && (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                )}
+                                Import {summary.valid} Valid Row
+                                {summary.valid !== 1 ? 's' : ''}
                             </Button>
                         </div>
                     </div>
@@ -297,43 +342,69 @@ export function ImportDialog() {
                             {importResult.success ? (
                                 <>
                                     <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-600" />
-                                    <h3 className="text-2xl font-bold mb-2">Import Successful!</h3>
+                                    <h3 className="text-2xl font-bold mb-2">
+                                        Import Successful!
+                                    </h3>
                                 </>
                             ) : (
                                 <>
                                     <AlertCircle className="h-16 w-16 mx-auto mb-4 text-red-600" />
-                                    <h3 className="text-2xl font-bold mb-2">Import Failed</h3>
+                                    <h3 className="text-2xl font-bold mb-2">
+                                        Import Failed
+                                    </h3>
                                 </>
                             )}
                         </div>
 
                         <div className="bg-muted/30 rounded-lg p-6 space-y-2 border">
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Products imported:</span>
-                                <span className="font-semibold">{importResult.products}</span>
+                                <span className="text-muted-foreground">
+                                    Products imported:
+                                </span>
+                                <span className="font-semibold">
+                                    {importResult.products}
+                                </span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Variants created:</span>
-                                <span className="font-semibold">{importResult.variants}</span>
+                                <span className="text-muted-foreground">
+                                    Variants created:
+                                </span>
+                                <span className="font-semibold">
+                                    {importResult.variants}
+                                </span>
                             </div>
                             {summary.errors > 0 && (
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Rows skipped (errors):</span>
-                                    <span className="font-semibold text-destructive">{summary.errors}</span>
+                                    <span className="text-muted-foreground">
+                                        Rows skipped (errors):
+                                    </span>
+                                    <span className="font-semibold text-destructive">
+                                        {summary.errors}
+                                    </span>
                                 </div>
                             )}
                         </div>
 
-                        {importResult.errors && importResult.errors.length > 0 && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                <p className="font-semibold text-red-900 mb-2">Errors:</p>
-                                <ul className="space-y-1">
-                                    {importResult.errors.map((error: string, i: number) => (
-                                        <li key={i} className="text-sm text-red-700">• {error}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
+                        {importResult.errors &&
+                            importResult.errors.length > 0 && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <p className="font-semibold text-red-900 mb-2">
+                                        Errors:
+                                    </p>
+                                    <ul className="space-y-1">
+                                        {importResult.errors.map(
+                                            (error: string, i: number) => (
+                                                <li
+                                                    key={i}
+                                                    className="text-sm text-red-700"
+                                                >
+                                                    • {error}
+                                                </li>
+                                            ),
+                                        )}
+                                    </ul>
+                                </div>
+                            )}
 
                         <div className="flex justify-end">
                             <Button onClick={handleClose}>Done</Button>

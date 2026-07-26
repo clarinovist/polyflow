@@ -1,6 +1,6 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { EmployeeStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
@@ -8,7 +8,10 @@ import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from '@/lib/tools/audit';
-import { buildSalaryChanges, createSalaryHistory } from '@/lib/hrd/salary-history';
+import {
+    buildSalaryChanges,
+    createSalaryHistory,
+} from '@/lib/hrd/salary-history';
 
 // Fields whose change is compliance-critical (gaji/payType/BPJS) — old/new captured in audit log.
 const SALARY_FIELDS = [
@@ -24,7 +27,12 @@ const SALARY_FIELDS = [
 
 // Fase 2: optional personal/HR master data block. All fields optional.
 export interface EmployeePersonalData {
-    employmentStatus?: 'PROBATION' | 'PERMANENT' | 'CONTRACT' | 'RESIGNED' | 'TERMINATED';
+    employmentStatus?:
+        | 'PROBATION'
+        | 'PERMANENT'
+        | 'CONTRACT'
+        | 'RESIGNED'
+        | 'TERMINATED';
     joinDate?: string;
     probationEndDate?: string;
     contractEndDate?: string;
@@ -58,21 +66,26 @@ function toPersonalDb(d?: EmployeePersonalData) {
     if (d.birthDate) out.birthDate = new Date(d.birthDate);
     if (d.birthPlace !== undefined) out.birthPlace = d.birthPlace || null;
     if (d.gender !== undefined) out.gender = d.gender || null;
-    if (d.maritalStatus !== undefined) out.maritalStatus = d.maritalStatus || null;
+    if (d.maritalStatus !== undefined)
+        out.maritalStatus = d.maritalStatus || null;
     if (d.address !== undefined) out.address = d.address || null;
     if (d.phone !== undefined) out.phone = d.phone || null;
     if (d.photoUrl !== undefined) out.photoUrl = d.photoUrl || null;
     if (d.bankName !== undefined) out.bankName = d.bankName || null;
-    if (d.bankAccountNo !== undefined) out.bankAccountNo = d.bankAccountNo || null;
-    if (d.bankAccountName !== undefined) out.bankAccountName = d.bankAccountName || null;
-    if (d.emergencyContactName !== undefined) out.emergencyContactName = d.emergencyContactName || null;
-    if (d.emergencyContactPhone !== undefined) out.emergencyContactPhone = d.emergencyContactPhone || null;
-    if (d.emergencyContactRelation !== undefined) out.emergencyContactRelation = d.emergencyContactRelation || null;
+    if (d.bankAccountNo !== undefined)
+        out.bankAccountNo = d.bankAccountNo || null;
+    if (d.bankAccountName !== undefined)
+        out.bankAccountName = d.bankAccountName || null;
+    if (d.emergencyContactName !== undefined)
+        out.emergencyContactName = d.emergencyContactName || null;
+    if (d.emergencyContactPhone !== undefined)
+        out.emergencyContactPhone = d.emergencyContactPhone || null;
+    if (d.emergencyContactRelation !== undefined)
+        out.emergencyContactRelation = d.emergencyContactRelation || null;
     return out;
 }
 
-export const getEmployees = withTenant(
-async function getEmployees() {
+export const getEmployees = withTenant(async function getEmployees() {
     return safeAction(async () => {
         try {
             const employees = await prisma.employee.findMany({
@@ -80,15 +93,18 @@ async function getEmployees() {
             });
             return employees;
         } catch (error) {
-            logger.error('Failed to get employees', { error, module: 'EmployeeActions' });
+            logger.error('Failed to get employees', {
+                error,
+                module: 'EmployeeActions',
+            });
             throw new BusinessRuleError('Gagal mengambil direktori personil');
         }
     });
-}
-);
+});
 
-export const getEmployeeById = withTenant(
-async function getEmployeeById(id: string) {
+export const getEmployeeById = withTenant(async function getEmployeeById(
+    id: string,
+) {
     return safeAction(async () => {
         try {
             const employee = await prisma.employee.findUnique({
@@ -100,15 +116,19 @@ async function getEmployeeById(id: string) {
             return employee;
         } catch (error) {
             if (error instanceof BusinessRuleError) throw error;
-            logger.error('Failed to get employee', { error, employeeId: id, module: 'EmployeeActions' });
-            throw new BusinessRuleError('Terjadi kesalahan database saat mengambil karyawan');
+            logger.error('Failed to get employee', {
+                error,
+                employeeId: id,
+                module: 'EmployeeActions',
+            });
+            throw new BusinessRuleError(
+                'Terjadi kesalahan database saat mengambil karyawan',
+            );
         }
     });
-}
-);
+});
 
-export const createEmployee = withTenant(
-async function createEmployee(data: {
+export const createEmployee = withTenant(async function createEmployee(data: {
     name: string;
     code: string;
     role: string;
@@ -136,11 +156,15 @@ async function createEmployee(data: {
                     status: data.status || 'ACTIVE',
                     payType: data.payType || 'DAILY',
                     dailyRate: data.dailyRate || 0,
-                    overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
+                    overtimeHourlyRate: data.overtimeHourlyRate
+                        ? data.overtimeHourlyRate
+                        : null,
                     standardDayHours: data.standardDayHours ?? 8,
-                    ...(data.payType === 'MONTHLY' ? {
-                        monthlySalary: data.monthlySalary ?? null,
-                    } : {}),
+                    ...(data.payType === 'MONTHLY'
+                        ? {
+                              monthlySalary: data.monthlySalary ?? null,
+                          }
+                        : {}),
                     // BPJS tersedia untuk semua skema (DAILY / PIECE / MONTHLY)
                     bpjsParticipant: data.bpjsParticipant ?? false,
                     bpjsEmployeeDeduction: data.bpjsEmployeeDeduction ?? null,
@@ -161,15 +185,16 @@ async function createEmployee(data: {
             revalidatePath('/production/resources');
             return employee;
         } catch (error) {
-            logger.error('Failed to create employee', { error, module: 'EmployeeActions' });
+            logger.error('Failed to create employee', {
+                error,
+                module: 'EmployeeActions',
+            });
             throw new BusinessRuleError('Gagal onboard personil');
         }
     });
-}
-);
+});
 
-export const updateEmployee = withTenant(
-async function updateEmployee(
+export const updateEmployee = withTenant(async function updateEmployee(
     id: string,
     data: {
         name?: string;
@@ -187,7 +212,7 @@ async function updateEmployee(
         bpjsKesehatanNo?: string;
         bpjsKetenagakerjaanNo?: string;
         personal?: EmployeePersonalData;
-    }
+    },
 ) {
     return safeAction(async () => {
         try {
@@ -219,14 +244,34 @@ async function updateEmployee(
                 where: { id },
                 data: {
                     ...coreData,
-                    overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
-                    standardDayHours: data.standardDayHours && data.standardDayHours > 0 ? data.standardDayHours : 8,
-                    ...(data.monthlySalary !== undefined ? { monthlySalary: data.monthlySalary } : {}),
-                    ...(data.bpjsParticipant !== undefined ? { bpjsParticipant: data.bpjsParticipant } : {}),
-                    ...(data.bpjsEmployeeDeduction !== undefined ? { bpjsEmployeeDeduction: data.bpjsEmployeeDeduction } : {}),
-                    ...(data.bpjsEmployerCost !== undefined ? { bpjsEmployerCost: data.bpjsEmployerCost } : {}),
-                    ...(data.bpjsKesehatanNo !== undefined ? { bpjsKesehatanNo: data.bpjsKesehatanNo || null } : {}),
-                    ...(data.bpjsKetenagakerjaanNo !== undefined ? { bpjsKetenagakerjaanNo: data.bpjsKetenagakerjaanNo || null } : {}),
+                    overtimeHourlyRate: data.overtimeHourlyRate
+                        ? data.overtimeHourlyRate
+                        : null,
+                    standardDayHours:
+                        data.standardDayHours && data.standardDayHours > 0
+                            ? data.standardDayHours
+                            : 8,
+                    ...(data.monthlySalary !== undefined
+                        ? { monthlySalary: data.monthlySalary }
+                        : {}),
+                    ...(data.bpjsParticipant !== undefined
+                        ? { bpjsParticipant: data.bpjsParticipant }
+                        : {}),
+                    ...(data.bpjsEmployeeDeduction !== undefined
+                        ? { bpjsEmployeeDeduction: data.bpjsEmployeeDeduction }
+                        : {}),
+                    ...(data.bpjsEmployerCost !== undefined
+                        ? { bpjsEmployerCost: data.bpjsEmployerCost }
+                        : {}),
+                    ...(data.bpjsKesehatanNo !== undefined
+                        ? { bpjsKesehatanNo: data.bpjsKesehatanNo || null }
+                        : {}),
+                    ...(data.bpjsKetenagakerjaanNo !== undefined
+                        ? {
+                              bpjsKetenagakerjaanNo:
+                                  data.bpjsKetenagakerjaanNo || null,
+                          }
+                        : {}),
                     ...toPersonalDb(_p1),
                 },
             });
@@ -248,29 +293,48 @@ async function updateEmployee(
                 changes: Object.keys(changes).length > 0 ? changes : undefined,
             });
             // Gelombang B3: create salary history snapshot if salary fields changed
-            const salaryChanges = buildSalaryChanges(before as Record<string, unknown>, employee as Record<string, unknown>);
+            const salaryChanges = buildSalaryChanges(
+                before as Record<string, unknown>,
+                employee as Record<string, unknown>,
+            );
             if (salaryChanges) {
-                await createSalaryHistory(prisma, employee.id, employee as Record<string, unknown>, salaryChanges, session.user.id);
+                await createSalaryHistory(
+                    prisma,
+                    employee.id,
+                    employee as Record<string, unknown>,
+                    salaryChanges,
+                    session.user.id,
+                );
             }
             revalidatePath('/dashboard/employees');
             revalidatePath('/production/resources');
             return employee;
         } catch (error) {
-            logger.error('Failed to update employee', { error, employeeId: id, module: 'EmployeeActions' });
+            logger.error('Failed to update employee', {
+                error,
+                employeeId: id,
+                module: 'EmployeeActions',
+            });
             throw new BusinessRuleError('Gagal memperbarui data personil');
         }
     });
-}
-);
+});
 
-export const deleteEmployee = withTenant(
-async function deleteEmployee(id: string) {
+export const deleteEmployee = withTenant(async function deleteEmployee(
+    id: string,
+) {
     return safeAction(async () => {
         try {
             const session = await requireAuth();
             const before = await prisma.employee.findUnique({
                 where: { id },
-                select: { id: true, code: true, name: true, role: true, payType: true },
+                select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    role: true,
+                    payType: true,
+                },
             });
             await prisma.employee.delete({
                 where: { id },
@@ -280,44 +344,54 @@ async function deleteEmployee(id: string) {
                 action: 'EMPLOYEE_DELETED',
                 entityType: 'Employee',
                 entityId: id,
-                details: before ? `Deleted employee ${before.code} — ${before.name} (role=${before.role}, payType=${before.payType})` : `Deleted employee ${id}`,
+                details: before
+                    ? `Deleted employee ${before.code} — ${before.name} (role=${before.role}, payType=${before.payType})`
+                    : `Deleted employee ${id}`,
             });
             revalidatePath('/dashboard/employees');
             revalidatePath('/production/resources');
             return null;
         } catch (error) {
-            logger.error('Failed to delete employee', { error, employeeId: id, module: 'EmployeeActions' });
-            throw new BusinessRuleError('Tidak dapat menghapus personil. Mungkin terhubung ke riwayat produksi atau shift aktif.');
+            logger.error('Failed to delete employee', {
+                error,
+                employeeId: id,
+                module: 'EmployeeActions',
+            });
+            throw new BusinessRuleError(
+                'Tidak dapat menghapus personil. Mungkin terhubung ke riwayat produksi atau shift aktif.',
+            );
         }
     });
-}
-);
+});
 
 export const generateNextEmployeeCode = withTenant(
-async function generateNextEmployeeCode() {
-    return safeAction(async () => {
-        try {
-            const lastEmployee = await prisma.employee.findFirst({
-                orderBy: {
-                    createdAt: 'desc',
-                },
-            });
+    async function generateNextEmployeeCode() {
+        return safeAction(async () => {
+            try {
+                const lastEmployee = await prisma.employee.findFirst({
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                });
 
-            if (!lastEmployee || !lastEmployee.code) {
-                return 'EMP-001';
+                if (!lastEmployee || !lastEmployee.code) {
+                    return 'EMP-001';
+                }
+
+                const match = lastEmployee.code.match(/EMP-(\d+)/);
+                if (match) {
+                    const nextNum = parseInt(match[1]) + 1;
+                    return `EMP-${nextNum.toString().padStart(3, '0')}`;
+                }
+
+                return `EMP-${Date.now().toString().slice(-3)}`;
+            } catch (error) {
+                logger.error('Failed to generate next employee code', {
+                    error,
+                    module: 'EmployeeActions',
+                });
+                return 'EMP-Unknown';
             }
-
-            const match = lastEmployee.code.match(/EMP-(\d+)/);
-            if (match) {
-                const nextNum = parseInt(match[1]) + 1;
-                return `EMP-${nextNum.toString().padStart(3, '0')}`;
-            }
-
-            return `EMP-${Date.now().toString().slice(-3)}`;
-        } catch (error) {
-            logger.error('Failed to generate next employee code', { error, module: 'EmployeeActions' });
-            return 'EMP-Unknown';
-        }
-    });
-}
+        });
+    },
 );

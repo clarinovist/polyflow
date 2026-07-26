@@ -29,7 +29,8 @@ export default async function SalesLayout({
     // Prefer fresh DB permissions for layout gates; fall back to JWT snapshot.
     const permissionsRes = await getMyPermissions();
     const sessionAllowed =
-        (session.user as { allowedResources?: string[] })?.allowedResources || [];
+        (session.user as { allowedResources?: string[] })?.allowedResources ||
+        [];
     const permissions: string[] | 'ALL' =
         permissionsRes.success && permissionsRes.data
             ? permissionsRes.data

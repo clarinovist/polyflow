@@ -2,18 +2,40 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getIncomeStatement } from '@/actions/finance/accounting';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardContent,
+    CardDescription,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
-import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
+import {
+    startOfMonth,
+    endOfMonth,
+    addMonths,
+    subMonths,
+    format,
+} from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, RotateCw, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, RotateCw, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { reportLabels } from '@/lib/labels';
-import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
-
+import {
+    downloadCsv,
+    rupiahForCsv,
+    reportFilename,
+} from '@/lib/utils/csv-export';
 
 interface IncomeStatementItem {
     id: string;
@@ -54,19 +76,24 @@ export default function IncomeStatementPage() {
             if (result && 'success' in result && result.success) {
                 setData(result.data as unknown as IncomeStatementData);
             } else {
-                console.error("Failed to load income statement:", result && 'error' in result ? result.error : 'Unknown error');
+                console.error(
+                    'Failed to load income statement:',
+                    result && 'error' in result
+                        ? result.error
+                        : 'Unknown error',
+                );
                 setData(null);
             }
         } catch (error) {
-            console.error("Failed to load income statement", error);
+            console.error('Failed to load income statement', error);
             setData(null);
         } finally {
             setLoading(false);
         }
     }, [date]);
 
-    const handlePrevMonth = () => setDate(prev => subMonths(prev, 1));
-    const handleNextMonth = () => setDate(prev => addMonths(prev, 1));
+    const handlePrevMonth = () => setDate((prev) => subMonths(prev, 1));
+    const handleNextMonth = () => setDate((prev) => addMonths(prev, 1));
     const handleCurrentMonth = () => setDate(new Date());
 
     useEffect(() => {
@@ -75,22 +102,36 @@ export default function IncomeStatementPage() {
 
     // Helper to group COGS items
     const getGroupedCOGS = (items: IncomeStatementItem[]) => {
-        const materials = items.filter(i => i.code.startsWith('51')).reduce((sum, i) => sum + i.netBalance, 0);
-        const labor = items.filter(i => i.code.startsWith('52')).reduce((sum, i) => sum + i.netBalance, 0);
-        const overhead = items.filter(i => i.code.startsWith('53')).reduce((sum, i) => sum + i.netBalance, 0);
+        const materials = items
+            .filter((i) => i.code.startsWith('51'))
+            .reduce((sum, i) => sum + i.netBalance, 0);
+        const labor = items
+            .filter((i) => i.code.startsWith('52'))
+            .reduce((sum, i) => sum + i.netBalance, 0);
+        const overhead = items
+            .filter((i) => i.code.startsWith('53'))
+            .reduce((sum, i) => sum + i.netBalance, 0);
         return { materials, labor, overhead };
     };
 
-    const groupedCOGS = data ? getGroupedCOGS(data.cogs) : { materials: 0, labor: 0, overhead: 0 };
+    const groupedCOGS = data
+        ? getGroupedCOGS(data.cogs)
+        : { materials: 0, labor: 0, overhead: 0 };
 
     // Helper to group OpEx items
     const getGroupedOpEx = (items: IncomeStatementItem[]) => {
-        const selling = items.filter(i => i.code.startsWith('61')).reduce((sum, i) => sum + i.netBalance, 0);
-        const general = items.filter(i => i.code.startsWith('62')).reduce((sum, i) => sum + i.netBalance, 0);
+        const selling = items
+            .filter((i) => i.code.startsWith('61'))
+            .reduce((sum, i) => sum + i.netBalance, 0);
+        const general = items
+            .filter((i) => i.code.startsWith('62'))
+            .reduce((sum, i) => sum + i.netBalance, 0);
         return { selling, general };
     };
 
-    const groupedOpEx = data ? getGroupedOpEx(data.opex) : { selling: 0, general: 0 };
+    const groupedOpEx = data
+        ? getGroupedOpEx(data.opex)
+        : { selling: 0, general: 0 };
 
     const handleDownload = () => {
         if (!data) return;
@@ -99,7 +140,9 @@ export default function IncomeStatementPage() {
 
         // Revenue
         rows.push(['I. PENDAPATAN (REVENUE)', '', '']);
-        for (const item of data.revenue.filter(i => !hideZero || Math.abs(i.netBalance) > 0.01)) {
+        for (const item of data.revenue.filter(
+            (i) => !hideZero || Math.abs(i.netBalance) > 0.01,
+        )) {
             rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
         }
         rows.push(['Total Pendapatan', '', rupiahForCsv(data.totalRevenue)]);
@@ -107,32 +150,80 @@ export default function IncomeStatementPage() {
         // COGS
         rows.push(['', '', '']);
         rows.push(['', 'II. HARGA POKOK PENJUALAN (COGS)', '']);
-        rows.push(['Bahan Baku Langsung', '51000', rupiahForCsv(groupedCOGS.materials)]);
-        rows.push(['Tenaga Kerja Langsung', '52000', rupiahForCsv(groupedCOGS.labor)]);
-        rows.push(['Overhead Pabrik', '53000', rupiahForCsv(groupedCOGS.overhead)]);
-        rows.push(['Total Biaya Produksi', '', rupiahForCsv(data.totalManufacturingCosts)]);
+        rows.push([
+            'Bahan Baku Langsung',
+            '51000',
+            rupiahForCsv(groupedCOGS.materials),
+        ]);
+        rows.push([
+            'Tenaga Kerja Langsung',
+            '52000',
+            rupiahForCsv(groupedCOGS.labor),
+        ]);
+        rows.push([
+            'Overhead Pabrik',
+            '53000',
+            rupiahForCsv(groupedCOGS.overhead),
+        ]);
+        rows.push([
+            'Total Biaya Produksi',
+            '',
+            rupiahForCsv(data.totalManufacturingCosts),
+        ]);
         rows.push(['Total HPP', '', rupiahForCsv(data.totalCOGS)]);
         rows.push(['', '', '']);
-        rows.push(['LABA KOTOR (GROSS PROFIT)', '', rupiahForCsv(data.grossProfit)]);
+        rows.push([
+            'LABA KOTOR (GROSS PROFIT)',
+            '',
+            rupiahForCsv(data.grossProfit),
+        ]);
 
         // OpEx
         rows.push(['', '', '']);
         rows.push(['', 'III. BEBAN OPERASIONAL', '']);
-        rows.push(['Beban Penjualan & Pemasaran', '61000', rupiahForCsv(groupedOpEx.selling)]);
-        rows.push(['Beban Umum & Administrasi', '62000', rupiahForCsv(groupedOpEx.general)]);
-        rows.push(['Total Beban Operasional', '', rupiahForCsv(data.totalOpEx)]);
+        rows.push([
+            'Beban Penjualan & Pemasaran',
+            '61000',
+            rupiahForCsv(groupedOpEx.selling),
+        ]);
+        rows.push([
+            'Beban Umum & Administrasi',
+            '62000',
+            rupiahForCsv(groupedOpEx.general),
+        ]);
+        rows.push([
+            'Total Beban Operasional',
+            '',
+            rupiahForCsv(data.totalOpEx),
+        ]);
         rows.push(['', '', '']);
-        rows.push(['LABA OPERASIONAL (EBIT)', '', rupiahForCsv(data.operatingIncome)]);
+        rows.push([
+            'LABA OPERASIONAL (EBIT)',
+            '',
+            rupiahForCsv(data.operatingIncome),
+        ]);
 
         // Other
         rows.push(['', '', '']);
         rows.push(['IV. PENDAPATAN/BEBAN LAINNYA', '', '']);
-        for (const item of data.other.filter(i => !hideZero || Math.abs(i.netBalance) > 0.01)) {
+        for (const item of data.other.filter(
+            (i) => !hideZero || Math.abs(i.netBalance) > 0.01,
+        )) {
             const isExpense = item.code.startsWith('9');
-            rows.push([item.name, item.code, rupiahForCsv(isExpense ? -Math.abs(item.netBalance) : item.netBalance)]);
+            rows.push([
+                item.name,
+                item.code,
+                rupiahForCsv(
+                    isExpense ? -Math.abs(item.netBalance) : item.netBalance,
+                ),
+            ]);
         }
         rows.push(['', '', '']);
-        rows.push(['LABA BERSIH (NET INCOME)', '', rupiahForCsv(data.netIncome)]);
+        rows.push([
+            'LABA BERSIH (NET INCOME)',
+            '',
+            rupiahForCsv(data.netIncome),
+        ]);
 
         const dateStr = format(date, 'yyyy-MM');
         downloadCsv(reportFilename('Laba_Rugi', dateStr), headers, rows);
@@ -142,20 +233,31 @@ export default function IncomeStatementPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Laporan Laba Rugi</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Laporan Laba Rugi
+                    </h1>
                     <p className="text-muted-foreground">
-                        Analisis profitabilitas bertahap untuk periode yang dipilih.
+                        Analisis profitabilitas bertahap untuk periode yang
+                        dipilih.
                     </p>
                 </div>
                 <div className="flex gap-2 items-center">
                     <div className="flex items-center border rounded-md bg-background">
-                        <Button variant="ghost" size="icon" onClick={handlePrevMonth}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handlePrevMonth}
+                        >
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <div className="w-40 text-center font-medium">
-                            {format(date, "MMMM yyyy", { locale: id })}
+                            {format(date, 'MMMM yyyy', { locale: id })}
                         </div>
-                        <Button variant="ghost" size="icon" onClick={handleNextMonth}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleNextMonth}
+                        >
                             <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
@@ -165,7 +267,12 @@ export default function IncomeStatementPage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={!data}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleDownload}
+                        disabled={!data}
+                    >
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
@@ -177,7 +284,10 @@ export default function IncomeStatementPage() {
                     checked={hideZero}
                     onCheckedChange={setHideZero}
                 />
-                <Label htmlFor="hide-zero" className="cursor-pointer font-medium">
+                <Label
+                    htmlFor="hide-zero"
+                    className="cursor-pointer font-medium"
+                >
                     {reportLabels.hideZero}
                 </Label>
             </div>
@@ -186,34 +296,50 @@ export default function IncomeStatementPage() {
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Total Pendapatan
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data ? formatRupiah(data.totalRevenue) : '-'}</div>
+                        <div className="text-2xl font-bold">
+                            {data ? formatRupiah(data.totalRevenue) : '-'}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Laba Kotor</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Laba Kotor
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data ? formatRupiah(data.grossProfit) : '-'}</div>
+                        <div className="text-2xl font-bold">
+                            {data ? formatRupiah(data.grossProfit) : '-'}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Laba Operasional</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Laba Operasional
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data ? formatRupiah(data.operatingIncome) : '-'}</div>
+                        <div className="text-2xl font-bold">
+                            {data ? formatRupiah(data.operatingIncome) : '-'}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card className="bg-muted/50">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Laba Bersih</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Laba Bersih
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{data ? formatRupiah(data.netIncome) : '-'}</div>
+                        <div className="text-2xl font-bold text-primary">
+                            {data ? formatRupiah(data.netIncome) : '-'}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -221,32 +347,50 @@ export default function IncomeStatementPage() {
             {/* Main Report Table */}
             <Card>
                 <CardHeader>
-                    <CardTitle>{reportLabels.statementOfProfitOrLoss}</CardTitle>
-                    <CardDescription>{reportLabels.multiStepManufacturing}</CardDescription>
+                    <CardTitle>
+                        {reportLabels.statementOfProfitOrLoss}
+                    </CardTitle>
+                    <CardDescription>
+                        {reportLabels.multiStepManufacturing}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[50%]">Keterangan Akun</TableHead>
-                                    <TableHead className="w-[15%]">Kode</TableHead>
-                                    <TableHead className="text-right w-[35%]">Jumlah (IDR)</TableHead>
+                                    <TableHead className="w-[50%]">
+                                        Keterangan Akun
+                                    </TableHead>
+                                    <TableHead className="w-[15%]">
+                                        Kode
+                                    </TableHead>
+                                    <TableHead className="text-right w-[35%]">
+                                        Jumlah (IDR)
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-48 text-center">
+                                        <TableCell
+                                            colSpan={3}
+                                            className="h-48 text-center"
+                                        >
                                             <div className="flex flex-col items-center justify-center space-y-2">
                                                 <RotateCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                                                <span className="text-sm text-muted-foreground">Memuat data...</span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    Memuat data...
+                                                </span>
                                             </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : !data ? (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                                        <TableCell
+                                            colSpan={3}
+                                            className="h-24 text-center text-muted-foreground"
+                                        >
                                             Tidak ada data untuk periode ini
                                         </TableCell>
                                     </TableRow>
@@ -254,110 +398,234 @@ export default function IncomeStatementPage() {
                                     <>
                                         {/* 1. REVENUE SECTION */}
                                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                            <TableCell colSpan={3} className="font-semibold">
+                                            <TableCell
+                                                colSpan={3}
+                                                className="font-semibold"
+                                            >
                                                 I. PENDAPATAN (REVENUE)
                                             </TableCell>
                                         </TableRow>
                                         {data.revenue
-                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+                                            .filter(
+                                                (item) =>
+                                                    !hideZero ||
+                                                    Math.abs(item.netBalance) >
+                                                        0.01,
+                                            )
                                             .map((item) => (
                                                 <TableRow key={item.id}>
-                                                    <TableCell className="pl-8">{item.name}</TableCell>
-                                                    <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
-                                                    <TableCell className="text-right font-mono">{formatRupiah(item.netBalance)}</TableCell>
+                                                    <TableCell className="pl-8">
+                                                        {item.name}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-sm text-muted-foreground">
+                                                        {item.code}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {formatRupiah(
+                                                            item.netBalance,
+                                                        )}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         <TableRow className="font-semibold border-t">
-                                            <TableCell colSpan={2}>Total Pendapatan</TableCell>
-                                            <TableCell className="text-right font-mono">{formatRupiah(data.totalRevenue)}</TableCell>
+                                            <TableCell colSpan={2}>
+                                                Total Pendapatan
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(
+                                                    data.totalRevenue,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* 2. COGS SECTION (Simplified) */}
                                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                            <TableCell colSpan={3} className="font-semibold">
+                                            <TableCell
+                                                colSpan={3}
+                                                className="font-semibold"
+                                            >
                                                 II. HARGA POKOK PENJUALAN (COGS)
                                             </TableCell>
                                         </TableRow>
 
                                         {/* Simplified Categories */}
                                         <TableRow>
-                                            <TableCell className="pl-8">{reportLabels.directMaterialsUsed}</TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">51000</TableCell>
-                                            <TableCell className="text-right font-mono">{formatRupiah(groupedCOGS.materials)}</TableCell>
+                                            <TableCell className="pl-8">
+                                                {
+                                                    reportLabels.directMaterialsUsed
+                                                }
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm text-muted-foreground">
+                                                51000
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(
+                                                    groupedCOGS.materials,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="pl-8">{reportLabels.directLabor}</TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">52000</TableCell>
-                                            <TableCell className="text-right font-mono">{formatRupiah(groupedCOGS.labor)}</TableCell>
+                                            <TableCell className="pl-8">
+                                                {reportLabels.directLabor}
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm text-muted-foreground">
+                                                52000
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(
+                                                    groupedCOGS.labor,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="pl-8">{reportLabels.factoryOverhead}</TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">53000</TableCell>
-                                            <TableCell className="text-right font-mono">{formatRupiah(groupedCOGS.overhead)}</TableCell>
+                                            <TableCell className="pl-8">
+                                                {reportLabels.factoryOverhead}
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm text-muted-foreground">
+                                                53000
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(
+                                                    groupedCOGS.overhead,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         <TableRow className="border-t border-dashed">
-                                            <TableCell colSpan={2} className="pl-8 italic text-muted-foreground">Total Biaya Produksi</TableCell>
-                                            <TableCell className="text-right font-mono text-muted-foreground">{formatRupiah(data.totalManufacturingCosts)}</TableCell>
+                                            <TableCell
+                                                colSpan={2}
+                                                className="pl-8 italic text-muted-foreground"
+                                            >
+                                                Total Biaya Produksi
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-muted-foreground">
+                                                {formatRupiah(
+                                                    data.totalManufacturingCosts,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         <TableRow className="font-semibold border-t">
-                                            <TableCell colSpan={2}>Total HPP</TableCell>
-                                            <TableCell className="text-right font-mono">({formatRupiah(data.totalCOGS)})</TableCell>
+                                            <TableCell colSpan={2}>
+                                                Total HPP
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                ({formatRupiah(data.totalCOGS)})
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* Gross Profit */}
                                         <TableRow className="bg-muted/50 font-bold border-y-2">
-                                            <TableCell colSpan={2}>LABA KOTOR (GROSS PROFIT)</TableCell>
-                                            <TableCell className="text-right font-mono text-lg">{formatRupiah(data.grossProfit)}</TableCell>
+                                            <TableCell colSpan={2}>
+                                                LABA KOTOR (GROSS PROFIT)
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-lg">
+                                                {formatRupiah(data.grossProfit)}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* 3. OPERATING EXPENSES SECTION (Simplified) */}
                                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                            <TableCell colSpan={3} className="font-semibold">
+                                            <TableCell
+                                                colSpan={3}
+                                                className="font-semibold"
+                                            >
                                                 III. BEBAN OPERASIONAL
                                             </TableCell>
                                         </TableRow>
 
                                         <TableRow>
-                                            <TableCell className="pl-8">{reportLabels.sellingMarketingExpenses}</TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">61000</TableCell>
-                                            <TableCell className="text-right font-mono">({formatRupiah(groupedOpEx.selling)})</TableCell>
+                                            <TableCell className="pl-8">
+                                                {
+                                                    reportLabels.sellingMarketingExpenses
+                                                }
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm text-muted-foreground">
+                                                61000
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                (
+                                                {formatRupiah(
+                                                    groupedOpEx.selling,
+                                                )}
+                                                )
+                                            </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="pl-8">{reportLabels.generalAdminExpenses}</TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">62000</TableCell>
-                                            <TableCell className="text-right font-mono">({formatRupiah(groupedOpEx.general)})</TableCell>
+                                            <TableCell className="pl-8">
+                                                {
+                                                    reportLabels.generalAdminExpenses
+                                                }
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm text-muted-foreground">
+                                                62000
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                (
+                                                {formatRupiah(
+                                                    groupedOpEx.general,
+                                                )}
+                                                )
+                                            </TableCell>
                                         </TableRow>
 
                                         <TableRow className="font-semibold border-t">
-                                            <TableCell colSpan={2}>Total Beban Operasional</TableCell>
-                                            <TableCell className="text-right font-mono">({formatRupiah(data.totalOpEx)})</TableCell>
+                                            <TableCell colSpan={2}>
+                                                Total Beban Operasional
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                ({formatRupiah(data.totalOpEx)})
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* Operating Income */}
                                         <TableRow className="bg-muted/50 font-bold border-y-2">
-                                            <TableCell colSpan={2}>LABA OPERASIONAL (EBIT)</TableCell>
-                                            <TableCell className="text-right font-mono text-lg">{formatRupiah(data.operatingIncome)}</TableCell>
+                                            <TableCell colSpan={2}>
+                                                LABA OPERASIONAL (EBIT)
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-lg">
+                                                {formatRupiah(
+                                                    data.operatingIncome,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* 4. OTHER INCOME/EXPENSES */}
                                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                            <TableCell colSpan={3} className="font-semibold">
+                                            <TableCell
+                                                colSpan={3}
+                                                className="font-semibold"
+                                            >
                                                 IV. PENDAPATAN/BEBAN LAINNYA
                                             </TableCell>
                                         </TableRow>
                                         {data.other
-                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+                                            .filter(
+                                                (item) =>
+                                                    !hideZero ||
+                                                    Math.abs(item.netBalance) >
+                                                        0.01,
+                                            )
                                             .map((item) => {
                                                 // Account 9xxxx = expense/loss, should reduce income
-                                                const isExpense = item.code.startsWith('9');
+                                                const isExpense =
+                                                    item.code.startsWith('9');
                                                 return (
                                                     <TableRow key={item.id}>
-                                                        <TableCell className="pl-8">{item.name}</TableCell>
-                                                        <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
-                                                        <TableCell className={`text-right font-mono ${isExpense ? 'text-red-500' : ''}`}>
-                                                            {isExpense ? `(${formatRupiah(Math.abs(item.netBalance))})` : formatRupiah(item.netBalance)}
+                                                        <TableCell className="pl-8">
+                                                            {item.name}
+                                                        </TableCell>
+                                                        <TableCell className="font-mono text-sm text-muted-foreground">
+                                                            {item.code}
+                                                        </TableCell>
+                                                        <TableCell
+                                                            className={`text-right font-mono ${isExpense ? 'text-red-500' : ''}`}
+                                                        >
+                                                            {isExpense
+                                                                ? `(${formatRupiah(Math.abs(item.netBalance))})`
+                                                                : formatRupiah(
+                                                                      item.netBalance,
+                                                                  )}
                                                         </TableCell>
                                                     </TableRow>
                                                 );
@@ -365,8 +633,15 @@ export default function IncomeStatementPage() {
 
                                         {/* Net Income */}
                                         <TableRow className="bg-primary/10 hover:bg-primary/10 font-bold border-t-2">
-                                            <TableCell colSpan={2} className="text-lg">LABA BERSIH (NET INCOME)</TableCell>
-                                            <TableCell className="text-right font-mono text-xl text-primary">{formatRupiah(data.netIncome)}</TableCell>
+                                            <TableCell
+                                                colSpan={2}
+                                                className="text-lg"
+                                            >
+                                                LABA BERSIH (NET INCOME)
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-xl text-primary">
+                                                {formatRupiah(data.netIncome)}
+                                            </TableCell>
                                         </TableRow>
                                     </>
                                 )}
@@ -380,35 +655,66 @@ export default function IncomeStatementPage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">{reportLabels.grossMargin}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {reportLabels.grossMargin}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {data && data.totalRevenue > 0 ? ((data.grossProfit / data.totalRevenue) * 100).toFixed(1) : '0'}%
+                            {data && data.totalRevenue > 0
+                                ? (
+                                      (data.grossProfit / data.totalRevenue) *
+                                      100
+                                  ).toFixed(1)
+                                : '0'}
+                            %
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Efisiensi produksi</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Efisiensi produksi
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">{reportLabels.operatingMargin}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {reportLabels.operatingMargin}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {data && data.totalRevenue > 0 ? ((data.operatingIncome / data.totalRevenue) * 100).toFixed(1) : '0'}%
+                            {data && data.totalRevenue > 0
+                                ? (
+                                      (data.operatingIncome /
+                                          data.totalRevenue) *
+                                      100
+                                  ).toFixed(1)
+                                : '0'}
+                            %
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Efisiensi operasional</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Efisiensi operasional
+                        </p>
                     </CardContent>
                 </Card>
                 <Card className="bg-muted/50">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">{reportLabels.netProfitMargin}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {reportLabels.netProfitMargin}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-primary">
-                            {data && data.totalRevenue > 0 ? ((data.netIncome / data.totalRevenue) * 100).toFixed(1) : '0'}%
+                            {data && data.totalRevenue > 0
+                                ? (
+                                      (data.netIncome / data.totalRevenue) *
+                                      100
+                                  ).toFixed(1)
+                                : '0'}
+                            %
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Profitabilitas akhir</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Profitabilitas akhir
+                        </p>
                     </CardContent>
                 </Card>
             </div>

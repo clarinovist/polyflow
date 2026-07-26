@@ -9,8 +9,13 @@ export default function LoansPage() {
                     <HandCoins className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight uppercase">Kasbon Karyawan</h1>
-                    <p className="text-sm text-muted-foreground">Pengajuan kasbon dengan cicilan / lunas bulan depan (1 kasbon aktif per karyawan)</p>
+                    <h1 className="text-2xl font-black tracking-tight uppercase">
+                        Kasbon Karyawan
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Pengajuan kasbon dengan cicilan / lunas bulan depan (1
+                        kasbon aktif per karyawan)
+                    </p>
                 </div>
             </div>
             <LoansManager />

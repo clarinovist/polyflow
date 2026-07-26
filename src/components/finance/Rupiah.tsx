@@ -4,10 +4,10 @@ import { formatRupiahParts } from '@/lib/utils/utils';
 import { cn } from '@/lib/utils/utils';
 
 interface RupiahProps {
-  value: number | null | undefined;
-  className?: string;
-  /** Render as bold (for totals / group headers) */
-  bold?: boolean;
+    value: number | null | undefined;
+    className?: string;
+    /** Render as bold (for totals / group headers) */
+    bold?: boolean;
 }
 
 /**
@@ -22,16 +22,22 @@ interface RupiahProps {
  *   | (Rp         51.607.471)  |
  */
 export function Rupiah({ value, className, bold }: RupiahProps) {
-  const { prefix, amount, isNegative } = formatRupiahParts(value);
+    const { prefix, amount, isNegative } = formatRupiahParts(value);
 
-  return (
-    <span className={cn('flex items-baseline gap-1 font-mono tabular-nums w-full', bold && 'font-bold', className)}>
-      {prefix && (
-        <span className="text-muted-foreground shrink-0">{prefix}</span>
-      )}
-      <span className={cn('ml-auto', isNegative && 'text-destructive')}>
-        {isNegative ? `(${amount})` : amount}
-      </span>
-    </span>
-  );
+    return (
+        <span
+            className={cn(
+                'flex items-baseline gap-1 font-mono tabular-nums w-full',
+                bold && 'font-bold',
+                className,
+            )}
+        >
+            {prefix && (
+                <span className="text-muted-foreground shrink-0">{prefix}</span>
+            )}
+            <span className={cn('ml-auto', isNegative && 'text-destructive')}>
+                {isNegative ? `(${amount})` : amount}
+            </span>
+        </span>
+    );
 }

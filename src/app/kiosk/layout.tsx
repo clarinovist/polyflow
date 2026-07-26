@@ -1,12 +1,12 @@
-import { getActiveExecutions } from "@/actions/production/production";
-import { ActiveExecutionBanner } from "@/components/production/kiosk/ActiveExecutionBanner";
-import PolyFlowLogo from "@/components/auth/polyflow-logo";
-import { Clock } from "lucide-react";
+import { getActiveExecutions } from '@/actions/production/production';
+import { ActiveExecutionBanner } from '@/components/production/kiosk/ActiveExecutionBanner';
+import PolyFlowLogo from '@/components/auth/polyflow-logo';
+import { Clock } from 'lucide-react';
 
-import { ClockDisplay } from "./ClockDisplay";
-import { AdminBackButton } from "@/components/layout/admin-back-button";
-import { KioskFullscreenToggle } from "./KioskFullscreenToggle";
-import { KioskIdleShell } from "./KioskIdleShell";
+import { ClockDisplay } from './ClockDisplay';
+import { AdminBackButton } from '@/components/layout/admin-back-button';
+import { KioskFullscreenToggle } from './KioskFullscreenToggle';
+import { KioskIdleShell } from './KioskIdleShell';
 
 interface KioskActiveExecution {
     id: string;
@@ -18,17 +18,18 @@ interface KioskActiveExecution {
         bom: {
             productVariant: {
                 name: string;
-            }
-        }
-    }
+            };
+        };
+    };
 }
 
 export default async function KioskLayout({
     children,
 }: {
-    children: React.ReactNode
+    children: React.ReactNode;
 }) {
-    const activeExecutions = (await getActiveExecutions()) as unknown as KioskActiveExecution[];
+    const activeExecutions =
+        (await getActiveExecutions()) as unknown as KioskActiveExecution[];
 
     return (
         <KioskIdleShell>
@@ -38,14 +39,19 @@ export default async function KioskLayout({
                     <div className="flex items-center gap-3 md:gap-6">
                         <a href="/kiosk" className="flex items-center gap-2">
                             <PolyFlowLogo size="md" className="md:hidden" />
-                            <PolyFlowLogo size="lg" className="hidden md:block" />
+                            <PolyFlowLogo
+                                size="lg"
+                                className="hidden md:block"
+                            />
                         </a>
                         <div className="h-8 w-px bg-border hidden md:block" />
                         <div className="hidden md:flex flex-col">
                             <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-muted-foreground leading-none">
                                 Eksekusi Manufaktur
                             </span>
-                            <span className="text-lg md:text-xl font-black mt-1 uppercase">KIOSK</span>
+                            <span className="text-lg md:text-xl font-black mt-1 uppercase">
+                                KIOSK
+                            </span>
                         </div>
                     </div>
 
@@ -63,9 +69,7 @@ export default async function KioskLayout({
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-x-hidden">
-                    {children}
-                </main>
+                <main className="flex-1 overflow-x-hidden">{children}</main>
 
                 {activeExecutions.length > 0 && (
                     <ActiveExecutionBanner executions={activeExecutions} />

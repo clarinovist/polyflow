@@ -6,19 +6,23 @@ async function main() {
         where: { status: 'DRAFT' },
         include: {
             lines: {
-                include: { account: true }
-            }
+                include: { account: true },
+            },
         },
-        take: 5
+        take: 5,
     });
 
     console.log('Draft Journal Entries Found:', entries.length);
-    entries.forEach(entry => {
-        console.log(`\nEntry: ${entry.entryNumber} (${entry.entryDate.toISOString()}) - ${entry.description}`);
-        entry.lines.forEach(line => {
+    entries.forEach((entry) => {
+        console.log(
+            `\nEntry: ${entry.entryNumber} (${entry.entryDate.toISOString()}) - ${entry.description}`,
+        );
+        entry.lines.forEach((line) => {
             const type = line.debit > 0 ? 'DEBIT' : 'CREDIT';
             const amount = line.debit > 0 ? line.debit : line.credit;
-            console.log(`  - Account: ${line.account.code} ${line.account.name} (${line.account.type}) ${type}: ${amount}`);
+            console.log(
+                `  - Account: ${line.account.code} ${line.account.name} (${line.account.type}) ${type}: ${amount}`,
+            );
         });
     });
 }

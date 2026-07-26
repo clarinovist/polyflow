@@ -37,8 +37,8 @@ import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const accountSchema = z.object({
-    code: z.string().min(1, "Code is required"),
-    name: z.string().min(1, "Name is required"),
+    code: z.string().min(1, 'Code is required'),
+    name: z.string().min(1, 'Name is required'),
     type: z.nativeEnum(AccountType),
     category: z.nativeEnum(AccountCategory),
     description: z.string().optional(),
@@ -54,7 +54,11 @@ interface AccountFormProps {
     trigger?: React.ReactNode;
 }
 
-export function AccountForm({ account, parentOptions, trigger }: AccountFormProps) {
+export function AccountForm({
+    account,
+    parentOptions,
+    trigger,
+}: AccountFormProps) {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
@@ -78,15 +82,24 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                 await upsertAccount({
                     id: account?.id,
                     ...values,
-                    parentId: (values.parentId === 'null' || !values.parentId) ? null : values.parentId
+                    parentId:
+                        values.parentId === 'null' || !values.parentId
+                            ? null
+                            : values.parentId,
                 });
-                toast.success(account ? 'Akun berhasil diperbarui.' : 'Akun berhasil dibuat.');
+                toast.success(
+                    account
+                        ? 'Akun berhasil diperbarui.'
+                        : 'Akun berhasil dibuat.',
+                );
                 setOpen(false);
                 router.refresh();
                 if (!account) form.reset();
             } catch (error) {
                 toast.error(
-                    error instanceof Error ? error.message : 'Gagal menyimpan akun',
+                    error instanceof Error
+                        ? error.message
+                        : 'Gagal menyimpan akun',
                 );
             }
         });
@@ -103,10 +116,15 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>{account ? 'Edit Account' : 'New Account'}</DialogTitle>
+                    <DialogTitle>
+                        {account ? 'Edit Account' : 'New Account'}
+                    </DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-4"
+                    >
                         <FormField
                             control={form.control}
                             name="code"
@@ -114,7 +132,10 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                                 <FormItem>
                                     <FormLabel>Account Code</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. 1001" {...field} />
+                                        <Input
+                                            placeholder="e.g. 1001"
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -127,7 +148,10 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                                 <FormItem>
                                     <FormLabel>Account Name</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. Cash on Hand" {...field} />
+                                        <Input
+                                            placeholder="e.g. Cash on Hand"
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -140,16 +164,26 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Type</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                        >
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select type" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {Object.values(AccountType).map((type) => (
-                                                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                ))}
+                                                {Object.values(AccountType).map(
+                                                    (type) => (
+                                                        <SelectItem
+                                                            key={type}
+                                                            value={type}
+                                                        >
+                                                            {type}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -162,15 +196,25 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Category</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                        >
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select category" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {Object.values(AccountCategory).map((cat) => (
-                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                {Object.values(
+                                                    AccountCategory,
+                                                ).map((cat) => (
+                                                    <SelectItem
+                                                        key={cat}
+                                                        value={cat}
+                                                    >
+                                                        {cat}
+                                                    </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -197,11 +241,24 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="null">None</SelectItem> {/* Handle null explicitly if generic doesn't support null */}
-                                            {(parentOptions || []).map((opt) => {
-                                                if (!opt) return null;
-                                                return <SelectItem key={opt.id} value={opt.id}>{opt.code} - {opt.name}</SelectItem>
-                                            })}
+                                            <SelectItem value="null">
+                                                None
+                                            </SelectItem>{' '}
+                                            {/* Handle null explicitly if generic doesn't support null */}
+                                            {(parentOptions || []).map(
+                                                (opt) => {
+                                                    if (!opt) return null;
+                                                    return (
+                                                        <SelectItem
+                                                            key={opt.id}
+                                                            value={opt.id}
+                                                        >
+                                                            {opt.code} -{' '}
+                                                            {opt.name}
+                                                        </SelectItem>
+                                                    );
+                                                },
+                                            )}
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -234,7 +291,9 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
 
                         <div className="flex justify-end pt-4">
                             <Button type="submit" disabled={isPending}>
-                                {isPending && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>}
+                                {isPending && (
+                                    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                                )}
                                 Simpan Perubahan
                             </Button>
                         </div>

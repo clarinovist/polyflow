@@ -37,7 +37,7 @@ export interface GeneralLedgerData {
  */
 export async function getGeneralLedger(
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
 ): Promise<GeneralLedgerData> {
     // Interpret the incoming date range as WIB business days. Using WIB bounds
     // keeps GL filtering consistent with how entryDate is stored (WIB-midnight
@@ -49,8 +49,8 @@ export async function getGeneralLedger(
     const where: Prisma.JournalLineWhereInput = {
         journalEntry: {
             status: 'POSTED',
-            ...(Object.keys(entryDate).length ? { entryDate } : {})
-        }
+            ...(Object.keys(entryDate).length ? { entryDate } : {}),
+        },
     };
 
     // Fetch all journal lines with their entry info, ordered by account then date
@@ -64,8 +64,8 @@ export async function getGeneralLedger(
                     entryDate: true,
                     description: true,
                     reference: true,
-                    referenceType: true
-                }
+                    referenceType: true,
+                },
             },
             account: {
                 select: {
@@ -73,15 +73,15 @@ export async function getGeneralLedger(
                     code: true,
                     name: true,
                     type: true,
-                    category: true
-                }
-            }
+                    category: true,
+                },
+            },
         },
         orderBy: [
             { account: { code: 'asc' } },
             { journalEntry: { entryDate: 'asc' } },
-            { journalEntry: { entryNumber: 'asc' } }
-        ]
+            { journalEntry: { entryNumber: 'asc' } },
+        ],
     });
 
     // Collect account IDs that have activity in the date range
@@ -98,35 +98,46 @@ export async function getGeneralLedger(
                 accountId: { in: Array.from(relevantAccountIds) },
                 journalEntry: {
                     status: 'POSTED',
-                    entryDate: { lt: rangeStart }
-                }
+                    entryDate: { lt: rangeStart },
+                },
             },
             include: {
                 account: {
-                    select: { id: true, type: true }
-                }
-            }
+                    select: { id: true, type: true },
+                },
+            },
         });
 
         for (const line of preLines) {
             const d = Number(line.debit);
             const c = Number(line.credit);
-            const isDebitNormal = ['ASSET', 'EXPENSE'].includes(line.account.type);
+            const isDebitNormal = ['ASSET', 'EXPENSE'].includes(
+                line.account.type,
+            );
             const current = beginningBalances.get(line.accountId) || 0;
             beginningBalances.set(
                 line.accountId,
-                current + (isDebitNormal ? d - c : c - d)
+                current + (isDebitNormal ? d - c : c - d),
             );
         }
     }
 
     // Group lines by account
-    const accountMap = new Map<string, {
-        account: { id: string; code: string; name: string; type: AccountType; category: string };
-        entries: GeneralLedgerEntry[];
-        totalDebit: number;
-        totalCredit: number;
-    }>();
+    const accountMap = new Map<
+        string,
+        {
+            account: {
+                id: string;
+                code: string;
+                name: string;
+                type: AccountType;
+                category: string;
+            };
+            entries: GeneralLedgerEntry[];
+            totalDebit: number;
+            totalCredit: number;
+        }
+    >();
 
     for (const line of lines) {
         const accId = line.accountId;
@@ -137,11 +148,11 @@ export async function getGeneralLedger(
                     code: line.account.code,
                     name: line.account.name,
                     type: line.account.type,
-                    category: line.account.category
+                    category: line.account.category,
                 },
                 entries: [],
                 totalDebit: 0,
-                totalCredit: 0
+                totalCredit: 0,
             });
         }
 
@@ -151,9 +162,10 @@ export async function getGeneralLedger(
 
         // Running balance calculation
         const isDebitNormal = ['ASSET', 'EXPENSE'].includes(line.account.type);
-        const lastBalance = group.entries.length > 0
-            ? group.entries[group.entries.length - 1].balance
-            : (beginningBalances.get(accId) || 0);
+        const lastBalance =
+            group.entries.length > 0
+                ? group.entries[group.entries.length - 1].balance
+                : beginningBalances.get(accId) || 0;
 
         const newBalance = isDebitNormal
             ? lastBalance + debit - credit
@@ -167,7 +179,7 @@ export async function getGeneralLedger(
             referenceType: line.journalEntry.referenceType,
             debit,
             credit,
-            balance: newBalance
+            balance: newBalance,
         });
 
         group.totalDebit += debit;
@@ -177,19 +189,20 @@ export async function getGeneralLedger(
     // Build result, sorted by account code
     const accounts: GeneralLedgerAccount[] = Array.from(accountMap.values())
         .sort((a, b) => a.account.code.localeCompare(b.account.code))
-        .map(group => ({
+        .map((group) => ({
             ...group.account,
             entries: group.entries,
             totalDebit: group.totalDebit,
             totalCredit: group.totalCredit,
-            endingBalance: group.entries.length > 0
-                ? group.entries[group.entries.length - 1].balance
-                : (beginningBalances.get(group.account.id) || 0)
+            endingBalance:
+                group.entries.length > 0
+                    ? group.entries[group.entries.length - 1].balance
+                    : beginningBalances.get(group.account.id) || 0,
         }));
 
     return {
         accounts,
         grandTotalDebit: accounts.reduce((sum, a) => sum + a.totalDebit, 0),
-        grandTotalCredit: accounts.reduce((sum, a) => sum + a.totalCredit, 0)
+        grandTotalCredit: accounts.reduce((sum, a) => sum + a.totalCredit, 0),
     };
 }

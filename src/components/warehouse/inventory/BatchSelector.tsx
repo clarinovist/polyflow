@@ -1,8 +1,14 @@
 'use client';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 import { warehouseComponentLabels } from '@/lib/labels';
 
 interface BatchInfo {
@@ -20,10 +26,17 @@ interface BatchSelectorProps {
     placeholder?: string;
 }
 
-export function BatchSelector({ batches, selectedBatchId, onSelect, placeholder = warehouseComponentLabels.selectBatch }: BatchSelectorProps) {
+export function BatchSelector({
+    batches,
+    selectedBatchId,
+    onSelect,
+    placeholder = warehouseComponentLabels.selectBatch,
+}: BatchSelectorProps) {
     // Sort batches: Oldest manufacturing date first (FIFO)
-    const sortedBatches = [...batches].sort((a, b) =>
-        new Date(a.manufacturingDate).getTime() - new Date(b.manufacturingDate).getTime()
+    const sortedBatches = [...batches].sort(
+        (a, b) =>
+            new Date(a.manufacturingDate).getTime() -
+            new Date(b.manufacturingDate).getTime(),
     );
 
     return (
@@ -33,18 +46,45 @@ export function BatchSelector({ batches, selectedBatchId, onSelect, placeholder 
             </SelectTrigger>
             <SelectContent>
                 {sortedBatches.map((batch, index) => {
-                    const isExpired = batch.expiryDate ? new Date(batch.expiryDate) < new Date() : false;
+                    const isExpired = batch.expiryDate
+                        ? new Date(batch.expiryDate) < new Date()
+                        : false;
                     return (
-                        <SelectItem key={batch.id} value={batch.id} disabled={isExpired}>
+                        <SelectItem
+                            key={batch.id}
+                            value={batch.id}
+                            disabled={isExpired}
+                        >
                             <div className="flex items-center justify-between gap-4 w-full">
                                 <span className="font-mono font-medium">
                                     {batch.batchNumber}
-                                    {index === 0 && <span className="ml-2 text-xs text-green-600 font-bold">(FIFO)</span>}
+                                    {index === 0 && (
+                                        <span className="ml-2 text-xs text-green-600 font-bold">
+                                            (FIFO)
+                                        </span>
+                                    )}
                                 </span>
                                 <div className="flex gap-2 text-xs text-muted-foreground">
-                                    <span>{warehouseComponentLabels.availableStock}: {batch.quantity}</span>
-                                    <span>{format(new Date(batch.manufacturingDate), 'MMM d')}</span>
-                                    {isExpired && <Badge variant="destructive" className="h-4 px-1 text-[10px]">Exp</Badge>}
+                                    <span>
+                                        {
+                                            warehouseComponentLabels.availableStock
+                                        }
+                                        : {batch.quantity}
+                                    </span>
+                                    <span>
+                                        {format(
+                                            new Date(batch.manufacturingDate),
+                                            'MMM d',
+                                        )}
+                                    </span>
+                                    {isExpired && (
+                                        <Badge
+                                            variant="destructive"
+                                            className="h-4 px-1 text-[10px]"
+                                        >
+                                            Exp
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                         </SelectItem>

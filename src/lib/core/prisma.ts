@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
 import { AsyncLocalStorage } from 'async_hooks';
 import { withStatusAudit } from '@/lib/core/prisma-audit-extension';
 
@@ -13,9 +13,15 @@ function withTxTimeout(client: PrismaClient): PrismaClient {
     const c = client as unknown as Record<string, unknown>;
     c.$transaction = (arg: unknown, opts?: Record<string, unknown>) => {
         if (typeof arg === 'function') {
-            return originalTx(arg as Parameters<typeof originalTx>[0], { timeout: TX_TIMEOUT_MS, ...opts });
+            return originalTx(arg as Parameters<typeof originalTx>[0], {
+                timeout: TX_TIMEOUT_MS,
+                ...opts,
+            });
         }
-        return originalTx(arg as Parameters<typeof originalTx>[0], opts as Parameters<typeof originalTx>[1]);
+        return originalTx(
+            arg as Parameters<typeof originalTx>[0],
+            opts as Parameters<typeof originalTx>[1],
+        );
     };
     return client;
 }
@@ -28,7 +34,8 @@ const globalForTenantContext = globalThis as unknown as {
 };
 export const tenantContext: AsyncLocalStorage<PrismaClient> =
     globalForTenantContext.__polyflowTenantContext ??
-    (globalForTenantContext.__polyflowTenantContext = new AsyncLocalStorage<PrismaClient>());
+    (globalForTenantContext.__polyflowTenantContext =
+        new AsyncLocalStorage<PrismaClient>());
 
 // Parallel store for tenant ID — does NOT replace tenantContext.
 // Kept separate to avoid breaking the prisma Proxy and all existing callers.
@@ -37,7 +44,8 @@ const globalForTenantIdContext = globalThis as unknown as {
 };
 export const tenantIdContext: AsyncLocalStorage<string> =
     globalForTenantIdContext.__polyflowTenantIdContext ??
-    (globalForTenantIdContext.__polyflowTenantIdContext = new AsyncLocalStorage<string>());
+    (globalForTenantIdContext.__polyflowTenantIdContext =
+        new AsyncLocalStorage<string>());
 
 /** Get the current tenant ID from async context (undefined outside tenant scope). */
 export function getTenantIdFromContext(): string | undefined {
@@ -55,7 +63,10 @@ const globalForTenantClients = globalThis as unknown as {
 };
 const clients: Map<string, PrismaClient> =
     globalForTenantClients.__polyflowTenantClients ??
-    (globalForTenantClients.__polyflowTenantClients = new Map<string, PrismaClient>());
+    (globalForTenantClients.__polyflowTenantClients = new Map<
+        string,
+        PrismaClient
+    >());
 
 export function getTenantDb(datasourceUrl: string): PrismaClient {
     if (!clients.has(datasourceUrl)) {
@@ -69,18 +80,20 @@ export function getTenantDb(datasourceUrl: string): PrismaClient {
 
 export async function disconnectAllTenants() {
     const promises = Array.from(clients.values()).map((client) =>
-        client.$disconnect()
+        client.$disconnect(),
     );
     await Promise.all(promises);
     clients.clear();
 }
 
 // Global Main/Fallback Prisma Client — MUST be global singleton in all environments
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
-const mainPrisma = globalForPrisma.prisma || withStatusAudit(withTxTimeout(new PrismaClient()))
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const mainPrisma =
+    globalForPrisma.prisma ||
+    withStatusAudit(withTxTimeout(new PrismaClient()));
 
 // Always cache on globalThis — prevents duplicate clients across SSR chunks
-globalForPrisma.prisma = mainPrisma
+globalForPrisma.prisma = mainPrisma;
 
 /**
  * Access the main (non-tenant) Prisma client directly.
@@ -93,11 +106,11 @@ export function getMainPrisma(): PrismaClient {
 
 /**
  * Global Proxy for Prisma.
- * Whenever `prisma.user.findMany()` is called anywhere in the app, 
+ * Whenever `prisma.user.findMany()` is called anywhere in the app,
  * this Proxy intercepts it and routes it to the correct tenant Database
  * IF it's running inside `tenantContext.run()`.
  * If not, it falls back to the Main DB.
- * 
+ *
  * MUST be a global singleton — if different SSR chunks create separate
  * proxies, each imports its own `tenantContext` and context routing breaks.
  */
@@ -119,5 +132,5 @@ export const prisma: typeof mainPrisma =
                 return Reflect.get(tenantDb, prop, receiver);
             }
             return Reflect.get(target, prop, receiver);
-        }
+        },
     }));

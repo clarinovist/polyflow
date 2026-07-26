@@ -3,11 +3,11 @@ const prisma = new PrismaClient();
 
 async function main() {
     const accounts = await prisma.account.findMany({
-        orderBy: { code: 'asc' }
+        orderBy: { code: 'asc' },
     });
 
     console.log('Total Accounts:', accounts.length);
-    accounts.forEach(acc => {
+    accounts.forEach((acc) => {
         console.log(`${acc.code} ${acc.name} (${acc.type} / ${acc.category})`);
     });
 }

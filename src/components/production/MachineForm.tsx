@@ -32,7 +32,9 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
         type: initialData?.type || MachineType.MIXER,
         locationId: initialData?.locationId || locations[0]?.id || '',
         status: initialData?.status || MachineStatus.ACTIVE,
-        costPerHour: initialData?.costPerHour ? Number(initialData.costPerHour) : 0,
+        costPerHour: initialData?.costPerHour
+            ? Number(initialData.costPerHour)
+            : 0,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -48,21 +50,28 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
             }
 
             if (res.success) {
-                toast.success(initialData ? 'Konfigurasi berhasil diperbarui.' : 'Mesin berhasil didaftarkan.', {
-                    description: `${formData.name} (${formData.code}) telah berhasil disimpan.`
-                });
+                toast.success(
+                    initialData
+                        ? 'Konfigurasi berhasil diperbarui.'
+                        : 'Mesin berhasil didaftarkan.',
+                    {
+                        description: `${formData.name} (${formData.code}) telah berhasil disimpan.`,
+                    },
+                );
                 router.push('/dashboard/machines');
                 router.refresh();
             } else {
                 toast.error('Kesalahan sistem', {
-                    description: res.error || 'Gagal menyimpan konfigurasi mesin'
+                    description:
+                        res.error || 'Gagal menyimpan konfigurasi mesin',
                 });
                 setLoading(false);
             }
         } catch (err) {
             console.error('[MACHINE_FORM_SUBMIT_ERROR]', err);
             toast.error('Kegagalan tak terduga', {
-                description: 'Gagal menyimpan. Periksa koneksi Anda dan coba lagi.'
+                description:
+                    'Gagal menyimpan. Periksa koneksi Anda dan coba lagi.',
             });
             setLoading(false);
         }
@@ -72,11 +81,18 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
         <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
             <div className="grid gap-6">
                 <div className="space-y-2">
-                    <Label htmlFor="name" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineName}</Label>
+                    <Label
+                        htmlFor="name"
+                        className="text-sm font-semibold tracking-tight"
+                    >
+                        {productionComponentLabels.machineName}
+                    </Label>
                     <Input
                         id="name"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) =>
+                            setFormData({ ...formData, name: e.target.value })
+                        }
                         required
                         placeholder="e.g. Mixer Turbo 01"
                         className="bg-background/50"
@@ -84,11 +100,18 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="code" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineCode}</Label>
+                    <Label
+                        htmlFor="code"
+                        className="text-sm font-semibold tracking-tight"
+                    >
+                        {productionComponentLabels.machineCode}
+                    </Label>
                     <Input
                         id="code"
                         value={formData.code}
-                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                        onChange={(e) =>
+                            setFormData({ ...formData, code: e.target.value })
+                        }
                         required
                         placeholder="e.g. MIX-01"
                         className="bg-background/50"
@@ -97,13 +120,27 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="type" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineType}</Label>
+                        <Label
+                            htmlFor="type"
+                            className="text-sm font-semibold tracking-tight"
+                        >
+                            {productionComponentLabels.machineType}
+                        </Label>
                         <Select
                             value={formData.type}
-                            onValueChange={(value) => setFormData({ ...formData, type: value as MachineType })}
+                            onValueChange={(value) =>
+                                setFormData({
+                                    ...formData,
+                                    type: value as MachineType,
+                                })
+                            }
                         >
                             <SelectTrigger className="bg-background/50">
-                                <SelectValue placeholder={productionComponentLabels.selectType} />
+                                <SelectValue
+                                    placeholder={
+                                        productionComponentLabels.selectType
+                                    }
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.keys(MachineType).map((type) => (
@@ -116,13 +153,24 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="location" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineLocation}</Label>
+                        <Label
+                            htmlFor="location"
+                            className="text-sm font-semibold tracking-tight"
+                        >
+                            {productionComponentLabels.machineLocation}
+                        </Label>
                         <Select
                             value={formData.locationId}
-                            onValueChange={(value) => setFormData({ ...formData, locationId: value })}
+                            onValueChange={(value) =>
+                                setFormData({ ...formData, locationId: value })
+                            }
                         >
                             <SelectTrigger className="bg-background/50">
-                                <SelectValue placeholder={productionComponentLabels.selectLocation} />
+                                <SelectValue
+                                    placeholder={
+                                        productionComponentLabels.selectLocation
+                                    }
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {locations.map((loc) => (
@@ -136,7 +184,12 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="costPerHour" className="text-sm font-semibold tracking-tight">Cost Per Hour (IDR)</Label>
+                    <Label
+                        htmlFor="costPerHour"
+                        className="text-sm font-semibold tracking-tight"
+                    >
+                        Cost Per Hour (IDR)
+                    </Label>
                     <Input
                         id="costPerHour"
                         type="number"
@@ -144,24 +197,44 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                         step="1000"
                         value={formData.costPerHour}
                         onChange={(e) => {
-                                const normalized = e.target.value.replace(',', '.');
-                                const num = Number(normalized);
-                                setFormData({ ...formData, costPerHour: isNaN(num) ? 0 : num });
-                            }}
+                            const normalized = e.target.value.replace(',', '.');
+                            const num = Number(normalized);
+                            setFormData({
+                                ...formData,
+                                costPerHour: isNaN(num) ? 0 : num,
+                            });
+                        }}
                         placeholder="e.g. 50000"
                         className="bg-background/50"
                     />
-                    <p className="text-[11px] text-muted-foreground italic">Standard operating cost including electricity/depreciation.</p>
+                    <p className="text-[11px] text-muted-foreground italic">
+                        Standard operating cost including
+                        electricity/depreciation.
+                    </p>
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="status" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineStatus}</Label>
+                    <Label
+                        htmlFor="status"
+                        className="text-sm font-semibold tracking-tight"
+                    >
+                        {productionComponentLabels.machineStatus}
+                    </Label>
                     <Select
                         value={formData.status}
-                        onValueChange={(value) => setFormData({ ...formData, status: value as MachineStatus })}
+                        onValueChange={(value) =>
+                            setFormData({
+                                ...formData,
+                                status: value as MachineStatus,
+                            })
+                        }
                     >
                         <SelectTrigger className="bg-background/50">
-                            <SelectValue placeholder={productionComponentLabels.selectStatus} />
+                            <SelectValue
+                                placeholder={
+                                    productionComponentLabels.selectStatus
+                                }
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             {Object.keys(MachineStatus).map((status) => (
@@ -175,13 +248,26 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
             </div>
 
             <div className="flex items-center gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.back()}
+                    disabled={loading}
+                >
                     Batal
                 </Button>
-                <Button type="submit" disabled={loading} className="min-w-[140px]">
-                    {loading ? 'Memproses...' : initialData ? 'Perbarui Mesin' : 'Daftarkan Mesin'}
+                <Button
+                    type="submit"
+                    disabled={loading}
+                    className="min-w-[140px]"
+                >
+                    {loading
+                        ? 'Memproses...'
+                        : initialData
+                          ? 'Perbarui Mesin'
+                          : 'Daftarkan Mesin'}
                 </Button>
             </div>
-        </form >
+        </form>
     );
 }

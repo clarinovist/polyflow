@@ -1,24 +1,32 @@
 import { prisma } from '@/lib/core/prisma';
-import { SalesOrderStatus, ReservationStatus, ReservationType, ProductType } from '@prisma/client';
+import {
+    SalesOrderStatus,
+    ReservationStatus,
+    ReservationType,
+    ProductType,
+} from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
 import { InvoiceService } from '@/services/finance/invoice-service';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 
 export async function markReadyToShip(id: string, userId: string) {
     const order = await prisma.salesOrder.findUnique({ where: { id } });
-    if (!order) throw new NotFoundError("Sales Order", id);
+    if (!order) throw new NotFoundError('Sales Order', id);
 
-    if (order.status !== SalesOrderStatus.IN_PRODUCTION && order.status !== SalesOrderStatus.CONFIRMED) {
+    if (
+        order.status !== SalesOrderStatus.IN_PRODUCTION &&
+        order.status !== SalesOrderStatus.CONFIRMED
+    ) {
         throw new BusinessRuleError(
             `Order must be IN_PRODUCTION or CONFIRMED. Got: ${order.status}`,
             { status: order.status, orderId: id },
-            "INVALID_ORDER_STATUS",
+            'INVALID_ORDER_STATUS',
         );
     }
 
     await prisma.salesOrder.update({
         where: { id },
-        data: { status: SalesOrderStatus.READY_TO_SHIP }
+        data: { status: SalesOrderStatus.READY_TO_SHIP },
     });
 
     await logActivity({
@@ -26,9 +34,10 @@ export async function markReadyToShip(id: string, userId: string) {
         action: 'UPDATE_SALES_STATUS',
         entityType: 'SalesOrder',
         entityId: id,
-        details: order.orderType === 'MAKLON_JASA'
-            ? `Sales Order ${order.orderNumber} marked as Ready for Service Closure`
-            : `Sales Order ${order.orderNumber} marked as Ready to Ship`,
+        details:
+            order.orderType === 'MAKLON_JASA'
+                ? `Sales Order ${order.orderNumber} marked as Ready for Service Closure`
+                : `Sales Order ${order.orderNumber} marked as Ready to Ship`,
         fromStatus: order.status,
         toStatus: SalesOrderStatus.READY_TO_SHIP,
     });
@@ -45,31 +54,46 @@ export async function markReadyToShip(id: string, userId: string) {
  *
  * Maintains backward compat: existing UI calling shipSalesOrder still works.
  */
-export async function shipOrder(id: string, userId: string, trackingInfo?: { trackingNumber?: string; carrier?: string }) {
-    const { createDeliveryOrderFromSalesOrder, commitDeliveryShipment } = await import('./delivery-fulfillment-service');
+export async function shipOrder(
+    id: string,
+    userId: string,
+    trackingInfo?: { trackingNumber?: string; carrier?: string },
+) {
+    const { createDeliveryOrderFromSalesOrder, commitDeliveryShipment } =
+        await import('./delivery-fulfillment-service');
 
     const order = await prisma.salesOrder.findUnique({
         where: { id },
-        include: { items: { include: { productVariant: { include: { product: true } } } } }
+        include: {
+            items: {
+                include: { productVariant: { include: { product: true } } },
+            },
+        },
     });
 
-    if (!order) throw new NotFoundError("Sales Order", id);
-    if (order.status !== SalesOrderStatus.CONFIRMED && order.status !== SalesOrderStatus.IN_PRODUCTION && order.status !== SalesOrderStatus.READY_TO_SHIP) {
+    if (!order) throw new NotFoundError('Sales Order', id);
+    if (
+        order.status !== SalesOrderStatus.CONFIRMED &&
+        order.status !== SalesOrderStatus.IN_PRODUCTION &&
+        order.status !== SalesOrderStatus.READY_TO_SHIP
+    ) {
         throw new BusinessRuleError(
-            "Order must be CONFIRMED, IN_PRODUCTION, or READY_TO_SHIP to be shipped",
+            'Order must be CONFIRMED, IN_PRODUCTION, or READY_TO_SHIP to be shipped',
             { status: order.status, orderId: id },
-            "INVALID_ORDER_STATUS",
+            'INVALID_ORDER_STATUS',
         );
     }
-    if (!order.sourceLocationId) throw new BusinessRuleError(
-        "Source location is required before shipping. Please edit the order and select a warehouse.",
-        { orderId: id },
-    );
+    if (!order.sourceLocationId)
+        throw new BusinessRuleError(
+            'Source location is required before shipping. Please edit the order and select a warehouse.',
+            { orderId: id },
+        );
 
     const isMaklonServiceOnly =
         order.orderType === 'MAKLON_JASA' &&
         order.items.every(
-            (item) => item.productVariant.product.productType === ProductType.SERVICE
+            (item) =>
+                item.productVariant.product.productType === ProductType.SERVICE,
         );
 
     // Maklon jasa-only: no physical DO / stock — close SO + draft invoice (legacy behavior)
@@ -110,8 +134,8 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
 
     if (openDos.length > 1) {
         throw new BusinessRuleError(
-            `Ada ${openDos.length} Surat Jalan aktif untuk SO ini: ${openDos.map(d => d.orderNumber).join(', ')}. Gunakan halaman detail DO untuk memilih DO yang akan dikirim.`,
-            { openDOs: openDos.map(d => d.orderNumber), salesOrderId: id },
+            `Ada ${openDos.length} Surat Jalan aktif untuk SO ini: ${openDos.map((d) => d.orderNumber).join(', ')}. Gunakan halaman detail DO untuk memilih DO yang akan dikirim.`,
+            { openDOs: openDos.map((d) => d.orderNumber), salesOrderId: id },
         );
     }
 
@@ -136,12 +160,14 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
 
 export async function deliverOrder(orderId: string, userId: string) {
     await prisma.$transaction(async (tx) => {
-        const order = await tx.salesOrder.findUnique({ where: { id: orderId } });
-        if (!order) throw new NotFoundError("Sales Order", orderId);
+        const order = await tx.salesOrder.findUnique({
+            where: { id: orderId },
+        });
+        if (!order) throw new NotFoundError('Sales Order', orderId);
 
         await tx.salesOrder.update({
             where: { id: orderId },
-            data: { status: SalesOrderStatus.DELIVERED }
+            data: { status: SalesOrderStatus.DELIVERED },
         });
 
         // Keep related Delivery Orders in sync (was previously only updating SalesOrder)
@@ -158,9 +184,9 @@ export async function deliverOrder(orderId: string, userId: string) {
             where: {
                 referenceId: orderId,
                 reservedFor: ReservationType.SALES_ORDER,
-                status: ReservationStatus.ACTIVE
+                status: ReservationStatus.ACTIVE,
             },
-            data: { status: ReservationStatus.FULFILLED }
+            data: { status: ReservationStatus.FULFILLED },
         });
 
         await logActivity({
@@ -168,15 +194,16 @@ export async function deliverOrder(orderId: string, userId: string) {
             action: 'UPDATE_SALES_STATUS',
             entityType: 'SalesOrder',
             entityId: orderId,
-            details: order.orderType === 'MAKLON_JASA'
-                ? `Sales Order ${order.orderNumber} marked as Service Delivered`
-                : `Sales Order ${order.orderNumber} marked as Delivered` +
-                  (openDeliveryOrders.count > 0
-                      ? ` (${openDeliveryOrders.count} delivery order(s) set to DELIVERED)`
-                      : ''),
+            details:
+                order.orderType === 'MAKLON_JASA'
+                    ? `Sales Order ${order.orderNumber} marked as Service Delivered`
+                    : `Sales Order ${order.orderNumber} marked as Delivered` +
+                      (openDeliveryOrders.count > 0
+                          ? ` (${openDeliveryOrders.count} delivery order(s) set to DELIVERED)`
+                          : ''),
             fromStatus: order.status,
             toStatus: SalesOrderStatus.DELIVERED,
-            tx
+            tx,
         });
     });
 }

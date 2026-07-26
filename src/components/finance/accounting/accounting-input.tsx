@@ -4,12 +4,20 @@ import * as React from 'react';
 import { Input } from '../../ui/input';
 import { cn } from '@/lib/utils/utils';
 
-interface AccountingInputProps extends Omit<React.ComponentProps<typeof Input>, 'onChange' | 'value'> {
+interface AccountingInputProps extends Omit<
+    React.ComponentProps<typeof Input>,
+    'onChange' | 'value'
+> {
     value: number;
     onValueChange: (value: number) => void;
 }
 
-export function AccountingInput({ value, onValueChange, className, ...props }: AccountingInputProps) {
+export function AccountingInput({
+    value,
+    onValueChange,
+    className,
+    ...props
+}: AccountingInputProps) {
     const [displayValue, setDisplayValue] = React.useState('');
 
     const formatNumeric = (val: string) => {
@@ -20,7 +28,8 @@ export function AccountingInput({ value, onValueChange, className, ...props }: A
 
     // Update display value when the numerical value changes from outside (e.g. form reset or auto-clear)
     React.useEffect(() => {
-        const formattedValue = value === 0 ? '' : new Intl.NumberFormat('id-ID').format(value);
+        const formattedValue =
+            value === 0 ? '' : new Intl.NumberFormat('id-ID').format(value);
         if (formatNumeric(displayValue) !== value) {
             setDisplayValue(formattedValue);
         }
@@ -34,7 +43,10 @@ export function AccountingInput({ value, onValueChange, className, ...props }: A
         onValueChange(numericValue);
 
         // Update display value (with dots)
-        const formatted = numericValue === 0 && rawValue === '' ? '' : new Intl.NumberFormat('id-ID').format(numericValue);
+        const formatted =
+            numericValue === 0 && rawValue === ''
+                ? ''
+                : new Intl.NumberFormat('id-ID').format(numericValue);
         setDisplayValue(formatted);
     };
 

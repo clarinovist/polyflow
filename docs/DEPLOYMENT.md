@@ -1,6 +1,7 @@
 # Deployment Instructions
 
 ## Prerequisites
+
 - Docker Engine installed
 - Docker Compose installed (v2.x recommended)
 
@@ -8,22 +9,28 @@
 
 1.  **Clone the repository** to your VPS.
 2.  **Configure Environment Variables**:
+
     ```bash
     cp .env.example .env
     ```
+
     Edit `.env` and set a secure `AUTH_SECRET`:
+
     ```bash
     openssl rand -base64 32
     ```
-  **Critical (multi-tenant)**: This app serves each tenant on its own subdomain
-  (e.g. `kiyowo.polyflow.uk`) and the superadmin on `admin.polyflow.uk`. Do
-  **not** pin `NEXTAUTH_URL`/`AUTH_URL` to a single domain — it breaks auth on
-  the other hosts. Instead set `AUTH_TRUST_HOST=true` so Auth.js trusts the
-  reverse proxy's `Host`/`X-Forwarded-*` headers:
+
+    **Critical (multi-tenant)**: This app serves each tenant on its own subdomain
+    (e.g. `kiyowo.polyflow.uk`) and the superadmin on `admin.polyflow.uk`. Do
+    **not** pin `NEXTAUTH_URL`/`AUTH_URL` to a single domain — it breaks auth on
+    the other hosts. Instead set `AUTH_TRUST_HOST=true` so Auth.js trusts the
+    reverse proxy's `Host`/`X-Forwarded-*` headers:
+
     ```bash
     AUTH_TRUST_HOST=true
     NEXTAUTH_URL_INTERNAL=http://localhost:3000 # internal container calls only
     ```
+
     Ensure nginx forwards `Host $host` and `X-Forwarded-Proto $scheme` for every
     subdomain.
 
@@ -39,11 +46,11 @@ This project includes a **GitHub Actions** workflow (`.github/workflows/producti
 To enable this workflow, you must verify the following in your repository settings:
 
 1.  **Actions Secrets**:
-    *   `CR_PAT`: A **Personal Access Token (Classic)** with `write:packages` and `read:packages` scopes. Used to log in to GHCR (build push + VPS pull).
-    *   `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`: Used by the deploy job to SSH into the VPS and roll out the new image.
+    - `CR_PAT`: A **Personal Access Token (Classic)** with `write:packages` and `read:packages` scopes. Used to log in to GHCR (build push + VPS pull).
+    - `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`: Used by the deploy job to SSH into the VPS and roll out the new image.
 
 2.  **Workflow Permissions**:
-    *   The workflow requires `packages: write` and `contents: read` permissions, which are configured in the `production.yml` file itself.
+    - The workflow requires `packages: write` and `contents: read` permissions, which are configured in the `production.yml` file itself.
 
 ### How it Works
 
@@ -60,10 +67,10 @@ To use the image built by this pipeline in your `docker-compose.yml`, update the
 
 ```yaml
 services:
-  polyflow:
-    image: ghcr.io/clarinovist/polyflow:latest
-    # build: .  <-- Comment this out if pulling from registry
-    # ...
+    polyflow:
+        image: ghcr.io/clarinovist/polyflow:latest
+        # build: .  <-- Comment this out if pulling from registry
+        # ...
 ```
 
 ## Build and Run
@@ -73,6 +80,7 @@ services:
 Since you have a CI/CD pipeline, the recommended way is to pull the pre-built image from GHCR.
 
 1.  **Log in to GHCR** (if private):
+
     ```bash
     echo $CR_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
     ```
@@ -115,6 +123,7 @@ docker compose exec polyflow node prisma/seed.js
 > The `scripts/purge-transaction-history.js` script referenced in this section **has not been created yet**. Do not run these commands until the script exists in the Docker image. The section below documents the intended runbook for when it is available.
 
 This repo includes a safety-gated purge script that removes transactional history for:
+
 - Sales Orders (SO) and dependent docs (delivery orders, invoices, related stock movements/reservations)
 - Purchase Orders (PO) and dependent docs (goods receipts, purchase invoices/payments, related stock movements)
 - Work Orders (WO) which are `ProductionOrder` and dependent docs (shifts, executions, materials, issues, inspections)
@@ -124,19 +133,23 @@ It is designed to **keep master data** intact (Products, BOM, Inventory balances
 ### What this purge does
 
 Deleted (transaction history)
+
 - Sales: Sales Orders + items, deliveries, sales invoices, stock movements, stock reservations
 - Purchasing: Purchase Orders + items, goods receipts + items, purchase invoices + payments, stock movements
 - Production (WO = `ProductionOrder`): orders + shifts, executions, planned materials, issues/inspections/scrap
 - Finance (optional): auto-generated journal entries that reference deleted transactional docs
 
 Preserved (master data)
+
 - Products, Product Variants, BOMs
 - Locations, Customers, Suppliers, Machines
 
 Optional behavior
+
 - `--reset-inventory`: sets Inventory and Batch quantities to 0 (intended for fresh stock opname)
 
 ### Prerequisites / Checklist
+
 - Do this in a maintenance window; stop users from creating transactions.
 - Confirm you are operating on the correct server and project folder.
 - Confirm containers are up: `docker compose ps`
@@ -195,18 +208,23 @@ docker compose exec -T db psql -U polyflow -d polyflow -c 'SELECT (SELECT COUNT(
 ```
 
 Dry-run (recommended first)
+
 - `docker compose exec polyflow node scripts/purge-transaction-history.js`
 
 Execute
+
 - `docker compose exec polyflow node scripts/purge-transaction-history.js --execute --yes --production`
 
 Optional: purge auto-generated finance journals
+
 - `docker compose exec polyflow node scripts/purge-transaction-history.js --execute --yes --production --purge-finance`
 
 Optional: reset Inventory/Batch balances to 0 (for fresh stock opname)
+
 - `docker compose exec polyflow node scripts/purge-transaction-history.js --execute --yes --production --reset-inventory`
 
 ### Notes
+
 - Deleting stock movements removes audit trail. Use only if you intentionally want a clean transactional slate.
 - If you use `--reset-inventory`, you are explicitly choosing to rebuild balances via stock opname.
 
@@ -221,6 +239,7 @@ docker compose exec -T polyflow sh -lc 'echo "$DATABASE_URL"'
 If you suspect the container is pointing to the wrong DB, stop and fix `.env` / `DATABASE_URL` first.
 
 Backup errors / disk space
+
 - Ensure there is enough free space on the host: `df -h`
 - Write backups to a dedicated folder (example below)
 
@@ -242,6 +261,7 @@ cat backups/polyflow-before-purge.dump | docker compose exec -T db pg_restore -U
 ```
 
 If purge fails mid-run
+
 - The script runs inside a single transaction; if it errors, changes should rollback automatically.
 - Re-run dry-run to see what remains:
 
@@ -250,10 +270,12 @@ docker compose exec -T polyflow node scripts/purge-transaction-history.js
 ```
 
 Performance / timeouts
+
 - Large datasets may take longer. Run during maintenance window.
 - If you see timeouts, consider running on a stronger VM, or temporarily increase resources.
 
 After purge
+
 - Validate app pages load.
 - Proceed with stock opname if using `--reset-inventory`.
 
@@ -298,6 +320,7 @@ docker compose exec -T polyflow node scripts/repair-maklon-sales-order-locations
 ## Troubleshooting
 
 ### Database Schema Not Empty (P3005)
+
 If you see migrations failing because the database is not empty (e.g., re-deploying over old volumes), and you want to **reset everything**:
 
 ```bash
@@ -306,45 +329,52 @@ docker compose up -d
 ```
 
 ### Port Conflicts
+
 - **App Port**: This compose setup does not publish an app port on the host by default (access via reverse proxy).
 - **DB Port**: Internal only (`5432`). Not exposed to the host by default for security.
 
 ## Maintenance
 
 - **View Logs**:
-  ```bash
-  docker compose logs -f polyflow
-  ```
+
+    ```bash
+    docker compose logs -f polyflow
+    ```
 
 - **Stop Services**:
-  ```bash
-  docker compose down
-  ```
+
+    ```bash
+    docker compose down
+    ```
 
 - **Run Migrations Manually**:
-  ```bash
-  docker compose exec polyflow npx prisma@5.22.0 migrate deploy
-  ```
 
-  If you prefer using npm scripts:
-  ```bash
-  docker compose exec polyflow npm run db:migrate:deploy
-  ```
+    ```bash
+    docker compose exec polyflow npx prisma@5.22.0 migrate deploy
+    ```
+
+    If you prefer using npm scripts:
+
+    ```bash
+    docker compose exec polyflow npm run db:migrate:deploy
+    ```
 
 - **Reset Demo Catalog & Production Data (Keep Users)**:
   Use this if you want to start fresh (clear products, BOMs, inventory, production orders, etc.) but keep the admin user and master records.
 
-  > [!NOTE]
-  > The command below uses port `5434` which is the **local dev** host port (mapped from container port `5432` in `docker-compose.dev.yml`). For production, use `5432` directly inside the container via `docker compose exec -T db psql -U polyflow -d polyflow`.
+    > [!NOTE]
+    > The command below uses port `5434` which is the **local dev** host port (mapped from container port `5432` in `docker-compose.dev.yml`). For production, use `5432` directly inside the container via `docker compose exec -T db psql -U polyflow -d polyflow`.
 
-  **Local dev:**
-  ```bash
-  docker exec -t polyflow-db psql -U polyflow -d polyflow -h localhost -p 5434 -v ON_ERROR_STOP=1 -c \
-    'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
-  ```
+    **Local dev:**
 
-  **Production (via container exec):**
-  ```bash
-  docker compose exec -T db psql -U polyflow -d polyflow -v ON_ERROR_STOP=1 -c \
-    'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
-  ```
+    ```bash
+    docker exec -t polyflow-db psql -U polyflow -d polyflow -h localhost -p 5434 -v ON_ERROR_STOP=1 -c \
+      'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
+    ```
+
+    **Production (via container exec):**
+
+    ```bash
+    docker compose exec -T db psql -U polyflow -d polyflow -v ON_ERROR_STOP=1 -c \
+      'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
+    ```

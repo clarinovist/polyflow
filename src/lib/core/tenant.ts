@@ -12,15 +12,20 @@ export { extractSubdomain, RESERVED_SUBDOMAINS };
 export type TenantResolutionResult =
     | { type: 'NONE' }
     | { type: 'NOT_FOUND'; subdomain: string }
-    | { type: 'RESOLVED'; tenantDb: PrismaClient; tenantId: string; subdomain: string };
+    | {
+          type: 'RESOLVED';
+          tenantDb: PrismaClient;
+          tenantId: string;
+          subdomain: string;
+      };
 
 /**
  * Unified helper to resolve tenant DB target from standard HTTP Headers.
  * Checks x-tenant-subdomain > host > x-forwarded-host (for Docker/nginx).
  */
-export async function resolveTenantContext(
-    reqHeaders: { get: (name: string) => string | null }
-): Promise<TenantResolutionResult> {
+export async function resolveTenantContext(reqHeaders: {
+    get: (name: string) => string | null;
+}): Promise<TenantResolutionResult> {
     let subdomain = reqHeaders.get('x-tenant-subdomain');
 
     if (!subdomain) {
@@ -47,14 +52,17 @@ export async function resolveTenantContext(
             // is leaked from a previous request — but the Tenant table only
             // exists in the main database. Using the proxy here causes
             // "Tenant not found" errors when context leaks.
-            const { getMainPrisma, tenantContext } = await import('@/lib/core/prisma');
+            const { getMainPrisma, tenantContext } =
+                await import('@/lib/core/prisma');
             const activeTenantDb = tenantContext.getStore();
             if (activeTenantDb && attempt === 1) {
-                console.warn(`[resolveTenantContext] LEAKED context detected for subdomain="${subdomain}" — bypassing with mainPrisma`);
+                console.warn(
+                    `[resolveTenantContext] LEAKED context detected for subdomain="${subdomain}" — bypassing with mainPrisma`,
+                );
             }
             const mainPrisma = getMainPrisma();
             const tenant = await mainPrisma.tenant.findUnique({
-                where: { subdomain }
+                where: { subdomain },
             });
             targetDbUrl = tenant?.dbUrl || null;
             if (targetDbUrl) {
@@ -63,31 +71,48 @@ export async function resolveTenantContext(
             }
             // Tenant not found — might be stale cache, retry once
             if (attempt < 3) {
-                console.warn(`[resolveTenantContext] Tenant "${subdomain}" not found on attempt ${attempt}, retrying... (activeTenantContext=${!!activeTenantDb}, tenantResult=${JSON.stringify(tenant)})`);
-                await new Promise(r => setTimeout(r, 100 * attempt));
+                console.warn(
+                    `[resolveTenantContext] Tenant "${subdomain}" not found on attempt ${attempt}, retrying... (activeTenantContext=${!!activeTenantDb}, tenantResult=${JSON.stringify(tenant)})`,
+                );
+                await new Promise((r) => setTimeout(r, 100 * attempt));
             } else {
-                console.error(`[resolveTenantContext] FINAL attempt failed: tenant=${JSON.stringify(tenant)}, activeTenantContext=${!!activeTenantDb}`);
+                console.error(
+                    `[resolveTenantContext] FINAL attempt failed: tenant=${JSON.stringify(tenant)}, activeTenantContext=${!!activeTenantDb}`,
+                );
             }
         } catch (error) {
-            console.error(`[resolveTenantContext] Error fetching tenant (attempt ${attempt}):`, error);
-            if (attempt < 3) await new Promise(r => setTimeout(r, 100 * attempt));
+            console.error(
+                `[resolveTenantContext] Error fetching tenant (attempt ${attempt}):`,
+                error,
+            );
+            if (attempt < 3)
+                await new Promise((r) => setTimeout(r, 100 * attempt));
         }
     }
 
     if (!targetDbUrl) {
-        console.error(`[resolveTenantContext] NOT_FOUND for subdomain="${subdomain}" — tenant query returned null. host="${reqHeaders.get('host')}" forwarded="${reqHeaders.get('x-forwarded-host')}"`);
+        console.error(
+            `[resolveTenantContext] NOT_FOUND for subdomain="${subdomain}" — tenant query returned null. host="${reqHeaders.get('host')}" forwarded="${reqHeaders.get('x-forwarded-host')}"`,
+        );
         return { type: 'NOT_FOUND', subdomain };
     }
 
     const tenantDb = getTenantDb(targetDbUrl);
-    return { type: 'RESOLVED', tenantDb, tenantId: resolvedTenantId!, subdomain };
+    return {
+        type: 'RESOLVED',
+        tenantDb,
+        tenantId: resolvedTenantId!,
+        subdomain,
+    };
 }
 
 /**
  * Higher Order Function to wrap Next.js Server Actions.
  * It extracts the subdomain from headers and runs the action within an `AsyncLocalStorage` context.
  */
-export function withTenant<T extends (...args: never[]) => Promise<unknown>>(action: T): T {
+export function withTenant<T extends (...args: never[]) => Promise<unknown>>(
+    action: T,
+): T {
     return (async (...args: Parameters<T>) => {
         const reqHeaders = await headers();
         const result = await resolveTenantContext(reqHeaders);
@@ -101,11 +126,15 @@ export function withTenant<T extends (...args: never[]) => Promise<unknown>>(act
             } catch {
                 // No session — keep SYSTEM fallback
             }
-            return actorContext.run({ userId: actorUserId }, () => action(...args));
+            return actorContext.run({ userId: actorUserId }, () =>
+                action(...args),
+            );
         }
 
         if (result.type === 'NOT_FOUND') {
-            throw new Error(`Tenant database not found for subdomain: ${result.subdomain}`);
+            throw new Error(
+                `Tenant database not found for subdomain: ${result.subdomain}`,
+            );
         }
 
         // Run the action inside the AsyncLocalStorage context
@@ -120,8 +149,10 @@ export function withTenant<T extends (...args: never[]) => Promise<unknown>>(act
 
         return tenantContext.run(result.tenantDb, () =>
             tenantIdContext.run(result.tenantId, () =>
-                actorContext.run({ userId: actorUserId }, () => action(...args))
-            )
+                actorContext.run({ userId: actorUserId }, () =>
+                    action(...args),
+                ),
+            ),
         );
     }) as T;
 }
@@ -140,7 +171,9 @@ const SYSTEM_USER_ID = 'system';
  * Usage: const getData = withTenantPage(async () => { ... });
  *        export default async function Page() { const data = await getData(); }
  */
-export function withTenantPage<T extends (...args: never[]) => Promise<unknown>>(fetchData: T): T {
+export function withTenantPage<
+    T extends (...args: never[]) => Promise<unknown>,
+>(fetchData: T): T {
     return withTenant(fetchData);
 }
 
@@ -148,7 +181,15 @@ export function withTenantPage<T extends (...args: never[]) => Promise<unknown>>
 type RouteContext = { params: Promise<Record<string, string | string[]>> };
 
 export function withTenantRoute(
-    handler: (req: NextRequest, ...args: RouteContext[]) => Promise<NextResponse | Response | undefined | void> | NextResponse | Response | undefined | void
+    handler: (
+        req: NextRequest,
+        ...args: RouteContext[]
+    ) =>
+        | Promise<NextResponse | Response | undefined | void>
+        | NextResponse
+        | Response
+        | undefined
+        | void,
 ) {
     return async (req: NextRequest, ...args: RouteContext[]) => {
         const result = await resolveTenantContext(req.headers);
@@ -159,8 +200,10 @@ export function withTenantRoute(
 
         if (result.type === 'NOT_FOUND') {
             return NextResponse.json(
-                { error: `Tenant database not found for subdomain: ${result.subdomain}` },
-                { status: 404 }
+                {
+                    error: `Tenant database not found for subdomain: ${result.subdomain}`,
+                },
+                { status: 404 },
             );
         }
 
@@ -174,8 +217,10 @@ export function withTenantRoute(
 
         return tenantContext.run(result.tenantDb, () =>
             tenantIdContext.run(result.tenantId, () =>
-                actorContext.run({ userId: actorUserId }, () => handler(req, ...args))
-            )
+                actorContext.run({ userId: actorUserId }, () =>
+                    handler(req, ...args),
+                ),
+            ),
         );
     };
 }

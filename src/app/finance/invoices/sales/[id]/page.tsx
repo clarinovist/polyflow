@@ -1,10 +1,10 @@
-import { getInvoiceById } from "@/actions/finance/invoice";
-import { FinancialInvoiceDetail } from "@/components/finance/invoices/FinancialInvoiceDetail";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getCompanyConfigWithOverridesAsync } from "@/lib/config/company-settings";
+import { getInvoiceById } from '@/actions/finance/invoice';
+import { FinancialInvoiceDetail } from '@/components/finance/invoices/FinancialInvoiceDetail';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
 import type { ComponentProps } from 'react';
 
 interface PageProps {
@@ -24,7 +24,10 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
         throw new Error(invoiceResult.error);
     }
 
-    const invoice = invoiceResult.data as unknown as typeof invoiceResult['data'] extends infer D ? D : never;
+    const invoice =
+        invoiceResult.data as unknown as (typeof invoiceResult)['data'] extends infer D
+            ? D
+            : never;
 
     if (!invoice) {
         notFound();
@@ -40,12 +43,23 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
                     </Link>
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Invoice Detail</h1>
-                    <p className="text-sm text-muted-foreground">Financial View</p>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Invoice Detail
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Financial View
+                    </p>
                 </div>
             </div>
 
-            <FinancialInvoiceDetail invoice={invoice as unknown as ComponentProps<typeof FinancialInvoiceDetail>['invoice']} companyConfig={companyConfig} />
+            <FinancialInvoiceDetail
+                invoice={
+                    invoice as unknown as ComponentProps<
+                        typeof FinancialInvoiceDetail
+                    >['invoice']
+                }
+                companyConfig={companyConfig}
+            />
         </div>
     );
 }

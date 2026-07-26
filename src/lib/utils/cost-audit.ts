@@ -47,7 +47,7 @@ export type CostAuditSummary = {
 
 export function buildCostAuditRows(
     variants: CostAuditVariantLike[],
-    filters: CostAuditFilters = {}
+    filters: CostAuditFilters = {},
 ): CostAuditRow[] {
     return variants
         .map((variant) => {
@@ -66,17 +66,31 @@ export function buildCostAuditRows(
                 gapPercent: diagnostics.gapPercent,
                 flags: diagnostics.flags,
                 inventoryCount: variant.inventories?.length || 0,
-                health: diagnostics.flags.length > 0 ? 'review_needed' : 'within_range',
+                health:
+                    diagnostics.flags.length > 0
+                        ? 'review_needed'
+                        : 'within_range',
             } satisfies CostAuditRow;
         })
         .filter((row) => {
             if (filters.anomalyOnly && row.flags.length === 0) return false;
-            if (filters.source && filters.source !== 'all' && row.source !== filters.source) return false;
-            if (filters.flag && filters.flag !== 'all' && !row.flags.includes(filters.flag)) return false;
+            if (
+                filters.source &&
+                filters.source !== 'all' &&
+                row.source !== filters.source
+            )
+                return false;
+            if (
+                filters.flag &&
+                filters.flag !== 'all' &&
+                !row.flags.includes(filters.flag)
+            )
+                return false;
             return true;
         })
         .sort((left, right) => {
-            if (right.flags.length !== left.flags.length) return right.flags.length - left.flags.length;
+            if (right.flags.length !== left.flags.length)
+                return right.flags.length - left.flags.length;
             const leftGap = Math.abs(left.gapPercent || 0);
             const rightGap = Math.abs(right.gapPercent || 0);
             if (rightGap !== leftGap) return rightGap - leftGap;
@@ -88,9 +102,17 @@ export function summarizeCostAuditRows(rows: CostAuditRow[]): CostAuditSummary {
     return {
         totalVariants: rows.length,
         reviewNeeded: rows.filter((row) => row.flags.length > 0).length,
-        lowStockOutliers: rows.filter((row) => row.flags.includes('low_stock_cost_outlier')).length,
-        inventoryStandardGaps: rows.filter((row) => row.flags.includes('inventory_standard_gap')).length,
-        inventoryAverageCount: rows.filter((row) => row.source === 'inventory_average').length,
-        standardFallbackCount: rows.filter((row) => row.source === 'standard_cost').length,
+        lowStockOutliers: rows.filter((row) =>
+            row.flags.includes('low_stock_cost_outlier'),
+        ).length,
+        inventoryStandardGaps: rows.filter((row) =>
+            row.flags.includes('inventory_standard_gap'),
+        ).length,
+        inventoryAverageCount: rows.filter(
+            (row) => row.source === 'inventory_average',
+        ).length,
+        standardFallbackCount: rows.filter(
+            (row) => row.source === 'standard_cost',
+        ).length,
     };
 }

@@ -4,14 +4,25 @@ import { useState, useEffect, useCallback } from 'react';
 import { getGeneralLedger } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
 import { RotateCw, Download, Search } from 'lucide-react';
-import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
+import {
+    downloadCsv,
+    rupiahForCsv,
+    reportFilename,
+} from '@/lib/utils/csv-export';
 import { reportLabels } from '@/lib/labels';
 
 interface LedgerEntry {
@@ -49,17 +60,25 @@ export function GeneralLedgerClient() {
     const [searchTerm, setSearchTerm] = useState('');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), 0, 1),
-        to: new Date()
+        to: new Date(),
     });
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await getGeneralLedger(dateRange?.from, dateRange?.to);
+            const result = await getGeneralLedger(
+                dateRange?.from,
+                dateRange?.to,
+            );
             if (result && 'success' in result && result.success) {
                 setData(result.data as unknown as GeneralLedgerData);
             } else {
-                console.error('Failed to load general ledger:', result && 'error' in result ? result.error : 'Unknown error');
+                console.error(
+                    'Failed to load general ledger:',
+                    result && 'error' in result
+                        ? result.error
+                        : 'Unknown error',
+                );
                 setData(null);
             }
         } catch (error) {
@@ -77,11 +96,31 @@ export function GeneralLedgerClient() {
     const handleDownload = () => {
         if (!data || data.accounts.length === 0) return;
 
-        const headers = ['Kode Akun', 'Nama Akun', 'Tanggal', 'No. Jurnal', 'Keterangan', 'Referensi', 'Debit', 'Kredit', 'Saldo'];
+        const headers = [
+            'Kode Akun',
+            'Nama Akun',
+            'Tanggal',
+            'No. Jurnal',
+            'Keterangan',
+            'Referensi',
+            'Debit',
+            'Kredit',
+            'Saldo',
+        ];
         const rows: (string | number)[][] = [];
 
         for (const account of data.accounts) {
-            rows.push([`(${account.code}) ${account.name}`, '', '', '', '', '', '', '', '']);
+            rows.push([
+                `(${account.code}) ${account.name}`,
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+            ]);
 
             for (const entry of account.entries) {
                 rows.push([
@@ -93,7 +132,7 @@ export function GeneralLedgerClient() {
                     entry.reference || '',
                     rupiahForCsv(entry.debit),
                     rupiahForCsv(entry.credit),
-                    rupiahForCsv(entry.balance)
+                    rupiahForCsv(entry.balance),
                 ]);
             }
 
@@ -106,15 +145,21 @@ export function GeneralLedgerClient() {
                 '',
                 rupiahForCsv(account.totalDebit),
                 rupiahForCsv(account.totalCredit),
-                rupiahForCsv(account.endingBalance)
+                rupiahForCsv(account.endingBalance),
             ]);
 
             rows.push(['', '', '', '', '', '', '', '', '']);
         }
 
-        const fromStr = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '';
+        const fromStr = dateRange?.from
+            ? format(dateRange.from, 'yyyy-MM-dd')
+            : '';
         const toStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '';
-        downloadCsv(reportFilename('Buku_Besar', `${fromStr}_${toStr}`), headers, rows);
+        downloadCsv(
+            reportFilename('Buku_Besar', `${fromStr}_${toStr}`),
+            headers,
+            rows,
+        );
     };
 
     const fmt = (amount: number) => {
@@ -141,21 +186,30 @@ export function GeneralLedgerClient() {
                 (entry) =>
                     entry.description.toLowerCase().includes(lowerSearch) ||
                     entry.entryNumber.toLowerCase().includes(lowerSearch) ||
-                    (entry.reference && entry.reference.toLowerCase().includes(lowerSearch))
+                    (entry.reference &&
+                        entry.reference.toLowerCase().includes(lowerSearch)),
             );
 
             if (filteredEntries.length === 0) return null; // No matching entries
 
             // Recalculate totals for filtered entries
-            const totalDebit = filteredEntries.reduce((sum, e) => sum + e.debit, 0);
-            const totalCredit = filteredEntries.reduce((sum, e) => sum + e.credit, 0);
+            const totalDebit = filteredEntries.reduce(
+                (sum, e) => sum + e.debit,
+                0,
+            );
+            const totalCredit = filteredEntries.reduce(
+                (sum, e) => sum + e.credit,
+                0,
+            );
 
             return {
                 ...account,
                 entries: filteredEntries,
                 totalDebit,
                 totalCredit,
-                endingBalance: filteredEntries[filteredEntries.length - 1]?.balance ?? account.endingBalance,
+                endingBalance:
+                    filteredEntries[filteredEntries.length - 1]?.balance ??
+                    account.endingBalance,
             };
         })
         .filter(Boolean) as LedgerAccount[] | undefined;
@@ -164,7 +218,9 @@ export function GeneralLedgerClient() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{reportLabels.generalLedger}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {reportLabels.generalLedger}
+                    </h1>
                     <p className="text-muted-foreground">
                         {reportLabels.generalLedgerDesc}
                     </p>
@@ -186,7 +242,12 @@ export function GeneralLedgerClient() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={!data || data.accounts.length === 0}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleDownload}
+                        disabled={!data || data.accounts.length === 0}
+                    >
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
@@ -209,7 +270,9 @@ export function GeneralLedgerClient() {
                     <CardHeader>
                         <CardTitle className="flex items-center justify-between">
                             <span>{reportLabels.generalLedger}</span>
-                            <span className="text-sm font-normal text-muted-foreground">{reportLabels.dalamIDR}</span>
+                            <span className="text-sm font-normal text-muted-foreground">
+                                {reportLabels.dalamIDR}
+                            </span>
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -217,25 +280,51 @@ export function GeneralLedgerClient() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[180px]">{reportLabels.namaAkun}</TableHead>
-                                        <TableHead className="w-[90px]">{reportLabels.tanggal}</TableHead>
-                                        <TableHead className="w-[120px]">{reportLabels.nomor}</TableHead>
-                                        <TableHead className="w-[200px]">{reportLabels.keterangan}</TableHead>
-                                        <TableHead className="text-right w-[130px]">{reportLabels.debit}</TableHead>
-                                        <TableHead className="text-right w-[130px]">{reportLabels.kredit}</TableHead>
-                                        <TableHead className="text-right w-[140px]">{reportLabels.saldo}</TableHead>
+                                        <TableHead className="w-[180px]">
+                                            {reportLabels.namaAkun}
+                                        </TableHead>
+                                        <TableHead className="w-[90px]">
+                                            {reportLabels.tanggal}
+                                        </TableHead>
+                                        <TableHead className="w-[120px]">
+                                            {reportLabels.nomor}
+                                        </TableHead>
+                                        <TableHead className="w-[200px]">
+                                            {reportLabels.keterangan}
+                                        </TableHead>
+                                        <TableHead className="text-right w-[130px]">
+                                            {reportLabels.debit}
+                                        </TableHead>
+                                        <TableHead className="text-right w-[130px]">
+                                            {reportLabels.kredit}
+                                        </TableHead>
+                                        <TableHead className="text-right w-[140px]">
+                                            {reportLabels.saldo}
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {(filteredAccounts ?? []).map((account) => (
-                                        <AccountSection key={account.id} account={account} fmt={fmt} />
+                                        <AccountSection
+                                            key={account.id}
+                                            account={account}
+                                            fmt={fmt}
+                                        />
                                     ))}
                                     {/* Grand total row */}
                                     <TableRow className="bg-slate-100 dark:bg-slate-800 font-bold border-t-2">
                                         <TableCell colSpan={4}>TOTAL</TableCell>
-                                        <TableCell className="text-right font-mono">{formatRupiah(data.grandTotalDebit)}</TableCell>
-                                        <TableCell className="text-right font-mono">{formatRupiah(data.grandTotalCredit)}</TableCell>
-                                        <TableCell className="text-right">-</TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {formatRupiah(data.grandTotalDebit)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {formatRupiah(
+                                                data.grandTotalCredit,
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            -
+                                        </TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -247,12 +336,21 @@ export function GeneralLedgerClient() {
     );
 }
 
-function AccountSection({ account, fmt }: { account: LedgerAccount; fmt: (n: number) => string }) {
+function AccountSection({
+    account,
+    fmt,
+}: {
+    account: LedgerAccount;
+    fmt: (n: number) => string;
+}) {
     return (
         <>
             {/* Account header row */}
             <TableRow className="bg-blue-50/50 dark:bg-blue-900/10">
-                <TableCell colSpan={7} className="font-semibold text-blue-700 dark:text-blue-400">
+                <TableCell
+                    colSpan={7}
+                    className="font-semibold text-blue-700 dark:text-blue-400"
+                >
                     ({account.code}) {account.name}
                 </TableCell>
             </TableRow>
@@ -260,14 +358,27 @@ function AccountSection({ account, fmt }: { account: LedgerAccount; fmt: (n: num
             {/* Transaction rows */}
             {account.entries.map((entry, idx) => (
                 <TableRow key={idx}>
-                    <TableCell className="text-muted-foreground text-sm pl-6">-</TableCell>
-                    <TableCell className="whitespace-nowrap">{format(new Date(entry.date), 'dd/MM/yyyy')}</TableCell>
-                    <TableCell className="font-mono text-sm whitespace-nowrap">{entry.entryNumber}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm pl-6">
+                        -
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                        {format(new Date(entry.date), 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm whitespace-nowrap">
+                        {entry.entryNumber}
+                    </TableCell>
                     <TableCell className="max-w-[200px]">
-                        <div className="flex items-center gap-1" title={`${entry.description}${entry.reference ? ` (${entry.reference})` : ''}`}>
-                            <span className="truncate">{entry.description}</span>
+                        <div
+                            className="flex items-center gap-1"
+                            title={`${entry.description}${entry.reference ? ` (${entry.reference})` : ''}`}
+                        >
+                            <span className="truncate">
+                                {entry.description}
+                            </span>
                             {entry.reference && (
-                                <span className="shrink-0 text-xs text-muted-foreground">({entry.reference})</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">
+                                    ({entry.reference})
+                                </span>
                             )}
                         </div>
                     </TableCell>

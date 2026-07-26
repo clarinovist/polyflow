@@ -28,9 +28,23 @@ import { WorkShift, WorkShiftStatus } from '@prisma/client';
 
 const formSchema = z.object({
     name: z.string().min(1, 'Name is required'),
-    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:mm)'),
-    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:mm)'),
-    plannedHours: z.number().min(0, 'Jam rencana minimal 0').max(24, 'Jam rencana maksimal 24').optional(),
+    startTime: z
+        .string()
+        .regex(
+            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+            'Invalid time format (HH:mm)',
+        ),
+    endTime: z
+        .string()
+        .regex(
+            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+            'Invalid time format (HH:mm)',
+        ),
+    plannedHours: z
+        .number()
+        .min(0, 'Jam rencana minimal 0')
+        .max(24, 'Jam rencana maksimal 24')
+        .optional(),
     isActive: z.boolean(),
 });
 
@@ -62,12 +76,15 @@ export function ShiftDialog({
         },
         values: shiftToEdit
             ? {
-                name: shiftToEdit.name,
-                startTime: shiftToEdit.startTime,
-                endTime: shiftToEdit.endTime,
-                plannedHours: shiftToEdit.plannedHours != null ? Number(shiftToEdit.plannedHours) : undefined,
-                isActive: shiftToEdit.status === 'ACTIVE',
-            }
+                  name: shiftToEdit.name,
+                  startTime: shiftToEdit.startTime,
+                  endTime: shiftToEdit.endTime,
+                  plannedHours:
+                      shiftToEdit.plannedHours != null
+                          ? Number(shiftToEdit.plannedHours)
+                          : undefined,
+                  isActive: shiftToEdit.status === 'ACTIVE',
+              }
             : undefined,
     });
 
@@ -77,7 +94,9 @@ export function ShiftDialog({
     async function onSubmit(values: FormValues) {
         setLoading(true);
         try {
-            const status = values.isActive ? WorkShiftStatus.ACTIVE : WorkShiftStatus.INACTIVE;
+            const status = values.isActive
+                ? WorkShiftStatus.ACTIVE
+                : WorkShiftStatus.INACTIVE;
             let result;
 
             if (shiftToEdit) {
@@ -100,7 +119,9 @@ export function ShiftDialog({
 
             if (result.success) {
                 toast.success(
-                    shiftToEdit ? 'Shift berhasil diperbarui.' : 'Shift berhasil dibuat.'
+                    shiftToEdit
+                        ? 'Shift berhasil diperbarui.'
+                        : 'Shift berhasil dibuat.',
                 );
                 onOpenChange(false);
                 form.reset();
@@ -110,7 +131,7 @@ export function ShiftDialog({
             }
         } catch (error) {
             console.error(error);
-            toast.error("Gagal menyimpan shift. Silakan coba lagi.")
+            toast.error('Gagal menyimpan shift. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -125,7 +146,10 @@ export function ShiftDialog({
                     </DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-4"
+                    >
                         <FormField
                             control={form.control}
                             name="name"
@@ -133,7 +157,10 @@ export function ShiftDialog({
                                 <FormItem>
                                     <FormLabel>Nama Shift</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="contoh: Shift Pagi" {...field} />
+                                        <Input
+                                            placeholder="contoh: Shift Pagi"
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -172,7 +199,9 @@ export function ShiftDialog({
                             name="plannedHours"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Jam Rencana (opsional)</FormLabel>
+                                    <FormLabel>
+                                        Jam Rencana (opsional)
+                                    </FormLabel>
                                     <FormControl>
                                         <Input
                                             type="number"
@@ -183,11 +212,17 @@ export function ShiftDialog({
                                             value={field.value ?? ''}
                                             onChange={(e) => {
                                                 const v = e.target.value;
-                                                field.onChange(v === '' ? undefined : parseFloat(v));
+                                                field.onChange(
+                                                    v === ''
+                                                        ? undefined
+                                                        : parseFloat(v),
+                                                );
                                             }}
                                         />
                                     </FormControl>
-                                    <p className="text-xs text-muted-foreground">Kosongkan untuk auto dari start–end</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Kosongkan untuk auto dari start–end
+                                    </p>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -198,7 +233,9 @@ export function ShiftDialog({
                             render={({ field }) => (
                                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                                     <div className="space-y-0.5">
-                                        <FormLabel className="text-base">Status</FormLabel>
+                                        <FormLabel className="text-base">
+                                            Status
+                                        </FormLabel>
                                     </div>
                                     <FormControl>
                                         <Switch

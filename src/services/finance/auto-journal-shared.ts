@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/core/prisma';
 import { NotFoundError } from '@/lib/errors/errors';
-import { resolveAccount, AccountRole } from '@/services/accounting/account-resolver';
+import {
+    resolveAccount,
+    AccountRole,
+} from '@/services/accounting/account-resolver';
 
 /**
  * @deprecated Use getAccountByRole() instead for tenant compatibility.
@@ -8,7 +11,7 @@ import { resolveAccount, AccountRole } from '@/services/accounting/account-resol
  */
 export async function getAccountByCode(code: string) {
     const account = await prisma.account.findUnique({ where: { code } });
-    if (!account) throw new NotFoundError("Account", code);
+    if (!account) throw new NotFoundError('Account', code);
     return account;
 }
 

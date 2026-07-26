@@ -23,17 +23,28 @@ export enum ErrorCode {
 }
 
 const ERROR_MESSAGES: Record<ErrorCode, string> = {
-    [ErrorCode.UNAUTHORIZED]: 'Sesi Anda telah berakhir atau belum login. Silahkan login kembali.',
-    [ErrorCode.FORBIDDEN]: 'Anda tidak memiliki izin operasi untuk mengakses bagian ini.',
-    [ErrorCode.VALIDATION_ERROR]: 'Terdapat kesalahan pada input data Anda. Silahkan periksa ulang formulir.',
-    [ErrorCode.NOT_FOUND]: 'Data atau halaman yang Anda cari tidak ditemukan atau telah dihapus.',
-    [ErrorCode.CONFLICT]: 'Terjadi konflik data (seperti modifikasi simultan). Mohon memuat ukang halaman.',
-    [ErrorCode.AI_RESTRICTED_CONTENT]: 'Prompt yang diberikan mengandung kata atau frasa terlarang menurut safety filter. Cobalah ubah instruksi Anda.',
-    [ErrorCode.EXTERNAL_API_TIMEOUT]: 'Terjadi masalah koneksi ke penyedia layanan pihak ketiga (LLM/Email). Sedang dicoba ulang. Harap tunggu sesaat.',
-    [ErrorCode.RATE_LIMITED]: 'Anda telah melawati batas request yang ditetapkan. Silahkan coba beberapa menit lagi.',
-    [ErrorCode.INTERNAL_SERVER_ERROR]: 'Sistem mendeteksi kesalahan teknis. Tim developer kami telah diberitahu.',
-    [ErrorCode.DEPLOYMENT_VERSION_MISMATCH]: 'Sistem telah diperbarui. Mohon muat ulang halaman untuk melanjutkan.',
-    [ErrorCode.UNKNOWN_ERROR]: 'Terjadi kesalahan tidak terduga. Silahkan ulangi aksi tersebut.'
+    [ErrorCode.UNAUTHORIZED]:
+        'Sesi Anda telah berakhir atau belum login. Silahkan login kembali.',
+    [ErrorCode.FORBIDDEN]:
+        'Anda tidak memiliki izin operasi untuk mengakses bagian ini.',
+    [ErrorCode.VALIDATION_ERROR]:
+        'Terdapat kesalahan pada input data Anda. Silahkan periksa ulang formulir.',
+    [ErrorCode.NOT_FOUND]:
+        'Data atau halaman yang Anda cari tidak ditemukan atau telah dihapus.',
+    [ErrorCode.CONFLICT]:
+        'Terjadi konflik data (seperti modifikasi simultan). Mohon memuat ukang halaman.',
+    [ErrorCode.AI_RESTRICTED_CONTENT]:
+        'Prompt yang diberikan mengandung kata atau frasa terlarang menurut safety filter. Cobalah ubah instruksi Anda.',
+    [ErrorCode.EXTERNAL_API_TIMEOUT]:
+        'Terjadi masalah koneksi ke penyedia layanan pihak ketiga (LLM/Email). Sedang dicoba ulang. Harap tunggu sesaat.',
+    [ErrorCode.RATE_LIMITED]:
+        'Anda telah melawati batas request yang ditetapkan. Silahkan coba beberapa menit lagi.',
+    [ErrorCode.INTERNAL_SERVER_ERROR]:
+        'Sistem mendeteksi kesalahan teknis. Tim developer kami telah diberitahu.',
+    [ErrorCode.DEPLOYMENT_VERSION_MISMATCH]:
+        'Sistem telah diperbarui. Mohon muat ulang halaman untuk melanjutkan.',
+    [ErrorCode.UNKNOWN_ERROR]:
+        'Terjadi kesalahan tidak terduga. Silahkan ulangi aksi tersebut.',
 };
 
 /**
@@ -45,7 +56,7 @@ export function getUserFriendlyError(code: ErrorCode | string): string {
     if (errorString) {
         return errorString;
     }
-    
+
     // Fallback if passing an unknown raw string
     return `Unhandled Exception: ${code}. ${ERROR_MESSAGES[ErrorCode.UNKNOWN_ERROR]}`;
 }

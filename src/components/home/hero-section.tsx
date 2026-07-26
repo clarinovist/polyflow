@@ -19,7 +19,10 @@ export default function HeroSection() {
 
             {/* Floating orbs — more visible */}
             <div className="absolute top-20 left-1/4 w-80 h-80 bg-blue-500/15 rounded-full blur-[100px] animate-pulse pointer-events-none" />
-            <div className="absolute bottom-20 right-1/4 w-[28rem] h-[28rem] bg-purple-500/10 rounded-full blur-[120px] animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
+            <div
+                className="absolute bottom-20 right-1/4 w-[28rem] h-[28rem] bg-purple-500/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
+                style={{ animationDelay: '2s' }}
+            />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-indigo-500/[0.07] rounded-full blur-[150px] pointer-events-none" />
 
             {/* Decorative 3D P logo background like brand-panel */}
@@ -27,17 +30,38 @@ export default function HeroSection() {
                 <div className="relative w-[500px] h-[500px]">
                     <div className="absolute inset-0 transform translate-x-6 translate-y-6">
                         <svg viewBox="0 0 200 200" className="w-full h-full">
-                            <path d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60" stroke="#4a4a4a" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            <path
+                                d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60"
+                                stroke="#4a4a4a"
+                                strokeWidth="16"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="none"
+                            />
                         </svg>
                     </div>
                     <div className="absolute inset-0 transform translate-x-3 translate-y-3">
                         <svg viewBox="0 0 200 200" className="w-full h-full">
-                            <path d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60" stroke="#555555" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            <path
+                                d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60"
+                                stroke="#555555"
+                                strokeWidth="16"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="none"
+                            />
                         </svg>
                     </div>
                     <div className="absolute inset-0">
                         <svg viewBox="0 0 200 200" className="w-full h-full">
-                            <path d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60" stroke="#666666" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            <path
+                                d="M60 30V170M60 30H120C140 30 156 46 156 66V66C156 86 140 102 120 102H60"
+                                stroke="#666666"
+                                strokeWidth="16"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="none"
+                            />
                         </svg>
                     </div>
                 </div>
@@ -57,7 +81,9 @@ export default function HeroSection() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm mb-8"
                 >
                     <Sparkles className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm font-medium text-zinc-300 dark:text-zinc-200">{L.badge}</span>
+                    <span className="text-sm font-medium text-zinc-300 dark:text-zinc-200">
+                        {L.badge}
+                    </span>
                 </motion.div>
 
                 <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-white mb-8 leading-[0.95]">
@@ -76,7 +102,11 @@ export default function HeroSection() {
                     <Button className="h-14 px-10 bg-white hover:bg-zinc-100 dark:bg-white dark:hover:bg-zinc-100 text-zinc-950 text-base font-semibold rounded-full transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-105">
                         {L.contactSales} <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
-                    <Button variant="ghost" className="h-14 px-8 text-zinc-400 dark:text-zinc-300 hover:text-white text-base font-medium rounded-full hover:bg-white/5 hover:dark:bg-white/10 transition-all duration-300" asChild>
+                    <Button
+                        variant="ghost"
+                        className="h-14 px-8 text-zinc-400 dark:text-zinc-300 hover:text-white text-base font-medium rounded-full hover:bg-white/5 hover:dark:bg-white/10 transition-all duration-300"
+                        asChild
+                    >
                         <a href="#features">{L.exploreFeatures}</a>
                     </Button>
                 </div>
@@ -89,12 +119,22 @@ export default function HeroSection() {
                     className="flex flex-col items-center gap-3"
                 >
                     <div className="flex -space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">JD</div>
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">AK</div>
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">MR</div>
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">+1K</div>
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">
+                            JD
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">
+                            AK
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">
+                            MR
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">
+                            +1K
+                        </div>
                     </div>
-                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{L.trustedBy}</span>
+                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                        {L.trustedBy}
+                    </span>
                 </motion.div>
             </motion.div>
         </section>

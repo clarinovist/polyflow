@@ -8,29 +8,38 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
 export function ScanRemindersButton() {
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
-  const handleScan = async () => {
-    setLoading(true);
-    try {
-      const res = await scanEmploymentReminders();
-      if (res.success) {
-        const data = res.data;
-        toast.success(`Scan selesai: ${data.scanned} karyawan, ${data.created} notifikasi baru`);
-        router.refresh();
-      } else {
-        toast.error(res.error || 'Gagal scan');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleScan = async () => {
+        setLoading(true);
+        try {
+            const res = await scanEmploymentReminders();
+            if (res.success) {
+                const data = res.data;
+                toast.success(
+                    `Scan selesai: ${data.scanned} karyawan, ${data.created} notifikasi baru`,
+                );
+                router.refresh();
+            } else {
+                toast.error(res.error || 'Gagal scan');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <Button size="sm" variant="outline" onClick={handleScan} disabled={loading}>
-      <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-      {loading ? 'Memindai…' : 'Jalankan scan'}
-    </Button>
-  );
+    return (
+        <Button
+            size="sm"
+            variant="outline"
+            onClick={handleScan}
+            disabled={loading}
+        >
+            <RefreshCw
+                className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`}
+            />
+            {loading ? 'Memindai…' : 'Jalankan scan'}
+        </Button>
+    );
 }

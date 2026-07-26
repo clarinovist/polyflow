@@ -68,6 +68,7 @@ PolyFlow is a multi-tenant ERP for plastic converting manufacturing. Built with 
 ### Strategy: Database-per-Tenant
 
 Each tenant (company) has its own PostgreSQL database. This provides:
+
 - **Strong isolation** — No data leakage between tenants
 - **Independent schemas** — Tenants can have custom fields
 - **Backup per tenant** — Individual backup/restore
@@ -96,11 +97,11 @@ Request → proxy.ts → extractSubdomain(Host)
 // lib/core/prisma.ts
 // Dynamic database URL based on tenant
 const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: getTenantDatabaseUrl(tenantId),
+    datasources: {
+        db: {
+            url: getTenantDatabaseUrl(tenantId),
+        },
     },
-  },
 });
 ```
 
@@ -162,6 +163,7 @@ Reports Updated
 **Decision:** Use Next.js Server Actions instead of traditional API routes.
 
 **Rationale:**
+
 - Type safety between client and server
 - Automatic serialization
 - Built-in form handling
@@ -174,6 +176,7 @@ Reports Updated
 **Decision:** Separate actions (thin wrappers) from services (business logic).
 
 **Rationale:**
+
 - Testable business logic
 - Reusable across actions
 - Clear responsibility boundaries
@@ -184,6 +187,7 @@ Reports Updated
 **Decision:** Use Zod schemas for all input validation.
 
 **Rationale:**
+
 - Type inference (schema → TypeScript type)
 - Runtime validation
 - Composable schemas
@@ -194,6 +198,7 @@ Reports Updated
 **Decision:** Custom error classes (BusinessRule, Validation, NotFound, Authorization).
 
 **Rationale:**
+
 - Consistent error handling
 - Type-safe error catching
 - Clear error semantics
@@ -204,6 +209,7 @@ Reports Updated
 **Decision:** Automatically generate journal entries from financial transactions.
 
 **Rationale:**
+
 - Accounting consistency
 - No manual journal errors
 - Audit trail
@@ -213,12 +219,12 @@ Reports Updated
 
 ### Four Portals
 
-| Portal | Purpose | Access |
-|--------|---------|--------|
-| **Admin Dashboard** | System administration | Super admin, tenant admin |
-| **Warehouse Portal** | Inventory operations | Warehouse staff |
-| **Operator Kiosk** | Production floor | Machine operators |
-| **Finance Workspace** | Accounting & finance | Finance team |
+| Portal                | Purpose               | Access                    |
+| --------------------- | --------------------- | ------------------------- |
+| **Admin Dashboard**   | System administration | Super admin, tenant admin |
+| **Warehouse Portal**  | Inventory operations  | Warehouse staff           |
+| **Operator Kiosk**    | Production floor      | Machine operators         |
+| **Finance Workspace** | Accounting & finance  | Finance team              |
 
 ### Portal Routing
 

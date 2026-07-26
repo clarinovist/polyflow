@@ -33,37 +33,81 @@ const salesLinks = [
     {
         heading: 'Hari Ini',
         items: [
-            { href: '/sales', icon: LayoutDashboard, label: salesSidebarLabels.salesDashboard },
+            {
+                href: '/sales',
+                icon: LayoutDashboard,
+                label: salesSidebarLabels.salesDashboard,
+            },
         ],
     },
     {
         heading: 'Transaksi',
         items: [
-            { href: '/sales/quotations', icon: FileText, label: salesSidebarLabels.quotations },
-            { href: '/sales/orders', icon: ShoppingCart, label: salesSidebarLabels.salesOrders },
-            { href: '/sales/invoices', icon: FileText, label: salesSidebarLabels.salesInvoices },
-            { href: '/sales/returns', icon: RotateCcw, label: salesSidebarLabels.salesReturns },
+            {
+                href: '/sales/quotations',
+                icon: FileText,
+                label: salesSidebarLabels.quotations,
+            },
+            {
+                href: '/sales/orders',
+                icon: ShoppingCart,
+                label: salesSidebarLabels.salesOrders,
+            },
+            {
+                href: '/sales/invoices',
+                icon: FileText,
+                label: salesSidebarLabels.salesInvoices,
+            },
+            {
+                href: '/sales/returns',
+                icon: RotateCcw,
+                label: salesSidebarLabels.salesReturns,
+            },
         ],
     },
     {
         heading: 'Pengiriman',
         items: [
-            { href: '/sales/delivery-schedules', icon: CalendarDays, label: salesSidebarLabels.deliverySchedules },
-            { href: '/sales/deliveries', icon: Truck, label: salesSidebarLabels.deliveryTracking },
-            { href: '/sales/vehicles', icon: Car, label: salesSidebarLabels.vehicles },
+            {
+                href: '/sales/delivery-schedules',
+                icon: CalendarDays,
+                label: salesSidebarLabels.deliverySchedules,
+            },
+            {
+                href: '/sales/deliveries',
+                icon: Truck,
+                label: salesSidebarLabels.deliveryTracking,
+            },
+            {
+                href: '/sales/vehicles',
+                icon: Car,
+                label: salesSidebarLabels.vehicles,
+            },
         ],
     },
     {
         heading: 'Pelanggan',
         items: [
-            { href: '/sales/customers', icon: Users2, label: salesSidebarLabels.customerManagement },
+            {
+                href: '/sales/customers',
+                icon: Users2,
+                label: salesSidebarLabels.customerManagement,
+            },
         ],
     },
     {
         heading: 'Laporan',
         items: [
-            { href: '/sales/reports/sales-performance', icon: BarChart3, label: salesSidebarLabels.salesPerformance },
-            { href: '/sales/reports/shipping-cost', icon: BarChart3, label: salesSidebarLabels.shippingCostReport },
+            {
+                href: '/sales/reports/sales-performance',
+                icon: BarChart3,
+                label: salesSidebarLabels.salesPerformance,
+            },
+            {
+                href: '/sales/reports/shipping-cost',
+                icon: BarChart3,
+                label: salesSidebarLabels.shippingCostReport,
+            },
         ],
     },
 ];
@@ -71,7 +115,11 @@ const salesLinks = [
 export function SalesSidebar({ user, permissions }: SalesSidebarProps) {
     const filteredGroups = filterNavGroups(salesLinks, permissions);
     return (
-        <PortalSidebarBase user={user} portalName="Portal Sales" accentColor="blue">
+        <PortalSidebarBase
+            user={user}
+            portalName="Portal Sales"
+            accentColor="blue"
+        >
             <div className="px-3 mb-2">
                 <AdminBackButton />
             </div>

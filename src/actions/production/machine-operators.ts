@@ -21,18 +21,15 @@ export const getMachineOperators = withTenant(
                             code: true,
                             role: true,
                             status: true,
-                        }
-                    }
+                        },
+                    },
                 },
-                orderBy: [
-                    { isPrimary: 'desc' },
-                    { assignedAt: 'asc' }
-                ]
+                orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }],
             });
 
             return operators;
         });
-    }
+    },
 );
 
 /**
@@ -54,90 +51,87 @@ export const getOperatorMachines = withTenant(
                             location: {
                                 select: {
                                     name: true,
-                                }
-                            }
-                        }
-                    }
+                                },
+                            },
+                        },
+                    },
                 },
-                orderBy: [
-                    { isPrimary: 'desc' },
-                    { assignedAt: 'asc' }
-                ]
+                orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }],
             });
 
             return machines;
         });
-    }
+    },
 );
 
 /**
  * Assign an operator to a machine
  */
-export const assignOperator = withTenant(
-    async function assignOperator(data: {
-        machineId: string;
-        employeeId: string;
-        isPrimary?: boolean;
-        notes?: string;
-    }) {
-        return safeAction(async () => {
-            // Check if assignment already exists
-            const existing = await prisma.machineOperator.findUnique({
-                where: {
-                    machineId_employeeId: {
-                        machineId: data.machineId,
-                        employeeId: data.employeeId,
-                    }
-                }
-            });
-
-            if (existing) {
-                throw new ConflictError('Operator already assigned to this machine');
-            }
-
-            // If setting as primary, unset any existing primary
-            if (data.isPrimary) {
-                await prisma.machineOperator.updateMany({
-                    where: {
-                        machineId: data.machineId,
-                        isPrimary: true,
-                    },
-                    data: { isPrimary: false }
-                });
-            }
-
-            const assignment = await prisma.machineOperator.create({
-                data: {
+export const assignOperator = withTenant(async function assignOperator(data: {
+    machineId: string;
+    employeeId: string;
+    isPrimary?: boolean;
+    notes?: string;
+}) {
+    return safeAction(async () => {
+        // Check if assignment already exists
+        const existing = await prisma.machineOperator.findUnique({
+            where: {
+                machineId_employeeId: {
                     machineId: data.machineId,
                     employeeId: data.employeeId,
-                    isPrimary: data.isPrimary ?? false,
-                    notes: data.notes,
                 },
-                include: {
-                    employee: {
-                        select: {
-                            id: true,
-                            name: true,
-                            code: true,
-                        }
-                    },
-                    machine: {
-                        select: {
-                            id: true,
-                            name: true,
-                            code: true,
-                        }
-                    }
-                }
-            });
-
-            revalidatePath('/production/machines');
-            revalidatePath('/kiosk');
-
-            return assignment;
+            },
         });
-    }
-);
+
+        if (existing) {
+            throw new ConflictError(
+                'Operator already assigned to this machine',
+            );
+        }
+
+        // If setting as primary, unset any existing primary
+        if (data.isPrimary) {
+            await prisma.machineOperator.updateMany({
+                where: {
+                    machineId: data.machineId,
+                    isPrimary: true,
+                },
+                data: { isPrimary: false },
+            });
+        }
+
+        const assignment = await prisma.machineOperator.create({
+            data: {
+                machineId: data.machineId,
+                employeeId: data.employeeId,
+                isPrimary: data.isPrimary ?? false,
+                notes: data.notes,
+            },
+            include: {
+                employee: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    },
+                },
+                machine: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    },
+                },
+            },
+        });
+
+        revalidatePath('/production/machines');
+        revalidatePath('/kiosk');
+
+        return assignment;
+    });
+});
 
 /**
  * Unassign an operator from a machine
@@ -153,12 +147,12 @@ export const unassignOperator = withTenant(
                     machineId_employeeId: {
                         machineId: data.machineId,
                         employeeId: data.employeeId,
-                    }
-                }
+                    },
+                },
             });
 
             if (!assignment) {
-                throw new NotFoundError("Machine Operator Assignment");
+                throw new NotFoundError('Machine Operator Assignment');
             }
 
             await prisma.machineOperator.delete({
@@ -166,8 +160,8 @@ export const unassignOperator = withTenant(
                     machineId_employeeId: {
                         machineId: data.machineId,
                         employeeId: data.employeeId,
-                    }
-                }
+                    },
+                },
             });
 
             revalidatePath('/production/machines');
@@ -175,7 +169,7 @@ export const unassignOperator = withTenant(
 
             return { success: true };
         });
-    }
+    },
 );
 
 /**
@@ -193,7 +187,7 @@ export const setPrimaryOperator = withTenant(
                     machineId: data.machineId,
                     isPrimary: true,
                 },
-                data: { isPrimary: false }
+                data: { isPrimary: false },
             });
 
             // Set the new primary
@@ -202,7 +196,7 @@ export const setPrimaryOperator = withTenant(
                     machineId_employeeId: {
                         machineId: data.machineId,
                         employeeId: data.employeeId,
-                    }
+                    },
                 },
                 data: { isPrimary: true },
                 include: {
@@ -211,16 +205,16 @@ export const setPrimaryOperator = withTenant(
                             id: true,
                             name: true,
                             code: true,
-                        }
-                    }
-                }
+                        },
+                    },
+                },
             });
 
             revalidatePath('/production/machines');
 
             return assignment;
         });
-    }
+    },
 );
 
 /**
@@ -232,10 +226,10 @@ export const getOperatorMachineIds = withTenant(
         return safeAction(async () => {
             const assignments = await prisma.machineOperator.findMany({
                 where: { employeeId },
-                select: { machineId: true }
+                select: { machineId: true },
             });
 
             return assignments.map((a: { machineId: string }) => a.machineId);
         });
-    }
+    },
 );

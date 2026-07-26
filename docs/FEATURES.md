@@ -65,9 +65,9 @@ Store flexible metadata as JSON:
 
 ```json
 {
-  "color": "Red",
-  "thickness": "Standard",
-  "material": "PP"
+    "color": "Red",
+    "thickness": "Standard",
+    "material": "PP"
 }
 ```
 
@@ -166,12 +166,12 @@ Move inventory between locations with atomic transactions:
 
 ```typescript
 await transferStock({
-  sourceLocationId: "rm_warehouse",
-  destinationLocationId: "mixing_area",
-  productVariantId: "RM-PP-PURE",
-  quantity: 100,
-  notes: "For production batch #123",
-  date: new Date(),
+    sourceLocationId: 'rm_warehouse',
+    destinationLocationId: 'mixing_area',
+    productVariantId: 'RM-PP-PURE',
+    quantity: 100,
+    notes: 'For production batch #123',
+    date: new Date(),
 });
 ```
 
@@ -269,7 +269,7 @@ Production recipe management:
 
 #### 1. **BOM Structure**
 
-```typescript
+````typescript
 {
   name: "Standard Mixing Recipe - Red",
   productVariantId: "INT-MIX-RED",       // Output product
@@ -334,7 +334,7 @@ Track production equipment:
   locationId: "mixing_area",            // Associated location
   status: MachineStatus.ACTIVE          // Current status
 }
-```
+````
 
 **Machine Types**:
 
@@ -474,8 +474,8 @@ High-level manufacturing metrics for management:
 - Click row → Edit threshold dialog
 - Threshold update → Real-time save to database
 - Color coding:
-  - Yellow background → Low stock
-  - Red text → Below threshold
+    - Yellow background → Low stock
+    - Red text → Below threshold
 
 **Movement History**:
 
@@ -610,10 +610,10 @@ A robust foundation for industrial financial management:
 - **Papan shift HRD**: home = work queue, bukan dashboard statis
 - **6 KPI cards**: Hadir hari ini, Cuti pending, Kasbon outstanding, Periode OPEN, Peserta BPJS, Alert HR unread
 - **Attention lists** (4 kolom):
-  - Cuti/izin menunggu (top 5 + deep link)
-  - Alert kontrak/probation (top 5 + deep link)
-  - Periode gaji terbuka + flag "Perlu generate"
-  - Tanpa kabar kemarin (absent yesterday)
+    - Cuti/izin menunggu (top 5 + deep link)
+    - Alert kontrak/probation (top 5 + deep link)
+    - Periode gaji terbuka + flag "Perlu generate"
+    - Tanpa kabar kemarin (absent yesterday)
 - **Dual payroll guidance**: penjelasan borongan/mingguan vs bulanan/kantor
 - **Quick actions**: 4 tombol akses cepat
 - **Compact menu grid**: 10 menu dalam grid 4 kolom (menggantikan 9 hub tiles)
@@ -696,15 +696,15 @@ All data mutations use Next.js 16 Server Actions:
 All inputs validated using **Zod** schemas:
 
 ```typescript
-import { z } from "zod";
+import { z } from 'zod';
 
 export const transferStockSchema = z.object({
-  sourceLocationId: z.string().min(1),
-  destinationLocationId: z.string().min(1),
-  productVariantId: z.string().min(1),
-  quantity: z.number().positive(),
-  notes: z.string().optional(),
-  date: z.date(),
+    sourceLocationId: z.string().min(1),
+    destinationLocationId: z.string().min(1),
+    productVariantId: z.string().min(1),
+    quantity: z.number().positive(),
+    notes: z.string().optional(),
+    date: z.date(),
 });
 ```
 
@@ -739,8 +739,8 @@ await prisma.$transaction(async (tx) => {
 Use Next.js `revalidatePath()` for cache invalidation:
 
 ```typescript
-revalidatePath("/dashboard/inventory");
-revalidatePath("/dashboard/inventory/history");
+revalidatePath('/dashboard/inventory');
+revalidatePath('/dashboard/inventory/history');
 ```
 
 This ensures UI reflects latest data without full page reload.

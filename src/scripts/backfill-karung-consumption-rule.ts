@@ -22,14 +22,16 @@ async function main() {
 
     // Find all product variants used as materials in PACKING BOMs
     // that don't already have a consumptionRule set
-    const karungCandidates = await prisma.$queryRaw<Array<{
-        id: string;
-        name: string;
-        skuCode: string;
-        productType: string;
-        primaryUnit: string;
-        attributes: string | null;
-    }>>`
+    const karungCandidates = await prisma.$queryRaw<
+        Array<{
+            id: string;
+            name: string;
+            skuCode: string;
+            productType: string;
+            primaryUnit: string;
+            attributes: string | null;
+        }>
+    >`
         SELECT DISTINCT
             pv.id,
             pv.name,
@@ -46,9 +48,13 @@ async function main() {
         ORDER BY pv.name
     `;
 
-    console.log(`Found ${karungCandidates.length} candidate variant(s) without consumptionRule:`);
+    console.log(
+        `Found ${karungCandidates.length} candidate variant(s) without consumptionRule:`,
+    );
     for (const v of karungCandidates) {
-        console.log(`  - ${v.skuCode} | ${v.name} | type=${v.productType} | unit=${v.primaryUnit}`);
+        console.log(
+            `  - ${v.skuCode} | ${v.name} | type=${v.productType} | unit=${v.primaryUnit}`,
+        );
     }
     console.log('');
 
@@ -58,7 +64,9 @@ async function main() {
     }
 
     if (DRY_RUN) {
-        console.log('DRY RUN — no changes applied. Set DRY_RUN=false to apply.');
+        console.log(
+            'DRY RUN — no changes applied. Set DRY_RUN=false to apply.',
+        );
         return;
     }
 
@@ -80,7 +88,7 @@ async function main() {
     // Verify
     const verify = await prisma.productVariant.findMany({
         where: {
-            id: { in: karungCandidates.map(v => v.id) },
+            id: { in: karungCandidates.map((v) => v.id) },
         },
         select: {
             id: true,
@@ -94,7 +102,9 @@ async function main() {
     console.log('Verification:');
     for (const v of verify) {
         const attrs = v.attributes as Record<string, unknown> | null;
-        console.log(`  ${v.skuCode} | ${v.name} | rule=${attrs?.consumptionRule ?? 'NONE'}`);
+        console.log(
+            `  ${v.skuCode} | ${v.name} | rule=${attrs?.consumptionRule ?? 'NONE'}`,
+        );
     }
 }
 

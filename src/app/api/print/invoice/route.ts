@@ -10,10 +10,12 @@ import {
 } from '@/services/printing/escp-generator';
 
 function toSafeDownloadFilename(value: string): string {
-    return value
-        .replace(/[\\/:*?"<>|]+/g, '-')
-        .replace(/\s+/g, ' ')
-        .trim() || 'invoice';
+    return (
+        value
+            .replace(/[\\/:*?"<>|]+/g, '-')
+            .replace(/\s+/g, ' ')
+            .trim() || 'invoice'
+    );
 }
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
@@ -24,7 +26,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         if (!invoiceId) {
             return NextResponse.json(
                 { error: 'Missing invoice id' },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -50,7 +52,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         if (!invoice) {
             return NextResponse.json(
                 { error: 'Invoice not found' },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -61,11 +63,11 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         // Calculate totals
         const subtotal = items.reduce(
             (sum, item) => sum + Number(item.subtotal || 0),
-            0
+            0,
         );
         const totalQty = items.reduce(
             (sum, item) => sum + Number(item.quantity || 0),
-            0
+            0,
         );
         const taxAmount = Number(so?.taxAmount || 0);
         const discountAmount = Number(so?.discountAmount || 0);
@@ -77,7 +79,9 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
 
         const isPPN = taxAmount > 0;
         const company = await getCompanyConfigWithOverridesAsync();
-        const bankAccounts = isPPN ? company.bankAccountsPPN : company.bankAccountsNonPPN;
+        const bankAccounts = isPPN
+            ? company.bankAccountsPPN
+            : company.bankAccountsNonPPN;
         const bankAcc = bankAccounts[0];
 
         const escpData: EscpInvoiceData = {
@@ -91,8 +95,11 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             invoiceNumber: invoice.invoiceNumber,
             invoiceDate: new Date(invoice.invoiceDate),
             dueDate: invoice.dueDate ? new Date(invoice.dueDate) : null,
-            items: items.map(item => ({
-                name: item.productVariant?.name || item.productVariant?.product?.name || '-',
+            items: items.map((item) => ({
+                name:
+                    item.productVariant?.name ||
+                    item.productVariant?.product?.name ||
+                    '-',
                 qty: Number(item.quantity || 0),
                 unit: item.productVariant?.primaryUnit || 'pcs',
                 unitPrice: Number(item.unitPrice || 0),
@@ -133,7 +140,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         console.error('[ESC/P Download] Error:', error);
         return NextResponse.json(
             { error: 'Failed to generate ESC/P file' },
-            { status: 500 }
+            { status: 500 },
         );
     }
 });

@@ -23,7 +23,11 @@ interface DeleteAccountDialogProps {
     code: string;
 }
 
-export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps) {
+export function DeleteAccountDialog({
+    id,
+    name,
+    code,
+}: DeleteAccountDialogProps) {
     const [loading, setLoading] = useState(false);
     const [open, setOpen] = useState(false);
 
@@ -38,7 +42,7 @@ export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps
                 toast.error(result.error || 'Gagal menghapus akun');
             }
         } catch (_error) {
-            toast.error("Gagal menghapus akun. Silakan coba lagi.")
+            toast.error('Gagal menghapus akun. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -47,7 +51,11 @@ export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
                     <Trash2 className="h-4 w-4" />
                 </Button>
             </AlertDialogTrigger>
@@ -55,12 +63,18 @@ export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps
                 <AlertDialogHeader>
                     <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Ini akan menghapus permanen akun <strong>{code} - {name}</strong>.
-                        Tindakan ini tidak dapat dibatalkan. Anda hanya bisa menghapus akun yang belum memiliki transaksi.
+                        Ini akan menghapus permanen akun{' '}
+                        <strong>
+                            {code} - {name}
+                        </strong>
+                        . Tindakan ini tidak dapat dibatalkan. Anda hanya bisa
+                        menghapus akun yang belum memiliki transaksi.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={loading}>Batal</AlertDialogCancel>
+                    <AlertDialogCancel disabled={loading}>
+                        Batal
+                    </AlertDialogCancel>
                     <AlertDialogAction
                         onClick={(e) => {
                             e.preventDefault();

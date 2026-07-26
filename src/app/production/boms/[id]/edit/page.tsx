@@ -9,13 +9,15 @@ interface EditBomPageProps {
     }>;
 }
 
-export default async function ProductionEditBomPage({ params }: EditBomPageProps) {
+export default async function ProductionEditBomPage({
+    params,
+}: EditBomPageProps) {
     const { id } = await params;
 
     const [bomRes, variantsRes, showPrices] = await Promise.all([
         getBom(id),
         getProductVariants(),
-        canViewPrices()
+        canViewPrices(),
     ]);
 
     if (!bomRes.success || !bomRes.data) {

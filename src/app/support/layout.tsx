@@ -23,10 +23,15 @@ export default async function SupportLayout({
 
     // Same permission resolution as dashboard/layout.tsx — support must NOT strip other modules
     const permissionsRes = await getMyPermissions();
-    const sessionAllowed = (session.user as { allowedResources?: string[] })?.allowedResources || [];
-    const permissions = permissionsRes.success && permissionsRes.data
-        ? permissionsRes.data
-        : (sessionAllowed.length > 0 ? sessionAllowed : ['/support']);
+    const sessionAllowed =
+        (session.user as { allowedResources?: string[] })?.allowedResources ||
+        [];
+    const permissions =
+        permissionsRes.success && permissionsRes.data
+            ? permissionsRes.data
+            : sessionAllowed.length > 0
+              ? sessionAllowed
+              : ['/support'];
 
     return (
         <div className="min-h-screen bg-secondary/30">
@@ -34,9 +39,7 @@ export default async function SupportLayout({
 
             {/* Main Content */}
             <SidebarSpacer>
-                <main className="min-h-screen">
-                    {children}
-                </main>
+                <main className="min-h-screen">{children}</main>
             </SidebarSpacer>
         </div>
     );

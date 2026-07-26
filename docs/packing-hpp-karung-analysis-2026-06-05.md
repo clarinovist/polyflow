@@ -35,15 +35,15 @@ File utama:
 
 Entitas penting:
 
-| Entitas | Fungsi saat ini |
-| --- | --- |
-| `Bom` | Resep produksi. Punya `category`, termasuk `PACKING`. |
-| `BomItem` | Komponen material BOM. Bisa berisi material packing kalau varian produknya dibuat. |
-| `ProductionOrder` | Work order, punya `bomId`, `locationId`, `actualQuantity`, status, estimasi conversion cost. |
-| `ProductionExecution` | Log hasil produksi operator/kiosk. Ada `quantityProduced`, `endTime`, operator/mesin. |
-| `StockMovement` | Ledger stok. Output produksi dicatat sebagai `IN`; konsumsi material dicatat sebagai `OUT`. |
-| `Inventory.averageCost` | Biaya rata-rata stok per varian per lokasi. |
-| `ProductVariant.standardCost` | Fallback cost kalau tidak ada average cost. |
+| Entitas                       | Fungsi saat ini                                                                              |
+| ----------------------------- | -------------------------------------------------------------------------------------------- |
+| `Bom`                         | Resep produksi. Punya `category`, termasuk `PACKING`.                                        |
+| `BomItem`                     | Komponen material BOM. Bisa berisi material packing kalau varian produknya dibuat.           |
+| `ProductionOrder`             | Work order, punya `bomId`, `locationId`, `actualQuantity`, status, estimasi conversion cost. |
+| `ProductionExecution`         | Log hasil produksi operator/kiosk. Ada `quantityProduced`, `endTime`, operator/mesin.        |
+| `StockMovement`               | Ledger stok. Output produksi dicatat sebagai `IN`; konsumsi material dicatat sebagai `OUT`.  |
+| `Inventory.averageCost`       | Biaya rata-rata stok per varian per lokasi.                                                  |
+| `ProductVariant.standardCost` | Fallback cost kalau tidak ada average cost.                                                  |
 
 Kategori produk sudah mendukung `PACKAGING`, dan unit sudah mendukung `PACK` yang di-map ke `PCS`, serta `ZAK`.
 
@@ -78,12 +78,12 @@ File terkait:
 
 Ada beberapa jalur costing:
 
-| Jalur | File | Cara hitung |
-| --- | --- | --- |
-| Actual COGM per order | `src/services/production/cost-service.ts` | Total `StockMovement OUT` material + `estimatedConversionCost`, dibagi `actualQuantity`. |
-| Cost accounting page | `src/services/accounting/costing-service.ts` | Material issue + machine cost + labor cost, dibagi output. |
-| Finance cost report | `src/services/finance/cost-reporting-service.ts` | Material OUT + conversion cost. |
-| HPP calculator | `src/actions/finance/hpp-calculator.ts`, `src/lib/utils/hpp-calculator.ts` | Simulasi HPP berdasarkan BOM item + benchmark labor/machine/overhead. |
+| Jalur                 | File                                                                       | Cara hitung                                                                              |
+| --------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Actual COGM per order | `src/services/production/cost-service.ts`                                  | Total `StockMovement OUT` material + `estimatedConversionCost`, dibagi `actualQuantity`. |
+| Cost accounting page  | `src/services/accounting/costing-service.ts`                               | Material issue + machine cost + labor cost, dibagi output.                               |
+| Finance cost report   | `src/services/finance/cost-reporting-service.ts`                           | Material OUT + conversion cost.                                                          |
+| HPP calculator        | `src/actions/finance/hpp-calculator.ts`, `src/lib/utils/hpp-calculator.ts` | Simulasi HPP berdasarkan BOM item + benchmark labor/machine/overhead.                    |
 
 Kesimpulan: secara konsep, **kalau karung dimasukkan sebagai BOM item PACKING**, HPP calculator dan cost report berbasis material movement bisa ikut menghitung karung.
 
@@ -182,13 +182,13 @@ Implikasi: report berdasarkan `actualEndDate` bisa miss data produksi yang seben
 
 Buat master varian karung:
 
-| Field | Saran |
-| --- | --- |
-| `Product.productType` | `PACKAGING` |
-| Nama | `Karung Merah` / `Karung Putih` / sesuai kebutuhan |
-| Unit | `PACK`/PCS atau `ZAK`, tergantung operasional stok |
-| `standardCost` atau `buyPrice` | `1650` untuk contoh Rizal |
-| Stok awal | Masukkan via stock adjustment/opening balance dengan unit cost 1650 |
+| Field                          | Saran                                                               |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `Product.productType`          | `PACKAGING`                                                         |
+| Nama                           | `Karung Merah` / `Karung Putih` / sesuai kebutuhan                  |
+| Unit                           | `PACK`/PCS atau `ZAK`, tergantung operasional stok                  |
+| `standardCost` atau `buyPrice` | `1650` untuk contoh Rizal                                           |
+| Stok awal                      | Masukkan via stock adjustment/opening balance dengan unit cost 1650 |
 
 Lalu masukkan karung sebagai BOM item di BOM kategori `PACKING`.
 
@@ -221,16 +221,16 @@ ProductionOrder.location.slug in ('packing_area', 'maklon_packing' jika maklon i
 
 Output laporan minimal:
 
-| Kolom | Isi |
-| --- | --- |
-| Bulan/periode | Dari filter user |
-| Produk barang jadi | `bom.productVariant.name` |
-| SKU | `skuCode` |
-| Qty produksi | Sum `ProductionExecution.quantityProduced` |
-| Unit | `primaryUnit` dan/atau entered unit kalau ada |
-| Jumlah WO | Distinct order |
-| HPP/unit | Dari actual costing per WO atau stock movement output cost |
-| Total HPP | Qty x HPP/unit |
+| Kolom              | Isi                                                        |
+| ------------------ | ---------------------------------------------------------- |
+| Bulan/periode      | Dari filter user                                           |
+| Produk barang jadi | `bom.productVariant.name`                                  |
+| SKU                | `skuCode`                                                  |
+| Qty produksi       | Sum `ProductionExecution.quantityProduced`                 |
+| Unit               | `primaryUnit` dan/atau entered unit kalau ada              |
+| Jumlah WO          | Distinct order                                             |
+| HPP/unit           | Dari actual costing per WO atau stock movement output cost |
+| Total HPP          | Qty x HPP/unit                                             |
 
 Untuk rekonsiliasi stok, bisa tambahkan basis `StockMovement IN` output produksi sebagai pembanding.
 
@@ -251,9 +251,9 @@ Solusi paling rapi adalah menambahkan `sourceLocationId` pada `ProductionMateria
 Kenapa:
 
 - Satu BOM packing bisa punya input dari lokasi berbeda:
-  - jumbo/hasil proses sebelumnya dari `fg_warehouse` atau `packing_area`,
-  - karung dari gudang packaging/raw material,
-  - label/tali/aksesoris dari lokasi lain.
+    - jumbo/hasil proses sebelumnya dari `fg_warehouse` atau `packing_area`,
+    - karung dari gudang packaging/raw material,
+    - label/tali/aksesoris dari lokasi lain.
 - Backflush harus consume dari lokasi yang sudah direncanakan, bukan tebak berdasarkan kategori BOM saja.
 
 Konsekuensi:
@@ -289,18 +289,18 @@ Harus terlihat di:
 
 Jika ada tiga output packing pada Juni 2026:
 
-| Tanggal | Produk | Qty |
-| --- | --- | ---: |
+| Tanggal    | Produk        | Qty |
+| ---------- | ------------- | --: |
 | 2026-06-01 | Packing Merah | 100 |
 | 2026-06-12 | Packing Merah | 200 |
-| 2026-06-20 | Packing Biru | 50 |
+| 2026-06-20 | Packing Biru  |  50 |
 
 Ekspektasi laporan bulan Juni 2026:
 
-| Produk | Total Qty |
-| --- | ---: |
-| Packing Merah | 300 |
-| Packing Biru | 50 |
+| Produk        | Total Qty |
+| ------------- | --------: |
+| Packing Merah |       300 |
+| Packing Biru  |        50 |
 
 Filter harus berdasarkan `ProductionExecution.endTime`/stock movement date, bukan hanya `ProductionOrder.actualEndDate`, karena `actualEndDate` belum konsisten otomatis terisi.
 
@@ -354,18 +354,18 @@ Bagian ini ditambahkan setelah review ulang source code. Nomor baris mengacu pad
 
 File: `prisma/schema.prisma`
 
-| Area | Baris | Detail teknis | Implikasi untuk karung |
-| --- | ---: | --- | --- |
-| `ProductVariant.standardCost` | 188-208 | Varian produk punya `standardCost`, `buyPrice`, `price`, `costingMethod`. | Karung bisa diberi `standardCost = 1650` atau cost dari inventory average. |
-| Relasi varian ke BOM item | 210-211 | Varian bisa jadi output BOM (`productionBoms`) atau ingredient BOM (`ingredientInBoms`). | Karung harus masuk sebagai ingredient BOM Packing. |
-| `Bom.category` | 267-279, 1041-1046 | BOM punya kategori `PACKING`. | HPP karung sebaiknya hanya dipastikan untuk BOM `PACKING`. |
-| `BomItem.quantity` | 282-291 | Komponen BOM menyimpan `productVariantId`, `quantity`, `scrapPercentage`. | `quantity = 1` untuk karung per pcs/bal output. |
-| `StockMovement.cost` | 294-305 | Setiap mutasi stok punya cost per unit. | Actual HPP akan valid kalau movement OUT karung punya `cost = 1650`. |
-| `ProductionOrder.locationId` | 414-446 | WO punya lokasi output. | Packing output saat ini diarahkan ke `packing_area`. |
-| `ProductionMaterial` | 545-557 | Planned material hanya menyimpan product + quantity, belum source location. | Ini gap utama untuk multi-lokasi: jumbo roll vs karung. |
-| `ProductionExecution.endTime` | 559-588 | Output aktual ada di execution, termasuk quantity dan end time. | Laporan bulanan sebaiknya ambil dari execution, bukan hanya `actualEndDate`. |
-| Product type `PACKAGING` | 1081-1088 | Tipe produk sudah ada `PACKAGING`. | Master karung tidak perlu enum baru. |
-| Unit `PACK`/`ZAK` | 1091-1096 | Unit sudah ada `PACK @map("PCS")` dan `ZAK`. | Bisa pakai `PACK` untuk pcs karung, atau `ZAK` jika operasionalnya zak. |
+| Area                          |              Baris | Detail teknis                                                                            | Implikasi untuk karung                                                       |
+| ----------------------------- | -----------------: | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `ProductVariant.standardCost` |            188-208 | Varian produk punya `standardCost`, `buyPrice`, `price`, `costingMethod`.                | Karung bisa diberi `standardCost = 1650` atau cost dari inventory average.   |
+| Relasi varian ke BOM item     |            210-211 | Varian bisa jadi output BOM (`productionBoms`) atau ingredient BOM (`ingredientInBoms`). | Karung harus masuk sebagai ingredient BOM Packing.                           |
+| `Bom.category`                | 267-279, 1041-1046 | BOM punya kategori `PACKING`.                                                            | HPP karung sebaiknya hanya dipastikan untuk BOM `PACKING`.                   |
+| `BomItem.quantity`            |            282-291 | Komponen BOM menyimpan `productVariantId`, `quantity`, `scrapPercentage`.                | `quantity = 1` untuk karung per pcs/bal output.                              |
+| `StockMovement.cost`          |            294-305 | Setiap mutasi stok punya cost per unit.                                                  | Actual HPP akan valid kalau movement OUT karung punya `cost = 1650`.         |
+| `ProductionOrder.locationId`  |            414-446 | WO punya lokasi output.                                                                  | Packing output saat ini diarahkan ke `packing_area`.                         |
+| `ProductionMaterial`          |            545-557 | Planned material hanya menyimpan product + quantity, belum source location.              | Ini gap utama untuk multi-lokasi: jumbo roll vs karung.                      |
+| `ProductionExecution.endTime` |            559-588 | Output aktual ada di execution, termasuk quantity dan end time.                          | Laporan bulanan sebaiknya ambil dari execution, bukan hanya `actualEndDate`. |
+| Product type `PACKAGING`      |          1081-1088 | Tipe produk sudah ada `PACKAGING`.                                                       | Master karung tidak perlu enum baru.                                         |
+| Unit `PACK`/`ZAK`             |          1091-1096 | Unit sudah ada `PACK @map("PCS")` dan `ZAK`.                                             | Bisa pakai `PACK` untuk pcs karung, atau `ZAK` jika operasionalnya zak.      |
 
 Kesimpulan source schema: **tidak wajib tambah model untuk sekadar memasukkan karung ke HPP BOM**, tetapi akan lebih rapi jika `ProductionMaterial` ditambah `sourceLocationId` untuk membedakan lokasi konsumsi tiap material.
 
@@ -382,19 +382,19 @@ File utama:
 Di `production-order-form.tsx`:
 
 - `resolveSourceLocationId()` baris 193-215:
-  - stage `packing` non-maklon return `fgLoc` (`fg_warehouse`).
-  - stage `packing` maklon return `maklonFgLoc || maklonWipLoc || customerOwnedLoc || fgLoc`.
+    - stage `packing` non-maklon return `fgLoc` (`fg_warehouse`).
+    - stage `packing` maklon return `maklonFgLoc || maklonWipLoc || customerOwnedLoc || fgLoc`.
 - `resolveOutputLocationId()` baris 217-238:
-  - stage `packing` non-maklon return `packingLoc` (`packing_area`).
-  - stage `packing` maklon return `maklonPackingLoc || packingLoc`.
+    - stage `packing` non-maklon return `packingLoc` (`packing_area`).
+    - stage `packing` maklon return `maklonPackingLoc || packingLoc`.
 - `getBomWithInventory()` dipanggil di baris 245-285 untuk menghitung required material dan current stock berdasarkan **satu source location global**.
 
 Gap:
 
 - Form create WO hanya punya satu `materialSourceLocationId` global, padahal BOM packing bisa butuh:
-  - jumbo/produk sebelumnya dari `fg_warehouse`,
-  - karung dari lokasi packaging/raw material,
-  - label/tali dari lokasi lain.
+    - jumbo/produk sebelumnya dari `fg_warehouse`,
+    - karung dari lokasi packaging/raw material,
+    - label/tali dari lokasi lain.
 - `getBomWithInventory()` juga menerima satu `sourceLocationId`, sehingga stock check karung bisa salah jika stok karung tidak ada di `fg_warehouse`.
 
 Catatan product picker:
@@ -409,12 +409,12 @@ Catatan product picker:
 Di `order-service.ts`:
 
 - `getBomWithInventory()` baris 72-159:
-  - Ambil BOM items.
-  - Ambil inventory hanya di `sourceLocationId` yang dikirim.
-  - Return `requiredQty` per item.
+    - Ambil BOM items.
+    - Ambil inventory hanya di `sourceLocationId` yang dikirim.
+    - Return `requiredQty` per item.
 - `createOrder()` baris 164-250+:
-  - Kalau `data.items` kosong, material dibuat dari BOM item di baris 197-209.
-  - Stock availability awal dicek terhadap `locationId` order di baris 212-230.
+    - Kalau `data.items` kosong, material dibuat dari BOM item di baris 197-209.
+    - Stock availability awal dicek terhadap `locationId` order di baris 212-230.
 
 Gap:
 
@@ -449,10 +449,10 @@ Gap:
 Di `movement-service.ts`:
 
 - `transferStockBulk()` baris 95-185:
-  - Lock source inventory quantity.
-  - Decrement source quantity.
-  - Upsert destination quantity.
-  - Buat `StockMovement` type `TRANSFER`.
+    - Lock source inventory quantity.
+    - Decrement source quantity.
+    - Upsert destination quantity.
+    - Buat `StockMovement` type `TRANSFER`.
 - Destination upsert baris 163-176 hanya update/create quantity, tidak membawa `averageCost`.
 
 Gap:
@@ -465,19 +465,24 @@ Rekomendasi patch kecil:
 ```ts
 // sebelum update source, ambil averageCost source
 const sourceInventory = await tx.inventory.findUnique({
-  where: { locationId_productVariantId: { locationId: sourceLocationId, productVariantId } },
-  select: { quantity: true, averageCost: true }
+    where: {
+        locationId_productVariantId: {
+            locationId: sourceLocationId,
+            productVariantId,
+        },
+    },
+    select: { quantity: true, averageCost: true },
 });
 
 const transferUnitCost = Number(sourceInventory?.averageCost ?? 0);
 
 // destination upsert sebaiknya update WAC, bukan quantity only
 await InventoryCoreService.incrementStockWithCost(
-  tx,
-  destinationLocationId,
-  productVariantId,
-  quantity,
-  transferUnitCost
+    tx,
+    destinationLocationId,
+    productVariantId,
+    quantity,
+    transferUnitCost,
 );
 ```
 
@@ -571,17 +576,20 @@ Rekomendasi patch kecil tanpa migration:
 
 ```ts
 if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
-  // 1. prioritas stok di lokasi order/staging, karena UI transfer material ke order.location
-  const orderLocationInventory = await findInventory(order.locationId, productVariantId);
-  if (orderLocationInventory > 0) return order.locationId;
+    // 1. prioritas stok di lokasi order/staging, karena UI transfer material ke order.location
+    const orderLocationInventory = await findInventory(
+        order.locationId,
+        productVariantId,
+    );
+    if (orderLocationInventory > 0) return order.locationId;
 
-  // 2. lalu cari lokasi kandidat umum: FG, packing area, raw material
-  const candidate = await findFirstStockLocation(tx, productVariantId, [
-    WAREHOUSE_SLUGS.FINISHING,
-    WAREHOUSE_SLUGS.PACKING_AREA,
-    WAREHOUSE_SLUGS.RAW_MATERIAL,
-  ]);
-  if (candidate) return candidate;
+    // 2. lalu cari lokasi kandidat umum: FG, packing area, raw material
+    const candidate = await findFirstStockLocation(tx, productVariantId, [
+        WAREHOUSE_SLUGS.FINISHING,
+        WAREHOUSE_SLUGS.PACKING_AREA,
+        WAREHOUSE_SLUGS.RAW_MATERIAL,
+    ]);
+    if (candidate) return candidate;
 }
 ```
 
@@ -713,33 +721,33 @@ Query basis yang disarankan:
 
 ```ts
 const executions = await prisma.productionExecution.findMany({
-  where: {
-    status: { not: 'VOIDED' },
-    endTime: { gte: startDate, lte: endDate },
-    productionOrder: {
-      bom: { category: 'PACKING' },
-      location: { slug: 'packing_area' },
-    },
-  },
-  include: {
-    productionOrder: {
-      include: {
-        bom: {
-          include: { productVariant: { include: { product: true } } }
+    where: {
+        status: { not: 'VOIDED' },
+        endTime: { gte: startDate, lte: endDate },
+        productionOrder: {
+            bom: { category: 'PACKING' },
+            location: { slug: 'packing_area' },
         },
-        stockMovements: true,
-      }
-    }
-  }
+    },
+    include: {
+        productionOrder: {
+            include: {
+                bom: {
+                    include: { productVariant: { include: { product: true } } },
+                },
+                stockMovements: true,
+            },
+        },
+    },
 });
 ```
 
 Aggregation:
 
 ```ts
-key = outputVariantId
-sumQty += Number(execution.quantityProduced)
-orderIds.add(execution.productionOrderId)
+key = outputVariantId;
+sumQty += Number(execution.quantityProduced);
+orderIds.add(execution.productionOrderId);
 ```
 
 Untuk HPP report:
@@ -767,17 +775,17 @@ Tidak perlu code besar kalau data master sudah benar:
 Patch minimal source:
 
 1. `src/services/production/execution-material-location.ts`
-   - Untuk `PACKING`, cek `order.locationId` dulu.
-   - Lalu cek kandidat `fg_warehouse`, `packing_area`, `rm_warehouse`.
-   - Jangan langsung return `fg_warehouse` tanpa cek stok item lain.
+    - Untuk `PACKING`, cek `order.locationId` dulu.
+    - Lalu cek kandidat `fg_warehouse`, `packing_area`, `rm_warehouse`.
+    - Jangan langsung return `fg_warehouse` tanpa cek stok item lain.
 
 2. `src/services/inventory/movement-service.ts`
-   - Preserve `averageCost` saat transfer.
-   - Simpan `cost` pada movement `TRANSFER`.
+    - Preserve `averageCost` saat transfer.
+    - Simpan `cost` pada movement `TRANSFER`.
 
 3. `src/services/production/execution-service.ts`
-   - Ubah urutan agar `backflushMaterials()` sebelum `recordFinishedGoodsOutput()`.
-   - Risiko: jika output cost sebelumnya bergantung pada `actualQuantity` yang sudah diupdate, tetap update `actualQuantity` dulu, lalu backflush, lalu record output.
+    - Ubah urutan agar `backflushMaterials()` sebelum `recordFinishedGoodsOutput()`.
+    - Risiko: jika output cost sebelumnya bergantung pada `actualQuantity` yang sudah diupdate, tetap update `actualQuantity` dulu, lalu backflush, lalu record output.
 
 Urutan baru yang lebih benar:
 
@@ -812,16 +820,16 @@ model ProductionMaterial {
 Schema/action update:
 
 - `src/lib/schemas/production.ts`
-  - `items[].sourceLocationId?: string`
-  - `addedPlannedMaterials[].sourceLocationId?: string`
+    - `items[].sourceLocationId?: string`
+    - `addedPlannedMaterials[].sourceLocationId?: string`
 - `src/services/production/order-service.ts`
-  - Saat create `ProductionMaterial`, simpan source location.
+    - Saat create `ProductionMaterial`, simpan source location.
 - `src/services/production/material-service.ts`
-  - Saat update plan, preserve source location.
+    - Saat update plan, preserve source location.
 - `src/services/production/execution-types.ts`
-  - `MaterialLike` include optional `sourceLocationId`.
+    - `MaterialLike` include optional `sourceLocationId`.
 - `src/services/production/execution-material-consumption.ts`
-  - Prioritaskan `item.sourceLocationId` sebelum resolver tebak lokasi.
+    - Prioritaskan `item.sourceLocationId` sebelum resolver tebak lokasi.
 
 Manfaat:
 
@@ -834,33 +842,33 @@ Manfaat:
 Minimal test yang perlu ditambah/update:
 
 1. `src/services/production/__tests__/cost-service.test.ts`
-   - Case: order PACKING dengan OUT material utama 15.000 dan OUT karung 1.650, actual qty 1, hasil COGM 16.650.
+    - Case: order PACKING dengan OUT material utama 15.000 dan OUT karung 1.650, actual qty 1, hasil COGM 16.650.
 
 2. `src/services/__tests__/production-service.test.ts`
-   - Case: `addProductionOutput()` memanggil `backflushMaterials()` sebelum `recordFinishedGoodsOutput()` atau memverifikasi output movement cost include material baru.
+    - Case: `addProductionOutput()` memanggil `backflushMaterials()` sebelum `recordFinishedGoodsOutput()` atau memverifikasi output movement cost include material baru.
 
 3. Test baru untuk `execution-material-location.ts`
-   - Case non-maklon PACKING:
-     - ada stok karung di `packing_area` -> return `packing_area`.
-     - tidak ada di `packing_area`, ada di `fg_warehouse` -> return `fg_warehouse`.
-     - karung hanya ada di `rm_warehouse` -> return `rm_warehouse`.
+    - Case non-maklon PACKING:
+        - ada stok karung di `packing_area` -> return `packing_area`.
+        - tidak ada di `packing_area`, ada di `fg_warehouse` -> return `fg_warehouse`.
+        - karung hanya ada di `rm_warehouse` -> return `rm_warehouse`.
 
 4. Test baru untuk `movement-service.transferStockBulk()`
-   - Source inventory averageCost 1.650, transfer ke destination kosong.
-   - Destination `averageCost` harus 1.650.
+    - Source inventory averageCost 1.650, transfer ke destination kosong.
+    - Destination `averageCost` harus 1.650.
 
 5. Test report baru:
-   - Dua execution PACKING di bulan Juni + satu execution EXTRUSION.
-   - Laporan hanya hitung dua PACKING dari `packing_area`.
+    - Dua execution PACKING di bulan Juni + satu execution EXTRUSION.
+    - Laporan hanya hitung dua PACKING dari `packing_area`.
 
 ### 9.9 Prioritas eksekusi kalau mau lanjut coding
 
-| Prioritas | Change | Risiko | Alasan |
-| --- | --- | --- | --- |
-| P0 | Buat report bulanan Packing Area read-only | Rendah | Langsung menjawab kebutuhan “lihat total hasil produksi sebulan”. |
-| P1 | Data setup karung sebagai `PACKAGING` + BOM item | Rendah-sedang | Membuat HPP standard/simulasi benar tanpa schema change. |
-| P2 | Fix resolver lokasi PACKING + transfer preserve cost | Sedang | Membuat actual backflush karung lebih aman. |
-| P3 | Ubah urutan backflush sebelum output cost | Sedang | Membuat movement output lebih mungkin include karung. Perlu test regresi. |
-| P4 | Migration `ProductionMaterial.sourceLocationId` | Lebih tinggi | Solusi paling robust, tapi menyentuh schema, form, service, migration. |
+| Prioritas | Change                                               | Risiko        | Alasan                                                                    |
+| --------- | ---------------------------------------------------- | ------------- | ------------------------------------------------------------------------- |
+| P0        | Buat report bulanan Packing Area read-only           | Rendah        | Langsung menjawab kebutuhan “lihat total hasil produksi sebulan”.         |
+| P1        | Data setup karung sebagai `PACKAGING` + BOM item     | Rendah-sedang | Membuat HPP standard/simulasi benar tanpa schema change.                  |
+| P2        | Fix resolver lokasi PACKING + transfer preserve cost | Sedang        | Membuat actual backflush karung lebih aman.                               |
+| P3        | Ubah urutan backflush sebelum output cost            | Sedang        | Membuat movement output lebih mungkin include karung. Perlu test regresi. |
+| P4        | Migration `ProductionMaterial.sourceLocationId`      | Lebih tinggi  | Solusi paling robust, tapi menyentuh schema, form, service, migration.    |
 
 Rekomendasi praktis: **P0 + P1 dulu**, lalu review hasil dengan data Rizal. Kalau sudah sesuai konsep, lanjut P2/P3 agar actual inventory valuation dan jurnal makin akurat.

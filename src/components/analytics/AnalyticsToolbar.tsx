@@ -17,11 +17,13 @@ export function AnalyticsToolbar() {
     // Init dates from URL or defaults
     const fromParam = searchParams.get('from');
 
-    // Default: Last 6 months approx if not set? 
+    // Default: Last 6 months approx if not set?
     // Wait, let's sync with default server logic or just set initial state empty and let server handle default.
     // Better to reflect current state.
 
-    const [currentDate, setCurrentDate] = useState<Date>(fromParam ? new Date(fromParam) : new Date());
+    const [currentDate, setCurrentDate] = useState<Date>(
+        fromParam ? new Date(fromParam) : new Date(),
+    );
 
     function handleMonthChange(range: { from: Date; to: Date }) {
         setCurrentDate(range.from);
@@ -49,10 +51,12 @@ export function AnalyticsToolbar() {
             let result;
 
             if (isProduction) {
-                const { exportProductionAnalytics } = await import('@/actions/core/analytics');
+                const { exportProductionAnalytics } =
+                    await import('@/actions/core/analytics');
                 result = await exportProductionAnalytics(exportRange);
             } else {
-                const { exportSalesAnalytics } = await import('@/actions/core/analytics');
+                const { exportSalesAnalytics } =
+                    await import('@/actions/core/analytics');
                 result = await exportSalesAnalytics(exportRange);
             }
 
@@ -86,7 +90,11 @@ export function AnalyticsToolbar() {
                     currentDate={currentDate}
                     onDateChange={handleMonthChange}
                 />
-                {isPending && <span className="text-xs text-muted-foreground animate-pulse">Memperbarui...</span>}
+                {isPending && (
+                    <span className="text-xs text-muted-foreground animate-pulse">
+                        Memperbarui...
+                    </span>
+                )}
             </div>
 
             <Button variant="outline" onClick={handleExport}>

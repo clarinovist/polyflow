@@ -19,14 +19,21 @@ export default async function WarehouseOutgoingHistoryPage({
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
 
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkStart = params?.startDate
+        ? parseISO(params.startDate)
+        : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const result = await getDeliveryOrders({ startDate: checkStart, endDate: checkEnd });
+    const result = await getDeliveryOrders({
+        startDate: checkStart,
+        endDate: checkEnd,
+    });
 
-    const orders = result.success && result.data ? serializeData(result.data) : [];
+    const orders =
+        result.success && result.data ? serializeData(result.data) : [];
     const closedOrders = orders.filter(
-        (o: { status: string }) => o.status !== 'PENDING' && o.status !== 'LOADING',
+        (o: { status: string }) =>
+            o.status !== 'PENDING' && o.status !== 'LOADING',
     );
 
     return (
@@ -52,7 +59,9 @@ export default async function WarehouseOutgoingHistoryPage({
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Riwayat Pengiriman ({closedOrders.length})</CardTitle>
+                    <CardTitle>
+                        Riwayat Pengiriman ({closedOrders.length})
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <DeliveryOrderTable

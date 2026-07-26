@@ -1,10 +1,10 @@
 'use client';
 
-import { Button } from "@/components/ui/button";
-import { Clock } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { kioskLabels } from "@/lib/labels";
+import { Button } from '@/components/ui/button';
+import { Clock } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { kioskLabels } from '@/lib/labels';
 
 interface ActiveExecutionBannerProps {
     executions: Array<{
@@ -17,14 +17,16 @@ interface ActiveExecutionBannerProps {
             bom: {
                 productVariant: {
                     name: string;
-                }
-            }
-        }
+                };
+            };
+        };
     }>;
 }
 
-export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps) {
-    const [elapsed, setElapsed] = useState<string>("00:00:00");
+export function ActiveExecutionBanner({
+    executions,
+}: ActiveExecutionBannerProps) {
+    const [elapsed, setElapsed] = useState<string>('00:00:00');
     const router = useRouter();
 
     const active = executions[0];
@@ -42,7 +44,7 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
             setElapsed(
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
             );
         }, 1000);
 
@@ -68,7 +70,10 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
                 <div>
                     <p className="font-mono text-xl font-bold">{elapsed}</p>
                     <p className="text-sm text-slate-400">
-                        {kioskLabels.running}: <span className="text-white">{active.productionOrder.bom.productVariant.name}</span>
+                        {kioskLabels.running}:{' '}
+                        <span className="text-white">
+                            {active.productionOrder.bom.productVariant.name}
+                        </span>
                     </p>
                 </div>
             </div>

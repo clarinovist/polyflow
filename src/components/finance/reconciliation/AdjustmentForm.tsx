@@ -127,8 +127,17 @@ export function AdjustmentForm({
         try {
             const result = await addAdjustment(
                 reconciliationId,
-                side as "BANK" | "BOOK",
-                type as "BANK_FEE" | "INTEREST_INCOME" | "NSF_CHECK" | "COLLECTION" | "CORRECTION_ADD" | "CORRECTION_SUBTRACT" | "DEPOSIT_IN_TRANSIT" | "OUTSTANDING_CHECK" | "OTHER",
+                side as 'BANK' | 'BOOK',
+                type as
+                    | 'BANK_FEE'
+                    | 'INTEREST_INCOME'
+                    | 'NSF_CHECK'
+                    | 'COLLECTION'
+                    | 'CORRECTION_ADD'
+                    | 'CORRECTION_SUBTRACT'
+                    | 'DEPOSIT_IN_TRANSIT'
+                    | 'OUTSTANDING_CHECK'
+                    | 'OTHER',
                 description.trim(),
                 parsedAmount,
             );
@@ -150,7 +159,8 @@ export function AdjustmentForm({
         } catch {
             toast({
                 title: 'Gagal',
-                description: 'Gagal menambahkan penyesuaian. Silakan coba lagi.',
+                description:
+                    'Gagal menambahkan penyesuaian. Silakan coba lagi.',
                 variant: 'destructive',
             });
         } finally {
@@ -174,13 +184,20 @@ export function AdjustmentForm({
                     {/* Side Selector */}
                     <div className="space-y-2">
                         <Label>Sisi</Label>
-                        <Select value={side} onValueChange={(v) => setSide(v as 'BANK' | 'BOOK')}>
+                        <Select
+                            value={side}
+                            onValueChange={(v) => setSide(v as 'BANK' | 'BOOK')}
+                        >
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="BANK">Saldo Rekening Koran Bank</SelectItem>
-                                <SelectItem value="BOOK">Saldo Menurut Perusahaan (Buku Besar)</SelectItem>
+                                <SelectItem value="BANK">
+                                    Saldo Rekening Koran Bank
+                                </SelectItem>
+                                <SelectItem value="BOOK">
+                                    Saldo Menurut Perusahaan (Buku Besar)
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -194,7 +211,10 @@ export function AdjustmentForm({
                             </SelectTrigger>
                             <SelectContent>
                                 {typeOptions.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>
+                                    <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                    >
                                         {opt.label}
                                     </SelectItem>
                                 ))}
@@ -218,7 +238,12 @@ export function AdjustmentForm({
                     {/* Amount */}
                     <div className="space-y-2">
                         <Label htmlFor="adj-amount">
-                            Jumlah {selectedSign && <span className="text-muted-foreground ml-1">({selectedSign})</span>}
+                            Jumlah{' '}
+                            {selectedSign && (
+                                <span className="text-muted-foreground ml-1">
+                                    ({selectedSign})
+                                </span>
+                            )}
                         </Label>
                         <Input
                             id="adj-amount"
@@ -235,8 +260,8 @@ export function AdjustmentForm({
                                 {selectedSign === '+'
                                     ? `Akan menambah ${formatRupiah(parseFloat(amount))} ke sisi ${side === 'BANK' ? 'bank' : 'buku besar'}`
                                     : selectedSign === '-'
-                                        ? `Akan mengurangi ${formatRupiah(parseFloat(amount))} dari sisi ${side === 'BANK' ? 'bank' : 'buku besar'}`
-                                        : `Nominal ${formatRupiah(parseFloat(amount))} — pastikan tanda (+/-) sudah benar`}
+                                      ? `Akan mengurangi ${formatRupiah(parseFloat(amount))} dari sisi ${side === 'BANK' ? 'bank' : 'buku besar'}`
+                                      : `Nominal ${formatRupiah(parseFloat(amount))} — pastikan tanda (+/-) sudah benar`}
                             </p>
                         )}
                     </div>
@@ -250,8 +275,13 @@ export function AdjustmentForm({
                         >
                             Batal
                         </Button>
-                        <Button type="submit" disabled={loading || !type || !description.trim()}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button
+                            type="submit"
+                            disabled={loading || !type || !description.trim()}
+                        >
+                            {loading && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
                             Tambah Penyesuaian
                         </Button>
                     </DialogFooter>

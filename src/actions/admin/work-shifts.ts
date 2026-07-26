@@ -1,13 +1,12 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma as db } from '@/lib/core/prisma';
 import { WorkShiftStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 
-export const getWorkShifts = withTenant(
-async function getWorkShifts() {
+export const getWorkShifts = withTenant(async function getWorkShifts() {
     try {
         const shifts = await db.workShift.findMany({
             orderBy: {
@@ -16,14 +15,15 @@ async function getWorkShifts() {
         });
         return { success: true, data: shifts };
     } catch (error) {
-        logger.error('Failed to fetch work shifts', { error, module: 'WorkShiftActions' });
+        logger.error('Failed to fetch work shifts', {
+            error,
+            module: 'WorkShiftActions',
+        });
         return { success: false, error: 'Failed to fetch work shifts' };
     }
-}
-);
+});
 
-export const createWorkShift = withTenant(
-async function createWorkShift(data: {
+export const createWorkShift = withTenant(async function createWorkShift(data: {
     name: string;
     startTime: string;
     endTime: string;
@@ -43,14 +43,15 @@ async function createWorkShift(data: {
         revalidatePath('/dashboard/settings/shifts');
         return { success: true, data: shift };
     } catch (error) {
-        logger.error('Failed to create work shift', { error, module: 'WorkShiftActions' });
+        logger.error('Failed to create work shift', {
+            error,
+            module: 'WorkShiftActions',
+        });
         return { success: false, error: 'Failed to create work shift' };
     }
-}
-);
+});
 
-export const updateWorkShift = withTenant(
-async function updateWorkShift(
+export const updateWorkShift = withTenant(async function updateWorkShift(
     id: string,
     data: {
         name: string;
@@ -58,7 +59,7 @@ async function updateWorkShift(
         endTime: string;
         status: WorkShiftStatus;
         plannedHours?: number | null;
-    }
+    },
 ) {
     try {
         const shift = await db.workShift.update({
@@ -74,14 +75,18 @@ async function updateWorkShift(
         revalidatePath('/dashboard/settings/shifts');
         return { success: true, data: shift };
     } catch (error) {
-        logger.error('Failed to update work shift', { error, shiftId: id, module: 'WorkShiftActions' });
+        logger.error('Failed to update work shift', {
+            error,
+            shiftId: id,
+            module: 'WorkShiftActions',
+        });
         return { success: false, error: 'Failed to update work shift' };
     }
-}
-);
+});
 
-export const deleteWorkShift = withTenant(
-async function deleteWorkShift(id: string) {
+export const deleteWorkShift = withTenant(async function deleteWorkShift(
+    id: string,
+) {
     try {
         // Check if there are any dependencies if needed (e.g. if we link production shifts to work shifts later)
         // For now, simple delete
@@ -91,8 +96,11 @@ async function deleteWorkShift(id: string) {
         revalidatePath('/dashboard/settings/shifts');
         return { success: true };
     } catch (error) {
-        logger.error('Failed to delete work shift', { error, shiftId: id, module: 'WorkShiftActions' });
+        logger.error('Failed to delete work shift', {
+            error,
+            shiftId: id,
+            module: 'WorkShiftActions',
+        });
         return { success: false, error: 'Failed to delete work shift' };
     }
-}
-);
+});

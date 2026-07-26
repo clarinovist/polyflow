@@ -5,9 +5,7 @@ const project = new Project({
     tsConfigFilePath: path.join(__dirname, '../tsconfig.json'),
 });
 
-const sourceFiles = [
-    ...project.addSourceFilesAtPaths("src/app/api/**/*.ts")
-];
+const sourceFiles = [...project.addSourceFilesAtPaths('src/app/api/**/*.ts')];
 
 console.log(`Found ${sourceFiles.length} API files to process.`);
 
@@ -18,10 +16,15 @@ for (const sourceFile of sourceFiles) {
     let isModified = false;
 
     let needsTenantImport = false;
-    const hasTenantImport = sourceFile.getImportDeclarations().some(
-        imp => imp.getModuleSpecifierValue() === '@/lib/tenant' &&
-            imp.getNamedImports().some(ni => ni.getName() === 'withTenantRoute')
-    );
+    const hasTenantImport = sourceFile
+        .getImportDeclarations()
+        .some(
+            (imp) =>
+                imp.getModuleSpecifierValue() === '@/lib/tenant' &&
+                imp
+                    .getNamedImports()
+                    .some((ni) => ni.getName() === 'withTenantRoute'),
+        );
 
     const functions = sourceFile.getFunctions();
 
@@ -35,7 +38,9 @@ for (const sourceFile of sourceFiles) {
 
         const funcText = func.getText().replace(/^export\s+/, '');
 
-        func.replaceWithText(`export const ${name} = withTenantRoute(\n${funcText}\n);`);
+        func.replaceWithText(
+            `export const ${name} = withTenantRoute(\n${funcText}\n);`,
+        );
         isModified = true;
     }
 
@@ -43,7 +48,7 @@ for (const sourceFile of sourceFiles) {
         if (!hasTenantImport) {
             sourceFile.insertImportDeclaration(0, {
                 moduleSpecifier: '@/lib/tenant',
-                namedImports: ['withTenantRoute']
+                namedImports: ['withTenantRoute'],
             });
         }
 

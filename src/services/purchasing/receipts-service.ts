@@ -2,7 +2,12 @@ import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
-import { MovementType, NotificationType, PurchaseOrderStatus, Prisma } from '@prisma/client';
+import {
+    MovementType,
+    NotificationType,
+    PurchaseOrderStatus,
+    Prisma,
+} from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
 import { logger } from '@/lib/config/logger';
@@ -14,40 +19,52 @@ async function notifyFinanceOfGoodsReceipt(
     purchaseOrderId: string,
     items: CreateGoodsReceiptValues['items'],
 ) {
-    const [{ NotificationService }, purchaseOrder, financeUsers] = await Promise.all([
-        import('@/services/core/notification-service'),
-        prisma.purchaseOrder.findUnique({
-            where: { id: purchaseOrderId },
-            select: { orderNumber: true, supplier: { select: { name: true } } },
-        }),
-        prisma.user.findMany({
-            where: { role: 'FINANCE', isActive: true },
-            select: { id: true },
-        }),
-    ]);
+    const [{ NotificationService }, purchaseOrder, financeUsers] =
+        await Promise.all([
+            import('@/services/core/notification-service'),
+            prisma.purchaseOrder.findUnique({
+                where: { id: purchaseOrderId },
+                select: {
+                    orderNumber: true,
+                    supplier: { select: { name: true } },
+                },
+            }),
+            prisma.user.findMany({
+                where: { role: 'FINANCE', isActive: true },
+                select: { id: true },
+            }),
+        ]);
 
     if (!purchaseOrder || financeUsers.length === 0) return;
 
-    const totalAmount = items.reduce((total, item) => total + item.receivedQty * item.unitCost, 0);
-    await NotificationService.createBulkNotifications(financeUsers.map(user => ({
-        userId: user.id,
-        type: NotificationType.GOODS_RECEIPT_POSTED,
-        title: 'Penerimaan Barang Baru',
-        message: `GR untuk ${purchaseOrder.orderNumber} dari ${purchaseOrder.supplier.name} sudah dicatat. Nilai: Rp ${totalAmount.toLocaleString('id-ID')}. Silakan cek jurnal dan invoice.`,
-        link: `/warehouse/incoming/${receiptId}`,
-        entityType: 'GoodsReceipt',
-        entityId: receiptId,
-    })));
+    const totalAmount = items.reduce(
+        (total, item) => total + item.receivedQty * item.unitCost,
+        0,
+    );
+    await NotificationService.createBulkNotifications(
+        financeUsers.map((user) => ({
+            userId: user.id,
+            type: NotificationType.GOODS_RECEIPT_POSTED,
+            title: 'Penerimaan Barang Baru',
+            message: `GR untuk ${purchaseOrder.orderNumber} dari ${purchaseOrder.supplier.name} sudah dicatat. Nilai: Rp ${totalAmount.toLocaleString('id-ID')}. Silakan cek jurnal dan invoice.`,
+            link: `/warehouse/incoming/${receiptId}`,
+            entityType: 'GoodsReceipt',
+            entityId: receiptId,
+        })),
+    );
 }
 
-export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId: string) {
+export async function createGoodsReceipt(
+    data: CreateGoodsReceiptValues,
+    userId: string,
+) {
     const year = new Date().getFullYear();
     const prefix = `GR-${year}-`;
 
     const lastReceipt = await prisma.goodsReceipt.findFirst({
         where: { receiptNumber: { startsWith: prefix } },
         orderBy: { receiptNumber: 'desc' },
-        select: { receiptNumber: true }
+        select: { receiptNumber: true },
     });
 
     let nextNumber = 1;
@@ -65,20 +82,26 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
             },
             include: { items: true },
         });
-        const isDuplicate = recentReceipts.some(receipt =>
-            receipt.items.length === data.items.length &&
-            data.items.every(item => receipt.items.some(receiptItem =>
-                receiptItem.productVariantId === item.productVariantId &&
-                Number(receiptItem.receivedQty) === item.receivedQty &&
-                Number(receiptItem.unitCost) === item.unitCost
-            ))
+        const isDuplicate = recentReceipts.some(
+            (receipt) =>
+                receipt.items.length === data.items.length &&
+                data.items.every((item) =>
+                    receipt.items.some(
+                        (receiptItem) =>
+                            receiptItem.productVariantId ===
+                                item.productVariantId &&
+                            Number(receiptItem.receivedQty) ===
+                                item.receivedQty &&
+                            Number(receiptItem.unitCost) === item.unitCost,
+                    ),
+                ),
         );
 
         if (isDuplicate) {
             throw new BusinessRuleError(
                 'GR yang sama sudah dibuat dalam 5 menit terakhir. Pastikan bukan input ganda.',
                 undefined,
-                'DUPLICATE_RECEIPT'
+                'DUPLICATE_RECEIPT',
             );
         }
     }
@@ -88,7 +111,9 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
         const receiptTx = await tx.goodsReceipt.create({
             data: {
                 receiptNumber,
-                ...(data.purchaseOrderId ? { purchaseOrderId: data.purchaseOrderId } : {}),
+                ...(data.purchaseOrderId
+                    ? { purchaseOrderId: data.purchaseOrderId }
+                    : {}),
                 isMaklon: data.isMaklon ?? false,
                 ...(data.customerId ? { customerId: data.customerId } : {}),
                 receivedDate: data.receivedDate,
@@ -96,14 +121,14 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                 notes: data.notes,
                 createdById: userId,
                 items: {
-                    create: data.items.map(item => ({
+                    create: data.items.map((item) => ({
                         productVariantId: item.productVariantId,
                         receivedQty: item.receivedQty,
-                        unitCost: item.unitCost
-                    }))
-                }
+                        unitCost: item.unitCost,
+                    })),
+                },
             },
-            include: { items: true }
+            include: { items: true },
         });
 
         for (const item of data.items) {
@@ -147,7 +172,7 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                     data.locationId,
                     item.productVariantId,
                     item.receivedQty,
-                    data.isMaklon ? 0 : item.unitCost
+                    data.isMaklon ? 0 : item.unitCost,
                 );
 
                 const movement = await tx.stockMovement.create({
@@ -159,8 +184,10 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                         cost: item.unitCost,
                         goodsReceiptId: receiptTx.id,
                         createdById: userId,
-                        reference: data.isMaklon ? `GR: ${receiptNumber} for Maklon Customer` : `GR: ${receiptNumber} for PO`
-                    }
+                        reference: data.isMaklon
+                            ? `GR: ${receiptNumber} for Maklon Customer`
+                            : `GR: ${receiptNumber} for PO`,
+                    },
                 });
 
                 await AccountingService.recordInventoryMovement(movement, tx);
@@ -171,14 +198,14 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                 const poItem = await tx.purchaseOrderItem.findFirst({
                     where: {
                         purchaseOrderId: data.purchaseOrderId,
-                        productVariantId: item.productVariantId
-                    }
+                        productVariantId: item.productVariantId,
+                    },
                 });
 
                 if (poItem) {
                     await tx.purchaseOrderItem.update({
                         where: { id: poItem.id },
-                        data: { receivedQty: { increment: item.receivedQty } }
+                        data: { receivedQty: { increment: item.receivedQty } },
                     });
                 }
             }
@@ -187,16 +214,21 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
         let po = null;
         if (data.purchaseOrderId) {
             const updatedItems = await tx.purchaseOrderItem.findMany({
-                where: { purchaseOrderId: data.purchaseOrderId }
+                where: { purchaseOrderId: data.purchaseOrderId },
             });
 
             po = await tx.purchaseOrder.findUnique({
-                where: { id: data.purchaseOrderId }
+                where: { id: data.purchaseOrderId },
             });
 
             if (po && updatedItems.length > 0) {
-                const allReceived = updatedItems.every(item => item.receivedQty.toNumber() >= item.quantity.toNumber());
-                const partialReceived = updatedItems.some(item => item.receivedQty.toNumber() > 0);
+                const allReceived = updatedItems.every(
+                    (item) =>
+                        item.receivedQty.toNumber() >= item.quantity.toNumber(),
+                );
+                const partialReceived = updatedItems.some(
+                    (item) => item.receivedQty.toNumber() > 0,
+                );
 
                 let status: PurchaseOrderStatus;
                 if (allReceived) {
@@ -204,14 +236,15 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                 } else if (partialReceived) {
                     status = PurchaseOrderStatus.PARTIAL_RECEIVED;
                 } else {
-                    status = po.status === PurchaseOrderStatus.DRAFT
-                        ? PurchaseOrderStatus.SENT
-                        : po.status;
+                    status =
+                        po.status === PurchaseOrderStatus.DRAFT
+                            ? PurchaseOrderStatus.SENT
+                            : po.status;
                 }
 
                 await tx.purchaseOrder.update({
                     where: { id: po.id },
-                    data: { status }
+                    data: { status },
                 });
             }
         }
@@ -221,10 +254,10 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
             action: 'RECEIVE_PURCHASE',
             entityType: 'GoodsReceipt',
             entityId: receiptTx.id,
-            details: data.isMaklon 
-                ? `Received maklon materials via GR ${receiptNumber}` 
+            details: data.isMaklon
+                ? `Received maklon materials via GR ${receiptNumber}`
                 : `Received items for PO ${po?.orderNumber || ''} via GR ${receiptNumber}`,
-            tx
+            tx,
         });
 
         return receiptTx;
@@ -232,12 +265,24 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
 
     // Auto-generate draft bill and notify Finance after the GR transaction commits.
     if (data.purchaseOrderId) {
-        await createDraftBillFromPo(data.purchaseOrderId, userId).catch(err => {
-            logger.error("Failed to auto-generate draft bill after GR", { error: err, module: 'ReceiptsService' });
-        });
+        await createDraftBillFromPo(data.purchaseOrderId, userId).catch(
+            (err) => {
+                logger.error('Failed to auto-generate draft bill after GR', {
+                    error: err,
+                    module: 'ReceiptsService',
+                });
+            },
+        );
 
-        await notifyFinanceOfGoodsReceipt(receipt.id, data.purchaseOrderId, data.items).catch(err => {
-            logger.error("Failed to notify Finance after goods receipt", { error: err, module: 'ReceiptsService' });
+        await notifyFinanceOfGoodsReceipt(
+            receipt.id,
+            data.purchaseOrderId,
+            data.items,
+        ).catch((err) => {
+            logger.error('Failed to notify Finance after goods receipt', {
+                error: err,
+                module: 'ReceiptsService',
+            });
         });
     }
 
@@ -250,8 +295,8 @@ export async function getGoodsReceiptById(id: string) {
         include: {
             purchaseOrder: {
                 include: {
-                    supplier: true
-                }
+                    supplier: true,
+                },
             },
             customer: true,
             location: true,
@@ -260,16 +305,20 @@ export async function getGoodsReceiptById(id: string) {
                 include: {
                     productVariant: {
                         include: {
-                            product: true
-                        }
-                    }
-                }
-            }
-        }
+                            product: true,
+                        },
+                    },
+                },
+            },
+        },
     });
 }
 
-export async function getGoodsReceipts(filter?: { startDate?: Date, endDate?: Date, isMaklon?: boolean }) {
+export async function getGoodsReceipts(filter?: {
+    startDate?: Date;
+    endDate?: Date;
+    isMaklon?: boolean;
+}) {
     const where: Prisma.GoodsReceiptWhereInput = {};
 
     if (filter?.startDate || filter?.endDate) {
@@ -287,20 +336,20 @@ export async function getGoodsReceipts(filter?: { startDate?: Date, endDate?: Da
         include: {
             purchaseOrder: {
                 include: {
-                    supplier: true
-                }
+                    supplier: true,
+                },
             },
             customer: true,
             location: true,
             createdBy: { select: { name: true } },
             items: {
                 include: {
-                    productVariant: true
-                }
+                    productVariant: true,
+                },
             },
-            _count: { select: { items: true } }
+            _count: { select: { items: true } },
         },
-        orderBy: { receivedDate: 'desc' } // Changed to receivedDate for better filtering context
+        orderBy: { receivedDate: 'desc' }, // Changed to receivedDate for better filtering context
     });
 }
 
@@ -329,7 +378,9 @@ export async function reverseGoodsReceipt(
         });
 
         if (!gr) {
-            throw new BusinessRuleError(`Penerimaan barang ${goodsReceiptId} tidak ditemukan`);
+            throw new BusinessRuleError(
+                `Penerimaan barang ${goodsReceiptId} tidak ditemukan`,
+            );
         }
 
         // 0. Reverse FIXED_ASSET path: delete FixedAsset cards + journal for this GR
@@ -339,17 +390,26 @@ export async function reverseGoodsReceipt(
         });
         if (linkedAssets.length > 0) {
             // Block if any asset already depreciated
-            const depreciated = linkedAssets.find(a => a.lastDepreciationDate != null);
+            const depreciated = linkedAssets.find(
+                (a) => a.lastDepreciationDate != null,
+            );
             if (depreciated) {
-                throw new BusinessRuleError(`Tidak bisa reverse GR ${gr.receiptNumber}: aset ${depreciated.assetCode} sudah pernah didepresiasi`);
+                throw new BusinessRuleError(
+                    `Tidak bisa reverse GR ${gr.receiptNumber}: aset ${depreciated.assetCode} sudah pernah didepresiasi`,
+                );
             }
             // Delete asset journal entries (referenceId = GR id, referenceType GOODS_RECEIPT)
             const assetJournals = await db.journalEntry.findMany({
-                where: { referenceId: goodsReceiptId, referenceType: 'GOODS_RECEIPT' },
+                where: {
+                    referenceId: goodsReceiptId,
+                    referenceType: 'GOODS_RECEIPT',
+                },
                 select: { id: true },
             });
             for (const j of assetJournals) {
-                await db.journalLine.deleteMany({ where: { journalEntryId: j.id } });
+                await db.journalLine.deleteMany({
+                    where: { journalEntryId: j.id },
+                });
                 await db.journalEntry.delete({ where: { id: j.id } });
             }
             // Fallback: also check journals by asset id? Our GR path journals use referenceId=goodsReceiptId, so above enough.
@@ -360,7 +420,9 @@ export async function reverseGoodsReceipt(
                     select: { id: true },
                 });
                 for (const j of aj) {
-                    await db.journalLine.deleteMany({ where: { journalEntryId: j.id } });
+                    await db.journalLine.deleteMany({
+                        where: { journalEntryId: j.id },
+                    });
                     await db.journalEntry.delete({ where: { id: j.id } });
                 }
             }
@@ -411,14 +473,18 @@ export async function reverseGoodsReceipt(
                         if (currentQty < qty) {
                             logger.warn(
                                 `Cannot fully reverse stock movement: current qty ${currentQty} < reversal qty ${qty}`,
-                                { movementId: movement.id, module: 'ReverseGR' },
+                                {
+                                    movementId: movement.id,
+                                    module: 'ReverseGR',
+                                },
                             );
                             // Set to 0 instead of going negative
                             await db.inventory.update({
                                 where: {
                                     locationId_productVariantId: {
                                         locationId: movement.toLocationId,
-                                        productVariantId: movement.productVariantId,
+                                        productVariantId:
+                                            movement.productVariantId,
                                     },
                                 },
                                 data: { quantity: 0 },
@@ -428,7 +494,8 @@ export async function reverseGoodsReceipt(
                                 where: {
                                     locationId_productVariantId: {
                                         locationId: movement.toLocationId,
-                                        productVariantId: movement.productVariantId,
+                                        productVariantId:
+                                            movement.productVariantId,
                                     },
                                 },
                                 data: { quantity: { decrement: qty } },
@@ -508,7 +575,11 @@ export async function reverseGoodsReceipt(
             tx: db,
         });
 
-        return { success: true, receiptNumber: gr.receiptNumber, purchaseOrderId: gr.purchaseOrderId ?? null };
+        return {
+            success: true,
+            receiptNumber: gr.receiptNumber,
+            purchaseOrderId: gr.purchaseOrderId ?? null,
+        };
     };
 
     const result = tx ? await run(tx) : await prisma.$transaction(run);
@@ -516,7 +587,8 @@ export async function reverseGoodsReceipt(
     // #4: after commit, recalc linked invoice from remaining GRs and sync DRAFT invoice total
     if (result.purchaseOrderId) {
         try {
-            const { createDraftBillFromPo } = await import('@/services/purchasing/invoices-service');
+            const { createDraftBillFromPo } =
+                await import('@/services/purchasing/invoices-service');
             await createDraftBillFromPo(result.purchaseOrderId, userId);
         } catch (e) {
             const { logger } = await import('@/lib/config/logger');

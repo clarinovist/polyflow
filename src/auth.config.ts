@@ -1,16 +1,20 @@
 import type { NextAuthConfig } from 'next-auth';
 import { SESSION_POLICY } from '@/lib/auth/session-policy';
-import { getWorkspaceFromPath, canAccessWorkspace, getDefaultRedirectForUser } from '@/lib/auth/access-policy';
 import {
-  isMobileUserAgent,
-  isMobilePublicPath,
-  isMobileAllowlistedPath,
-  isMobileBypassAllowed,
-  shouldSoftLandToSalesMobile,
-  shouldSoftLandToWarehouseMobile,
-  shouldSoftLandToKiosk,
-  shouldSoftLandDashboard,
-  getMobileHomeForUser,
+    getWorkspaceFromPath,
+    canAccessWorkspace,
+    getDefaultRedirectForUser,
+} from '@/lib/auth/access-policy';
+import {
+    isMobileUserAgent,
+    isMobilePublicPath,
+    isMobileAllowlistedPath,
+    isMobileBypassAllowed,
+    shouldSoftLandToSalesMobile,
+    shouldSoftLandToWarehouseMobile,
+    shouldSoftLandToKiosk,
+    shouldSoftLandDashboard,
+    getMobileHomeForUser,
 } from '@/lib/mobile/mobile-access-policy';
 import { hasRole } from '@/lib/auth/roles';
 
@@ -24,9 +28,10 @@ export const authConfig = {
     },
     cookies: {
         sessionToken: {
-            name: process.env.NODE_ENV === 'production'
-                ? `__Secure-authjs.session-token`
-                : `authjs.session-token`,
+            name:
+                process.env.NODE_ENV === 'production'
+                    ? `__Secure-authjs.session-token`
+                    : `authjs.session-token`,
             options: {
                 httpOnly: true,
                 sameSite: 'lax',
@@ -40,7 +45,10 @@ export const authConfig = {
         async redirect({ url, baseUrl }) {
             // When baseUrl is the Docker fallback (NEXTAUTH_URL not set),
             // use relative path so user stays on the same tenant domain
-            if (baseUrl.includes('0.0.0.0') || baseUrl.includes('localhost:3000')) {
+            if (
+                baseUrl.includes('0.0.0.0') ||
+                baseUrl.includes('localhost:3000')
+            ) {
                 try {
                     const urlObj = new URL(url);
                     // Return only pathname + search, keeping tenant domain intact
@@ -55,14 +63,20 @@ export const authConfig = {
             try {
                 const isLoggedIn = !!auth?.user;
                 const pathname = nextUrl.pathname;
-                const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
+                const rootDomain =
+                    process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
 
                 // NOTE: nextUrl.hostname returns "0.0.0.0" in Docker (internal bind address).
                 // Use the Host header or x-forwarded-host for correct multi-tenant detection.
                 let hostname = (headers.get('host') || '').split(':')[0];
-                if (!hostname.endsWith(`.${rootDomain}`) && hostname !== rootDomain) {
+                if (
+                    !hostname.endsWith(`.${rootDomain}`) &&
+                    hostname !== rootDomain
+                ) {
                     // Fallback to x-forwarded-host (set by nginx proxy)
-                    hostname = (headers.get('x-forwarded-host') || '').split(':')[0];
+                    hostname = (headers.get('x-forwarded-host') || '').split(
+                        ':',
+                    )[0];
                 }
                 const isAdminSubdomain = hostname === `admin.${rootDomain}`;
                 const isTenantSubdomain =
@@ -79,7 +93,12 @@ export const authConfig = {
 
                 const isOnKiosk = pathname.startsWith('/kiosk');
                 const isOnMy = pathname.startsWith('/my');
-                const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register';
+                const isPublicPage =
+                    pathname === '/' ||
+                    pathname === '/about' ||
+                    pathname === '/features' ||
+                    pathname === '/contact' ||
+                    pathname === '/register';
 
                 // Kiosk, My portal (employee self-service), and Public pages are accessible without auth
                 // My portal has its own session (emp_session cookie), guarded in its layout.
@@ -96,20 +115,29 @@ export const authConfig = {
                         pathname === '/device/desktop-required' ||
                         pathname.startsWith('/device/desktop-required/');
                     const userAgentAdmin =
-                        typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                        typeof headers.get === 'function'
+                            ? headers.get('user-agent') || ''
+                            : '';
                     const isMobileAdmin = isMobileUserAgent(userAgentAdmin);
 
                     if (isLoginPage) {
                         // Already logged in as SuperAdmin → panel (desktop) or wall (mobile)
                         if (isLoggedIn) {
-                            const user = auth.user as { isSuperAdmin?: boolean };
+                            const user = auth.user as {
+                                isSuperAdmin?: boolean;
+                            };
                             if (user.isSuperAdmin) {
                                 if (isMobileAdmin) {
                                     return Response.redirect(
-                                        new URL('/device/desktop-required', nextUrl),
+                                        new URL(
+                                            '/device/desktop-required',
+                                            nextUrl,
+                                        ),
                                     );
                                 }
-                                return Response.redirect(new URL('/super-admin', nextUrl));
+                                return Response.redirect(
+                                    new URL('/super-admin', nextUrl),
+                                );
                             }
                         }
                         return true; // Show admin login page
@@ -126,7 +154,10 @@ export const authConfig = {
                         return Response.redirect(new URL('/login', nextUrl));
                     }
 
-                    const user = auth.user as { isSuperAdmin?: boolean; impersonatedBy?: string };
+                    const user = auth.user as {
+                        isSuperAdmin?: boolean;
+                        impersonatedBy?: string;
+                    };
                     // Allow impersonation sessions (tagged with impersonatedBy)
                     // to reach /admin/impersonate even though they're not
                     // superadmins — they're superadmin-acted-as-tenant-user.
@@ -138,7 +169,9 @@ export const authConfig = {
                     // Mobile gate early — block panel UI on phones before super-admin
                     // path routing. desktop-required already allowed above.
                     if (isMobileAdmin && !pathname.startsWith('/api/')) {
-                        return Response.redirect(new URL('/device/desktop-required', nextUrl));
+                        return Response.redirect(
+                            new URL('/device/desktop-required', nextUrl),
+                        );
                     }
 
                     // admin.polyflow.uk only serves the superadmin panel
@@ -151,14 +184,24 @@ export const authConfig = {
                     // /api/* is exempt — /api/admin/* endpoints (diagnostics,
                     // virtual-cs-metrics, etc.) are fetched by the admin UI and
                     // a redirect here would break System Health & other tools.
-                    const isImpersonateView = pathname.startsWith('/admin/impersonate');
-                    if (!isImpersonating && !isSuperAdminAlias && !pathname.startsWith('/admin') && !pathname.startsWith('/api/')) {
-                        return Response.redirect(new URL('/super-admin', nextUrl));
+                    const isImpersonateView =
+                        pathname.startsWith('/admin/impersonate');
+                    if (
+                        !isImpersonating &&
+                        !isSuperAdminAlias &&
+                        !pathname.startsWith('/admin') &&
+                        !pathname.startsWith('/api/')
+                    ) {
+                        return Response.redirect(
+                            new URL('/super-admin', nextUrl),
+                        );
                     }
                     // Impersonation sessions can ONLY access /admin/impersonate —
                     // everywhere else on admin.* they get bounced back there.
                     if (isImpersonating && !isImpersonateView) {
-                        return Response.redirect(new URL('/admin/impersonate', nextUrl));
+                        return Response.redirect(
+                            new URL('/admin/impersonate', nextUrl),
+                        );
                     }
 
                     return true;
@@ -171,15 +214,27 @@ export const authConfig = {
                     if (isLoggedIn) {
                         if (pathname === '/logout') return true;
 
-                        const user = auth.user as { role?: string; roles?: string[]; isSuperAdmin?: boolean; allowedResources?: string[] };
+                        const user = auth.user as {
+                            role?: string;
+                            roles?: string[];
+                            isSuperAdmin?: boolean;
+                            allowedResources?: string[];
+                        };
 
                         // === MOBILE ALLOWLIST GATE ===
                         // Only operational surfaces (sales/mobile, kiosk, my) are accessible on mobile.
                         // All other paths → redirect to /device/desktop-required.
-                        const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                        const userAgent =
+                            typeof headers.get === 'function'
+                                ? headers.get('user-agent') || ''
+                                : '';
                         const isMobile = isMobileUserAgent(userAgent);
-                        const cookies = typeof headers.get === 'function' ? headers.get('cookie') || '' : '';
-                        const hasMobileBypass = cookies.includes('bypass_mobile=true');
+                        const cookies =
+                            typeof headers.get === 'function'
+                                ? headers.get('cookie') || ''
+                                : '';
+                        const hasMobileBypass =
+                            cookies.includes('bypass_mobile=true');
 
                         if (isMobile) {
                             // Public paths always accessible
@@ -187,7 +242,10 @@ export const authConfig = {
                                 // fall through to workspace checks below
                             }
                             // Admin bypass — only ADMIN role (or superadmin)
-                            else if (hasMobileBypass && isMobileBypassAllowed(user)) {
+                            else if (
+                                hasMobileBypass &&
+                                isMobileBypassAllowed(user)
+                            ) {
                                 // fall through to workspace checks below
                             }
                             // Allowlisted operational surfaces
@@ -196,39 +254,70 @@ export const authConfig = {
                             }
                             // Sales soft-landing — /sales/* → /field/sales
                             else if (shouldSoftLandToSalesMobile(pathname)) {
-                                return Response.redirect(new URL('/field/sales', nextUrl));
+                                return Response.redirect(
+                                    new URL('/field/sales', nextUrl),
+                                );
                             }
                             // Warehouse soft-landing — /warehouse/* → /warehouse/mobile
-                            else if (shouldSoftLandToWarehouseMobile(pathname)) {
-                                return Response.redirect(new URL('/warehouse/mobile', nextUrl));
+                            else if (
+                                shouldSoftLandToWarehouseMobile(pathname)
+                            ) {
+                                return Response.redirect(
+                                    new URL('/warehouse/mobile', nextUrl),
+                                );
                             }
                             // Production soft-landing — /production/* → /kiosk
                             else if (shouldSoftLandToKiosk(pathname)) {
-                                return Response.redirect(new URL('/kiosk', nextUrl));
+                                return Response.redirect(
+                                    new URL('/kiosk', nextUrl),
+                                );
                             }
                             // Dashboard soft-landing — /dashboard → mobile home by role
                             else if (shouldSoftLandDashboard(pathname)) {
                                 const home = getMobileHomeForUser(user);
-                                return Response.redirect(new URL(home || '/device/desktop-required', nextUrl));
+                                return Response.redirect(
+                                    new URL(
+                                        home || '/device/desktop-required',
+                                        nextUrl,
+                                    ),
+                                );
                             }
                             // Hard wall — everything else
                             else {
                                 const from = encodeURIComponent(pathname);
-                                return Response.redirect(new URL(`/device/desktop-required?from=${from}`, nextUrl));
+                                return Response.redirect(
+                                    new URL(
+                                        `/device/desktop-required?from=${from}`,
+                                        nextUrl,
+                                    ),
+                                );
                             }
                         }
 
                         if (workspace) {
-                            if (!canAccessWorkspace(user, workspace, pathname)) {
+                            if (
+                                !canAccessWorkspace(user, workspace, pathname)
+                            ) {
                                 // On mobile, redirect to mobile home instead of desktop workspace
-                                const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                                const userAgent =
+                                    typeof headers.get === 'function'
+                                        ? headers.get('user-agent') || ''
+                                        : '';
                                 const isMobile = isMobileUserAgent(userAgent);
                                 if (isMobile) {
                                     const home = getMobileHomeForUser(user);
-                                    return Response.redirect(new URL(home || '/device/desktop-required', nextUrl));
+                                    return Response.redirect(
+                                        new URL(
+                                            home || '/device/desktop-required',
+                                            nextUrl,
+                                        ),
+                                    );
                                 }
-                                const redirectUrl = getDefaultRedirectForUser(user);
-                                return Response.redirect(new URL(redirectUrl, nextUrl));
+                                const redirectUrl =
+                                    getDefaultRedirectForUser(user);
+                                return Response.redirect(
+                                    new URL(redirectUrl, nextUrl),
+                                );
                             }
 
                             // === SALES-ONLY USER: /sales back-office → /field/sales ===
@@ -241,7 +330,9 @@ export const authConfig = {
                                 pathname.startsWith('/sales') &&
                                 !pathname.startsWith('/field')
                             ) {
-                                return Response.redirect(new URL('/field/sales', nextUrl));
+                                return Response.redirect(
+                                    new URL('/field/sales', nextUrl),
+                                );
                             }
 
                             return true;
@@ -251,13 +342,20 @@ export const authConfig = {
                         const isLoginPage = pathname === '/login';
                         if (isLoginPage) {
                             // Mobile-aware: redirect to mobile home for ops users on mobile
-                            const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                            const userAgent =
+                                typeof headers.get === 'function'
+                                    ? headers.get('user-agent') || ''
+                                    : '';
                             const isMobile = isMobileUserAgent(userAgent);
                             if (isMobile) {
                                 const home = getMobileHomeForUser(user);
-                                return Response.redirect(new URL(home || '/dashboard', nextUrl));
+                                return Response.redirect(
+                                    new URL(home || '/dashboard', nextUrl),
+                                );
                             }
-                            return Response.redirect(new URL('/dashboard', nextUrl));
+                            return Response.redirect(
+                                new URL('/dashboard', nextUrl),
+                            );
                         }
 
                         // Other tenant paths without workspace prefix — allow
@@ -283,7 +381,12 @@ export const authConfig = {
                 const isAdminRoute = pathname.startsWith('/admin');
                 if (isAdminRoute) {
                     // Redirect admin routes to admin subdomain
-                    return Response.redirect(new URL(`https://admin.${rootDomain}${pathname}`, nextUrl));
+                    return Response.redirect(
+                        new URL(
+                            `https://admin.${rootDomain}${pathname}`,
+                            nextUrl,
+                        ),
+                    );
                 }
 
                 // Login on root domain → redirect to landing page
@@ -292,7 +395,12 @@ export const authConfig = {
                     if (isLoggedIn) {
                         const user = auth.user as { isSuperAdmin?: boolean };
                         if (user.isSuperAdmin) {
-                            return Response.redirect(new URL(`https://admin.${rootDomain}/super-admin`, nextUrl));
+                            return Response.redirect(
+                                new URL(
+                                    `https://admin.${rootDomain}/super-admin`,
+                                    nextUrl,
+                                ),
+                            );
                         }
                     }
                     return Response.redirect(new URL('/', nextUrl));
@@ -339,12 +447,26 @@ export const authConfig = {
             // Client-triggered partial session update (e.g. name/email/avatar change in profile settings).
             // Whitelist-only — never trust sensitive claims (role, isSuperAdmin, tokenVersion, ...) from client.
             if (trigger === 'update') {
-                const s = session as { name?: string; email?: string; picture?: string; image?: string } | undefined;
+                const s = session as
+                    | {
+                          name?: string;
+                          email?: string;
+                          picture?: string;
+                          image?: string;
+                      }
+                    | undefined;
                 if (s) {
-                    if (typeof s.name === 'string' && s.name.length > 0) token.name = s.name;
-                    if (typeof s.email === 'string' && s.email.length > 0) token.email = s.email;
+                    if (typeof s.name === 'string' && s.name.length > 0)
+                        token.name = s.name;
+                    if (typeof s.email === 'string' && s.email.length > 0)
+                        token.email = s.email;
                     // NextAuth client commonly sends image via 'name' on picture field.
-                    const incomingPicture = typeof s.picture === 'string' ? s.picture : typeof s.image === 'string' ? s.image : undefined;
+                    const incomingPicture =
+                        typeof s.picture === 'string'
+                            ? s.picture
+                            : typeof s.image === 'string'
+                              ? s.image
+                              : undefined;
                     if (typeof incomingPicture === 'string') {
                         if (incomingPicture === '') {
                             delete (token as Record<string, unknown>).picture;
@@ -360,13 +482,20 @@ export const authConfig = {
 
             // Impersonation hard-expiry (30 min): kill session past expiry.
             // Checked on every JWT read.
-            if (token.impersonationExpiresAt && now > (token.impersonationExpiresAt as number)) {
+            if (
+                token.impersonationExpiresAt &&
+                now > (token.impersonationExpiresAt as number)
+            ) {
                 return null;
             }
 
             // Check for idle timeout if not "Remember Me"
             if (!token.rememberMe) {
-                if (token.lastActive && (now - (token.lastActive as number) > SESSION_POLICY.serverJwtIdleTimeoutSeconds)) {
+                if (
+                    token.lastActive &&
+                    now - (token.lastActive as number) >
+                        SESSION_POLICY.serverJwtIdleTimeoutSeconds
+                ) {
                     // This will effectively sign out the user on the next server-side check
                     return null;
                 }
@@ -385,11 +514,18 @@ export const authConfig = {
                 (session.user as { role?: unknown }).role = token.role;
                 (session.user as { roles?: unknown }).roles = token.roles;
                 (session.user as { id?: unknown }).id = token.id;
-                (session.user as { isSuperAdmin?: unknown }).isSuperAdmin = token.isSuperAdmin;
-                (session.user as { allowedResources?: unknown }).allowedResources = token.allowedResources;
-                (session.user as { tokenVersion?: unknown }).tokenVersion = token.tokenVersion;
-                (session.user as { impersonatedBy?: unknown }).impersonatedBy = token.impersonatedBy;
-                (session.user as { impersonationExpiresAt?: unknown }).impersonationExpiresAt = token.impersonationExpiresAt;
+                (session.user as { isSuperAdmin?: unknown }).isSuperAdmin =
+                    token.isSuperAdmin;
+                (
+                    session.user as { allowedResources?: unknown }
+                ).allowedResources = token.allowedResources;
+                (session.user as { tokenVersion?: unknown }).tokenVersion =
+                    token.tokenVersion;
+                (session.user as { impersonatedBy?: unknown }).impersonatedBy =
+                    token.impersonatedBy;
+                (
+                    session.user as { impersonationExpiresAt?: unknown }
+                ).impersonationExpiresAt = token.impersonationExpiresAt;
             }
             return session;
         },

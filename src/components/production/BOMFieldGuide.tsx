@@ -1,6 +1,13 @@
 'use client';
 
-import { HelpCircle, Info, FlaskConical, ListChecks, Calculator, TrendingUp } from 'lucide-react';
+import {
+    HelpCircle,
+    Info,
+    FlaskConical,
+    ListChecks,
+    Calculator,
+    TrendingUp,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import {
     Dialog,
@@ -43,11 +50,20 @@ export function BOMFieldGuide() {
                             iconColor="text-muted-foreground"
                         >
                             <p className="text-sm text-muted-foreground mb-3">
-                                A <span className="font-semibold text-foreground">Bill of Materials (BOM)</span> is a production recipe that defines:
+                                A{' '}
+                                <span className="font-semibold text-foreground">
+                                    Bill of Materials (BOM)
+                                </span>{' '}
+                                is a production recipe that defines:
                             </p>
                             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-2">
-                                <li>What product will be manufactured (output)</li>
-                                <li>What materials are needed (inputs/ingredients)</li>
+                                <li>
+                                    What product will be manufactured (output)
+                                </li>
+                                <li>
+                                    What materials are needed
+                                    (inputs/ingredients)
+                                </li>
                                 <li>How much of each material is required</li>
                                 <li>Expected scrap or waste percentage</li>
                             </ul>
@@ -65,28 +81,43 @@ export function BOMFieldGuide() {
                                 </div>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between items-center py-1 border-b border-border">
-                                        <span className="font-semibold text-foreground">Output Product:</span>
-                                        <span className="text-muted-foreground">Red Mixed Granules (INTERMEDIATE)</span>
+                                        <span className="font-semibold text-foreground">
+                                            Output Product:
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                            Red Mixed Granules (INTERMEDIATE)
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center py-1 border-b border-border">
-                                        <span className="font-semibold text-foreground">Output Quantity:</span>
-                                        <span className="text-muted-foreground">100 KG</span>
+                                        <span className="font-semibold text-foreground">
+                                            Output Quantity:
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                            100 KG
+                                        </span>
                                     </div>
                                     <div className="mt-3 pt-2">
-                                        <div className="font-semibold text-foreground mb-2">Inputs Required:</div>
+                                        <div className="font-semibold text-foreground mb-2">
+                                            Inputs Required:
+                                        </div>
                                         <div className="ml-4 space-y-1">
                                             <div className="flex justify-between text-muted-foreground">
                                                 <span>Pure PP Granules</span>
-                                                <span className="font-mono text-foreground">98 KG (1% scrap)</span>
+                                                <span className="font-mono text-foreground">
+                                                    98 KG (1% scrap)
+                                                </span>
                                             </div>
                                             <div className="flex justify-between text-muted-foreground">
                                                 <span>Red Colorant</span>
-                                                <span className="font-mono text-foreground">2 KG</span>
+                                                <span className="font-mono text-foreground">
+                                                    2 KG
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="mt-2 pt-2 border-t border-border text-xs text-muted-foreground/70">
-                                        Total Input: 100 KG → Expected Output: 99 KG (1% scrap loss)
+                                        Total Input: 100 KG → Expected Output:
+                                        99 KG (1% scrap loss)
                                     </div>
                                 </div>
                             </div>
@@ -114,7 +145,8 @@ export function BOMFieldGuide() {
                                     title="Add Ingredients"
                                     description="Select each raw material or intermediate product needed"
                                 />
-                                <StepItem number={4}
+                                <StepItem
+                                    number={4}
                                     title="Specify Quantities"
                                     description="Enter how much of each ingredient is required (based on output quantity)"
                                 />
@@ -137,20 +169,36 @@ export function BOMFieldGuide() {
                             iconColor="text-muted-foreground"
                         >
                             <p className="text-sm text-muted-foreground mb-3">
-                                When you create a work order, the BOM automatically scales based on your planned quantity:
+                                When you create a work order, the BOM
+                                automatically scales based on your planned
+                                quantity:
                             </p>
                             <div className="bg-muted/30 p-4 rounded-lg border">
                                 <div className="text-sm space-y-2">
-                                    <div className="font-semibold text-foreground">BOM Example: 100 KG basis</div>
+                                    <div className="font-semibold text-foreground">
+                                        BOM Example: 100 KG basis
+                                    </div>
                                     <div className="ml-4 space-y-1 text-muted-foreground">
                                         <div>• Pure PP: 98 KG</div>
                                         <div>• Red Colorant: 2 KG</div>
                                     </div>
                                     <div className="mt-3 pt-3 border-t border-border">
-                                        <div className="font-semibold text-foreground">Work Order: 500 KG</div>
+                                        <div className="font-semibold text-foreground">
+                                            Work Order: 500 KG
+                                        </div>
                                         <div className="ml-4 space-y-1 text-muted-foreground">
-                                            <div>• Pure PP: 98 × 5 = <span className="font-bold text-foreground">490 KG</span></div>
-                                            <div>• Red Colorant: 2 × 5 = <span className="font-bold text-foreground">10 KG</span></div>
+                                            <div>
+                                                • Pure PP: 98 × 5 ={' '}
+                                                <span className="font-bold text-foreground">
+                                                    490 KG
+                                                </span>
+                                            </div>
+                                            <div>
+                                                • Red Colorant: 2 × 5 ={' '}
+                                                <span className="font-bold text-foreground">
+                                                    10 KG
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -164,7 +212,8 @@ export function BOMFieldGuide() {
                             iconColor="text-muted-foreground"
                         >
                             <p className="text-sm text-muted-foreground mb-3">
-                                You can create multiple BOMs for the same output product when:
+                                You can create multiple BOMs for the same output
+                                product when:
                             </p>
                             <div className="space-y-2">
                                 <BOMUseCase
@@ -188,8 +237,12 @@ export function BOMFieldGuide() {
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-muted-foreground">
-                                        <span className="font-semibold text-foreground">Tip:</span> Mark one BOM as &quot;Default&quot; for
-                                        the most commonly used recipe. You can select alternative BOMs when creating
+                                        <span className="font-semibold text-foreground">
+                                            Tip:
+                                        </span>{' '}
+                                        Mark one BOM as &quot;Default&quot; for
+                                        the most commonly used recipe. You can
+                                        select alternative BOMs when creating
                                         work orders.
                                     </div>
                                 </div>
@@ -199,15 +252,34 @@ export function BOMFieldGuide() {
                         {/* Common Mistakes */}
                         <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/20">
                             <div className="flex items-start gap-2">
-                                <div className="text-destructive font-semibold flex-shrink-0">⚠️</div>
+                                <div className="text-destructive font-semibold flex-shrink-0">
+                                    ⚠️
+                                </div>
                                 <div>
-                                    <div className="font-semibold text-foreground mb-2">Common Mistakes to Avoid</div>
+                                    <div className="font-semibold text-foreground mb-2">
+                                        Common Mistakes to Avoid
+                                    </div>
                                     <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                        <li>Forgetting to add all required ingredients</li>
-                                        <li>Using the wrong output product variant</li>
-                                        <li>Entering quantities that don&apos;t match the output quantity basis</li>
-                                        <li>Not updating BOMs when recipes change (create new version instead)</li>
-                                        <li>Setting unrealistic scrap percentages</li>
+                                        <li>
+                                            Forgetting to add all required
+                                            ingredients
+                                        </li>
+                                        <li>
+                                            Using the wrong output product
+                                            variant
+                                        </li>
+                                        <li>
+                                            Entering quantities that don&apos;t
+                                            match the output quantity basis
+                                        </li>
+                                        <li>
+                                            Not updating BOMs when recipes
+                                            change (create new version instead)
+                                        </li>
+                                        <li>
+                                            Setting unrealistic scrap
+                                            percentages
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
@@ -216,16 +288,38 @@ export function BOMFieldGuide() {
                         {/* Best Practices */}
                         <div className="bg-muted/30 p-4 rounded-lg border">
                             <div className="flex items-start gap-2">
-                                <div className="text-foreground font-semibold flex-shrink-0">✓</div>
+                                <div className="text-foreground font-semibold flex-shrink-0">
+                                    ✓
+                                </div>
                                 <div>
-                                    <div className="font-semibold text-foreground mb-2">Best Practices</div>
+                                    <div className="font-semibold text-foreground mb-2">
+                                        Best Practices
+                                    </div>
                                     <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                        <li>Use descriptive BOM names (include ratio, date, or version)</li>
-                                        <li>Document special instructions in the description field</li>
-                                        <li>Use 100 as output quantity for easy percentage calculations</li>
-                                        <li>Review and update scrap percentages based on actual production data</li>
-                                        <li>Test new BOMs with small production batches first</li>
-                                        <li>Keep historical BOMs for reference (don&apos;t delete old recipes)</li>
+                                        <li>
+                                            Use descriptive BOM names (include
+                                            ratio, date, or version)
+                                        </li>
+                                        <li>
+                                            Document special instructions in the
+                                            description field
+                                        </li>
+                                        <li>
+                                            Use 100 as output quantity for easy
+                                            percentage calculations
+                                        </li>
+                                        <li>
+                                            Review and update scrap percentages
+                                            based on actual production data
+                                        </li>
+                                        <li>
+                                            Test new BOMs with small production
+                                            batches first
+                                        </li>
+                                        <li>
+                                            Keep historical BOMs for reference
+                                            (don&apos;t delete old recipes)
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
@@ -244,12 +338,19 @@ interface GuideSectionProps {
     children: React.ReactNode;
 }
 
-function GuideSection({ icon: Icon, title, iconColor, children }: GuideSectionProps) {
+function GuideSection({
+    icon: Icon,
+    title,
+    iconColor,
+    children,
+}: GuideSectionProps) {
     return (
         <div className="border-l-4 border-muted pl-4">
             <div className="flex items-center gap-2 mb-3">
-                <Icon className={cn("h-5 w-5", iconColor)} />
-                <h3 className="font-semibold text-lg text-foreground">{title}</h3>
+                <Icon className={cn('h-5 w-5', iconColor)} />
+                <h3 className="font-semibold text-lg text-foreground">
+                    {title}
+                </h3>
             </div>
             {children}
         </div>
@@ -285,7 +386,9 @@ function BOMUseCase({ title, example }: BOMUseCaseProps) {
     return (
         <div className="bg-card p-3 rounded border border-border">
             <div className="font-semibold text-foreground text-sm">{title}</div>
-            <div className="text-xs text-muted-foreground mt-1">Example: {example}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+                Example: {example}
+            </div>
         </div>
     );
 }

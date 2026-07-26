@@ -1,14 +1,17 @@
 # Melindo Accounting Transaction Schema Audit
 
 Tenant DB audited:
+
 - `melindo_rafia`
 
 Goal:
+
 - menentukan jalur posting saldo awal yang paling benar berdasarkan schema live, bukan asumsi
 
 ## 1. Relevant live tables discovered
 
 Tables found:
+
 - `JournalEntry`
 - `JournalLine`
 - `SalesOrder`
@@ -29,6 +32,7 @@ Tables found:
 ## 2. Critical live row counts
 
 Current transaction state is a clean slate:
+
 - `JournalEntry` = 0
 - `JournalLine` = 0
 - `SalesOrder` = 0
@@ -43,6 +47,7 @@ Current transaction state is a clean slate:
 - `FixedAsset` = 0
 
 Meaning:
+
 - this is an excellent time to seed opening balances cleanly
 - no legacy transaction chain in this tenant is blocking the opening setup
 
@@ -51,6 +56,7 @@ Meaning:
 ### Journal layer
 
 `JournalEntry`:
+
 - `entryNumber` NOT NULL
 - `entryDate` NOT NULL
 - `description` NOT NULL
@@ -60,6 +66,7 @@ Meaning:
 - `createdById`, `approvedById`, `referenceId` nullable
 
 `JournalLine`:
+
 - `journalEntryId` NOT NULL
 - `accountId` NOT NULL
 - `debit` NOT NULL default 0
@@ -68,12 +75,14 @@ Meaning:
 - `exchangeRate` default 1
 
 Implication:
+
 - journal opening entries are technically easy to seed
 - but should only be used for bucket `JOURNAL_ONLY` and suspense, not to duplicate AR/AP/inventory/fixed asset module balances
 
 ### AR chain
 
 `SalesOrder`:
+
 - `orderNumber` NOT NULL
 - `customerId` nullable
 - `orderType` enum `SalesOrderType`
@@ -81,10 +90,12 @@ Implication:
 - `totalAmount` nullable
 
 `SalesOrderItem`:
+
 - `productVariantId` NOT NULL
 - supports `enteredQuantity`, `enteredUnit`, `conversionFactorSnapshot`, `enteredUnitPrice`
 
 `Invoice`:
+
 - `invoiceNumber` NOT NULL
 - `salesOrderId` NOT NULL
 - `status` enum `InvoiceStatus`
@@ -93,10 +104,12 @@ Implication:
 - `termOfPaymentDays` default 0
 
 `Payment`:
+
 - can point to either `invoiceId` or `purchaseInvoiceId`
 - no status column
 
 Implication:
+
 - AR opening can be represented as proper document chain inside module
 - because tables are empty, opening AR can be seeded cleanly without collision
 - if user wants receivable visible in UI, use SO + Invoice pattern, not pure journal only
@@ -104,15 +117,18 @@ Implication:
 ### AP chain
 
 `PurchaseOrder`:
+
 - `orderNumber` NOT NULL
 - `supplierId` NOT NULL
 - `status` enum `PurchaseOrderStatus`
 
 `PurchaseOrderItem`:
+
 - `productVariantId` NOT NULL
 - `quantity`, `unitPrice`, `subtotal` all NOT NULL
 
 `PurchaseInvoice`:
+
 - `invoiceNumber` NOT NULL
 - `purchaseOrderId` NOT NULL
 - `status` enum `PurchaseInvoiceStatus`
@@ -121,40 +137,48 @@ Implication:
 - `termOfPaymentDays` default 0
 
 `PurchasePayment`:
+
 - separate table from generic `Payment`
 - requires `purchaseInvoiceId`
 
 Implication:
+
 - AP opening should go through PO + PurchaseInvoice chain if the goal is payable visibility in UI/subledger
 - because live tenant is empty, opening AP seeding is straightforward
 
 ### Inventory / stock layer
 
 `Inventory`:
+
 - key fields: `locationId`, `productVariantId`, `quantity`, `averageCost`
 - table currently empty
 
 `StockMovement`:
+
 - key enum `type` = `MovementType`
 - no `updatedAt`
 - supports link to `salesOrderId`, `goodsReceiptId`, `productionOrderId`
 - `cost` nullable
 
 `StockOpname`:
+
 - `locationId` NOT NULL
 - `status` enum `OpnameStatus`
 - `opnameNumber` nullable
 - `createdById` nullable
 
 `StockOpnameItem`:
+
 - `systemQuantity` NOT NULL
 - `countedQuantity` nullable
 
 Location state:
+
 - only one live location currently exists:
-  - `Gudang Utama` (`slug = gudang-utama`)
+    - `Gudang Utama` (`slug = gudang-utama`)
 
 Implication:
+
 - inventory opening can technically be built from a first stock opname at `Gudang Utama`
 - but because `Inventory` and `StockMovement` are still zero, cost handling must be planned carefully
 - average cost cannot be assumed; if using stock opname path, cost sync / OBE pattern must be respected
@@ -162,6 +186,7 @@ Implication:
 ### Fixed asset layer
 
 `FixedAsset`:
+
 - `assetCode` NOT NULL
 - `name` NOT NULL
 - `purchaseDate` NOT NULL
@@ -175,6 +200,7 @@ Implication:
 - `lastDepreciationDate` nullable
 
 Implication:
+
 - fixed asset opening can be inserted in a structured way, not necessarily only via journal
 - because table is empty, this is a clean seed opportunity
 - accumulated depreciation can be represented explicitly through asset setup + account mapping, but exact UI/business flow still needs care
@@ -182,6 +208,7 @@ Implication:
 ## 4. Important conclusion from live state
 
 Because ALL transaction tables are still zero, the best opening-balance approach for Melindo is:
+
 - module-first where module visibility matters
 - journal-only only for the buckets that truly do not belong in operational modules
 
@@ -190,7 +217,9 @@ This is actually safer than a tenant that already has partial history.
 ## 5. Recommended posting path per bucket
 
 ### Bucket A — Journal only
+
 Use `JournalEntry` + `JournalLine`:
+
 - cash / bank
 - prepaid tax / prepaid expense
 - employee receivable
@@ -199,36 +228,48 @@ Use `JournalEntry` + `JournalLine`:
 - temporary CIP parking in `1-199`
 
 ### Bucket B — AR module
+
 Use `SalesOrder` + `SalesOrderItem` + `Invoice`
+
 - one opening chain per receivable customer document set
 - avoid journal-only if you want receivable visible and collectible in normal UI workflow
 
 ### Bucket C — AP module
+
 Use `PurchaseOrder` + `PurchaseOrderItem` + `PurchaseInvoice`
+
 - one opening chain per supplier payable set
 - avoid journal-only if you want payable visible in AP workflow
 
 ### Bucket D — Inventory module
+
 Preferred practical path:
+
 - seed via `StockOpname` / `StockOpnameItem` at `Gudang Utama`
 - then handle cost/OBE carefully
 
 Important caution:
+
 - because `Inventory` and `StockMovement` are empty, inventory opening is not just about qty; valuation path must also be handled intentionally
 
 ### Bucket E — Fixed asset module
+
 Use `FixedAsset` seeding plus related journal / depreciation setup as needed
+
 - safer than hiding everything in one large opening journal
 - especially because live table is fully empty
 
 ### Bucket F — Owner liability review
+
 `2-390 Hutang ke Nugroho Pramono`
+
 - can remain separate from mass opening automation
 - should be deliberately posted after final confirmation
 
 ## 6. Best next implementation step
 
 The next step should be:
+
 1. derive module-ready staging from the final opening balance CSVs
 2. generate document chains for AR/AP
 3. design inventory opening path for `Gudang Utama`
@@ -239,6 +280,7 @@ The next step should be:
 
 This tenant is still transaction-empty, so we should NOT rush to a single big GL-only opening journal.
 The cleaner and more future-proof route is:
+
 - AR via AR docs
 - AP via AP docs
 - inventory via inventory opening workflow

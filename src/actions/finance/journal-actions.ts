@@ -1,6 +1,6 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { Prisma, JournalStatus, ReferenceType } from '@prisma/client';
 import { postBulkJournals } from '@/services/accounting/journals-service';
@@ -19,8 +19,9 @@ export interface JournalFilterParams {
     referenceType?: string;
 }
 
-export const getJournalEntries = withTenant(
-async function getJournalEntries(params: JournalFilterParams) {
+export const getJournalEntries = withTenant(async function getJournalEntries(
+    params: JournalFilterParams,
+) {
     return safeAction(async () => {
         const {
             page = 1,
@@ -29,25 +30,44 @@ async function getJournalEntries(params: JournalFilterParams) {
             startDate,
             endDate,
             status,
-            referenceType
+            referenceType,
         } = params;
 
         const skip = (page - 1) * limit;
 
         const where: Prisma.JournalEntryWhereInput = {
             AND: [
-                search ? {
-                    OR: [
-                        { entryNumber: { contains: search, mode: 'insensitive' } },
-                        { description: { contains: search, mode: 'insensitive' } },
-                        { reference: { contains: search, mode: 'insensitive' } }
-                    ]
-                } : {},
+                search
+                    ? {
+                          OR: [
+                              {
+                                  entryNumber: {
+                                      contains: search,
+                                      mode: 'insensitive',
+                                  },
+                              },
+                              {
+                                  description: {
+                                      contains: search,
+                                      mode: 'insensitive',
+                                  },
+                              },
+                              {
+                                  reference: {
+                                      contains: search,
+                                      mode: 'insensitive',
+                                  },
+                              },
+                          ],
+                      }
+                    : {},
                 startDate ? { entryDate: { gte: startDate } } : {},
                 endDate ? { entryDate: { lte: endDate } } : {},
                 status ? { status } : {},
-                referenceType ? { referenceType: referenceType as ReferenceType } : {}
-            ]
+                referenceType
+                    ? { referenceType: referenceType as ReferenceType }
+                    : {},
+            ],
         };
 
         const [data, total] = await Promise.all([
@@ -57,49 +77,55 @@ async function getJournalEntries(params: JournalFilterParams) {
                     createdBy: { select: { name: true } },
                     lines: {
                         take: 2, // Preview first 2 lines
-                        include: { account: { select: { code: true, name: true } } }
-                    }
+                        include: {
+                            account: { select: { code: true, name: true } },
+                        },
+                    },
                 },
                 orderBy: { entryDate: 'desc' },
                 skip,
-                take: limit
+                take: limit,
             }),
-            prisma.journalEntry.count({ where })
+            prisma.journalEntry.count({ where }),
         ]);
 
         return {
-            data: data.map(j => ({
+            data: data.map((j) => ({
                 ...j,
-                lines: j.lines.map(l => ({
+                lines: j.lines.map((l) => ({
                     ...l,
                     debit: Number(l.debit),
                     credit: Number(l.credit),
-                    exchangeRate: Number(l.exchangeRate)
-                }))
+                    exchangeRate: Number(l.exchangeRate),
+                })),
             })),
             meta: {
                 total,
                 page,
                 limit,
-                totalPages: Math.ceil(total / limit)
-            }
+                totalPages: Math.ceil(total / limit),
+            },
         };
     });
-}
-);
+});
 
-export const batchPostJournals = withTenant(
-async function batchPostJournals(ids: string[]) {
+export const batchPostJournals = withTenant(async function batchPostJournals(
+    ids: string[],
+) {
     return safeAction(async () => {
         const session = await requireAuth();
         try {
             await postBulkJournals(ids, session.user.id);
             revalidatePath('/finance/journals');
-            return { message: "Status batch post success" };
+            return { message: 'Status batch post success' };
         } catch (error) {
-            logger.error('Failed to batch post journals', { error, module: 'JournalActions' });
-            throw new BusinessRuleError('Batch posting failed. Please review selected journals.');
+            logger.error('Failed to batch post journals', {
+                error,
+                module: 'JournalActions',
+            });
+            throw new BusinessRuleError(
+                'Batch posting failed. Please review selected journals.',
+            );
         }
     });
-}
-);
+});

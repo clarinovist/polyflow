@@ -44,11 +44,22 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     .safeParse(credentials);
 
                 if (parsedCredentials.success) {
-                    const { email, password, role, remember, subdomain: formSubdomain, impersonationBy, impersonationExpiresAt } = parsedCredentials.data;
+                    const {
+                        email,
+                        password,
+                        role,
+                        remember,
+                        subdomain: formSubdomain,
+                        impersonationBy,
+                        impersonationExpiresAt,
+                    } = parsedCredentials.data;
                     const isImpersonation = !!impersonationBy;
 
                     // Resolve subdomain: prefer form field (from hidden input) > x-tenant-subdomain header > Host header
-                    let subdomain = formSubdomain || request?.headers?.get('x-tenant-subdomain') || null;
+                    let subdomain =
+                        formSubdomain ||
+                        request?.headers?.get('x-tenant-subdomain') ||
+                        null;
 
                     if (!subdomain && request) {
                         const host = request.headers.get('host') || '';
@@ -60,12 +71,16 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                     if (subdomain) {
                         try {
-                            const { getTenantDb, getMainPrisma, tenantContext } = await import('@/lib/core/prisma');
+                            const {
+                                getTenantDb,
+                                getMainPrisma,
+                                tenantContext,
+                            } = await import('@/lib/core/prisma');
                             // CRITICAL: Use getMainPrisma() — the prisma proxy leaks tenant context
                             // from previous requests, routing this query to the wrong DB.
                             const mainPrisma = getMainPrisma();
                             const tenant = await mainPrisma.tenant.findUnique({
-                                where: { subdomain }
+                                where: { subdomain },
                             });
 
                             // Block login entirely for suspended tenants. Thrown
@@ -78,9 +93,14 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                             if (tenant?.dbUrl) {
                                 tenantDbRef = getTenantDb(tenant.dbUrl);
-                                const { tenantIdContext } = await import('@/lib/core/prisma');
-                                user = await tenantContext.run(tenantDbRef, () =>
-                                    tenantIdContext.run(tenant.id, () => getUser(email))
+                                const { tenantIdContext } =
+                                    await import('@/lib/core/prisma');
+                                user = await tenantContext.run(
+                                    tenantDbRef,
+                                    () =>
+                                        tenantIdContext.run(tenant.id, () =>
+                                            getUser(email),
+                                        ),
                                 );
                             } else {
                                 throw new Error('TenantNotFound');
@@ -88,10 +108,16 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         } catch (error) {
                             // Preserve the suspended signal — don't collapse it
                             // into the generic TenantResolutionFailed.
-                            if (error instanceof Error && error.message === 'TenantSuspended') {
+                            if (
+                                error instanceof Error &&
+                                error.message === 'TenantSuspended'
+                            ) {
                                 throw error;
                             }
-                            console.error('[NEXTAUTH] Tenant resolution error:', error);
+                            console.error(
+                                '[NEXTAUTH] Tenant resolution error:',
+                                error,
+                            );
                             throw new Error('TenantResolutionFailed');
                         }
                     } else {
@@ -107,18 +133,23 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         throw new Error('UserInactive');
                     }
 
-                    const passwordsMatch = isImpersonation || await bcrypt.compare(password, user.password);
+                    const passwordsMatch =
+                        isImpersonation ||
+                        (await bcrypt.compare(password, user.password));
 
                     if (passwordsMatch) {
                         // Load ALL assigned roles for this user
                         let userRoles: string[] = [];
                         try {
                             const roleDb = tenantDbRef || prisma;
-                            const userRoleRecords = await roleDb.userRole.findMany({
-                                where: { userId: user.id },
-                                select: { role: true },
-                            });
-                            userRoles = userRoleRecords.map((r: { role: string }) => r.role);
+                            const userRoleRecords =
+                                await roleDb.userRole.findMany({
+                                    where: { userId: user.id },
+                                    select: { role: true },
+                                });
+                            userRoles = userRoleRecords.map(
+                                (r: { role: string }) => r.role,
+                            );
                         } catch {
                             // Non-fatal: fall back to single primary role
                             userRoles = [user.role];
@@ -129,14 +160,20 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             userRoles = [user.role];
                         }
 
-                        const isAssignedAdmin = userRoles.includes("ADMIN") || user.role === "ADMIN";
+                        const isAssignedAdmin =
+                            userRoles.includes('ADMIN') ||
+                            user.role === 'ADMIN';
 
                         // Validate: selected role must be in assigned roles (ADMIN bypass)
-                        if (role && !userRoles.includes(role) && !isAssignedAdmin) {
-                            throw new Error("RoleMismatch");
+                        if (
+                            role &&
+                            !userRoles.includes(role) &&
+                            !isAssignedAdmin
+                        ) {
+                            throw new Error('RoleMismatch');
                         }
                         if (!role && !user.isSuperAdmin) {
-                            throw new Error("RoleMismatch");
+                            throw new Error('RoleMismatch');
                         }
 
                         // Active role = selected workspace role at login (not always DB primary)
@@ -147,10 +184,19 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         try {
                             const permDb = tenantDbRef || prisma;
                             const perms = await permDb.rolePermission.findMany({
-                                where: { role: { in: userRoles as Role[] }, canAccess: true },
+                                where: {
+                                    role: { in: userRoles as Role[] },
+                                    canAccess: true,
+                                },
                                 select: { resource: true },
                             });
-                            allowedResources = Array.from(new Set(perms.map((p: { resource: string }) => p.resource)));
+                            allowedResources = Array.from(
+                                new Set(
+                                    perms.map(
+                                        (p: { resource: string }) => p.resource,
+                                    ),
+                                ),
+                            );
                         } catch {
                             // Non-fatal
                         }
@@ -160,8 +206,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             name: user.name,
                             email: user.email,
                             image: user.avatarUrl || undefined,
-                            role: activeRole as Role,     // ACTIVE role (login-selected)
-                            roles: userRoles as Role[],   // ALL assigned roles
+                            role: activeRole as Role, // ACTIVE role (login-selected)
+                            roles: userRoles as Role[], // ALL assigned roles
                             rememberMe: remember,
                             isSuperAdmin: user.isSuperAdmin,
                             allowedResources,
@@ -172,8 +218,12 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             // to avoid a Prisma query on every request in that runtime.
                             tokenVersion: user.tokenVersion,
                             // Only set during impersonation — absence = normal login.
-                            impersonatedBy: isImpersonation ? impersonationBy : undefined,
-                            impersonationExpiresAt: isImpersonation ? impersonationExpiresAt : undefined,
+                            impersonatedBy: isImpersonation
+                                ? impersonationBy
+                                : undefined,
+                            impersonationExpiresAt: isImpersonation
+                                ? impersonationExpiresAt
+                                : undefined,
                         };
                     }
                 }

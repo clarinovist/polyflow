@@ -10,16 +10,24 @@ import { parseISO } from 'date-fns';
 
 const loadPaymentBanks = withTenantPage(async () => getPaymentBanksSetting());
 
-export default async function SentPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+export default async function SentPaymentsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ startDate?: string; endDate?: string }>;
+}) {
     const params = await searchParams;
 
     // Only filter payments by date when explicitly provided (invoice dropdown is always full outstanding list)
-    const checkStart = params?.startDate ? parseISO(params.startDate) : undefined;
+    const checkStart = params?.startDate
+        ? parseISO(params.startDate)
+        : undefined;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : undefined;
 
     const [payments, unpaidInvoicesRes] = await Promise.all([
         getSentPayments(
-            checkStart && checkEnd ? { startDate: checkStart, endDate: checkEnd } : undefined
+            checkStart && checkEnd
+                ? { startDate: checkStart, endDate: checkEnd }
+                : undefined,
         ),
         getOutstandingPurchaseInvoices(),
     ]);
@@ -29,7 +37,10 @@ export default async function SentPaymentsPage({ searchParams }: { searchParams:
     }
 
     if (!unpaidInvoicesRes.success) {
-        throw new Error(unpaidInvoicesRes.error ?? 'Gagal memuat daftar invoice belum lunas');
+        throw new Error(
+            unpaidInvoicesRes.error ??
+                'Gagal memuat daftar invoice belum lunas',
+        );
     }
 
     // Already filtered (outstanding > 0) and serialized by the action

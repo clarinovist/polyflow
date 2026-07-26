@@ -30,20 +30,32 @@ export function WeekRangeNav({ from }: WeekRangeNavProps) {
     return (
         <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                <Link href={`/production/schedule?from=${prevFrom}`} aria-label="Minggu sebelumnya">
+                <Link
+                    href={`/production/schedule?from=${prevFrom}`}
+                    aria-label="Minggu sebelumnya"
+                >
                     <ChevronLeft className="h-4 w-4" />
                 </Link>
             </Button>
             <span className="text-sm font-medium px-2 select-none">
-                {format(baseDate, 'MMM dd', { locale: localeID })} - {format(endDate, 'MMM dd, yyyy', { locale: localeID })}
+                {format(baseDate, 'MMM dd', { locale: localeID })} -{' '}
+                {format(endDate, 'MMM dd, yyyy', { locale: localeID })}
             </span>
             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                <Link href={`/production/schedule?from=${nextFrom}`} aria-label="Minggu berikutnya">
+                <Link
+                    href={`/production/schedule?from=${nextFrom}`}
+                    aria-label="Minggu berikutnya"
+                >
                     <ChevronRight className="h-4 w-4" />
                 </Link>
             </Button>
             {!isOnToday && (
-                <Button variant="ghost" size="sm" className="h-8 text-xs ml-1" asChild>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs ml-1"
+                    asChild
+                >
                     <Link href={`/production/schedule?from=${todayStr}`}>
                         <RotateCcw className="mr-1 h-3 w-3" />
                         {planningLabels.today}

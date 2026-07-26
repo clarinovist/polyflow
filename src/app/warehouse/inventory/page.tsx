@@ -42,29 +42,40 @@ export default async function WarehouseInventoryPage({
 }) {
     const params = await searchParams;
     const asOfDate = params.asOf ? new Date(params.asOf) : null;
-    const compareDate = params.compareWith ? new Date(params.compareWith) : null;
+    const compareDate = params.compareWith
+        ? new Date(params.compareWith)
+        : null;
 
     // Fetch data in parallel
-    const [
-        liveInventoryRes,
-        locationsRes,
-        dashboardStatsRes,
-    ] = await Promise.all([
-        getInventoryStats(),
-        getLocations(),
-        getDashboardStats(),
-    ]);
+    const [liveInventoryRes, locationsRes, dashboardStatsRes] =
+        await Promise.all([
+            getInventoryStats(),
+            getLocations(),
+            getDashboardStats(),
+        ]);
 
-    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
-    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
-    const dashboardStats = dashboardStatsRes.success && dashboardStatsRes.data ? dashboardStatsRes.data : { totalStock: 0, lowStockCount: 0, totalValue: 0 };
+    const liveInventory =
+        liveInventoryRes.success && liveInventoryRes.data
+            ? liveInventoryRes.data
+            : [];
+    const locations =
+        locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const dashboardStats =
+        dashboardStatsRes.success && dashboardStatsRes.data
+            ? dashboardStatsRes.data
+            : { totalStock: 0, lowStockCount: 0, totalValue: 0 };
 
     const showPricesRes = await canViewPrices();
-    const showPrices = showPricesRes.success && showPricesRes.data ? showPricesRes.data : false;
+    const showPrices =
+        showPricesRes.success && showPricesRes.data
+            ? showPricesRes.data
+            : false;
 
     // Parse active location IDs (support multi-select)
     const activeLocationIds = params.locationId
-        ? (Array.isArray(params.locationId) ? params.locationId : [params.locationId])
+        ? Array.isArray(params.locationId)
+            ? params.locationId
+            : [params.locationId]
         : [];
 
     // Initialize table inventory with live data
@@ -72,14 +83,19 @@ export default async function WarehouseInventoryPage({
 
     if (asOfDate) {
         const historicalInventoryRes = await getInventoryAsOf(asOfDate);
-        const historicalInventory = historicalInventoryRes.success && historicalInventoryRes.data ? historicalInventoryRes.data : [];
-        tableInventory = liveInventory.map(item => {
+        const historicalInventory =
+            historicalInventoryRes.success && historicalInventoryRes.data
+                ? historicalInventoryRes.data
+                : [];
+        tableInventory = liveInventory.map((item) => {
             const histItem = historicalInventory.find(
-                h => h.productVariantId === item.productVariantId && h.locationId === item.locationId
+                (h) =>
+                    h.productVariantId === item.productVariantId &&
+                    h.locationId === item.locationId,
             );
             return {
                 ...item,
-                quantity: histItem ? histItem.quantity : 0
+                quantity: histItem ? histItem.quantity : 0,
             };
         });
     }
@@ -87,8 +103,11 @@ export default async function WarehouseInventoryPage({
     const comparisonData: Record<string, number> = {};
     if (compareDate) {
         const compInventoryRes = await getInventoryAsOf(compareDate);
-        const compInventory = compInventoryRes.success && compInventoryRes.data ? compInventoryRes.data : [];
-        compInventory.forEach(item => {
+        const compInventory =
+            compInventoryRes.success && compInventoryRes.data
+                ? compInventoryRes.data
+                : [];
+        compInventory.forEach((item) => {
             const key = `${item.productVariantId}-${item.locationId}`;
             comparisonData[key] = item.quantity;
         });
@@ -96,30 +115,42 @@ export default async function WarehouseInventoryPage({
 
     let processedInventory = tableInventory;
     if (activeLocationIds.length > 0) {
-        processedInventory = tableInventory.filter(item => activeLocationIds.includes(item.locationId));
+        processedInventory = tableInventory.filter((item) =>
+            activeLocationIds.includes(item.locationId),
+        );
     }
 
     let abcMap: Record<string, string> | undefined;
     try {
         const abcResults = await getAbcData();
-        abcMap = abcResults.reduce((acc: Record<string, string>, item) => {
-            acc[item.productVariantId] = item.class;
-            return acc;
-        }, {} as Record<string, string>);
+        abcMap = abcResults.reduce(
+            (acc: Record<string, string>, item) => {
+                acc[item.productVariantId] = item.class;
+                return acc;
+            },
+            {} as Record<string, string>,
+        );
     } catch (e) {
         console.error('Failed to calculate ABC:', e);
     }
 
-    const tableVariantTotals = processedInventory.reduce((acc: Record<string, number>, item) => {
-        const id = item.productVariantId;
-        const qty = toDecimalNumber(item.quantity);
-        acc[id] = (acc[id] || 0) + qty;
-        return acc;
-    }, {} as Record<string, number>);
+    const tableVariantTotals = processedInventory.reduce(
+        (acc: Record<string, number>, item) => {
+            const id = item.productVariantId;
+            const qty = toDecimalNumber(item.quantity);
+            acc[id] = (acc[id] || 0) + qty;
+            return acc;
+        },
+        {} as Record<string, number>,
+    );
 
     const isTableGlobalLowStock = (item: TableInventoryItem) => {
-        const liveItem = liveInventory.find(li => li.productVariantId === item.productVariantId);
-        const threshold = toDecimalNumber(liveItem?.productVariant.minStockAlert);
+        const liveItem = liveInventory.find(
+            (li) => li.productVariantId === item.productVariantId,
+        );
+        const threshold = toDecimalNumber(
+            liveItem?.productVariant.minStockAlert,
+        );
         if (!threshold) return false;
         return tableVariantTotals[item.productVariantId] < threshold;
     };
@@ -131,11 +162,14 @@ export default async function WarehouseInventoryPage({
         displayInventory = displayInventory.filter(isTableGlobalLowStock);
     }
 
-    const liveVariantTotals = liveInventory.reduce((acc: Record<string, number>, item: InventoryWithRelations) => {
-        const id = item.productVariantId;
-        acc[id] = (acc[id] || 0) + toDecimalNumber(item.quantity);
-        return acc;
-    }, {} as Record<string, number>);
+    const liveVariantTotals = liveInventory.reduce(
+        (acc: Record<string, number>, item: InventoryWithRelations) => {
+            const id = item.productVariantId;
+            acc[id] = (acc[id] || 0) + toDecimalNumber(item.quantity);
+            return acc;
+        },
+        {} as Record<string, number>,
+    );
 
     const isLiveGlobalLowStock = (item: InventoryWithRelations) => {
         const threshold = toDecimalNumber(item.productVariant.minStockAlert);
@@ -144,7 +178,9 @@ export default async function WarehouseInventoryPage({
     };
 
     const locationSummaries = locations.map((loc) => {
-        const locInventory = liveInventory.filter((item) => item.locationId === loc.id);
+        const locInventory = liveInventory.filter(
+            (item) => item.locationId === loc.id,
+        );
         const lowStockCount = locInventory.filter(isLiveGlobalLowStock).length;
 
         return {
@@ -154,45 +190,65 @@ export default async function WarehouseInventoryPage({
         };
     });
 
-    const displayedTotalStock = activeLocationIds.length > 0
-        ? displayInventory.reduce((acc, item) => {
-            const qty = toDecimalNumber(item.quantity);
-            return acc + qty;
-        }, 0)
-        : dashboardStats.totalStock;
+    const displayedTotalStock =
+        activeLocationIds.length > 0
+            ? displayInventory.reduce((acc, item) => {
+                  const qty = toDecimalNumber(item.quantity);
+                  return acc + qty;
+              }, 0)
+            : dashboardStats.totalStock;
 
     const internalDisplayValue = displayInventory.reduce((acc, item) => {
         const qty = toDecimalNumber(item.quantity);
         const cost = toDecimalNumber(item.averageCost);
-        return item.location?.locationType === 'CUSTOMER_OWNED' ? acc : acc + (qty * cost);
+        return item.location?.locationType === 'CUSTOMER_OWNED'
+            ? acc
+            : acc + qty * cost;
     }, 0);
 
     const customerOwnedDisplayValue = displayInventory.reduce((acc, item) => {
         const qty = toDecimalNumber(item.quantity);
         const cost = toDecimalNumber(item.averageCost);
-        return item.location?.locationType === 'CUSTOMER_OWNED' ? acc + (qty * cost) : acc;
+        return item.location?.locationType === 'CUSTOMER_OWNED'
+            ? acc + qty * cost
+            : acc;
     }, 0);
 
-    const serializedInventory = serializeData(displayInventory) as InventoryItem[];
+    const serializedInventory = serializeData(
+        displayInventory,
+    ) as InventoryItem[];
 
     return (
         <div className="h-full flex flex-col space-y-4 overflow-hidden">
             <div className="flex items-end justify-between shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Stok</h1>
-                    <p className="text-muted-foreground mt-1">Pantau level stok dan status gudang</p>
+                    <p className="text-muted-foreground mt-1">
+                        Pantau level stok dan status gudang
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ContextualHelp
                         title="Panduan Stok"
                         prefillQuestion="Kenapa stok produk tidak cukup saat confirm SO?"
                         links={[
-                            { title: 'Cara Cek Stok Per Lokasi', slug: 'cara-cek-stok-per-lokasi' },
-                            { title: 'Cara Terima Barang Gudang', slug: 'cara-terima-barang-gudang' },
-                            { title: 'Error Backflush / Stok Bahan', slug: 'error-backflush-atau-stok-bahan' },
+                            {
+                                title: 'Cara Cek Stok Per Lokasi',
+                                slug: 'cara-cek-stok-per-lokasi',
+                            },
+                            {
+                                title: 'Cara Terima Barang Gudang',
+                                slug: 'cara-terima-barang-gudang',
+                            },
+                            {
+                                title: 'Error Backflush / Stok Bahan',
+                                slug: 'error-backflush-atau-stok-bahan',
+                            },
                         ]}
                     />
-                    <InventoryQuickActions lowStockCount={dashboardStats.lowStockCount} />
+                    <InventoryQuickActions
+                        lowStockCount={dashboardStats.lowStockCount}
+                    />
                 </div>
             </div>
 

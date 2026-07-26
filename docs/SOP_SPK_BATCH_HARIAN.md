@@ -9,10 +9,10 @@
 
 ## 1. Prinsip yang harus diingat semua orang
 
-| Layer | Arti | Contoh |
-|--------|------|--------|
-| **Order / demand** | Komitmen total (SO atau plan) | **1000 kg** |
-| **SPK** | Batch yang di-commit ke mesin hari ini | **300 kg** |
+| Layer                 | Arti                                       | Contoh          |
+| --------------------- | ------------------------------------------ | --------------- |
+| **Order / demand**    | Komitmen total (SO atau plan)              | **1000 kg**     |
+| **SPK**               | Batch yang di-commit ke mesin hari ini     | **300 kg**      |
 | **Hasil (execution)** | Catatan per shift: operator + helper + qty | Shift 1: 110 kg |
 
 **Tiga aturan emas:**
@@ -60,13 +60,13 @@
 
 ## 3. Siapa ngapain
 
-| Peran | Tugas utama |
-|--------|-------------|
+| Peran           | Tugas utama                                                                                           |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
 | **Admin / Ika** | Lihat sisa demand → buat SPK batch (mis. 300) → assign mesin → pantau progress → tutup SPK bila perlu |
-| **Gudang RM** | Issue bahan **per SPK / per batch** (bukan full 1000 kecuali diminta khusus) |
-| **Operator** | Di kiosk: pilih mesin & SPK aktif → catat hasil + diri sebagai operator |
-| **Helper** | Tercatat di execution (bukan “mengganti” SPK) |
-| **Supervisor** | Ganti operator jika absen; pastikan shift kosong = tidak ada input (bukan data palsu) |
+| **Gudang RM**   | Issue bahan **per SPK / per batch** (bukan full 1000 kecuali diminta khusus)                          |
+| **Operator**    | Di kiosk: pilih mesin & SPK aktif → catat hasil + diri sebagai operator                               |
+| **Helper**      | Tercatat di execution (bukan “mengganti” SPK)                                                         |
+| **Supervisor**  | Ganti operator jika absen; pastikan shift kosong = tidak ada input (bukan data palsu)                 |
 
 ---
 
@@ -76,16 +76,16 @@
 
 1. Buka **Papan Permintaan FG** (`/production/requests`) — ini menampilkan semua item FG yang perlu diproduksi dari SO aktif.
 2. Cek:
-   - **Perlu (net stok):** demand FG dikurangi stok FG yang tersedia
-   - **Belum di-SPK:** sisa yang belum ditutup SPK
-   - **SO:** jumlah SO aktif yang menyumbang demand (klik untuk melihat rincian: nomor SO, customer, residual, due)
-   - Sinyal urgensi (🔴 URGENT / 🟡 NORMAL / 🟢 LOW)
+    - **Perlu (net stok):** demand FG dikurangi stok FG yang tersedia
+    - **Belum di-SPK:** sisa yang belum ditutup SPK
+    - **SO:** jumlah SO aktif yang menyumbang demand (klik untuk melihat rincian: nomor SO, customer, residual, due)
+    - Sinyal urgensi (🔴 URGENT / 🟡 NORMAL / 🟢 LOW)
 3. **Klik "Buat SPK"** pada item yang perlu diproduksi.
 4. Isi:
-   - Jumlah (hint dari "Belum di-SPK")
-   - Mesin (opsional)
-   - Lokasi output
-   - Prioritas (default NORMAL; set URGENT jika perlu)
+    - Jumlah (hint dari "Belum di-SPK")
+    - Mesin (opsional)
+    - Lokasi output
+    - Prioritas (default NORMAL; set URGENT jika perlu)
 5. SPK yang dibuat dari papan **tidak terikat SO** — bekerja sebagai batch produksi mandiri.
 6. Setelah SPK dibuat, papan otomatis update: `uncoveredNeed` berkurang.
 
@@ -100,27 +100,27 @@
 
 1. Operator buka **Kiosk** → pilih **mesin** → pilih **SPK yang masih jalan**.
 2. Catat:
-   - Qty bagus (dan scrap bila ada)
-   - **Operator** yang benar-benar kerja
-   - **Helper** yang membantu
-   - **Shift** — **wajib dipilih**, tidak bisa disubmit kosong
+    - Qty bagus (dan scrap bila ada)
+    - **Operator** yang benar-benar kerja
+    - **Helper** yang membantu
+    - **Shift** — **wajib dipilih**, tidak bisa disubmit kosong
 3. **Shift kosong / orang tidak masuk**  
    → **Tidak perlu input apa pun.**  
    → Supervisor boleh re-assign operator untuk shift berikutnya di SPK **yang sama**.
 4. Jangan “timpa” qty kemarin. Setiap input = **baris hasil baru** (execution).
 5. **Kalau semua shift SPK sudah lewat jam-nya** (mis. lanjut kerja lewat tengah malam tanpa shift baru dibuat):
-   - Sistem otomatis memilih **shift terakhir** yang ada di SPK sebagai default.
-   - Muncul **banner kuning**: "Semua shift untuk SPK ini sudah lewat" — operator tetap bisa lanjut input, tapi sebaiknya **cek/ganti shift yang benar** di dropdown sebelum kirim.
-   - Kalau ini sering terjadi, **Admin harus tambah shift baru** di detail SPK (tab Sumber Daya) supaya jam-nya sesuai realita lapangan.
+    - Sistem otomatis memilih **shift terakhir** yang ada di SPK sebagai default.
+    - Muncul **banner kuning**: "Semua shift untuk SPK ini sudah lewat" — operator tetap bisa lanjut input, tapi sebaiknya **cek/ganti shift yang benar** di dropdown sebelum kirim.
+    - Kalau ini sering terjadi, **Admin harus tambah shift baru** di detail SPK (tab Sumber Daya) supaya jam-nya sesuai realita lapangan.
 
 ### 4.4 Akhir batch / complete (Sistem + Admin)
 
-| Kondisi | Tindakan |
-|---------|----------|
-| Produced **≥** planned (mis. ≥ 300) | Sistem **boleh auto COMPLETED** |
-| Produced **<** planned, job masih dilanjut | Biarkan **IN_PROGRESS** (boleh lewat tengah malam / ke esok hari) |
-| Produced **<** planned, job **dihentikan** (ganti prioritas, cancel, dll.) | **Admin tutup SPK** secara manual |
-| Setelah tutup under-complete, ada sisa bahan di lantai | Wajib pilih: **Return gudang** / **Transfer ke SPK lain** / **Write-off** (lihat §6) |
+| Kondisi                                                                    | Tindakan                                                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Produced **≥** planned (mis. ≥ 300)                                        | Sistem **boleh auto COMPLETED**                                                      |
+| Produced **<** planned, job masih dilanjut                                 | Biarkan **IN_PROGRESS** (boleh lewat tengah malam / ke esok hari)                    |
+| Produced **<** planned, job **dihentikan** (ganti prioritas, cancel, dll.) | **Admin tutup SPK** secara manual                                                    |
+| Setelah tutup under-complete, ada sisa bahan di lantai                     | Wajib pilih: **Return gudang** / **Transfer ke SPK lain** / **Write-off** (lihat §6) |
 
 ### 4.5 Batch berikutnya dari sisa demand (Admin + Gudang)
 
@@ -135,26 +135,26 @@
 
 ### Rencana ideal
 
-| Hari | Aksi | SPK | Demand sisa belum di-SPK | Keterangan |
-|------|------|-----|---------------------------|------------|
-| H1 | Buat SPK-001 | 300 | 700 | Issue bahan batch 1 |
-| H1 malam | Output 300 | Complete auto | 700 | Batch 1 selesai |
-| H2 | Buat SPK-002 | 300 | 400 | Issue bahan batch 2 |
-| H3 | Buat SPK-003 | 300 | 100 | Issue bahan batch 3 |
-| H4 | Buat SPK-004 | 100 | 0 | Issue bahan batch 4 |
+| Hari     | Aksi         | SPK           | Demand sisa belum di-SPK | Keterangan          |
+| -------- | ------------ | ------------- | ------------------------ | ------------------- |
+| H1       | Buat SPK-001 | 300           | 700                      | Issue bahan batch 1 |
+| H1 malam | Output 300   | Complete auto | 700                      | Batch 1 selesai     |
+| H2       | Buat SPK-002 | 300           | 400                      | Issue bahan batch 2 |
+| H3       | Buat SPK-003 | 300           | 100                      | Issue bahan batch 3 |
+| H4       | Buat SPK-004 | 100           | 0                        | Issue bahan batch 4 |
 
 ### Kalau H1 hanya jadi 200 kg (belum full 300)
 
-| Salah | Benar |
-|--------|--------|
-| Tutup SPK-001, buat SPK-002 “sisa 100 + batch 300” | **Lanjut SPK-001** sisa 100 kg |
-| Minta gudang issue lagi “untuk 100 kg sisa” seolah order baru tanpa cek sisa bahan di SPK-001 | Cek dulu sisa bahan di SPK-001; issue **tambahan partial** hanya jika kurang |
-| Operator shift 3 bikin SPK baru karena “bukan operator shift 1” | Shift 3 input **ke SPK-001 yang sama**, ganti nama operator/helper di form hasil |
+| Salah                                                                                         | Benar                                                                            |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Tutup SPK-001, buat SPK-002 “sisa 100 + batch 300”                                            | **Lanjut SPK-001** sisa 100 kg                                                   |
+| Minta gudang issue lagi “untuk 100 kg sisa” seolah order baru tanpa cek sisa bahan di SPK-001 | Cek dulu sisa bahan di SPK-001; issue **tambahan partial** hanya jika kurang     |
+| Operator shift 3 bikin SPK baru karena “bukan operator shift 1”                               | Shift 3 input **ke SPK-001 yang sama**, ganti nama operator/helper di form hasil |
 
 **Urutan H2 yang benar jika SPK-001 sisa 100:**
 
-1. Selesaikan sisa 100 di **SPK-001** (bisa pagi shift 1).  
-2. Setelah SPK-001 complete → baru buat **SPK-002 = 300** dari sisa demand.  
+1. Selesaikan sisa 100 di **SPK-001** (bisa pagi shift 1).
+2. Setelah SPK-001 complete → baru buat **SPK-002 = 300** dari sisa demand.
 3. Gudang issue untuk **SPK-002**.
 
 ---
@@ -163,11 +163,11 @@
 
 Hanya relevan kalau SPK ditutup **sebelum** target tercapai dan masih ada bahan di lantai / di order.
 
-| Opsi | Kapan dipakai | Apa yang terjadi |
-|------|----------------|------------------|
-| **Return ke gudang RM** | Bahan masih layak, mau dipakai job lain | Stok RM naik; SPK “bersih” |
-| **Transfer ke SPK lain** | Langsung dilanjut di SPK baru (ganti mesin/spek, dll.) | **Bukan** issue RM dari nol; pindah kepemilikan bahan |
-| **Write-off / scrap / adjust** | Rusak, kotor, tidak terukur | Harus ada alasan; jangan diam-diam |
+| Opsi                           | Kapan dipakai                                          | Apa yang terjadi                                      |
+| ------------------------------ | ------------------------------------------------------ | ----------------------------------------------------- |
+| **Return ke gudang RM**        | Bahan masih layak, mau dipakai job lain                | Stok RM naik; SPK “bersih”                            |
+| **Transfer ke SPK lain**       | Langsung dilanjut di SPK baru (ganti mesin/spek, dll.) | **Bukan** issue RM dari nol; pindah kepemilikan bahan |
+| **Write-off / scrap / adjust** | Rusak, kotor, tidak terukur                            | Harus ada alasan; jangan diam-diam                    |
 
 **Dilarang:** Tutup SPK under-complete → buka SPK baru → minta gudang issue full seolah bahan belum pernah keluar, padahal fisik masih di lantai.
 
@@ -182,8 +182,8 @@ SPK-001  Target 300  Mesin A
 └── Shift 3  Siti + helper Rina   → ada input hasil di SPK yang SAMA
 ```
 
-- Re-assign operator: **boleh** kapan saja (rencana shift).  
-- Upah: dari **operator + helper di tiap baris hasil**, bukan dari “pemilik” header SPK saja.  
+- Re-assign operator: **boleh** kapan saja (rencana shift).
+- Upah: dari **operator + helper di tiap baris hasil**, bukan dari “pemilik” header SPK saja.
 - Shift kosong: **cukup tidak ada input** — tidak wajib isi nol.
 
 ---
@@ -192,30 +192,30 @@ SPK-001  Target 300  Mesin A
 
 ### Admin / Ika — buat SPK
 
-- [ ] Tahu sisa demand total  
-- [ ] Cek mesin: apakah masih ada SPK open under-target?  
-- [ ] Qty SPK ≤ sisa demand dan masuk akal vs kapasitas  
-- [ ] 1 SPK = 1 mesin  
+- [ ] Tahu sisa demand total
+- [ ] Cek mesin: apakah masih ada SPK open under-target?
+- [ ] Qty SPK ≤ sisa demand dan masuk akal vs kapasitas
+- [ ] 1 SPK = 1 mesin
 - [ ] Tidak memecah sisa SPK berjalan jadi SPK baru tanpa alasan
 
 ### Gudang
 
-- [ ] Issue mengacu **nomor SPK**, bukan “order 1000” secara buta  
-- [ ] Batch baru = SPK baru = issue baru (normal)  
-- [ ] SPK belum selesai: cek sisa bahan di order dulu sebelum issue besar  
+- [ ] Issue mengacu **nomor SPK**, bukan “order 1000” secara buta
+- [ ] Batch baru = SPK baru = issue baru (normal)
+- [ ] SPK belum selesai: cek sisa bahan di order dulu sebelum issue besar
 - [ ] SPK ditutup under-complete: pastikan return/transfer/write-off sudah diputuskan
 
 ### Operator kiosk
 
-- [ ] Mesin benar  
-- [ ] SPK yang masih IN_PROGRESS (bukan bikin angka di kepala)  
-- [ ] Qty + operator + helper benar  
+- [ ] Mesin benar
+- [ ] SPK yang masih IN_PROGRESS (bukan bikin angka di kepala)
+- [ ] Qty + operator + helper benar
 - [ ] Shift kosong = skip, jangan isi asal
 
 ### Complete
 
-- [ ] ≥ target → auto complete OK  
-- [ ] < target & masih lanjut → biarkan open  
+- [ ] ≥ target → auto complete OK
+- [ ] < target & masih lanjut → biarkan open
 - [ ] < target & stop → admin tutup + urus sisa bahan
 
 ---
@@ -259,18 +259,18 @@ A: Hindari. Disarankan **1 mesin = 1 SPK open**, supaya kiosk dan bahan tidak ca
 
 ## 11. Glosarium singkat
 
-| Istilah | Arti |
-|---------|------|
-| **Demand / SO** | Kebutuhan total (1000 kg) |
-| **SPK** | Surat Perintah Kerja / work order batch |
-| **Planned** | Target qty di SPK |
-| **Produced** | Total qty bagus dari semua execution |
-| **Sisa SPK** | Planned − Produced |
-| **Sisa demand** | Total order − (qty yang sudah di-cover SPK / sudah jadi — sesuai definisi layar) |
-| **Issue** | Pengeluaran bahan dari gudang ke SPK |
-| **Execution** | Satu baris pencatatan hasil di kiosk |
-| **Under-complete** | SPK ditutup meski produced < planned |
+| Istilah            | Arti                                                                             |
+| ------------------ | -------------------------------------------------------------------------------- |
+| **Demand / SO**    | Kebutuhan total (1000 kg)                                                        |
+| **SPK**            | Surat Perintah Kerja / work order batch                                          |
+| **Planned**        | Target qty di SPK                                                                |
+| **Produced**       | Total qty bagus dari semua execution                                             |
+| **Sisa SPK**       | Planned − Produced                                                               |
+| **Sisa demand**    | Total order − (qty yang sudah di-cover SPK / sudah jadi — sesuai definisi layar) |
+| **Issue**          | Pengeluaran bahan dari gudang ke SPK                                             |
+| **Execution**      | Satu baris pencatatan hasil di kiosk                                             |
+| **Under-complete** | SPK ditutup meski produced < planned                                             |
 
 ---
 
-*Dokumen ini untuk kesepakatan operasional. Perilaku tombol di Polyflow mengikuti aturan di atas; detail teknis material path (RM vs floor WIP) merujuk `docs/production-logic.md`.*
+_Dokumen ini untuk kesepakatan operasional. Perilaku tombol di Polyflow mengikuti aturan di atas; detail teknis material path (RM vs floor WIP) merujuk `docs/production-logic.md`._

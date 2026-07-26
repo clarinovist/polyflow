@@ -2,13 +2,13 @@
 
 ## Informasi Modul
 
-| Field | Detail |
-|-------|--------|
-| **Modul** | Dashboard Utama & Analitik Bisnis |
-| **Halaman Terkait** | `/dashboard` |
-| **Login Sebagai** | ADMIN (untuk akses penuh) |
-| **Tanggal UAT** | ____/____/________ |
-| **Nama Tester** | _________________________ |
+| Field               | Detail                            |
+| ------------------- | --------------------------------- |
+| **Modul**           | Dashboard Utama & Analitik Bisnis |
+| **Halaman Terkait** | `/dashboard`                      |
+| **Login Sebagai**   | ADMIN (untuk akses penuh)         |
+| **Tanggal UAT**     | \_**\_/\_\_**/**\_\_\_\_**        |
+| **Nama Tester**     | ************\_************        |
 
 ## Prasyarat
 
@@ -24,11 +24,11 @@
 
 ### TC-DASH-001: Tampilan Dashboard Utama
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-001 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan halaman dashboard utama tampil dengan benar |
+| Field         | Detail                                                 |
+| ------------- | ------------------------------------------------------ |
+| **ID**        | TC-DASH-001                                            |
+| **Prioritas** | 🔴 P1 — Kritis                                         |
+| **Tujuan**    | Memastikan halaman dashboard utama tampil dengan benar |
 
 **Langkah-langkah:**
 
@@ -40,28 +40,28 @@
 
 - Halaman dashboard tampil tanpa error
 - Terlihat **kartu-kartu KPI (Key Performance Indicator)** di bagian atas:
-  - Total Produk
-  - Total Stok
-  - Stok Rendah (Low Stock)
-  - Pergerakan Aktif (Movements)
-  - Nilai Inventori
-  - Produksi Pending
+    - Total Produk
+    - Total Stok
+    - Stok Rendah (Low Stock)
+    - Pergerakan Aktif (Movements)
+    - Nilai Inventori
+    - Produksi Pending
 - Terlihat bagian **Quick Actions** (tombol aksi cepat)
 - Seluruh tata letak (layout) rapi, tidak ada elemen yang tumpang tindih
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-002: Data KPI Sesuai dengan Data Aktual
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-002 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan angka-angka KPI di dashboard sesuai dengan kondisi data sebenarnya |
+| Field         | Detail                                                                        |
+| ------------- | ----------------------------------------------------------------------------- |
+| **ID**        | TC-DASH-002                                                                   |
+| **Prioritas** | 🔴 P1 — Kritis                                                                |
+| **Tujuan**    | Memastikan angka-angka KPI di dashboard sesuai dengan kondisi data sebenarnya |
 
 **Langkah-langkah:**
 
@@ -82,17 +82,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-003: Tombol Quick Action Berfungsi
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-003 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan tombol-tombol aksi cepat mengarah ke halaman yang benar |
+| Field         | Detail                                                             |
+| ------------- | ------------------------------------------------------------------ |
+| **ID**        | TC-DASH-003                                                        |
+| **Prioritas** | 🟡 P2 — Penting                                                    |
+| **Tujuan**    | Memastikan tombol-tombol aksi cepat mengarah ke halaman yang benar |
 
 **Langkah-langkah:**
 
@@ -112,17 +112,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-004: Kartu Stok Rendah (Low Stock Alert)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-004 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan peringatan stok rendah tampil ketika stok di bawah batas minimum |
+| Field         | Detail                                                                      |
+| ------------- | --------------------------------------------------------------------------- |
+| **ID**        | TC-DASH-004                                                                 |
+| **Prioritas** | 🔴 P1 — Kritis                                                              |
+| **Tujuan**    | Memastikan peringatan stok rendah tampil ketika stok di bawah batas minimum |
 
 **Langkah-langkah:**
 
@@ -138,17 +138,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-005: Nilai Inventori (Inventory Valuation)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-005 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan nilai total inventori dihitung dengan benar |
+| Field         | Detail                                                 |
+| ------------- | ------------------------------------------------------ |
+| **ID**        | TC-DASH-005                                            |
+| **Prioritas** | 🟡 P2 — Penting                                        |
+| **Tujuan**    | Memastikan nilai total inventori dihitung dengan benar |
 
 **Langkah-langkah:**
 
@@ -165,27 +165,27 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-006: Dashboard Executive KPIs (Manufaktur)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-006 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan KPI khusus manufaktur tampil di executive dashboard |
+| Field         | Detail                                                         |
+| ------------- | -------------------------------------------------------------- |
+| **ID**        | TC-DASH-006                                                    |
+| **Prioritas** | 🟡 P2 — Penting                                                |
+| **Tujuan**    | Memastikan KPI khusus manufaktur tampil di executive dashboard |
 
 **Langkah-langkah:**
 
 1. Buka halaman `/dashboard`
 2. Cari bagian Executive Dashboard atau KPI Manufaktur
 3. Periksa apakah metrik berikut tampil:
-   - **Yield Rate (%)** — persentase output vs input
-   - **Total Scrap (Kg)** — total limbah produksi
-   - **Downtime Hours** — jam mesin mati
-   - **Machine Utilization** — % penggunaan mesin
+    - **Yield Rate (%)** — persentase output vs input
+    - **Total Scrap (Kg)** — total limbah produksi
+    - **Downtime Hours** — jam mesin mati
+    - **Machine Utilization** — % penggunaan mesin
 
 **Hasil yang Diharapkan:**
 
@@ -196,17 +196,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-007: Dark Mode (Mode Gelap)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-007 |
-| **Prioritas** | 🟢 P3 — Pelengkap |
-| **Tujuan** | Memastikan tampilan mode gelap berfungsi di dashboard |
+| Field         | Detail                                                |
+| ------------- | ----------------------------------------------------- |
+| **ID**        | TC-DASH-007                                           |
+| **Prioritas** | 🟢 P3 — Pelengkap                                     |
+| **Tujuan**    | Memastikan tampilan mode gelap berfungsi di dashboard |
 
 **Langkah-langkah:**
 
@@ -225,17 +225,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-008: Grafik/Chart Tampil dengan Benar
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-008 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan grafik-grafik analitik tampil dan bisa diinteraksi |
+| Field         | Detail                                                        |
+| ------------- | ------------------------------------------------------------- |
+| **ID**        | TC-DASH-008                                                   |
+| **Prioritas** | 🟡 P2 — Penting                                               |
+| **Tujuan**    | Memastikan grafik-grafik analitik tampil dan bisa diinteraksi |
 
 **Langkah-langkah:**
 
@@ -253,26 +253,26 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-009: Navigasi Sidebar/Menu
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-009 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan semua menu navigasi berfungsi |
+| Field         | Detail                                   |
+| ------------- | ---------------------------------------- |
+| **ID**        | TC-DASH-009                              |
+| **Prioritas** | 🔴 P1 — Kritis                           |
+| **Tujuan**    | Memastikan semua menu navigasi berfungsi |
 
 **Langkah-langkah:**
 
 1. Dari halaman dashboard, klik setiap item di sidebar/menu navigasi:
-   - Dashboard
-   - Produk
-   - BOM
-   - Mesin
-   - Settings
+    - Dashboard
+    - Produk
+    - BOM
+    - Mesin
+    - Settings
 2. Catat apakah setiap klik membuka halaman yang benar
 
 **Hasil yang Diharapkan:**
@@ -284,17 +284,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-010: Data Real-Time / Refresh
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-010 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan dashboard menampilkan data terbaru |
+| Field         | Detail                                        |
+| ------------- | --------------------------------------------- |
+| **ID**        | TC-DASH-010                                   |
+| **Prioritas** | 🟡 P2 — Penting                               |
+| **Tujuan**    | Memastikan dashboard menampilkan data terbaru |
 
 **Langkah-langkah:**
 
@@ -311,17 +311,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-011: Dashboard Finance Role
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-011 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan user FINANCE bisa akses dashboard dan finance module |
+| Field         | Detail                                                          |
+| ------------- | --------------------------------------------------------------- |
+| **ID**        | TC-DASH-011                                                     |
+| **Prioritas** | 🟡 P2 — Penting                                                 |
+| **Tujuan**    | Memastikan user FINANCE bisa akses dashboard dan finance module |
 
 **Langkah-langkah:**
 
@@ -338,17 +338,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-DASH-012: Responsif di Layar Kecil
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-DASH-012 |
-| **Prioritas** | 🟢 P3 — Pelengkap |
-| **Tujuan** | Memastikan dashboard tampil baik di layar kecil/tablet |
+| Field         | Detail                                                 |
+| ------------- | ------------------------------------------------------ |
+| **ID**        | TC-DASH-012                                            |
+| **Prioritas** | 🟢 P3 — Pelengkap                                      |
+| **Tujuan**    | Memastikan dashboard tampil baik di layar kecil/tablet |
 
 **Langkah-langkah:**
 
@@ -367,20 +367,20 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ## Ringkasan Hasil
 
-| Total TC | Lulus | Gagal | Sebagian |
-|----------|-------|-------|----------|
-| 12 | _____ | _____ | _____ |
+| Total TC | Lulus  | Gagal  | Sebagian |
+| -------- | ------ | ------ | -------- |
+| 12       | **\_** | **\_** | **\_**   |
 
 **Catatan Umum:**
 
-_______________________________________________
+---
 
-**Tanda Tangan Tester:** _________________________
+**Tanda Tangan Tester:** ************\_************
 
-**Tanggal:** ____/____/________
+**Tanggal:** \_**\_/\_\_**/**\_\_\_\_**

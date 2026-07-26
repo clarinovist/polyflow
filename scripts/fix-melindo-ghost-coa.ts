@@ -18,7 +18,7 @@
  *    - 11310 -> 1-130 (Bahan Baku)
  *    - 81100 gain ghost (credit balance) -> move to 7-101 Pendapatan Lain-lain (credit)
  *    - 91100 loss ghost (debit) -> move to 8-202 Biaya Lain-lain (debit)
- *    - 30000 is balancing equity: its credit should move to 3-200b or 3-201b? 
+ *    - 30000 is balancing equity: its credit should move to 3-200b or 3-201b?
  *      We check current OB: JE-OBS-001 total ghost debit 609,760,466 vs ghost credit 930,212,387 for 30000.
  *      But melindo_inv already has 1-128 320M in same JE, so total OB debit 930M = credit 930M is correct.
  *      Our reclass of 11300+11310 to 1-127/1-130 will keep JE-OBS-001 unbalanced if we only move ghost.
@@ -119,7 +119,17 @@ import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
 
 const GHOST_CODES = ['11300', '11310', '30000', '81100', '91100'];
-const INACTIVE_GHOSTS = ['11110', '11340', '11350', '51100', '80000', '81000', '90000', '91000', '21200'];
+const INACTIVE_GHOSTS = [
+    '11110',
+    '11340',
+    '11350',
+    '51100',
+    '80000',
+    '81000',
+    '90000',
+    '91000',
+    '21200',
+];
 
 type CliArgs = { apply: boolean; tenantSubdomain: string };
 
@@ -127,11 +137,16 @@ function parseArgs(): CliArgs {
     const args = process.argv.slice(2);
     return {
         apply: args.includes('--apply'),
-        tenantSubdomain: args.find(a => a.startsWith('--tenant='))?.split('=')[1] || 'melindo',
+        tenantSubdomain:
+            args.find((a) => a.startsWith('--tenant='))?.split('=')[1] ||
+            'melindo',
     };
 }
 
-async function getTenantDbUrl(mainPrisma: PrismaClient, subdomain: string): Promise<string> {
+async function getTenantDbUrl(
+    mainPrisma: PrismaClient,
+    subdomain: string,
+): Promise<string> {
     const tenant = await mainPrisma.tenant.findFirst({ where: { subdomain } });
     if (!tenant) throw new Error(`Tenant "${subdomain}" not found in main DB`);
     console.log(`Tenant: ${tenant.name} (${tenant.subdomain}) id=${tenant.id}`);
@@ -147,7 +162,9 @@ async function main() {
 
     const mainPrisma = new PrismaClient(); // uses DATABASE_URL = main
     const tenantDbUrl = await getTenantDbUrl(mainPrisma, tenantSubdomain);
-    const tenantPrisma = new PrismaClient({ datasources: { db: { url: tenantDbUrl } } });
+    const tenantPrisma = new PrismaClient({
+        datasources: { db: { url: tenantDbUrl } },
+    });
 
     try {
         // Load accounts
@@ -155,32 +172,40 @@ async function main() {
             where: { code: { in: GHOST_CODES } },
             select: { id: true, code: true, name: true, isActive: true },
         });
-        const ghostMap = new Map(ghostAccounts.map(a => [a.code, a]));
+        const ghostMap = new Map(ghostAccounts.map((a) => [a.code, a]));
 
         const requiredMelindo = ['1-127', '1-130', '3-200b', '7-101', '8-202'];
         const melindoAccounts = await tenantPrisma.account.findMany({
             where: { code: { in: requiredMelindo } },
             select: { id: true, code: true, name: true },
         });
-        const melindoMap = new Map(melindoAccounts.map(a => [a.code, a]));
+        const melindoMap = new Map(melindoAccounts.map((a) => [a.code, a]));
 
         console.log('Ghost accounts:');
         for (const code of GHOST_CODES) {
             const acc = ghostMap.get(code);
-            console.log(`  ${code.padEnd(8)} ${acc ? `${acc.name} id=${acc.id}` : 'NOT FOUND'}`);
+            console.log(
+                `  ${code.padEnd(8)} ${acc ? `${acc.name} id=${acc.id}` : 'NOT FOUND'}`,
+            );
         }
 
         console.log('\nMelindo target accounts:');
         for (const code of requiredMelindo) {
             const acc = melindoMap.get(code);
-            console.log(`  ${code.padEnd(8)} ${acc ? `${acc.name} id=${acc.id}` : 'MISSING ❌'}`);
+            console.log(
+                `  ${code.padEnd(8)} ${acc ? `${acc.name} id=${acc.id}` : 'MISSING ❌'}`,
+            );
         }
 
         // Check missing and create if needed
-        const missing = requiredMelindo.filter(c => !melindoMap.has(c));
+        const missing = requiredMelindo.filter((c) => !melindoMap.has(c));
         if (missing.length > 0) {
-            console.error(`\n❌ Missing melindo accounts: ${missing.join(', ')}`);
-            console.log('Creating them? --apply will auto-create with sensible defaults.');
+            console.error(
+                `\n❌ Missing melindo accounts: ${missing.join(', ')}`,
+            );
+            console.log(
+                'Creating them? --apply will auto-create with sensible defaults.',
+            );
             if (!apply) {
                 console.log('DRY-RUN: would create missing accounts.');
             } else {
@@ -190,49 +215,89 @@ async function main() {
                     let type: any = 'ASSET';
                     let category: any = 'CURRENT_ASSET';
                     let name = code;
-                    if (code === '7-101') { type = 'REVENUE'; category = 'OTHER_REVENUE'; name = 'Pendapatan Lain-lain Diluar Usaha (Fix Ghost)'; }
-                    if (code === '8-202') { type = 'EXPENSE'; category = 'OTHER_EXPENSE'; name = 'Biaya Lain-lain Diluar Usaha (Fix Ghost)'; }
-                    if (code === '1-127') { type = 'ASSET'; category = 'CURRENT_ASSET'; name = 'Persediaan Bahan Penolong'; }
-                    if (code === '1-130') { type = 'ASSET'; category = 'CURRENT_ASSET'; name = 'Persediaan Bahan Baku Rafia'; }
-                    if (code === '3-200b') { type = 'EQUITY'; category = 'RETAINED_EARNINGS'; name = 'Laba Ditahan Rafia'; }
+                    if (code === '7-101') {
+                        type = 'REVENUE';
+                        category = 'OTHER_REVENUE';
+                        name = 'Pendapatan Lain-lain Diluar Usaha (Fix Ghost)';
+                    }
+                    if (code === '8-202') {
+                        type = 'EXPENSE';
+                        category = 'OTHER_EXPENSE';
+                        name = 'Biaya Lain-lain Diluar Usaha (Fix Ghost)';
+                    }
+                    if (code === '1-127') {
+                        type = 'ASSET';
+                        category = 'CURRENT_ASSET';
+                        name = 'Persediaan Bahan Penolong';
+                    }
+                    if (code === '1-130') {
+                        type = 'ASSET';
+                        category = 'CURRENT_ASSET';
+                        name = 'Persediaan Bahan Baku Rafia';
+                    }
+                    if (code === '3-200b') {
+                        type = 'EQUITY';
+                        category = 'RETAINED_EARNINGS';
+                        name = 'Laba Ditahan Rafia';
+                    }
 
                     console.log(`Creating ${code} ${name}...`);
                     const created = await tenantPrisma.account.create({
                         data: { code, name, type, category, isActive: true },
                     });
-                    melindoMap.set(code, { id: created.id, code: created.code, name: created.name });
+                    melindoMap.set(code, {
+                        id: created.id,
+                        code: created.code,
+                        name: created.name,
+                    });
                 }
             }
         }
 
         // Re-check after creation possibility
-        const finalMelindo = requiredMelindo.every(c => melindoMap.has(c) || missing.includes(c) && !apply) ? true : requiredMelindo.every(c => melindoMap.has(c));
+        const finalMelindo = requiredMelindo.every(
+            (c) => melindoMap.has(c) || (missing.includes(c) && !apply),
+        )
+            ? true
+            : requiredMelindo.every((c) => melindoMap.has(c));
         if (!finalMelindo && !apply) {
-            console.log('\nDRY-RUN stops here for missing accounts check. Rerun with --apply to create.');
+            console.log(
+                '\nDRY-RUN stops here for missing accounts check. Rerun with --apply to create.',
+            );
         }
 
         // Calculate ghost balances
         console.log('\n--- Ghost balances (POSTED only) ---');
-        const balances: Record<string, { debit: number; credit: number; net: number; lines: number }> = {};
+        const balances: Record<
+            string,
+            { debit: number; credit: number; net: number; lines: number }
+        > = {};
         for (const code of GHOST_CODES) {
             const acc = ghostMap.get(code);
             if (!acc) continue;
             const lines = await tenantPrisma.journalLine.findMany({
-                where: { accountId: acc.id, journalEntry: { status: 'POSTED' } },
+                where: {
+                    accountId: acc.id,
+                    journalEntry: { status: 'POSTED' },
+                },
                 select: { debit: true, credit: true },
             });
             const debit = lines.reduce((s, l) => s + Number(l.debit), 0);
             const credit = lines.reduce((s, l) => s + Number(l.credit), 0);
             const net = debit - credit;
             balances[code] = { debit, credit, net, lines: lines.length };
-            console.log(`  ${code.padEnd(8)} ${(ghostMap.get(code)?.name || '').padEnd(30)} lines=${lines.length.toString().padStart(3)} net=${net.toLocaleString('id-ID').padStart(15)} (D ${debit.toLocaleString('id-ID')} / C ${credit.toLocaleString('id-ID')})`);
+            console.log(
+                `  ${code.padEnd(8)} ${(ghostMap.get(code)?.name || '').padEnd(30)} lines=${lines.length.toString().padStart(3)} net=${net.toLocaleString('id-ID').padStart(15)} (D ${debit.toLocaleString('id-ID')} / C ${credit.toLocaleString('id-ID')})`,
+            );
         }
 
         // Build journals
         // JE1: OB Equity 30000 -> 3-200b
         const bal30000 = balances['30000'];
         if (bal30000) {
-            console.log(`\nJE1: Closing 30000 (${bal30000.net.toLocaleString('id-ID')}) -> 3-200b`);
+            console.log(
+                `\nJE1: Closing 30000 (${bal30000.net.toLocaleString('id-ID')}) -> 3-200b`,
+            );
         }
         // JE2: inventory + adj
         const bal11300 = balances['11300'];
@@ -241,15 +306,29 @@ async function main() {
         const bal91100 = balances['91100'];
 
         console.log(`\nJE2: Reclass remaining ghosts:`);
-        if (bal11300) console.log(`  11300 net ${bal11300.net.toLocaleString('id-ID')} -> 1-127`);
-        if (bal11310) console.log(`  11310 net ${bal11310.net.toLocaleString('id-ID')} -> 1-130`);
-        if (bal81100) console.log(`  81100 net ${bal81100.net.toLocaleString('id-ID')} -> 7-101`);
-        if (bal91100) console.log(`  91100 net ${bal91100.net.toLocaleString('id-ID')} -> 8-202`);
+        if (bal11300)
+            console.log(
+                `  11300 net ${bal11300.net.toLocaleString('id-ID')} -> 1-127`,
+            );
+        if (bal11310)
+            console.log(
+                `  11310 net ${bal11310.net.toLocaleString('id-ID')} -> 1-130`,
+            );
+        if (bal81100)
+            console.log(
+                `  81100 net ${bal81100.net.toLocaleString('id-ID')} -> 7-101`,
+            );
+        if (bal91100)
+            console.log(
+                `  91100 net ${bal91100.net.toLocaleString('id-ID')} -> 8-202`,
+            );
 
         if (!apply) {
             console.log('\n🔍 DRY-RUN complete. No changes written.');
             console.log('   Run with --apply to execute:');
-            console.log(`   DATABASE_URL="${tenantDbUrl}" npx tsx scripts/fix-melindo-ghost-coa.ts --tenant=${tenantSubdomain} --apply`);
+            console.log(
+                `   DATABASE_URL="${tenantDbUrl}" npx tsx scripts/fix-melindo-ghost-coa.ts --tenant=${tenantSubdomain} --apply`,
+            );
             await tenantPrisma.$disconnect();
             await mainPrisma.$disconnect();
             return;
@@ -268,18 +347,37 @@ async function main() {
         const acc_81100 = ghostMap.get('81100');
         const acc_91100 = ghostMap.get('91100');
 
-        if (!acc_1_127 || !acc_1_130 || !acc_3_200b || !acc_7_101 || !acc_8_202) {
+        if (
+            !acc_1_127 ||
+            !acc_1_130 ||
+            !acc_3_200b ||
+            !acc_7_101 ||
+            !acc_8_202
+        ) {
             throw new Error('Missing target accounts after creation attempt');
         }
 
         // Helper to create JE
-        async function createJe(entryNumber: string, desc: string, lines: { accountId: string; debit: number; credit: number; description: string }[]) {
+        async function createJe(
+            entryNumber: string,
+            desc: string,
+            lines: {
+                accountId: string;
+                debit: number;
+                credit: number;
+                description: string;
+            }[],
+        ) {
             const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
             const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
             console.log(`\nCreating JE ${entryNumber}: ${desc}`);
-            console.log(`  Debit: ${totalDebit.toLocaleString('id-ID')} Credit: ${totalCredit.toLocaleString('id-ID')} Diff: ${(totalDebit - totalCredit).toLocaleString('id-ID')}`);
+            console.log(
+                `  Debit: ${totalDebit.toLocaleString('id-ID')} Credit: ${totalCredit.toLocaleString('id-ID')} Diff: ${(totalDebit - totalCredit).toLocaleString('id-ID')}`,
+            );
             if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                throw new Error(`Journal unbalanced: D ${totalDebit} C ${totalCredit}`);
+                throw new Error(
+                    `Journal unbalanced: D ${totalDebit} C ${totalCredit}`,
+                );
             }
             return tenantPrisma.journalEntry.create({
                 data: {
@@ -296,78 +394,212 @@ async function main() {
 
         const nowSuffix = Date.now().toString().slice(-6);
         // JE1: 30000 -> 3-200b
-        if (acc_30000 && acc_3_200b && Math.abs(balances['30000']?.net || 0) > 0.01) {
+        if (
+            acc_30000 &&
+            acc_3_200b &&
+            Math.abs(balances['30000']?.net || 0) > 0.01
+        ) {
             const net30000 = balances['30000'].net; // e.g. -930M (credit heavy => net negative)
             // To zero: if net negative (credit balance), need Dr 30000, Cr target
             // If net positive (debit), Cr 30000, Dr target
             const absAmt = Math.abs(net30000);
-            const je1Lines = net30000 < 0
-                ? [
-                    { accountId: acc_30000.id, debit: absAmt, credit: 0, description: `Reklas OB Equity 30000 -> 3-200b (zero ghost)` },
-                    { accountId: acc_3_200b.id, debit: 0, credit: absAmt, description: `Reklas OB Equity to Laba Ditahan` },
-                ]
-                : [
-                    { accountId: acc_3_200b.id, debit: absAmt, credit: 0, description: `Reklas OB Equity` },
-                    { accountId: acc_30000.id, debit: 0, credit: absAmt, description: `Zero ghost 30000` },
-                ];
-            await createJe(`JE-FIX-GHOST-OB-${nowSuffix}`, 'Fix Ghost: Reclass Opening Balance Equity 30000 -> Laba Ditahan', je1Lines);
+            const je1Lines =
+                net30000 < 0
+                    ? [
+                          {
+                              accountId: acc_30000.id,
+                              debit: absAmt,
+                              credit: 0,
+                              description: `Reklas OB Equity 30000 -> 3-200b (zero ghost)`,
+                          },
+                          {
+                              accountId: acc_3_200b.id,
+                              debit: 0,
+                              credit: absAmt,
+                              description: `Reklas OB Equity to Laba Ditahan`,
+                          },
+                      ]
+                    : [
+                          {
+                              accountId: acc_3_200b.id,
+                              debit: absAmt,
+                              credit: 0,
+                              description: `Reklas OB Equity`,
+                          },
+                          {
+                              accountId: acc_30000.id,
+                              debit: 0,
+                              credit: absAmt,
+                              description: `Zero ghost 30000`,
+                          },
+                      ];
+            await createJe(
+                `JE-FIX-GHOST-OB-${nowSuffix}`,
+                'Fix Ghost: Reclass Opening Balance Equity 30000 -> Laba Ditahan',
+                je1Lines,
+            );
             console.log('  ✓ JE1 created');
         } else {
             console.log('JE1 skipped (no balance or missing accounts)');
         }
 
         // JE2: Inventory & Adj
-        const je2Lines: { accountId: string; debit: number; credit: number; description: string }[] = [];
+        const je2Lines: {
+            accountId: string;
+            debit: number;
+            credit: number;
+            description: string;
+        }[] = [];
 
-        if (acc_11300 && balances['11300'] && Math.abs(balances['11300'].net) > 0.01) {
+        if (
+            acc_11300 &&
+            balances['11300'] &&
+            Math.abs(balances['11300'].net) > 0.01
+        ) {
             const net = balances['11300'].net;
             const absAmt = Math.abs(net);
             if (net > 0) {
                 // debit balance -> Cr ghost, Dr melindo
-                je2Lines.push({ accountId: acc_11300.id, debit: 0, credit: absAmt, description: `Reklas 11300 Persediaan -> 1-127` });
-                je2Lines.push({ accountId: acc_1_127.id, debit: absAmt, credit: 0, description: `Reklas to 1-127 Bahan Penolong` });
+                je2Lines.push({
+                    accountId: acc_11300.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Reklas 11300 Persediaan -> 1-127`,
+                });
+                je2Lines.push({
+                    accountId: acc_1_127.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Reklas to 1-127 Bahan Penolong`,
+                });
             } else {
-                je2Lines.push({ accountId: acc_1_127.id, debit: 0, credit: absAmt, description: `Reklas` });
-                je2Lines.push({ accountId: acc_11300.id, debit: absAmt, credit: 0, description: `Zero 11300` });
+                je2Lines.push({
+                    accountId: acc_1_127.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Reklas`,
+                });
+                je2Lines.push({
+                    accountId: acc_11300.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Zero 11300`,
+                });
             }
         }
-        if (acc_11310 && balances['11310'] && Math.abs(balances['11310'].net) > 0.01) {
+        if (
+            acc_11310 &&
+            balances['11310'] &&
+            Math.abs(balances['11310'].net) > 0.01
+        ) {
             const net = balances['11310'].net;
             const absAmt = Math.abs(net);
             if (net > 0) {
-                je2Lines.push({ accountId: acc_11310.id, debit: 0, credit: absAmt, description: `Reklas 11310 Raw Mat -> 1-130` });
-                je2Lines.push({ accountId: acc_1_130.id, debit: absAmt, credit: 0, description: `Reklas to 1-130 Bahan Baku` });
+                je2Lines.push({
+                    accountId: acc_11310.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Reklas 11310 Raw Mat -> 1-130`,
+                });
+                je2Lines.push({
+                    accountId: acc_1_130.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Reklas to 1-130 Bahan Baku`,
+                });
             } else {
-                je2Lines.push({ accountId: acc_1_130.id, debit: 0, credit: absAmt, description: `Reklas` });
-                je2Lines.push({ accountId: acc_11310.id, debit: absAmt, credit: 0, description: `Zero 11310` });
+                je2Lines.push({
+                    accountId: acc_1_130.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Reklas`,
+                });
+                je2Lines.push({
+                    accountId: acc_11310.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Zero 11310`,
+                });
             }
         }
-        if (acc_81100 && balances['81100'] && Math.abs(balances['81100'].net) > 0.01) {
+        if (
+            acc_81100 &&
+            balances['81100'] &&
+            Math.abs(balances['81100'].net) > 0.01
+        ) {
             const net = balances['81100'].net; // negative = credit
             const absAmt = Math.abs(net);
             if (net < 0) {
                 // credit balance -> Dr ghost, Cr melindo
-                je2Lines.push({ accountId: acc_81100.id, debit: absAmt, credit: 0, description: `Reklas 81100 Adj Gain -> 7-101` });
-                je2Lines.push({ accountId: acc_7_101.id, debit: 0, credit: absAmt, description: `Reklas to 7-101 Other Income` });
+                je2Lines.push({
+                    accountId: acc_81100.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Reklas 81100 Adj Gain -> 7-101`,
+                });
+                je2Lines.push({
+                    accountId: acc_7_101.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Reklas to 7-101 Other Income`,
+                });
             } else {
-                je2Lines.push({ accountId: acc_7_101.id, debit: absAmt, credit: 0, description: `Reklas` });
-                je2Lines.push({ accountId: acc_81100.id, debit: 0, credit: absAmt, description: `Zero 81100` });
+                je2Lines.push({
+                    accountId: acc_7_101.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Reklas`,
+                });
+                je2Lines.push({
+                    accountId: acc_81100.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Zero 81100`,
+                });
             }
         }
-        if (acc_91100 && balances['91100'] && Math.abs(balances['91100'].net) > 0.01) {
+        if (
+            acc_91100 &&
+            balances['91100'] &&
+            Math.abs(balances['91100'].net) > 0.01
+        ) {
             const net = balances['91100'].net; // positive = debit
             const absAmt = Math.abs(net);
             if (net > 0) {
-                je2Lines.push({ accountId: acc_91100.id, debit: 0, credit: absAmt, description: `Reklas 91100 Adj Loss -> 8-202` });
-                je2Lines.push({ accountId: acc_8_202.id, debit: absAmt, credit: 0, description: `Reklas to 8-202 Other Loss` });
+                je2Lines.push({
+                    accountId: acc_91100.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Reklas 91100 Adj Loss -> 8-202`,
+                });
+                je2Lines.push({
+                    accountId: acc_8_202.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Reklas to 8-202 Other Loss`,
+                });
             } else {
-                je2Lines.push({ accountId: acc_8_202.id, debit: 0, credit: absAmt, description: `Reklas` });
-                je2Lines.push({ accountId: acc_91100.id, debit: absAmt, credit: 0, description: `Zero 91100` });
+                je2Lines.push({
+                    accountId: acc_8_202.id,
+                    debit: 0,
+                    credit: absAmt,
+                    description: `Reklas`,
+                });
+                je2Lines.push({
+                    accountId: acc_91100.id,
+                    debit: absAmt,
+                    credit: 0,
+                    description: `Zero 91100`,
+                });
             }
         }
 
         if (je2Lines.length > 0) {
-            await createJe(`JE-FIX-GHOST-INV-${nowSuffix}`, 'Fix Ghost: Reclass Inventory & Adjustment 11300/11310/81100/91100 -> Melindo COA', je2Lines);
+            await createJe(
+                `JE-FIX-GHOST-INV-${nowSuffix}`,
+                'Fix Ghost: Reclass Inventory & Adjustment 11300/11310/81100/91100 -> Melindo COA',
+                je2Lines,
+            );
             console.log('  ✓ JE2 created');
         } else {
             console.log('JE2 skipped (no balances)');
@@ -375,20 +607,26 @@ async function main() {
 
         // --- Update TenantAccountRole ---
         console.log('\n--- Updating TenantAccountRole ---');
-        const tenantId = (await mainPrisma.tenant.findFirst({ where: { subdomain: tenantSubdomain } }))!.id;
+        const tenantId = (await mainPrisma.tenant.findFirst({
+            where: { subdomain: tenantSubdomain },
+        }))!.id;
         const roleUpdates: Record<string, string> = {
             'adjustment-gain': '7-101',
             'adjustment-loss': '8-202',
-            'scrap': '1-127', // was 11350 ghost
+            scrap: '1-127', // was 11350 ghost
             'opening-balance-equity': '3-200b', // was 30000
-            'inventory': '1-130',
+            inventory: '1-130',
             'raw-material': '1-130',
         };
 
         for (const [role, targetCode] of Object.entries(roleUpdates)) {
-            const targetAcc = await tenantPrisma.account.findUnique({ where: { code: targetCode } });
+            const targetAcc = await tenantPrisma.account.findUnique({
+                where: { code: targetCode },
+            });
             if (!targetAcc) {
-                console.log(`  skip ${role} -> ${targetCode} (account not found)`);
+                console.log(
+                    `  skip ${role} -> ${targetCode} (account not found)`,
+                );
                 continue;
             }
             const existing = await mainPrisma.tenantAccountRole.findUnique({
@@ -407,7 +645,9 @@ async function main() {
                 });
             } else {
                 if (existing.accountCode !== targetCode) {
-                    console.log(`  update ${role}: ${existing.accountCode} -> ${targetCode}`);
+                    console.log(
+                        `  update ${role}: ${existing.accountCode} -> ${targetCode}`,
+                    );
                     await mainPrisma.tenantAccountRole.update({
                         where: { id: existing.id },
                         data: {
@@ -428,22 +668,34 @@ async function main() {
         // Dedupe
         const uniqueGhosts = [...new Set(allGhosts)];
         for (const code of uniqueGhosts) {
-            const acc = await tenantPrisma.account.findUnique({ where: { code }, select: { id: true, code: true, name: true, isActive: true } });
+            const acc = await tenantPrisma.account.findUnique({
+                where: { code },
+                select: { id: true, code: true, name: true, isActive: true },
+            });
             if (!acc) continue;
             if (!acc.isActive) {
                 console.log(`  ${code} already inactive`);
                 continue;
             }
             const agg = await tenantPrisma.journalLine.aggregate({
-                where: { accountId: acc.id, journalEntry: { status: 'POSTED' } },
+                where: {
+                    accountId: acc.id,
+                    journalEntry: { status: 'POSTED' },
+                },
                 _sum: { debit: true, credit: true },
             });
-            const net = Number(agg._sum.debit || 0) - Number(agg._sum.credit || 0);
+            const net =
+                Number(agg._sum.debit || 0) - Number(agg._sum.credit || 0);
             if (Math.abs(net) < 0.01) {
                 console.log(`  deactivate ${code} ${acc.name} (net 0)`);
-                await tenantPrisma.account.update({ where: { id: acc.id }, data: { isActive: false } });
+                await tenantPrisma.account.update({
+                    where: { id: acc.id },
+                    data: { isActive: false },
+                });
             } else {
-                console.log(`  skip ${code} ${acc.name} net=${net} not zero yet`);
+                console.log(
+                    `  skip ${code} ${acc.name} net=${net} not zero yet`,
+                );
             }
         }
 
@@ -452,14 +704,23 @@ async function main() {
         // Verify
         console.log('\n--- Verification ---');
         for (const code of GHOST_CODES) {
-            const acc = await tenantPrisma.account.findUnique({ where: { code }, select: { id: true, code: true, name: true, isActive: true } });
+            const acc = await tenantPrisma.account.findUnique({
+                where: { code },
+                select: { id: true, code: true, name: true, isActive: true },
+            });
             if (!acc) continue;
             const agg = await tenantPrisma.journalLine.aggregate({
-                where: { accountId: acc.id, journalEntry: { status: 'POSTED' } },
+                where: {
+                    accountId: acc.id,
+                    journalEntry: { status: 'POSTED' },
+                },
                 _sum: { debit: true, credit: true },
             });
-            const net = Number(agg._sum.debit || 0) - Number(agg._sum.credit || 0);
-            console.log(`  ${code} ${acc.name} active=${acc.isActive} net=${net}`);
+            const net =
+                Number(agg._sum.debit || 0) - Number(agg._sum.credit || 0);
+            console.log(
+                `  ${code} ${acc.name} active=${acc.isActive} net=${net}`,
+            );
         }
 
         // Trial balance check
@@ -467,7 +728,6 @@ async function main() {
           SELECT COALESCE(SUM(debit - credit),0)::float as total FROM "JournalLine" jl JOIN "JournalEntry" je ON je.id=jl."journalEntryId" WHERE je.status='POSTED'
         `;
         console.log(`\nTrial balance total (should be 0): ${tb[0]?.total}`);
-
     } catch (e) {
         console.error('❌ Failed:', e);
         process.exit(1);

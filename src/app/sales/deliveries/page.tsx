@@ -1,6 +1,12 @@
 import type { ComponentProps } from 'react';
 import { getDeliveryOrders } from '@/actions/inventory/deliveries';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { CreateDeliveryOrderDialog } from '@/components/sales/CreateDeliveryOrderDialog';
 import { serializeData } from '@/lib/utils/utils';
@@ -12,24 +18,40 @@ import Link from 'next/link';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
-export default async function SalesDeliveriesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+export default async function SalesDeliveriesPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ startDate?: string; endDate?: string }>;
+}) {
     const params = await searchParams;
     const now = new Date();
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
 
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkStart = params?.startDate
+        ? parseISO(params.startDate)
+        : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const deliveryOrders = await getDeliveryOrders({ startDate: checkStart, endDate: checkEnd });
-    const serializedOrders = deliveryOrders.success && deliveryOrders.data ? serializeData(deliveryOrders.data) : [];
+    const deliveryOrders = await getDeliveryOrders({
+        startDate: checkStart,
+        endDate: checkEnd,
+    });
+    const serializedOrders =
+        deliveryOrders.success && deliveryOrders.data
+            ? serializeData(deliveryOrders.data)
+            : [];
 
     return (
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrders}</h1>
-                    <p className="text-muted-foreground">{salesLabels.deliveryOrdersDesc}</p>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {salesLabels.deliveryOrders}
+                    </h1>
+                    <p className="text-muted-foreground">
+                        {salesLabels.deliveryOrdersDesc}
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <UrlTransactionDateFilter defaultPreset="this_month" />
@@ -41,14 +63,25 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
                 <Info className="h-4 w-4" />
                 <AlertDescription className="text-xs space-y-1">
                     <p>
-                        Ini adalah dokumen <strong>Surat Jalan (Delivery Order)</strong> — bukti pengiriman ke customer.
-                        Status <strong>PENDING / LOADING</strong> = draft muat (stok belum dipotong); qty masih bisa diubah di detail SJ.
+                        Ini adalah dokumen{' '}
+                        <strong>Surat Jalan (Delivery Order)</strong> — bukti
+                        pengiriman ke customer. Status{' '}
+                        <strong>PENDING / LOADING</strong> = draft muat (stok
+                        belum dipotong); qty masih bisa diubah di detail SJ.
                     </p>
                     <p className="text-muted-foreground">
-                        {salesLabels.openSjPendingList} Filter tanggal di atas memakai tanggal pengiriman; SJ draft tetap ikut tampil.
+                        {salesLabels.openSjPendingList} Filter tanggal di atas
+                        memakai tanggal pengiriman; SJ draft tetap ikut tampil.
                     </p>
                     <p className="text-muted-foreground">
-                        Muat, verifikasi, & tandai dikirim dikerjakan di <Link href="/warehouse/outgoing" className="underline hover:text-foreground">Portal Gudang</Link>.
+                        Muat, verifikasi, & tandai dikirim dikerjakan di{' '}
+                        <Link
+                            href="/warehouse/outgoing"
+                            className="underline hover:text-foreground"
+                        >
+                            Portal Gudang
+                        </Link>
+                        .
                     </p>
                 </AlertDescription>
             </Alert>
@@ -73,6 +106,6 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
                     />
                 </CardContent>
             </Card>
-        </div >
+        </div>
     );
 }

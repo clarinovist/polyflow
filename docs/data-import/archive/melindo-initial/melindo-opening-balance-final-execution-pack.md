@@ -1,6 +1,7 @@
 # Melindo Opening Balance — Final Staging & Execution Pack
 
 This pack assumes the latest refreshed migration approach:
+
 - `1-121 Konstruksi dalam Pengerjaan` -> `1-199 Rekening Sementara`
 - `2-390 Hutang ke Nugroho Pramono` -> keep separated as review bucket, not in journal-only draft
 - `3-201b Laba Tahun Berjalan` -> `3-200b Laba Ditahan Rafia`
@@ -10,10 +11,12 @@ This pack assumes the latest refreshed migration approach:
 ## Output files
 
 Main staging:
+
 - `melindo-opening-balance-final-staging.csv`
 - `melindo-opening-balance-final-staging-summary.json`
 
 Per execution bucket:
+
 - `melindo-opening-balance-journal_only.csv`
 - `melindo-opening-balance-ar_module.csv`
 - `melindo-opening-balance-ap_module.csv`
@@ -31,6 +34,7 @@ Per execution bucket:
 - Suspense posted to `1-199`: 0.00 (not needed)
 
 Bucket counts:
+
 - Journal only: 19
 - AR module: 1
 - AP module: 1
@@ -41,7 +45,9 @@ Bucket counts:
 ## What each bucket means
 
 ### 1) Journal only
+
 Safe to carry via opening journal / manual GL seeding:
+
 - cash and bank
 - prepaid tax / prepaid expense
 - employee receivable
@@ -50,15 +56,21 @@ Safe to carry via opening journal / manual GL seeding:
 - retained earnings carry-forward
 
 ### 2) AR module
+
 Use receivable opening workflow, not pure journal:
+
 - trade receivables opening
 
 ### 3) AP module
+
 Use payable opening workflow, not pure journal:
+
 - trade payables opening
 
 ### 4) Inventory module
+
 Use inventory opening workflow, not pure journal:
+
 - finished goods inventory
 - raw material inventory
 - packaging inventory
@@ -67,7 +79,9 @@ Use inventory opening workflow, not pure journal:
 - stationery inventory if treated as stocked item in operational setup
 
 ### 5) Fixed asset module
+
 Use fixed asset opening workflow or dedicated migration journal package with asset register support:
+
 - land
 - building
 - machinery
@@ -76,7 +90,9 @@ Use fixed asset opening workflow or dedicated migration journal package with ass
 - accumulated depreciation balances
 
 ### 6) Review owner liability
+
 Keep separated for deliberate confirmation and post outside the journal-only draft if approved:
+
 - `2-390 Hutang ke Nugroho Pramono`
 
 ## Recommended execution order
@@ -95,6 +111,7 @@ Keep separated for deliberate confirmation and post outside the journal-only dra
 
 The balanced neraca removes the old suspense blocker, but this does not eliminate review discipline.
 The remaining caution is different:
+
 - do not silently force `2-390` into the journal-only package without explicit confirmation
 - keep module-routing boundaries clear so AR/AP/Inventory/Fixed Asset do not get double-counted
 - keep the refreshed staging snapshot as the single source of truth for the next DB-writing phase
@@ -102,6 +119,7 @@ The remaining caution is different:
 ## Best next implementation step
 
 Before writing DB-changing opening entries, the safest next action is to inspect how PolyFlow currently stores:
+
 - journal entries / opening journals
 - receivable openings
 - payable openings

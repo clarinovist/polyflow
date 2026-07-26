@@ -2,21 +2,36 @@
 
 import { useState, useEffect } from 'react';
 import { getBalanceSheet } from '@/actions/finance/accounting';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Rupiah } from '@/components/finance/Rupiah';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Download } from 'lucide-react';
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils/utils"
-import { CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
+import { Calendar } from '@/components/ui/calendar';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils/utils';
+import { CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
 import { useCallback } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { reportLabels } from '@/lib/labels';
-import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
+import {
+    downloadCsv,
+    rupiahForCsv,
+    reportFilename,
+} from '@/lib/utils/csv-export';
 
 interface BalanceSheetItem {
     id: string;
@@ -51,7 +66,9 @@ interface BalanceSheetData {
     totalLiabilitiesAndEquity: number;
 }
 
-function isGroup(item: BalanceSheetGroup | BalanceSheetItem): item is BalanceSheetGroup {
+function isGroup(
+    item: BalanceSheetGroup | BalanceSheetItem,
+): item is BalanceSheetGroup {
     return 'children' in item;
 }
 
@@ -69,11 +86,16 @@ export default function BalanceSheetPage() {
             if (result && 'success' in result && result.success) {
                 setData(result.data as unknown as BalanceSheetData);
             } else {
-                console.error("Failed to load balance sheet:", result && 'error' in result ? result.error : 'Unknown error');
+                console.error(
+                    'Failed to load balance sheet:',
+                    result && 'error' in result
+                        ? result.error
+                        : 'Unknown error',
+                );
                 setData(null);
             }
         } catch (error) {
-            console.error("Failed to load balance sheet", error);
+            console.error('Failed to load balance sheet', error);
             setData(null);
         } finally {
             setLoading(false);
@@ -86,18 +108,26 @@ export default function BalanceSheetPage() {
 
     const renderGroupedSection = (
         groups: (BalanceSheetGroup | BalanceSheetItem)[],
-        hideZero: boolean
+        hideZero: boolean,
     ) => {
         return groups
-            .filter(item => !hideZero || (isGroup(item)
-                ? Math.abs(item.totalBalance) > 0.01
-                : Math.abs(item.netBalance) > 0.01))
+            .filter(
+                (item) =>
+                    !hideZero ||
+                    (isGroup(item)
+                        ? Math.abs(item.totalBalance) > 0.01
+                        : Math.abs(item.netBalance) > 0.01),
+            )
             .map((item) => {
                 if (isGroup(item)) {
                     return (
                         <TableRow key={item.id}>
-                            <TableCell className="pl-4 font-semibold">{item.name}</TableCell>
-                            <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
+                            <TableCell className="pl-4 font-semibold">
+                                {item.name}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-muted-foreground">
+                                {item.code}
+                            </TableCell>
                             <TableCell className="text-right w-44">
                                 <Rupiah value={item.totalBalance} bold />
                             </TableCell>
@@ -107,7 +137,9 @@ export default function BalanceSheetPage() {
                 return (
                     <TableRow key={item.id}>
                         <TableCell className="pl-8">{item.name}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                            {item.code}
+                        </TableCell>
                         <TableCell className="text-right w-44">
                             <Rupiah value={item.netBalance} />
                         </TableCell>
@@ -118,14 +150,16 @@ export default function BalanceSheetPage() {
 
     const renderDetailSection = (
         items: BalanceSheetItem[],
-        hideZero: boolean
+        hideZero: boolean,
     ) => {
         return items
-            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+            .filter((item) => !hideZero || Math.abs(item.netBalance) > 0.01)
             .map((item) => (
                 <TableRow key={item.id}>
                     <TableCell className="pl-8">{item.name}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                        {item.code}
+                    </TableCell>
                     <TableCell className="text-right w-44">
                         <Rupiah value={item.netBalance} />
                     </TableCell>
@@ -138,15 +172,31 @@ export default function BalanceSheetPage() {
         const headers = ['Akun', 'Kode', 'Jumlah (IDR)'];
         const rows: (string | number)[][] = [];
 
-        const addGroups = (groups: (BalanceSheetGroup | BalanceSheetItem)[]) => {
+        const addGroups = (
+            groups: (BalanceSheetGroup | BalanceSheetItem)[],
+        ) => {
             for (const item of groups) {
                 if (isGroup(item)) {
-                    rows.push([item.name, item.code, rupiahForCsv(item.totalBalance)]);
-                    for (const child of item.children.filter(c => Math.abs(c.netBalance) > 0.01)) {
-                        rows.push([`  ${child.name}`, child.code, rupiahForCsv(child.netBalance)]);
+                    rows.push([
+                        item.name,
+                        item.code,
+                        rupiahForCsv(item.totalBalance),
+                    ]);
+                    for (const child of item.children.filter(
+                        (c) => Math.abs(c.netBalance) > 0.01,
+                    )) {
+                        rows.push([
+                            `  ${child.name}`,
+                            child.code,
+                            rupiahForCsv(child.netBalance),
+                        ]);
                     }
                 } else if (Math.abs(item.netBalance) > 0.01) {
-                    rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
+                    rows.push([
+                        item.name,
+                        item.code,
+                        rupiahForCsv(item.netBalance),
+                    ]);
                 }
             }
         };
@@ -162,11 +212,23 @@ export default function BalanceSheetPage() {
         rows.push(['EKUITAS', '', '']);
         addGroups(data.equityGroups);
         if (Math.abs(data.unpostedEarnings) > 0.01) {
-            rows.push(['Laba Periode Berjalan (Belum Diclose)', '—', rupiahForCsv(data.unpostedEarnings)]);
+            rows.push([
+                'Laba Periode Berjalan (Belum Diclose)',
+                '—',
+                rupiahForCsv(data.unpostedEarnings),
+            ]);
         }
-        rows.push(['TOTAL EKUITAS', '', rupiahForCsv(data.totalEquity + data.unpostedEarnings)]);
+        rows.push([
+            'TOTAL EKUITAS',
+            '',
+            rupiahForCsv(data.totalEquity + data.unpostedEarnings),
+        ]);
         rows.push(['', '', '']);
-        rows.push(['TOTAL KEWAJIBAN & EKUITAS', '', rupiahForCsv(data.totalLiabilitiesAndEquity)]);
+        rows.push([
+            'TOTAL KEWAJIBAN & EKUITAS',
+            '',
+            rupiahForCsv(data.totalLiabilitiesAndEquity),
+        ]);
 
         const dateStr = format(date, 'yyyy-MM-dd');
         downloadCsv(reportFilename('Neraca', dateStr), headers, rows);
@@ -176,23 +238,29 @@ export default function BalanceSheetPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{reportLabels.balanceSheet}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {reportLabels.balanceSheet}
+                    </h1>
                     <p className="text-muted-foreground">
-                        {reportLabels.financialPosition} {format(date, "PPP")}
+                        {reportLabels.financialPosition} {format(date, 'PPP')}
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
-                                variant={"outline"}
+                                variant={'outline'}
                                 className={cn(
-                                    "w-[240px] justify-start text-left font-normal",
-                                    !date && "text-muted-foreground"
+                                    'w-[240px] justify-start text-left font-normal',
+                                    !date && 'text-muted-foreground',
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {date ? format(date, "PPP") : <span>{reportLabels.pickDate}</span>}
+                                {date ? (
+                                    format(date, 'PPP')
+                                ) : (
+                                    <span>{reportLabels.pickDate}</span>
+                                )}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
@@ -210,7 +278,12 @@ export default function BalanceSheetPage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={!data}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleDownload}
+                        disabled={!data}
+                    >
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
@@ -223,7 +296,10 @@ export default function BalanceSheetPage() {
                         checked={summaryView}
                         onCheckedChange={setSummaryView}
                     />
-                    <Label htmlFor="summary-view" className="cursor-pointer font-medium">
+                    <Label
+                        htmlFor="summary-view"
+                        className="cursor-pointer font-medium"
+                    >
                         Ringkas
                     </Label>
                 </div>
@@ -233,7 +309,10 @@ export default function BalanceSheetPage() {
                         checked={hideZero}
                         onCheckedChange={setHideZero}
                     />
-                    <Label htmlFor="hide-zero" className="cursor-pointer font-medium">
+                    <Label
+                        htmlFor="hide-zero"
+                        className="cursor-pointer font-medium"
+                    >
                         Sembunyikan Saldo Nol
                     </Label>
                 </div>
@@ -252,81 +331,152 @@ export default function BalanceSheetPage() {
                                 <TableRow>
                                     <TableHead>Akun</TableHead>
                                     <TableHead>Kode</TableHead>
-                                    <TableHead className="text-right">Jumlah</TableHead>
+                                    <TableHead className="text-right">
+                                        Jumlah
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">Loading...</TableCell>
+                                        <TableCell
+                                            colSpan={3}
+                                            className="h-24 text-center"
+                                        >
+                                            Loading...
+                                        </TableCell>
                                     </TableRow>
                                 ) : !data ? (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">Tidak ada data</TableCell>
+                                        <TableCell
+                                            colSpan={3}
+                                            className="h-24 text-center"
+                                        >
+                                            Tidak ada data
+                                        </TableCell>
                                     </TableRow>
                                 ) : (
                                     <>
                                         {/* ASSETS */}
                                         <TableRow className="bg-muted/50 font-bold">
-                                            <TableCell colSpan={3}>ASET</TableCell>
+                                            <TableCell colSpan={3}>
+                                                ASET
+                                            </TableCell>
                                         </TableRow>
                                         {summaryView
-                                            ? renderGroupedSection(data.assetGroups, hideZero)
-                                            : renderDetailSection(data.assets, hideZero)
-                                        }
+                                            ? renderGroupedSection(
+                                                  data.assetGroups,
+                                                  hideZero,
+                                              )
+                                            : renderDetailSection(
+                                                  data.assets,
+                                                  hideZero,
+                                              )}
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
-                                            <TableCell colSpan={2}>TOTAL ASET</TableCell>
+                                            <TableCell colSpan={2}>
+                                                TOTAL ASET
+                                            </TableCell>
                                             <TableCell className="text-right w-44">
-                                                <Rupiah value={data.totalAssets} bold />
+                                                <Rupiah
+                                                    value={data.totalAssets}
+                                                    bold
+                                                />
                                             </TableCell>
                                         </TableRow>
 
                                         {/* LIABILITIES */}
                                         <TableRow className="bg-muted/50 font-bold mt-4">
-                                            <TableCell colSpan={3}>KEWAJIBAN</TableCell>
+                                            <TableCell colSpan={3}>
+                                                KEWAJIBAN
+                                            </TableCell>
                                         </TableRow>
                                         {summaryView
-                                            ? renderGroupedSection(data.liabilityGroups, hideZero)
-                                            : renderDetailSection(data.liabilities, hideZero)
-                                        }
+                                            ? renderGroupedSection(
+                                                  data.liabilityGroups,
+                                                  hideZero,
+                                              )
+                                            : renderDetailSection(
+                                                  data.liabilities,
+                                                  hideZero,
+                                              )}
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
-                                            <TableCell colSpan={2}>TOTAL KEWAJIBAN</TableCell>
+                                            <TableCell colSpan={2}>
+                                                TOTAL KEWAJIBAN
+                                            </TableCell>
                                             <TableCell className="text-right w-44">
-                                                <Rupiah value={data.totalLiabilities} bold />
+                                                <Rupiah
+                                                    value={
+                                                        data.totalLiabilities
+                                                    }
+                                                    bold
+                                                />
                                             </TableCell>
                                         </TableRow>
 
                                         {/* EQUITY */}
                                         <TableRow className="bg-muted/50 font-bold mt-4">
-                                            <TableCell colSpan={3}>EKUITAS</TableCell>
+                                            <TableCell colSpan={3}>
+                                                EKUITAS
+                                            </TableCell>
                                         </TableRow>
                                         {summaryView
-                                            ? renderGroupedSection(data.equityGroups, hideZero)
-                                            : renderDetailSection(data.equity, hideZero)
-                                        }
+                                            ? renderGroupedSection(
+                                                  data.equityGroups,
+                                                  hideZero,
+                                              )
+                                            : renderDetailSection(
+                                                  data.equity,
+                                                  hideZero,
+                                              )}
 
                                         {/* Unposted Current Earnings (P&L not yet closed) */}
-                                        {Math.abs(data.unpostedEarnings) > 0.01 && (
+                                        {Math.abs(data.unpostedEarnings) >
+                                            0.01 && (
                                             <TableRow>
-                                                <TableCell className="pl-8 italic text-muted-foreground">Laba Periode Berjalan (Belum Diclose)</TableCell>
-                                                <TableCell className="font-mono text-xs text-muted-foreground">—</TableCell>
+                                                <TableCell className="pl-8 italic text-muted-foreground">
+                                                    Laba Periode Berjalan (Belum
+                                                    Diclose)
+                                                </TableCell>
+                                                <TableCell className="font-mono text-xs text-muted-foreground">
+                                                    —
+                                                </TableCell>
                                                 <TableCell className="text-right w-44">
-                                                    <Rupiah value={data.unpostedEarnings} className="text-muted-foreground" />
+                                                    <Rupiah
+                                                        value={
+                                                            data.unpostedEarnings
+                                                        }
+                                                        className="text-muted-foreground"
+                                                    />
                                                 </TableCell>
                                             </TableRow>
                                         )}
 
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
-                                            <TableCell colSpan={2}>TOTAL EKUITAS</TableCell>
+                                            <TableCell colSpan={2}>
+                                                TOTAL EKUITAS
+                                            </TableCell>
                                             <TableCell className="text-right w-44">
-                                                <Rupiah value={data.totalEquity + data.unpostedEarnings} bold />
+                                                <Rupiah
+                                                    value={
+                                                        data.totalEquity +
+                                                        data.unpostedEarnings
+                                                    }
+                                                    bold
+                                                />
                                             </TableCell>
                                         </TableRow>
 
                                         <TableRow className="bg-primary/10 font-bold text-lg border-t-4 border-primary">
-                                            <TableCell colSpan={2}>TOTAL KEWAJIBAN & EKUITAS</TableCell>
+                                            <TableCell colSpan={2}>
+                                                TOTAL KEWAJIBAN & EKUITAS
+                                            </TableCell>
                                             <TableCell className="text-right w-44">
-                                                <Rupiah value={data.totalLiabilitiesAndEquity} bold />
+                                                <Rupiah
+                                                    value={
+                                                        data.totalLiabilitiesAndEquity
+                                                    }
+                                                    bold
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     </>

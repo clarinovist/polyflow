@@ -11,10 +11,24 @@ export default async function CreateProductPage() {
         getAccounts(),
     ]);
 
-    const productTypes = productTypesRes.success && productTypesRes.data ? productTypesRes.data : [];
+    const productTypes =
+        productTypesRes.success && productTypesRes.data
+            ? productTypesRes.data
+            : [];
     const units = unitsRes.success && unitsRes.data ? unitsRes.data : [];
-    const allAccounts = accountsRes.success && Array.isArray(accountsRes.data) ? (accountsRes.data as { id: string; code: string; name: string; type: string; category: string }[]) : [];
-    const fixedAssetAccounts = allAccounts.filter((a) => a.type === 'ASSET' && a.category === 'FIXED_ASSET').map((a) => ({ id: a.id, code: a.code, name: a.name }));
+    const allAccounts =
+        accountsRes.success && Array.isArray(accountsRes.data)
+            ? (accountsRes.data as {
+                  id: string;
+                  code: string;
+                  name: string;
+                  type: string;
+                  category: string;
+              }[])
+            : [];
+    const fixedAssetAccounts = allAccounts
+        .filter((a) => a.type === 'ASSET' && a.category === 'FIXED_ASSET')
+        .map((a) => ({ id: a.id, code: a.code, name: a.name }));
 
     return (
         <div className="p-6">

@@ -42,10 +42,10 @@ Halaman ini menampilkan semua produk yang hari ini sedang atau siap diproduksi.
 **Komponen halaman:**
 
 - **Kartu Statistik** di bagian atas:
-  - Total Produk — berapa produk yang hari ini direncanakan
-  - Sedang Jalan — produk yang sedang diproduksi
-  - Siap Produksi — produk yang sudah dibuat ordernya, menunggu operator
-  - Tunggu Bahan — produk yang stok bahan bakunya kurang
+    - Total Produk — berapa produk yang hari ini direncanakan
+    - Sedang Jalan — produk yang sedang diproduksi
+    - Siap Produksi — produk yang sudah dibuat ordernya, menunggu operator
+    - Tunggu Bahan — produk yang stok bahan bakunya kurang
 
 - **Daftar Produksi** — kartu per produk yang sedang aktif
 
@@ -116,14 +116,14 @@ Operator tidak perlu tahu soal halaman ini. Mereka tetap pakai **Kiosk** seperti
 
 - Bahan baku berkurang dari stok (backflush)
 - Journal entry dibuat:
-  - Debit: Work in Progress (WIP)
-  - Kredit: Inventori Bahan Baku
+    - Debit: Work in Progress (WIP)
+    - Kredit: Inventori Bahan Baku
 - Finished goods bertambah:
-  - Debit: Inventori Barang Jadi
-  - Kredit: WIP
+    - Debit: Inventori Barang Jadi
+    - Kredit: WIP
 - Scrap tercatat:
-  - Debit: Inventori Scrap
-  - Kredit: WIP
+    - Debit: Inventori Scrap
+    - Kredit: WIP
 
 Supervisor tidak perlu input apapun terkait accounting.
 

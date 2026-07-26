@@ -8,97 +8,104 @@
 // exclusion list — doing so previously made admin.polyflow.uk emit
 // `x-tenant-subdomain: admin`, which `auth.ts` prioritizes over the Host header,
 // breaking superadmin login with TenantNotFound.
-import NextAuth from "next-auth";
-import { authConfig } from "./auth.config";
-import { NextResponse } from "next/server";
-import { rateLimit } from "@/lib/api/rate-limit";
-import { extractSubdomain } from "@/lib/core/tenant";
+import NextAuth from 'next-auth';
+import { authConfig } from './auth.config';
+import { NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/api/rate-limit';
+import { extractSubdomain } from '@/lib/core/tenant';
 
 const { auth } = NextAuth(authConfig);
 
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "polyflow.uk";
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
 
 const handler = auth((req) => {
-  const host = req.headers.get("host") || "";
-  const hostname = host.split(":")[0];
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-pathname", req.nextUrl.pathname);
+    const host = req.headers.get('host') || '';
+    const hostname = host.split(':')[0];
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-pathname', req.nextUrl.pathname);
 
-  // SECURITY: Always clear any client-provided x-tenant-subdomain header to prevent tenant spoofing
-  requestHeaders.delete("x-tenant-subdomain");
+    // SECURITY: Always clear any client-provided x-tenant-subdomain header to prevent tenant spoofing
+    requestHeaders.delete('x-tenant-subdomain');
 
-  // Extract tenant subdomain. Uses the shared helper so reserved subdomains
-  // (admin, www, app, ...) are consistently NOT treated as tenants.
-  const tenant = extractSubdomain(host);
+    // Extract tenant subdomain. Uses the shared helper so reserved subdomains
+    // (admin, www, app, ...) are consistently NOT treated as tenants.
+    const tenant = extractSubdomain(host);
 
-  // Detect admin subdomain (admin.polyflow.uk)
-  const isAdminSubdomain = hostname === `admin.${BASE_DOMAIN}`;
+    // Detect admin subdomain (admin.polyflow.uk)
+    const isAdminSubdomain = hostname === `admin.${BASE_DOMAIN}`;
 
-  if (isAdminSubdomain) {
-    requestHeaders.set("x-admin-subdomain", "true");
-  }
-
-  // Only set the tenant header for real tenants (reserved subdomains resolve
-  // against the main DB). This prevents admin.polyflow.uk from being routed to
-  // a non-existent tenant DB during superadmin login.
-  if (tenant) {
-    requestHeaders.set("x-tenant-subdomain", tenant);
-  }
-
-  // Admin subdomain root → redirect to login
-  if (isAdminSubdomain && req.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  // Tenant subdomain root → redirect to login
-  if (tenant && req.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  // Short URL for the superadmin panel: admin.polyflow.uk/super-admin shows the
-  // real content at /admin/super-admin, rewritten internally so the browser
-  // address bar keeps the short path. We use /super-admin (which has NO real
-  // route of its own) rather than /dashboard, because /dashboard has a real ERP
-  // page — rewriting onto an existing route is unreliable in the App Router
-  // (client-side navigation renders the real route, not the rewrite target).
-  // authConfig.callbacks.authorized() gates access (logged-in superadmin) before
-  // this rewrite ever runs.
-  if (isAdminSubdomain && req.nextUrl.pathname === "/super-admin") {
-    return NextResponse.rewrite(new URL("/admin/super-admin", req.url), {
-      request: { headers: requestHeaders },
-    });
-  }
-
-  // Rate Limiting for API routes only (not navigation)
-  if (req.nextUrl.pathname.startsWith("/api/")) {
-    const forwardedFor =
-      req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip");
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "127.0.0.1";
-    const { success } = rateLimit(ip);
-
-    if (!success) {
-      return new NextResponse(
-        JSON.stringify({ error: "Too Many Requests. Please try again later." }),
-        { status: 429, headers: { "Content-Type": "application/json" } },
-      );
+    if (isAdminSubdomain) {
+        requestHeaders.set('x-admin-subdomain', 'true');
     }
-  }
 
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+    // Only set the tenant header for real tenants (reserved subdomains resolve
+    // against the main DB). This prevents admin.polyflow.uk from being routed to
+    // a non-existent tenant DB during superadmin login.
+    if (tenant) {
+        requestHeaders.set('x-tenant-subdomain', tenant);
+    }
 
-  // SECURITY: Add missing HTTP security headers
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("X-XSS-Protection", "1; mode=block");
-  response.headers.set(
-    "Strict-Transport-Security",
-    "max-age=31536000; includeSubDomains; preload",
-  );
+    // Admin subdomain root → redirect to login
+    if (isAdminSubdomain && req.nextUrl.pathname === '/') {
+        return NextResponse.redirect(new URL('/login', req.url));
+    }
 
-  const csp = `
+    // Tenant subdomain root → redirect to login
+    if (tenant && req.nextUrl.pathname === '/') {
+        return NextResponse.redirect(new URL('/login', req.url));
+    }
+
+    // Short URL for the superadmin panel: admin.polyflow.uk/super-admin shows the
+    // real content at /admin/super-admin, rewritten internally so the browser
+    // address bar keeps the short path. We use /super-admin (which has NO real
+    // route of its own) rather than /dashboard, because /dashboard has a real ERP
+    // page — rewriting onto an existing route is unreliable in the App Router
+    // (client-side navigation renders the real route, not the rewrite target).
+    // authConfig.callbacks.authorized() gates access (logged-in superadmin) before
+    // this rewrite ever runs.
+    if (isAdminSubdomain && req.nextUrl.pathname === '/super-admin') {
+        return NextResponse.rewrite(new URL('/admin/super-admin', req.url), {
+            request: { headers: requestHeaders },
+        });
+    }
+
+    // Rate Limiting for API routes only (not navigation)
+    if (req.nextUrl.pathname.startsWith('/api/')) {
+        const forwardedFor =
+            req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
+        const ip = forwardedFor
+            ? forwardedFor.split(',')[0].trim()
+            : '127.0.0.1';
+        const { success } = rateLimit(ip);
+
+        if (!success) {
+            return new NextResponse(
+                JSON.stringify({
+                    error: 'Too Many Requests. Please try again later.',
+                }),
+                {
+                    status: 429,
+                    headers: { 'Content-Type': 'application/json' },
+                },
+            );
+        }
+    }
+
+    const response = NextResponse.next({
+        request: { headers: requestHeaders },
+    });
+
+    // SECURITY: Add missing HTTP security headers
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+    response.headers.set(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains; preload',
+    );
+
+    const csp = `
 		default-src 'self';
 		script-src 'self' 'unsafe-inline';
 		style-src 'self' 'unsafe-inline';
@@ -109,21 +116,21 @@ const handler = auth((req) => {
 		base-uri 'self';
 		form-action 'self';
 	`
-    .replace(/\s{2,}/g, " ")
-    .trim();
+        .replace(/\s{2,}/g, ' ')
+        .trim();
 
-  response.headers.set("Content-Security-Policy", csp);
+    response.headers.set('Content-Security-Policy', csp);
 
-  return response;
+    return response;
 });
 
 export default function proxy(...args: Parameters<typeof handler>) {
-  return handler(...args);
+    return handler(...args);
 }
 
 export const config = {
-  matcher: [
-    // Intercept everything except static assets and standard bypasses
-    "/((?!_next/static|_next/image|images|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg)$).*)",
-  ],
+    matcher: [
+        // Intercept everything except static assets and standard bypasses
+        '/((?!_next/static|_next/image|images|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg)$).*)',
+    ],
 };

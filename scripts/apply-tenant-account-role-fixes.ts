@@ -19,7 +19,10 @@ import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { getTenantDb } from '../src/lib/core/prisma';
 import { clearAccountCache } from '../src/services/accounting/account-resolver';
-import { MELINDO_PREFERRED_MAP, MELINDO_EXCLUDED_ROLES } from './data/melindo-preferred-role-map';
+import {
+    MELINDO_PREFERRED_MAP,
+    MELINDO_EXCLUDED_ROLES,
+} from './data/melindo-preferred-role-map';
 
 const mainPrisma = new PrismaClient();
 
@@ -39,10 +42,13 @@ type ChangeRow = {
 async function main() {
     const args = process.argv.slice(2);
     const isApply = args.includes('--apply');
-    const tenantArg = args.find((a) => a.startsWith('--tenant='))?.split('=')[1] || 'melindo';
+    const tenantArg =
+        args.find((a) => a.startsWith('--tenant='))?.split('=')[1] || 'melindo';
 
     console.log('=== TenantAccountRole Apply Fix ===');
-    console.log(`Mode: ${isApply ? 'APPLY (will write TenantAccountRole only)' : 'DRY-RUN (zero writes)'}`);
+    console.log(
+        `Mode: ${isApply ? 'APPLY (will write TenantAccountRole only)' : 'DRY-RUN (zero writes)'}`,
+    );
     console.log(`Tenant: ${tenantArg}\n`);
 
     const tenant = await mainPrisma.tenant.findFirst({
@@ -76,11 +82,15 @@ async function main() {
             where: { code: preferred.code },
         });
         if (!account) {
-            missingInCoa.push(`${preferred.role} → code ${preferred.code} not in tenant COA`);
+            missingInCoa.push(
+                `${preferred.role} → code ${preferred.code} not in tenant COA`,
+            );
             continue;
         }
         if (account.isActive === false) {
-            missingInCoa.push(`${preferred.role} → code ${preferred.code} is inactive`);
+            missingInCoa.push(
+                `${preferred.role} → code ${preferred.code} is inactive`,
+            );
             continue;
         }
 
@@ -133,7 +143,9 @@ async function main() {
     }
 
     if (changes.length === 0) {
-        console.log('✅ All preferred roles already point at correct accountId/code. Nothing to change.');
+        console.log(
+            '✅ All preferred roles already point at correct accountId/code. Nothing to change.',
+        );
         if (alreadyOk.length) console.log(`   OK: ${alreadyOk.join(', ')}`);
         await cleanup();
         return;
@@ -149,7 +161,12 @@ async function main() {
     );
     console.log('─'.repeat(100));
     for (const c of changes) {
-        const marker = c.severity === 'high' ? '🔴' : c.severity === 'medium' ? '🟡' : '⚪';
+        const marker =
+            c.severity === 'high'
+                ? '🔴'
+                : c.severity === 'medium'
+                  ? '🟡'
+                  : '⚪';
         const idChange =
             c.oldAccountId === c.newAccountId
                 ? 'snapshot only'
@@ -162,8 +179,12 @@ async function main() {
 
     if (!isApply) {
         console.log(`\n🔍 DRY-RUN complete (zero writes).`);
-        console.log(`   To apply: npx tsx scripts/apply-tenant-account-role-fixes.ts --tenant=${tenantArg} --apply`);
-        console.log(`   Writes only TenantAccountRole on MAIN DB. Does not touch JournalLine.`);
+        console.log(
+            `   To apply: npx tsx scripts/apply-tenant-account-role-fixes.ts --tenant=${tenantArg} --apply`,
+        );
+        console.log(
+            `   Writes only TenantAccountRole on MAIN DB. Does not touch JournalLine.`,
+        );
         await cleanup();
         return;
     }
@@ -176,7 +197,10 @@ async function main() {
         /* ignore */
     }
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = path.join(backupDir, `tenant-account-role-${tenantArg}-before-${ts}.csv`);
+    const backupPath = path.join(
+        backupDir,
+        `tenant-account-role-${tenantArg}-before-${ts}.csv`,
+    );
     const csvHeader = 'id,tenantId,role,accountId,accountCode,accountName\n';
     const csvBody = current
         .map(
@@ -188,10 +212,14 @@ async function main() {
         writeFileSync(backupPath, csvHeader + csvBody + '\n', 'utf8');
         console.log(`\n💾 Backup written: ${backupPath}`);
     } catch (e) {
-        console.warn(`\n⚠️  Could not write backup file (${e}). Continuing with apply — consider manual dump.`);
+        console.warn(
+            `\n⚠️  Could not write backup file (${e}). Continuing with apply — consider manual dump.`,
+        );
     }
 
-    console.log(`\n⏳ Applying ${changes.length} changes (TenantAccountRole only)...`);
+    console.log(
+        `\n⏳ Applying ${changes.length} changes (TenantAccountRole only)...`,
+    );
 
     let applied = 0;
     for (const c of changes) {
@@ -216,12 +244,18 @@ async function main() {
             });
         }
         applied++;
-        console.log(`  ✓ ${c.action} ${c.role}: ${c.oldCode} → ${c.newCode} (accountId updated)`);
+        console.log(
+            `  ✓ ${c.action} ${c.role}: ${c.oldCode} → ${c.newCode} (accountId updated)`,
+        );
     }
 
     clearAccountCache();
-    console.log(`\n✅ Applied ${applied} mapping fix(es). Account cache cleared.`);
-    console.log(`📌 Verify: npx tsx scripts/audit-tenant-account-roles.ts --tenant=${tenantArg}`);
+    console.log(
+        `\n✅ Applied ${applied} mapping fix(es). Account cache cleared.`,
+    );
+    console.log(
+        `📌 Verify: npx tsx scripts/audit-tenant-account-roles.ts --tenant=${tenantArg}`,
+    );
     console.log(`📌 Rollback: restore rows from ${backupPath} if needed.`);
 
     await cleanup();

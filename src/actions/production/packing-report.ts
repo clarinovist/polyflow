@@ -16,12 +16,20 @@ export const getMonthlyPackingReport = withTenant(
                     throw new BusinessRuleError('Unauthorized');
                 }
 
-                const report = await PackingReportService.getMonthlyPackingReport(monthStr);
+                const report =
+                    await PackingReportService.getMonthlyPackingReport(
+                        monthStr,
+                    );
                 return serializeData(report);
             } catch (error) {
-                logger.error("Failed to get monthly packing report", { error, module: 'PackingReportActions' });
-                throw new BusinessRuleError('Failed to load monthly packing report.');
+                logger.error('Failed to get monthly packing report', {
+                    error,
+                    module: 'PackingReportActions',
+                });
+                throw new BusinessRuleError(
+                    'Failed to load monthly packing report.',
+                );
             }
         });
-    }
+    },
 );

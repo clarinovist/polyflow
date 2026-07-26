@@ -9,12 +9,14 @@ interface BomDetailPageProps {
     }>;
 }
 
-export default async function ProductionBomDetailPage({ params }: BomDetailPageProps) {
+export default async function ProductionBomDetailPage({
+    params,
+}: BomDetailPageProps) {
     const { id } = await params;
 
     const [bomRes, showPrices] = await Promise.all([
         getBom(id),
-        canViewPrices()
+        canViewPrices(),
     ]);
 
     if (!bomRes.success || !bomRes.data) {

@@ -52,7 +52,7 @@ export function generateCSVTemplate(): string {
         'color',
         'material',
         'notes',
-        'supplier_name'
+        'supplier_name',
     ];
 
     const exampleRows: ProductImportRow[] = [
@@ -68,7 +68,7 @@ export function generateCSVTemplate(): string {
             min_stock_alert: 100,
             color: 'Clear',
             material: 'PP',
-            supplier_name: 'PT. Poly Supply'
+            supplier_name: 'PT. Poly Supply',
         },
         {
             product_name: 'Blue Colorant',
@@ -81,7 +81,7 @@ export function generateCSVTemplate(): string {
             price: 50000,
             min_stock_alert: 50,
             color: 'Blue',
-            material: 'Masterbatch'
+            material: 'Masterbatch',
         },
         {
             product_name: 'Blue Raffia',
@@ -94,13 +94,13 @@ export function generateCSVTemplate(): string {
             price: 90000,
             min_stock_alert: 20,
             color: 'Blue',
-            material: 'Raffia'
-        }
+            material: 'Raffia',
+        },
     ];
 
     const csv = Papa.unparse([...exampleRows], {
         columns: headers,
-        header: true
+        header: true,
     });
 
     return csv;
@@ -134,14 +134,18 @@ export function parseCSVFile(file: File): Promise<ProductImportRow[]> {
             transformHeader: (header) => header.trim().toLowerCase(),
             complete: (results) => {
                 if (results.errors.length > 0) {
-                    reject(new Error(`CSV parsing errors: ${results.errors.map(e => e.message).join(', ')}`));
+                    reject(
+                        new Error(
+                            `CSV parsing errors: ${results.errors.map((e) => e.message).join(', ')}`,
+                        ),
+                    );
                 } else {
                     resolve(results.data);
                 }
             },
             error: (error) => {
                 reject(error);
-            }
+            },
         });
     });
 }
@@ -149,7 +153,9 @@ export function parseCSVFile(file: File): Promise<ProductImportRow[]> {
 /**
  * Group rows by product name
  */
-export function groupByProduct(rows: ProductImportRow[]): Map<string, ProductImportRow[]> {
+export function groupByProduct(
+    rows: ProductImportRow[],
+): Map<string, ProductImportRow[]> {
     const grouped = new Map<string, ProductImportRow[]>();
 
     for (const row of rows) {
@@ -179,7 +185,7 @@ export function rowsToProducts(rows: ProductImportRow[]): ParsedProduct[] {
         products.push({
             productName,
             productType,
-            variants: variants.map(v => ({
+            variants: variants.map((v) => ({
                 name: v.variant_name,
                 skuCode: v.sku_code,
                 primaryUnit: v.primary_unit as Unit,
@@ -188,15 +194,17 @@ export function rowsToProducts(rows: ProductImportRow[]): ParsedProduct[] {
                 price: v.price,
                 minStockAlert: v.min_stock_alert,
                 supplierName: v.supplier_name?.trim(),
-                attributes: buildAttributes(v)
-            }))
+                attributes: buildAttributes(v),
+            })),
         });
     }
 
     return products;
 }
 
-function buildAttributes(row: ProductImportRow): Record<string, string | number | boolean | null> | undefined {
+function buildAttributes(
+    row: ProductImportRow,
+): Record<string, string | number | boolean | null> | undefined {
     const attrs: Record<string, string | number | boolean | null> = {};
 
     if (row.color) attrs.color = row.color;
@@ -223,7 +231,7 @@ export function generateExcelTemplate(): Blob {
         'color',
         'material',
         'notes',
-        'supplier_name'
+        'supplier_name',
     ];
 
     const exampleRows = [
@@ -240,7 +248,7 @@ export function generateExcelTemplate(): Blob {
             color: 'Clear',
             material: 'PP',
             notes: '',
-            supplier_name: 'PT. Poly Supply'
+            supplier_name: 'PT. Poly Supply',
         },
         {
             product_name: 'Blue Colorant',
@@ -255,7 +263,7 @@ export function generateExcelTemplate(): Blob {
             color: 'Blue',
             material: 'Masterbatch',
             notes: '',
-            supplier_name: 'PT. Poly Supply'
+            supplier_name: 'PT. Poly Supply',
         },
         {
             product_name: 'Blue Raffia',
@@ -270,12 +278,14 @@ export function generateExcelTemplate(): Blob {
             color: 'Blue',
             material: 'Raffia',
             notes: '',
-            supplier_name: 'PT. Poly Supply'
-        }
+            supplier_name: 'PT. Poly Supply',
+        },
     ];
 
     // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(exampleRows, { header: headers });
+    const worksheet = XLSX.utils.json_to_sheet(exampleRows, {
+        header: headers,
+    });
 
     // Set column widths
     worksheet['!cols'] = [
@@ -291,7 +301,7 @@ export function generateExcelTemplate(): Blob {
         { wch: 10 }, // color
         { wch: 15 }, // material
         { wch: 20 }, // notes
-        { wch: 25 }  // supplier_name
+        { wch: 25 }, // supplier_name
     ];
 
     // Create workbook
@@ -299,8 +309,13 @@ export function generateExcelTemplate(): Blob {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
 
     // Generate buffer
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    return new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const excelBuffer = XLSX.write(workbook, {
+        bookType: 'xlsx',
+        type: 'array',
+    });
+    return new Blob([excelBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
 }
 
 /**
@@ -337,14 +352,20 @@ export function parseExcelFile(file: File): Promise<ProductImportRow[]> {
                 const worksheet = workbook.Sheets[firstSheetName];
 
                 // Convert to JSON
-                const jsonData = XLSX.utils.sheet_to_json<ProductImportRow>(worksheet, {
-                    raw: false,
-                    defval: ''
-                });
+                const jsonData = XLSX.utils.sheet_to_json<ProductImportRow>(
+                    worksheet,
+                    {
+                        raw: false,
+                        defval: '',
+                    },
+                );
 
                 // Normalize headers to lowercase
                 const normalizedData = jsonData.map((row) => {
-                    const normalized: Record<string, string | number | boolean | null | undefined> = {};
+                    const normalized: Record<
+                        string,
+                        string | number | boolean | null | undefined
+                    > = {};
                     for (const key in row) {
                         normalized[key.trim().toLowerCase()] = row[key];
                     }
@@ -353,7 +374,11 @@ export function parseExcelFile(file: File): Promise<ProductImportRow[]> {
 
                 resolve(normalizedData);
             } catch (error) {
-                reject(new Error(`Excel parsing error: ${error instanceof Error ? error.message : "Unknown error"}`));
+                reject(
+                    new Error(
+                        `Excel parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    ),
+                );
             }
         };
 
@@ -373,36 +398,51 @@ export async function parseImportFile(file: File): Promise<ProductImportRow[]> {
     } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
         return parseExcelFile(file);
     } else {
-        throw new Error('Unsupported file type. Please upload .csv, .xlsx, or .xls file');
+        throw new Error(
+            'Unsupported file type. Please upload .csv, .xlsx, or .xls file',
+        );
     }
 }
 
 /**
  * Generate error report CSV
  */
-export function generateErrorReport(results: Array<{ row: number; errors: Array<{ field: string; message: string }> }>): string {
-    const errorRows = results.filter(r => r.errors.length > 0);
+export function generateErrorReport(
+    results: Array<{
+        row: number;
+        errors: Array<{ field: string; message: string }>;
+    }>,
+): string {
+    const errorRows = results.filter((r) => r.errors.length > 0);
 
-    const reportData = errorRows.map(r => ({
+    const reportData = errorRows.map((r) => ({
         row: r.row,
-        errors: r.errors.map(e => `${e.field}: ${e.message}`).join(' | ')
+        errors: r.errors.map((e) => `${e.field}: ${e.message}`).join(' | '),
     }));
 
     return Papa.unparse(reportData, {
         columns: ['row', 'errors'],
-        header: true
+        header: true,
     });
 }
 
 /**
  * Download error report
  */
-export function downloadErrorReport(results: Array<{ row: number; errors: Array<{ field: string; message: string }> }>) {
+export function downloadErrorReport(
+    results: Array<{
+        row: number;
+        errors: Array<{ field: string; message: string }>;
+    }>,
+) {
     const csv = generateErrorReport(results);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .slice(0, -5);
 
     link.setAttribute('href', url);
     link.setAttribute('download', `import_errors_${timestamp}.csv`);

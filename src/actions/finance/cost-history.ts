@@ -1,14 +1,24 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import { Prisma } from '@prisma/client';
-import { safeAction, NotFoundError, AuthenticationError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    NotFoundError,
+    AuthenticationError,
+} from '@/lib/errors/errors';
 import { BomCostCascadeService } from '@/services/production/bom-cost-cascade-service';
 
-export type CostChangeReason = 'MANUAL' | 'PURCHASE_GR' | 'STOCK_OPNAME' | 'IMPORT' | 'BOM_UPDATE' | 'BOM_CASCADE';
+export type CostChangeReason =
+    | 'MANUAL'
+    | 'PURCHASE_GR'
+    | 'STOCK_OPNAME'
+    | 'IMPORT'
+    | 'BOM_UPDATE'
+    | 'BOM_CASCADE';
 
 type UpdateCostOptions = {
     skipCascade?: boolean;
@@ -17,8 +27,9 @@ type UpdateCostOptions = {
 
 type ExtendedClient = Prisma.TransactionClient;
 
-export const getCostHistory = withTenant(
-async function getCostHistory(variantId: string) {
+export const getCostHistory = withTenant(async function getCostHistory(
+    variantId: string,
+) {
     return safeAction(async () => {
         await requireAuth();
 
@@ -27,19 +38,17 @@ async function getCostHistory(variantId: string) {
             where: { productVariantId: variantId },
             include: {
                 createdBy: {
-                    select: { name: true }
-                }
+                    select: { name: true },
+                },
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
         });
 
         return serializeData(history);
     });
-}
-);
+});
 
-export const updateStandardCost = withTenant(
-async function updateStandardCost(
+export const updateStandardCost = withTenant(async function updateStandardCost(
     variantId: string,
     newCost: number,
     reason: CostChangeReason,
@@ -57,12 +66,14 @@ async function updateStandardCost(
 
         const variant = await db.productVariant.findUnique({
             where: { id: variantId },
-            select: { standardCost: true }
+            select: { standardCost: true },
         });
 
         if (!variant) throw new NotFoundError('Product Variant', variantId);
 
-        const previousCost = variant.standardCost ? Number(variant.standardCost) : null;
+        const previousCost = variant.standardCost
+            ? Number(variant.standardCost)
+            : null;
 
         // Calculate percentage change
         let changePercent = null;
@@ -73,7 +84,7 @@ async function updateStandardCost(
         const execute = async (client: ExtendedClient) => {
             const updatedVariant = await client.productVariant.update({
                 where: { id: variantId },
-                data: { standardCost: newCost }
+                data: { standardCost: newCost },
             });
 
             await client.costHistory.create({
@@ -84,8 +95,8 @@ async function updateStandardCost(
                     changeReason: reason,
                     referenceId,
                     changePercent,
-                    createdById: userId
-                }
+                    createdById: userId,
+                },
             });
 
             return serializeData(updatedVariant);
@@ -94,12 +105,17 @@ async function updateStandardCost(
         const updatedVariant = tx
             ? await execute(tx as unknown as ExtendedClient)
             : await prisma.$transaction(async (internalTx) => {
-                return await execute(internalTx as unknown as ExtendedClient);
-            });
+                  return await execute(internalTx as unknown as ExtendedClient);
+              });
 
-        const cascadeEligibleReasons: CostChangeReason[] = ['MANUAL', 'PURCHASE_GR', 'STOCK_OPNAME', 'IMPORT'];
-        const shouldCascade = !options?.skipCascade
-            && cascadeEligibleReasons.includes(reason);
+        const cascadeEligibleReasons: CostChangeReason[] = [
+            'MANUAL',
+            'PURCHASE_GR',
+            'STOCK_OPNAME',
+            'IMPORT',
+        ];
+        const shouldCascade =
+            !options?.skipCascade && cascadeEligibleReasons.includes(reason);
 
         if (shouldCascade) {
             await BomCostCascadeService.cascadeFromVariants({
@@ -113,5 +129,4 @@ async function updateStandardCost(
 
         return updatedVariant;
     });
-}
-);
+});

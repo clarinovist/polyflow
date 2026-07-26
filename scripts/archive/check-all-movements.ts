@@ -8,14 +8,14 @@ async function main() {
     // Find movements that mention this order in reference
     const movements = await prisma.stockMovement.findMany({
         where: {
-            reference: { contains: orderNumber }
+            reference: { contains: orderNumber },
         },
         include: {
             productVariant: true,
             fromLocation: true,
-            toLocation: true
+            toLocation: true,
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
     });
 
     console.log(`--- Stock Movements for ${orderNumber} ---`);
@@ -25,8 +25,12 @@ async function main() {
     }
 
     movements.forEach((m: any) => {
-        console.log(`- ${m.createdAt.toISOString()} | ${m.type.padEnd(10)} | ${m.productVariant.skuCode.padEnd(10)} | ${m.productVariant.name.padEnd(20)} | Qty: ${m.quantity} ${m.productVariant.primaryUnit}`);
-        console.log(`  From: ${m.fromLocation?.name || 'EXTERNAL'} -> To: ${m.toLocation?.name || 'EXTERNAL'}`);
+        console.log(
+            `- ${m.createdAt.toISOString()} | ${m.type.padEnd(10)} | ${m.productVariant.skuCode.padEnd(10)} | ${m.productVariant.name.padEnd(20)} | Qty: ${m.quantity} ${m.productVariant.primaryUnit}`,
+        );
+        console.log(
+            `  From: ${m.fromLocation?.name || 'EXTERNAL'} -> To: ${m.toLocation?.name || 'EXTERNAL'}`,
+        );
         console.log(`  Reference: ${m.reference || '-'}`);
     });
 }

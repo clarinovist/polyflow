@@ -25,6 +25,7 @@ docker exec polyflow-db psql -U polyflow -d polyflow_ref -c "ALTER TYPE \"Schedu
 ```
 
 **Verifikasi:**
+
 ```bash
 docker exec polyflow-db psql -U polyflow -d polyflow -c "SELECT enum_range(NULL::\"ScheduleStatus\");"
 # Harus return: {DRAFT,CONFIRMED,IN_TRANSIT,COMPLETED,ACTIVE,CLOSED}
@@ -52,6 +53,7 @@ docker exec polyflow-app npx prisma@5.22.0 migrate deploy
 ```
 
 Migration `20260711_jadwal_kirim_planning_trip` akan:
+
 - Create enums `TripStatus`, `ScheduleStopStatus`
 - Alter `DeliveryScheduleVehicle`: +routeName, +status, +sequence, +updatedAt
 - Backfill trip status dari parent schedule
@@ -63,6 +65,7 @@ Migration `20260711_jadwal_kirim_planning_trip` akan:
 - Add FK + indexes
 
 **Verifikasi:**
+
 ```bash
 docker exec polyflow-db psql -U polyflow -d polyflow -c "\d \"DeliveryScheduleVehicle\""
 # Harus ada: routeName, status, sequence, updatedAt

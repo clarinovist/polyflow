@@ -1,36 +1,45 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma as db } from '@/lib/core/prisma'; // Ensure consistent import
 import { BudgetFormValues, budgetSchema } from '@/lib/schemas/finance';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError, ValidationError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    ValidationError,
+} from '@/lib/errors/errors';
 
-export const getBudgets = withTenant(
-async function getBudgets(year: number) {
+export const getBudgets = withTenant(async function getBudgets(year: number) {
     return safeAction(async () => {
         try {
             const budgets = await db.budget.findMany({
                 where: { year },
                 include: {
-                    account: true
-                }
+                    account: true,
+                },
             });
-            return budgets.map(b => ({
+            return budgets.map((b) => ({
                 ...b,
-                amount: Number(b.amount)
+                amount: Number(b.amount),
             }));
         } catch (error) {
-            logger.error('Failed to fetch budgets', { error, year, module: 'BudgetActions' });
-            throw new BusinessRuleError('Failed to fetch budgets. Please try again later.');
+            logger.error('Failed to fetch budgets', {
+                error,
+                year,
+                module: 'BudgetActions',
+            });
+            throw new BusinessRuleError(
+                'Failed to fetch budgets. Please try again later.',
+            );
         }
     });
-}
-);
+});
 
-export const upsertBudget = withTenant(
-async function upsertBudget(data: BudgetFormValues) {
+export const upsertBudget = withTenant(async function upsertBudget(
+    data: BudgetFormValues,
+) {
     return safeAction(async () => {
         try {
             const result = budgetSchema.safeParse(data);
@@ -44,16 +53,16 @@ async function upsertBudget(data: BudgetFormValues) {
                 where: {
                     accountId: validated.accountId,
                     year: validated.year,
-                    month: validated.month
-                }
+                    month: validated.month,
+                },
             });
 
             if (existing) {
                 await db.budget.update({
                     where: { id: existing.id },
                     data: {
-                        amount: validated.amount
-                    }
+                        amount: validated.amount,
+                    },
                 });
             } else {
                 await db.budget.create({
@@ -61,17 +70,21 @@ async function upsertBudget(data: BudgetFormValues) {
                         accountId: validated.accountId,
                         year: validated.year,
                         month: validated.month,
-                        amount: validated.amount
-                    }
+                        amount: validated.amount,
+                    },
                 });
             }
 
             revalidatePath('/finance/budgeting/input');
         } catch (error) {
             if (error instanceof ValidationError) throw error;
-            logger.error('Failed to save budget', { error, module: 'BudgetActions' });
-            throw new BusinessRuleError('Failed to save budget. Please check input.');
+            logger.error('Failed to save budget', {
+                error,
+                module: 'BudgetActions',
+            });
+            throw new BusinessRuleError(
+                'Failed to save budget. Please check input.',
+            );
         }
     });
-}
-);
+});

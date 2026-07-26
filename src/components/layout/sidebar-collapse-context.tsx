@@ -1,6 +1,12 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import {
+    createContext,
+    useContext,
+    useState,
+    useCallback,
+    ReactNode,
+} from 'react';
 
 interface SidebarCollapseContextValue {
     isCollapsed: boolean;
@@ -23,7 +29,7 @@ export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
     const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
 
     const toggle = useCallback(() => {
-        setIsCollapsed(prev => {
+        setIsCollapsed((prev) => {
             const next = !prev;
             localStorage.setItem(STORAGE_KEY, String(next));
             return next;

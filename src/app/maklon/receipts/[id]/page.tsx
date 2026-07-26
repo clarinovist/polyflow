@@ -1,33 +1,33 @@
-import type { ComponentProps } from "react";
-import { notFound } from "next/navigation";
-import { getMaklonReceipt } from "@/actions/maklon/maklon-receipt";
-import { MaklonReceiptDetail } from "@/components/maklon/MaklonReceiptDetail";
-import type { Metadata } from "next";
+import type { ComponentProps } from 'react';
+import { notFound } from 'next/navigation';
+import { getMaklonReceipt } from '@/actions/maklon/maklon-receipt';
+import { MaklonReceiptDetail } from '@/components/maklon/MaklonReceiptDetail';
+import type { Metadata } from 'next';
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+    params: Promise<{ id: string }>;
 }
 
 export const metadata: Metadata = {
-  title: "Detail Penerimaan Maklon | Polyflow",
-  description: "Detail penerimaan bahan baku Maklon Jasa dari customer",
+    title: 'Detail Penerimaan Maklon | Polyflow',
+    description: 'Detail penerimaan bahan baku Maklon Jasa dari customer',
 };
 
 export default async function MaklonReceiptDetailPage({ params }: PageProps) {
-  const { id } = await params;
-  const receipt = await getMaklonReceipt(id);
+    const { id } = await params;
+    const receipt = await getMaklonReceipt(id);
 
-  if (!receipt) {
-    notFound();
-  }
+    if (!receipt) {
+        notFound();
+    }
 
-  return (
-    <MaklonReceiptDetail
-      receipt={
-        receipt as unknown as ComponentProps<
-          typeof MaklonReceiptDetail
-        >["receipt"]
-      }
-    />
-  );
+    return (
+        <MaklonReceiptDetail
+            receipt={
+                receipt as unknown as ComponentProps<
+                    typeof MaklonReceiptDetail
+                >['receipt']
+            }
+        />
+    );
 }

@@ -1,9 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { updateProductionOrder } from '@/actions/production/production';
 import { toast } from 'sonner';
@@ -25,9 +38,11 @@ export function ReassignMachineDialog({
     orderId,
     orderNumber,
     currentMachineId,
-    machines
+    machines,
 }: ReassignMachineDialogProps) {
-    const [selectedMachineId, setSelectedMachineId] = useState<string>(currentMachineId || '');
+    const [selectedMachineId, setSelectedMachineId] = useState<string>(
+        currentMachineId || '',
+    );
     const [isPending, setIsPending] = useState(false);
 
     const handleReassign = async () => {
@@ -40,7 +55,7 @@ export function ReassignMachineDialog({
         try {
             const result = await updateProductionOrder({
                 id: orderId,
-                machineId: selectedMachineId
+                machineId: selectedMachineId,
             });
 
             if (result.success) {
@@ -61,24 +76,41 @@ export function ReassignMachineDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>{productionComponentLabels.reassignMachine}</DialogTitle>
+                    <DialogTitle>
+                        {productionComponentLabels.reassignMachine}
+                    </DialogTitle>
                     <DialogDescription>
-                        Reassign order <span className="font-bold text-foreground">{orderNumber}</span> to a different machine.
+                        Reassign order{' '}
+                        <span className="font-bold text-foreground">
+                            {orderNumber}
+                        </span>{' '}
+                        to a different machine.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="machine">{productionComponentLabels.selectMachineUpdatesOrder}</Label>
+                        <Label htmlFor="machine">
+                            {
+                                productionComponentLabels.selectMachineUpdatesOrder
+                            }
+                        </Label>
                         <Select
                             value={selectedMachineId}
                             onValueChange={setSelectedMachineId}
                         >
                             <SelectTrigger id="machine">
-                                <SelectValue placeholder={productionComponentLabels.chooseMachine} />
+                                <SelectValue
+                                    placeholder={
+                                        productionComponentLabels.chooseMachine
+                                    }
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {machines.map((machine) => (
-                                    <SelectItem key={machine.id} value={machine.id}>
+                                    <SelectItem
+                                        key={machine.id}
+                                        value={machine.id}
+                                    >
                                         {machine.code} - {machine.name}
                                     </SelectItem>
                                 ))}
@@ -87,11 +119,20 @@ export function ReassignMachineDialog({
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        disabled={isPending}
+                    >
                         {productionComponentLabels.cancel}
                     </Button>
-                    <Button onClick={handleReassign} disabled={isPending || !selectedMachineId}>
-                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Button
+                        onClick={handleReassign}
+                        disabled={isPending || !selectedMachineId}
+                    >
+                        {isPending && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         {productionComponentLabels.reassign}
                     </Button>
                 </DialogFooter>

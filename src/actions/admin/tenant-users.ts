@@ -1,16 +1,16 @@
-"use server";
+'use server';
 
-import { prisma, getTenantDb } from "@/lib/core/prisma";
-import { auth } from "@/auth";
-import { AuthorizationError, BusinessRuleError } from "@/lib/errors/errors";
-import { Role } from "@prisma/client";
-import bcrypt from "bcryptjs";
-import { logActivity } from "@/lib/tools/audit";
+import { prisma, getTenantDb } from '@/lib/core/prisma';
+import { auth } from '@/auth';
+import { AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
+import { Role } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import { logActivity } from '@/lib/tools/audit';
 
 async function requireSuperAdmin() {
     const session = await auth();
     if (!session?.user || !session.user.isSuperAdmin) {
-        throw new AuthorizationError("Super Admin access required.");
+        throw new AuthorizationError('Super Admin access required.');
     }
     return session;
 }
@@ -18,7 +18,7 @@ async function requireSuperAdmin() {
 async function loadTenantDb(tenantId: string) {
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant || !tenant.dbUrl) {
-        throw new BusinessRuleError("Tenant not found.");
+        throw new BusinessRuleError('Tenant not found.');
     }
     return { tenant, db: getTenantDb(tenant.dbUrl) };
 }
@@ -33,12 +33,22 @@ export interface TenantUserRow {
     updatedAt: Date;
 }
 
-export async function listTenantUsers(tenantId: string): Promise<TenantUserRow[]> {
+export async function listTenantUsers(
+    tenantId: string,
+): Promise<TenantUserRow[]> {
     await requireSuperAdmin();
     const { db } = await loadTenantDb(tenantId);
     const users = await db.user.findMany({
-        orderBy: { createdAt: "asc" },
-        select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true, updatedAt: true },
+        orderBy: { createdAt: 'asc' },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+        },
     });
     return users;
 }
@@ -51,13 +61,14 @@ export async function listTenantUsers(tenantId: string): Promise<TenantUserRow[]
 export async function setTenantUserStatus(
     tenantId: string,
     userId: string,
-    isActive: boolean
+    isActive: boolean,
 ) {
     const session = await requireSuperAdmin();
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const target = await db.user.findUnique({ where: { id: userId } });
-    if (!target) throw new BusinessRuleError("User tidak ditemukan di DB tenant.");
+    if (!target)
+        throw new BusinessRuleError('User tidak ditemukan di DB tenant.');
 
     await db.user.update({
         where: { id: userId },
@@ -66,11 +77,16 @@ export async function setTenantUserStatus(
 
     await logActivity({
         userId: session.user.id!,
-        action: isActive ? "TENANT_USER_REACTIVATED" : "TENANT_USER_SUSPENDED",
-        entityType: "User",
+        action: isActive ? 'TENANT_USER_REACTIVATED' : 'TENANT_USER_SUSPENDED',
+        entityType: 'User',
         entityId: userId,
-        details: `${isActive ? "Reactivated" : "Suspended"} tenant user ${target.email} on tenant "${tenant.name}".`,
-        changes: { tenantId, userId, before: { isActive: target.isActive }, after: { isActive } },
+        details: `${isActive ? 'Reactivated' : 'Suspended'} tenant user ${target.email} on tenant "${tenant.name}".`,
+        changes: {
+            tenantId,
+            userId,
+            before: { isActive: target.isActive },
+            after: { isActive },
+        },
     });
 
     return { success: true as const };
@@ -82,15 +98,17 @@ export async function setTenantUserStatus(
  */
 export async function createTenantUser(
     tenantId: string,
-    data: { name: string; email: string; password: string; role: Role }
+    data: { name: string; email: string; password: string; role: Role },
 ) {
     const session = await requireSuperAdmin();
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const existing = await db.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new BusinessRuleError("Email sudah digunakan di tenant ini.");
+    if (existing)
+        throw new BusinessRuleError('Email sudah digunakan di tenant ini.');
 
-    if (data.password.length < 6) throw new BusinessRuleError("Password minimal 6 karakter.");
+    if (data.password.length < 6)
+        throw new BusinessRuleError('Password minimal 6 karakter.');
 
     const passwordHash = await bcrypt.hash(data.password, 10);
 
@@ -104,17 +122,26 @@ export async function createTenantUser(
         },
     });
 
-    await db.userRole.create({
-        data: { userId: user.id, role: data.role },
-    }).catch(() => {/* UserRole may not exist on all schemas; non-fatal */});
+    await db.userRole
+        .create({
+            data: { userId: user.id, role: data.role },
+        })
+        .catch(() => {
+            /* UserRole may not exist on all schemas; non-fatal */
+        });
 
     await logActivity({
         userId: session.user.id!,
-        action: "TENANT_USER_CREATED",
-        entityType: "User",
+        action: 'TENANT_USER_CREATED',
+        entityType: 'User',
         entityId: user.id,
         details: `Created user ${user.email} (role: ${data.role}) on tenant "${tenant.name}".`,
-        changes: { tenantId, name: data.name, email: data.email, role: data.role },
+        changes: {
+            tenantId,
+            name: data.name,
+            email: data.email,
+            role: data.role,
+        },
     });
 
     return { success: true as const, userId: user.id };
@@ -126,29 +153,33 @@ export async function createTenantUser(
 export async function updateTenantUserRole(
     tenantId: string,
     userId: string,
-    role: Role
+    role: Role,
 ) {
     const session = await requireSuperAdmin();
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const target = await db.user.findUnique({ where: { id: userId } });
-    if (!target) throw new BusinessRuleError("User tidak ditemukan.");
+    if (!target) throw new BusinessRuleError('User tidak ditemukan.');
 
     await db.user.update({
         where: { id: userId },
         data: { role },
     });
     // Upsert UserRole entry so userRole.findMany picks up the new role.
-    await db.userRole.upsert({
-        where: { userId_role: { userId, role: target.role } },
-        create: { userId, role },
-        update: {},
-    }).catch(() => {/* non-fatal if UserRole table differs */});
+    await db.userRole
+        .upsert({
+            where: { userId_role: { userId, role: target.role } },
+            create: { userId, role },
+            update: {},
+        })
+        .catch(() => {
+            /* non-fatal if UserRole table differs */
+        });
 
     await logActivity({
         userId: session.user.id!,
-        action: "TENANT_USER_ROLE_CHANGED",
-        entityType: "User",
+        action: 'TENANT_USER_ROLE_CHANGED',
+        entityType: 'User',
         entityId: userId,
         details: `Changed role of ${target.email} from ${target.role} to ${role} on tenant "${tenant.name}".`,
         changes: { tenantId, userId, before: target.role, after: role },
@@ -165,14 +196,14 @@ export async function deleteTenantUser(tenantId: string, userId: string) {
     const { tenant, db } = await loadTenantDb(tenantId);
 
     const target = await db.user.findUnique({ where: { id: userId } });
-    if (!target) throw new BusinessRuleError("User tidak ditemukan.");
+    if (!target) throw new BusinessRuleError('User tidak ditemukan.');
 
     await db.user.delete({ where: { id: userId } });
 
     await logActivity({
         userId: session.user.id!,
-        action: "TENANT_USER_DELETED",
-        entityType: "User",
+        action: 'TENANT_USER_DELETED',
+        entityType: 'User',
         entityId: userId,
         details: `Deleted user ${target.email} from tenant "${tenant.name}".`,
         changes: { tenantId, userId, email: target.email },

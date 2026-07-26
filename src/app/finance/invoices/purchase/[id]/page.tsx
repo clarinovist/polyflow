@@ -13,7 +13,9 @@ interface PageProps {
     }>;
 }
 
-export default async function FinancialPurchaseInvoicePage({ params }: PageProps) {
+export default async function FinancialPurchaseInvoicePage({
+    params,
+}: PageProps) {
     const { id } = await params;
     const invoice = await getInvoice(id);
 

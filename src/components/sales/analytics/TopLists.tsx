@@ -18,16 +18,22 @@ export function TopProductsList({ data }: TopProductsListProps) {
                     {data.map((product, i) => (
                         <div key={i} className="flex items-center">
                             <div className="space-y-1">
-                                <p className="text-sm font-medium leading-none">{product.productName}</p>
+                                <p className="text-sm font-medium leading-none">
+                                    {product.productName}
+                                </p>
                                 <p className="text-sm text-muted-foreground">
                                     {product.totalQuantity} terjual
                                 </p>
                             </div>
-                            <div className="ml-auto font-medium">{formatRupiah(product.totalRevenue)}</div>
+                            <div className="ml-auto font-medium">
+                                {formatRupiah(product.totalRevenue)}
+                            </div>
                         </div>
                     ))}
                     {data.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Belum ada penjualan.</p>
+                        <p className="text-sm text-muted-foreground">
+                            Belum ada penjualan.
+                        </p>
                     )}
                 </div>
             </CardContent>
@@ -50,19 +56,29 @@ export function TopCustomersList({ data }: TopCustomersListProps) {
                     {data.map((customer, i) => (
                         <div key={i} className="flex items-center">
                             <Avatar className="h-9 w-9">
-                                <AvatarFallback>{customer.customerName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                <AvatarFallback>
+                                    {customer.customerName
+                                        .substring(0, 2)
+                                        .toUpperCase()}
+                                </AvatarFallback>
                             </Avatar>
                             <div className="ml-4 space-y-1">
-                                <p className="text-sm font-medium leading-none">{customer.customerName}</p>
+                                <p className="text-sm font-medium leading-none">
+                                    {customer.customerName}
+                                </p>
                                 <p className="text-sm text-muted-foreground">
                                     {customer.orderCount} pesanan
                                 </p>
                             </div>
-                            <div className="ml-auto font-medium">{formatRupiah(customer.totalSpent)}</div>
+                            <div className="ml-auto font-medium">
+                                {formatRupiah(customer.totalSpent)}
+                            </div>
                         </div>
                     ))}
                     {data.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Belum ada pelanggan.</p>
+                        <p className="text-sm text-muted-foreground">
+                            Belum ada pelanggan.
+                        </p>
                     )}
                 </div>
             </CardContent>

@@ -7,12 +7,15 @@ export const importJournalSchema = z.object({
     Description: z.string(),
     AccountCode: z.string(),
     Debit: z.coerce.number().min(0),
-    Credit: z.coerce.number().min(0)
+    Credit: z.coerce.number().min(0),
 });
 
 export type ImportJournalRow = z.infer<typeof importJournalSchema>;
 
-export async function parseJournalCSV(file: File): Promise<{ data: ImportJournalRow[]; errors: { row: number; error: z.ZodIssue[] }[] }> {
+export async function parseJournalCSV(file: File): Promise<{
+    data: ImportJournalRow[];
+    errors: { row: number; error: z.ZodIssue[] }[];
+}> {
     return new Promise((resolve) => {
         Papa.parse(file, {
             header: true,
@@ -26,7 +29,10 @@ export async function parseJournalCSV(file: File): Promise<{ data: ImportJournal
                     if (result.success) {
                         parsedData.push(result.data);
                     } else {
-                        errors.push({ row: index + 2, error: result.error.issues });
+                        errors.push({
+                            row: index + 2,
+                            error: result.error.issues,
+                        });
                     }
                 });
 
@@ -34,8 +40,22 @@ export async function parseJournalCSV(file: File): Promise<{ data: ImportJournal
             },
             error: (error) => {
                 // PapaParse error is different, handle it as a row 0 error
-                resolve({ data: [], errors: [{ row: 0, error: [{ code: 'custom', message: error.message, path: [] } as z.ZodIssue] }] });
-            }
+                resolve({
+                    data: [],
+                    errors: [
+                        {
+                            row: 0,
+                            error: [
+                                {
+                                    code: 'custom',
+                                    message: error.message,
+                                    path: [],
+                                } as z.ZodIssue,
+                            ],
+                        },
+                    ],
+                });
+            },
         });
     });
 }

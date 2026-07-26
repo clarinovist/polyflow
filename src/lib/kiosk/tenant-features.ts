@@ -8,7 +8,9 @@
 /** Tenants that show Proses Khusus (HD + Potong/Plong) on the kiosk hub. */
 const PROSES_KHUSUS_TENANTS = new Set(['kiyowo']);
 
-export function tenantHasProsesKhusus(subdomain: string | null | undefined): boolean {
-  if (!subdomain) return false;
-  return PROSES_KHUSUS_TENANTS.has(subdomain.toLowerCase());
+export function tenantHasProsesKhusus(
+    subdomain: string | null | undefined,
+): boolean {
+    if (!subdomain) return false;
+    return PROSES_KHUSUS_TENANTS.has(subdomain.toLowerCase());
 }

@@ -15,7 +15,10 @@ export class TaxService {
     /**
      * Get Tax Summary Report (VAT and Income Tax bounds for a given period)
      */
-    static async getTaxSummary(startDate: Date, endDate: Date): Promise<TaxReportSummary> {
+    static async getTaxSummary(
+        startDate: Date,
+        endDate: Date,
+    ): Promise<TaxReportSummary> {
         const vatOutResolved = await resolveAccount('vat-output');
         const vatInResolved = await resolveAccount('vat-input');
         const pph21Resolved = await resolveAccount('income-tax');
@@ -30,14 +33,14 @@ export class TaxService {
                         status: JournalStatus.POSTED,
                         entryDate: {
                             gte: startDate,
-                            lte: endDate
-                        }
-                    }
+                            lte: endDate,
+                        },
+                    },
                 },
                 _sum: {
                     debit: true,
-                    credit: true
-                }
+                    credit: true,
+                },
             });
 
             // For liabilities, Net Balance = Credit - Debit
@@ -59,7 +62,7 @@ export class TaxService {
             netVatPayable,
             incomeTaxPayable,
             periodStart: startDate,
-            periodEnd: endDate
+            periodEnd: endDate,
         };
     }
 }

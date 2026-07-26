@@ -1,35 +1,45 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { InvoiceService } from '@/services/finance/invoice-service';
-import { createInvoiceSchema, updateInvoiceStatusSchema, CreateInvoiceValues } from '@/lib/schemas/invoice';
+import {
+    createInvoiceSchema,
+    updateInvoiceStatusSchema,
+    CreateInvoiceValues,
+} from '@/lib/schemas/invoice';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError, ValidationError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    ValidationError,
+} from '@/lib/errors/errors';
 
-export const getInvoices = withTenant(
-async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }, demandType?: 'customer' | 'legacy-internal') {
+export const getInvoices = withTenant(async function getInvoices(
+    dateRange?: { startDate?: Date; endDate?: Date },
+    demandType?: 'customer' | 'legacy-internal',
+) {
     return safeAction(async () => {
         await requireAuth();
         const where: Prisma.InvoiceWhereInput = {};
         if (dateRange?.startDate && dateRange?.endDate) {
             where.invoiceDate = {
                 gte: dateRange.startDate,
-                lte: dateRange.endDate
+                lte: dateRange.endDate,
             };
         }
 
         if (demandType === 'customer') {
             where.salesOrder = {
-                customerId: { not: null }
+                customerId: { not: null },
             };
         } else if (demandType === 'legacy-internal') {
             where.salesOrder = {
-                customerId: null
+                customerId: null,
             };
         }
 
@@ -39,19 +49,19 @@ async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }, dem
                 salesOrder: {
                     select: {
                         orderNumber: true,
-                        customer: { select: { name: true } }
-                    }
-                }
+                        customer: { select: { name: true } },
+                    },
+                },
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
         });
         return serializeData(invoices);
     });
-}
-);
+});
 
-export const getInvoiceById = withTenant(
-async function getInvoiceById(id: string) {
+export const getInvoiceById = withTenant(async function getInvoiceById(
+    id: string,
+) {
     return safeAction(async () => {
         await requireAuth();
         const invoice = await prisma.invoice.findUnique({
@@ -63,21 +73,21 @@ async function getInvoiceById(id: string) {
                         items: {
                             include: {
                                 productVariant: {
-                                    include: { product: true }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    include: { product: true },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         });
         return serializeData(invoice);
     });
-}
-);
+});
 
-export const createInvoice = withTenant(
-async function createInvoice(data: CreateInvoiceValues) {
+export const createInvoice = withTenant(async function createInvoice(
+    data: CreateInvoiceValues,
+) {
     return safeAction(async () => {
         const session = await requireAuth();
         const result = createInvoiceSchema.safeParse(data);
@@ -87,108 +97,141 @@ async function createInvoice(data: CreateInvoiceValues) {
         }
 
         try {
-            const invoice = await InvoiceService.createInvoice(result.data, session.user.id);
+            const invoice = await InvoiceService.createInvoice(
+                result.data,
+                session.user.id,
+            );
 
             revalidatePath('/sales'); // Refresh sales to update invoice status if any
             revalidatePath(`/sales/orders/${data.salesOrderId}`);
             return serializeData(invoice);
         } catch (error) {
-            logger.error('Failed to create invoice', { error, module: 'InvoiceActions' });
-            if (error instanceof Error && /Sales Order not found|Sales Order has no total amount|without customer/i.test(error.message)) {
+            logger.error('Failed to create invoice', {
+                error,
+                module: 'InvoiceActions',
+            });
+            if (
+                error instanceof Error &&
+                /Sales Order not found|Sales Order has no total amount|without customer/i.test(
+                    error.message,
+                )
+            ) {
                 throw new BusinessRuleError(error.message);
             }
-            throw new BusinessRuleError('Failed to create invoice. Please try again.');
+            throw new BusinessRuleError(
+                'Failed to create invoice. Please try again.',
+            );
         }
     });
-}
-);
+});
 
 export const updateInvoiceStatus = withTenant(
-async function updateInvoiceStatus(data: { id: string, status: InvoiceStatus, paidAmount?: number }) {
-    return safeAction(async () => {
-        const session = await requireAuth();
-        const result = updateInvoiceStatusSchema.safeParse(data);
+    async function updateInvoiceStatus(data: {
+        id: string;
+        status: InvoiceStatus;
+        paidAmount?: number;
+    }) {
+        return safeAction(async () => {
+            const session = await requireAuth();
+            const result = updateInvoiceStatusSchema.safeParse(data);
 
-        if (!result.success) {
-            throw new ValidationError(result.error.issues[0].message);
-        }
-
-        try {
-            await InvoiceService.updateStatus(result.data, session.user.id);
-            revalidatePath('/sales'); // If there were an invoice list page, verify path
-            const invoice = await prisma.invoice.findUnique({ where: { id: data.id }, select: { salesOrderId: true } });
-            if (invoice) {
-                revalidatePath(`/sales/orders/${invoice.salesOrderId}`);
+            if (!result.success) {
+                throw new ValidationError(result.error.issues[0].message);
             }
 
-            return { success: true };
-        } catch (error) {
-            logger.error('Failed to update invoice status', { error, invoiceId: data.id, module: 'InvoiceActions' });
-            throw new BusinessRuleError('Failed to update invoice. Please try again.');
-        }
-    });
-}
+            try {
+                await InvoiceService.updateStatus(result.data, session.user.id);
+                revalidatePath('/sales'); // If there were an invoice list page, verify path
+                const invoice = await prisma.invoice.findUnique({
+                    where: { id: data.id },
+                    select: { salesOrderId: true },
+                });
+                if (invoice) {
+                    revalidatePath(`/sales/orders/${invoice.salesOrderId}`);
+                }
+
+                return { success: true };
+            } catch (error) {
+                logger.error('Failed to update invoice status', {
+                    error,
+                    invoiceId: data.id,
+                    module: 'InvoiceActions',
+                });
+                throw new BusinessRuleError(
+                    'Failed to update invoice. Please try again.',
+                );
+            }
+        });
+    },
 );
 
 export const getOutstandingInvoicesByCustomerId = withTenant(
-async function getOutstandingInvoicesByCustomerId(customerId: string) {
-    return safeAction(async () => {
-        await requireAuth();
-        const invoices = await prisma.invoice.findMany({
-            where: {
-                salesOrder: {
-                    customerId: customerId
+    async function getOutstandingInvoicesByCustomerId(customerId: string) {
+        return safeAction(async () => {
+            await requireAuth();
+            const invoices = await prisma.invoice.findMany({
+                where: {
+                    salesOrder: {
+                        customerId: customerId,
+                    },
+                    status: {
+                        in: [
+                            InvoiceStatus.UNPAID,
+                            InvoiceStatus.PARTIAL,
+                            InvoiceStatus.OVERDUE,
+                        ],
+                    },
                 },
-                status: {
-                    in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE]
-                }
-            },
-            include: {
-                salesOrder: {
-                    select: {
-                        orderNumber: true
-                    }
-                }
-            },
-            orderBy: {
-                dueDate: 'asc'
-            }
+                include: {
+                    salesOrder: {
+                        select: {
+                            orderNumber: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    dueDate: 'asc',
+                },
+            });
+            return serializeData(invoices);
         });
-        return serializeData(invoices);
-    });
-}
+    },
 );
 
 export const getOutstandingInvoices = withTenant(
-async function getOutstandingInvoices() {
-    return safeAction(async () => {
-        await requireAuth();
-        const invoices = await prisma.invoice.findMany({
-            where: {
-                status: {
-                    in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE]
+    async function getOutstandingInvoices() {
+        return safeAction(async () => {
+            await requireAuth();
+            const invoices = await prisma.invoice.findMany({
+                where: {
+                    status: {
+                        in: [
+                            InvoiceStatus.UNPAID,
+                            InvoiceStatus.PARTIAL,
+                            InvoiceStatus.OVERDUE,
+                        ],
+                    },
+                    salesOrder: {
+                        customerId: { not: null },
+                    },
                 },
-                salesOrder: {
-                    customerId: { not: null }
-                }
-            },
-            include: {
-                salesOrder: {
-                    select: {
-                        orderNumber: true,
-                        customer: {
-                            select: {
-                                name: true
-                            }
-                        }
-                    }
-                }
-            },
-            orderBy: {
-                dueDate: 'asc'
-            }
+                include: {
+                    salesOrder: {
+                        select: {
+                            orderNumber: true,
+                            customer: {
+                                select: {
+                                    name: true,
+                                },
+                            },
+                        },
+                    },
+                },
+                orderBy: {
+                    dueDate: 'asc',
+                },
+            });
+            return serializeData(invoices);
         });
-        return serializeData(invoices);
-    });
-}
+    },
 );

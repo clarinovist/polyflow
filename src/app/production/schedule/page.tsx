@@ -4,7 +4,12 @@ import { ProductionStatus } from '@prisma/client';
 import { startOfDay, addDays, parseISO, isValid } from 'date-fns';
 import { Calendar as CalendarIcon, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { planningLabels } from '@/lib/labels';
 import { ScheduleBoardClient } from '@/components/production/schedule/ScheduleBoardClient';
 import type { Metadata } from 'next';
@@ -22,12 +27,20 @@ interface PageProps {
 export default async function PpicSchedulePage({ searchParams }: PageProps) {
     const params = await searchParams;
     const machinesRes = await getMachines();
-    const machines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
+    const machines =
+        machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
     const ordersRes = await getProductionOrders();
     const allOrders = ordersRes;
     const orders = allOrders.filter((o) =>
-        ([ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.DRAFT, ProductionStatus.WAITING_MATERIAL] as ProductionStatus[]).includes(o.status)
+        (
+            [
+                ProductionStatus.RELEASED,
+                ProductionStatus.IN_PROGRESS,
+                ProductionStatus.DRAFT,
+                ProductionStatus.WAITING_MATERIAL,
+            ] as ProductionStatus[]
+        ).includes(o.status),
     );
 
     // Parse ?from=YYYY-MM-DD for week navigation
@@ -39,7 +52,9 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
             timelineStart = startOfDay(parsed);
         }
     }
-    const timelineDays = Array.from({ length: 7 }, (_, i) => addDays(timelineStart, i));
+    const timelineDays = Array.from({ length: 7 }, (_, i) =>
+        addDays(timelineStart, i),
+    );
 
     // Map orders to shape expected by client components
     const clientOrders = orders.map((o) => ({
@@ -77,26 +92,38 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <span className="flex-1 sm:flex-none">
-                                    <Button variant="outline" size="sm" className="w-full" disabled>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        disabled
+                                    >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {planningLabels.monthView}
                                     </Button>
                                 </span>
                             </TooltipTrigger>
-                            <TooltipContent>{planningLabels.monthViewDisabled}</TooltipContent>
+                            <TooltipContent>
+                                {planningLabels.monthViewDisabled}
+                            </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <span className="flex-1 sm:flex-none">
-                                    <Button className="bg-zinc-900 dark:bg-zinc-950 hover:bg-zinc-800 w-full" disabled>
+                                    <Button
+                                        className="bg-zinc-900 dark:bg-zinc-950 hover:bg-zinc-800 w-full"
+                                        disabled
+                                    >
                                         <Layers className="mr-2 h-4 w-4" />
                                         {planningLabels.optimizeBatches}
                                     </Button>
                                 </span>
                             </TooltipTrigger>
-                            <TooltipContent>{planningLabels.optimizeBatchesDisabled}</TooltipContent>
+                            <TooltipContent>
+                                {planningLabels.optimizeBatchesDisabled}
+                            </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                 </div>

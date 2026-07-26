@@ -13,7 +13,10 @@ export default function PackingMonthlyReportLoading() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
-                    <Card key={i} className="border-zinc-200 dark:border-zinc-800">
+                    <Card
+                        key={i}
+                        className="border-zinc-200 dark:border-zinc-800"
+                    >
                         <CardContent className="pt-6">
                             <div className="h-20 bg-zinc-100 dark:bg-zinc-900/50 rounded" />
                         </CardContent>
@@ -30,7 +33,10 @@ export default function PackingMonthlyReportLoading() {
                     <div className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden">
                         <div className="h-10 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800" />
                         {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="h-12 border-b border-zinc-100 dark:border-zinc-900 last:border-0" />
+                            <div
+                                key={i}
+                                className="h-12 border-b border-zinc-100 dark:border-zinc-900 last:border-0"
+                            />
                         ))}
                     </div>
                 </CardContent>

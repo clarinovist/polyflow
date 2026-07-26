@@ -1,20 +1,29 @@
 'use client';
 
-import { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Play, Square, AlertTriangle, PlusCircle } from "lucide-react";
-import { toast } from "sonner";
-import { startExecution } from "@/actions/production/production";
-import { KioskStopDialog } from "@/components/production/kiosk/KioskStopDialog";
-import { DowntimeDialog } from "@/components/production/kiosk/DowntimeDialog";
-import { KioskLogOutputDialog } from "@/components/production/kiosk/KioskLogOutputDialog";
-import { KioskJobProgress } from "@/components/kiosk/KioskJobProgress";
-import { getProductionUnitMeta, toDisplayQuantity } from "@/lib/utils/production-units";
-import { kioskLabels } from "@/lib/labels";
-import { getStatusLabel } from "@/lib/labels/helpers";
+import { useState, useEffect, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+    ArrowLeft,
+    Play,
+    Square,
+    AlertTriangle,
+    PlusCircle,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { startExecution } from '@/actions/production/production';
+import { KioskStopDialog } from '@/components/production/kiosk/KioskStopDialog';
+import { DowntimeDialog } from '@/components/production/kiosk/DowntimeDialog';
+import { KioskLogOutputDialog } from '@/components/production/kiosk/KioskLogOutputDialog';
+import { KioskJobProgress } from '@/components/kiosk/KioskJobProgress';
+import {
+    getProductionUnitMeta,
+    toDisplayQuantity,
+} from '@/lib/utils/production-units';
+import { kioskLabels } from '@/lib/labels';
+import { getStatusLabel } from '@/lib/labels/helpers';
 
 export interface Order {
     id: string;
@@ -67,7 +76,10 @@ interface KioskJobFocusProps {
     shifts?: Shift[];
 }
 
-export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps) {
+export default function KioskJobFocus({
+    order,
+    shifts = [],
+}: KioskJobFocusProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [stopDialogOpen, setStopDialogOpen] = useState(false);
@@ -75,16 +87,19 @@ export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps
     const [operatorId, setOperatorId] = useState<string | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [timeLeft, setTimeLeft] = useState(30);
-    const [optimisticExecutionId, setOptimisticExecutionId] = useState<string | null>(null);
+    const [optimisticExecutionId, setOptimisticExecutionId] = useState<
+        string | null
+    >(null);
     const [_isPending, startTransition] = useTransition();
 
-    const activeExecution = order.executions.find(e => !e.endTime)
-        ?? (optimisticExecutionId
+    const activeExecution =
+        order.executions.find((e) => !e.endTime) ??
+        (optimisticExecutionId
             ? {
-                id: optimisticExecutionId,
-                startTime: new Date(),
-                endTime: null,
-            }
+                  id: optimisticExecutionId,
+                  startTime: new Date(),
+                  endTime: null,
+              }
             : undefined);
     const isRunning = !!activeExecution;
     const unitMeta = getProductionUnitMeta(order.bom.productVariant);
@@ -105,7 +120,7 @@ export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps
 
     // Clear optimistic override once real execution lands via router.refresh()
     useEffect(() => {
-        const realActive = order.executions.find(e => !e.endTime);
+        const realActive = order.executions.find((e) => !e.endTime);
         if (realActive && optimisticExecutionId) {
             setOptimisticExecutionId(null);
         }
@@ -143,13 +158,16 @@ export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps
             });
 
             if (result.success) {
-                toast.success(activeExecution ? "Operator diganti!" : "Produksi dimulai!");
+                toast.success(
+                    activeExecution ? 'Operator diganti!' : 'Produksi dimulai!',
+                );
                 const startedId =
-                    (result.data as { id?: string } | null | undefined)?.id ?? null;
+                    (result.data as { id?: string } | null | undefined)?.id ??
+                    null;
                 if (startedId) setOptimisticExecutionId(startedId);
                 router.refresh();
             } else {
-                toast.error(result.error || "Gagal memulai produksi");
+                toast.error(result.error || 'Gagal memulai produksi');
             }
         } catch {
             toast.error('Gagal memproses. Silakan coba lagi.');
@@ -192,25 +210,36 @@ export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps
             {/* Back nav */}
             <div className="flex items-center gap-3">
                 <Link href="/kiosk/jobs">
-                    <Button variant="ghost" size="icon" className="h-10 w-10" title={kioskLabels.focusBack}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10"
+                        title={kioskLabels.focusBack}
+                    >
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                 </Link>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground font-mono">WO#{order.orderNumber}</span>
+                        <span className="text-xs text-muted-foreground font-mono">
+                            WO#{order.orderNumber}
+                        </span>
                         <Badge
-                            variant={isRunning ? "default" : "secondary"}
-                            className={`${isRunning ? "bg-emerald-600 animate-pulse" : ""} text-[10px]`}
+                            variant={isRunning ? 'default' : 'secondary'}
+                            className={`${isRunning ? 'bg-emerald-600 animate-pulse' : ''} text-[10px]`}
                         >
-                            {isRunning ? kioskLabels.running.toUpperCase() : getStatusLabel(order.status, 'production')}
+                            {isRunning
+                                ? kioskLabels.running.toUpperCase()
+                                : getStatusLabel(order.status, 'production')}
                         </Badge>
                     </div>
                 </div>
             </div>
 
             {/* Job info card */}
-            <div className={`bg-card border-2 rounded-2xl p-6 md:p-8 ${isRunning ? 'border-emerald-500 shadow-lg' : 'border-border'}`}>
+            <div
+                className={`bg-card border-2 rounded-2xl p-6 md:p-8 ${isRunning ? 'border-emerald-500 shadow-lg' : 'border-border'}`}
+            >
                 <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-tight mb-2">
                     {order.bom.productVariant.name}
                 </h1>
@@ -218,11 +247,17 @@ export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps
                 <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-6">
                     {order.machine && (
                         <span className="flex items-center gap-1">
-                            <span className="font-semibold">{kioskLabels.machine}:</span> {order.machine.name}
+                            <span className="font-semibold">
+                                {kioskLabels.machine}:
+                            </span>{' '}
+                            {order.machine.name}
                         </span>
                     )}
                     <span className="flex items-center gap-1">
-                        <span className="font-semibold">{kioskLabels.operator}:</span> {operatorId ? 'Anda' : '-'}
+                        <span className="font-semibold">
+                            {kioskLabels.operator}:
+                        </span>{' '}
+                        {operatorId ? 'Anda' : '-'}
                     </span>
                 </div>
 
@@ -295,12 +330,19 @@ export default function KioskJobFocus({ order, shifts = [] }: KioskJobFocusProps
                     </h3>
                     <div className="space-y-2">
                         {recentLogs.map((log) => (
-                            <div key={log.id} className="flex items-center justify-between p-2 bg-background rounded-lg text-sm">
+                            <div
+                                key={log.id}
+                                className="flex items-center justify-between p-2 bg-background rounded-lg text-sm"
+                            >
                                 <span className="font-bold text-emerald-600">
-                                    +{log.quantity.toLocaleString('id-ID')} {unitMeta.primaryUnit}
+                                    +{log.quantity.toLocaleString('id-ID')}{' '}
+                                    {unitMeta.primaryUnit}
                                 </span>
                                 <span className="text-xs text-muted-foreground font-mono">
-                                    {new Date(log.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(log.createdAt).toLocaleTimeString(
+                                        'id-ID',
+                                        { hour: '2-digit', minute: '2-digit' },
+                                    )}
                                 </span>
                             </div>
                         ))}

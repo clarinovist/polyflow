@@ -31,10 +31,26 @@ interface AddIssueDialogProps {
 }
 
 const ISSUE_CATEGORIES = [
-    { value: 'MACHINE_BREAKDOWN', label: 'Kerusakan Mesin', description: 'Mesin rusak atau error' },
-    { value: 'MATERIAL_DEFECT', label: 'Cacat Material', description: 'Bahan baku bermasalah' },
-    { value: 'QUALITY_ISSUE', label: 'Masalah Kualitas', description: 'Hasil tidak sesuai standar' },
-    { value: 'OPERATOR_ERROR', label: 'Kesalahan Operator', description: 'Kesalahan operator' },
+    {
+        value: 'MACHINE_BREAKDOWN',
+        label: 'Kerusakan Mesin',
+        description: 'Mesin rusak atau error',
+    },
+    {
+        value: 'MATERIAL_DEFECT',
+        label: 'Cacat Material',
+        description: 'Bahan baku bermasalah',
+    },
+    {
+        value: 'QUALITY_ISSUE',
+        label: 'Masalah Kualitas',
+        description: 'Hasil tidak sesuai standar',
+    },
+    {
+        value: 'OPERATOR_ERROR',
+        label: 'Kesalahan Operator',
+        description: 'Kesalahan operator',
+    },
     { value: 'OTHER', label: 'Lainnya', description: 'Masalah lainnya' },
 ] as const;
 
@@ -55,8 +71,13 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
         try {
             const result = await createProductionIssue({
                 productionOrderId: orderId,
-                category: category as 'MACHINE_BREAKDOWN' | 'MATERIAL_DEFECT' | 'QUALITY_ISSUE' | 'OPERATOR_ERROR' | 'OTHER',
-                description: description.trim()
+                category: category as
+                    | 'MACHINE_BREAKDOWN'
+                    | 'MATERIAL_DEFECT'
+                    | 'QUALITY_ISSUE'
+                    | 'OPERATOR_ERROR'
+                    | 'OTHER',
+                description: description.trim(),
             });
 
             if (result.success) {
@@ -91,7 +112,8 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
                         Catat Masalah Produksi
                     </DialogTitle>
                     <DialogDescription>
-                        Catat kendala yang terjadi selama produksi untuk dilacak dan diselesaikan.
+                        Catat kendala yang terjadi selama produksi untuk dilacak
+                        dan diselesaikan.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -103,10 +125,15 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 {ISSUE_CATEGORIES.map((cat) => (
-                                    <SelectItem key={cat.value} value={cat.value}>
+                                    <SelectItem
+                                        key={cat.value}
+                                        value={cat.value}
+                                    >
                                         <div className="flex flex-col">
                                             <span>{cat.label}</span>
-                                            <span className="text-xs text-muted-foreground">{cat.description}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {cat.description}
+                                            </span>
                                         </div>
                                     </SelectItem>
                                 ))}

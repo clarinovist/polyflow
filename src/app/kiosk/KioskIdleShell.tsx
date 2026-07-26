@@ -1,8 +1,11 @@
 'use client';
 
-import { useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { useKioskIdleSession, KioskIdleWarning } from "@/components/kiosk/KioskIdleSession";
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+    useKioskIdleSession,
+    KioskIdleWarning,
+} from '@/components/kiosk/KioskIdleSession';
 
 interface KioskIdleShellProps {
     children: React.ReactNode;
@@ -26,7 +29,10 @@ export function KioskIdleShell({ children }: KioskIdleShellProps) {
         <>
             {children}
             {showWarning && (
-                <KioskIdleWarning timeLeft={timeLeft} onDismiss={dismissWarning} />
+                <KioskIdleWarning
+                    timeLeft={timeLeft}
+                    onDismiss={dismissWarning}
+                />
             )}
         </>
     );

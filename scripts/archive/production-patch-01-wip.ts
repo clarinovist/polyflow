@@ -7,7 +7,7 @@ async function main() {
     const wipLocation = {
         name: 'WIP Storage',
         slug: 'wip_storage',
-        description: 'Work-in-Progress storage for Roll Film before Converting'
+        description: 'Work-in-Progress storage for Roll Film before Converting',
     };
 
     // Safe Upsert: Only creates if not exists, or updates description/name if exists.
@@ -18,7 +18,9 @@ async function main() {
         create: wipLocation,
     });
 
-    console.log(`✅ Successfully patched location: ${result.name} (${result.slug})`);
+    console.log(
+        `✅ Successfully patched location: ${result.name} (${result.slug})`,
+    );
 }
 
 main()

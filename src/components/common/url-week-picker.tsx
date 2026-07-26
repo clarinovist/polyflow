@@ -11,7 +11,11 @@ interface Props {
 }
 
 /** WeekPicker that syncs the selected week to a URL search-param (?date=YYYY-MM-DD). */
-export function UrlWeekPicker({ currentDate, paramName = 'date', basePath }: Props) {
+export function UrlWeekPicker({
+    currentDate,
+    paramName = 'date',
+    basePath,
+}: Props) {
     const router = useRouter();
     const sp = useSearchParams();
 

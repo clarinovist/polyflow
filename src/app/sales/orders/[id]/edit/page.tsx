@@ -9,23 +9,27 @@ import { notFound } from 'next/navigation';
 interface PageProps {
     params: Promise<{
         id: string;
-    }>
+    }>;
 }
 
 export default async function EditSalesOrderPage({ params }: PageProps) {
     const { id } = await params;
 
-    const [orderRes, customersRes, locationsRes, productsRes] = await Promise.all([
-        getSalesOrderById(id),
-        getCustomers(),
-        getLocations(),
-        getProductVariants()
-    ]);
-    
+    const [orderRes, customersRes, locationsRes, productsRes] =
+        await Promise.all([
+            getSalesOrderById(id),
+            getCustomers(),
+            getLocations(),
+            getProductVariants(),
+        ]);
+
     const order = orderRes?.success && orderRes.data ? orderRes.data : null;
-    const customers = customersRes?.success && customersRes.data ? customersRes.data : [];
-    const locations = locationsRes?.success && locationsRes.data ? locationsRes.data : [];
-    const products = productsRes?.success && productsRes.data ? productsRes.data : [];
+    const customers =
+        customersRes?.success && customersRes.data ? customersRes.data : [];
+    const locations =
+        locationsRes?.success && locationsRes.data ? locationsRes.data : [];
+    const products =
+        productsRes?.success && productsRes.data ? productsRes.data : [];
 
     if (!order) {
         notFound();
@@ -42,8 +46,12 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         expectedDate: order.expectedDate || undefined,
         orderType: order.orderType,
         notes: order.notes || '',
-        shippingCost: orderData.shippingCost ? Number(orderData.shippingCost) : 0,
-        deliveryOrders: ((orderData.deliveryOrders as Array<Record<string, unknown>>) || []).map((d) => ({
+        shippingCost: orderData.shippingCost
+            ? Number(orderData.shippingCost)
+            : 0,
+        deliveryOrders: (
+            (orderData.deliveryOrders as Array<Record<string, unknown>>) || []
+        ).map((d) => ({
             id: String(d.id),
             status: String(d.status),
             totalCharge: d.totalCharge != null ? Number(d.totalCharge) : null,
@@ -51,15 +59,27 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         items: items.map((item) => ({
             id: String(item.id),
             productVariantId: String(item.productVariantId),
-            quantity: item.enteredQuantity ? Number(item.enteredQuantity) : Number(item.quantity),
-            unitPrice: item.enteredUnitPrice ? Number(item.enteredUnitPrice) : Number(item.unitPrice),
-            enteredQuantity: item.enteredQuantity ? Number(item.enteredQuantity) : undefined,
+            quantity: item.enteredQuantity
+                ? Number(item.enteredQuantity)
+                : Number(item.quantity),
+            unitPrice: item.enteredUnitPrice
+                ? Number(item.enteredUnitPrice)
+                : Number(item.unitPrice),
+            enteredQuantity: item.enteredQuantity
+                ? Number(item.enteredQuantity)
+                : undefined,
             enteredUnit: item.enteredUnit || undefined,
-            conversionFactorSnapshot: item.conversionFactorSnapshot ? Number(item.conversionFactorSnapshot) : undefined,
-            enteredUnitPrice: item.enteredUnitPrice ? Number(item.enteredUnitPrice) : undefined,
-            discountPercent: item.discountPercent ? Number(item.discountPercent) : 0,
+            conversionFactorSnapshot: item.conversionFactorSnapshot
+                ? Number(item.conversionFactorSnapshot)
+                : undefined,
+            enteredUnitPrice: item.enteredUnitPrice
+                ? Number(item.enteredUnitPrice)
+                : undefined,
+            discountPercent: item.discountPercent
+                ? Number(item.discountPercent)
+                : 0,
             taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
-        }))
+        })),
     };
 
     return (
@@ -72,31 +92,56 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
                     <SalesOrderForm
                         customers={customers.map((c) => ({
                             ...c,
-                            creditLimit: c.creditLimit ? Number(c.creditLimit) : null,
-                            discountPercent: c.discountPercent ? Number(c.discountPercent) : null
+                            creditLimit: c.creditLimit
+                                ? Number(c.creditLimit)
+                                : null,
+                            discountPercent: c.discountPercent
+                                ? Number(c.discountPercent)
+                                : null,
                         }))}
                         locations={locations}
                         products={products
-                            .filter((p) => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP' || p.product.productType === 'PACKAGING' || p.product.productType === 'SERVICE' || p.product.productType === 'RAW_MATERIAL')
+                            .filter(
+                                (p) =>
+                                    p.product.productType === 'FINISHED_GOOD' ||
+                                    p.product.productType === 'SCRAP' ||
+                                    p.product.productType === 'PACKAGING' ||
+                                    p.product.productType === 'SERVICE' ||
+                                    p.product.productType === 'RAW_MATERIAL',
+                            )
                             .map((p) => ({
                                 ...p,
                                 price: p.price ? Number(p.price) : null,
-                                buyPrice: p.buyPrice ? Number(p.buyPrice) : null,
-                                sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
+                                buyPrice: p.buyPrice
+                                    ? Number(p.buyPrice)
+                                    : null,
+                                sellPrice: p.sellPrice
+                                    ? Number(p.sellPrice)
+                                    : null,
                                 conversionFactor: Number(p.conversionFactor),
-                                minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
-                                reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
-                                reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
-                                standardCost: p.standardCost ? Number(p.standardCost) : null,
-                                customerPrices: p.customerPrices?.map((price) => ({
-                                    customerId: price.customerId,
-                                    unitPrice: Number(price.unitPrice),
-                                    isActive: price.isActive,
-                                })) || [],
-                                inventories: p.inventories?.map((inv) => ({
-                                    locationId: inv.locationId,
-                                    quantity: Number(inv.quantity)
-                                })) || []
+                                minStockAlert: p.minStockAlert
+                                    ? Number(p.minStockAlert)
+                                    : null,
+                                reorderPoint: p.reorderPoint
+                                    ? Number(p.reorderPoint)
+                                    : null,
+                                reorderQuantity: p.reorderQuantity
+                                    ? Number(p.reorderQuantity)
+                                    : null,
+                                standardCost: p.standardCost
+                                    ? Number(p.standardCost)
+                                    : null,
+                                customerPrices:
+                                    p.customerPrices?.map((price) => ({
+                                        customerId: price.customerId,
+                                        unitPrice: Number(price.unitPrice),
+                                        isActive: price.isActive,
+                                    })) || [],
+                                inventories:
+                                    p.inventories?.map((inv) => ({
+                                        locationId: inv.locationId,
+                                        quantity: Number(inv.quantity),
+                                    })) || [],
                             }))}
                         mode="edit"
                         initialData={initialData}

@@ -7,64 +7,70 @@ import { AuthenticationError, NotFoundError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import { withTenant } from '@/lib/core/tenant';
 
-export const createMaklonReturnAction = withTenant(async function createMaklonReturnAction(data: {
-    returnNumber: string;
-    customerId: string;
-    sourceLocationId: string;
-    reason?: string;
-    notes?: string;
-    items: {
-        productVariantId: string;
-        quantity: number;
+export const createMaklonReturnAction = withTenant(
+    async function createMaklonReturnAction(data: {
+        returnNumber: string;
+        customerId: string;
+        sourceLocationId: string;
+        reason?: string;
         notes?: string;
-    }[];
-}) {
-    try {
-        const session = await requireAuth();
-        const user = session?.user;
-        if (!user) throw new AuthenticationError();
+        items: {
+            productVariantId: string;
+            quantity: number;
+            notes?: string;
+        }[];
+    }) {
+        try {
+            const session = await requireAuth();
+            const user = session?.user;
+            if (!user) throw new AuthenticationError();
 
-        const ret = await MaklonReturnService.createReturn({
-            ...data,
-            createdById: user.id
-        });
+            const ret = await MaklonReturnService.createReturn({
+                ...data,
+                createdById: user.id,
+            });
 
-        revalidatePath('/maklon/returns');
-        revalidatePath('/dashboard/maklon/returns');
-        revalidatePath('/warehouse/maklon/returns');
-        revalidatePath('/dashboard/inventory');
-        return { success: true, data: serializeData(ret) };
-    } catch {
-        return { success: false, error: 'Gagal memproses retur Maklon' };
-    }
-});
+            revalidatePath('/maklon/returns');
+            revalidatePath('/dashboard/maklon/returns');
+            revalidatePath('/warehouse/maklon/returns');
+            revalidatePath('/dashboard/inventory');
+            return { success: true, data: serializeData(ret) };
+        } catch {
+            return { success: false, error: 'Gagal memproses retur Maklon' };
+        }
+    },
+);
 
-export const getMaklonReturnsAction = withTenant(async function getMaklonReturnsAction(params?: {
-    search?: string;
-    status?: string;
-    startDate?: Date;
-    endDate?: Date;
-}) {
-    try {
-        const session = await requireAuth();
-        if (!session?.user) throw new AuthenticationError();
-        
-        const returns = await MaklonReturnService.getReturns(params);
-        return { success: true, data: serializeData(returns) };
-    } catch {
-        return { success: false, error: 'Gagal memproses retur Maklon' };
-    }
-});
+export const getMaklonReturnsAction = withTenant(
+    async function getMaklonReturnsAction(params?: {
+        search?: string;
+        status?: string;
+        startDate?: Date;
+        endDate?: Date;
+    }) {
+        try {
+            const session = await requireAuth();
+            if (!session?.user) throw new AuthenticationError();
 
-export const getMaklonReturnByIdAction = withTenant(async function getMaklonReturnByIdAction(id: string) {
-    try {
-        const session = await requireAuth();
-        if (!session?.user) throw new AuthenticationError();
-        
-        const ret = await MaklonReturnService.getReturnById(id);
-        if (!ret) throw new NotFoundError('Maklon Return', id);
-        return { success: true, data: serializeData(ret) };
-    } catch {
-        return { success: false, error: 'Gagal memproses retur Maklon' };
-    }
-});
+            const returns = await MaklonReturnService.getReturns(params);
+            return { success: true, data: serializeData(returns) };
+        } catch {
+            return { success: false, error: 'Gagal memproses retur Maklon' };
+        }
+    },
+);
+
+export const getMaklonReturnByIdAction = withTenant(
+    async function getMaklonReturnByIdAction(id: string) {
+        try {
+            const session = await requireAuth();
+            if (!session?.user) throw new AuthenticationError();
+
+            const ret = await MaklonReturnService.getReturnById(id);
+            if (!ret) throw new NotFoundError('Maklon Return', id);
+            return { success: true, data: serializeData(ret) };
+        } catch {
+            return { success: false, error: 'Gagal memproses retur Maklon' };
+        }
+    },
+);

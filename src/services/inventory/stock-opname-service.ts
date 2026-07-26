@@ -1,111 +1,126 @@
-import { prisma } from "@/lib/core/prisma";
-import { BusinessRuleError, NotFoundError } from "@/lib/errors/errors";
-import { logActivity } from "@/lib/tools/audit";
-import { AccountingService } from "@/services/accounting/accounting-service";
-import { MovementType, OpnameStatus } from "@prisma/client";
+import { prisma } from '@/lib/core/prisma';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { logActivity } from '@/lib/tools/audit';
+import { AccountingService } from '@/services/accounting/accounting-service';
+import { MovementType, OpnameStatus } from '@prisma/client';
 
 export class StockOpnameService {
-  static async completeOpname(opnameId: string, userId: string): Promise<void> {
-    const opname = await prisma.stockOpname.findUnique({
-      where: { id: opnameId },
-      include: { items: true },
-    });
+    static async completeOpname(
+        opnameId: string,
+        userId: string,
+    ): Promise<void> {
+        const opname = await prisma.stockOpname.findUnique({
+            where: { id: opnameId },
+            include: { items: true },
+        });
 
-    if (!opname) throw new NotFoundError("StockOpname", opnameId);
-    if (opname.status !== OpnameStatus.OPEN)
-      throw new BusinessRuleError("Sesi tidak terbuka");
+        if (!opname) throw new NotFoundError('StockOpname', opnameId);
+        if (opname.status !== OpnameStatus.OPEN)
+            throw new BusinessRuleError('Sesi tidak terbuka');
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Process items with variance
-      for (const item of opname.items) {
-        // If countedQuantity is null, we assume it matched system (or wasn't checked)
-        if (item.countedQuantity === null) continue;
+        await prisma.$transaction(async (tx) => {
+            // 1. Process items with variance
+            for (const item of opname.items) {
+                // If countedQuantity is null, we assume it matched system (or wasn't checked)
+                if (item.countedQuantity === null) continue;
 
-        // Use live system stock for variance calculation to avoid stale snapshot issues
-        const liveStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                // Use live system stock for variance calculation to avoid stale snapshot issues
+                const liveStockRow = await tx.$queryRaw<
+                    Array<{ quantity: string }>
+                >`
                     SELECT "quantity"::text as quantity
                     FROM "Inventory"
                     WHERE "locationId" = ${opname.locationId} AND "productVariantId" = ${item.productVariantId}
                     FOR UPDATE
                 `;
-        const currentSystemQty = liveStockRow[0]
-          ? Number(liveStockRow[0].quantity)
-          : 0;
+                const currentSystemQty = liveStockRow[0]
+                    ? Number(liveStockRow[0].quantity)
+                    : 0;
 
-        const countedQty = item.countedQuantity.toNumber();
-        const variance = countedQty - currentSystemQty;
+                const countedQty = item.countedQuantity.toNumber();
+                const variance = countedQty - currentSystemQty;
 
-        if (variance !== 0) {
-          // 2. Upsert Inventory (create if doesn't exist — handles items added manually via addItemToOpname)
-          // Upsert is atomic via ON CONFLICT, but guard duplicate race for safety similar to core-service
-          try {
-            await tx.inventory.upsert({
-              where: {
-                locationId_productVariantId: {
-                  locationId: opname.locationId,
-                  productVariantId: item.productVariantId,
+                if (variance !== 0) {
+                    // 2. Upsert Inventory (create if doesn't exist — handles items added manually via addItemToOpname)
+                    // Upsert is atomic via ON CONFLICT, but guard duplicate race for safety similar to core-service
+                    try {
+                        await tx.inventory.upsert({
+                            where: {
+                                locationId_productVariantId: {
+                                    locationId: opname.locationId,
+                                    productVariantId: item.productVariantId,
+                                },
+                            },
+                            update: {
+                                quantity: item.countedQuantity,
+                            },
+                            create: {
+                                locationId: opname.locationId,
+                                productVariantId: item.productVariantId,
+                                quantity: item.countedQuantity,
+                            },
+                        });
+                    } catch (e: unknown) {
+                        const pe = e as { code?: string; message?: string };
+                        const isDup =
+                            pe.code === 'P2002' ||
+                            pe.message?.includes(
+                                'Inventory_locationId_productVariantId_key',
+                            );
+                        if (!isDup) throw e;
+                        await tx.inventory.update({
+                            where: {
+                                locationId_productVariantId: {
+                                    locationId: opname.locationId,
+                                    productVariantId: item.productVariantId,
+                                },
+                            },
+                            data: { quantity: item.countedQuantity },
+                        });
+                    }
+
+                    // 3. Create Movement
+                    const movement = await tx.stockMovement.create({
+                        data: {
+                            type: MovementType.ADJUSTMENT,
+                            productVariantId: item.productVariantId,
+                            fromLocationId:
+                                variance < 0 ? opname.locationId : null,
+                            toLocationId:
+                                variance > 0 ? opname.locationId : null,
+                            quantity: Math.abs(variance),
+                            reference:
+                                opname.opnameNumber ||
+                                `Stock Opname #${opname.id.slice(0, 8)}`,
+                        },
+                    });
+
+                    // 4. Record Journal Entry
+                    await AccountingService.recordInventoryMovement(
+                        movement,
+                        tx,
+                    );
+                }
+            }
+
+            // 5. Close Session with audit trail
+            await tx.stockOpname.update({
+                where: { id: opnameId },
+                data: {
+                    status: OpnameStatus.COMPLETED,
+                    completedAt: new Date(),
                 },
-              },
-              update: {
-                quantity: item.countedQuantity,
-              },
-              create: {
-                locationId: opname.locationId,
-                productVariantId: item.productVariantId,
-                quantity: item.countedQuantity,
-              },
             });
-          } catch (e: unknown) {
-            const pe = e as { code?: string; message?: string };
-            const isDup = pe.code === "P2002" || pe.message?.includes("Inventory_locationId_productVariantId_key");
-            if (!isDup) throw e;
-            await tx.inventory.update({
-              where: {
-                locationId_productVariantId: {
-                  locationId: opname.locationId,
-                  productVariantId: item.productVariantId,
-                },
-              },
-              data: { quantity: item.countedQuantity },
+
+            // 6. Log Activity
+            await logActivity({
+                userId,
+                action: 'COMPLETE_OPNAME',
+                entityType: 'StockOpname',
+                entityId: opnameId,
+                details: `Completed opname for location ${opname.locationId}`,
+                tx,
             });
-          }
-
-          // 3. Create Movement
-          const movement = await tx.stockMovement.create({
-            data: {
-              type: MovementType.ADJUSTMENT,
-              productVariantId: item.productVariantId,
-              fromLocationId: variance < 0 ? opname.locationId : null,
-              toLocationId: variance > 0 ? opname.locationId : null,
-              quantity: Math.abs(variance),
-              reference:
-                opname.opnameNumber || `Stock Opname #${opname.id.slice(0, 8)}`,
-            },
-          });
-
-          // 4. Record Journal Entry
-          await AccountingService.recordInventoryMovement(movement, tx);
-        }
-      }
-
-      // 5. Close Session with audit trail
-      await tx.stockOpname.update({
-        where: { id: opnameId },
-        data: {
-          status: OpnameStatus.COMPLETED,
-          completedAt: new Date(),
-        },
-      });
-
-      // 6. Log Activity
-      await logActivity({
-        userId,
-        action: "COMPLETE_OPNAME",
-        entityType: "StockOpname",
-        entityId: opnameId,
-        details: `Completed opname for location ${opname.locationId}`,
-        tx,
-      });
-    });
-  }
+        });
+    }
 }

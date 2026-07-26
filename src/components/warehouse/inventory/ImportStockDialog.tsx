@@ -23,11 +23,22 @@ import {
     AlertTriangle,
     Loader2,
     FileDown,
-    ArrowRight
+    ArrowRight,
 } from 'lucide-react';
-import { parseStockCSVFile, downloadStockCSVTemplate, downloadStockErrorReport } from '@/lib/utils/stock-csv-parser';
-import { validateStockImportRows, ValidationResult, getStockValidationSummary } from '@/lib/utils/stock-import-validator';
-import { getStockImportLookups, importInitialStock } from '@/actions/inventory/stock-import';
+import {
+    parseStockCSVFile,
+    downloadStockCSVTemplate,
+    downloadStockErrorReport,
+} from '@/lib/utils/stock-csv-parser';
+import {
+    validateStockImportRows,
+    ValidationResult,
+    getStockValidationSummary,
+} from '@/lib/utils/stock-import-validator';
+import {
+    getStockImportLookups,
+    importInitialStock,
+} from '@/actions/inventory/stock-import';
 
 interface ImportStockResult {
     success: boolean;
@@ -44,9 +55,13 @@ export function ImportStockDialog() {
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<ImportStep>('upload');
     const [_file, setFile] = useState<File | null>(null);
-    const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
+    const [validationResults, setValidationResults] = useState<
+        ValidationResult[]
+    >([]);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [importResult, setImportResult] = useState<ImportStockResult | null>(null);
+    const [importResult, setImportResult] = useState<ImportStockResult | null>(
+        null,
+    );
     const [progress, setProgress] = useState(0);
     const [statusMessage, setStatusMessage] = useState('');
     const [importReason, setImportReason] = useState('Initial Stock Import');
@@ -85,10 +100,12 @@ export function ImportStockDialog() {
 
             // Map converting for validator
             const skuMap = new Map<string, string>();
-            lookups.data.products.forEach(p => skuMap.set(p.sku, p.id));
+            lookups.data.products.forEach((p) => skuMap.set(p.sku, p.id));
 
             const locationMap = new Map<string, string>();
-            lookups.data.locations.forEach(l => locationMap.set(l.name, l.id));
+            lookups.data.locations.forEach((l) =>
+                locationMap.set(l.name, l.id),
+            );
 
             // 3. Validate rows
             setProgress(70);
@@ -101,7 +118,9 @@ export function ImportStockDialog() {
             setStatusMessage('');
             setStep('preview');
         } catch {
-               toast.error('Gagal memproses file. Periksa format file dan coba lagi.');
+            toast.error(
+                'Gagal memproses file. Periksa format file dan coba lagi.',
+            );
             setFile(null); // Reset
         } finally {
             setIsProcessing(false);
@@ -114,11 +133,13 @@ export function ImportStockDialog() {
 
         try {
             // Get only valid rows and map to server action expected format
-            const validResults = validationResults.filter(r => r.isValid && r.productVariantId && r.locationId);
-            const importItems = validResults.map(r => ({
+            const validResults = validationResults.filter(
+                (r) => r.isValid && r.productVariantId && r.locationId,
+            );
+            const importItems = validResults.map((r) => ({
                 productVariantId: r.productVariantId!,
                 locationId: r.locationId!,
-                quantity: Number(r.data.quantity)
+                quantity: Number(r.data.quantity),
             }));
 
             if (importItems.length === 0) {
@@ -133,7 +154,9 @@ export function ImportStockDialog() {
                 setImportResult({
                     success: false,
                     imported: 0,
-                    errors: result.error ? [result.error] : ['Unknown import error']
+                    errors: result.error
+                        ? [result.error]
+                        : ['Unknown import error'],
                 });
                 toast.error('Impor gagal dengan error');
                 setStep('result');
@@ -142,15 +165,17 @@ export function ImportStockDialog() {
             if (result.data) {
                 setImportResult({
                     success: true,
-                    imported: result.data.imported
+                    imported: result.data.imported,
                 });
-                toast.success(`Berhasil mengimpor ${result.data.imported} item`);
+                toast.success(
+                    `Berhasil mengimpor ${result.data.imported} item`,
+                );
             }
 
             // Move to result step
             setStep('result');
         } catch {
-               toast.error('Gagal mengimpor data. Silakan coba lagi.');
+            toast.error('Gagal mengimpor data. Silakan coba lagi.');
         } finally {
             setIsProcessing(false);
         }
@@ -185,8 +210,10 @@ export function ImportStockDialog() {
                         Impor Data Stok
                     </DialogTitle>
                     <DialogDescription>
-                        {step === 'upload' && warehouseComponentLabels.importStockDesc}
-                        {step === 'preview' && 'Tinjau dan validasi data stok sebelum impor'}
+                        {step === 'upload' &&
+                            warehouseComponentLabels.importStockDesc}
+                        {step === 'preview' &&
+                            'Tinjau dan validasi data stok sebelum impor'}
                         {step === 'result' && 'Proses impor selesai'}
                     </DialogDescription>
                 </DialogHeader>
@@ -197,9 +224,12 @@ export function ImportStockDialog() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
                                 <div>
-                                    <h3 className="font-semibold text-sm mb-2">1. Unduh Template</h3>
+                                    <h3 className="font-semibold text-sm mb-2">
+                                        1. Unduh Template
+                                    </h3>
                                     <p className="text-xs text-muted-foreground mb-3">
-                                        Gunakan template CSV agar format data sesuai.
+                                        Gunakan template CSV agar format data
+                                        sesuai.
                                     </p>
                                     <Button
                                         variant="outline"
@@ -211,26 +241,54 @@ export function ImportStockDialog() {
                                         Unduh Template CSV
                                     </Button>
                                     <div className="mt-4 p-3 bg-muted/30 rounded text-xs space-y-1 text-muted-foreground">
-                                        <p className="font-semibold text-foreground">Kolom Wajib:</p>
+                                        <p className="font-semibold text-foreground">
+                                            Kolom Wajib:
+                                        </p>
                                         <ul className="list-disc pl-4 space-y-0.5">
-                                            <li><span className="font-mono text-foreground">sku_code</span> (harus sudah ada di sistem)</li>
-                                            <li><span className="font-mono text-foreground">location</span> (harus sudah ada di sistem)</li>
-                                            <li><span className="font-mono text-foreground">quantity</span> (angka positif)</li>
+                                            <li>
+                                                <span className="font-mono text-foreground">
+                                                    sku_code
+                                                </span>{' '}
+                                                (harus sudah ada di sistem)
+                                            </li>
+                                            <li>
+                                                <span className="font-mono text-foreground">
+                                                    location
+                                                </span>{' '}
+                                                (harus sudah ada di sistem)
+                                            </li>
+                                            <li>
+                                                <span className="font-mono text-foreground">
+                                                    quantity
+                                                </span>{' '}
+                                                (angka positif)
+                                            </li>
                                         </ul>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
-                                <h3 className="font-semibold text-sm mb-2">2. Unggah File</h3>
+                                <h3 className="font-semibold text-sm mb-2">
+                                    2. Unggah File
+                                </h3>
                                 <div
                                     className={`border-2 border-dashed border-border rounded-lg p-8 text-center hover:bg-muted/10 transition-colors cursor-pointer flex flex-col items-center justify-center h-[200px] ${isProcessing ? 'pointer-events-none opacity-50' : ''}`}
-                                    onClick={() => document.getElementById('stock-file-upload')?.click()}
+                                    onClick={() =>
+                                        document
+                                            .getElementById('stock-file-upload')
+                                            ?.click()
+                                    }
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop={(e) => {
                                         e.preventDefault();
-                                        const droppedFile = e.dataTransfer.files[0];
-                                        if (droppedFile?.name.toLowerCase().endsWith('.csv')) {
+                                        const droppedFile =
+                                            e.dataTransfer.files[0];
+                                        if (
+                                            droppedFile?.name
+                                                .toLowerCase()
+                                                .endsWith('.csv')
+                                        ) {
                                             handleFileSelect(droppedFile);
                                         } else {
                                             toast.error('Unggah file .csv');
@@ -240,14 +298,25 @@ export function ImportStockDialog() {
                                     {isProcessing ? (
                                         <>
                                             <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-                                            <p className="text-sm font-medium">{statusMessage}</p>
-                                            <Progress value={progress} className="w-[60%] h-2 mt-4" />
+                                            <p className="text-sm font-medium">
+                                                {statusMessage}
+                                            </p>
+                                            <Progress
+                                                value={progress}
+                                                className="w-[60%] h-2 mt-4"
+                                            />
                                         </>
                                     ) : (
                                         <>
                                             <Upload className="h-10 w-10 text-muted-foreground mb-4" />
-                                            <p className="text-sm font-medium mb-1">{warehouseComponentLabels.uploadFile}</p>
-                                            <p className="text-xs text-muted-foreground">Supported format: .csv</p>
+                                            <p className="text-sm font-medium mb-1">
+                                                {
+                                                    warehouseComponentLabels.uploadFile
+                                                }
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Supported format: .csv
+                                            </p>
                                         </>
                                     )}
                                     <input
@@ -256,8 +325,10 @@ export function ImportStockDialog() {
                                         accept=".csv"
                                         className="hidden"
                                         onChange={(e) => {
-                                            const selectedFile = e.target.files?.[0];
-                                            if (selectedFile) handleFileSelect(selectedFile);
+                                            const selectedFile =
+                                                e.target.files?.[0];
+                                            if (selectedFile)
+                                                handleFileSelect(selectedFile);
                                         }}
                                         disabled={isProcessing}
                                     />
@@ -272,32 +343,58 @@ export function ImportStockDialog() {
                     <div className="space-y-4 pt-2">
                         <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-muted/20 p-4 rounded-lg border">
                             <div className="space-y-1">
-                                <Label htmlFor="reason" className="text-xs font-semibold">Adjustment Reason</Label>
+                                <Label
+                                    htmlFor="reason"
+                                    className="text-xs font-semibold"
+                                >
+                                    Adjustment Reason
+                                </Label>
                                 <Input
                                     id="reason"
                                     value={importReason}
-                                    onChange={(e) => setImportReason(e.target.value)}
+                                    onChange={(e) =>
+                                        setImportReason(e.target.value)
+                                    }
                                     className="h-8 text-sm w-[300px]"
                                     placeholder="Enter reason..."
                                 />
                             </div>
                             <div className="flex items-center gap-3">
-                                <Badge variant="outline" className="h-7 gap-1.5 bg-background">
+                                <Badge
+                                    variant="outline"
+                                    className="h-7 gap-1.5 bg-background"
+                                >
                                     <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                                    <span className="font-mono font-bold">{summary.valid}</span> valid
+                                    <span className="font-mono font-bold">
+                                        {summary.valid}
+                                    </span>{' '}
+                                    valid
                                 </Badge>
-                                {(summary.warnings > 0 || summary.errors > 0) && (
+                                {(summary.warnings > 0 ||
+                                    summary.errors > 0) && (
                                     <div className="flex gap-2">
                                         {summary.warnings > 0 && (
-                                            <Badge variant="outline" className="h-7 gap-1.5 bg-yellow-50 text-yellow-700 border-yellow-200">
+                                            <Badge
+                                                variant="outline"
+                                                className="h-7 gap-1.5 bg-yellow-50 text-yellow-700 border-yellow-200"
+                                            >
                                                 <AlertTriangle className="h-3.5 w-3.5" />
-                                                <span className="font-mono font-bold">{summary.warnings}</span> warnings
+                                                <span className="font-mono font-bold">
+                                                    {summary.warnings}
+                                                </span>{' '}
+                                                warnings
                                             </Badge>
                                         )}
                                         {summary.errors > 0 && (
-                                            <Badge variant="outline" className="h-7 gap-1.5 bg-red-50 text-red-700 border-red-200">
+                                            <Badge
+                                                variant="outline"
+                                                className="h-7 gap-1.5 bg-red-50 text-red-700 border-red-200"
+                                            >
                                                 <AlertCircle className="h-3.5 w-3.5" />
-                                                <span className="font-mono font-bold">{summary.errors}</span> errors
+                                                <span className="font-mono font-bold">
+                                                    {summary.errors}
+                                                </span>{' '}
+                                                errors
                                             </Badge>
                                         )}
                                     </div>
@@ -312,7 +409,11 @@ export function ImportStockDialog() {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => downloadStockErrorReport(validationResults)}
+                                    onClick={() =>
+                                        downloadStockErrorReport(
+                                            validationResults,
+                                        )
+                                    }
                                     className="text-xs text-muted-foreground hover:text-foreground"
                                 >
                                     <FileDown className="h-3.5 w-3.5 mr-2" />
@@ -322,12 +423,19 @@ export function ImportStockDialog() {
                         )}
 
                         <div className="flex justify-between items-center pt-4 border-t mt-4">
-                            <Button variant="ghost" onClick={() => setStep('upload')}>
+                            <Button
+                                variant="ghost"
+                                onClick={() => setStep('upload')}
+                            >
                                 Kembali ke Unggah
                             </Button>
                             <Button
                                 onClick={handleImport}
-                                disabled={summary.valid === 0 || isProcessing || !importReason.trim()}
+                                disabled={
+                                    summary.valid === 0 ||
+                                    isProcessing ||
+                                    !importReason.trim()
+                                }
                                 className="min-w-[150px]"
                             >
                                 {isProcessing ? (
@@ -337,7 +445,8 @@ export function ImportStockDialog() {
                                     </>
                                 ) : (
                                     <>
-                                        {warehouseComponentLabels.confirmImport} ({summary.valid})
+                                        {warehouseComponentLabels.confirmImport}{' '}
+                                        ({summary.valid})
                                         <ArrowRight className="h-4 w-4 ml-2" />
                                     </>
                                 )}
@@ -361,7 +470,9 @@ export function ImportStockDialog() {
 
                         <div className="text-center space-y-2">
                             <h3 className="text-2xl font-bold">
-                                {importResult.success ? 'Import Complete' : 'Import Failed'}
+                                {importResult.success
+                                    ? 'Import Complete'
+                                    : 'Import Failed'}
                             </h3>
                             <p className="text-muted-foreground max-w-[400px]">
                                 {importResult.success
@@ -370,18 +481,25 @@ export function ImportStockDialog() {
                             </p>
                         </div>
 
-                        {importResult.errors && importResult.errors.length > 0 && (
-                            <div className="w-full max-w-lg bg-destructive/10 border border-destructive/20 rounded-md p-4 text-sm text-destructive">
-                                <p className="font-semibold mb-2">System Errors:</p>
-                                <ul className="list-disc pl-4 space-y-1">
-                                    {importResult.errors.map((err, i) => (
-                                        <li key={i}>{err}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
+                        {importResult.errors &&
+                            importResult.errors.length > 0 && (
+                                <div className="w-full max-w-lg bg-destructive/10 border border-destructive/20 rounded-md p-4 text-sm text-destructive">
+                                    <p className="font-semibold mb-2">
+                                        System Errors:
+                                    </p>
+                                    <ul className="list-disc pl-4 space-y-1">
+                                        {importResult.errors.map((err, i) => (
+                                            <li key={i}>{err}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
 
-                        <Button onClick={handleClose} size="lg" className="min-w-[150px]">
+                        <Button
+                            onClick={handleClose}
+                            size="lg"
+                            className="min-w-[150px]"
+                        >
                             Done
                         </Button>
                     </div>

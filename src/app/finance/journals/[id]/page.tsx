@@ -1,16 +1,35 @@
 import { getJournalById } from '@/actions/finance/journal';
-import { getSalesInvoices, getPurchaseInvoices } from '@/actions/finance/invoices';
+import {
+    getSalesInvoices,
+    getPurchaseInvoices,
+} from '@/actions/finance/invoices';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { JournalActions } from './journal-actions';
-import { DETAIL_JOURNAL_TEMPLATES, type DetailJournalTemplateKey } from '@/lib/config/detail-journal-templates';
+import {
+    DETAIL_JOURNAL_TEMPLATES,
+    type DetailJournalTemplateKey,
+} from '@/lib/config/detail-journal-templates';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 
 interface JournalDetailPageProps {
@@ -18,7 +37,10 @@ interface JournalDetailPageProps {
 }
 
 type JournalEntryData = NonNullable<
-    Extract<Awaited<ReturnType<typeof getJournalById>>, { success: true }>['data']
+    Extract<
+        Awaited<ReturnType<typeof getJournalById>>,
+        { success: true }
+    >['data']
 >;
 type JournalGlLine = JournalEntryData['lines'][number];
 type JournalDetailRow = JournalEntryData['details'][number];
@@ -40,11 +62,14 @@ type PurchaseInvoiceView = {
     } | null;
 };
 
-export default async function JournalDetailPage({ params }: JournalDetailPageProps) {
+export default async function JournalDetailPage({
+    params,
+}: JournalDetailPageProps) {
     const { id } = await params;
 
     const journalRes = await getJournalById(id);
-    const journal: JournalEntryData | null = journalRes.success && journalRes.data ? journalRes.data : null;
+    const journal: JournalEntryData | null =
+        journalRes.success && journalRes.data ? journalRes.data : null;
 
     if (!journal) {
         notFound();
@@ -56,29 +81,46 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
 
     if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
         const invoiceRes = await getSalesInvoices();
-        const allInvoices = invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
-        const invoice = (allInvoices as SalesInvoiceView[]).find((inv) => inv.id === journal.referenceId);
+        const allInvoices =
+            invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
+        const invoice = (allInvoices as SalesInvoiceView[]).find(
+            (inv) => inv.id === journal.referenceId,
+        );
         partyName = invoice?.salesOrder?.customer?.name ?? null;
         orderNotes = invoice?.salesOrder?.notes ?? null;
         partyLabel = 'Pembeli';
-    } else if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
+    } else if (
+        journal.referenceType === 'PURCHASE_INVOICE' &&
+        journal.referenceId
+    ) {
         const invoiceRes = await getPurchaseInvoices();
-        const allInvoices = invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
-        const invoice = (allInvoices as PurchaseInvoiceView[]).find((inv) => inv.id === journal.referenceId);
+        const allInvoices =
+            invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
+        const invoice = (allInvoices as PurchaseInvoiceView[]).find(
+            (inv) => inv.id === journal.referenceId,
+        );
         partyName = invoice?.purchaseOrder?.supplier?.name ?? null;
         orderNotes = invoice?.purchaseOrder?.notes ?? null;
         partyLabel = 'Pemasok';
     }
 
-    const totalDebit = journal.lines.reduce((sum: number, line: JournalGlLine) => sum + Number(line.debit), 0);
-    const totalCredit = journal.lines.reduce((sum: number, line: JournalGlLine) => sum + Number(line.credit), 0);
+    const totalDebit = journal.lines.reduce(
+        (sum: number, line: JournalGlLine) => sum + Number(line.debit),
+        0,
+    );
+    const totalCredit = journal.lines.reduce(
+        (sum: number, line: JournalGlLine) => sum + Number(line.credit),
+        0,
+    );
 
     // Check if this journal has detail entries
     const hasDetails = journal.details && journal.details.length > 0;
     const detailType = hasDetails ? journal.details[0].type : null;
-    const isKnownTemplate = detailType && detailType in DETAIL_JOURNAL_TEMPLATES;
+    const isKnownTemplate =
+        detailType && detailType in DETAIL_JOURNAL_TEMPLATES;
     const detailSectionTitle = isKnownTemplate
-        ? DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey].detailSectionTitle
+        ? DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey]
+              .detailSectionTitle
         : 'Detail Rincian';
 
     return (
@@ -91,17 +133,29 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                         </Button>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Journal Entry #{journal.entryNumber}</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            Journal Entry #{journal.entryNumber}
+                        </h1>
                         <p className="text-muted-foreground">
                             {format(journal.entryDate, 'dd MMMM yyyy, HH:mm')}
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Badge variant={journal.status === 'POSTED' ? 'default' : 'secondary'}>
+                    <Badge
+                        variant={
+                            journal.status === 'POSTED'
+                                ? 'default'
+                                : 'secondary'
+                        }
+                    >
                         {journal.status}
                     </Badge>
-                    <JournalActions id={journal.id} status={journal.status as 'DRAFT' | 'POSTED' | 'VOIDED'} isAutoGenerated={journal.isAutoGenerated} />
+                    <JournalActions
+                        id={journal.id}
+                        status={journal.status as 'DRAFT' | 'POSTED' | 'VOIDED'}
+                        isAutoGenerated={journal.isAutoGenerated}
+                    />
                     <Button variant="outline">
                         <Printer className="mr-2 h-4 w-4" /> Print
                     </Button>
@@ -121,30 +175,63 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                                     <TableRow>
                                         <TableHead>Account</TableHead>
                                         <TableHead>Description</TableHead>
-                                        <TableHead className="text-right">Debit</TableHead>
-                                        <TableHead className="text-right">Credit</TableHead>
+                                        <TableHead className="text-right">
+                                            Debit
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Credit
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {journal.lines.map((line: JournalGlLine) => (
-                                        <TableRow key={line.id}>
-                                            <TableCell>
-                                                <div className="font-medium">{line.account.code}</div>
-                                                <div className="text-xs text-muted-foreground">{line.account.name}</div>
-                                            </TableCell>
-                                            <TableCell>{line.description || '-'}</TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {Number(line.debit) > 0 ? formatRupiah(Number(line.debit)) : '-'}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {Number(line.credit) > 0 ? formatRupiah(Number(line.credit)) : '-'}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {journal.lines.map(
+                                        (line: JournalGlLine) => (
+                                            <TableRow key={line.id}>
+                                                <TableCell>
+                                                    <div className="font-medium">
+                                                        {line.account.code}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {line.account.name}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {line.description || '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono">
+                                                    {Number(line.debit) > 0
+                                                        ? formatRupiah(
+                                                              Number(
+                                                                  line.debit,
+                                                              ),
+                                                          )
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono">
+                                                    {Number(line.credit) > 0
+                                                        ? formatRupiah(
+                                                              Number(
+                                                                  line.credit,
+                                                              ),
+                                                          )
+                                                        : '-'}
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                    )}
                                     <TableRow className="bg-muted/50 font-bold">
-                                        <TableCell colSpan={2} className="text-right">Total</TableCell>
-                                        <TableCell className="text-right">{formatRupiah(totalDebit)}</TableCell>
-                                        <TableCell className="text-right">{formatRupiah(totalCredit)}</TableCell>
+                                        <TableCell
+                                            colSpan={2}
+                                            className="text-right"
+                                        >
+                                            Total
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatRupiah(totalDebit)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatRupiah(totalCredit)}
+                                        </TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -158,31 +245,61 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div className="text-muted-foreground">Reference Type</div>
-                            <div className="font-medium text-right">{journal.referenceType || '-'}</div>
+                            <div className="text-muted-foreground">
+                                Reference Type
+                            </div>
+                            <div className="font-medium text-right">
+                                {journal.referenceType || '-'}
+                            </div>
 
-                            <div className="text-muted-foreground">Reference ID</div>
-                            <div className="font-medium text-right truncate" title={journal.reference || ''}>{journal.reference || '-'}</div>
+                            <div className="text-muted-foreground">
+                                Reference ID
+                            </div>
+                            <div
+                                className="font-medium text-right truncate"
+                                title={journal.reference || ''}
+                            >
+                                {journal.reference || '-'}
+                            </div>
 
                             {partyLabel && partyName && (
                                 <>
-                                    <div className="text-muted-foreground">{partyLabel}</div>
-                                    <div className="font-medium text-right">{partyName}</div>
+                                    <div className="text-muted-foreground">
+                                        {partyLabel}
+                                    </div>
+                                    <div className="font-medium text-right">
+                                        {partyName}
+                                    </div>
                                 </>
                             )}
 
                             {orderNotes && (
                                 <>
-                                    <div className="text-muted-foreground">Order Notes</div>
-                                    <div className="font-medium text-right truncate" title={orderNotes}>{orderNotes}</div>
+                                    <div className="text-muted-foreground">
+                                        Order Notes
+                                    </div>
+                                    <div
+                                        className="font-medium text-right truncate"
+                                        title={orderNotes}
+                                    >
+                                        {orderNotes}
+                                    </div>
                                 </>
                             )}
 
-                            <div className="text-muted-foreground">Created By</div>
-                            <div className="font-medium text-right">{journal.createdBy?.name || 'System'}</div>
+                            <div className="text-muted-foreground">
+                                Created By
+                            </div>
+                            <div className="font-medium text-right">
+                                {journal.createdBy?.name || 'System'}
+                            </div>
 
-                            <div className="text-muted-foreground">Auto-Generated</div>
-                            <div className="font-medium text-right">{journal.isAutoGenerated ? 'Yes' : 'No'}</div>
+                            <div className="text-muted-foreground">
+                                Auto-Generated
+                            </div>
+                            <div className="font-medium text-right">
+                                {journal.isAutoGenerated ? 'Yes' : 'No'}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -199,27 +316,50 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[50px]">No</TableHead>
+                                        <TableHead className="w-[50px]">
+                                            No
+                                        </TableHead>
                                         <TableHead>Nama / Keterangan</TableHead>
-                                        <TableHead className="text-right">Nominal</TableHead>
+                                        <TableHead className="text-right">
+                                            Nominal
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {journal.details.map((detail: JournalDetailRow) => (
-                                        <TableRow key={detail.id}>
-                                            <TableCell className="text-muted-foreground">
-                                                {detail.sortOrder + 1}
-                                            </TableCell>
-                                            <TableCell>{detail.description}</TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {formatRupiah(Number(detail.amount))}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {journal.details.map(
+                                        (detail: JournalDetailRow) => (
+                                            <TableRow key={detail.id}>
+                                                <TableCell className="text-muted-foreground">
+                                                    {detail.sortOrder + 1}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {detail.description}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono">
+                                                    {formatRupiah(
+                                                        Number(detail.amount),
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                    )}
                                     <TableRow className="bg-muted/50 font-bold">
-                                        <TableCell colSpan={2} className="text-right">Total</TableCell>
+                                        <TableCell
+                                            colSpan={2}
+                                            className="text-right"
+                                        >
+                                            Total
+                                        </TableCell>
                                         <TableCell className="text-right">
-                                            {formatRupiah(journal.details.reduce((sum: number, d: JournalDetailRow) => sum + Number(d.amount), 0))}
+                                            {formatRupiah(
+                                                journal.details.reduce(
+                                                    (
+                                                        sum: number,
+                                                        d: JournalDetailRow,
+                                                    ) => sum + Number(d.amount),
+                                                    0,
+                                                ),
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 </TableBody>
@@ -229,7 +369,10 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                 </Card>
             )}
 
-            <EntityStatusTimeline entityType="JournalEntry" entityId={journal.id} />
+            <EntityStatusTimeline
+                entityType="JournalEntry"
+                entityId={journal.id}
+            />
         </div>
     );
 }

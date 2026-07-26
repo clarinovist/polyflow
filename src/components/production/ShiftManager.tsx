@@ -21,7 +21,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2, Users } from 'lucide-react';
-import { addProductionShift, deleteProductionShift } from '@/actions/production/production';
+import {
+    addProductionShift,
+    deleteProductionShift,
+} from '@/actions/production/production';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -42,11 +45,25 @@ interface ShiftManagerProps {
     helpers: { id: string; name: string | null; code: string }[];
 
     readOnly?: boolean;
-    workShifts: { id: string; name: string; startTime: string; endTime: string; status: string }[];
+    workShifts: {
+        id: string;
+        name: string;
+        startTime: string;
+        endTime: string;
+        status: string;
+    }[];
     machines: { id: string; name: string; code: string }[];
 }
 
-export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, workShifts, machines }: ShiftManagerProps) {
+export function ShiftManager({
+    orderId,
+    shifts,
+    operators,
+    helpers,
+    readOnly,
+    workShifts,
+    machines,
+}: ShiftManagerProps) {
     const [_isAdding, _setIsAdding] = useState(false);
 
     async function handleDelete(shiftId: string) {
@@ -84,14 +101,28 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
                                     <CardTitle className="text-base font-medium flex items-center gap-2">
                                         {shift.shiftName}
                                         {shift.startTime && shift.endTime && (
-                                            <Badge variant="outline" className="font-normal text-xs">
-                                                {format(new Date(shift.startTime), 'p')} - {format(new Date(shift.endTime), 'p')}
+                                            <Badge
+                                                variant="outline"
+                                                className="font-normal text-xs"
+                                            >
+                                                {format(
+                                                    new Date(shift.startTime),
+                                                    'p',
+                                                )}{' '}
+                                                -{' '}
+                                                {format(
+                                                    new Date(shift.endTime),
+                                                    'p',
+                                                )}
                                             </Badge>
                                         )}
                                     </CardTitle>
                                     {shift.startTime && (
                                         <span className="text-sm text-slate-500">
-                                            {format(new Date(shift.startTime), 'PPP')}
+                                            {format(
+                                                new Date(shift.startTime),
+                                                'PPP',
+                                            )}
                                         </span>
                                     )}
                                 </div>
@@ -111,15 +142,27 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
                             <div className="flex flex-col gap-2 text-sm">
                                 <div className="flex items-center gap-2 text-slate-700">
                                     <Users className="h-4 w-4 text-slate-400" />
-                                    <span className="font-medium">Operator:</span>
-                                    {shift.operator ? shift.operator.name : <span className="text-slate-400">Unassigned</span>}
+                                    <span className="font-medium">
+                                        Operator:
+                                    </span>
+                                    {shift.operator ? (
+                                        shift.operator.name
+                                    ) : (
+                                        <span className="text-slate-400">
+                                            Unassigned
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex items-start gap-2 text-slate-700">
                                     <span className="ml-6 flex items-start gap-2">
-                                        <span className="font-medium">Helpers:</span>
+                                        <span className="font-medium">
+                                            Helpers:
+                                        </span>
                                         <span className="text-slate-600">
                                             {shift.helpers.length > 0
-                                                ? shift.helpers.map((h) => h.name).join(', ')
+                                                ? shift.helpers
+                                                      .map((h) => h.name)
+                                                      .join(', ')
                                                 : 'None'}
                                         </span>
                                     </span>
@@ -130,7 +173,11 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
                 ))}
                 {shifts.length === 0 && (
                     <div className="text-center py-6 border rounded-lg bg-slate-50 dark:bg-slate-900 text-muted-foreground text-sm">
-                        Belum ada shift. Klik <span className="font-semibold text-slate-900 dark:text-slate-100">Add Shift</span> untuk jadwalkan tim produksi.
+                        Belum ada shift. Klik{' '}
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                            Add Shift
+                        </span>{' '}
+                        untuk jadwalkan tim produksi.
                     </div>
                 )}
             </div>
@@ -144,13 +191,19 @@ function AddShiftDialog({
     helpers,
     onOpenChange,
     workShifts,
-    machines
+    machines,
 }: {
     orderId: string;
     operators: { id: string; name: string | null; code: string }[];
     helpers: { id: string; name: string | null; code: string }[];
     onOpenChange: (open: boolean) => void;
-    workShifts: { id: string; name: string; startTime: string; endTime: string; status: string }[];
+    workShifts: {
+        id: string;
+        name: string;
+        startTime: string;
+        endTime: string;
+        status: string;
+    }[];
     machines: { id: string; name: string; code: string }[];
 }) {
     const [open, setOpen] = useState(false);
@@ -166,12 +219,12 @@ function AddShiftDialog({
         setSelectedHelpers((prev) =>
             prev.includes(helperId)
                 ? prev.filter((id) => id !== helperId)
-                : [...prev, helperId]
+                : [...prev, helperId],
         );
     };
 
     const handleWorkShiftSelect = (shiftId: string) => {
-        const shift = workShifts.find(s => s.id === shiftId);
+        const shift = workShifts.find((s) => s.id === shiftId);
         if (shift) {
             setShiftName(shift.name);
             setStartTime(shift.startTime);
@@ -203,9 +256,9 @@ function AddShiftDialog({
             shiftName: formData.get('shiftName') as string,
             startTime: startTimeDate,
             endTime: endTimeDate,
-            operatorId: formData.get('operatorId') as string || undefined,
+            operatorId: (formData.get('operatorId') as string) || undefined,
             helperIds: selectedHelpers.length > 0 ? selectedHelpers : undefined,
-            machineId: formData.get('machineId') as string || undefined,
+            machineId: (formData.get('machineId') as string) || undefined,
         };
 
         const result = await addProductionShift(data);
@@ -221,7 +274,9 @@ function AddShiftDialog({
             setStartTime('');
             setEndTime('');
         } else {
-            toast.error('Gagal menambahkan shift', { description: result.error });
+            toast.error('Gagal menambahkan shift', {
+                description: result.error,
+            });
         }
     }
 
@@ -238,20 +293,26 @@ function AddShiftDialog({
                     <DialogTitle>Add Production Shift</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={onSubmit} className="space-y-4">
-
                     {/* Work Shift Selection */}
                     <div className="space-y-2">
                         <Label>Standard Shift (Optional)</Label>
                         <Select onValueChange={handleWorkShiftSelect}>
                             <SelectTrigger>
-                                <SelectValue placeholder={productionComponentLabels.selectStandardShift} />
+                                <SelectValue
+                                    placeholder={
+                                        productionComponentLabels.selectStandardShift
+                                    }
+                                />
                             </SelectTrigger>
                             <SelectContent>
-                                {workShifts.filter(s => s.status === 'ACTIVE').map((s) => (
-                                    <SelectItem key={s.id} value={s.id}>
-                                        {s.name} ({s.startTime} - {s.endTime})
-                                    </SelectItem>
-                                ))}
+                                {workShifts
+                                    .filter((s) => s.status === 'ACTIVE')
+                                    .map((s) => (
+                                        <SelectItem key={s.id} value={s.id}>
+                                            {s.name} ({s.startTime} -{' '}
+                                            {s.endTime})
+                                        </SelectItem>
+                                    ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -270,14 +331,26 @@ function AddShiftDialog({
 
                     <div className="space-y-2">
                         <Label htmlFor="date">Date</Label>
-                        <Input id="date" name="date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} />
+                        <Input
+                            id="date"
+                            name="date"
+                            type="date"
+                            required
+                            defaultValue={
+                                new Date().toISOString().split('T')[0]
+                            }
+                        />
                     </div>
 
                     <div className="space-y-2">
                         <Label htmlFor="machineId">Assigned Machine</Label>
                         <Select name="machineId">
                             <SelectTrigger>
-                                <SelectValue placeholder={productionComponentLabels.selectMachineUpdatesOrder} />
+                                <SelectValue
+                                    placeholder={
+                                        productionComponentLabels.selectMachineUpdatesOrder
+                                    }
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {machines.map((m) => (
@@ -287,7 +360,10 @@ function AddShiftDialog({
                                 ))}
                             </SelectContent>
                         </Select>
-                        <p className="text-[10px] text-slate-500">Selecting a machine here will update the active machine for this order.</p>
+                        <p className="text-[10px] text-slate-500">
+                            Selecting a machine here will update the active
+                            machine for this order.
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -319,7 +395,11 @@ function AddShiftDialog({
                         <Label htmlFor="operatorId">Lead Operator</Label>
                         <Select name="operatorId">
                             <SelectTrigger>
-                                <SelectValue placeholder={productionComponentLabels.selectOperator} />
+                                <SelectValue
+                                    placeholder={
+                                        productionComponentLabels.selectOperator
+                                    }
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {operators.map((op) => (
@@ -335,11 +415,18 @@ function AddShiftDialog({
                         <Label>Helpers</Label>
                         <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
                             {helpers.map((helper) => (
-                                <div key={helper.id} className="flex items-center space-x-2">
+                                <div
+                                    key={helper.id}
+                                    className="flex items-center space-x-2"
+                                >
                                     <Checkbox
                                         id={`helper-${helper.id}`}
-                                        checked={selectedHelpers.includes(helper.id)}
-                                        onCheckedChange={() => handleHelperToggle(helper.id)}
+                                        checked={selectedHelpers.includes(
+                                            helper.id,
+                                        )}
+                                        onCheckedChange={() =>
+                                            handleHelperToggle(helper.id)
+                                        }
                                     />
                                     <label
                                         htmlFor={`helper-${helper.id}`}

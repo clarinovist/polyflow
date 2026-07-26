@@ -1,4 +1,3 @@
-
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -6,7 +5,7 @@ const prisma = new PrismaClient();
 async function backfill() {
     try {
         const opnames = await prisma.stockOpname.findMany({
-            orderBy: { createdAt: 'asc' }
+            orderBy: { createdAt: 'asc' },
         });
 
         console.log(`Found ${opnames.length} opnames to backfill.`);
@@ -21,12 +20,12 @@ async function backfill() {
 
             await prisma.stockOpname.update({
                 where: { id: opname.id },
-                data: { opnameNumber: code }
+                data: { opnameNumber: code },
             });
             console.log(`Updated ${opname.id} to ${code}`);
         }
     } catch (error) {
-        console.error("Error backfilling:", error);
+        console.error('Error backfilling:', error);
     } finally {
         await prisma.$disconnect();
     }

@@ -1,6 +1,7 @@
 # UI/UX Pro Max Prompts for Polyflow Landing Page
 
 ## 🎯 Overview
+
 Prompts untuk meningkatkan animasi dan visual effects pada landing page Polyflow ERP.
 
 ---
@@ -8,6 +9,7 @@ Prompts untuk meningkatkan animasi dan visual effects pada landing page Polyflow
 ## 1. Hero Section - Animated & Dynamic
 
 ### Prompt 1: Hero with Particle Effects & Animated Gradient
+
 ```
 Buatkan hero section untuk landing page ERP manufacturing dengan efek:
 1. Animated gradient text pada headline (gradient bergerak/shift)
@@ -25,6 +27,7 @@ Style: Modern, sophisticated, not overwhelming
 ```
 
 ### Prompt 2: Hero with 3D Elements
+
 ```
 Redesign hero section dengan:
 1. 3D logo atau icon yang berputar subtle
@@ -43,6 +46,7 @@ Pastikan semua animasi smooth dan tidak mengganggu performa.
 ## 2. Feature Cards - Interactive & Engaging
 
 ### Prompt 1: Glassmorphism Cards with Hover Effects
+
 ```
 Buatkan feature cards dengan efek:
 1. Glassmorphism yang lebih sophisticated (blur, transparency)
@@ -62,6 +66,7 @@ Setiap card harus memiliki:
 ```
 
 ### Prompt 2: Interactive Feature Showcase
+
 ```
 Buatkan feature section dengan:
 1. Tabbed navigation untuk switch antar features
@@ -81,6 +86,7 @@ Style: Clean, modern, dengan accent colors yang konsisten
 ## 3. CTA Section - Compelling & Animated
 
 ### Prompt 1: High-Converting CTA
+
 ```
 Buatkan CTA section yang compelling dengan:
 1. Animated gradient background
@@ -97,6 +103,7 @@ Colors: Gradient dari blue ke purple
 ```
 
 ### Prompt 2: Multi-Step CTA
+
 ```
 Buatkan CTA section dengan:
 1. Multi-step form dengan progress indicator
@@ -116,6 +123,7 @@ Pastikan form nya user-friendly dan tidak overwhelming
 ## 4. Navigation - Smooth & Responsive
 
 ### Prompt 1: Animated Navigation
+
 ```
 Buatkan navigation dengan efek:
 1. Scroll-aware background changes (blur, opacity)
@@ -131,6 +139,7 @@ Style: Clean, minimal, dengan micro-interactions
 ```
 
 ### Prompt 2: Mega Menu Navigation
+
 ```
 Redesign navigation dengan:
 1. Mega menu untuk desktop
@@ -150,6 +159,7 @@ Pastikan navigation tetap clean dan tidak overwhelming
 ## 5. Testimonial Section - Social Proof
 
 ### Prompt 1: Animated Testimonials
+
 ```
 Buatkan testimonial section dengan:
 1. Carousel dengan smooth transitions
@@ -165,6 +175,7 @@ Style: Clean, trustworthy, dengan social proof yang kuat
 ```
 
 ### Prompt 2: Video Testimonials
+
 ```
 Buatkan testimonial section dengan:
 1. Video thumbnails dengan play button
@@ -184,6 +195,7 @@ Pastikan semua media optimized untuk performa
 ## 6. Footer - Comprehensive & Animated
 
 ### Prompt 1: Modern Footer
+
 ```
 Buatkan footer dengan:
 1. Multi-column layout
@@ -199,6 +211,7 @@ Style: Clean, organized, dengan visual hierarchy yang baik
 ```
 
 ### Prompt 2: Interactive Footer
+
 ```
 Redesign footer dengan:
 1. Expandable sections untuk mobile
@@ -218,6 +231,7 @@ Pastikan footer tetap functional dan tidak overwhelming
 ## 7. Global Animations & Micro-interactions
 
 ### Prompt 1: Animation System
+
 ```
 Buatkan animation system untuk seluruh landing page:
 1. Page load animations (staggered entrance)
@@ -237,6 +251,7 @@ Pastikan semua animasi:
 ```
 
 ### Prompt 2: Micro-interactions Library
+
 ```
 Buatkan library micro-interactions:
 1. Button hover/press effects
@@ -256,6 +271,7 @@ Style: Consistent, subtle, enhances UX without distracting
 ## 8. Mobile-Specific Animations
 
 ### Prompt 1: Mobile-First Animations
+
 ```
 Optimasi animasi untuk mobile:
 1. Touch-friendly interactions (tap, swipe)
@@ -271,6 +287,7 @@ Pastikan semua animasi smooth di mobile devices
 ```
 
 ### Prompt 2: Progressive Enhancement
+
 ```
 Buatkan animasi dengan progressive enhancement:
 1. Base animations untuk semua devices
@@ -290,6 +307,7 @@ Pastikan animasi tetap works di semua kondisi
 ## 🚀 Implementation Notes
 
 ### Before Using These Prompts:
+
 1. **Backup current code** - Pastikan ada backup sebelum perubahan besar
 2. **Test di development** - Jangan langsung ke production
 3. **Check performance** - Gunakan Lighthouse untuk audit
@@ -297,6 +315,7 @@ Pastikan animasi tetap works di semua kondisi
 5. **Mobile testing** - Test di berbagai device
 
 ### Recommended Order:
+
 1. Hero Section (first impression)
 2. Feature Cards (core content)
 3. CTA Section (conversion)
@@ -307,6 +326,7 @@ Pastikan animasi tetap works di semua kondisi
 8. Mobile Optimization (accessibility)
 
 ### Performance Tips:
+
 - Use CSS transforms instead of layout properties
 - Implement `will-change` for animated elements
 - Use `requestAnimationFrame` for complex animations
@@ -319,6 +339,7 @@ Pastikan animasi tetap works di semua kondisi
 ## 📝 Customization Notes
 
 Sesuaikan prompts di atas dengan:
+
 1. **Brand colors** - Gunakan warna Polyflow yang sudah ada
 2. **Content** - Sesuaikan dengan label yang sudah ada di `src/lib/labels/home.ts`
 3. **Components** - Gunakan shadcn/ui components yang sudah ada
@@ -327,4 +348,4 @@ Sesuaikan prompts di atas dengan:
 
 ---
 
-*Last updated: 2026-06-22*
+_Last updated: 2026-06-22_

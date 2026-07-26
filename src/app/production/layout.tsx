@@ -36,7 +36,8 @@ export default async function ProductionLayout({
 
     const permissionsRes = await getMyPermissions();
     const sessionAllowed =
-        (session.user as { allowedResources?: string[] })?.allowedResources || [];
+        (session.user as { allowedResources?: string[] })?.allowedResources ||
+        [];
     const permissions: string[] | 'ALL' =
         permissionsRes.success && permissionsRes.data
             ? permissionsRes.data
@@ -47,7 +48,7 @@ export default async function ProductionLayout({
     const userForPolicy = {
         ...session.user,
         allowedResources:
-            permissions === "ALL" ? sessionAllowed : (permissions as string[]),
+            permissions === 'ALL' ? sessionAllowed : (permissions as string[]),
     };
 
     if (!canAccessWorkspace(userForPolicy, 'production', pathname)) {
@@ -85,8 +86,12 @@ export default async function ProductionLayout({
                     <div className="flex items-center gap-3">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                         <div>
-                            <h1 className="text-md font-bold text-foreground">Portal Produksi</h1>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Floor Control Mode</p>
+                            <h1 className="text-md font-bold text-foreground">
+                                Portal Produksi
+                            </h1>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                                Floor Control Mode
+                            </p>
                         </div>
                     </div>
 

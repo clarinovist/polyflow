@@ -15,8 +15,12 @@ export default async function ProductionRequestsPage() {
     ]);
 
     const rows = demandRes.success && demandRes.data ? demandRes.data : [];
-    const machines = initRes.success && initRes.data?.machines ? initRes.data.machines : [];
-    const locations = initRes.success && initRes.data?.locations ? initRes.data.locations : [];
+    const machines =
+        initRes.success && initRes.data?.machines ? initRes.data.machines : [];
+    const locations =
+        initRes.success && initRes.data?.locations
+            ? initRes.data.locations
+            : [];
 
     return (
         <div className="p-6">

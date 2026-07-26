@@ -14,11 +14,11 @@ Aturan resolver yang disarankan:
 
 ## Matrix Kanal ke Endpoint
 
-| Channel | Resolver Input | Product Valid | Endpoint | Auth Layer | Policy Layer |
-|---|---|---|---|---|---|
-| Telegram OpenClaw | bot profile / routing key | polyflow | `POST /api/bot/query?product=polyflow` | X-API-KEY | read-only + topic-lock |
-| Web Chat Widget Polyflow | app session + tenant host | polyflow | `POST /api/chat` | NextAuth session | read-only + topic-lock |
-| Non-Polyflow traffic | any | selain polyflow | ditolak (`403`) | n/a | scope mismatch |
+| Channel                  | Resolver Input            | Product Valid   | Endpoint                               | Auth Layer       | Policy Layer           |
+| ------------------------ | ------------------------- | --------------- | -------------------------------------- | ---------------- | ---------------------- |
+| Telegram OpenClaw        | bot profile / routing key | polyflow        | `POST /api/bot/query?product=polyflow` | X-API-KEY        | read-only + topic-lock |
+| Web Chat Widget Polyflow | app session + tenant host | polyflow        | `POST /api/chat`                       | NextAuth session | read-only + topic-lock |
+| Non-Polyflow traffic     | any                       | selain polyflow | ditolak (`403`)                        | n/a              | scope mismatch         |
 
 ## Mandatory Request Contract (External)
 
@@ -31,8 +31,8 @@ Body:
 
 ```json
 {
-  "question": "stok kritis hari ini bagaimana?",
-  "requesterName": "Budi"
+    "question": "stok kritis hari ini bagaimana?",
+    "requesterName": "Budi"
 }
 ```
 

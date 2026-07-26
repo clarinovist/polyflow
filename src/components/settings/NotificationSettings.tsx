@@ -1,13 +1,25 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getNotificationPrefs, updateNotificationPrefs } from '@/actions/settings/notification-actions';
-import { NOTIFICATION_CATEGORIES, type NotificationPrefs } from '@/lib/settings/notification-categories';
+import {
+    getNotificationPrefs,
+    updateNotificationPrefs,
+} from '@/actions/settings/notification-actions';
+import {
+    NOTIFICATION_CATEGORIES,
+    type NotificationPrefs,
+} from '@/lib/settings/notification-categories';
 
 export function NotificationSettings() {
     const [prefs, setPrefs] = useState<NotificationPrefs>({});
@@ -32,7 +44,9 @@ export function NotificationSettings() {
             if (!res.success) {
                 // revert on failure
                 setPrefs((prev) => ({ ...prev, [key]: !value }));
-                toast.error(res.error || 'Gagal menyimpan preferensi notifikasi.');
+                toast.error(
+                    res.error || 'Gagal menyimpan preferensi notifikasi.',
+                );
             }
         });
     };
@@ -61,7 +75,10 @@ export function NotificationSettings() {
                         key={cat.key}
                         className="flex items-center justify-between p-3 border rounded-lg"
                     >
-                        <Label htmlFor={`notif-${cat.key}`} className="cursor-pointer font-normal">
+                        <Label
+                            htmlFor={`notif-${cat.key}`}
+                            className="cursor-pointer font-normal"
+                        >
                             {cat.label}
                         </Label>
                         <Switch

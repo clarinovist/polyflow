@@ -19,7 +19,9 @@ async function requireUserId(): Promise<string> {
     const session = await auth();
     const id = session?.user?.id;
     if (!id) {
-        throw new AuthenticationError('Anda harus login untuk melakukan aksi ini.');
+        throw new AuthenticationError(
+            'Anda harus login untuk melakukan aksi ini.',
+        );
     }
     return id;
 }
@@ -27,14 +29,19 @@ async function requireUserId(): Promise<string> {
 // ─── 1a + 4b: Update own profile (name, email, locale) ──────────────
 
 const UpdateProfileSchema = z.object({
-    name: z.string().min(2, 'Nama minimal 2 karakter').max(100, 'Nama terlalu panjang'),
+    name: z
+        .string()
+        .min(2, 'Nama minimal 2 karakter')
+        .max(100, 'Nama terlalu panjang'),
     email: z.string().email('Alamat email tidak valid'),
     locale: z.enum(['id', 'en']).optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 
-export const updateOwnProfile = withTenant(async function updateOwnProfile(input: UpdateProfileInput) {
+export const updateOwnProfile = withTenant(async function updateOwnProfile(
+    input: UpdateProfileInput,
+) {
     return safeAction(async () => {
         const userId = await requireUserId();
         const data = UpdateProfileSchema.parse(input);
@@ -45,7 +52,9 @@ export const updateOwnProfile = withTenant(async function updateOwnProfile(input
             select: { id: true },
         });
         if (existing && existing.id !== userId) {
-            throw new ConflictError('Email sudah digunakan oleh pengguna lain.');
+            throw new ConflictError(
+                'Email sudah digunakan oleh pengguna lain.',
+            );
         }
 
         const updated = await prisma.user.update({
@@ -84,7 +93,9 @@ const ChangePasswordSchema = z
 
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 
-export const changeOwnPassword = withTenant(async function changeOwnPassword(input: ChangePasswordInput) {
+export const changeOwnPassword = withTenant(async function changeOwnPassword(
+    input: ChangePasswordInput,
+) {
     return safeAction(async () => {
         const userId = await requireUserId();
         const data = ChangePasswordSchema.parse(input);
@@ -124,7 +135,9 @@ export const changeOwnPassword = withTenant(async function changeOwnPassword(inp
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export const updateOwnAvatar = withTenant(async function updateOwnAvatar(formData: FormData) {
+export const updateOwnAvatar = withTenant(async function updateOwnAvatar(
+    formData: FormData,
+) {
     return safeAction(async () => {
         const userId = await requireUserId();
         const file = formData.get('avatar');
@@ -139,9 +152,15 @@ export const updateOwnAvatar = withTenant(async function updateOwnAvatar(formDat
             throw new ValidationError('Ukuran avatar maksimal 2MB.');
         }
 
-        const { uploadToR2, getTenantPrefix } = await import('@/lib/storage/r2');
+        const { uploadToR2, getTenantPrefix } =
+            await import('@/lib/storage/r2');
         const tenant = await getTenantPrefix();
-        const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+        const ext =
+            file.type === 'image/png'
+                ? 'png'
+                : file.type === 'image/webp'
+                  ? 'webp'
+                  : 'jpg';
         const key = `${tenant}/avatars/${userId}/${Date.now()}.${ext}`;
         const buffer = Buffer.from(await file.arrayBuffer());
         const url = await uploadToR2(key, buffer, file.type);

@@ -11,16 +11,25 @@ async function main() {
 
     const variants = await prisma.productVariant.findMany({
         where: {
-            product: { productType: { in: ['RAW_MATERIAL', 'INTERMEDIATE', 'FINISHED_GOOD', 'PACKAGING'] } },
-            OR: [
-                { standardCost: null },
-                { standardCost: { equals: 0 } }
-            ]
+            product: {
+                productType: {
+                    in: [
+                        'RAW_MATERIAL',
+                        'INTERMEDIATE',
+                        'FINISHED_GOOD',
+                        'PACKAGING',
+                    ],
+                },
+            },
+            OR: [{ standardCost: null }, { standardCost: { equals: 0 } }],
         },
         select: {
-            id: true, name: true, buyPrice: true, standardCost: true,
-            product: { select: { productType: true } }
-        }
+            id: true,
+            name: true,
+            buyPrice: true,
+            standardCost: true,
+            product: { select: { productType: true } },
+        },
     });
 
     console.log(`Ditemukan ${variants.length} variants tanpa standardCost\n`);
@@ -34,12 +43,16 @@ async function main() {
         if (buyPrice > 0) {
             await prisma.productVariant.update({
                 where: { id: v.id },
-                data: { standardCost: buyPrice }
+                data: { standardCost: buyPrice },
             });
-            console.log(`  ✅ ${v.product.productType} | ${v.name} → standardCost = ${buyPrice.toLocaleString()}`);
+            console.log(
+                `  ✅ ${v.product.productType} | ${v.name} → standardCost = ${buyPrice.toLocaleString()}`,
+            );
             updated++;
         } else {
-            console.log(`  ⚠️  ${v.product.productType} | ${v.name} → buyPrice juga null/0, dilewati`);
+            console.log(
+                `  ⚠️  ${v.product.productType} | ${v.name} → buyPrice juga null/0, dilewati`,
+            );
             skipped++;
         }
     }
@@ -51,27 +64,35 @@ async function main() {
     console.log('\n--- Sync inventory.averageCost dari standardCost ---');
     const inventoryItems = await prisma.inventory.findMany({
         where: {
-            OR: [
-                { averageCost: null },
-                { averageCost: { equals: 0 } }
-            ],
-            quantity: { gt: 0 }
+            OR: [{ averageCost: null }, { averageCost: { equals: 0 } }],
+            quantity: { gt: 0 },
         },
         select: {
-            id: true, quantity: true, averageCost: true,
-            productVariant: { select: { name: true, standardCost: true, buyPrice: true } }
-        }
+            id: true,
+            quantity: true,
+            averageCost: true,
+            productVariant: {
+                select: { name: true, standardCost: true, buyPrice: true },
+            },
+        },
     });
 
     let invUpdated = 0;
     for (const inv of inventoryItems) {
-        const cost = Number(inv.productVariant.standardCost ?? 0) || Number(inv.productVariant.buyPrice ?? 0);
+        const cost =
+            Number(inv.productVariant.standardCost ?? 0) ||
+            Number(inv.productVariant.buyPrice ?? 0);
         if (cost > 0) {
-            await prisma.inventory.update({ where: { id: inv.id }, data: { averageCost: cost } });
+            await prisma.inventory.update({
+                where: { id: inv.id },
+                data: { averageCost: cost },
+            });
             invUpdated++;
         }
     }
     console.log(`✅ Synced averageCost untuk ${invUpdated} inventory records`);
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect());
+main()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());

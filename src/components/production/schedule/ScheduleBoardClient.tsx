@@ -53,7 +53,9 @@ export function ScheduleBoardClient({
                     <CardHeader className="bg-muted/30 border-b py-3 px-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <CardTitle className="text-base font-semibold">{planningLabels.machineAllocationBoard}</CardTitle>
+                                <CardTitle className="text-base font-semibold">
+                                    {planningLabels.machineAllocationBoard}
+                                </CardTitle>
                             </div>
                             <WeekRangeNav from={from} />
                         </div>

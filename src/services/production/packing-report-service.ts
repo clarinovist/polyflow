@@ -15,14 +15,19 @@ export interface PackingReportItem {
 }
 
 function hasFloorEnteredBalRule(attributes: unknown): boolean {
-    return !!attributes
-        && typeof attributes === 'object'
-        && !Array.isArray(attributes)
-        && (attributes as Record<string, unknown>).consumptionRule === 'FLOOR_ENTERED_BAL';
+    return (
+        !!attributes &&
+        typeof attributes === 'object' &&
+        !Array.isArray(attributes) &&
+        (attributes as Record<string, unknown>).consumptionRule ===
+            'FLOOR_ENTERED_BAL'
+    );
 }
 
 export class PackingReportService {
-    static async getMonthlyPackingReport(monthStr?: string): Promise<PackingReportItem[]> {
+    static async getMonthlyPackingReport(
+        monthStr?: string,
+    ): Promise<PackingReportItem[]> {
         let startDate: Date;
         let endDate: Date;
 
@@ -33,7 +38,15 @@ export class PackingReportService {
         } else {
             const now = new Date();
             startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            endDate = new Date(
+                now.getFullYear(),
+                now.getMonth() + 1,
+                0,
+                23,
+                59,
+                59,
+                999,
+            );
         }
 
         const executions = await prisma.productionExecution.findMany({
@@ -41,11 +54,11 @@ export class PackingReportService {
                 status: { not: 'VOIDED' },
                 endTime: {
                     gte: startDate,
-                    lte: endDate
+                    lte: endDate,
                 },
                 productionOrder: {
                     bom: {
-                        category: 'PACKING'
+                        category: 'PACKING',
                     },
                     // Kiyowo: packing_area. Melindo: packing product output → FG (not supplies).
                     location: {
@@ -68,7 +81,7 @@ export class PackingReportService {
                             },
                         ],
                     },
-                }
+                },
             },
             include: {
                 productionOrder: {
@@ -77,26 +90,26 @@ export class PackingReportService {
                         bom: {
                             include: {
                                 productVariant: {
-                                    include: { product: true }
-                                }
-                            }
+                                    include: { product: true },
+                                },
+                            },
                         },
                         stockMovements: {
                             where: {
                                 createdAt: {
                                     gte: startDate,
-                                    lte: endDate
-                                }
+                                    lte: endDate,
+                                },
                             },
                             include: {
                                 productVariant: {
-                                    include: { product: true }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    include: { product: true },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         });
 
         // Filter out executions where location is a packaging supplies warehouse (e.g. gudang-packaging in Melindo)
@@ -106,17 +119,20 @@ export class PackingReportService {
             return !isPackagingSuppliesWarehouse(loc);
         });
 
-        const aggregate = new Map<string, {
-            productName: string;
-            skuCode: string;
-            totalQty: number;
-            primaryUnit: string;
-            orderIds: Set<string>;
-            totalCost: number;
-            karungConsumed: number;
-            karungCost: number;
-            countedKarungMovementKeys: Set<string>;
-        }>();
+        const aggregate = new Map<
+            string,
+            {
+                productName: string;
+                skuCode: string;
+                totalQty: number;
+                primaryUnit: string;
+                orderIds: Set<string>;
+                totalCost: number;
+                karungConsumed: number;
+                karungCost: number;
+                countedKarungMovementKeys: Set<string>;
+            }
+        >();
 
         for (const exec of validExecutions) {
             const variant = exec.productionOrder.bom.productVariant;
@@ -124,19 +140,27 @@ export class PackingReportService {
             const qtyProduced = Number(exec.quantityProduced);
 
             const poInMovements = exec.productionOrder.stockMovements.filter(
-                m => m.productVariantId === variantId && m.type === 'IN'
+                (m) => m.productVariantId === variantId && m.type === 'IN',
             );
-            
+
             let poUnitCost = 0;
             if (poInMovements.length > 0) {
-                const totalMovementsQty = poInMovements.reduce((sum, m) => sum + Number(m.quantity), 0);
-                const totalMovementsCost = poInMovements.reduce((sum, m) => sum + (Number(m.quantity) * Number(m.cost || 0)), 0);
+                const totalMovementsQty = poInMovements.reduce(
+                    (sum, m) => sum + Number(m.quantity),
+                    0,
+                );
+                const totalMovementsCost = poInMovements.reduce(
+                    (sum, m) => sum + Number(m.quantity) * Number(m.cost || 0),
+                    0,
+                );
                 if (totalMovementsQty > 0) {
                     poUnitCost = totalMovementsCost / totalMovementsQty;
                 }
             }
             if (poUnitCost === 0) {
-                poUnitCost = Number(variant.standardCost ?? 0) || Number(variant.buyPrice ?? 0);
+                poUnitCost =
+                    Number(variant.standardCost ?? 0) ||
+                    Number(variant.buyPrice ?? 0);
             }
 
             const execCost = qtyProduced * poUnitCost;
@@ -151,7 +175,7 @@ export class PackingReportService {
                     totalCost: 0,
                     karungConsumed: 0,
                     karungCost: 0,
-                    countedKarungMovementKeys: new Set<string>()
+                    countedKarungMovementKeys: new Set<string>(),
                 });
             }
 
@@ -160,26 +184,31 @@ export class PackingReportService {
             current.orderIds.add(exec.productionOrderId);
             current.totalCost += execCost;
 
-            const karungMovements = exec.productionOrder.stockMovements.filter((movement) => (
-                movement.type === 'OUT'
-                && hasFloorEnteredBalRule(movement.productVariant?.attributes)
-            ));
+            const karungMovements = exec.productionOrder.stockMovements.filter(
+                (movement) =>
+                    movement.type === 'OUT' &&
+                    hasFloorEnteredBalRule(movement.productVariant?.attributes),
+            );
 
             for (const movement of karungMovements) {
-                const movementKey = movement.id ?? `${exec.productionOrderId}:${movement.productVariantId}:${movement.createdAt.toISOString()}`;
+                const movementKey =
+                    movement.id ??
+                    `${exec.productionOrderId}:${movement.productVariantId}:${movement.createdAt.toISOString()}`;
                 if (current.countedKarungMovementKeys.has(movementKey)) {
                     continue;
                 }
 
                 current.countedKarungMovementKeys.add(movementKey);
                 current.karungConsumed += Number(movement.quantity);
-                current.karungCost += Number(movement.quantity) * Number(movement.cost || 0);
+                current.karungCost +=
+                    Number(movement.quantity) * Number(movement.cost || 0);
             }
         }
 
         const results: PackingReportItem[] = [];
         aggregate.forEach((data, variantId) => {
-            const averageHpp = data.totalQty > 0 ? data.totalCost / data.totalQty : 0;
+            const averageHpp =
+                data.totalQty > 0 ? data.totalCost / data.totalQty : 0;
             results.push({
                 productVariantId: variantId,
                 productName: data.productName,
@@ -190,7 +219,7 @@ export class PackingReportService {
                 karungConsumed: data.karungConsumed,
                 karungCost: data.karungCost,
                 averageHpp,
-                totalCost: data.totalCost
+                totalCost: data.totalCost,
             });
         });
 

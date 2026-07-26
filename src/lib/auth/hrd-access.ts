@@ -18,22 +18,22 @@ import { BusinessRuleError } from '@/lib/errors/errors';
 
 /** ADMIN or HRD — for create/approve/finalize/void actions (kasbon, payslip, SP, leave approval). */
 export async function requireHrdApprover() {
-  const session = await requireAuth();
-  if (!hasAnyRole(session.user, ['ADMIN', 'HRD'])) {
-    throw new BusinessRuleError(
-      'Unauthorized: Hanya admin atau HRD yang dapat melakukan aksi ini (approve/finalize/void).',
-    );
-  }
-  return session;
+    const session = await requireAuth();
+    if (!hasAnyRole(session.user, ['ADMIN', 'HRD'])) {
+        throw new BusinessRuleError(
+            'Unauthorized: Hanya admin atau HRD yang dapat melakukan aksi ini (approve/finalize/void).',
+        );
+    }
+    return session;
 }
 
 /** ADMIN, FINANCE, or HRD — for read + mark-paid actions. */
 export async function requireHrdFinance() {
-  const session = await requireAuth();
-  if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD'])) {
-    throw new BusinessRuleError(
-      'Unauthorized: Akses HRD finance hanya untuk admin, finance, atau HRD.',
-    );
-  }
-  return session;
+    const session = await requireAuth();
+    if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD'])) {
+        throw new BusinessRuleError(
+            'Unauthorized: Akses HRD finance hanya untuk admin, finance, atau HRD.',
+        );
+    }
+    return session;
 }

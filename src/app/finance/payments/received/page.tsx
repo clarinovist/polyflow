@@ -34,12 +34,22 @@ type UnpaidInvoicesProp = ComponentProps<
     typeof ReceivedPaymentsClient
 >['unpaidInvoices'];
 
-export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
+export default async function ReceivedPaymentsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{
+        startDate?: string;
+        endDate?: string;
+        demand?: 'customer' | 'legacy-internal';
+    }>;
+}) {
     const params = await searchParams;
     const demand = params?.demand || 'customer';
 
     // Only filter by date when explicitly provided
-    const checkStart = params?.startDate ? parseISO(params.startDate) : undefined;
+    const checkStart = params?.startDate
+        ? parseISO(params.startDate)
+        : undefined;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : undefined;
 
     const buildDemandHref = (nextDemand: 'customer' | 'legacy-internal') => {
@@ -51,7 +61,10 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
     };
 
     const payments = await getReceivedPayments(
-        checkStart && checkEnd ? { startDate: checkStart, endDate: checkEnd } : undefined, demand
+        checkStart && checkEnd
+            ? { startDate: checkStart, endDate: checkEnd }
+            : undefined,
+        demand,
     );
 
     if (!payments.success) {
@@ -60,15 +73,21 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
 
     // Fetch invoices with outstanding balance (Outstanding > 0)
     const unpaidInvoicesRes = await getSalesInvoices();
-    const allInvoices = unpaidInvoicesRes.success && unpaidInvoicesRes.data ? unpaidInvoicesRes.data : [];
-    const unpaidInvoices = (allInvoices as UnpaidSalesInvoice[]).filter((inv) => {
-        const hasOutstanding = Number(inv.totalAmount) - Number(inv.paidAmount) > 0;
-        if (!hasOutstanding) return false;
-        if (demand === 'customer') {
-            return inv.salesOrder?.customerId != null;
-        }
-        return inv.salesOrder?.customerId == null;
-    });
+    const allInvoices =
+        unpaidInvoicesRes.success && unpaidInvoicesRes.data
+            ? unpaidInvoicesRes.data
+            : [];
+    const unpaidInvoices = (allInvoices as UnpaidSalesInvoice[]).filter(
+        (inv) => {
+            const hasOutstanding =
+                Number(inv.totalAmount) - Number(inv.paidAmount) > 0;
+            if (!hasOutstanding) return false;
+            if (demand === 'customer') {
+                return inv.salesOrder?.customerId != null;
+            }
+            return inv.salesOrder?.customerId == null;
+        },
+    );
 
     let paymentBanks = {};
     try {
@@ -83,10 +102,14 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
                 <Tabs defaultValue={demand} className="w-full">
                     <TabsList className="grid w-full grid-cols-2 md:w-[420px]">
                         <TabsTrigger value="customer" asChild>
-                            <Link href={buildDemandHref('customer')}>Customer Receipts</Link>
+                            <Link href={buildDemandHref('customer')}>
+                                Customer Receipts
+                            </Link>
                         </TabsTrigger>
                         <TabsTrigger value="legacy-internal" asChild>
-                            <Link href={buildDemandHref('legacy-internal')}>Legacy Internal</Link>
+                            <Link href={buildDemandHref('legacy-internal')}>
+                                Legacy Internal
+                            </Link>
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
@@ -96,14 +119,20 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
                     <Alert className="border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20">
                         <AlertTitle>Legacy internal receipts</AlertTitle>
                         <AlertDescription>
-                            These records exist for historical reconciliation only. New internal stock build should no longer create customer receipts through finance, but existing outstanding invoices here can still be settled through Record Payment.
+                            These records exist for historical reconciliation
+                            only. New internal stock build should no longer
+                            create customer receipts through finance, but
+                            existing outstanding invoices here can still be
+                            settled through Record Payment.
                         </AlertDescription>
                     </Alert>
                 </div>
             )}
             <ReceivedPaymentsClient
                 payments={payments.data}
-                unpaidInvoices={serializeData(unpaidInvoices) as UnpaidInvoicesProp}
+                unpaidInvoices={
+                    serializeData(unpaidInvoices) as UnpaidInvoicesProp
+                }
                 demandType={demand}
                 paymentBanks={paymentBanks}
             />

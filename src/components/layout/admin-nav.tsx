@@ -28,14 +28,14 @@ interface AdminNavProps {
         role?: string | null;
         image?: string | null;
         avatarUrl?: string | null;
-    }
+    };
 }
 
 const adminLinks = [
-    { title: "Tenants", href: "/admin/super-admin", icon: Building2 },
-    { title: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
-    { title: "System Health", href: "/admin/system-health", icon: Activity },
-    { title: "Help / Virtual CS", href: "/admin/help", icon: HelpCircle },
+    { title: 'Tenants', href: '/admin/super-admin', icon: Building2 },
+    { title: 'Audit Logs', href: '/admin/audit-logs', icon: ScrollText },
+    { title: 'System Health', href: '/admin/system-health', icon: Activity },
+    { title: 'Help / Virtual CS', href: '/admin/help', icon: HelpCircle },
 ];
 
 export function AdminNav({ user }: AdminNavProps) {
@@ -58,7 +58,14 @@ export function AdminNav({ user }: AdminNavProps) {
         else setTheme('light');
     };
 
-    const ThemeIcon = theme === 'system' ? (resolvedTheme === 'dark' ? Moon : Sun) : (theme === 'dark' ? Moon : Sun);
+    const ThemeIcon =
+        theme === 'system'
+            ? resolvedTheme === 'dark'
+                ? Moon
+                : Sun
+            : theme === 'dark'
+              ? Moon
+              : Sun;
 
     return (
         <>
@@ -87,18 +94,24 @@ export function AdminNav({ user }: AdminNavProps) {
             )}
 
             {/* Sidebar Aside */}
-            <aside className={cn(
-                "fixed left-0 top-0 z-50 h-screen w-64 border-r border-border bg-card transition-transform duration-300 shadow-xl lg:shadow-none lg:translate-x-0",
-                isMobileOpen ? "translate-x-0" : "-translate-x-full"
-            )}>
+            <aside
+                className={cn(
+                    'fixed left-0 top-0 z-50 h-screen w-64 border-r border-border bg-card transition-transform duration-300 shadow-xl lg:shadow-none lg:translate-x-0',
+                    isMobileOpen ? 'translate-x-0' : '-translate-x-full',
+                )}
+            >
                 <div className="flex h-full flex-col">
                     {/* Logo Area */}
                     <div className="flex h-20 items-center border-b border-border px-6 justify-between bg-zinc-950">
                         <div className="flex items-center gap-3">
                             <Shield className="h-8 w-8 text-red-500" />
                             <div>
-                                <h1 className="font-bold text-white text-lg tracking-tight leading-tight">PolyFlow</h1>
-                                <p className="text-xs text-red-400 font-semibold tracking-wider uppercase">Master Control</p>
+                                <h1 className="font-bold text-white text-lg tracking-tight leading-tight">
+                                    PolyFlow
+                                </h1>
+                                <p className="text-xs text-red-400 font-semibold tracking-wider uppercase">
+                                    Master Control
+                                </p>
                             </div>
                         </div>
                         <button
@@ -116,19 +129,28 @@ export function AdminNav({ user }: AdminNavProps) {
                                 System Management
                             </p>
                             {adminLinks.map((item) => {
-                                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                                const isActive =
+                                    pathname === item.href ||
+                                    pathname.startsWith(item.href + '/');
                                 return (
                                     <Link
                                         key={item.href}
                                         href={item.href}
                                         className={cn(
-                                            "flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors font-medium text-sm mb-1",
+                                            'flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors font-medium text-sm mb-1',
                                             isActive
-                                                ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                                         )}
                                     >
-                                        <item.icon className={cn("h-4 w-4", isActive ? "text-red-500" : "opacity-80")} />
+                                        <item.icon
+                                            className={cn(
+                                                'h-4 w-4',
+                                                isActive
+                                                    ? 'text-red-500'
+                                                    : 'opacity-80',
+                                            )}
+                                        />
                                         <span>{item.title}</span>
                                     </Link>
                                 );
@@ -141,15 +163,25 @@ export function AdminNav({ user }: AdminNavProps) {
                         <div className="flex items-center gap-3 rounded-lg bg-background p-3 border border-border shadow-sm">
                             <Avatar className="h-9 w-9 shrink-0">
                                 {(user.image || user.avatarUrl) && (
-                                    <AvatarImage src={(user.image || user.avatarUrl)!} alt={user.name || 'Admin'} className="object-cover" />
+                                    <AvatarImage
+                                        src={(user.image || user.avatarUrl)!}
+                                        alt={user.name || 'Admin'}
+                                        className="object-cover"
+                                    />
                                 )}
                                 <AvatarFallback className="bg-red-600 text-white font-medium text-sm">
-                                    {user.name ? user.name.charAt(0).toUpperCase() : 'A'}
+                                    {user.name
+                                        ? user.name.charAt(0).toUpperCase()
+                                        : 'A'}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 overflow-hidden min-w-0">
-                                <p className="text-sm font-semibold text-foreground truncate">{user.name || 'Super Admin'}</p>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">System Owner</p>
+                                <p className="text-sm font-semibold text-foreground truncate">
+                                    {user.name || 'Super Admin'}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">
+                                    System Owner
+                                </p>
                             </div>
 
                             <button
@@ -160,7 +192,9 @@ export function AdminNav({ user }: AdminNavProps) {
                                 <ThemeIcon className="h-4 w-4" />
                             </button>
                             <button
-                                onClick={() => signOut({ callbackUrl: '/login' })}
+                                onClick={() =>
+                                    signOut({ callbackUrl: '/login' })
+                                }
                                 className="text-muted-foreground hover:text-red-500 transition-colors p-1"
                                 title="Logout"
                             >

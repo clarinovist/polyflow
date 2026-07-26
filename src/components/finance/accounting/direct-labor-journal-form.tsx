@@ -3,18 +3,42 @@
 import { useState } from 'react';
 import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { directLaborJournalSchema, DirectLaborJournalValues } from '@/lib/schemas/journal';
-import { createDirectLaborJournalAction, updateDirectLaborJournalAction } from '@/actions/finance/journal';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+    directLaborJournalSchema,
+    DirectLaborJournalValues,
+} from '@/lib/schemas/journal';
+import {
+    createDirectLaborJournalAction,
+    updateDirectLaborJournalAction,
+} from '@/actions/finance/journal';
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Trash, Plus, Loader2, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils/utils';
@@ -53,9 +77,7 @@ export default function DirectLaborJournalForm({
             reference: '',
             debitAccountId: '',
             creditAccountId: '',
-            details: [
-                { description: '', amount: 0 },
-            ],
+            details: [{ description: '', amount: 0 }],
         },
     });
 
@@ -70,15 +92,29 @@ export default function DirectLaborJournalForm({
     const creditAccountId = watch('creditAccountId');
 
     // Calculate total from details
-    const totalDetail = details.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    const totalDetail = details.reduce(
+        (sum, d) => sum + (Number(d.amount) || 0),
+        0,
+    );
 
     // Preview journal lines
-    const previewLines = totalDetail > 0 && debitAccountId && creditAccountId
-        ? [
-            { accountId: debitAccountId, debit: totalDetail, credit: 0, description: watch('description') || 'Direct Labor' },
-            { accountId: creditAccountId, debit: 0, credit: totalDetail, description: `Pembayaran ${watch('description') || 'Direct Labor'}` },
-        ]
-        : [];
+    const previewLines =
+        totalDetail > 0 && debitAccountId && creditAccountId
+            ? [
+                  {
+                      accountId: debitAccountId,
+                      debit: totalDetail,
+                      credit: 0,
+                      description: watch('description') || 'Direct Labor',
+                  },
+                  {
+                      accountId: creditAccountId,
+                      debit: 0,
+                      credit: totalDetail,
+                      description: `Pembayaran ${watch('description') || 'Direct Labor'}`,
+                  },
+              ]
+            : [];
 
     const isBalanced = previewLines.length === 2;
 
@@ -87,16 +123,21 @@ export default function DirectLaborJournalForm({
         try {
             let result;
             if (mode === 'edit' && journalId) {
-                result = await updateDirectLaborJournalAction(journalId, data, post);
+                result = await updateDirectLaborJournalAction(
+                    journalId,
+                    data,
+                    post,
+                );
             } else {
                 result = await createDirectLaborJournalAction(data, post);
             }
 
             if (result.success) {
                 const action = mode === 'edit' ? 'diperbarui' : 'dibuat';
-                toast.success(post
-                    ? `Jurnal Tenaga Kerja berhasil ${action} dan diposting.`
-                    : `Jurnal Tenaga Kerja berhasil ${action} (DRAFT).`
+                toast.success(
+                    post
+                        ? `Jurnal Tenaga Kerja berhasil ${action} dan diposting.`
+                        : `Jurnal Tenaga Kerja berhasil ${action} (DRAFT).`,
                 );
                 if (mode === 'edit' && journalId) {
                     router.push(`/finance/journals/${journalId}`);
@@ -108,7 +149,9 @@ export default function DirectLaborJournalForm({
                 toast.error(result.error || 'Gagal memproses jurnal');
             }
         } catch (_error) {
-            toast.error('Gagal memproses jurnal. Periksa koneksi Anda dan coba lagi.');
+            toast.error(
+                'Gagal memproses jurnal. Periksa koneksi Anda dan coba lagi.',
+            );
         } finally {
             setLoading(false);
         }
@@ -134,12 +177,13 @@ export default function DirectLaborJournalForm({
                                             <Button
                                                 variant="outline"
                                                 className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
+                                                    'w-full pl-3 text-left font-normal',
+                                                    !field.value &&
+                                                        'text-muted-foreground',
                                                 )}
                                             >
                                                 {field.value ? (
-                                                    format(field.value, "PPP")
+                                                    format(field.value, 'PPP')
                                                 ) : (
                                                     <span>Pick a date</span>
                                                 )}
@@ -147,17 +191,23 @@ export default function DirectLaborJournalForm({
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <PopoverContent
+                                        className="w-auto p-0"
+                                        align="start"
+                                    >
                                         <Calendar
                                             mode="single"
                                             selected={field.value}
                                             onSelect={field.onChange}
                                             disabled={(date) =>
-                                                date > new Date() || date < new Date("1900-01-01")
+                                                date > new Date() ||
+                                                date < new Date('1900-01-01')
                                             }
                                             captionLayout="dropdown"
                                             fromYear={2000}
-                                            toYear={new Date().getFullYear() + 1}
+                                            toYear={
+                                                new Date().getFullYear() + 1
+                                            }
                                             initialFocus
                                         />
                                     </PopoverContent>
@@ -174,7 +224,10 @@ export default function DirectLaborJournalForm({
                             <FormItem>
                                 <FormLabel>Reference</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., BKK-16/07/26" {...field} />
+                                    <Input
+                                        placeholder="e.g., BKK-16/07/26"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -188,7 +241,10 @@ export default function DirectLaborJournalForm({
                             <FormItem>
                                 <FormLabel>Description</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., BERITA ACARA CASH OPNAME 04 JULI 2026" {...field} />
+                                    <Input
+                                        placeholder="e.g., BERITA ACARA CASH OPNAME 04 JULI 2026"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -205,7 +261,9 @@ export default function DirectLaborJournalForm({
                                 name="debitAccountId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Debit Account (Biaya)</FormLabel>
+                                        <FormLabel>
+                                            Debit Account (Biaya)
+                                        </FormLabel>
                                         <FormControl>
                                             <AccountCombobox
                                                 accounts={accounts}
@@ -223,7 +281,9 @@ export default function DirectLaborJournalForm({
                                 name="creditAccountId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Credit Account (Pembayaran)</FormLabel>
+                                        <FormLabel>
+                                            Credit Account (Pembayaran)
+                                        </FormLabel>
                                         <FormControl>
                                             <AccountCombobox
                                                 accounts={accounts}
@@ -245,9 +305,13 @@ export default function DirectLaborJournalForm({
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[50px]">No</TableHead>
+                                    <TableHead className="w-[50px]">
+                                        No
+                                    </TableHead>
                                     <TableHead>Nama / Keterangan</TableHead>
-                                    <TableHead className="w-[200px] text-right">Nominal</TableHead>
+                                    <TableHead className="w-[200px] text-right">
+                                        Nominal
+                                    </TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -282,8 +346,16 @@ export default function DirectLaborJournalForm({
                                                     <FormItem>
                                                         <FormControl>
                                                             <AccountingInput
-                                                                value={Number(field.value)}
-                                                                onValueChange={(val: number) => field.onChange(val)}
+                                                                value={Number(
+                                                                    field.value,
+                                                                )}
+                                                                onValueChange={(
+                                                                    val: number,
+                                                                ) =>
+                                                                    field.onChange(
+                                                                        val,
+                                                                    )
+                                                                }
                                                             />
                                                         </FormControl>
                                                     </FormItem>
@@ -310,14 +382,18 @@ export default function DirectLaborJournalForm({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => append({ description: '', amount: 0 })}
+                                onClick={() =>
+                                    append({ description: '', amount: 0 })
+                                }
                             >
                                 <Plus className="h-4 w-4 mr-2" /> Add Detail
                             </Button>
 
                             <div className="flex gap-8 text-sm font-medium">
                                 <div>
-                                    <span className="text-muted-foreground mr-2">Total:</span>
+                                    <span className="text-muted-foreground mr-2">
+                                        Total:
+                                    </span>
                                     {formatRupiah(totalDetail)}
                                 </div>
                             </div>
@@ -329,37 +405,66 @@ export default function DirectLaborJournalForm({
                 {isBalanced && (
                     <Card className="border-green-200 bg-green-50/50">
                         <CardContent className="p-4">
-                            <p className="text-sm font-medium text-green-700 mb-2">Preview Jurnal</p>
+                            <p className="text-sm font-medium text-green-700 mb-2">
+                                Preview Jurnal
+                            </p>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Account</TableHead>
-                                        <TableHead className="text-right">Debit</TableHead>
-                                        <TableHead className="text-right">Credit</TableHead>
+                                        <TableHead className="text-right">
+                                            Debit
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Credit
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {previewLines.map((line, idx) => {
-                                        const account = accounts.find(a => a.id === line.accountId);
+                                        const account = accounts.find(
+                                            (a) => a.id === line.accountId,
+                                        );
                                         return (
                                             <TableRow key={idx}>
                                                 <TableCell>
-                                                    <span className="font-medium">{account?.code}</span>
-                                                    <span className="text-muted-foreground ml-2">{account?.name}</span>
+                                                    <span className="font-medium">
+                                                        {account?.code}
+                                                    </span>
+                                                    <span className="text-muted-foreground ml-2">
+                                                        {account?.name}
+                                                    </span>
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">
-                                                    {line.debit > 0 ? formatRupiah(line.debit) : '-'}
+                                                    {line.debit > 0
+                                                        ? formatRupiah(
+                                                              line.debit,
+                                                          )
+                                                        : '-'}
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">
-                                                    {line.credit > 0 ? formatRupiah(line.credit) : '-'}
+                                                    {line.credit > 0
+                                                        ? formatRupiah(
+                                                              line.credit,
+                                                          )
+                                                        : '-'}
                                                 </TableCell>
                                             </TableRow>
                                         );
                                     })}
                                     <TableRow className="bg-green-100 font-bold">
-                                        <TableCell colSpan={1} className="text-right">Total</TableCell>
-                                        <TableCell className="text-right">{formatRupiah(totalDetail)}</TableCell>
-                                        <TableCell className="text-right">{formatRupiah(totalDetail)}</TableCell>
+                                        <TableCell
+                                            colSpan={1}
+                                            className="text-right"
+                                        >
+                                            Total
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatRupiah(totalDetail)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatRupiah(totalDetail)}
+                                        </TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -385,7 +490,9 @@ export default function DirectLaborJournalForm({
                         disabled={loading || !isBalanced || totalDetail <= 0}
                         onClick={handleSaveDraft}
                     >
-                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {loading && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         {mode === 'edit' ? 'Simpan Draft' : 'Save as Draft'}
                     </Button>
                     <Button
@@ -393,7 +500,9 @@ export default function DirectLaborJournalForm({
                         disabled={loading || !isBalanced || totalDetail <= 0}
                         onClick={handleSavePost}
                     >
-                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {loading && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         {mode === 'edit' ? 'Simpan & Post' : 'Save & Post'}
                     </Button>
                 </div>

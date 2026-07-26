@@ -1,4 +1,3 @@
-
 import { prisma } from '@/lib/core/prisma';
 import { differenceInDays } from 'date-fns';
 
@@ -23,7 +22,9 @@ export interface StockAgingResult {
 }
 
 export class StockAgingService {
-    private static getBucketKey(ageDays: number): keyof StockAgingResult['buckets'] {
+    private static getBucketKey(
+        ageDays: number,
+    ): keyof StockAgingResult['buckets'] {
         if (ageDays <= 30) return '0-30';
         if (ageDays <= 60) return '31-60';
         if (ageDays <= 90) return '61-90';
@@ -34,7 +35,7 @@ export class StockAgingService {
         map: Map<string, StockAgingResult>,
         variantId: string,
         name: string,
-        skuCode: string
+        skuCode: string,
     ): StockAgingResult {
         if (!map.has(variantId)) {
             map.set(variantId, {
@@ -44,10 +45,20 @@ export class StockAgingService {
                 totalStock: 0,
                 buckets: {
                     '0-30': { range: '0-30', count: 0, quantity: 0, value: 0 },
-                    '31-60': { range: '31-60', count: 0, quantity: 0, value: 0 },
-                    '61-90': { range: '61-90', count: 0, quantity: 0, value: 0 },
+                    '31-60': {
+                        range: '31-60',
+                        count: 0,
+                        quantity: 0,
+                        value: 0,
+                    },
+                    '61-90': {
+                        range: '61-90',
+                        count: 0,
+                        quantity: 0,
+                        value: 0,
+                    },
                     '90+': { range: '90+', count: 0, quantity: 0, value: 0 },
-                }
+                },
             });
         }
         return map.get(variantId)!;
@@ -67,21 +78,34 @@ export class StockAgingService {
             include: {
                 productVariant: {
                     select: {
-                        id: true, name: true, skuCode: true, buyPrice: true,
-                        inventories: { select: { averageCost: true }, take: 1 }
-                    }
-                }
-            }
+                        id: true,
+                        name: true,
+                        skuCode: true,
+                        buyPrice: true,
+                        inventories: { select: { averageCost: true }, take: 1 },
+                    },
+                },
+            },
         });
 
         for (const batch of batches) {
-            const result = this.ensureResult(agingMap, batch.productVariantId, batch.productVariant.name, batch.productVariant.skuCode);
+            const result = this.ensureResult(
+                agingMap,
+                batch.productVariantId,
+                batch.productVariant.name,
+                batch.productVariant.skuCode,
+            );
             const quantity = batch.quantity.toNumber();
             const inv = batch.productVariant.inventories[0];
-            const unitCost = inv?.averageCost?.toNumber() || batch.productVariant.buyPrice?.toNumber() || 0;
+            const unitCost =
+                inv?.averageCost?.toNumber() ||
+                batch.productVariant.buyPrice?.toNumber() ||
+                0;
             const value = quantity * unitCost;
             const refDate = batch.manufacturingDate || batch.createdAt;
-            const bucketKey = this.getBucketKey(differenceInDays(new Date(), refDate));
+            const bucketKey = this.getBucketKey(
+                differenceInDays(new Date(), refDate),
+            );
             result.buckets[bucketKey].count++;
             result.buckets[bucketKey].quantity += quantity;
             result.buckets[bucketKey].value += value;
@@ -101,16 +125,22 @@ export class StockAgingService {
             include: {
                 productVariant: {
                     select: {
-                        id: true, name: true, skuCode: true, buyPrice: true, standardCost: true,
-                    }
-                }
-            }
+                        id: true,
+                        name: true,
+                        skuCode: true,
+                        buyPrice: true,
+                        standardCost: true,
+                    },
+                },
+            },
         });
 
         if (inventories.length === 0) return [];
 
         // Fetch last inbound movement per variant for better age estimate (groupBy fallback, distinct needs Postgres unique trick)
-        const variantIds = [...new Set(inventories.map(i => i.productVariantId))];
+        const variantIds = [
+            ...new Set(inventories.map((i) => i.productVariantId)),
+        ];
         let lastMovementMap = new Map<string, Date>();
         try {
             const grouped = await prisma.stockMovement.groupBy({
@@ -122,7 +152,8 @@ export class StockAgingService {
                 _max: { createdAt: true },
             });
             for (const g of grouped) {
-                if (g._max.createdAt) lastMovementMap.set(g.productVariantId, g._max.createdAt);
+                if (g._max.createdAt)
+                    lastMovementMap.set(g.productVariantId, g._max.createdAt);
             }
         } catch {
             // fallback: no grouping
@@ -131,15 +162,32 @@ export class StockAgingService {
 
         for (const inv of inventories) {
             const variantId = inv.productVariantId;
-            const result = this.ensureResult(agingMap, variantId, inv.productVariant.name, inv.productVariant.skuCode);
+            const result = this.ensureResult(
+                agingMap,
+                variantId,
+                inv.productVariant.name,
+                inv.productVariant.skuCode,
+            );
             const quantity = inv.quantity.toNumber();
-            const rawInv = inv as unknown as { averageCost?: { toNumber: () => number } | null; updatedAt?: Date };
-            const unitCost = rawInv.averageCost?.toNumber() || inv.productVariant.standardCost?.toNumber() || inv.productVariant.buyPrice?.toNumber() || 0;
+            const rawInv = inv as unknown as {
+                averageCost?: { toNumber: () => number } | null;
+                updatedAt?: Date;
+            };
+            const unitCost =
+                rawInv.averageCost?.toNumber() ||
+                inv.productVariant.standardCost?.toNumber() ||
+                inv.productVariant.buyPrice?.toNumber() ||
+                0;
             const value = quantity * unitCost;
 
             // Age reference: last inbound movement > updatedAt > now
-            const refDate = lastMovementMap.get(variantId) || rawInv.updatedAt || new Date();
-            const bucketKey = this.getBucketKey(differenceInDays(new Date(), refDate));
+            const refDate =
+                lastMovementMap.get(variantId) ||
+                rawInv.updatedAt ||
+                new Date();
+            const bucketKey = this.getBucketKey(
+                differenceInDays(new Date(), refDate),
+            );
 
             result.buckets[bucketKey].count++;
             result.buckets[bucketKey].quantity += quantity;
@@ -168,8 +216,8 @@ export class StockAgingService {
         let totalDays = 0;
         let itemCount = 0;
 
-        results.forEach(res => {
-            Object.values(res.buckets).forEach(b => {
+        results.forEach((res) => {
+            Object.values(res.buckets).forEach((b) => {
                 summary.totalValue += b.value;
                 summary.totalItems += b.quantity;
                 if (b.range === '90+') {
@@ -181,8 +229,15 @@ export class StockAgingService {
             const buckets = Object.values(res.buckets);
             let weightedDays = 0;
             let totalQty = 0;
-            buckets.forEach(b => {
-                const midPoint = b.range === '90+' ? 105 : b.range === '61-90' ? 75 : b.range === '31-60' ? 45 : 15;
+            buckets.forEach((b) => {
+                const midPoint =
+                    b.range === '90+'
+                        ? 105
+                        : b.range === '61-90'
+                          ? 75
+                          : b.range === '31-60'
+                            ? 45
+                            : 15;
                 weightedDays += midPoint * b.quantity;
                 totalQty += b.quantity;
             });
@@ -197,7 +252,8 @@ export class StockAgingService {
         }
 
         if (summary.totalValue > 0) {
-            summary.agedPercentage = (summary.agedValue / summary.totalValue) * 100;
+            summary.agedPercentage =
+                (summary.agedValue / summary.totalValue) * 100;
         }
 
         return summary;

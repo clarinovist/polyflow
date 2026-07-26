@@ -14,7 +14,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const [theme, setThemeState] = useState<Theme>('system');
-    const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+    const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(
+        'light',
+    );
 
     useEffect(() => {
         // Load theme from localStorage on mount
@@ -31,7 +33,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         let actualTheme: 'light' | 'dark' = 'light';
 
         if (theme === 'system') {
-            const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const systemPreference = window.matchMedia(
+                '(prefers-color-scheme: dark)',
+            ).matches;
             actualTheme = systemPreference ? 'dark' : 'light';
         } else {
             actualTheme = theme;

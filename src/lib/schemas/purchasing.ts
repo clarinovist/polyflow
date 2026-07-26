@@ -1,164 +1,174 @@
-import { z } from "zod";
-import { sanitizeHtml } from "@/lib/utils/sanitize";
+import { z } from 'zod';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 export const purchaseOrderItemSchema = z.object({
-  id: z.string().optional(),
-  productVariantId: z.string().min(1, "Product is required"),
-  quantity: z.coerce.number().positive("Quantity must be positive"),
-  unitPrice: z.coerce.number().positive("Unit price must be positive"),
-  discountPercent: z.coerce.number().min(0).max(100).optional().default(0),
-  taxPercent: z.coerce.number().min(0).max(100).optional().default(0),
-  dppOtherAmount: z.coerce.number().min(0).optional().nullable().default(null),
-  ppnMode: z.enum(['INCLUDE', 'EXCLUDE']).optional().default('EXCLUDE'),
+    id: z.string().optional(),
+    productVariantId: z.string().min(1, 'Product is required'),
+    quantity: z.coerce.number().positive('Quantity must be positive'),
+    unitPrice: z.coerce.number().positive('Unit price must be positive'),
+    discountPercent: z.coerce.number().min(0).max(100).optional().default(0),
+    taxPercent: z.coerce.number().min(0).max(100).optional().default(0),
+    dppOtherAmount: z.coerce
+        .number()
+        .min(0)
+        .optional()
+        .nullable()
+        .default(null),
+    ppnMode: z.enum(['INCLUDE', 'EXCLUDE']).optional().default('EXCLUDE'),
 });
 
 export const createPurchaseOrderSchema = z.object({
-  supplierId: z.string().min(1, "Supplier is required"),
-  orderDate: z.coerce.date(),
-  expectedDate: z.coerce.date().optional().nullable(),
-  deliveryAddress: z.string().optional().nullable().transform(sanitizeHtml),
-  notes: z.string().optional().transform(sanitizeHtml),
-  shippingCost: z.coerce.number().min(0).optional().default(0),
-  items: z
-    .array(purchaseOrderItemSchema)
-    .min(1, "At least one item is required"),
+    supplierId: z.string().min(1, 'Supplier is required'),
+    orderDate: z.coerce.date(),
+    expectedDate: z.coerce.date().optional().nullable(),
+    deliveryAddress: z.string().optional().nullable().transform(sanitizeHtml),
+    notes: z.string().optional().transform(sanitizeHtml),
+    shippingCost: z.coerce.number().min(0).optional().default(0),
+    items: z
+        .array(purchaseOrderItemSchema)
+        .min(1, 'At least one item is required'),
 });
 
 export const updatePurchaseOrderSchema = z.object({
-  id: z.string(),
-  supplierId: z.string().min(1, "Supplier is required"),
-  orderDate: z.coerce.date(),
-  expectedDate: z.coerce.date().optional().nullable(),
-  deliveryAddress: z.string().optional().nullable().transform(sanitizeHtml),
-  notes: z.string().optional().transform(sanitizeHtml),
-  shippingCost: z.coerce.number().min(0).optional().default(0),
-  items: z
-    .array(purchaseOrderItemSchema)
-    .min(1, "At least one item is required"),
+    id: z.string(),
+    supplierId: z.string().min(1, 'Supplier is required'),
+    orderDate: z.coerce.date(),
+    expectedDate: z.coerce.date().optional().nullable(),
+    deliveryAddress: z.string().optional().nullable().transform(sanitizeHtml),
+    notes: z.string().optional().transform(sanitizeHtml),
+    shippingCost: z.coerce.number().min(0).optional().default(0),
+    items: z
+        .array(purchaseOrderItemSchema)
+        .min(1, 'At least one item is required'),
 });
 
 export const goodsReceiptItemSchema = z.object({
-  productVariantId: z.string().min(1, "Product is required"),
-  receivedQty: z.coerce.number().positive("Quantity must be positive"),
-  unitCost: z.coerce.number().min(0, "Unit cost cannot be negative"),
+    productVariantId: z.string().min(1, 'Product is required'),
+    receivedQty: z.coerce.number().positive('Quantity must be positive'),
+    unitCost: z.coerce.number().min(0, 'Unit cost cannot be negative'),
 });
 
 export const createGoodsReceiptSchema = z
-  .object({
-    purchaseOrderId: z.string().optional().nullable(),
-    isMaklon: z.boolean().default(false),
-    customerId: z.string().optional().nullable(),
-    receivedDate: z.coerce.date(),
-    locationId: z.string().min(1, "Location is required"),
-    notes: z.string().optional().transform(sanitizeHtml),
-    items: z
-      .array(goodsReceiptItemSchema)
-      .min(1, "At least one item is required"),
-  })
-  .superRefine((data, ctx) => {
-    if (data.isMaklon && !data.customerId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Customer is required for Maklon receipts",
-        path: ["customerId"],
-      });
-    }
-    if (!data.isMaklon && !data.purchaseOrderId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "PO ID is required for standard receipts",
-        path: ["purchaseOrderId"],
-      });
-    }
-  });
+    .object({
+        purchaseOrderId: z.string().optional().nullable(),
+        isMaklon: z.boolean().default(false),
+        customerId: z.string().optional().nullable(),
+        receivedDate: z.coerce.date(),
+        locationId: z.string().min(1, 'Location is required'),
+        notes: z.string().optional().transform(sanitizeHtml),
+        items: z
+            .array(goodsReceiptItemSchema)
+            .min(1, 'At least one item is required'),
+    })
+    .superRefine((data, ctx) => {
+        if (data.isMaklon && !data.customerId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Customer is required for Maklon receipts',
+                path: ['customerId'],
+            });
+        }
+        if (!data.isMaklon && !data.purchaseOrderId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'PO ID is required for standard receipts',
+                path: ['purchaseOrderId'],
+            });
+        }
+    });
 
 export const createPurchaseInvoiceSchema = z
-  .object({
-    purchaseOrderId: z.string().min(1, "PO ID is required"),
-    invoiceNumber: z
-      .string()
-      .min(1, "Invoice number is required")
-      .transform(sanitizeHtml),
-    invoiceDate: z.coerce.date(),
-    dueDate: z.coerce.date().optional().nullable(),
-    termOfPaymentDays: z.coerce.number().int().min(0).max(365).default(30),
-    manualDueDate: z.coerce.date().optional().nullable(),
-    notes: z.string().optional().transform(sanitizeHtml),
-  })
-  .superRefine((data, ctx) => {
-    // If manualDueDate provided, dueDate logic handled in service
-    if (data.manualDueDate && data.manualDueDate < data.invoiceDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Tanggal jatuh tempo tidak boleh sebelum tanggal invoice",
-        path: ["manualDueDate"],
-      });
-    }
-  });
+    .object({
+        purchaseOrderId: z.string().min(1, 'PO ID is required'),
+        invoiceNumber: z
+            .string()
+            .min(1, 'Invoice number is required')
+            .transform(sanitizeHtml),
+        invoiceDate: z.coerce.date(),
+        dueDate: z.coerce.date().optional().nullable(),
+        termOfPaymentDays: z.coerce.number().int().min(0).max(365).default(30),
+        manualDueDate: z.coerce.date().optional().nullable(),
+        notes: z.string().optional().transform(sanitizeHtml),
+    })
+    .superRefine((data, ctx) => {
+        // If manualDueDate provided, dueDate logic handled in service
+        if (data.manualDueDate && data.manualDueDate < data.invoiceDate) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                    'Tanggal jatuh tempo tidak boleh sebelum tanggal invoice',
+                path: ['manualDueDate'],
+            });
+        }
+    });
 
 /** Warehouse walk-in: goods + nota arrive before a planned PO exists. */
 export const createWalkInReceiptSchema = z.object({
-  supplierId: z.string().min(1, "Supplier is required"),
-  supplierRefNo: z
-    .string()
-    .min(1, "No. nota / surat jalan is required")
-    .transform(sanitizeHtml),
-  receivedDate: z.coerce.date(),
-  locationId: z.string().min(1, "Location is required"),
-  notes: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((v) => (v == null || v === "" ? undefined : sanitizeHtml(v))),
-  items: z
-    .array(
-      z.object({
-        productVariantId: z.string().min(1, "Product is required"),
-        receivedQty: z.coerce.number().positive("Quantity must be positive"),
-        unitCost: z.coerce
-          .number()
-          .min(0, "Unit cost cannot be negative")
-          .optional()
-          .nullable(),
-      }),
-    )
-    .min(1, "At least one item is required"),
+    supplierId: z.string().min(1, 'Supplier is required'),
+    supplierRefNo: z
+        .string()
+        .min(1, 'No. nota / surat jalan is required')
+        .transform(sanitizeHtml),
+    receivedDate: z.coerce.date(),
+    locationId: z.string().min(1, 'Location is required'),
+    notes: z
+        .string()
+        .optional()
+        .nullable()
+        .transform((v) =>
+            v == null || v === '' ? undefined : sanitizeHtml(v),
+        ),
+    items: z
+        .array(
+            z.object({
+                productVariantId: z.string().min(1, 'Product is required'),
+                receivedQty: z.coerce
+                    .number()
+                    .positive('Quantity must be positive'),
+                unitCost: z.coerce
+                    .number()
+                    .min(0, 'Unit cost cannot be negative')
+                    .optional()
+                    .nullable(),
+            }),
+        )
+        .min(1, 'At least one item is required'),
 });
 
 export const purchaseRequestItemSchema = z.object({
-  productVariantId: z.string().min(1, "Product is required"),
-  quantity: z.coerce.number().positive("Quantity must be positive"),
-  notes: z.string().optional().transform(sanitizeHtml),
+    productVariantId: z.string().min(1, 'Product is required'),
+    quantity: z.coerce.number().positive('Quantity must be positive'),
+    notes: z.string().optional().transform(sanitizeHtml),
 });
 
 export const createPurchaseRequestSchema = z.object({
-  salesOrderId: z.string().optional(),
-  priority: z.enum(["NORMAL", "URGENT"]).default("NORMAL"),
-  notes: z.string().optional().transform(sanitizeHtml),
-  items: z
-    .array(purchaseRequestItemSchema)
-    .min(1, "At least one item is required"),
+    salesOrderId: z.string().optional(),
+    priority: z.enum(['NORMAL', 'URGENT']).default('NORMAL'),
+    notes: z.string().optional().transform(sanitizeHtml),
+    items: z
+        .array(purchaseRequestItemSchema)
+        .min(1, 'At least one item is required'),
 });
 
 export type PurchaseOrderItemValues = z.infer<typeof purchaseOrderItemSchema>;
 export type CreatePurchaseOrderValues = z.infer<
-  typeof createPurchaseOrderSchema
+    typeof createPurchaseOrderSchema
 >;
 export type UpdatePurchaseOrderValues = z.infer<
-  typeof updatePurchaseOrderSchema
+    typeof updatePurchaseOrderSchema
 >;
 export type GoodsReceiptItemValues = z.infer<typeof goodsReceiptItemSchema>;
 export type CreateGoodsReceiptValues = z.infer<typeof createGoodsReceiptSchema>;
 export type CreatePurchaseInvoiceValues = z.infer<
-  typeof createPurchaseInvoiceSchema
+    typeof createPurchaseInvoiceSchema
 >;
 export type CreateWalkInReceiptValues = z.infer<
-  typeof createWalkInReceiptSchema
+    typeof createWalkInReceiptSchema
 >;
 
 export type PurchaseRequestItemValues = z.infer<
-  typeof purchaseRequestItemSchema
+    typeof purchaseRequestItemSchema
 >;
 export type CreatePurchaseRequestValues = z.infer<
-  typeof createPurchaseRequestSchema
+    typeof createPurchaseRequestSchema
 >;

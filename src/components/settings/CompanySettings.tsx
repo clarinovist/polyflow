@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,8 +77,10 @@ function BankAccountsEditor({
     rows: BankRow[];
     onChange: (next: BankRow[]) => void;
 }) {
-    const addRow = () => onChange([...rows, { holder: '', bank: '', account: '' }]);
-    const removeRow = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
+    const addRow = () =>
+        onChange([...rows, { holder: '', bank: '', account: '' }]);
+    const removeRow = (i: number) =>
+        onChange(rows.filter((_, idx) => idx !== i));
     const updateRow = (i: number, field: keyof BankRow, val: string) => {
         const next = rows.slice();
         next[i] = { ...next[i], [field]: val };
@@ -85,7 +93,9 @@ function BankAccountsEditor({
                     <Building2 className="h-4 w-4" />
                     {title}
                 </h4>
-                <p className="text-xs text-muted-foreground mt-1">{description}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                    {description}
+                </p>
             </div>
             {rows.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2 border border-dashed rounded px-3">
@@ -94,21 +104,52 @@ function BankAccountsEditor({
             ) : (
                 <div className="space-y-2">
                     {rows.map((r, i) => (
-                        <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                        <div
+                            key={i}
+                            className="grid grid-cols-12 gap-2 items-end"
+                        >
                             <div className="col-span-4">
                                 <Label className="text-xs">Pemilik</Label>
-                                <Input value={r.holder} onChange={(e) => updateRow(i, 'holder', e.target.value)} placeholder="Nama pemilik" className="h-8 text-sm" />
+                                <Input
+                                    value={r.holder}
+                                    onChange={(e) =>
+                                        updateRow(i, 'holder', e.target.value)
+                                    }
+                                    placeholder="Nama pemilik"
+                                    className="h-8 text-sm"
+                                />
                             </div>
                             <div className="col-span-4">
                                 <Label className="text-xs">Bank</Label>
-                                <Input value={r.bank} onChange={(e) => updateRow(i, 'bank', e.target.value)} placeholder="Bank BCA" className="h-8 text-sm" />
+                                <Input
+                                    value={r.bank}
+                                    onChange={(e) =>
+                                        updateRow(i, 'bank', e.target.value)
+                                    }
+                                    placeholder="Bank BCA"
+                                    className="h-8 text-sm"
+                                />
                             </div>
                             <div className="col-span-3">
                                 <Label className="text-xs">No Rekening</Label>
-                                <Input value={r.account} onChange={(e) => updateRow(i, 'account', e.target.value)} placeholder="1234567890" className="h-8 text-sm" inputMode="numeric" />
+                                <Input
+                                    value={r.account}
+                                    onChange={(e) =>
+                                        updateRow(i, 'account', e.target.value)
+                                    }
+                                    placeholder="1234567890"
+                                    className="h-8 text-sm"
+                                    inputMode="numeric"
+                                />
                             </div>
                             <div className="col-span-1 flex justify-end">
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeRow(i)}>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => removeRow(i)}
+                                >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -153,27 +194,40 @@ export function CompanySettings() {
         })();
     }, []);
 
-    const setField = (key: keyof CompanyForm) => (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    ) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    const setField =
+        (key: keyof CompanyForm) =>
+        (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+            setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
     const handleSave = () => {
         startSaving(async () => {
             const payload: Record<string, string> = Object.fromEntries(
-                Object.entries(form).filter(([, v]) => (v as string).trim() !== ''),
+                Object.entries(form).filter(
+                    ([, v]) => (v as string).trim() !== '',
+                ),
             ) as Record<string, string>;
             // Bank accounts: save as JSON, allow empty to clear
             payload.bankAccountsNonPPN = JSON.stringify(
-                banksNonPPN.filter((r) => r.account.trim() || r.holder.trim() || r.bank.trim()),
+                banksNonPPN.filter(
+                    (r) => r.account.trim() || r.holder.trim() || r.bank.trim(),
+                ),
             );
             payload.bankAccountsPPN = JSON.stringify(
-                banksPPN.filter((r) => r.account.trim() || r.holder.trim() || r.bank.trim()),
+                banksPPN.filter(
+                    (r) => r.account.trim() || r.holder.trim() || r.bank.trim(),
+                ),
             );
-            const res = await updateCompanySettings(payload as UpdateCompanyInput);
+            const res = await updateCompanySettings(
+                payload as UpdateCompanyInput,
+            );
             if (res.success) {
-                toast.success('Pengaturan perusahaan disimpan. Akan dipakai pada dokumen cetak berikutnya.');
+                toast.success(
+                    'Pengaturan perusahaan disimpan. Akan dipakai pada dokumen cetak berikutnya.',
+                );
             } else {
-                toast.error(res.error || 'Gagal menyimpan pengaturan perusahaan.');
+                toast.error(
+                    res.error || 'Gagal menyimpan pengaturan perusahaan.',
+                );
             }
         });
     };
@@ -213,8 +267,9 @@ export function CompanySettings() {
             <CardHeader>
                 <CardTitle>Informasi Perusahaan</CardTitle>
                 <CardDescription>
-                    Digunakan pada dokumen cetak (surat jalan, invoice, kuitansi) untuk tenant ini.
-                    Kosongkan field untuk memakai nilai default sistem.
+                    Digunakan pada dokumen cetak (surat jalan, invoice,
+                    kuitansi) untuk tenant ini. Kosongkan field untuk memakai
+                    nilai default sistem.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -222,9 +277,15 @@ export function CompanySettings() {
                     <div className="h-16 w-16 shrink-0 rounded-lg border bg-muted/50 flex items-center justify-center overflow-hidden">
                         {logoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="Logo perusahaan" className="h-full w-full object-contain" />
+                            <img
+                                src={logoUrl}
+                                alt="Logo perusahaan"
+                                className="h-full w-full object-contain"
+                            />
                         ) : (
-                            <span className="text-xs text-muted-foreground">Logo</span>
+                            <span className="text-xs text-muted-foreground">
+                                Logo
+                            </span>
                         )}
                     </div>
                     <div>
@@ -254,35 +315,69 @@ export function CompanySettings() {
 
                 <div className="grid gap-2">
                     <Label htmlFor="companyName">Nama Perusahaan</Label>
-                    <Input id="companyName" value={form.name} onChange={setField('name')} placeholder="mis. CV Melindo Jaya" />
+                    <Input
+                        id="companyName"
+                        value={form.name}
+                        onChange={setField('name')}
+                        placeholder="mis. CV Melindo Jaya"
+                    />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="companyAddress">Alamat</Label>
-                    <Textarea id="companyAddress" value={form.address} onChange={setField('address')} rows={3} />
+                    <Textarea
+                        id="companyAddress"
+                        value={form.address}
+                        onChange={setField('address')}
+                        rows={3}
+                    />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="companyPhone">Telepon</Label>
-                        <Input id="companyPhone" value={form.phone} onChange={setField('phone')} />
+                        <Input
+                            id="companyPhone"
+                            value={form.phone}
+                            onChange={setField('phone')}
+                        />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="companyEmail">Email</Label>
-                        <Input id="companyEmail" type="email" value={form.email} onChange={setField('email')} />
+                        <Input
+                            id="companyEmail"
+                            type="email"
+                            value={form.email}
+                            onChange={setField('email')}
+                        />
                     </div>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="companySigner">Nama Penandatangan</Label>
-                    <Input id="companySigner" value={form.signerName} onChange={setField('signerName')} placeholder="mis. Nama Penandatangan" />
+                    <Input
+                        id="companySigner"
+                        value={form.signerName}
+                        onChange={setField('signerName')}
+                        placeholder="mis. Nama Penandatangan"
+                    />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="companyFooter">Catatan Footer Cetak</Label>
-                    <Textarea id="companyFooter" value={form.footerNote} onChange={setField('footerNote')} rows={2} />
+                    <Textarea
+                        id="companyFooter"
+                        value={form.footerNote}
+                        onChange={setField('footerNote')}
+                        rows={2}
+                    />
                 </div>
 
                 <div className="space-y-4 pt-2 border-t">
                     <div>
-                        <h3 className="font-medium">Rekening Bank Cetak Dokumen</h3>
-                        <p className="text-xs text-muted-foreground">Dipakai pada invoice, surat jalan, kuitansi. Pisahkan PPN dan Non-PPN. Data tenant-isolated.</p>
+                        <h3 className="font-medium">
+                            Rekening Bank Cetak Dokumen
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                            Dipakai pada invoice, surat jalan, kuitansi.
+                            Pisahkan PPN dan Non-PPN. Data tenant-isolated.
+                        </p>
                     </div>
                     <BankAccountsEditor
                         title="Non-PPN (contoh potongan / umum)"
@@ -300,7 +395,9 @@ export function CompanySettings() {
 
                 <div className="flex justify-end">
                     <Button onClick={handleSave} disabled={saving}>
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {saving && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         Simpan Perubahan
                     </Button>
                 </div>

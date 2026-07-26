@@ -1,16 +1,20 @@
 'use client';
 
 import {
-  useForm,
-  useFieldArray,
-  useWatch,
-  type Resolver,
+    useForm,
+    useFieldArray,
+    useWatch,
+    type Resolver,
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createSalesQuotationSchema, CreateSalesQuotationValues, UpdateSalesQuotationValues, updateSalesQuotationSchema } from '@/lib/schemas/quotation';
+import {
+    createSalesQuotationSchema,
+    CreateSalesQuotationValues,
+    UpdateSalesQuotationValues,
+    updateSalesQuotationSchema,
+} from '@/lib/schemas/quotation';
 import { createQuotation, updateQuotation } from '@/actions/sales/quotations';
 import { Input } from '@/components/ui/input';
-
 
 import { Button } from '@/components/ui/button';
 import {
@@ -40,9 +44,19 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
 import { Customer, ProductVariant, Product, Unit } from '@prisma/client';
-import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
+import {
+    getProductionUnitMeta,
+    toBaseQuantity,
+} from '@/lib/utils/production-units';
 import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
@@ -51,7 +65,16 @@ type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
 };
 
 // Helper type for client-side usage where Decimals are converted to numbers
-type SerializedProductVariant = Omit<ProductVariant, 'price' | 'buyPrice' | 'sellPrice' | 'conversionFactor' | 'minStockAlert' | 'reorderPoint' | 'reorderQuantity'> & {
+type SerializedProductVariant = Omit<
+    ProductVariant,
+    | 'price'
+    | 'buyPrice'
+    | 'sellPrice'
+    | 'conversionFactor'
+    | 'minStockAlert'
+    | 'reorderPoint'
+    | 'reorderQuantity'
+> & {
     price: number | null;
     buyPrice: number | null;
     sellPrice: number | null;
@@ -78,11 +101,18 @@ interface SalesQuotationFormProps {
     initialData?: UpdateSalesQuotationValues & { id: string };
 }
 
-export function SalesQuotationForm({ customers, products, mode, initialData }: SalesQuotationFormProps) {
+export function SalesQuotationForm({
+    customers,
+    products,
+    mode,
+    initialData,
+}: SalesQuotationFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openCustomer, setOpenCustomer] = useState(false);
-    const previousCustomerIdRef = useRef<string | undefined>(initialData?.customerId);
+    const previousCustomerIdRef = useRef<string | undefined>(
+        initialData?.customerId,
+    );
 
     type SalesQuotationFormValues = {
         id?: string;
@@ -110,40 +140,60 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
 
     const form = useForm<SalesQuotationFormValues>({
         resolver: zodResolver(
-            mode === 'create' ? createSalesQuotationSchema : updateSalesQuotationSchema,
+            mode === 'create'
+                ? createSalesQuotationSchema
+                : updateSalesQuotationSchema,
         ) as unknown as Resolver<SalesQuotationFormValues>,
-        defaultValues: initialData ? {
-            ...initialData,
-            validUntil: initialData.validUntil ? new Date(initialData.validUntil) : undefined, // Ensure date object
-            quotationDate: new Date(initialData.quotationDate),
-            subject: initialData.subject ?? undefined,
-            paymentTerms: initialData.paymentTerms ?? undefined,
-            shippingTerms: initialData.shippingTerms ?? undefined,
-            termsConditions: initialData.termsConditions ?? undefined,
-            notes: initialData.notes ?? undefined,
-        } : {
-            customerId: '',
-            quotationDate: new Date(),
-            subject: 'Penawaran Harga Produk Plastik',
-            paymentTerms: 'CBD (Cash Before Delivery)',
-            shippingTerms: 'Franco Karanganyar',
-            termsConditions: '1. Harga Franco pabrik.\n2. Waktu pengiriman maksimal 7 hari kerja setelah PO diterima.\n3. Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.',
-            notes: '',
-            items: [{ productVariantId: '', quantity: 1, unitPrice: 0, discountPercent: 0, taxPercent: 0 }],
-        }
+        defaultValues: initialData
+            ? {
+                  ...initialData,
+                  validUntil: initialData.validUntil
+                      ? new Date(initialData.validUntil)
+                      : undefined, // Ensure date object
+                  quotationDate: new Date(initialData.quotationDate),
+                  subject: initialData.subject ?? undefined,
+                  paymentTerms: initialData.paymentTerms ?? undefined,
+                  shippingTerms: initialData.shippingTerms ?? undefined,
+                  termsConditions: initialData.termsConditions ?? undefined,
+                  notes: initialData.notes ?? undefined,
+              }
+            : {
+                  customerId: '',
+                  quotationDate: new Date(),
+                  subject: 'Penawaran Harga Produk Plastik',
+                  paymentTerms: 'CBD (Cash Before Delivery)',
+                  shippingTerms: 'Franco Karanganyar',
+                  termsConditions:
+                      '1. Harga Franco pabrik.\n2. Waktu pengiriman maksimal 7 hari kerja setelah PO diterima.\n3. Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.',
+                  notes: '',
+                  items: [
+                      {
+                          productVariantId: '',
+                          quantity: 1,
+                          unitPrice: 0,
+                          discountPercent: 0,
+                          taxPercent: 0,
+                      },
+                  ],
+              },
     });
 
     // Calculate totals
     const { fields, append, remove } = useFieldArray({
         control: form.control,
-        name: 'items'
+        name: 'items',
     });
 
     const watchItems = useWatch({ control: form.control, name: 'items' });
-    const selectedCustomerId = useWatch({ control: form.control, name: 'customerId' });
+    const selectedCustomerId = useWatch({
+        control: form.control,
+        name: 'customerId',
+    });
 
     const getLineVariant = (index: number) => {
-        const productVariantId = form.getValues(`items.${index}.productVariantId`);
+        const productVariantId = form.getValues(
+            `items.${index}.productVariantId`,
+        );
         return products.find((p) => p.id === productVariantId);
     };
 
@@ -152,39 +202,69 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
         return variant ? getProductionUnitMeta(variant) : null;
     };
 
-    const toDisplayUnitPrice = (variant: SerializedProductVariant, baseUnitPrice: number) => {
+    const toDisplayUnitPrice = (
+        variant: SerializedProductVariant,
+        baseUnitPrice: number,
+    ) => {
         const meta = getProductionUnitMeta(variant);
-        return meta.hasAlternateUnit ? baseUnitPrice * meta.conversionFactor : baseUnitPrice;
+        return meta.hasAlternateUnit
+            ? baseUnitPrice * meta.conversionFactor
+            : baseUnitPrice;
     };
 
-    const getCustomerBasePrice = useCallback((variant: SerializedProductVariant) => {
-        const customerPrice = selectedCustomerId
-            ? variant.customerPrices?.find((price) => price.customerId === selectedCustomerId && price.isActive)
-            : undefined;
-        return customerPrice?.unitPrice ?? variant.sellPrice ?? variant.price ?? 0;
-    }, [selectedCustomerId]);
+    const getCustomerBasePrice = useCallback(
+        (variant: SerializedProductVariant) => {
+            const customerPrice = selectedCustomerId
+                ? variant.customerPrices?.find(
+                      (price) =>
+                          price.customerId === selectedCustomerId &&
+                          price.isActive,
+                  )
+                : undefined;
+            return (
+                customerPrice?.unitPrice ??
+                variant.sellPrice ??
+                variant.price ??
+                0
+            );
+        },
+        [selectedCustomerId],
+    );
 
-    const getPriceSourceLabel = useCallback((variant: SerializedProductVariant) => {
-        if (!selectedCustomerId) return 'Harga default';
-        return variant.customerPrices?.some((price) => price.customerId === selectedCustomerId && price.isActive)
-            ? 'Harga khusus customer'
-            : 'Harga default';
-    }, [selectedCustomerId]);
+    const getPriceSourceLabel = useCallback(
+        (variant: SerializedProductVariant) => {
+            if (!selectedCustomerId) return 'Harga default';
+            return variant.customerPrices?.some(
+                (price) =>
+                    price.customerId === selectedCustomerId && price.isActive,
+            )
+                ? 'Harga khusus customer'
+                : 'Harga default';
+        },
+        [selectedCustomerId],
+    );
 
     useEffect(() => {
         const previousCustomerId = previousCustomerIdRef.current;
         previousCustomerIdRef.current = selectedCustomerId;
 
-        if (!previousCustomerId || previousCustomerId === selectedCustomerId) return;
+        if (!previousCustomerId || previousCustomerId === selectedCustomerId)
+            return;
 
-        const items = form.getValues('items') as SalesQuotationFormValues['items'];
+        const items = form.getValues(
+            'items',
+        ) as SalesQuotationFormValues['items'];
         if (!items.some((item) => item.productVariantId)) return;
 
-        const shouldUpdate = window.confirm('Customer berubah. Update harga item sesuai harga customer baru?');
+        const shouldUpdate = window.confirm(
+            'Customer berubah. Update harga item sesuai harga customer baru?',
+        );
         if (!shouldUpdate) return;
 
         items.forEach((item, index) => {
-            const variant = products.find((p) => p.id === item.productVariantId);
+            const variant = products.find(
+                (p) => p.id === item.productVariantId,
+            );
             if (!variant) return;
             form.setValue(
                 `items.${index}.unitPrice`,
@@ -194,20 +274,26 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
         });
     }, [selectedCustomerId, form, products, getCustomerBasePrice]);
 
-    const totals = (watchItems as SalesQuotationFormValues['items'])?.reduce((acc: { gross: number; discount: number; tax: number; net: number }, item) => {
-        const qty = item.quantity || 0;
-        const price = item.unitPrice || 0;
-        const subtotal = qty * price;
-        const discount = subtotal * ((item.discountPercent || 0) / 100);
-        const taxable = subtotal - discount;
-        const tax = taxable * ((item.taxPercent || 0) / 100);
+    const totals = (watchItems as SalesQuotationFormValues['items'])?.reduce(
+        (
+            acc: { gross: number; discount: number; tax: number; net: number },
+            item,
+        ) => {
+            const qty = item.quantity || 0;
+            const price = item.unitPrice || 0;
+            const subtotal = qty * price;
+            const discount = subtotal * ((item.discountPercent || 0) / 100);
+            const taxable = subtotal - discount;
+            const tax = taxable * ((item.taxPercent || 0) / 100);
 
-        acc.gross += subtotal;
-        acc.discount += discount;
-        acc.tax += tax;
-        acc.net += (taxable + tax);
-        return acc;
-    }, { gross: 0, discount: 0, tax: 0, net: 0 }) || { gross: 0, discount: 0, tax: 0, net: 0 };
+            acc.gross += subtotal;
+            acc.discount += discount;
+            acc.tax += tax;
+            acc.net += taxable + tax;
+            return acc;
+        },
+        { gross: 0, discount: 0, tax: 0, net: 0 },
+    ) || { gross: 0, discount: 0, tax: 0, net: 0 };
 
     async function onSubmit(data: SalesQuotationFormValues) {
         setIsSubmitting(true);
@@ -217,7 +303,9 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                 ...data,
                 validUntil: data.validUntil || undefined,
                 items: data.items.map((item) => {
-                    const variant = products.find((p) => p.id === item.productVariantId);
+                    const variant = products.find(
+                        (p) => p.id === item.productVariantId,
+                    );
                     if (!variant) return item;
 
                     const meta = getProductionUnitMeta(variant);
@@ -235,7 +323,10 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                     const enteredUnitPrice = Number(item.unitPrice);
                     return {
                         ...item,
-                        quantity: toBaseQuantity(enteredQuantity, meta.conversionFactor),
+                        quantity: toBaseQuantity(
+                            enteredQuantity,
+                            meta.conversionFactor,
+                        ),
                         unitPrice: enteredUnitPrice / meta.conversionFactor,
                         enteredQuantity,
                         enteredUnit: meta.salesUnit as Unit,
@@ -245,18 +336,29 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                 }),
             };
 
-            const result = mode === 'create'
-                ? await createQuotation(payload as CreateSalesQuotationValues)
-                : await updateQuotation({ ...payload, id: initialData!.id } as UpdateSalesQuotationValues);
+            const result =
+                mode === 'create'
+                    ? await createQuotation(
+                          payload as CreateSalesQuotationValues,
+                      )
+                    : await updateQuotation({
+                          ...payload,
+                          id: initialData!.id,
+                      } as UpdateSalesQuotationValues);
 
             if (result.success) {
-                toast.success(`Quotation berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`);
+                toast.success(
+                    `Quotation berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`,
+                );
                 router.push('/sales/quotations');
             } else {
-                toast.error(result.error || "Gagal menyimpan quotation. Silakan coba lagi.");
+                toast.error(
+                    result.error ||
+                        'Gagal menyimpan quotation. Silakan coba lagi.',
+                );
             }
         } catch (_error) {
-            toast.error("Gagal menyimpan penawaran. Silakan coba lagi.");
+            toast.error('Gagal menyimpan penawaran. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }
@@ -265,7 +367,6 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-
                 {/* Header Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Customer */}
@@ -274,21 +375,31 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="customerId"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>{salesLabels.customer} (Opsional)</FormLabel>
-                                <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
+                                <FormLabel>
+                                    {salesLabels.customer} (Opsional)
+                                </FormLabel>
+                                <Popover
+                                    open={openCustomer}
+                                    onOpenChange={setOpenCustomer}
+                                >
                                     <PopoverTrigger asChild>
                                         <FormControl>
                                             <Button
                                                 variant="outline"
                                                 role="combobox"
                                                 className={cn(
-                                                    "w-full justify-between",
-                                                    !field.value && "text-muted-foreground"
+                                                    'w-full justify-between',
+                                                    !field.value &&
+                                                        'text-muted-foreground',
                                                 )}
                                             >
                                                 {field.value
-                                                    ? customers.find((customer) => customer.id === field.value)?.name
-                                                    : "Pilih customer ATAU kosongkan untuk prospek"}
+                                                    ? customers.find(
+                                                          (customer) =>
+                                                              customer.id ===
+                                                              field.value,
+                                                      )?.name
+                                                    : 'Pilih customer ATAU kosongkan untuk prospek'}
                                                 <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </FormControl>
@@ -297,28 +408,46 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                         <Command>
                                             <CommandInput placeholder="Cari customer..." />
                                             <CommandList>
-                                                <CommandEmpty>Customer tidak ditemukan.</CommandEmpty>
+                                                <CommandEmpty>
+                                                    Customer tidak ditemukan.
+                                                </CommandEmpty>
                                                 <CommandGroup>
-                                                    {customers.map((customer) => (
-                                                        <CommandItem
-                                                            key={customer.id}
-                                                            value={customer.name}
-                                                            onSelect={() => {
-                                                                form.setValue("customerId", customer.id, { shouldValidate: true, shouldDirty: true });
-                                                                setOpenCustomer(false);
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    customer.id === field.value
-                                                                        ? "opacity-100"
-                                                                        : "opacity-0"
-                                                                )}
-                                                            />
-                                                            {customer.name}
-                                                        </CommandItem>
-                                                    ))}
+                                                    {customers.map(
+                                                        (customer) => (
+                                                            <CommandItem
+                                                                key={
+                                                                    customer.id
+                                                                }
+                                                                value={
+                                                                    customer.name
+                                                                }
+                                                                onSelect={() => {
+                                                                    form.setValue(
+                                                                        'customerId',
+                                                                        customer.id,
+                                                                        {
+                                                                            shouldValidate: true,
+                                                                            shouldDirty: true,
+                                                                        },
+                                                                    );
+                                                                    setOpenCustomer(
+                                                                        false,
+                                                                    );
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        'mr-2 h-4 w-4',
+                                                                        customer.id ===
+                                                                            field.value
+                                                                            ? 'opacity-100'
+                                                                            : 'opacity-0',
+                                                                    )}
+                                                                />
+                                                                {customer.name}
+                                                            </CommandItem>
+                                                        ),
+                                                    )}
                                                 </CommandGroup>
                                             </CommandList>
                                         </Command>
@@ -335,19 +464,22 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="quotationDate"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>{salesLabels.quotationDate}</FormLabel>
+                                <FormLabel>
+                                    {salesLabels.quotationDate}
+                                </FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>
                                             <Button
-                                                variant={"outline"}
+                                                variant={'outline'}
                                                 className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
+                                                    'w-full pl-3 text-left font-normal',
+                                                    !field.value &&
+                                                        'text-muted-foreground',
                                                 )}
                                             >
                                                 {field.value ? (
-                                                    format(field.value, "PPP")
+                                                    format(field.value, 'PPP')
                                                 ) : (
                                                     <span>Pilih tanggal</span>
                                                 )}
@@ -355,7 +487,10 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <PopoverContent
+                                        className="w-auto p-0"
+                                        align="start"
+                                    >
                                         <Calendar
                                             mode="single"
                                             selected={field.value}
@@ -363,11 +498,17 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                             disabled={(date) => {
                                                 const today = new Date();
                                                 today.setHours(23, 59, 59, 999);
-                                                return date > today || date < new Date("1900-01-01"); // Allow past dates? Sure.
+                                                return (
+                                                    date > today ||
+                                                    date <
+                                                        new Date('1900-01-01')
+                                                ); // Allow past dates? Sure.
                                             }}
                                             captionLayout="dropdown"
                                             fromYear={2000}
-                                            toYear={new Date().getFullYear() + 1}
+                                            toYear={
+                                                new Date().getFullYear() + 1
+                                            }
                                             initialFocus
                                         />
                                     </PopoverContent>
@@ -388,14 +529,15 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                     <PopoverTrigger asChild>
                                         <FormControl>
                                             <Button
-                                                variant={"outline"}
+                                                variant={'outline'}
                                                 className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
+                                                    'w-full pl-3 text-left font-normal',
+                                                    !field.value &&
+                                                        'text-muted-foreground',
                                                 )}
                                             >
                                                 {field.value ? (
-                                                    format(field.value, "PPP")
+                                                    format(field.value, 'PPP')
                                                 ) : (
                                                     <span>Pilih tanggal</span>
                                                 )}
@@ -403,20 +545,37 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <PopoverContent
+                                        className="w-auto p-0"
+                                        align="start"
+                                    >
                                         <Calendar
                                             mode="single"
                                             selected={field.value as Date}
                                             onSelect={field.onChange}
                                             disabled={(date) => {
-                                                const qDate = form.watch("quotationDate") || new Date();
-                                                const normalizedQDate = new Date(qDate);
-                                                normalizedQDate.setHours(0, 0, 0, 0);
-                                                return date.getTime() < normalizedQDate.getTime();
+                                                const qDate =
+                                                    form.watch(
+                                                        'quotationDate',
+                                                    ) || new Date();
+                                                const normalizedQDate =
+                                                    new Date(qDate);
+                                                normalizedQDate.setHours(
+                                                    0,
+                                                    0,
+                                                    0,
+                                                    0,
+                                                );
+                                                return (
+                                                    date.getTime() <
+                                                    normalizedQDate.getTime()
+                                                );
                                             }}
                                             captionLayout="dropdown"
                                             fromYear={2000}
-                                            toYear={new Date().getFullYear() + 5}
+                                            toYear={
+                                                new Date().getFullYear() + 5
+                                            }
                                             initialFocus
                                         />
                                     </PopoverContent>
@@ -434,7 +593,11 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                             <FormItem>
                                 <FormLabel>Hal / Perihal Surat</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Contoh: Penawaran Harga Produk Plastik" {...field} value={field.value || ''} />
+                                    <Input
+                                        placeholder="Contoh: Penawaran Harga Produk Plastik"
+                                        {...field}
+                                        value={field.value || ''}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -447,19 +610,34 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="paymentTerms"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Syarat Pembayaran (Payment Terms)</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                                <FormLabel>
+                                    Syarat Pembayaran (Payment Terms)
+                                </FormLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value || ''}
+                                >
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Pilih syarat pembayaran" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="CBD (Cash Before Delivery)">CBD (Cash Before Delivery)</SelectItem>
-                                        <SelectItem value="COD (Cash On Delivery)">COD (Cash On Delivery)</SelectItem>
-                                        <SelectItem value="Tempo 14 Hari">Tempo 14 Hari</SelectItem>
-                                        <SelectItem value="Tempo 30 Hari">Tempo 30 Hari</SelectItem>
-                                        <SelectItem value="Tempo 45 Hari">Tempo 45 Hari</SelectItem>
+                                        <SelectItem value="CBD (Cash Before Delivery)">
+                                            CBD (Cash Before Delivery)
+                                        </SelectItem>
+                                        <SelectItem value="COD (Cash On Delivery)">
+                                            COD (Cash On Delivery)
+                                        </SelectItem>
+                                        <SelectItem value="Tempo 14 Hari">
+                                            Tempo 14 Hari
+                                        </SelectItem>
+                                        <SelectItem value="Tempo 30 Hari">
+                                            Tempo 30 Hari
+                                        </SelectItem>
+                                        <SelectItem value="Tempo 45 Hari">
+                                            Tempo 45 Hari
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -474,16 +652,27 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Syarat Pengiriman</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value || ''}
+                                >
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Pilih syarat pengiriman" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="Franco Karanganyar">Franco Karanganyar (Gratis Ongkir Solo Raya)</SelectItem>
-                                        <SelectItem value="Loco Gudang Penjual">Loco Gudang Penjual (Ongkir ditanggung Pembeli)</SelectItem>
-                                        <SelectItem value="Sesuai Kesepakatan">Sesuai Kesepakatan</SelectItem>
+                                        <SelectItem value="Franco Karanganyar">
+                                            Franco Karanganyar (Gratis Ongkir
+                                            Solo Raya)
+                                        </SelectItem>
+                                        <SelectItem value="Loco Gudang Penjual">
+                                            Loco Gudang Penjual (Ongkir
+                                            ditanggung Pembeli)
+                                        </SelectItem>
+                                        <SelectItem value="Sesuai Kesepakatan">
+                                            Sesuai Kesepakatan
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -497,7 +686,10 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="termsConditions"
                         render={({ field }) => (
                             <FormItem className="md:col-span-2">
-                                <FormLabel>Syarat & Ketentuan Tambahan (Tampil di Surat)</FormLabel>
+                                <FormLabel>
+                                    Syarat & Ketentuan Tambahan (Tampil di
+                                    Surat)
+                                </FormLabel>
                                 <FormControl>
                                     <textarea
                                         placeholder="Tuliskan syarat & ketentuan tambahan penawaran..."
@@ -517,28 +709,44 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="notes"
                         render={({ field }) => (
                             <FormItem className="md:col-span-2">
-                                <FormLabel>{formLabels.notes} (Internal)</FormLabel>
+                                <FormLabel>
+                                    {formLabels.notes} (Internal)
+                                </FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Catatan internal opsional..." {...field} value={field.value || ''} />
+                                    <Input
+                                        placeholder="Catatan internal opsional..."
+                                        {...field}
+                                        value={field.value || ''}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
-
                 </div>
 
                 {/* Line Items */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">{salesLabels.items} Pesanan</h3>
+                        <h3 className="text-lg font-semibold">
+                            {salesLabels.items} Pesanan
+                        </h3>
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => append({ productVariantId: '', quantity: 1, unitPrice: 0, discountPercent: 0, taxPercent: 0 })}
+                            onClick={() =>
+                                append({
+                                    productVariantId: '',
+                                    quantity: 1,
+                                    unitPrice: 0,
+                                    discountPercent: 0,
+                                    taxPercent: 0,
+                                })
+                            }
                         >
-                            <Plus className="mr-2 h-4 w-4" /> {actionLabels.add} Item
+                            <Plus className="mr-2 h-4 w-4" /> {actionLabels.add}{' '}
+                            Item
                         </Button>
                     </div>
 
@@ -546,37 +754,76 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                                 <tr className="border-b">
-                                    <th className="h-10 px-4 text-left font-medium w-[300px]">{formLabels.product}</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[120px]">{formLabels.qty}</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[150px]">{formLabels.unitPrice}</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Diskon %</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Pajak %</th>
-                                    <th className="h-10 px-4 text-right font-medium w-[150px]">{formLabels.subtotal}</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[300px]">
+                                        {formLabels.product}
+                                    </th>
+                                    <th className="h-10 px-4 text-left font-medium w-[120px]">
+                                        {formLabels.qty}
+                                    </th>
+                                    <th className="h-10 px-4 text-left font-medium w-[150px]">
+                                        {formLabels.unitPrice}
+                                    </th>
+                                    <th className="h-10 px-4 text-left font-medium w-[100px]">
+                                        Diskon %
+                                    </th>
+                                    <th className="h-10 px-4 text-left font-medium w-[100px]">
+                                        Pajak %
+                                    </th>
+                                    <th className="h-10 px-4 text-right font-medium w-[150px]">
+                                        {formLabels.subtotal}
+                                    </th>
                                     <th className="h-10 px-4 w-[50px]"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {fields.map((field, index) => (
-                                    <tr key={field.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                    <tr
+                                        key={field.id}
+                                        className="border-b last:border-0 hover:bg-muted/50 transition-colors"
+                                    >
                                         <td className="p-2 align-middle">
                                             <FormField
                                                 control={form.control}
                                                 name={`items.${index}.productVariantId`}
-                                                render={({ field, fieldState }) => (
+                                                render={({
+                                                    field,
+                                                    fieldState,
+                                                }) => (
                                                     <div className="flex items-center gap-2">
-                                                        <Select 
-                                                            onValueChange={(val) => {
-                                                                field.onChange(val);
-                                                                const selectedPrd = products.find(p => p.id === val);
-                                                                if (selectedPrd) {
+                                                        <Select
+                                                            onValueChange={(
+                                                                val,
+                                                            ) => {
+                                                                field.onChange(
+                                                                    val,
+                                                                );
+                                                                const selectedPrd =
+                                                                    products.find(
+                                                                        (p) =>
+                                                                            p.id ===
+                                                                            val,
+                                                                    );
+                                                                if (
+                                                                    selectedPrd
+                                                                ) {
                                                                     form.setValue(
-                                                                        `items.${index}.unitPrice`, 
-                                                                        toDisplayUnitPrice(selectedPrd, getCustomerBasePrice(selectedPrd)),
-                                                                        { shouldValidate: true, shouldDirty: true }
+                                                                        `items.${index}.unitPrice`,
+                                                                        toDisplayUnitPrice(
+                                                                            selectedPrd,
+                                                                            getCustomerBasePrice(
+                                                                                selectedPrd,
+                                                                            ),
+                                                                        ),
+                                                                        {
+                                                                            shouldValidate: true,
+                                                                            shouldDirty: true,
+                                                                        },
                                                                     );
                                                                 }
-                                                            }} 
-                                                            defaultValue={field.value}
+                                                            }}
+                                                            defaultValue={
+                                                                field.value
+                                                            }
                                                         >
                                                             <SelectTrigger className="border-0 shadow-none bg-transparent h-auto p-2 w-[300px]">
                                                                 <div className="truncate text-left font-medium">
@@ -584,15 +831,52 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                                 </div>
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {products.map((p) => (
-                                                                    <SelectItem key={p.id} value={p.id}>
-                                                                        {p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`} ({p.skuCode}) · {formatRupiah(toDisplayUnitPrice(p, getCustomerBasePrice(p)))} · {getPriceSourceLabel(p)}
-                                                                    </SelectItem>
-                                                                ))}
+                                                                {products.map(
+                                                                    (p) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                p.id
+                                                                            }
+                                                                            value={
+                                                                                p.id
+                                                                            }
+                                                                        >
+                                                                            {p
+                                                                                .product
+                                                                                .name ===
+                                                                            p.name
+                                                                                ? p.name
+                                                                                : `${p.product.name} - ${p.name}`}{' '}
+                                                                            (
+                                                                            {
+                                                                                p.skuCode
+                                                                            }
+                                                                            ) ·{' '}
+                                                                            {formatRupiah(
+                                                                                toDisplayUnitPrice(
+                                                                                    p,
+                                                                                    getCustomerBasePrice(
+                                                                                        p,
+                                                                                    ),
+                                                                                ),
+                                                                            )}{' '}
+                                                                            ·{' '}
+                                                                            {getPriceSourceLabel(
+                                                                                p,
+                                                                            )}
+                                                                        </SelectItem>
+                                                                    ),
+                                                                )}
                                                             </SelectContent>
                                                         </Select>
                                                         {fieldState.error && (
-                                                            <span className="text-xs text-destructive whitespace-nowrap">{fieldState.error.message}</span>
+                                                            <span className="text-xs text-destructive whitespace-nowrap">
+                                                                {
+                                                                    fieldState
+                                                                        .error
+                                                                        .message
+                                                                }
+                                                            </span>
                                                         )}
                                                     </div>
                                                 )}
@@ -612,9 +896,16 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                                 {...field}
                                                             />
                                                         </FormControl>
-                                                        {getLineUnitMeta(index) && (
+                                                        {getLineUnitMeta(
+                                                            index,
+                                                        ) && (
                                                             <div className="px-2 text-[10px] text-muted-foreground">
-                                                                {getLineUnitMeta(index)?.displayUnit}
+                                                                {
+                                                                    getLineUnitMeta(
+                                                                        index,
+                                                                    )
+                                                                        ?.displayUnit
+                                                                }
                                                             </div>
                                                         )}
                                                         <FormMessage />
@@ -636,10 +927,22 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                                 {...field}
                                                             />
                                                         </FormControl>
-                                                        {getLineUnitMeta(index) && (
+                                                        {getLineUnitMeta(
+                                                            index,
+                                                        ) && (
                                                             <div className="px-2 text-[10px] text-muted-foreground">
-                                                                per {getLineUnitMeta(index)?.displayUnit}
-                                                                {getLineVariant(index) ? ` · ${getPriceSourceLabel(getLineVariant(index)!)} ` : ''}
+                                                                per{' '}
+                                                                {
+                                                                    getLineUnitMeta(
+                                                                        index,
+                                                                    )
+                                                                        ?.displayUnit
+                                                                }
+                                                                {getLineVariant(
+                                                                    index,
+                                                                )
+                                                                    ? ` · ${getPriceSourceLabel(getLineVariant(index)!)} `
+                                                                    : ''}
                                                             </div>
                                                         )}
                                                         <FormMessage />
@@ -693,15 +996,25 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                         </td>
                                         <td className="p-4 text-right tabular-nums">
                                             {(() => {
-                                                const itemData = watchItems?.[index] || field;
-                                                const qty = itemData.quantity || 0;
-                                                const price = itemData.unitPrice || 0;
-                                                const disc = itemData.discountPercent || 0;
-                                                const tax = itemData.taxPercent || 0;
+                                                const itemData =
+                                                    watchItems?.[index] ||
+                                                    field;
+                                                const qty =
+                                                    itemData.quantity || 0;
+                                                const price =
+                                                    itemData.unitPrice || 0;
+                                                const disc =
+                                                    itemData.discountPercent ||
+                                                    0;
+                                                const tax =
+                                                    itemData.taxPercent || 0;
 
                                                 const sub = qty * price;
-                                                const afterDisc = sub - (sub * (disc / 100));
-                                                const total = afterDisc + (afterDisc * (tax / 100));
+                                                const afterDisc =
+                                                    sub - sub * (disc / 100);
+                                                const total =
+                                                    afterDisc +
+                                                    afterDisc * (tax / 100);
 
                                                 return formatRupiah(total);
                                             })()}
@@ -722,23 +1035,51 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                             </tbody>
                             <tfoot className="bg-muted/50 font-medium">
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">{formLabels.subtotal}</td>
-                                    <td className="px-4 py-2 text-right">{formatRupiah(totals.gross)}</td>
+                                    <td
+                                        colSpan={5}
+                                        className="px-4 py-2 text-right text-muted-foreground"
+                                    >
+                                        {formLabels.subtotal}
+                                    </td>
+                                    <td className="px-4 py-2 text-right">
+                                        {formatRupiah(totals.gross)}
+                                    </td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Diskon</td>
-                                    <td className="px-4 py-2 text-right text-red-500">-{formatRupiah(totals.discount)}</td>
+                                    <td
+                                        colSpan={5}
+                                        className="px-4 py-2 text-right text-muted-foreground"
+                                    >
+                                        Diskon
+                                    </td>
+                                    <td className="px-4 py-2 text-right text-red-500">
+                                        -{formatRupiah(totals.discount)}
+                                    </td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Pajak</td>
-                                    <td className="px-4 py-2 text-right">{formatRupiah(totals.tax)}</td>
+                                    <td
+                                        colSpan={5}
+                                        className="px-4 py-2 text-right text-muted-foreground"
+                                    >
+                                        Pajak
+                                    </td>
+                                    <td className="px-4 py-2 text-right">
+                                        {formatRupiah(totals.tax)}
+                                    </td>
                                     <td></td>
                                 </tr>
                                 <tr className="border-t border-muted-foreground/20">
-                                    <td colSpan={5} className="px-4 py-3 text-right text-lg font-bold">Total Keseluruhan</td>
-                                    <td className="px-4 py-3 text-right text-lg font-bold">{formatRupiah(totals.net)}</td>
+                                    <td
+                                        colSpan={5}
+                                        className="px-4 py-3 text-right text-lg font-bold"
+                                    >
+                                        Total Keseluruhan
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-lg font-bold">
+                                        {formatRupiah(totals.net)}
+                                    </td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -747,12 +1088,20 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                 </div>
 
                 <div className="flex justify-end gap-4">
-                    <Button variant="outline" type="button" onClick={() => router.back()}>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => router.back()}
+                    >
                         {actionLabels.cancel}
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {mode === 'create' ? `${actionLabels.create} Penawaran` : `${actionLabels.update} Penawaran`}
+                        {isSubmitting && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
+                        {mode === 'create'
+                            ? `${actionLabels.create} Penawaran`
+                            : `${actionLabels.update} Penawaran`}
                     </Button>
                 </div>
             </form>

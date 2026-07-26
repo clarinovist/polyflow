@@ -63,16 +63,16 @@ Based on the current implementation of the PolyFlow ERP system, this document ou
 **Recommended Enhancement**:
 
 - Extend `ProductVariant` model:
-  ```prisma
-  model ProductVariant {
-    // ... existing fields
-    minStockAlert    Decimal?  @db.Decimal(15, 4)  // Already exists
-    reorderPoint     Decimal?  @db.Decimal(15, 4)  // NEW
-    reorderQuantity  Decimal?  @db.Decimal(15, 4)  // NEW
-    leadTimeDays     Int?                           // NEW
-    preferredSupplierId String?                     // NEW
-  }
-  ```
+    ```prisma
+    model ProductVariant {
+      // ... existing fields
+      minStockAlert    Decimal?  @db.Decimal(15, 4)  // Already exists
+      reorderPoint     Decimal?  @db.Decimal(15, 4)  // NEW
+      reorderQuantity  Decimal?  @db.Decimal(15, 4)  // NEW
+      leadTimeDays     Int?                           // NEW
+      preferredSupplierId String?                     // NEW
+    }
+    ```
 
 **Dashboard Enhancement**:
 
@@ -126,24 +126,24 @@ Based on the current implementation of the PolyFlow ERP system, this document ou
 
 - Add `Currency` enum and default currency setting
 
-  ```prisma
-  enum Currency {
-    IDR
-    USD
-    EUR
-    SGD
-  }
+    ```prisma
+    enum Currency {
+      IDR
+      USD
+      EUR
+      SGD
+    }
 
-  model ProductVariant {
-    // ... existing fields
-    price         Decimal?  @db.Decimal(10, 2)
-    priceCurrency Currency  @default(IDR)  // NEW
-    buyPrice      Decimal?  @db.Decimal(10, 2)
-    buyPriceCurrency Currency @default(IDR) // NEW
-    sellPrice     Decimal?  @db.Decimal(10, 2)
-    sellPriceCurrency Currency @default(IDR) // NEW
-  }
-  ```
+    model ProductVariant {
+      // ... existing fields
+      price         Decimal?  @db.Decimal(10, 2)
+      priceCurrency Currency  @default(IDR)  // NEW
+      buyPrice      Decimal?  @db.Decimal(10, 2)
+      buyPriceCurrency Currency @default(IDR) // NEW
+      sellPrice     Decimal?  @db.Decimal(10, 2)
+      sellPriceCurrency Currency @default(IDR) // NEW
+    }
+    ```
 
 - Add exchange rate tracking for multi-currency transactions
 - Display prices with currency symbol in UI
@@ -248,11 +248,11 @@ Inventory Aging Report
 **Recommended Enhancement**:
 
 - Add `TransferOrder` model with workflow:
-  1. **Draft** → Create transfer request
-  2. **Approved** → Manager authorization
-  3. **In Transit** → Goods picked and shipped
-  4. **Received** → Destination confirms receipt
-  5. **Completed** → Inventory updated
+    1. **Draft** → Create transfer request
+    2. **Approved** → Manager authorization
+    3. **In Transit** → Goods picked and shipped
+    4. **Received** → Destination confirms receipt
+    5. **Completed** → Inventory updated
 
 **Benefits**:
 
@@ -274,10 +274,10 @@ Inventory Aging Report
 - Email notifications to procurement team
 - In-app notification center
 - Configurable alert rules:
-  - Low stock threshold
-  - Expiry date approaching (requires batch tracking)
-  - Negative stock (error condition)
-  - High variance in physical count
+    - Low stock threshold
+    - Expiry date approaching (requires batch tracking)
+    - Negative stock (error condition)
+    - High variance in physical count
 
 **Implementation Effort**: Medium (3-4 days including email setup)
 
@@ -295,34 +295,34 @@ Inventory Aging Report
 
 - Add `ProductionOrder` model:
 
-  ```prisma
-  model ProductionOrder {
-    id              String   @id @default(uuid())
-    orderNumber     String   @unique
-    bomId           String
-    plannedQuantity Decimal
-    actualQuantity  Decimal?
-    status          ProductionStatus @default(DRAFT)
-    plannedStartDate DateTime
-    plannedEndDate   DateTime
-    actualStartDate  DateTime?
-    actualEndDate    DateTime?
-    machineId       String?
-    locationId      String
+    ```prisma
+    model ProductionOrder {
+      id              String   @id @default(uuid())
+      orderNumber     String   @unique
+      bomId           String
+      plannedQuantity Decimal
+      actualQuantity  Decimal?
+      status          ProductionStatus @default(DRAFT)
+      plannedStartDate DateTime
+      plannedEndDate   DateTime
+      actualStartDate  DateTime?
+      actualEndDate    DateTime?
+      machineId       String?
+      locationId      String
 
-    bom             Bom @relation(...)
-    materialIssues  MaterialIssue[]
-    scrapRecords    ScrapRecord[]
-  }
+      bom             Bom @relation(...)
+      materialIssues  MaterialIssue[]
+      scrapRecords    ScrapRecord[]
+    }
 
-  enum ProductionStatus {
-    DRAFT
-    RELEASED
-    IN_PROGRESS
-    COMPLETED
-    CANCELLED
-  }
-  ```
+    enum ProductionStatus {
+      DRAFT
+      RELEASED
+      IN_PROGRESS
+      COMPLETED
+      CANCELLED
+    }
+    ```
 
 **Workflow**:
 
@@ -351,25 +351,25 @@ Inventory Aging Report
 
 - Add `MachineLog` model for tracking:
 
-  ```prisma
-  model MachineLog {
-    id         String   @id @default(uuid())
-    machineId  String
-    status     MachineStatus
-    startTime  DateTime
-    endTime    DateTime?
-    productionOrderId String?
-    downReason String?
+    ```prisma
+    model MachineLog {
+      id         String   @id @default(uuid())
+      machineId  String
+      status     MachineStatus
+      startTime  DateTime
+      endTime    DateTime?
+      productionOrderId String?
+      downReason String?
 
-    machine    Machine @relation(...)
-  }
-  ```
+      machine    Machine @relation(...)
+    }
+    ```
 
 - Dashboard widget showing:
-  - Machines currently running
-  - Downtime percentage
-  - Current production order
-  - Real-time alerts (overheating, errors, etc.)
+    - Machines currently running
+    - Downtime percentage
+    - Current production order
+    - Real-time alerts (overheating, errors, etc.)
 
 **Benefits**:
 
@@ -446,13 +446,13 @@ Inventory Aging Report
 **Recommended Enhancement**:
 
 - Global shortcuts:
-  - `Ctrl+K` → Command palette / global search
-  - `Ctrl+N` → New product/transfer (context-aware)
-  - `Ctrl+S` → Save form
-  - `Esc` → Close dialog/cancel
+    - `Ctrl+K` → Command palette / global search
+    - `Ctrl+N` → New product/transfer (context-aware)
+    - `Ctrl+S` → Save form
+    - `Esc` → Close dialog/cancel
 - Table navigation:
-  - Arrow keys to navigate rows
-  - Enter to open detail/edit
+    - Arrow keys to navigate rows
+    - Enter to open detail/edit
 
 **Benefits**:
 
@@ -472,10 +472,10 @@ Inventory Aging Report
 
 - Multi-select checkboxes on tables
 - Bulk actions:
-  - Bulk delete (with validation)
-  - Bulk status update (e.g., mark multiple machines as MAINTENANCE)
-  - Bulk threshold update
-  - Bulk export to CSV/Excel
+    - Bulk delete (with validation)
+    - Bulk status update (e.g., mark multiple machines as MAINTENANCE)
+    - Bulk threshold update
+    - Bulk export to CSV/Excel
 
 **Implementation Effort**: Medium (3-4 days)
 
@@ -539,10 +539,10 @@ Inventory Aging Report
 
 - Implement NextAuth.js or Clerk
 - Role-Based Access Control (RBAC):
-  - ADMIN: Full access
-  - WAREHOUSE: Inventory operations only
-  - PRODUCTION: Production orders only
-  - SALES: Read-only inventory, manage sales orders
+    - ADMIN: Full access
+    - WAREHOUSE: Inventory operations only
+    - PRODUCTION: Production orders only
+    - SALES: Read-only inventory, manage sales orders
 - Page-level and action-level permissions
 
 **Implementation Effort**: High (4-5 days)
@@ -556,18 +556,18 @@ Inventory Aging Report
 **Recommended Enhancement**:
 
 - Add `AuditLog` model:
-  ```prisma
-  model AuditLog {
-    id         String   @id @default(uuid())
-    userId     String
-    action     String   // "CREATE", "UPDATE", "DELETE"
-    entityType String   // "Product", "Inventory", etc.
-    entityId   String
-    changes    Json     // Before/after snapshot
-    ipAddress  String?
-    createdAt  DateTime @default(now())
-  }
-  ```
+    ```prisma
+    model AuditLog {
+      id         String   @id @default(uuid())
+      userId     String
+      action     String   // "CREATE", "UPDATE", "DELETE"
+      entityType String   // "Product", "Inventory", etc.
+      entityId   String
+      changes    Json     // Before/after snapshot
+      ipAddress  String?
+      createdAt  DateTime @default(now())
+    }
+    ```
 
 **Benefits**:
 
@@ -623,11 +623,11 @@ Inventory Aging Report
 - Implement pagination on all tables (cursor-based)
 - Virtual scrolling for large datasets
 - Database indexes on frequently queried fields:
-  ```prisma
-  @@index([locationId, productVariantId])
-  @@index([skuCode])
-  @@index([createdAt])
-  ```
+    ```prisma
+    @@index([locationId, productVariantId])
+    @@index([skuCode])
+    @@index([createdAt])
+    ```
 - Query optimization (use `select` instead of `include` where possible)
 
 **Implementation Effort**: Medium (3-4 days)

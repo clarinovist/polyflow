@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ApiKeyService } from "@/services/auth/api-key-service";
+import { NextRequest, NextResponse } from 'next/server';
+import { ApiKeyService } from '@/services/auth/api-key-service';
 
 export async function validateExternalRequest(req: NextRequest) {
-    const apiKeyHeader = req.headers.get("X-API-KEY");
+    const apiKeyHeader = req.headers.get('X-API-KEY');
 
     if (!apiKeyHeader) {
         return {
             isValid: false,
             response: NextResponse.json(
-                { error: "Missing X-API-KEY header" },
-                { status: 401 }
+                { error: 'Missing X-API-KEY header' },
+                { status: 401 },
             ),
         };
     }
@@ -20,8 +20,8 @@ export async function validateExternalRequest(req: NextRequest) {
         return {
             isValid: false,
             response: NextResponse.json(
-                { error: "Invalid or expired API Key" },
-                { status: 401 }
+                { error: 'Invalid or expired API Key' },
+                { status: 401 },
             ),
         };
     }

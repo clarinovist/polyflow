@@ -1,0 +1,19 @@
+# Test files use inline @ts-ignore / @ts-expect-error / eslint-disable directives
+# that Prettier's line-reflow can detach from their targets. Keep tests unformatted.
+**/__tests__/**
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+tests/
+
+# Build & generated artifacts
+.next/
+coverage/
+node_modules/
+*.tsbuildinfo
+pnpm-lock.yaml
+package-lock.json
+
+# Prettier is non-idempotent on these UAT tables (reflows every run)
+docs/uat/

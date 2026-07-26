@@ -6,26 +6,26 @@ import { Quote } from 'lucide-react';
 export default function TestimonialSection() {
     const testimonials = [
         {
-            quote: "PolyFlow completely transformed how we track our extrusion processes. Material waste dropped by 15% in our first quarter.",
-            author: "Sarah Jenkins",
-            title: "Operations Director",
-            company: "CorePlastics",
+            quote: 'PolyFlow completely transformed how we track our extrusion processes. Material waste dropped by 15% in our first quarter.',
+            author: 'Sarah Jenkins',
+            title: 'Operations Director',
+            company: 'CorePlastics',
             gradient: 'from-blue-500 to-cyan-500',
         },
         {
-            quote: "Finally, an ERP that understands the nuance of plastic converting. The integration between warehouse and sales is incredibly smooth.",
-            author: "Marcus Chen",
-            title: "CEO",
-            company: "NexaPackaging",
+            quote: 'Finally, an ERP that understands the nuance of plastic converting. The integration between warehouse and sales is incredibly smooth.',
+            author: 'Marcus Chen',
+            title: 'CEO',
+            company: 'NexaPackaging',
             gradient: 'from-purple-500 to-pink-500',
         },
         {
-            quote: "We used to rely on spreadsheets for our production scheduling. Now, everything is automated and we have total visibility.",
+            quote: 'We used to rely on spreadsheets for our production scheduling. Now, everything is automated and we have total visibility.',
             author: "David O'Connor",
-            title: "Plant Manager",
-            company: "FlexiWrap Industries",
+            title: 'Plant Manager',
+            company: 'FlexiWrap Industries',
             gradient: 'from-emerald-500 to-teal-500',
-        }
+        },
     ];
 
     return (
@@ -44,10 +44,15 @@ export default function TestimonialSection() {
                     transition={{ duration: 0.6 }}
                     className="text-center mb-16"
                 >
-                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-4 block">Testimonials</span>
-                    <h2 className="text-3xl md:text-5xl font-bold text-white mb-5">Trusted by Industry Leaders</h2>
+                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-4 block">
+                        Testimonials
+                    </span>
+                    <h2 className="text-3xl md:text-5xl font-bold text-white mb-5">
+                        Trusted by Industry Leaders
+                    </h2>
                     <p className="text-zinc-400 dark:text-zinc-500 max-w-2xl mx-auto text-lg">
-                        See how manufacturing teams are scaling their operations with PolyFlow.
+                        See how manufacturing teams are scaling their operations
+                        with PolyFlow.
                     </p>
                 </motion.div>
 
@@ -68,12 +73,21 @@ export default function TestimonialSection() {
                                 </p>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-white text-xs font-bold shadow-lg`}>
-                                    {t.author.split(' ').map(n => n[0]).join('')}
+                                <div
+                                    className={`w-10 h-10 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-white text-xs font-bold shadow-lg`}
+                                >
+                                    {t.author
+                                        .split(' ')
+                                        .map((n) => n[0])
+                                        .join('')}
                                 </div>
                                 <div>
-                                    <p className="text-white font-semibold text-sm">{t.author}</p>
-                                    <p className="text-zinc-500 dark:text-zinc-400 text-xs">{t.title}, {t.company}</p>
+                                    <p className="text-white font-semibold text-sm">
+                                        {t.author}
+                                    </p>
+                                    <p className="text-zinc-500 dark:text-zinc-400 text-xs">
+                                        {t.title}, {t.company}
+                                    </p>
                                 </div>
                             </div>
                         </motion.div>

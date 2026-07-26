@@ -1,138 +1,140 @@
-"use server";
+'use server';
 
-import { withTenant } from "@/lib/core/tenant";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/core/prisma";
-import { Role } from "@prisma/client";
-import { revalidatePath } from "next/cache";
-import { logger } from "@/lib/config/logger";
+import { withTenant } from '@/lib/core/tenant';
+import { auth } from '@/auth';
+import { prisma } from '@/lib/core/prisma';
+import { Role } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 import {
-  safeAction,
-  BusinessRuleError,
-  AuthorizationError,
-} from "@/lib/errors/errors";
-import { getUserRoles, hasRole, isTenantAdmin } from "@/lib/auth/roles";
+    safeAction,
+    BusinessRuleError,
+    AuthorizationError,
+} from '@/lib/errors/errors';
+import { getUserRoles, hasRole, isTenantAdmin } from '@/lib/auth/roles';
 
 export type ResourceKey = string;
 
 async function checkAdmin() {
-  const session = await auth();
-  if (!session?.user || !isTenantAdmin(session.user)) {
-    throw new AuthorizationError("Unauthorized: Admin access required");
-  }
-
-  if (session.user.id) {
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { isActive: true },
-    });
-    if (!currentUser?.isActive) {
-      throw new AuthorizationError("Unauthorized: User account is inactive");
+    const session = await auth();
+    if (!session?.user || !isTenantAdmin(session.user)) {
+        throw new AuthorizationError('Unauthorized: Admin access required');
     }
-  }
 
-  return session;
+    if (session.user.id) {
+        const currentUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { isActive: true },
+        });
+        if (!currentUser?.isActive) {
+            throw new AuthorizationError(
+                'Unauthorized: User account is inactive',
+            );
+        }
+    }
+
+    return session;
 }
 
 export const getRolePermissions = withTenant(async function getRolePermissions(
-  targetRole: Role,
+    targetRole: Role,
 ) {
-  return safeAction(async () => {
-    try {
-      await checkAdmin();
-      const permissions = await prisma.rolePermission.findMany({
-        where: { role: targetRole },
-      });
-      return permissions;
-    } catch (error) {
-      if (error instanceof AuthorizationError) throw error;
-      logger.error("Gagal mengambil izin", {
-        error,
-        targetRole,
-        module: "PermissionActions",
-      });
-      throw new BusinessRuleError("Gagal mengambil izin");
-    }
-  });
+    return safeAction(async () => {
+        try {
+            await checkAdmin();
+            const permissions = await prisma.rolePermission.findMany({
+                where: { role: targetRole },
+            });
+            return permissions;
+        } catch (error) {
+            if (error instanceof AuthorizationError) throw error;
+            logger.error('Gagal mengambil izin', {
+                error,
+                targetRole,
+                module: 'PermissionActions',
+            });
+            throw new BusinessRuleError('Gagal mengambil izin');
+        }
+    });
 });
 
 export const updatePermission = withTenant(async function updatePermission(
-  targetRole: Role,
-  resource: string,
-  canAccess: boolean,
+    targetRole: Role,
+    resource: string,
+    canAccess: boolean,
 ) {
-  return safeAction(async () => {
-    try {
-      await checkAdmin();
+    return safeAction(async () => {
+        try {
+            await checkAdmin();
 
-      await prisma.rolePermission.upsert({
-        where: {
-          role_resource: {
-            role: targetRole,
-            resource: resource,
-          },
-        },
-        update: { canAccess },
-        create: {
-          role: targetRole,
-          resource,
-          canAccess,
-        },
-      });
+            await prisma.rolePermission.upsert({
+                where: {
+                    role_resource: {
+                        role: targetRole,
+                        resource: resource,
+                    },
+                },
+                update: { canAccess },
+                create: {
+                    role: targetRole,
+                    resource,
+                    canAccess,
+                },
+            });
 
-      // Module-root toggle: cascade to nested resources so Access Control matrix
-      // stays consistent (e.g. uncheck Stok `/warehouse` also clears
-      // `/warehouse/inventory` grants from default seeds).
-      if (!resource.startsWith("feature:")) {
-        if (!canAccess) {
-          await prisma.rolePermission.updateMany({
-            where: {
-              role: targetRole,
-              resource: { startsWith: `${resource}/` },
-            },
-            data: { canAccess: false },
-          });
-        } else if (resource === "/warehouse") {
-          // Ensure inventory landing exists when Stok module is granted to roles
-          // that commonly need stock lookup (aligned with DEFAULT_PERMISSIONS).
-          await prisma.rolePermission.upsert({
-            where: {
-              role_resource: {
-                role: targetRole,
-                resource: "/warehouse/inventory",
-              },
-            },
-            update: { canAccess: true },
-            create: {
-              role: targetRole,
-              resource: "/warehouse/inventory",
-              canAccess: true,
-            },
-          });
+            // Module-root toggle: cascade to nested resources so Access Control matrix
+            // stays consistent (e.g. uncheck Stok `/warehouse` also clears
+            // `/warehouse/inventory` grants from default seeds).
+            if (!resource.startsWith('feature:')) {
+                if (!canAccess) {
+                    await prisma.rolePermission.updateMany({
+                        where: {
+                            role: targetRole,
+                            resource: { startsWith: `${resource}/` },
+                        },
+                        data: { canAccess: false },
+                    });
+                } else if (resource === '/warehouse') {
+                    // Ensure inventory landing exists when Stok module is granted to roles
+                    // that commonly need stock lookup (aligned with DEFAULT_PERMISSIONS).
+                    await prisma.rolePermission.upsert({
+                        where: {
+                            role_resource: {
+                                role: targetRole,
+                                resource: '/warehouse/inventory',
+                            },
+                        },
+                        update: { canAccess: true },
+                        create: {
+                            role: targetRole,
+                            resource: '/warehouse/inventory',
+                            canAccess: true,
+                        },
+                    });
+                }
+            }
+
+            revalidatePath('/dashboard/settings');
+            revalidatePath('/dashboard');
+            revalidatePath('/warehouse');
+            revalidatePath('/sales');
+            revalidatePath('/production');
+            revalidatePath('/purchasing');
+            revalidatePath('/finance');
+            revalidatePath('/hrd');
+            revalidatePath('/maklon');
+            return null;
+        } catch (error) {
+            if (error instanceof AuthorizationError) throw error;
+            logger.error('Gagal memperbarui izin', {
+                error,
+                targetRole,
+                resource,
+                module: 'PermissionActions',
+            });
+            throw new BusinessRuleError('Gagal memperbarui izin');
         }
-      }
-
-      revalidatePath("/dashboard/settings");
-      revalidatePath("/dashboard");
-      revalidatePath("/warehouse");
-      revalidatePath("/sales");
-      revalidatePath("/production");
-      revalidatePath("/purchasing");
-      revalidatePath("/finance");
-      revalidatePath("/hrd");
-      revalidatePath("/maklon");
-      return null;
-    } catch (error) {
-      if (error instanceof AuthorizationError) throw error;
-      logger.error("Gagal memperbarui izin", {
-        error,
-        targetRole,
-        resource,
-        module: "PermissionActions",
-      });
-      throw new BusinessRuleError("Gagal memperbarui izin");
-    }
-  });
+    });
 });
 
 /**
@@ -141,290 +143,299 @@ export const updatePermission = withTenant(async function updatePermission(
  * Unchecking still goes through `updatePermission` (single-resource cascade).
  */
 export const updatePermissionsBulk = withTenant(
-  async function updatePermissionsBulk(
-    targetRole: Role,
-    resources: string[],
-    canAccess: boolean,
-  ) {
-    return safeAction(async () => {
-      try {
-        await checkAdmin();
+    async function updatePermissionsBulk(
+        targetRole: Role,
+        resources: string[],
+        canAccess: boolean,
+    ) {
+        return safeAction(async () => {
+            try {
+                await checkAdmin();
 
-        await Promise.all(
-          resources.map((resource) =>
-            prisma.rolePermission.upsert({
-              where: { role_resource: { role: targetRole, resource } },
-              update: { canAccess },
-              create: { role: targetRole, resource, canAccess },
-            }),
-          ),
-        );
+                await Promise.all(
+                    resources.map((resource) =>
+                        prisma.rolePermission.upsert({
+                            where: {
+                                role_resource: { role: targetRole, resource },
+                            },
+                            update: { canAccess },
+                            create: { role: targetRole, resource, canAccess },
+                        }),
+                    ),
+                );
 
-        revalidatePath("/dashboard/settings");
-        revalidatePath("/dashboard");
-        revalidatePath("/warehouse");
-        revalidatePath("/sales");
-        revalidatePath("/production");
-        revalidatePath("/purchasing");
-        revalidatePath("/finance");
-        revalidatePath("/hrd");
-        revalidatePath("/maklon");
-        return null;
-      } catch (error) {
-        if (error instanceof AuthorizationError) throw error;
-        logger.error("Failed to bulk update permissions", {
-          error,
-          targetRole,
-          resources,
-          module: "PermissionActions",
+                revalidatePath('/dashboard/settings');
+                revalidatePath('/dashboard');
+                revalidatePath('/warehouse');
+                revalidatePath('/sales');
+                revalidatePath('/production');
+                revalidatePath('/purchasing');
+                revalidatePath('/finance');
+                revalidatePath('/hrd');
+                revalidatePath('/maklon');
+                return null;
+            } catch (error) {
+                if (error instanceof AuthorizationError) throw error;
+                logger.error('Failed to bulk update permissions', {
+                    error,
+                    targetRole,
+                    resources,
+                    module: 'PermissionActions',
+                });
+                throw new BusinessRuleError('Gagal memperbarui izin');
+            }
         });
-        throw new BusinessRuleError("Gagal memperbarui izin");
-      }
-    });
-  },
+    },
 );
 
 async function seedDefaultPermissionsInternal(
-  targetRole: Role,
-  defaultResources: string[],
+    targetRole: Role,
+    defaultResources: string[],
 ) {
-  if (defaultResources.length === 0) return;
+    if (defaultResources.length === 0) return;
 
-  const existingPermissions = await prisma.rolePermission.findMany({
-    where: {
-      role: targetRole,
-      resource: {
-        in: defaultResources,
-      },
-    },
-    select: {
-      resource: true,
-    },
-  });
-
-  const existingResourcesSet = new Set(
-    existingPermissions.map((p: { resource: string }) => p.resource),
-  );
-
-  const missingResources = defaultResources.filter(
-    (r) => !existingResourcesSet.has(r),
-  );
-
-  if (missingResources.length > 0) {
-    await prisma.rolePermission.createMany({
-      data: missingResources.map((resource) => ({
-        role: targetRole,
-        resource,
-        canAccess: true,
-      })),
-      skipDuplicates: true,
+    const existingPermissions = await prisma.rolePermission.findMany({
+        where: {
+            role: targetRole,
+            resource: {
+                in: defaultResources,
+            },
+        },
+        select: {
+            resource: true,
+        },
     });
-  }
+
+    const existingResourcesSet = new Set(
+        existingPermissions.map((p: { resource: string }) => p.resource),
+    );
+
+    const missingResources = defaultResources.filter(
+        (r) => !existingResourcesSet.has(r),
+    );
+
+    if (missingResources.length > 0) {
+        await prisma.rolePermission.createMany({
+            data: missingResources.map((resource) => ({
+                role: targetRole,
+                resource,
+                canAccess: true,
+            })),
+            skipDuplicates: true,
+        });
+    }
 }
 
 export const seedDefaultPermissions = withTenant(
-  async function seedDefaultPermissions(
-    targetRole: Role,
-    defaultResources: string[],
-  ) {
-    return safeAction(async () => {
-      try {
-        const session = await auth();
-        if (!session?.user || !isTenantAdmin(session.user))
-          throw new AuthorizationError("Unauthorized");
+    async function seedDefaultPermissions(
+        targetRole: Role,
+        defaultResources: string[],
+    ) {
+        return safeAction(async () => {
+            try {
+                const session = await auth();
+                if (!session?.user || !isTenantAdmin(session.user))
+                    throw new AuthorizationError('Unauthorized');
 
-        await seedDefaultPermissionsInternal(targetRole, defaultResources);
-        return null;
-      } catch (error) {
-        if (error instanceof AuthorizationError) throw error;
-        logger.error("Gagal melakukan seed permissions", {
-          error,
-          targetRole,
-          module: "PermissionActions",
+                await seedDefaultPermissionsInternal(
+                    targetRole,
+                    defaultResources,
+                );
+                return null;
+            } catch (error) {
+                if (error instanceof AuthorizationError) throw error;
+                logger.error('Gagal melakukan seed permissions', {
+                    error,
+                    targetRole,
+                    module: 'PermissionActions',
+                });
+                throw new BusinessRuleError('Gagal melakukan seed');
+            }
         });
-        throw new BusinessRuleError("Gagal melakukan seed");
-      }
-    });
-  },
+    },
 );
 
 const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
-  ADMIN: [],
-  WAREHOUSE: ["/warehouse", "/kiosk"],
-  PRODUCTION: [
-    "/dashboard",
-    "/production/orders",
-    "/production/analytics",
-    "/dashboard/boms",
-    "/dashboard/machines",
-    "/dashboard/employees",
-    "/dashboard/products",
-    "/kiosk",
-    "/warehouse",
-    "/production",
-    "/production/machines",
-    "/production/inventory",
-    "/production/resources",
-    "/production/history",
-    "/production/costing",
-  ],
-  PLANNING: [
-    "/dashboard",
-    "/production/orders",
-    "/dashboard/boms",
-    "/production",
-    "/purchasing",
-    "/purchasing/orders",
-    "/warehouse/inventory",
-    "/warehouse/analytics",
-    "/warehouse/inventory/aging",
-    "/dashboard/products",
-    "/production/mrp",
-    "/production/schedule",
-    "/production",
-    "/maklon",
-  ],
-  SALES: [
-    "/dashboard",
-    "/sales",
-    "/sales/quotations",
-    "/sales/orders",
-    "/sales/invoices",
-    "/sales/deliveries",
-    "/sales/delivery-schedules",
-    "/sales/returns",
-    "/sales/reports/sales-performance",
-    "/sales/mobile",
-    "/dashboard/products",
-    "/sales/customers",
-    // Granular Access Control (2026-07-20): inventory lookup only, not full
-    // warehouse ops. Admin must explicitly grant "/warehouse" for full Stok.
-    "/warehouse/inventory",
-  ],
-  FINANCE: [
-    "/dashboard",
-    "/finance",
-    "/finance/reports",
-    "/finance/journals",
-    "/finance/coa",
-    "/finance/periods",
-    "/finance/assets",
-    "/finance/budgeting",
-    "/sales/invoices",
-    "/finance/invoices",
-    "/hrd",
-  ],
-  PROCUREMENT: [
-    "/dashboard",
-    "/purchasing",
-    "/purchasing/orders",
-    "/purchasing/requests",
-    "/purchasing/returns",
-    "/purchasing/suppliers",
-    "/purchasing/analytics",
-    "/finance/invoices",
-    "/dashboard/products",
-    "/warehouse/inventory",
-    "/maklon",
-  ],
-  HRD: [
-    "/dashboard",
-    "/dashboard/employees",
-    "/hrd",
-    "/hrd/attendance",
-    "/hrd/alerts",
-    "/hrd/payroll",
-    "/hrd/payroll-monthly",
-    "/hrd/bpjs",
-    "/hrd/piece-rates",
-    "/hrd/loans",
-    "/hrd/leave",
-    "/hrd/disciplinary",
-  ],
-  MARKETING: [
-    "/dashboard",
-    "/sales",
-    "/sales/quotations",
-    "/sales/orders",
-    "/sales/invoices",
-    "/sales/deliveries",
-    "/sales/delivery-schedules",
-    "/sales/returns",
-    "/sales/reports/sales-performance",
-    "/dashboard/products",
-    "/sales/customers",
-    "/warehouse/inventory",
-  ],
+    ADMIN: [],
+    WAREHOUSE: ['/warehouse', '/kiosk'],
+    PRODUCTION: [
+        '/dashboard',
+        '/production/orders',
+        '/production/analytics',
+        '/dashboard/boms',
+        '/dashboard/machines',
+        '/dashboard/employees',
+        '/dashboard/products',
+        '/kiosk',
+        '/warehouse',
+        '/production',
+        '/production/machines',
+        '/production/inventory',
+        '/production/resources',
+        '/production/history',
+        '/production/costing',
+    ],
+    PLANNING: [
+        '/dashboard',
+        '/production/orders',
+        '/dashboard/boms',
+        '/production',
+        '/purchasing',
+        '/purchasing/orders',
+        '/warehouse/inventory',
+        '/warehouse/analytics',
+        '/warehouse/inventory/aging',
+        '/dashboard/products',
+        '/production/mrp',
+        '/production/schedule',
+        '/production',
+        '/maklon',
+    ],
+    SALES: [
+        '/dashboard',
+        '/sales',
+        '/sales/quotations',
+        '/sales/orders',
+        '/sales/invoices',
+        '/sales/deliveries',
+        '/sales/delivery-schedules',
+        '/sales/returns',
+        '/sales/reports/sales-performance',
+        '/sales/mobile',
+        '/dashboard/products',
+        '/sales/customers',
+        // Granular Access Control (2026-07-20): inventory lookup only, not full
+        // warehouse ops. Admin must explicitly grant "/warehouse" for full Stok.
+        '/warehouse/inventory',
+    ],
+    FINANCE: [
+        '/dashboard',
+        '/finance',
+        '/finance/reports',
+        '/finance/journals',
+        '/finance/coa',
+        '/finance/periods',
+        '/finance/assets',
+        '/finance/budgeting',
+        '/sales/invoices',
+        '/finance/invoices',
+        '/hrd',
+    ],
+    PROCUREMENT: [
+        '/dashboard',
+        '/purchasing',
+        '/purchasing/orders',
+        '/purchasing/requests',
+        '/purchasing/returns',
+        '/purchasing/suppliers',
+        '/purchasing/analytics',
+        '/finance/invoices',
+        '/dashboard/products',
+        '/warehouse/inventory',
+        '/maklon',
+    ],
+    HRD: [
+        '/dashboard',
+        '/dashboard/employees',
+        '/hrd',
+        '/hrd/attendance',
+        '/hrd/alerts',
+        '/hrd/payroll',
+        '/hrd/payroll-monthly',
+        '/hrd/bpjs',
+        '/hrd/piece-rates',
+        '/hrd/loans',
+        '/hrd/leave',
+        '/hrd/disciplinary',
+    ],
+    MARKETING: [
+        '/dashboard',
+        '/sales',
+        '/sales/quotations',
+        '/sales/orders',
+        '/sales/invoices',
+        '/sales/deliveries',
+        '/sales/delivery-schedules',
+        '/sales/returns',
+        '/sales/reports/sales-performance',
+        '/dashboard/products',
+        '/sales/customers',
+        '/warehouse/inventory',
+    ],
 };
 
 export const getMyPermissions = withTenant(async function getMyPermissions() {
-  return safeAction(async () => {
-    const session = await auth();
-    if (!session?.user) return [];
+    return safeAction(async () => {
+        const session = await auth();
+        if (!session?.user) return [];
 
-    if (session.user.id) {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { isActive: true },
-      });
-      if (!currentUser?.isActive) return [];
-    }
-
-    if (hasRole(session.user, "ADMIN")) {
-      return "ALL";
-    }
-
-    const userRoles = getUserRoles(session.user) as Role[];
-
-    for (const r of userRoles) {
-      const count = await prisma.rolePermission.count({
-        where: { role: r },
-      });
-
-      if (count === 0) {
-        const defaults = DEFAULT_PERMISSIONS[r];
-        if (defaults && defaults.length > 0) {
-          await seedDefaultPermissionsInternal(r, defaults);
+        if (session.user.id) {
+            const currentUser = await prisma.user.findUnique({
+                where: { id: session.user.id },
+                select: { isActive: true },
+            });
+            if (!currentUser?.isActive) return [];
         }
-      }
-    }
 
-    const permissions = await prisma.rolePermission.findMany({
-      where: {
-        role: { in: userRoles },
-        canAccess: true,
-      },
-      select: { resource: true },
+        if (hasRole(session.user, 'ADMIN')) {
+            return 'ALL';
+        }
+
+        const userRoles = getUserRoles(session.user) as Role[];
+
+        for (const r of userRoles) {
+            const count = await prisma.rolePermission.count({
+                where: { role: r },
+            });
+
+            if (count === 0) {
+                const defaults = DEFAULT_PERMISSIONS[r];
+                if (defaults && defaults.length > 0) {
+                    await seedDefaultPermissionsInternal(r, defaults);
+                }
+            }
+        }
+
+        const permissions = await prisma.rolePermission.findMany({
+            where: {
+                role: { in: userRoles },
+                canAccess: true,
+            },
+            select: { resource: true },
+        });
+
+        return [
+            ...new Set(
+                permissions.map((p: { resource: string }) => p.resource),
+            ),
+        ];
     });
-
-    return [...new Set(permissions.map((p: { resource: string }) => p.resource))];
-  });
 });
 
 export const canViewPrices = withTenant(async function canViewPrices() {
-  return safeAction(async () => {
-    const session = await auth();
-    if (!session?.user) return false;
+    return safeAction(async () => {
+        const session = await auth();
+        if (!session?.user) return false;
 
-    if (session.user.id) {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { isActive: true },
-      });
-      if (!currentUser?.isActive) return false;
-    }
+        if (session.user.id) {
+            const currentUser = await prisma.user.findUnique({
+                where: { id: session.user.id },
+                select: { isActive: true },
+            });
+            if (!currentUser?.isActive) return false;
+        }
 
-    if (hasRole(session.user, "ADMIN")) return true;
+        if (hasRole(session.user, 'ADMIN')) return true;
 
-    const userRoles = getUserRoles(session.user) as Role[];
-    const permission = await prisma.rolePermission.findFirst({
-      where: {
-        role: { in: userRoles },
-        resource: "feature:view-prices",
-        canAccess: true,
-      },
+        const userRoles = getUserRoles(session.user) as Role[];
+        const permission = await prisma.rolePermission.findFirst({
+            where: {
+                role: { in: userRoles },
+                resource: 'feature:view-prices',
+                canAccess: true,
+            },
+        });
+
+        return !!permission;
     });
-
-    return !!permission;
-  });
 });

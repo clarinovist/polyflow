@@ -1,4 +1,8 @@
-import { getInventoryStats, getLocations, getProductVariants } from '@/actions/inventory/inventory';
+import {
+    getInventoryStats,
+    getLocations,
+    getProductVariants,
+} from '@/actions/inventory/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdjustmentForm } from '@/components/warehouse/inventory/AdjustmentForm';
 import { Button } from '@/components/ui/button';
@@ -11,19 +15,28 @@ export const metadata: Metadata = {
 };
 
 export default async function WarehouseAdjustmentPage() {
-    const [liveInventoryRes, locationsRes, productsDataRes] = await Promise.all([
-        getInventoryStats(),
-        getLocations(),
-        getProductVariants(),
-    ]);
-    
-    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
-    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
-    const productsData = productsDataRes.success && productsDataRes.data ? productsDataRes.data : [];
+    const [liveInventoryRes, locationsRes, productsDataRes] = await Promise.all(
+        [getInventoryStats(), getLocations(), getProductVariants()],
+    );
 
-    const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
-    const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));
-    const liveInventorySimple = liveInventory.map(i => ({
+    const liveInventory =
+        liveInventoryRes.success && liveInventoryRes.data
+            ? liveInventoryRes.data
+            : [];
+    const locations =
+        locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const productsData =
+        productsDataRes.success && productsDataRes.data
+            ? productsDataRes.data
+            : [];
+
+    const formLocations = locations.map((l) => ({ id: l.id, name: l.name }));
+    const formProducts = productsData.map((p) => ({
+        id: p.id,
+        name: p.name,
+        skuCode: p.skuCode,
+    }));
+    const liveInventorySimple = liveInventory.map((i) => ({
         locationId: i.locationId,
         productVariantId: i.productVariantId,
         quantity: i.quantity.toNumber(),
@@ -38,13 +51,23 @@ export default async function WarehouseAdjustmentPage() {
                             <PackagePlus className="h-4 w-4" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg font-bold text-foreground">Stock Adjustment</CardTitle>
-                            <p className="text-xs text-muted-foreground">Manually correct stock levels</p>
+                            <CardTitle className="text-lg font-bold text-foreground">
+                                Stock Adjustment
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                                Manually correct stock levels
+                            </p>
                         </div>
                     </div>
-                    <Button variant="ghost" size="sm" asChild className="h-8 text-xs">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        asChild
+                        className="h-8 text-xs"
+                    >
                         <Link href="/warehouse/inventory">
-                            <ArrowLeft className="mr-2 h-3 w-3" /> Kembali ke Inventaris
+                            <ArrowLeft className="mr-2 h-3 w-3" /> Kembali ke
+                            Inventaris
                         </Link>
                     </Button>
                 </CardHeader>

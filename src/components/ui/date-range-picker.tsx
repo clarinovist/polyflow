@@ -1,13 +1,13 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import { DateRange } from "react-day-picker"
-import { TransactionDateFilter } from "@/components/common/transaction-date-filter"
+import * as React from 'react';
+import { DateRange } from 'react-day-picker';
+import { TransactionDateFilter } from '@/components/common/transaction-date-filter';
 
 interface DatePickerWithRangeProps {
-    className?: string
-    date?: DateRange
-    onDateChange?: (date: DateRange | undefined) => void
+    className?: string;
+    date?: DateRange;
+    onDateChange?: (date: DateRange | undefined) => void;
 }
 
 export function DatePickerWithRange({
@@ -22,5 +22,5 @@ export function DatePickerWithRange({
             onDateChange={onDateChange}
             defaultPreset="this_month" // Default behavior for reports usually
         />
-    )
+    );
 }

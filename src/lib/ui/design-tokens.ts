@@ -1,6 +1,6 @@
 /**
  * PolyFlow Design Tokens
- * 
+ *
  * Centralized design tokens for consistent styling across the application.
  * Import these tokens instead of hardcoding values.
  */
@@ -68,12 +68,12 @@ export const typography = {
     },
 
     fontSize: {
-        xs: ['0.75rem', { lineHeight: '1rem' }],      // 12px
-        sm: ['0.875rem', { lineHeight: '1.25rem' }],  // 14px
-        base: ['1rem', { lineHeight: '1.5rem' }],     // 16px
-        lg: ['1.125rem', { lineHeight: '1.75rem' }],  // 18px
-        xl: ['1.25rem', { lineHeight: '1.75rem' }],   // 20px
-        '2xl': ['1.5rem', { lineHeight: '2rem' }],    // 24px
+        xs: ['0.75rem', { lineHeight: '1rem' }], // 12px
+        sm: ['0.875rem', { lineHeight: '1.25rem' }], // 14px
+        base: ['1rem', { lineHeight: '1.5rem' }], // 16px
+        lg: ['1.125rem', { lineHeight: '1.75rem' }], // 18px
+        xl: ['1.25rem', { lineHeight: '1.75rem' }], // 20px
+        '2xl': ['1.5rem', { lineHeight: '2rem' }], // 24px
         '3xl': ['1.875rem', { lineHeight: '2.25rem' }], // 30px
         '4xl': ['2.25rem', { lineHeight: '2.5rem' }], // 36px
     },
@@ -217,19 +217,26 @@ export const breakpoints = {
  */
 export const classPresets = {
     // Buttons
-    buttonPrimary: 'bg-zinc-900 hover:bg-zinc-800 text-white font-medium rounded-lg transition-all duration-200 active:scale-[0.98]',
-    buttonSecondary: 'bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-lg transition-all',
-    buttonOutline: 'border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-900 font-medium rounded-lg transition-all',
-    buttonGhost: 'hover:bg-zinc-100 text-zinc-900 font-medium rounded-lg transition-all',
+    buttonPrimary:
+        'bg-zinc-900 hover:bg-zinc-800 text-white font-medium rounded-lg transition-all duration-200 active:scale-[0.98]',
+    buttonSecondary:
+        'bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-lg transition-all',
+    buttonOutline:
+        'border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-900 font-medium rounded-lg transition-all',
+    buttonGhost:
+        'hover:bg-zinc-100 text-zinc-900 font-medium rounded-lg transition-all',
 
     // Inputs
-    inputDefault: 'h-12 bg-white border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all',
-    inputWithIcon: 'pl-10 h-12 bg-white border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all',
+    inputDefault:
+        'h-12 bg-white border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all',
+    inputWithIcon:
+        'pl-10 h-12 bg-white border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all',
     inputIcon: 'absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400',
 
     // Cards
     cardDefault: 'bg-white rounded-xl border border-zinc-200 shadow-sm',
-    cardDark: 'bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-2xl',
+    cardDark:
+        'bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-2xl',
 
     // Text
     textHeading: 'font-bold text-foreground',

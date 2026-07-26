@@ -1,15 +1,15 @@
-import { prisma } from "@/lib/core/prisma";
-import crypto from "crypto";
+import { prisma } from '@/lib/core/prisma';
+import crypto from 'crypto';
 
 const HASH_HEX_REGEX = /^[a-f0-9]{64}$/;
 
 function hashApiKey(key: string): string {
-    return crypto.createHash("sha256").update(key).digest("hex");
+    return crypto.createHash('sha256').update(key).digest('hex');
 }
 
 function timingSafeEqualString(a: string, b: string): boolean {
-    const aHash = crypto.createHash("sha256").update(a).digest();
-    const bHash = crypto.createHash("sha256").update(b).digest();
+    const aHash = crypto.createHash('sha256').update(a).digest();
+    const bHash = crypto.createHash('sha256').update(b).digest();
     return crypto.timingSafeEqual(aHash, bHash);
 }
 
@@ -20,10 +20,14 @@ export class ApiKeyService {
      * @param userId - Optional user ID to associate with the key
      * @param expiresInDays - Optional expiration in days
      */
-    static async createApiKey(name: string, userId?: string, expiresInDays?: number) {
+    static async createApiKey(
+        name: string,
+        userId?: string,
+        expiresInDays?: number,
+    ) {
         // Generate a secure random API key
         // Format: pk_{random_hex_string}
-        const randomBytes = crypto.randomBytes(32).toString("hex");
+        const randomBytes = crypto.randomBytes(32).toString('hex');
         const plainKey = `pk_${randomBytes}`;
         const hashedKey = hashApiKey(plainKey);
 
@@ -110,9 +114,9 @@ export class ApiKeyService {
                 updatedAt: true,
                 expiresAt: true,
                 isActive: true,
-                user: { select: { name: true, email: true } }
+                user: { select: { name: true, email: true } },
             },
-            orderBy: { createdAt: "desc" },
+            orderBy: { createdAt: 'desc' },
         });
     }
 }

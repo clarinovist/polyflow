@@ -1,10 +1,28 @@
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getInventoryList } from '@/actions/inventory/inventory';
 import { locationMatchesRole } from '@/lib/locations/resolve-location';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, ShoppingCart, ArrowRight, CheckCircle2 } from 'lucide-react';
+import {
+    AlertCircle,
+    ShoppingCart,
+    ArrowRight,
+    CheckCircle2,
+} from 'lucide-react';
 import { ProductionStatus } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -17,14 +35,20 @@ export default async function PpicMrpPage() {
     const ordersRes = await getProductionOrders();
     const allOrders = Array.isArray(ordersRes) ? ordersRes : [];
     const pendingOrders = allOrders.filter((o) =>
-        ([ProductionStatus.DRAFT, ProductionStatus.RELEASED] as ProductionStatus[]).includes(o.status)
+        (
+            [
+                ProductionStatus.DRAFT,
+                ProductionStatus.RELEASED,
+            ] as ProductionStatus[]
+        ).includes(o.status),
     );
 
     // 2. Fetch current RM inventory (multi-tenant: rm_warehouse OR gudang-bahan-baku OR purpose RAW_MATERIAL)
     const inventoryRes = await getInventoryList();
-    const allInventory = inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
+    const allInventory =
+        inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
     const rmInventory = allInventory.filter((item) =>
-        locationMatchesRole(item.location, "RAW_MATERIAL")
+        locationMatchesRole(item.location, 'RAW_MATERIAL'),
     );
 
     // Sum qty per variant (inventory can have multiple rows / locations)
@@ -39,19 +63,26 @@ export default async function PpicMrpPage() {
     }
 
     // 3. Aggregate requirements
-    const requirementsMap = new Map<string, { name: string, sku: string, totalReq: number, unit: string }>();
+    const requirementsMap = new Map<
+        string,
+        { name: string; sku: string; totalReq: number; unit: string }
+    >();
 
     pendingOrders.forEach((order) => {
         const bomItems = order.bom?.items;
         const outputQty = Number(order.bom?.outputQuantity ?? 0);
-        if (!Array.isArray(bomItems) || bomItems.length === 0 || outputQty <= 0) {
+        if (
+            !Array.isArray(bomItems) ||
+            bomItems.length === 0 ||
+            outputQty <= 0
+        ) {
             // Prefer plannedMaterials when BOM lines are missing
             (order.plannedMaterials || []).forEach((pm) => {
                 const existing = requirementsMap.get(pm.productVariantId) || {
-                    name: pm.productVariant?.name || "Unknown",
+                    name: pm.productVariant?.name || 'Unknown',
                     sku: pm.productVariant?.skuCode || pm.productVariantId,
                     totalReq: 0,
-                    unit: pm.productVariant?.primaryUnit || "",
+                    unit: pm.productVariant?.primaryUnit || '',
                 };
                 existing.totalReq += Number(pm.quantity);
                 requirementsMap.set(pm.productVariantId, existing);
@@ -62,10 +93,10 @@ export default async function PpicMrpPage() {
         const multiplier = Number(order.plannedQuantity) / outputQty;
         bomItems.forEach((item) => {
             const existing = requirementsMap.get(item.productVariantId) || {
-                name: item.productVariant?.name || "Unknown",
+                name: item.productVariant?.name || 'Unknown',
                 sku: item.productVariant?.skuCode || item.productVariantId,
                 totalReq: 0,
-                unit: item.productVariant?.primaryUnit || "",
+                unit: item.productVariant?.primaryUnit || '',
             };
             existing.totalReq += Number(item.quantity) * multiplier;
             requirementsMap.set(item.productVariantId, existing);
@@ -73,25 +104,31 @@ export default async function PpicMrpPage() {
     });
 
     // 4. Join with Inventory to find shortages
-    const analysis = Array.from(requirementsMap.entries()).map(([id, req]) => {
-        const stock = rmStockByVariant.get(id) || 0;
-        const shortage = Math.max(0, req.totalReq - stock);
-        return {
-            ...req,
-            stock,
-            shortage,
-            hasShortage: shortage > 0
-        };
-    }).sort((a, b) => (b.hasShortage ? 1 : 0) - (a.hasShortage ? 1 : 0));
+    const analysis = Array.from(requirementsMap.entries())
+        .map(([id, req]) => {
+            const stock = rmStockByVariant.get(id) || 0;
+            const shortage = Math.max(0, req.totalReq - stock);
+            return {
+                ...req,
+                stock,
+                shortage,
+                hasShortage: shortage > 0,
+            };
+        })
+        .sort((a, b) => (b.hasShortage ? 1 : 0) - (a.hasShortage ? 1 : 0));
 
-    const totalShortages = analysis.filter(a => a.hasShortage).length;
+    const totalShortages = analysis.filter((a) => a.hasShortage).length;
 
     return (
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">{planningLabels.materialPlanning}</h1>
-                    <p className="text-muted-foreground">{planningLabels.shortageAnalysis}</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                        {planningLabels.materialPlanning}
+                    </h1>
+                    <p className="text-muted-foreground">
+                        {planningLabels.shortageAnalysis}
+                    </p>
                 </div>
                 <div className="flex gap-3">
                     <Link href="/purchasing/orders/create">
@@ -106,31 +143,60 @@ export default async function PpicMrpPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">{planningLabels.pendingOrders}</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            {planningLabels.pendingOrders}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{pendingOrders.length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">{planningLabels.requiringMaterials}</p>
+                        <div className="text-2xl font-bold">
+                            {pendingOrders.length}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {planningLabels.requiringMaterials}
+                        </p>
                     </CardContent>
                 </Card>
-                <Card className={totalShortages > 0 ? "border-red-200 bg-red-50/30 dark:border-red-800/50 dark:bg-red-900/20" : ""}>
+                <Card
+                    className={
+                        totalShortages > 0
+                            ? 'border-red-200 bg-red-50/30 dark:border-red-800/50 dark:bg-red-900/20'
+                            : ''
+                    }
+                >
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground font-bold">{planningLabels.shortagesDetected}</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground font-bold">
+                            {planningLabels.shortagesDetected}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className={cn("text-2xl font-bold", totalShortages > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
+                        <div
+                            className={cn(
+                                'text-2xl font-bold',
+                                totalShortages > 0
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : 'text-emerald-600 dark:text-emerald-400',
+                            )}
+                        >
                             {totalShortages} {planningLabels.material}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{planningLabels.actionForPurchasing}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {planningLabels.actionForPurchasing}
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">{planningLabels.rmInventoryValue}</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            {planningLabels.rmInventoryValue}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{planningLabels.activeMonitoring}</div>
-                        <p className="text-xs text-muted-foreground mt-1">{planningLabels.realTimeSync}</p>
+                        <div className="text-2xl font-bold">
+                            {planningLabels.activeMonitoring}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {planningLabels.realTimeSync}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -138,31 +204,46 @@ export default async function PpicMrpPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>{planningLabels.requirementsAnalysis}</CardTitle>
-                    <CardDescription>{planningLabels.consolidatedDemand}</CardDescription>
+                    <CardDescription>
+                        {planningLabels.consolidatedDemand}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>{planningLabels.material}</TableHead>
-                                <TableHead className="text-right">{planningLabels.totalDemand}</TableHead>
-                                <TableHead className="text-right">{planningLabels.currentStock}</TableHead>
-                                <TableHead className="text-right">{planningLabels.shortage}</TableHead>
+                                <TableHead className="text-right">
+                                    {planningLabels.totalDemand}
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    {planningLabels.currentStock}
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    {planningLabels.shortage}
+                                </TableHead>
                                 <TableHead className="text-right"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {analysis.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-64 text-center">
+                                    <TableCell
+                                        colSpan={5}
+                                        className="h-64 text-center"
+                                    >
                                         <div className="flex flex-col items-center justify-center space-y-3">
                                             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
                                                 <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                                             </div>
                                             <div className="space-y-1">
-                                                <h3 className="text-lg font-medium">{planningLabels.noShortages}</h3>
+                                                <h3 className="text-lg font-medium">
+                                                    {planningLabels.noShortages}
+                                                </h3>
                                                 <p className="text-muted-foreground">
-                                                    {planningLabels.sufficientMaterial}
+                                                    {
+                                                        planningLabels.sufficientMaterial
+                                                    }
                                                 </p>
                                             </div>
                                         </div>
@@ -170,29 +251,58 @@ export default async function PpicMrpPage() {
                                 </TableRow>
                             ) : (
                                 analysis.map((item) => (
-                                    <TableRow key={item.sku} className={item.hasShortage ? "bg-red-50/50 dark:bg-red-900/10" : ""}>
+                                    <TableRow
+                                        key={item.sku}
+                                        className={
+                                            item.hasShortage
+                                                ? 'bg-red-50/50 dark:bg-red-900/10'
+                                                : ''
+                                        }
+                                    >
                                         <TableCell>
-                                            <div className="font-medium">{item.name}</div>
-                                            <div className="text-xs font-mono text-muted-foreground">{item.sku}</div>
+                                            <div className="font-medium">
+                                                {item.name}
+                                            </div>
+                                            <div className="text-xs font-mono text-muted-foreground">
+                                                {item.sku}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="text-right font-medium">
-                                            {item.totalReq.toLocaleString()} {item.unit}
+                                            {item.totalReq.toLocaleString()}{' '}
+                                            {item.unit}
                                         </TableCell>
                                         <TableCell className="text-right text-muted-foreground">
-                                            {item.stock.toLocaleString()} {item.unit}
+                                            {item.stock.toLocaleString()}{' '}
+                                            {item.unit}
                                         </TableCell>
                                         <TableCell className="text-right font-bold text-red-600 dark:text-red-400">
-                                            {item.hasShortage ? `${item.shortage.toLocaleString()} ${item.unit}` : '-'}
+                                            {item.hasShortage
+                                                ? `${item.shortage.toLocaleString()} ${item.unit}`
+                                                : '-'}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             {item.hasShortage ? (
-                                                <Link href={`/purchasing/orders/create?variantId=${item.sku}`}>
-                                                    <Button variant="ghost" size="sm" className="text-red-700 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 h-8 gap-1">
-                                                        {planningLabels.purchase} <ArrowRight className="h-3 w-3" />
+                                                <Link
+                                                    href={`/purchasing/orders/create?variantId=${item.sku}`}
+                                                >
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-red-700 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 h-8 gap-1"
+                                                    >
+                                                        {
+                                                            planningLabels.purchase
+                                                        }{' '}
+                                                        <ArrowRight className="h-3 w-3" />
                                                     </Button>
                                                 </Link>
                                             ) : (
-                                                <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/20 dark:border-emerald-800/50">{planningLabels.covered}</Badge>
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-emerald-600 bg-emerald-50 border-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/20 dark:border-emerald-800/50"
+                                                >
+                                                    {planningLabels.covered}
+                                                </Badge>
                                             )}
                                         </TableCell>
                                     </TableRow>

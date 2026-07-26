@@ -10,146 +10,153 @@
 export type DetailJournalDirection = 'OUTFLOW' | 'INFLOW';
 
 export type DetailJournalTemplateKey =
-  | 'DIRECT_LABOR'
-  | 'EMPLOYEE_RECEIVABLE'
-  | 'BPJS_HEALTH'
-  | 'BPJS_EMPLOYMENT';
+    | 'DIRECT_LABOR'
+    | 'EMPLOYEE_RECEIVABLE'
+    | 'BPJS_HEALTH'
+    | 'BPJS_EMPLOYMENT';
 
 export type DetailJournalTemplate = {
-  key: DetailJournalTemplateKey;
-  label: string;
-  detailSectionTitle: string;
-  descriptionPlaceholder: string;
-  detailNamePlaceholder: string;
-  primaryAccountLabel: string;
-  counterAccountLabel: string;
-  helperText?: string;
-  defaultDirection: DetailJournalDirection;
-  allowDirectionToggle: boolean;
-  outflowLabel?: string;
-  inflowLabel?: string;
-  // role-based primary & counter, resolved via name hints / TenantAccountRole
-  primaryAccountRole: string;
-  counterAccountRole: string;
-  primaryAccountCodes: string[]; // legacy fallback, kept minimal & generic
-  primaryNameHints: string[];
-  counterAccountCodes: string[];
-  counterNameHints: string[];
+    key: DetailJournalTemplateKey;
+    label: string;
+    detailSectionTitle: string;
+    descriptionPlaceholder: string;
+    detailNamePlaceholder: string;
+    primaryAccountLabel: string;
+    counterAccountLabel: string;
+    helperText?: string;
+    defaultDirection: DetailJournalDirection;
+    allowDirectionToggle: boolean;
+    outflowLabel?: string;
+    inflowLabel?: string;
+    // role-based primary & counter, resolved via name hints / TenantAccountRole
+    primaryAccountRole: string;
+    counterAccountRole: string;
+    primaryAccountCodes: string[]; // legacy fallback, kept minimal & generic
+    primaryNameHints: string[];
+    counterAccountCodes: string[];
+    counterNameHints: string[];
 };
 
 export const DETAIL_JOURNAL_TEMPLATES: Record<
-  DetailJournalTemplateKey,
-  DetailJournalTemplate
+    DetailJournalTemplateKey,
+    DetailJournalTemplate
 > = {
-  DIRECT_LABOR: {
-    key: 'DIRECT_LABOR',
-    label: 'Biaya Tenaga Kerja Langsung',
-    detailSectionTitle: 'Rincian Tenaga Kerja Langsung',
-    descriptionPlaceholder: 'e.g., BERITA ACARA CASH OPNAME 04 JULI 2026',
-    detailNamePlaceholder: 'Nama pekerja',
-    primaryAccountLabel: 'Akun Biaya (Tenaga Kerja Langsung)',
-    counterAccountLabel: 'Akun Kas (Pembayaran)',
-    defaultDirection: 'OUTFLOW',
-    allowDirectionToggle: false,
-    primaryAccountRole: 'direct-labor',
-    counterAccountRole: 'petty-cash',
-    primaryAccountCodes: ['51200'],
-    primaryNameHints: ['Tenaga Kerja Langsung', 'Direct Labor', 'Upah Tenaga Kerja'],
-    counterAccountCodes: ['11110', '11120'],
-    counterNameHints: ['Kas Kecil', 'Petty Cash'],
-  },
-  EMPLOYEE_RECEIVABLE: {
-    key: 'EMPLOYEE_RECEIVABLE',
-    label: 'Piutang Karyawan',
-    detailSectionTitle: 'Rincian Piutang Karyawan',
-    descriptionPlaceholder: 'e.g., Kasbon karyawan 04 Jul 2026',
-    detailNamePlaceholder: 'Nama karyawan / keterangan',
-    primaryAccountLabel: 'Akun Piutang Karyawan',
-    counterAccountLabel: 'Akun Kas Kecil',
-    helperText: 'Pilih arah: Keluar untuk kasbon, Masuk untuk pengembalian.',
-    defaultDirection: 'OUTFLOW',
-    allowDirectionToggle: true,
-    outflowLabel: 'Keluar — Kasbon',
-    inflowLabel: 'Masuk — Pengembalian',
-    primaryAccountRole: 'employee-receivable',
-    counterAccountRole: 'petty-cash',
-    primaryAccountCodes: ['11510'],
-    primaryNameHints: ['Piutang Karyawan'],
-    counterAccountCodes: ['11110', '11120'],
-    counterNameHints: ['Kas Kecil', 'Petty Cash'],
-  },
-  BPJS_HEALTH: {
-    key: 'BPJS_HEALTH',
-    label: 'Premi BPJS Kesehatan',
-    detailSectionTitle: 'Rincian Premi BPJS Kesehatan',
-    descriptionPlaceholder: 'e.g., Terima premi BPJS Kesehatan 13 Jun 2026',
-    detailNamePlaceholder: 'Nama karyawan',
-    primaryAccountLabel: 'Akun BPJS Kesehatan',
-    counterAccountLabel: 'Akun Kas Kecil (Penerimaan)',
-    helperText:
-      'Untuk penerimaan premi dari karyawan. BPJS Ketenagakerjaan diinput di template terpisah (2 jurnal).',
-    defaultDirection: 'INFLOW',
-    allowDirectionToggle: false,
-    primaryAccountRole: 'bpjs-health',
-    counterAccountRole: 'petty-cash',
-    primaryAccountCodes: [],
-    primaryNameHints: ['BPJS Kesehatan', 'Premi BPJS Kesehatan'],
-    counterAccountCodes: ['11110', '11120'],
-    counterNameHints: ['Kas Kecil', 'Petty Cash'],
-  },
-  BPJS_EMPLOYMENT: {
-    key: 'BPJS_EMPLOYMENT',
-    label: 'Premi BPJS Ketenagakerjaan',
-    detailSectionTitle: 'Rincian Premi BPJS Ketenagakerjaan',
-    descriptionPlaceholder: 'e.g., Terima premi BPJS Ketenagakerjaan 13 Jun 2026',
-    detailNamePlaceholder: 'Nama karyawan',
-    primaryAccountLabel: 'Akun BPJS Ketenagakerjaan',
-    counterAccountLabel: 'Akun Kas Kecil (Penerimaan)',
-    helperText:
-      'Untuk penerimaan premi dari karyawan. BPJS Kesehatan diinput di template terpisah (2 jurnal).',
-    defaultDirection: 'INFLOW',
-    allowDirectionToggle: false,
-    primaryAccountRole: 'bpjs-employment',
-    counterAccountRole: 'petty-cash',
-    primaryAccountCodes: [],
-    primaryNameHints: ['BPJS Ketenagakerjaan', 'Premi BPJS Ketenagakerjaan'],
-    counterAccountCodes: ['11110', '11120'],
-    counterNameHints: ['Kas Kecil', 'Petty Cash'],
-  },
+    DIRECT_LABOR: {
+        key: 'DIRECT_LABOR',
+        label: 'Biaya Tenaga Kerja Langsung',
+        detailSectionTitle: 'Rincian Tenaga Kerja Langsung',
+        descriptionPlaceholder: 'e.g., BERITA ACARA CASH OPNAME 04 JULI 2026',
+        detailNamePlaceholder: 'Nama pekerja',
+        primaryAccountLabel: 'Akun Biaya (Tenaga Kerja Langsung)',
+        counterAccountLabel: 'Akun Kas (Pembayaran)',
+        defaultDirection: 'OUTFLOW',
+        allowDirectionToggle: false,
+        primaryAccountRole: 'direct-labor',
+        counterAccountRole: 'petty-cash',
+        primaryAccountCodes: ['51200'],
+        primaryNameHints: [
+            'Tenaga Kerja Langsung',
+            'Direct Labor',
+            'Upah Tenaga Kerja',
+        ],
+        counterAccountCodes: ['11110', '11120'],
+        counterNameHints: ['Kas Kecil', 'Petty Cash'],
+    },
+    EMPLOYEE_RECEIVABLE: {
+        key: 'EMPLOYEE_RECEIVABLE',
+        label: 'Piutang Karyawan',
+        detailSectionTitle: 'Rincian Piutang Karyawan',
+        descriptionPlaceholder: 'e.g., Kasbon karyawan 04 Jul 2026',
+        detailNamePlaceholder: 'Nama karyawan / keterangan',
+        primaryAccountLabel: 'Akun Piutang Karyawan',
+        counterAccountLabel: 'Akun Kas Kecil',
+        helperText:
+            'Pilih arah: Keluar untuk kasbon, Masuk untuk pengembalian.',
+        defaultDirection: 'OUTFLOW',
+        allowDirectionToggle: true,
+        outflowLabel: 'Keluar — Kasbon',
+        inflowLabel: 'Masuk — Pengembalian',
+        primaryAccountRole: 'employee-receivable',
+        counterAccountRole: 'petty-cash',
+        primaryAccountCodes: ['11510'],
+        primaryNameHints: ['Piutang Karyawan'],
+        counterAccountCodes: ['11110', '11120'],
+        counterNameHints: ['Kas Kecil', 'Petty Cash'],
+    },
+    BPJS_HEALTH: {
+        key: 'BPJS_HEALTH',
+        label: 'Premi BPJS Kesehatan',
+        detailSectionTitle: 'Rincian Premi BPJS Kesehatan',
+        descriptionPlaceholder: 'e.g., Terima premi BPJS Kesehatan 13 Jun 2026',
+        detailNamePlaceholder: 'Nama karyawan',
+        primaryAccountLabel: 'Akun BPJS Kesehatan',
+        counterAccountLabel: 'Akun Kas Kecil (Penerimaan)',
+        helperText:
+            'Untuk penerimaan premi dari karyawan. BPJS Ketenagakerjaan diinput di template terpisah (2 jurnal).',
+        defaultDirection: 'INFLOW',
+        allowDirectionToggle: false,
+        primaryAccountRole: 'bpjs-health',
+        counterAccountRole: 'petty-cash',
+        primaryAccountCodes: [],
+        primaryNameHints: ['BPJS Kesehatan', 'Premi BPJS Kesehatan'],
+        counterAccountCodes: ['11110', '11120'],
+        counterNameHints: ['Kas Kecil', 'Petty Cash'],
+    },
+    BPJS_EMPLOYMENT: {
+        key: 'BPJS_EMPLOYMENT',
+        label: 'Premi BPJS Ketenagakerjaan',
+        detailSectionTitle: 'Rincian Premi BPJS Ketenagakerjaan',
+        descriptionPlaceholder:
+            'e.g., Terima premi BPJS Ketenagakerjaan 13 Jun 2026',
+        detailNamePlaceholder: 'Nama karyawan',
+        primaryAccountLabel: 'Akun BPJS Ketenagakerjaan',
+        counterAccountLabel: 'Akun Kas Kecil (Penerimaan)',
+        helperText:
+            'Untuk penerimaan premi dari karyawan. BPJS Kesehatan diinput di template terpisah (2 jurnal).',
+        defaultDirection: 'INFLOW',
+        allowDirectionToggle: false,
+        primaryAccountRole: 'bpjs-employment',
+        counterAccountRole: 'petty-cash',
+        primaryAccountCodes: [],
+        primaryNameHints: [
+            'BPJS Ketenagakerjaan',
+            'Premi BPJS Ketenagakerjaan',
+        ],
+        counterAccountCodes: ['11110', '11120'],
+        counterNameHints: ['Kas Kecil', 'Petty Cash'],
+    },
 };
 
 /**
  * Get template by key, throws if not found.
  */
-export function getDetailJournalTemplate(
-  key: string,
-): DetailJournalTemplate {
-  const template = DETAIL_JOURNAL_TEMPLATES[key as DetailJournalTemplateKey];
-  if (!template) {
-    throw new Error(`Unknown detail journal template: ${key}`);
-  }
-  return template;
+export function getDetailJournalTemplate(key: string): DetailJournalTemplate {
+    const template = DETAIL_JOURNAL_TEMPLATES[key as DetailJournalTemplateKey];
+    if (!template) {
+        throw new Error(`Unknown detail journal template: ${key}`);
+    }
+    return template;
 }
 
 /**
  * Find the default account ID from the COA list by matching account codes or name hints.
  */
 export function findDefaultAccountId(
-  accounts: { id: string; code: string; name: string }[],
-  codes: string[],
-  nameHints: string[],
+    accounts: { id: string; code: string; name: string }[],
+    codes: string[],
+    nameHints: string[],
 ): string | undefined {
-  // Try code match first (most reliable)
-  for (const code of codes) {
-    const found = accounts.find((a) => a.code === code);
-    if (found) return found.id;
-  }
-  // Fallback to name hint
-  for (const hint of nameHints) {
-    const found = accounts.find((a) =>
-      a.name.toLowerCase().includes(hint.toLowerCase()),
-    );
-    if (found) return found.id;
-  }
-  return undefined;
+    // Try code match first (most reliable)
+    for (const code of codes) {
+        const found = accounts.find((a) => a.code === code);
+        if (found) return found.id;
+    }
+    // Fallback to name hint
+    for (const hint of nameHints) {
+        const found = accounts.find((a) =>
+            a.name.toLowerCase().includes(hint.toLowerCase()),
+        );
+        if (found) return found.id;
+    }
+    return undefined;
 }

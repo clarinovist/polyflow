@@ -10,6 +10,7 @@ Use this skill when you need to understand, document, or extend the PolyFlow arc
 ## When to Use This Skill
 
 Use this skill when the request involves:
+
 - mapping how a feature moves from UI to server action to database
 - documenting the layered architecture for a new contributor
 - planning a refactor across app, actions, services, and lib layers
@@ -19,30 +20,30 @@ Use this skill when the request involves:
 ## Workflow
 
 1. Read the canonical architecture sources.
-   - `docs/ARCHITECTURE.md`
-   - `docs/DESIGN_SYSTEM.md`
-   - `docs/FEATURES.md`
-   - `README.md`
-   - `prisma/schema.prisma`
+    - `docs/ARCHITECTURE.md`
+    - `docs/DESIGN_SYSTEM.md`
+    - `docs/FEATURES.md`
+    - `README.md`
+    - `prisma/schema.prisma`
 2. Map the real application layers.
-   - `src/app` for routes and portals
-   - `src/actions` for server actions
-   - `src/services` for business logic
-   - `src/lib` for shared utilities, schemas, and Prisma access
-   - `src/components` for reusable UI
+    - `src/app` for routes and portals
+    - `src/actions` for server actions
+    - `src/services` for business logic
+    - `src/lib` for shared utilities, schemas, and Prisma access
+    - `src/components` for reusable UI
 3. Trace the key data flows.
-   - Server component read paths
-   - Form submission and server action write paths
-   - Prisma transaction boundaries
-   - Cross-portal navigation and role-based access
+    - Server component read paths
+    - Form submission and server action write paths
+    - Prisma transaction boundaries
+    - Cross-portal navigation and role-based access
 4. Document the architecture in a way that matches the repository.
-   - Separate admin, finance, kiosk, and warehouse concerns
-   - Highlight inventory, production, purchasing, sales, and accounting boundaries
-   - Note where audit trails, validation, and design tokens are enforced
+    - Separate admin, finance, kiosk, and warehouse concerns
+    - Highlight inventory, production, purchasing, sales, and accounting boundaries
+    - Note where audit trails, validation, and design tokens are enforced
 5. Include extension guidance.
-   - Show where new features should be placed
-   - Identify what must be updated when models, services, or actions change
-   - Point out risky boundaries that should not be bypassed
+    - Show where new features should be placed
+    - Identify what must be updated when models, services, or actions change
+    - Point out risky boundaries that should not be bypassed
 
 ## Guidance
 

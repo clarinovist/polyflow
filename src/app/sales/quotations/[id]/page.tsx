@@ -1,11 +1,11 @@
-import { redirect } from "next/navigation";
+import { redirect } from 'next/navigation';
 
 /** /sales/quotations/[id] → unified SO detail */
 export default async function QuotationDetailRedirect({
-  params,
+    params,
 }: {
-  params: Promise<{ id: string }>;
+    params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  redirect(`/sales/orders/${id}`);
+    const { id } = await params;
+    redirect(`/sales/orders/${id}`);
 }

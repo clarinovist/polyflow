@@ -4,7 +4,13 @@ import { useState, useTransition } from 'react';
 import { getMaklonReport } from '@/actions/maklon/maklon-report';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -101,20 +107,32 @@ function MarginBadge({ pct }: { pct: number }) {
     );
 }
 
-function InvoiceStatusBadge({ invoiced, status }: { invoiced: boolean; status: string | null }) {
+function InvoiceStatusBadge({
+    invoiced,
+    status,
+}: {
+    invoiced: boolean;
+    status: string | null;
+}) {
     if (!invoiced)
         return (
-            <Badge variant="outline" className="text-slate-500 dark:text-slate-400">
+            <Badge
+                variant="outline"
+                className="text-slate-500 dark:text-slate-400"
+            >
                 Not Invoiced
             </Badge>
         );
     const colors: Record<string, string> = {
         PAID: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50',
-        PARTIAL: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50',
+        PARTIAL:
+            'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50',
         UNPAID: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50',
         DRAFT: 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
-        OVERDUE: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/50',
-        CANCELLED: 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600',
+        OVERDUE:
+            'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/50',
+        CANCELLED:
+            'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600',
     };
     return (
         <Badge className={`border ${colors[status ?? ''] ?? colors.DRAFT}`}>
@@ -134,7 +152,13 @@ const COST_TYPE_ICON: Record<string, React.ReactNode> = {
     OTHER: <DollarSign className="w-3 h-3" />,
 };
 
-function CostBreakdownBar({ breakdown, total }: { breakdown: CostBreakdown; total: number }) {
+function CostBreakdownBar({
+    breakdown,
+    total,
+}: {
+    breakdown: CostBreakdown;
+    total: number;
+}) {
     const colors = [
         'bg-primary',
         'bg-primary/80',
@@ -160,17 +184,24 @@ function CostBreakdownBar({ breakdown, total }: { breakdown: CostBreakdown; tota
                         />
                     );
                 })}
-                {total === 0 && <div className="bg-slate-200 dark:bg-slate-700 w-full" />}
+                {total === 0 && (
+                    <div className="bg-slate-200 dark:bg-slate-700 w-full" />
+                )}
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                 {entries.map(([key, val], i) => (
-                    <div key={key} className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div
+                        key={key}
+                        className="flex items-center gap-1 text-xs text-muted-foreground"
+                    >
                         <span
                             className={`inline-block w-2 h-2 rounded-full ${colors[i % colors.length]}`}
                         />
                         {COST_TYPE_ICON[key]}
                         <span className="capitalize">{key.toLowerCase()}</span>
-                        <span className="font-medium text-foreground">{formatRupiah(val)}</span>
+                        <span className="font-medium text-foreground">
+                            {formatRupiah(val)}
+                        </span>
                     </div>
                 ))}
             </div>
@@ -220,7 +251,9 @@ function OrderRow({ order }: { order: OrderReport }) {
                     {formatRupiah(order.totalInternalCost)}
                 </td>
                 <td className="px-4 py-3 text-sm text-right font-semibold">
-                    <span className={order.grossMargin >= 0 ? '' : 'text-red-600'}>
+                    <span
+                        className={order.grossMargin >= 0 ? '' : 'text-red-600'}
+                    >
                         {formatRupiah(order.grossMargin)}
                     </span>
                 </td>
@@ -228,7 +261,10 @@ function OrderRow({ order }: { order: OrderReport }) {
                     <MarginBadge pct={order.grossMarginPct} />
                 </td>
                 <td className="px-4 py-3">
-                    <InvoiceStatusBadge invoiced={order.invoiced} status={order.invoiceStatus} />
+                    <InvoiceStatusBadge
+                        invoiced={order.invoiced}
+                        status={order.invoiceStatus}
+                    />
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
                     {format(new Date(order.plannedStartDate), 'dd MMM yyyy')}
@@ -270,7 +306,9 @@ function CustomerSection({ customer }: { customer: CustomerReport }) {
                             <ChevronRight className="w-5 h-5 text-muted-foreground" />
                         )}
                         <div>
-                            <CardTitle className="text-lg">{customer.customerName}</CardTitle>
+                            <CardTitle className="text-lg">
+                                {customer.customerName}
+                            </CardTitle>
                             <CardDescription>
                                 {customer.orderCount} production order
                                 {customer.orderCount !== 1 ? 's' : ''}
@@ -279,17 +317,25 @@ function CustomerSection({ customer }: { customer: CustomerReport }) {
                     </div>
                     <div className="flex items-center gap-6 text-right">
                         <div>
-                            <p className="text-xs text-muted-foreground mb-0.5">Revenue</p>
-                            <p className="font-semibold">{formatRupiah(customer.totalServiceRevenue)}</p>
+                            <p className="text-xs text-muted-foreground mb-0.5">
+                                Revenue
+                            </p>
+                            <p className="font-semibold">
+                                {formatRupiah(customer.totalServiceRevenue)}
+                            </p>
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground mb-0.5">Int. Cost</p>
+                            <p className="text-xs text-muted-foreground mb-0.5">
+                                Int. Cost
+                            </p>
                             <p className="font-semibold text-muted-foreground">
                                 {formatRupiah(customer.totalInternalCost)}
                             </p>
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground mb-0.5">Margin</p>
+                            <p className="text-xs text-muted-foreground mb-0.5">
+                                Margin
+                            </p>
                             <p
                                 className={`font-bold ${
                                     customer.totalGrossMargin >= 0
@@ -339,7 +385,10 @@ function CustomerSection({ customer }: { customer: CustomerReport }) {
                             </thead>
                             <tbody>
                                 {customer.orders.map((order) => (
-                                    <OrderRow key={order.productionOrderId} order={order} />
+                                    <OrderRow
+                                        key={order.productionOrderId}
+                                        order={order}
+                                    />
                                 ))}
                             </tbody>
                         </table>
@@ -357,7 +406,10 @@ interface MaklonReportClientProps {
     customers: { id: string; name: string }[];
 }
 
-export function MaklonReportClient({ initialReport, customers }: MaklonReportClientProps) {
+export function MaklonReportClient({
+    initialReport,
+    customers,
+}: MaklonReportClientProps) {
     const [report, setReport] = useState<ReportSummary>(initialReport);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -387,8 +439,7 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
         });
     };
 
-    const marginColor =
-        report.totalGrossMargin >= 0 ? '' : 'text-red-600';
+    const marginColor = report.totalGrossMargin >= 0 ? '' : 'text-red-600';
 
     return (
         <div className="space-y-6">
@@ -435,7 +486,11 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
                                 ))}
                             </select>
                         </div>
-                        <Button onClick={handleFilter} disabled={isPending} className="h-9">
+                        <Button
+                            onClick={handleFilter}
+                            disabled={isPending}
+                            className="h-9"
+                        >
                             {isPending ? (
                                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
@@ -464,8 +519,12 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">{report.totalOrders}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Maklon production runs</p>
+                        <div className="text-3xl font-bold">
+                            {report.totalOrders}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Maklon production runs
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -479,7 +538,9 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
                         <div className="text-2xl font-bold">
                             {formatRupiah(report.totalServiceRevenue)}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">From Sales Orders</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            From Sales Orders
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -493,7 +554,9 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
                         <div className="text-2xl font-bold text-muted-foreground">
                             {formatRupiah(report.totalInternalCost)}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Labor, machine & others</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Labor, machine & others
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -527,7 +590,8 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
                             Overall Cost Breakdown
                         </CardTitle>
                         <CardDescription>
-                            Distribution of internal conversion costs across all Maklon orders
+                            Distribution of internal conversion costs across all
+                            Maklon orders
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -554,13 +618,17 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
                                 Tidak ada order Maklon ditemukan
                             </p>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Coba sesuaikan rentang tanggal atau filter pelanggan.
+                                Coba sesuaikan rentang tanggal atau filter
+                                pelanggan.
                             </p>
                         </CardContent>
                     </Card>
                 ) : (
                     report.byCustomer.map((customer) => (
-                        <CustomerSection key={customer.customerId} customer={customer} />
+                        <CustomerSection
+                            key={customer.customerId}
+                            customer={customer}
+                        />
                     ))
                 )}
             </div>

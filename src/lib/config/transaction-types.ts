@@ -1,21 +1,40 @@
-import { ShoppingCart, Zap, CreditCard, Building2, Truck, Wallet, Calculator, Landmark, HandCoins, ArrowDownCircle, ArrowUpCircle, LucideIcon } from 'lucide-react';
+import {
+    ShoppingCart,
+    Zap,
+    CreditCard,
+    Building2,
+    Truck,
+    Wallet,
+    Calculator,
+    Landmark,
+    HandCoins,
+    ArrowDownCircle,
+    ArrowUpCircle,
+    LucideIcon,
+} from 'lucide-react';
 import type { AccountRole } from '@/services/accounting/account-resolver';
 
-export type TransactionCategory = 'EXPENSE' | 'SALES' | 'PAYROLL' | 'FINANCING' | 'PAYMENT' | 'ASSET';
+export type TransactionCategory =
+    | 'EXPENSE'
+    | 'SALES'
+    | 'PAYROLL'
+    | 'FINANCING'
+    | 'PAYMENT'
+    | 'ASSET';
 
 /**
  * Semantic filter for account picker in the wizard UI.
  * Client filters by type/category/isCashAccount — never by code prefix (Kiyowo-only).
  */
 export type AccountPickerFilterKind =
-  | 'cash-bank'         // isCashAccount = true
-  | 'expense'           // type = EXPENSE
-  | 'fixed-asset'       // type = ASSET, category = FIXED_ASSET
-  | 'liability-or-cash' // type = LIABILITY OR isCashAccount
-  | 'expense-or-asset'; // type = EXPENSE OR (ASSET + not current)
+    | 'cash-bank' // isCashAccount = true
+    | 'expense' // type = EXPENSE
+    | 'fixed-asset' // type = ASSET, category = FIXED_ASSET
+    | 'liability-or-cash' // type = LIABILITY OR isCashAccount
+    | 'expense-or-asset'; // type = EXPENSE OR (ASSET + not current)
 
 export interface AccountPickerFilter {
-  kind: AccountPickerFilterKind;
+    kind: AccountPickerFilterKind;
 }
 
 export interface TransactionTypeConfig {
@@ -24,12 +43,12 @@ export interface TransactionTypeConfig {
     description: string;
     icon: LucideIcon;
     category: TransactionCategory;
-    debitAccountRole: AccountRole;   // Semantic role, resolved at runtime per tenant
-    creditAccountRole: AccountRole;  // Semantic role, resolved at runtime per tenant
+    debitAccountRole: AccountRole; // Semantic role, resolved at runtime per tenant
+    creditAccountRole: AccountRole; // Semantic role, resolved at runtime per tenant
     defaultDescription: string;
-    showAccountPicker?: boolean;     // For "Other" categories
+    showAccountPicker?: boolean; // For "Other" categories
     accountPickerFilter?: AccountPickerFilter;
-    showPaymentPicker?: boolean;     // To select Cash vs Bank or Payable/Debt
+    showPaymentPicker?: boolean; // To select Cash vs Bank or Payable/Debt
     paymentPickerFilter?: AccountPickerFilter;
     requiresInvoice?: 'SALES' | 'PURCHASE';
     blockedInQuickEntryReason?: string;
@@ -48,7 +67,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         defaultDescription: 'Pembelian Consumable/Spares',
         showPaymentPicker: true,
         paymentPickerFilter: { kind: 'cash-bank' },
-        blockedInQuickEntryReason: 'Gunakan modul Inventory/Purchasing agar mutasi persediaan dan jurnal kontrol tetap konsisten.'
+        blockedInQuickEntryReason:
+            'Gunakan modul Inventory/Purchasing agar mutasi persediaan dan jurnal kontrol tetap konsisten.',
     },
     {
         id: 'expense-electricity',
@@ -135,7 +155,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         creditAccountRole: 'bank-loans',
         defaultDescription: 'Pencairan Pinjaman Bank',
         showAccountPicker: true,
-        accountPickerFilter: { kind: 'cash-bank' }
+        accountPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'loan-owner-receive',
@@ -147,7 +167,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         creditAccountRole: 'other-payables',
         defaultDescription: 'Pinjaman Dana dari Owner',
         showAccountPicker: true,
-        accountPickerFilter: { kind: 'cash-bank' }
+        accountPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'loan-bank-repay',
@@ -159,7 +179,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         creditAccountRole: 'bank-mandiri',
         defaultDescription: 'Pembayaran Cicilan Bank',
         showPaymentPicker: true,
-        paymentPickerFilter: { kind: 'cash-bank' }
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'loan-owner-repay',
@@ -171,7 +191,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         creditAccountRole: 'petty-cash',
         defaultDescription: 'Pembayaran Hutang ke Owner',
         showPaymentPicker: true,
-        paymentPickerFilter: { kind: 'cash-bank' }
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     // Payments (AR/AP)
     {
@@ -185,7 +205,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         defaultDescription: 'Pelunasan Invoice Customer',
         showPaymentPicker: true,
         paymentPickerFilter: { kind: 'cash-bank' },
-        requiresInvoice: 'SALES'
+        requiresInvoice: 'SALES',
     },
     {
         id: 'pay-supplier-invoice',
@@ -198,7 +218,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         defaultDescription: 'Pembayaran Invoice Supplier',
         showPaymentPicker: true,
         paymentPickerFilter: { kind: 'cash-bank' },
-        requiresInvoice: 'PURCHASE'
+        requiresInvoice: 'PURCHASE',
     },
     // Assets (CAPEX)
     {
@@ -213,7 +233,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         showAccountPicker: true,
         accountPickerFilter: { kind: 'fixed-asset' },
         showPaymentPicker: true,
-        paymentPickerFilter: { kind: 'liability-or-cash' }
+        paymentPickerFilter: { kind: 'liability-or-cash' },
     },
     {
         id: 'purchase-vehicle',
@@ -227,6 +247,6 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         showAccountPicker: true,
         accountPickerFilter: { kind: 'fixed-asset' },
         showPaymentPicker: true,
-        paymentPickerFilter: { kind: 'liability-or-cash' }
-    }
+        paymentPickerFilter: { kind: 'liability-or-cash' },
+    },
 ];

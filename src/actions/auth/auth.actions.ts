@@ -25,18 +25,19 @@ export async function authenticate(
             redirect: false,
         });
 
-        // We redirect to a common logged-in route. 
+        // We redirect to a common logged-in route.
         // The NextAuth middleware (auth.config.ts) will intercept this next request,
         // read the newly set session cookie, and perfectly redirect the user to their
         // designated workspace (e.g. /admin/super-admin, /warehouse, /production)
         // based on the role stored in the JWT.
         redirect('/dashboard');
-
     } catch (error) {
         if (error instanceof AuthError) {
             // Auth.js wraps errors thrown from authorize() as CredentialsSignin;
             // the original Error message is available on `.cause?.err?.message`.
-            const causeMessage = (error as { cause?: { err?: { message?: string } } })?.cause?.err?.message;
+            const causeMessage = (
+                error as { cause?: { err?: { message?: string } } }
+            )?.cause?.err?.message;
 
             if (causeMessage === 'TenantSuspended') {
                 return 'Akun tenant ini telah dinonaktifkan (suspended). Silakan hubungi administrator.';

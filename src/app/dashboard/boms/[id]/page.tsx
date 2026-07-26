@@ -14,7 +14,7 @@ export default async function BomDetailPage({ params }: BomDetailPageProps) {
 
     const [bomRes, showPrices] = await Promise.all([
         getBom(id),
-        canViewPrices()
+        canViewPrices(),
     ]);
 
     if (!bomRes.success || !bomRes.data) {

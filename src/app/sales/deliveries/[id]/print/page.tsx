@@ -6,26 +6,36 @@ import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-setting
 import type { ComponentProps } from 'react';
 
 interface PrintPageProps {
-  params: Promise<{ id: string }>;
+    params: Promise<{ id: string }>;
 }
 
 export default async function SuratJalanPrintPage({ params }: PrintPageProps) {
-  const { id } = await params;
-  const [result, companyConfig] = await Promise.all([
-    getDeliveryOrderById(id),
-    getCompanyConfigWithOverridesAsync(),
-  ]);
+    const { id } = await params;
+    const [result, companyConfig] = await Promise.all([
+        getDeliveryOrderById(id),
+        getCompanyConfigWithOverridesAsync(),
+    ]);
 
-  if (!result.success) {
-    throw new Error(result.error);
-  }
+    if (!result.success) {
+        throw new Error(result.error);
+    }
 
-  const raw = result.data;
-  if (!raw) {
-    notFound();
-  }
+    const raw = result.data;
+    if (!raw) {
+        notFound();
+    }
 
-  const order = serializeData(raw);
+    const order = serializeData(raw);
 
-  return <SuratJalanDotMatrixPrint order={order as unknown as ComponentProps<typeof SuratJalanDotMatrixPrint>['order']} showButton={true} companyConfig={companyConfig} />;
+    return (
+        <SuratJalanDotMatrixPrint
+            order={
+                order as unknown as ComponentProps<
+                    typeof SuratJalanDotMatrixPrint
+                >['order']
+            }
+            showButton={true}
+            companyConfig={companyConfig}
+        />
+    );
 }

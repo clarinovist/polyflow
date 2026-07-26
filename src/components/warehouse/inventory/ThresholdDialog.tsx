@@ -51,31 +51,45 @@ export function ThresholdDialog({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600" aria-label="Atur threshold stok menipis">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-400 hover:text-slate-600"
+                    aria-label="Atur threshold stok menipis"
+                >
                     <Settings2 className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{warehouseComponentLabels.thresholdSettings}</DialogTitle>
+                    <DialogTitle>
+                        {warehouseComponentLabels.thresholdSettings}
+                    </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Produk</p>
+                        <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                            Produk
+                        </p>
                         <p className="text-sm text-slate-900">{productName}</p>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="threshold">{warehouseComponentLabels.lowStockThreshold}</Label>
+                        <Label htmlFor="threshold">
+                            {warehouseComponentLabels.lowStockThreshold}
+                        </Label>
                         <Input
                             id="threshold"
                             type="number"
                             step="0.01"
                             value={threshold}
-                            onChange={(e) => setThreshold(parseFloat(e.target.value) || 0)}
+                            onChange={(e) =>
+                                setThreshold(parseFloat(e.target.value) || 0)
+                            }
                             placeholder={warehouseComponentLabels.eG50}
                         />
                         <p className="text-[0.8rem] text-slate-500 whitespace-pre-wrap">
-                            Peringatan otomatis akan dipicu saat stok turun di bawah nilai ini.
+                            Peringatan otomatis akan dipicu saat stok turun di
+                            bawah nilai ini.
                         </p>
                     </div>
                 </div>

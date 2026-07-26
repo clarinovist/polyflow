@@ -1,12 +1,12 @@
-import { useMemo } from "react";
-import { filterMachinesByStage } from "@/lib/production/machine-compatibility";
+import { useMemo } from 'react';
+import { filterMachinesByStage } from '@/lib/production/machine-compatibility';
 
-type ProductionStage = "mixing" | "extrusion" | "packing" | "rework";
+type ProductionStage = 'mixing' | 'extrusion' | 'packing' | 'rework';
 
 interface Machine {
-  id: string;
-  name: string;
-  type: string;
+    id: string;
+    name: string;
+    type: string;
 }
 
 /**
@@ -14,8 +14,11 @@ interface Machine {
  * Uses shared machine-compatibility utility.
  */
 export function useCompatibleMachines(
-  machines: Machine[],
-  stage: ProductionStage,
+    machines: Machine[],
+    stage: ProductionStage,
 ): Machine[] {
-  return useMemo(() => filterMachinesByStage(machines, stage), [machines, stage]);
+    return useMemo(
+        () => filterMachinesByStage(machines, stage),
+        [machines, stage],
+    );
 }

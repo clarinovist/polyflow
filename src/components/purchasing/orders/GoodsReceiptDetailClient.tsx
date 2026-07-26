@@ -2,11 +2,24 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { ArrowLeft, Package, MapPin, Calendar, User, FileText } from 'lucide-react';
+import {
+    ArrowLeft,
+    Package,
+    MapPin,
+    Calendar,
+    User,
+    FileText,
+} from 'lucide-react';
 import Link from 'next/link';
 import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
 
@@ -45,10 +58,13 @@ interface GoodsReceiptDetailProps {
     basePath?: string;
 }
 
-export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incoming' }: GoodsReceiptDetailProps) {
+export function GoodsReceiptDetailClient({
+    receipt,
+    basePath = '/warehouse/incoming',
+}: GoodsReceiptDetailProps) {
     const totalValue = receipt.items.reduce(
         (sum, item) => sum + item.receivedQty * item.unitCost,
-        0
+        0,
     );
 
     return (
@@ -57,7 +73,8 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`${basePath}/history`}>
-                            <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
+                            <ArrowLeft className="mr-2 h-4 w-4" />{' '}
+                            {actionLabels.back}
                         </Link>
                     </Button>
                     <div>
@@ -66,14 +83,17 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             {receipt.receiptNumber}
                         </h1>
                         <p className="text-muted-foreground text-sm">
-                            Diterima pada {format(new Date(receipt.receivedDate), 'PPP')}
+                            Diterima pada{' '}
+                            {format(new Date(receipt.receivedDate), 'PPP')}
                         </p>
                     </div>
                 </div>
 
                 {receipt.purchaseOrder && (
                     <Button variant="outline" asChild>
-                        <Link href={`${basePath}/orders/${receipt.purchaseOrder.id}`}>
+                        <Link
+                            href={`${basePath}/orders/${receipt.purchaseOrder.id}`}
+                        >
                             <FileText className="mr-2 h-4 w-4" />
                             Lihat PO {receipt.purchaseOrder.orderNumber}
                         </Link>
@@ -86,43 +106,77 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                     <Card>
                         <CardHeader>
                             <CardTitle>Item Diterima</CardTitle>
-                            <CardDescription>Daftar item yang diterima dalam penerimaan barang ini</CardDescription>
+                            <CardDescription>
+                                Daftar item yang diterima dalam penerimaan
+                                barang ini
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="border rounded-lg overflow-hidden">
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50 border-b">
                                         <tr>
-                                            <th className="h-10 px-4 text-left font-medium">{formLabels.product}</th>
-                                            <th className="h-10 px-4 text-right font-medium">Kuantitas</th>
-                                            <th className="h-10 px-4 text-right font-medium">Biaya Satuan</th>
-                                            <th className="h-10 px-4 text-right font-medium">Total</th>
+                                            <th className="h-10 px-4 text-left font-medium">
+                                                {formLabels.product}
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                Kuantitas
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                Biaya Satuan
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                Total
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {receipt.items.map((item) => (
-                                            <tr key={item.id} className="hover:bg-muted/50 transition-colors">
+                                            <tr
+                                                key={item.id}
+                                                className="hover:bg-muted/50 transition-colors"
+                                            >
                                                 <td className="p-4">
-                                                    <div className="font-medium">{item.productVariant.name}</div>
+                                                    <div className="font-medium">
+                                                        {
+                                                            item.productVariant
+                                                                .name
+                                                        }
+                                                    </div>
                                                     <div className="text-xs text-muted-foreground font-mono">
-                                                        {item.productVariant.skuCode}
+                                                        {
+                                                            item.productVariant
+                                                                .skuCode
+                                                        }
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-right tabular-nums">
-                                                    {item.receivedQty} {item.productVariant.primaryUnit}
+                                                    {item.receivedQty}{' '}
+                                                    {
+                                                        item.productVariant
+                                                            .primaryUnit
+                                                    }
                                                 </td>
                                                 <td className="p-4 text-right tabular-nums">
-                                                    {formatRupiah(item.unitCost)}
+                                                    {formatRupiah(
+                                                        item.unitCost,
+                                                    )}
                                                 </td>
                                                 <td className="p-4 text-right font-medium tabular-nums">
-                                                    {formatRupiah(item.receivedQty * item.unitCost)}
+                                                    {formatRupiah(
+                                                        item.receivedQty *
+                                                            item.unitCost,
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot className="bg-muted/50 border-t">
                                         <tr>
-                                            <td colSpan={3} className="p-4 text-right font-bold">
+                                            <td
+                                                colSpan={3}
+                                                className="p-4 text-right font-bold"
+                                            >
                                                 Total Nilai
                                             </td>
                                             <td className="p-4 text-right font-bold text-lg text-emerald-600 tabular-nums">
@@ -139,7 +193,9 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Detail Penerimaan</CardTitle>
+                            <CardTitle className="text-base">
+                                Detail Penerimaan
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {receipt.purchaseOrder ? (
@@ -147,12 +203,17 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                                     <div className="flex items-start gap-3">
                                         <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
                                         <div>
-                                            <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
+                                            <h3 className="text-xs font-medium text-muted-foreground">
+                                                Purchase Order
+                                            </h3>
                                             <Link
                                                 href={`${basePath}/orders/${receipt.purchaseOrder.id}`}
                                                 className="font-mono text-blue-600 hover:underline"
                                             >
-                                                {receipt.purchaseOrder.orderNumber}
+                                                {
+                                                    receipt.purchaseOrder
+                                                        .orderNumber
+                                                }
                                             </Link>
                                         </div>
                                     </div>
@@ -160,11 +221,22 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                                     <div className="flex items-start gap-3">
                                         <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
                                         <div>
-                                            <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.supplier}</h3>
-                                            <p className="font-medium">{receipt.purchaseOrder.supplier.name}</p>
-                                            {receipt.purchaseOrder.supplier.code && (
+                                            <h3 className="text-xs font-medium text-muted-foreground">
+                                                {purchasingLabels.supplier}
+                                            </h3>
+                                            <p className="font-medium">
+                                                {
+                                                    receipt.purchaseOrder
+                                                        .supplier.name
+                                                }
+                                            </p>
+                                            {receipt.purchaseOrder.supplier
+                                                .code && (
                                                 <p className="text-xs text-muted-foreground font-mono">
-                                                    {receipt.purchaseOrder.supplier.code}
+                                                    {
+                                                        receipt.purchaseOrder
+                                                            .supplier.code
+                                                    }
                                                 </p>
                                             )}
                                         </div>
@@ -175,15 +247,27 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                                     <div className="flex items-start gap-3">
                                         <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
                                         <div>
-                                            <h3 className="text-xs font-medium text-muted-foreground">Tipe Penerimaan</h3>
-                                            <Badge variant="outline" className="border-purple-500/20 text-purple-600 dark:text-purple-400 bg-purple-500/10">Maklon Jasa</Badge>
+                                            <h3 className="text-xs font-medium text-muted-foreground">
+                                                Tipe Penerimaan
+                                            </h3>
+                                            <Badge
+                                                variant="outline"
+                                                className="border-purple-500/20 text-purple-600 dark:text-purple-400 bg-purple-500/10"
+                                            >
+                                                Maklon Jasa
+                                            </Badge>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
                                         <User className="h-4 w-4 text-muted-foreground mt-0.5" />
                                         <div>
-                                            <h3 className="text-xs font-medium text-muted-foreground">Customer (Pemilik)</h3>
-                                            <p className="font-medium">{receipt.customer?.name || 'Customer Maklon Tidak Diketahui'}</p>
+                                            <h3 className="text-xs font-medium text-muted-foreground">
+                                                Customer (Pemilik)
+                                            </h3>
+                                            <p className="font-medium">
+                                                {receipt.customer?.name ||
+                                                    'Customer Maklon Tidak Diketahui'}
+                                            </p>
                                             {receipt.customer?.code && (
                                                 <p className="text-xs text-muted-foreground font-mono">
                                                     {receipt.customer.code}
@@ -197,17 +281,26 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             <div className="flex items-start gap-3">
                                 <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Diterima di</h3>
-                                    <p className="font-medium">{receipt.location.name}</p>
+                                    <h3 className="text-xs font-medium text-muted-foreground">
+                                        Diterima di
+                                    </h3>
+                                    <p className="font-medium">
+                                        {receipt.location.name}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="flex items-start gap-3">
                                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.grDate}</h3>
+                                    <h3 className="text-xs font-medium text-muted-foreground">
+                                        {purchasingLabels.grDate}
+                                    </h3>
                                     <p className="font-medium">
-                                        {format(new Date(receipt.receivedDate), 'PPP')}
+                                        {format(
+                                            new Date(receipt.receivedDate),
+                                            'PPP',
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -215,8 +308,12 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             <div className="flex items-start gap-3">
                                 <User className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Diterima Oleh</h3>
-                                    <p className="font-medium">{receipt.createdBy.name}</p>
+                                    <h3 className="text-xs font-medium text-muted-foreground">
+                                        Diterima Oleh
+                                    </h3>
+                                    <p className="font-medium">
+                                        {receipt.createdBy.name}
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
@@ -225,7 +322,9 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                     {receipt.notes && (
                         <Card>
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm">{formLabels.notes}</CardTitle>
+                                <CardTitle className="text-sm">
+                                    {formLabels.notes}
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <p className="text-sm whitespace-pre-wrap text-muted-foreground">

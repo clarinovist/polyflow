@@ -1,4 +1,9 @@
-import { AccountType, AccountCategory, JournalStatus, Prisma } from '@prisma/client';
+import {
+    AccountType,
+    AccountCategory,
+    JournalStatus,
+    Prisma,
+} from '@prisma/client';
 import type { CreateJournalEntryInput } from './types';
 import {
     createJournalEntry,
@@ -15,28 +20,55 @@ import {
     createDetailJournal,
     updateDetailJournal,
 } from './journals-service';
-import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './coa-service';
-import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement, closePeriod } from './reports-service';
-import { getFiscalPeriods, createFiscalPeriod, closeFiscalPeriod, isPeriodOpen, generateClosingEntries } from './periods-service';
-import { recordInventoryMovement, recordMaklonCosts } from './inventory-link-service';
+import {
+    getChartOfAccounts,
+    createAccount,
+    updateAccount,
+    deleteAccount,
+} from './coa-service';
+import {
+    getTrialBalance,
+    getIncomeStatement,
+    getBalanceSheet,
+    getAccountBalance,
+    getCashFlowStatement,
+    closePeriod,
+} from './reports-service';
+import {
+    getFiscalPeriods,
+    createFiscalPeriod,
+    closeFiscalPeriod,
+    isPeriodOpen,
+    generateClosingEntries,
+} from './periods-service';
+import {
+    recordInventoryMovement,
+    recordMaklonCosts,
+} from './inventory-link-service';
 import { getGeneralLedger } from './general-ledger-service';
 
 export type { CreateJournalEntryInput } from './types';
 
 export class AccountingService {
-
     /**
      * Create a new Journal Entry.
      * Default Status: DRAFT
      */
-    static async createJournalEntry(input: CreateJournalEntryInput, tx?: Prisma.TransactionClient) {
+    static async createJournalEntry(
+        input: CreateJournalEntryInput,
+        tx?: Prisma.TransactionClient,
+    ) {
         return createJournalEntry(input, tx);
     }
 
     /**
      * Post a Journal Entry (DRAFT -> POSTED)
      */
-    static async postJournal(id: string, userId?: string, tx?: Prisma.TransactionClient) {
+    static async postJournal(
+        id: string,
+        userId?: string,
+        tx?: Prisma.TransactionClient,
+    ) {
         return postJournal(id, userId, tx);
     }
 
@@ -62,40 +94,56 @@ export class AccountingService {
     /**
      * Update a DRAFT journal entry (header + lines replace atomically)
      */
-    static async updateDraftJournal(id: string, input: {
-        entryDate: Date;
-        description: string;
-        reference?: string;
-        lines: { accountId: string; debit: number; credit: number; description?: string }[];
-    }, userId?: string) {
+    static async updateDraftJournal(
+        id: string,
+        input: {
+            entryDate: Date;
+            description: string;
+            reference?: string;
+            lines: {
+                accountId: string;
+                debit: number;
+                credit: number;
+                description?: string;
+            }[];
+        },
+        userId?: string,
+    ) {
         return updateDraftJournal(id, input, userId);
     }
 
     /**
      * Create a Direct Labor journal: 2 GL lines + detail table (atomic).
      */
-    static async createDirectLaborJournal(input: {
-        entryDate: Date;
-        description: string;
-        reference?: string;
-        debitAccountId: string;
-        creditAccountId: string;
-        details: { description: string; amount: number }[];
-    }, userId?: string) {
+    static async createDirectLaborJournal(
+        input: {
+            entryDate: Date;
+            description: string;
+            reference?: string;
+            debitAccountId: string;
+            creditAccountId: string;
+            details: { description: string; amount: number }[];
+        },
+        userId?: string,
+    ) {
         return createDirectLaborJournal(input, userId);
     }
 
     /**
      * Update a DRAFT Direct Labor journal (atomic replace lines + details).
      */
-    static async updateDirectLaborJournal(id: string, input: {
-        entryDate: Date;
-        description: string;
-        reference?: string;
-        debitAccountId: string;
-        creditAccountId: string;
-        details: { description: string; amount: number }[];
-    }, userId?: string) {
+    static async updateDirectLaborJournal(
+        id: string,
+        input: {
+            entryDate: Date;
+            description: string;
+            reference?: string;
+            debitAccountId: string;
+            creditAccountId: string;
+            details: { description: string; amount: number }[];
+        },
+        userId?: string,
+    ) {
         return updateDirectLaborJournal(id, input, userId);
     }
 
@@ -103,16 +151,19 @@ export class AccountingService {
      * Create a detail journal: 2 GL lines + detail table (atomic).
      * Generic version — works for all templates (BTKL, Piutang, BPJS).
      */
-    static async createDetailJournal(input: {
-        type: string;
-        entryDate: Date;
-        description: string;
-        reference?: string;
-        primaryAccountId: string;
-        counterAccountId: string;
-        direction: 'OUTFLOW' | 'INFLOW';
-        details: { description: string; amount: number }[];
-    }, userId?: string) {
+    static async createDetailJournal(
+        input: {
+            type: string;
+            entryDate: Date;
+            description: string;
+            reference?: string;
+            primaryAccountId: string;
+            counterAccountId: string;
+            direction: 'OUTFLOW' | 'INFLOW';
+            details: { description: string; amount: number }[];
+        },
+        userId?: string,
+    ) {
         return createDetailJournal(input, userId);
     }
 
@@ -120,20 +171,31 @@ export class AccountingService {
      * Update a DRAFT detail journal (atomic replace lines + details).
      * Generic version — works for all templates.
      */
-    static async updateDetailJournal(id: string, input: {
-        type: string;
-        entryDate: Date;
-        description: string;
-        reference?: string;
-        primaryAccountId: string;
-        counterAccountId: string;
-        direction: 'OUTFLOW' | 'INFLOW';
-        details: { description: string; amount: number }[];
-    }, userId?: string) {
+    static async updateDetailJournal(
+        id: string,
+        input: {
+            type: string;
+            entryDate: Date;
+            description: string;
+            reference?: string;
+            primaryAccountId: string;
+            counterAccountId: string;
+            direction: 'OUTFLOW' | 'INFLOW';
+            details: { description: string; amount: number }[];
+        },
+        userId?: string,
+    ) {
         return updateDetailJournal(id, input, userId);
     }
 
-    static async getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string, page?: number, limit?: number }) {
+    static async getJournals(params?: {
+        startDate?: Date;
+        endDate?: Date;
+        status?: JournalStatus;
+        reference?: string;
+        page?: number;
+        limit?: number;
+    }) {
         return getJournals(params);
     }
 
@@ -145,11 +207,26 @@ export class AccountingService {
         return getChartOfAccounts();
     }
 
-    static async createAccount(data: { code: string; name: string; type: AccountType; category: AccountCategory; description?: string }) {
+    static async createAccount(data: {
+        code: string;
+        name: string;
+        type: AccountType;
+        category: AccountCategory;
+        description?: string;
+    }) {
         return createAccount(data);
     }
 
-    static async updateAccount(id: string, data: { code?: string; name?: string; type?: AccountType; category?: AccountCategory; description?: string }) {
+    static async updateAccount(
+        id: string,
+        data: {
+            code?: string;
+            name?: string;
+            type?: AccountType;
+            category?: AccountCategory;
+            description?: string;
+        },
+    ) {
         return updateAccount(id, data);
     }
 
@@ -193,7 +270,11 @@ export class AccountingService {
         return getCashFlowStatement(startDate, endDate);
     }
 
-    static async getAccountBalance(accountId: string, startDate?: Date, endDate?: Date) {
+    static async getAccountBalance(
+        accountId: string,
+        startDate?: Date,
+        endDate?: Date,
+    ) {
         return getAccountBalance(accountId, startDate, endDate);
     }
 
@@ -232,25 +313,37 @@ export class AccountingService {
      * AUTO-JOURNAL: Record Inventory Movement
      * Maps StockMovement to GL Entries
      */
-    static async recordInventoryMovement(movement: Parameters<typeof recordInventoryMovement>[0], tx?: Prisma.TransactionClient) {
+    static async recordInventoryMovement(
+        movement: Parameters<typeof recordInventoryMovement>[0],
+        tx?: Prisma.TransactionClient,
+    ) {
         return recordInventoryMovement(movement, tx);
     }
 
-    static async recordMaklonCosts(productionOrderId: string, tx: Prisma.TransactionClient) {
+    static async recordMaklonCosts(
+        productionOrderId: string,
+        tx: Prisma.TransactionClient,
+    ) {
         return recordMaklonCosts(productionOrderId, tx);
     }
 
     /**
      * Generate Closing Entries for a Period
      */
-    static async generateClosingEntries(periodId: string, userId: string): Promise<void> {
+    static async generateClosingEntries(
+        periodId: string,
+        userId: string,
+    ): Promise<void> {
         return generateClosingEntries(periodId, userId);
     }
 
     /**
      * Create Year-End Closing Entry
      */
-    static async createYearEndClosingEntry(year: number, userId: string): Promise<void> {
+    static async createYearEndClosingEntry(
+        year: number,
+        userId: string,
+    ): Promise<void> {
         await createYearEndClosingEntry(year, userId);
     }
 }

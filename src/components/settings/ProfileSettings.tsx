@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useRef, useTransition } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,7 +50,9 @@ export function ProfileSettings({
 }) {
     const [name, setName] = useState(userName || '');
     const [email, setEmail] = useState(userEmail || '');
-    const [locale, setLocale] = useState<'id' | 'en'>(userLocale === 'en' ? 'en' : 'id');
+    const [locale, setLocale] = useState<'id' | 'en'>(
+        userLocale === 'en' ? 'en' : 'id',
+    );
     const [avatar, setAvatar] = useState<string | null>(userAvatarUrl || null);
     const [savingProfile, startProfile] = useTransition();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -64,7 +72,10 @@ export function ProfileSettings({
             const res = await updateOwnProfile({ name, email, locale });
             if (res.success) {
                 toast.success('Profil berhasil diperbarui.');
-                await updateSession({ name: res.data.name, email: res.data.email });
+                await updateSession({
+                    name: res.data.name,
+                    email: res.data.email,
+                });
                 router.refresh();
             } else {
                 toast.error(res.error || 'Gagal memperbarui profil.');
@@ -82,7 +93,10 @@ export function ProfileSettings({
             const res = await updateOwnAvatar(fd);
             if (res.success) {
                 setAvatar(res.data.avatarUrl);
-                await updateSession({ image: res.data.avatarUrl, picture: res.data.avatarUrl });
+                await updateSession({
+                    image: res.data.avatarUrl,
+                    picture: res.data.avatarUrl,
+                });
                 router.refresh();
                 toast.success('Foto profil diperbarui.');
             } else {
@@ -117,7 +131,10 @@ export function ProfileSettings({
             return;
         }
         startPw(async () => {
-            const res = await changeOwnPassword({ currentPassword, newPassword });
+            const res = await changeOwnPassword({
+                currentPassword,
+                newPassword,
+            });
             if (res.success) {
                 toast.success('Password berhasil diubah.');
                 setCurrentPassword('');
@@ -207,7 +224,10 @@ export function ProfileSettings({
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="locale">Bahasa</Label>
-                        <Select value={locale} onValueChange={(v) => setLocale(v as 'id' | 'en')}>
+                        <Select
+                            value={locale}
+                            onValueChange={(v) => setLocale(v as 'id' | 'en')}
+                        >
                             <SelectTrigger id="locale" className="w-full">
                                 <SelectValue />
                             </SelectTrigger>
@@ -217,17 +237,24 @@ export function ProfileSettings({
                             </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                            Preferensi tersimpan. Terjemahan antarmuka penuh menyusul.
+                            Preferensi tersimpan. Terjemahan antarmuka penuh
+                            menyusul.
                         </p>
                     </div>
                     <div className="flex justify-end">
-                        <Button onClick={handleSaveProfile} disabled={savingProfile}>
-                            {savingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button
+                            onClick={handleSaveProfile}
+                            disabled={savingProfile}
+                        >
+                            {savingProfile && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
                             Simpan Perubahan
                         </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        Perubahan langsung berlaku di sidebar dan seluruh aplikasi.
+                        Perubahan langsung berlaku di sidebar dan seluruh
+                        aplikasi.
                     </p>
                 </CardContent>
             </Card>
@@ -241,7 +268,9 @@ export function ProfileSettings({
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="currentPassword">Password Saat Ini</Label>
+                        <Label htmlFor="currentPassword">
+                            Password Saat Ini
+                        </Label>
                         <Input
                             id="currentPassword"
                             type={showPw ? 'text' : 'password'}
@@ -264,12 +293,18 @@ export function ProfileSettings({
                                 onClick={() => setShowPw((s) => !s)}
                                 tabIndex={-1}
                             >
-                                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                {showPw ? (
+                                    <EyeOff className="h-4 w-4" />
+                                ) : (
+                                    <Eye className="h-4 w-4" />
+                                )}
                             </button>
                         </div>
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+                        <Label htmlFor="confirmPassword">
+                            Konfirmasi Password Baru
+                        </Label>
                         <Input
                             id="confirmPassword"
                             type={showPw ? 'text' : 'password'}
@@ -281,9 +316,13 @@ export function ProfileSettings({
                         <Button
                             variant="outline"
                             onClick={handleChangePassword}
-                            disabled={savingPw || !currentPassword || !newPassword}
+                            disabled={
+                                savingPw || !currentPassword || !newPassword
+                            }
                         >
-                            {savingPw && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {savingPw && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
                             Ubah Password
                         </Button>
                     </div>

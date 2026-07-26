@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/schemas/inventory';
+import {
+    bulkTransferStockSchema,
+    BulkTransferStockValues,
+} from '@/lib/schemas/inventory';
 import { transferStockBulk } from '@/actions/inventory/inventory';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,8 +64,15 @@ interface BulkTransferDialogProps {
     userId?: string; // Optional for audit
 }
 
-export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTransferDialogProps) {
-    const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
+export function BulkTransferDialog({
+    open,
+    onOpenChange,
+    items,
+    userId,
+}: BulkTransferDialogProps) {
+    const [locations, setLocations] = useState<{ id: string; name: string }[]>(
+        [],
+    );
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const sourceLocationId = items.length > 0 ? items[0].locationId : '';
@@ -77,11 +87,11 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
             destinationLocationId: '',
             date: new Date(),
             notes: '',
-            items: items.map(item => ({
+            items: items.map((item) => ({
                 productVariantId: item.productVariantId,
-                quantity: 0
-            }))
-        }
+                quantity: 0,
+            })),
+        },
     });
 
     // Reset items when dialog opens with new items
@@ -92,13 +102,13 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                 destinationLocationId: '',
                 date: new Date(),
                 notes: '',
-                items: items.map(item => ({
+                items: items.map((item) => ({
                     productVariantId: item.productVariantId,
-                    quantity: 0
-                }))
+                    quantity: 0,
+                })),
             });
 
-            getLocations().then(res => {
+            getLocations().then((res) => {
                 if (!res.success) {
                     toast.error(res.error || 'Gagal memuat lokasi');
                     return;
@@ -114,7 +124,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
         setIsSubmitting(true);
         try {
             // Filter out items with 0 quantity
-            const validItems = data.items.filter(i => i.quantity > 0);
+            const validItems = data.items.filter((i) => i.quantity > 0);
 
             if (validItems.length === 0) {
                 toast.error('Masukkan jumlah transfer untuk minimal satu item');
@@ -142,14 +152,21 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{warehouseComponentLabels.bulkTransferTitle}</DialogTitle>
+                    <DialogTitle>
+                        {warehouseComponentLabels.bulkTransferTitle}
+                    </DialogTitle>
                     <DialogDescription>
-                        Transfer items from <strong>{sourceLocationName}</strong> to another location.
+                        Transfer items from{' '}
+                        <strong>{sourceLocationName}</strong> to another
+                        location.
                     </DialogDescription>
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-6"
+                    >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
@@ -157,17 +174,31 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Lokasi Tujuan</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                        >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder={warehouseComponentLabels.selectDestination} />
+                                                    <SelectValue
+                                                        placeholder={
+                                                            warehouseComponentLabels.selectDestination
+                                                        }
+                                                    />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {locations
-                                                    .filter(l => l.id !== sourceLocationId)
+                                                    .filter(
+                                                        (l) =>
+                                                            l.id !==
+                                                            sourceLocationId,
+                                                    )
                                                     .map((location) => (
-                                                        <SelectItem key={location.id} value={location.id}>
+                                                        <SelectItem
+                                                            key={location.id}
+                                                            value={location.id}
+                                                        >
                                                             {location.name}
                                                         </SelectItem>
                                                     ))}
@@ -182,9 +213,16 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                 name="notes"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Catatan / Referensi</FormLabel>
+                                        <FormLabel>
+                                            Catatan / Referensi
+                                        </FormLabel>
                                         <FormControl>
-                                            <Input placeholder={warehouseComponentLabels.eGShipment} {...field} />
+                                            <Input
+                                                placeholder={
+                                                    warehouseComponentLabels.eGShipment
+                                                }
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -196,18 +234,36 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                         <div className="border rounded-md">
                             <div className="grid grid-cols-12 gap-2 p-3 bg-muted/50 text-sm font-medium border-b">
                                 <div className="col-span-6">Produk</div>
-                                <div className="col-span-2 text-right">Tersedia</div>
-                                <div className="col-span-4 text-right">Jumlah Transfer</div>
+                                <div className="col-span-2 text-right">
+                                    Tersedia
+                                </div>
+                                <div className="col-span-4 text-right">
+                                    Jumlah Transfer
+                                </div>
                             </div>
                             <div className="max-h-[300px] overflow-y-auto">
                                 {items.map((item, index) => (
-                                    <div key={item.id} className="grid grid-cols-12 gap-2 p-3 items-center border-b last:border-0 hover:bg-muted/20">
+                                    <div
+                                        key={item.id}
+                                        className="grid grid-cols-12 gap-2 p-3 items-center border-b last:border-0 hover:bg-muted/20"
+                                    >
                                         <div className="col-span-6">
-                                            <div className="font-medium text-sm">{item.productVariant.name}</div>
-                                            <div className="text-xs text-muted-foreground">{item.productVariant.skuCode}</div>
+                                            <div className="font-medium text-sm">
+                                                {item.productVariant.name}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {item.productVariant.skuCode}
+                                            </div>
                                         </div>
                                         <div className="col-span-2 text-right text-sm">
-                                            {item.availableQuantity ?? item.quantity} <span className="text-xs text-muted-foreground">{item.productVariant.primaryUnit}</span>
+                                            {item.availableQuantity ??
+                                                item.quantity}{' '}
+                                            <span className="text-xs text-muted-foreground">
+                                                {
+                                                    item.productVariant
+                                                        .primaryUnit
+                                                }
+                                            </span>
                                         </div>
                                         <div className="col-span-4">
                                             <FormField
@@ -220,10 +276,21 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                                                 type="number"
                                                                 min="0"
                                                                 step="any"
-                                                                max={item.availableQuantity ?? item.quantity}
+                                                                max={
+                                                                    item.availableQuantity ??
+                                                                    item.quantity
+                                                                }
                                                                 className="h-8 text-right"
                                                                 {...field}
-                                                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                                onChange={(e) =>
+                                                                    field.onChange(
+                                                                        parseFloat(
+                                                                            e
+                                                                                .target
+                                                                                .value,
+                                                                        ) || 0,
+                                                                    )
+                                                                }
                                                             />
                                                         </FormControl>
                                                     </FormItem>
@@ -236,11 +303,18 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                         </div>
 
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => onOpenChange(false)}
+                                disabled={isSubmitting}
+                            >
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isSubmitting && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                )}
                                 Confirm Transfer
                             </Button>
                         </DialogFooter>

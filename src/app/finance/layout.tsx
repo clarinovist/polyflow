@@ -28,7 +28,8 @@ export default async function FinanceLayout({
 
     const permissionsRes = await getMyPermissions();
     const sessionAllowed =
-        (session.user as { allowedResources?: string[] })?.allowedResources || [];
+        (session.user as { allowedResources?: string[] })?.allowedResources ||
+        [];
     const permissions: string[] | 'ALL' =
         permissionsRes.success && permissionsRes.data
             ? permissionsRes.data

@@ -16,7 +16,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 
 interface DeleteScrapButtonProps {
     scrapId: string;
@@ -24,7 +24,11 @@ interface DeleteScrapButtonProps {
     productName: string;
 }
 
-export function DeleteScrapButton({ scrapId, orderId, productName }: DeleteScrapButtonProps) {
+export function DeleteScrapButton({
+    scrapId,
+    orderId,
+    productName,
+}: DeleteScrapButtonProps) {
     const [loading, setLoading] = useState(false);
 
     const handleDelete = async () => {
@@ -32,7 +36,9 @@ export function DeleteScrapButton({ scrapId, orderId, productName }: DeleteScrap
         try {
             const result = await deleteScrap(scrapId, orderId);
             if (result.success) {
-                toast.success(`Catatan scrap untuk ${productName} berhasil dihapus dan stok disesuaikan.`);
+                toast.success(
+                    `Catatan scrap untuk ${productName} berhasil dihapus dan stok disesuaikan.`,
+                );
             } else {
                 toast.error(result.error);
             }
@@ -54,15 +60,21 @@ export function DeleteScrapButton({ scrapId, orderId, productName }: DeleteScrap
                     disabled={loading}
                     title={productionComponentLabels.deleteScrapRecord}
                 >
-                    {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                    {loading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                        <Trash2 className="w-3 h-3" />
+                    )}
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Ini akan menghapus permanen catatan scrap untuk <strong>{productName}</strong>.
-                        Inventaris akan dikurangi dari lokasi scrap dan jurnal akuntansinya akan di-void.
+                        Ini akan menghapus permanen catatan scrap untuk{' '}
+                        <strong>{productName}</strong>. Inventaris akan
+                        dikurangi dari lokasi scrap dan jurnal akuntansinya akan
+                        di-void.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -13,7 +13,9 @@ export const metadata: Metadata = {
     description: 'Detail penerimaan bahan baku Maklon Jasa dari customer',
 };
 
-export default async function WarehouseMaklonReceiptDetailPage({ params }: PageProps) {
+export default async function WarehouseMaklonReceiptDetailPage({
+    params,
+}: PageProps) {
     const { id } = await params;
     const receipt = await getMaklonReceipt(id);
 
@@ -23,7 +25,11 @@ export default async function WarehouseMaklonReceiptDetailPage({ params }: PageP
 
     return (
         <MaklonReceiptDetail
-            receipt={receipt as unknown as ComponentProps<typeof MaklonReceiptDetail>['receipt']}
+            receipt={
+                receipt as unknown as ComponentProps<
+                    typeof MaklonReceiptDetail
+                >['receipt']
+            }
         />
     );
 }

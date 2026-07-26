@@ -15,19 +15,34 @@ import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
 // Wrap with withTenant so prisma routes to the correct tenant DB
-const getInvoices = withTenant(async (dateRange?: { startDate?: Date; endDate?: Date }) => {
-    return PurchaseService.getPurchaseInvoices(dateRange);
-});
+const getInvoices = withTenant(
+    async (dateRange?: { startDate?: Date; endDate?: Date }) => {
+        return PurchaseService.getPurchaseInvoices(dateRange);
+    },
+);
 
-export default async function PurchaseInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, status?: string, overdue?: string }> }) {
+export default async function PurchaseInvoicesPage({
+    searchParams,
+}: {
+    searchParams: Promise<{
+        startDate?: string;
+        endDate?: string;
+        status?: string;
+        overdue?: string;
+    }>;
+}) {
     const params = await searchParams;
     const initialStatus = params?.status;
     const overdueMode = params?.overdue === 'true';
 
     // Only filter by date when explicitly provided via URL params
-    const dateRange = params?.startDate && params?.endDate
-        ? { startDate: parseISO(params.startDate), endDate: parseISO(params.endDate) }
-        : undefined;
+    const dateRange =
+        params?.startDate && params?.endDate
+            ? {
+                  startDate: parseISO(params.startDate),
+                  endDate: parseISO(params.endDate),
+              }
+            : undefined;
 
     const invoices = await getInvoices(dateRange);
 
@@ -38,7 +53,9 @@ export default async function PurchaseInvoicesPage({ searchParams }: { searchPar
         <div className="flex flex-col gap-6 p-6">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Invoice Purchase{overdueMode ? ' — Jatuh Tempo' : ''}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Invoice Purchase{overdueMode ? ' — Jatuh Tempo' : ''}
+                    </h1>
                     <p className="text-muted-foreground">
                         {overdueMode
                             ? 'Filter: hanya invoice lewat jatuh tempo (today > dueDate & belum lunas).'
@@ -50,7 +67,16 @@ export default async function PurchaseInvoicesPage({ searchParams }: { searchPar
                 </div>
             </div>
 
-            <PurchaseInvoiceTable invoices={serializedInvoices as ComponentProps<typeof PurchaseInvoiceTable>['invoices']} basePath="/finance/invoices/purchase" initialStatus={initialStatus} overdueMode={overdueMode} />
+            <PurchaseInvoiceTable
+                invoices={
+                    serializedInvoices as ComponentProps<
+                        typeof PurchaseInvoiceTable
+                    >['invoices']
+                }
+                basePath="/finance/invoices/purchase"
+                initialStatus={initialStatus}
+                overdueMode={overdueMode}
+            />
         </div>
     );
 }

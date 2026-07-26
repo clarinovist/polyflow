@@ -5,7 +5,12 @@ import { prisma } from '@/lib/core/prisma';
 import { safeAction } from '@/lib/errors/errors';
 import { requireHrdApprover, requireHrdFinance } from '@/lib/auth/hrd-access';
 import { logActivity } from '@/lib/tools/audit';
-import { DisciplinaryService, LeaveService, type DisciplinaryInput, type LeaveRequestInput } from '@/services/hrd/disciplinary-leave-service';
+import {
+    DisciplinaryService,
+    LeaveService,
+    type DisciplinaryInput,
+    type LeaveRequestInput,
+} from '@/services/hrd/disciplinary-leave-service';
 
 // ─── Disciplinary Actions ───
 
@@ -31,7 +36,10 @@ export const createDisciplinaryAction = withTenant(
     async function createDisciplinaryAction(data: DisciplinaryInput) {
         return safeAction(async () => {
             const session = await requireHrdApprover();
-            const withIssuer = { ...data, issuedById: data.issuedById ?? session.user.id };
+            const withIssuer = {
+                ...data,
+                issuedById: data.issuedById ?? session.user.id,
+            };
             const result = await DisciplinaryService.create(prisma, withIssuer);
             await logActivity({
                 userId: session.user.id,
@@ -65,7 +73,10 @@ export const deleteDisciplinaryAction = withTenant(
 // ─── Leave Requests ───
 
 export const listLeaveRequests = withTenant(
-    async function listLeaveRequests(filters?: { employeeId?: string; status?: 'PENDING' | 'APPROVED' | 'REJECTED' }) {
+    async function listLeaveRequests(filters?: {
+        employeeId?: string;
+        status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+    }) {
         return safeAction(async () => {
             await requireHrdFinance();
             return LeaveService.list(prisma, filters);
@@ -73,54 +84,65 @@ export const listLeaveRequests = withTenant(
     },
 );
 
-export const getLeaveRecap = withTenant(
-    async function getLeaveRecap(year: number, month: number) {
-        return safeAction(async () => {
-            await requireHrdFinance();
-            return LeaveService.getRecap(prisma, year, month);
-        });
-    },
-);
+export const getLeaveRecap = withTenant(async function getLeaveRecap(
+    year: number,
+    month: number,
+) {
+    return safeAction(async () => {
+        await requireHrdFinance();
+        return LeaveService.getRecap(prisma, year, month);
+    });
+});
 
-export const createLeaveRequest = withTenant(
-    async function createLeaveRequest(data: LeaveRequestInput) {
-        return safeAction(async () => {
-            await requireHrdFinance(); // admin or finance can create pengajuan
-            return LeaveService.create(prisma, data);
-        });
-    },
-);
+export const createLeaveRequest = withTenant(async function createLeaveRequest(
+    data: LeaveRequestInput,
+) {
+    return safeAction(async () => {
+        await requireHrdFinance(); // admin or finance can create pengajuan
+        return LeaveService.create(prisma, data);
+    });
+});
 
 export const approveLeaveRequest = withTenant(
     async function approveLeaveRequest(id: string, reviewNotes?: string) {
         return safeAction(async () => {
             const session = await requireHrdApprover();
-            await LeaveService.approve(prisma, id, reviewNotes, session.user.id);
+            await LeaveService.approve(
+                prisma,
+                id,
+                reviewNotes,
+                session.user.id,
+            );
             await logActivity({
                 userId: session.user.id,
                 action: 'LEAVE_APPROVED',
                 entityType: 'LeaveRequest',
                 entityId: id,
-                details: reviewNotes ? `Approved leave request: ${reviewNotes}` : 'Approved leave request',
+                details: reviewNotes
+                    ? `Approved leave request: ${reviewNotes}`
+                    : 'Approved leave request',
             });
             return null;
         });
     },
 );
 
-export const rejectLeaveRequest = withTenant(
-    async function rejectLeaveRequest(id: string, reviewNotes?: string) {
-        return safeAction(async () => {
-            const session = await requireHrdApprover();
-            await LeaveService.reject(prisma, id, reviewNotes, session.user.id);
-            await logActivity({
-                userId: session.user.id,
-                action: 'LEAVE_REJECTED',
-                entityType: 'LeaveRequest',
-                entityId: id,
-                details: reviewNotes ? `Rejected leave request: ${reviewNotes}` : 'Rejected leave request',
-            });
-            return null;
+export const rejectLeaveRequest = withTenant(async function rejectLeaveRequest(
+    id: string,
+    reviewNotes?: string,
+) {
+    return safeAction(async () => {
+        const session = await requireHrdApprover();
+        await LeaveService.reject(prisma, id, reviewNotes, session.user.id);
+        await logActivity({
+            userId: session.user.id,
+            action: 'LEAVE_REJECTED',
+            entityType: 'LeaveRequest',
+            entityId: id,
+            details: reviewNotes
+                ? `Rejected leave request: ${reviewNotes}`
+                : 'Rejected leave request',
         });
-    },
-);
+        return null;
+    });
+});

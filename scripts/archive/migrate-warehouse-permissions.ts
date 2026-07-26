@@ -5,7 +5,12 @@ const prisma = new PrismaClient();
 async function migratePermissions() {
     console.log('🚀 Starting Warehouse portal permission migration...');
 
-    const targetRoles: Role[] = ['ADMIN', 'WAREHOUSE', 'PRODUCTION', 'PLANNING'];
+    const targetRoles: Role[] = [
+        'ADMIN',
+        'WAREHOUSE',
+        'PRODUCTION',
+        'PLANNING',
+    ];
     const resource = '/warehouse';
 
     for (const role of targetRoles) {
@@ -26,7 +31,10 @@ async function migratePermissions() {
             });
             console.log(`✅ Granted access to ${resource} for role: ${role}`);
         } catch (error) {
-            console.error(`❌ Failed to migrate permission for role ${role}:`, error);
+            console.error(
+                `❌ Failed to migrate permission for role ${role}:`,
+                error,
+            );
         }
     }
 

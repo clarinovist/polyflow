@@ -1,25 +1,61 @@
 'use client';
 
 import { useState } from 'react';
-import { PurchaseRequest, PurchaseRequestItem, ProductVariant, Product } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    PurchaseRequest,
+    PurchaseRequestItem,
+    ProductVariant,
+    Product,
+} from '@prisma/client';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { consolidatePurchaseRequests } from '@/actions/purchasing/purchasing';
 import { toast } from 'sonner';
 import { Loader2, Merge } from 'lucide-react';
-import { getStatusLabel, purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
+import {
+    getStatusLabel,
+    purchasingLabels,
+    formLabels,
+    actionLabels,
+} from '@/lib/labels';
 
 type RequestWithRelations = PurchaseRequest & {
     items: (PurchaseRequestItem & {
         productVariant: ProductVariant & {
-            product: Product
-        }
+            product: Product;
+        };
     })[];
     salesOrder?: { orderNumber: string } | null;
     createdBy: { name: string | null };
@@ -42,21 +78,21 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
     const [isConverting, setIsConverting] = useState(false);
 
     // Filter only OPEN requests for selection
-    const openRequests = requests.filter(r => r.status === 'OPEN');
+    const openRequests = requests.filter((r) => r.status === 'OPEN');
 
     // Toggle single selection
     const handleSelect = (id: string, checked: boolean) => {
         if (checked) {
-            setSelectedIds(prev => [...prev, id]);
+            setSelectedIds((prev) => [...prev, id]);
         } else {
-            setSelectedIds(prev => prev.filter(i => i !== id));
+            setSelectedIds((prev) => prev.filter((i) => i !== id));
         }
     };
 
     // Toggle all
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
-            setSelectedIds(openRequests.map(r => r.id));
+            setSelectedIds(openRequests.map((r) => r.id));
         } else {
             setSelectedIds([]);
         }
@@ -79,16 +115,23 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
 
         setIsConverting(true);
         try {
-            const result = await consolidatePurchaseRequests(selectedIds, selectedSupplier);
+            const result = await consolidatePurchaseRequests(
+                selectedIds,
+                selectedSupplier,
+            );
             if (result.success) {
-                toast.success(`Berhasil membuat Purchase Order dari ${selectedIds.length} permintaan`);
+                toast.success(
+                    `Berhasil membuat Purchase Order dari ${selectedIds.length} permintaan`,
+                );
                 setIsConvertOpen(false);
                 setSelectedIds([]);
             } else {
                 toast.error(result.error);
             }
         } catch (error) {
-            toast.error('Gagal menggabungkan permintaan pembelian. Silakan coba lagi.');
+            toast.error(
+                'Gagal menggabungkan permintaan pembelian. Silakan coba lagi.',
+            );
             console.error(error);
         } finally {
             setIsConverting(false);
@@ -100,12 +143,19 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <div className="space-y-1">
-                        <CardTitle>{purchasingLabels.purchaseRequest}</CardTitle>
-                        <CardDescription>Kelola permintaan pembelian bahan baku internal.</CardDescription>
+                        <CardTitle>
+                            {purchasingLabels.purchaseRequest}
+                        </CardTitle>
+                        <CardDescription>
+                            Kelola permintaan pembelian bahan baku internal.
+                        </CardDescription>
                     </div>
                     <div>
                         {selectedIds.length > 0 && (
-                            <Button onClick={() => handleActionClick()} className="gap-2">
+                            <Button
+                                onClick={() => handleActionClick()}
+                                className="gap-2"
+                            >
                                 <Merge className="h-4 w-4" />
                                 Konsolidasi ({selectedIds.length})
                             </Button>
@@ -118,18 +168,30 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                             <TableRow>
                                 <TableHead className="w-[50px]">
                                     <Checkbox
-                                        checked={selectedIds.length === openRequests.length && openRequests.length > 0}
-                                        onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                                        checked={
+                                            selectedIds.length ===
+                                                openRequests.length &&
+                                            openRequests.length > 0
+                                        }
+                                        onCheckedChange={(checked) =>
+                                            handleSelectAll(checked as boolean)
+                                        }
                                         disabled={openRequests.length === 0}
                                     />
                                 </TableHead>
-                                <TableHead>{purchasingLabels.prNumber}</TableHead>
+                                <TableHead>
+                                    {purchasingLabels.prNumber}
+                                </TableHead>
                                 <TableHead>{formLabels.date}</TableHead>
-                                <TableHead>{purchasingLabels.itemsCount}</TableHead>
+                                <TableHead>
+                                    {purchasingLabels.itemsCount}
+                                </TableHead>
                                 <TableHead>{purchasingLabels.source}</TableHead>
                                 <TableHead>{formLabels.status}</TableHead>
                                 <TableHead>Prioritas</TableHead>
-                                <TableHead className="text-right">Aksi</TableHead>
+                                <TableHead className="text-right">
+                                    Aksi
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -137,48 +199,105 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                 <TableRow key={req.id}>
                                     <TableCell>
                                         <Checkbox
-                                            checked={selectedIds.includes(req.id)}
-                                            onCheckedChange={(checked) => handleSelect(req.id, checked as boolean)}
+                                            checked={selectedIds.includes(
+                                                req.id,
+                                            )}
+                                            onCheckedChange={(checked) =>
+                                                handleSelect(
+                                                    req.id,
+                                                    checked as boolean,
+                                                )
+                                            }
                                             disabled={req.status !== 'OPEN'}
                                         />
                                     </TableCell>
-                                    <TableCell className="font-medium">{req.requestNumber}</TableCell>
-                                    <TableCell>{format(new Date(req.requestDate), 'dd MMM yyyy')}</TableCell>
+                                    <TableCell className="font-medium">
+                                        {req.requestNumber}
+                                    </TableCell>
+                                    <TableCell>
+                                        {format(
+                                            new Date(req.requestDate),
+                                            'dd MMM yyyy',
+                                        )}
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col gap-1">
-                                            {req.items.map(item => (
-                                                <div key={item.id} className="text-sm">
-                                                    <span className="font-semibold">{item.quantity.toString()}</span> x {item.productVariant.name}
+                                            {req.items.map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    className="text-sm"
+                                                >
+                                                    <span className="font-semibold">
+                                                        {item.quantity.toString()}
+                                                    </span>{' '}
+                                                    x {item.productVariant.name}
                                                 </div>
                                             ))}
                                         </div>
                                     </TableCell>
                                     <TableCell>
                                         {req.salesOrder ? (
-                                            <Badge variant="outline">SO: {req.salesOrder.orderNumber}</Badge>
-                                        ) : '-'}
+                                            <Badge variant="outline">
+                                                SO: {req.salesOrder.orderNumber}
+                                            </Badge>
+                                        ) : (
+                                            '-'
+                                        )}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={req.status === 'OPEN' ? 'default' : 'secondary'}>
-                                            {getStatusLabel(req.status, 'purchasing')}
+                                        <Badge
+                                            variant={
+                                                req.status === 'OPEN'
+                                                    ? 'default'
+                                                    : 'secondary'
+                                            }
+                                        >
+                                            {getStatusLabel(
+                                                req.status,
+                                                'purchasing',
+                                            )}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        {req.priority === 'URGENT' && <Badge variant="destructive">URGENT</Badge>}
+                                        {req.priority === 'URGENT' && (
+                                            <Badge variant="destructive">
+                                                URGENT
+                                            </Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         {req.status === 'OPEN' && (
-                                            <Button size="sm" variant="ghost" onClick={() => handleActionClick(req.id)}>Konversi</Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                    handleActionClick(req.id)
+                                                }
+                                            >
+                                                Konversi
+                                            </Button>
                                         )}
                                         {req.status === 'CONVERTED' && (
-                                            <Button size="sm" variant="ghost" disabled>{getStatusLabel('CONVERTED', 'purchasing')}</Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled
+                                            >
+                                                {getStatusLabel(
+                                                    'CONVERTED',
+                                                    'purchasing',
+                                                )}
+                                            </Button>
                                         )}
                                     </TableCell>
                                 </TableRow>
                             ))}
                             {requests.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                    <TableCell
+                                        colSpan={8}
+                                        className="text-center py-8 text-muted-foreground"
+                                    >
                                         {purchasingLabels.emptyRequests}
                                     </TableCell>
                                 </TableRow>
@@ -192,32 +311,52 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {selectedIds.length > 1 ? `Konsolidasi ${selectedIds.length} Permintaan` : 'Konversi ke Purchase Order'}
+                            {selectedIds.length > 1
+                                ? `Konsolidasi ${selectedIds.length} Permintaan`
+                                : 'Konversi ke Purchase Order'}
                         </DialogTitle>
                         <DialogDescription>
-                            Pilih supplier untuk membuat Purchase Order dari permintaan yang dipilih.
-                            Item akan digabungkan berdasarkan varian produk.
+                            Pilih supplier untuk membuat Purchase Order dari
+                            permintaan yang dipilih. Item akan digabungkan
+                            berdasarkan varian produk.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="py-4">
-                        <label className="text-sm font-medium mb-2 block">{purchasingLabels.supplier}</label>
-                        <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                        <label className="text-sm font-medium mb-2 block">
+                            {purchasingLabels.supplier}
+                        </label>
+                        <Select
+                            value={selectedSupplier}
+                            onValueChange={setSelectedSupplier}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder="Pilih supplier..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {suppliers.map(s => (
-                                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                {suppliers.map((s) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                        {s.name}
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsConvertOpen(false)}>{actionLabels.cancel}</Button>
-                        <Button onClick={handleConfirmConvert} disabled={!selectedSupplier || isConverting}>
-                            {isConverting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsConvertOpen(false)}
+                        >
+                            {actionLabels.cancel}
+                        </Button>
+                        <Button
+                            onClick={handleConfirmConvert}
+                            disabled={!selectedSupplier || isConverting}
+                        >
+                            {isConverting && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
                             Buat Draft PO
                         </Button>
                     </DialogFooter>

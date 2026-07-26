@@ -4,10 +4,13 @@ import { MAKLON_STAGE_SLUGS, WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 import type { BackflushOrder } from './execution-types';
 
-async function resolveLocationIdBySlug(tx: Prisma.TransactionClient, slug: string): Promise<string | null> {
+async function resolveLocationIdBySlug(
+    tx: Prisma.TransactionClient,
+    slug: string,
+): Promise<string | null> {
     const location = await tx.location.findUnique({
         where: { slug },
-        select: { id: true }
+        select: { id: true },
     });
 
     return location?.id || null;
@@ -16,7 +19,7 @@ async function resolveLocationIdBySlug(tx: Prisma.TransactionClient, slug: strin
 async function findFirstStockLocation(
     tx: Prisma.TransactionClient,
     productVariantId: string,
-    locationSlugs: string[]
+    locationSlugs: string[],
 ): Promise<string | null> {
     for (const slug of locationSlugs) {
         const locationId = await resolveLocationIdBySlug(tx, slug);
@@ -28,10 +31,10 @@ async function findFirstStockLocation(
             where: {
                 locationId_productVariantId: {
                     locationId,
-                    productVariantId
-                }
+                    productVariantId,
+                },
             },
-            select: { quantity: true }
+            select: { quantity: true },
         });
 
         if (inventory && inventory.quantity.toNumber() > 0) {
@@ -45,30 +48,34 @@ async function findFirstStockLocation(
 async function resolveMaklonMaterialLocation(
     tx: Prisma.TransactionClient,
     order: BackflushOrder,
-    productVariantId: string
+    productVariantId: string,
 ): Promise<string | null> {
     const category = order.bom?.category;
 
     const candidateSlugs =
         category === 'EXTRUSION'
             ? [
-                MAKLON_STAGE_SLUGS.WIP,
-                MAKLON_STAGE_SLUGS.RAW_MATERIAL,
-                WAREHOUSE_SLUGS.CUSTOMER_OWNED
-            ]
+                  MAKLON_STAGE_SLUGS.WIP,
+                  MAKLON_STAGE_SLUGS.RAW_MATERIAL,
+                  WAREHOUSE_SLUGS.CUSTOMER_OWNED,
+              ]
             : category === 'PACKING' || category === 'REWORK'
-                ? [
+              ? [
                     MAKLON_STAGE_SLUGS.FINISHED_GOOD,
                     MAKLON_STAGE_SLUGS.WIP,
                     MAKLON_STAGE_SLUGS.RAW_MATERIAL,
-                    WAREHOUSE_SLUGS.CUSTOMER_OWNED
+                    WAREHOUSE_SLUGS.CUSTOMER_OWNED,
                 ]
-                : [
+              : [
                     MAKLON_STAGE_SLUGS.RAW_MATERIAL,
-                    WAREHOUSE_SLUGS.CUSTOMER_OWNED
+                    WAREHOUSE_SLUGS.CUSTOMER_OWNED,
                 ];
 
-    const locationId = await findFirstStockLocation(tx, productVariantId, candidateSlugs);
+    const locationId = await findFirstStockLocation(
+        tx,
+        productVariantId,
+        candidateSlugs,
+    );
     if (locationId) {
         return locationId;
     }
@@ -77,25 +84,31 @@ async function resolveMaklonMaterialLocation(
         where: {
             locationId_productVariantId: {
                 locationId: order.locationId,
-                productVariantId
-            }
+                productVariantId,
+            },
         },
-        select: { quantity: true }
+        select: { quantity: true },
     });
 
-    if (orderLocationInventory && orderLocationInventory.quantity.toNumber() > 0) {
+    if (
+        orderLocationInventory &&
+        orderLocationInventory.quantity.toNumber() > 0
+    ) {
         return order.locationId;
     }
 
     const customerOwnedLocation = await tx.inventory.findFirst({
         where: {
             productVariantId,
-            location: { locationType: 'CUSTOMER_OWNED' }
+            location: { locationType: 'CUSTOMER_OWNED' },
         },
-        select: { locationId: true, quantity: true }
+        select: { locationId: true, quantity: true },
     });
 
-    if (customerOwnedLocation && customerOwnedLocation.quantity.toNumber() > 0) {
+    if (
+        customerOwnedLocation &&
+        customerOwnedLocation.quantity.toNumber() > 0
+    ) {
         return customerOwnedLocation.locationId;
     }
 
@@ -105,10 +118,14 @@ async function resolveMaklonMaterialLocation(
 export async function resolveMaterialLocation(
     tx: Prisma.TransactionClient,
     order: BackflushOrder,
-    productVariantId: string
+    productVariantId: string,
 ): Promise<string> {
     if (order.isMaklon) {
-        const maklonLocation = await resolveMaklonMaterialLocation(tx, order, productVariantId);
+        const maklonLocation = await resolveMaklonMaterialLocation(
+            tx,
+            order,
+            productVariantId,
+        );
         if (maklonLocation) {
             return maklonLocation;
         }
@@ -116,10 +133,17 @@ export async function resolveMaterialLocation(
         return order.locationId;
     }
 
-    if (order.bom?.category === 'EXTRUSION' || order.bom?.category === 'MIXING') {
+    if (
+        order.bom?.category === 'EXTRUSION' ||
+        order.bom?.category === 'MIXING'
+    ) {
         const mixingLoc =
-            (await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } })) ||
-            (await tx.location.findUnique({ where: { slug: 'gudang-wip-intermediate' } }));
+            (await tx.location.findUnique({
+                where: { slug: WAREHOUSE_SLUGS.MIXING },
+            })) ||
+            (await tx.location.findUnique({
+                where: { slug: 'gudang-wip-intermediate' },
+            }));
         if (mixingLoc) {
             return mixingLoc.id;
         }
@@ -128,10 +152,10 @@ export async function resolveMaterialLocation(
             where: {
                 locationId_productVariantId: {
                     locationId: order.locationId,
-                    productVariantId
-                }
+                    productVariantId,
+                },
             },
-            select: { quantity: true }
+            select: { quantity: true },
         });
         if (orderLocStock && orderLocStock.quantity.toNumber() > 0) {
             return order.locationId;
@@ -139,23 +163,31 @@ export async function resolveMaterialLocation(
 
         // Kiyowo: packing_area / fg_warehouse / rm_warehouse
         // Melindo: gudang-packaging (supplies), gudang-barang-jadi (FG), gudang-bahan-baku
-        const candidateLocationId = await findFirstStockLocation(tx, productVariantId, [
-            WAREHOUSE_SLUGS.FINISHING,
-            'gudang-barang-jadi',
-            WAREHOUSE_SLUGS.PACKING_AREA,
-            'gudang-packaging',
-            WAREHOUSE_SLUGS.RAW_MATERIAL,
-            'gudang-bahan-baku',
-            WAREHOUSE_SLUGS.WIP_STORAGE,
-            'gudang-wip-intermediate',
-        ]);
+        const candidateLocationId = await findFirstStockLocation(
+            tx,
+            productVariantId,
+            [
+                WAREHOUSE_SLUGS.FINISHING,
+                'gudang-barang-jadi',
+                WAREHOUSE_SLUGS.PACKING_AREA,
+                'gudang-packaging',
+                WAREHOUSE_SLUGS.RAW_MATERIAL,
+                'gudang-bahan-baku',
+                WAREHOUSE_SLUGS.WIP_STORAGE,
+                'gudang-wip-intermediate',
+            ],
+        );
         if (candidateLocationId) {
             return candidateLocationId;
         }
 
         const fgLoc =
-            (await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } })) ||
-            (await tx.location.findUnique({ where: { slug: 'gudang-barang-jadi' } }));
+            (await tx.location.findUnique({
+                where: { slug: WAREHOUSE_SLUGS.FINISHING },
+            })) ||
+            (await tx.location.findUnique({
+                where: { slug: 'gudang-barang-jadi' },
+            }));
         if (fgLoc) {
             return fgLoc.id;
         }
@@ -164,35 +196,41 @@ export async function resolveMaterialLocation(
             where: {
                 locationId_productVariantId: {
                     locationId: order.locationId,
-                    productVariantId
-                }
+                    productVariantId,
+                },
             },
-            select: { quantity: true }
+            select: { quantity: true },
         });
         if (orderLocStock && orderLocStock.quantity.toNumber() > 0) {
             return order.locationId;
         }
 
         const fgLoc =
-            (await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } })) ||
-            (await tx.location.findUnique({ where: { slug: 'gudang-barang-jadi' } }));
+            (await tx.location.findUnique({
+                where: { slug: WAREHOUSE_SLUGS.FINISHING },
+            })) ||
+            (await tx.location.findUnique({
+                where: { slug: 'gudang-barang-jadi' },
+            }));
         if (fgLoc) {
             return fgLoc.id;
         }
     }
 
-
     const orderLocationInventory = await tx.inventory.findUnique({
         where: {
             locationId_productVariantId: {
                 locationId: order.locationId,
-                productVariantId
-            }
+                productVariantId,
+            },
         },
-        select: { quantity: true }
+        select: { quantity: true },
     });
 
-    if (orderLocationInventory && orderLocationInventory.quantity.toNumber() > 0) {
+    if (
+        orderLocationInventory &&
+        orderLocationInventory.quantity.toNumber() > 0
+    ) {
         return order.locationId;
     }
 
@@ -200,9 +238,9 @@ export async function resolveMaterialLocation(
         const customerInventory = await tx.inventory.findFirst({
             where: {
                 productVariantId,
-                location: { locationType: 'CUSTOMER_OWNED' }
+                location: { locationType: 'CUSTOMER_OWNED' },
             },
-            select: { locationId: true, quantity: true }
+            select: { locationId: true, quantity: true },
         });
 
         if (customerInventory && customerInventory.quantity.toNumber() > 0) {

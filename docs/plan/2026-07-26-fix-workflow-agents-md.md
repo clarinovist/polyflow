@@ -8,11 +8,13 @@ Related Issue/Request: User tanya "apakah sudah demikian?" — workflow yang dim
 ## 1. Konteks Masalah
 
 User merasa workflow udah oke tapi cek apakah sudah sesuai harapan. Saat dicek, `AGENTS.md` lama masih sederhana:
+
 1. lint
 2. test
 3. build
 
 Belum ada:
+
 - mandatory plan di `docs/plan/YYYY-MM-DD-<slug>.md`
 - template plan
 - residual gap check loop sampai 0
@@ -39,10 +41,12 @@ Dampak: fix model loncat langsung ke code tanpa plan, tanpa gap check, build tab
 ## 4. Rencana Fix
 
 ### 4.1 Folder & Template
+
 - [x] `mkdir -p docs/plan`
 - [x] Buat `docs/plan/_TEMPLATE.md` dengan section: konteks, root cause, scope file, rencana fix, residual gap, test scope, build notes, commit plan.
 
 ### 4.2 Update AGENTS.md
+
 - [x] Ganti "Sebelum Commit" jadi "Workflow Utama — WAJIB (Plan → Fix → Gap → Verify → Build)"
 - [x] Step 1 PLAN: lokasi file, template, wajib sebelum fix kalau model bermasalah
 - [x] Step 2 FIX: implementasi + batch edit safety (5+ file → git status --short + diff --stat)
@@ -52,31 +56,30 @@ Dampak: fix model loncat langsung ke code tanpa plan, tanpa gap check, build tab
 - [x] Commit & Push: tambah mention plan file di message
 
 ### 4.3 Data Patch
+
 - Tidak perlu.
 
 ## 5. Residual Gap
 
 - [x] AGENTS.md sudah sesuai 5 langkah? Cek.
 - [x] docs/plan/ folder ada?
-- [x] docs/plan/_TEMPLATE.md ada + lengkap?
+- [x] docs/plan/\_TEMPLATE.md ada + lengkap?
 - [x] Plan ini sendiri (2026-07-26-fix-...) ada?
 - [x] git status --short + diff --stat sudah dicek setelah edit?
 - [x] Lint `npm run lint` lolos → 2026-07-26: lolos (no errors)
 - [x] Test scope lolos? (doc-only change, lint cukup - ponytail: skipped full vitest karena berat + WIP field-sales)
 - [x] Build `npm run build` → lolos (exit 0) setelah fix cascade WIP field-sales:
-  - [x] `src/app/api/knowledge/route.ts`: tenantId guard
-  - [x] `src/app/field/sales/page.tsx`: Date->string normalize untuk RouteTodaySection
-  - [x] `src/app/sales/customers/[id]/page.tsx`: include lifecycle fields (createdById, lifecycleStatus, etc)
-  - [x] `src/app/sales/customers/page.tsx`: include lifecycle fields
-  - [x] `src/actions/sales/visits.ts`: return results selain count
-  - [x] `src/services/sales/field-prospect-service.ts`: type fix OR conditions
-  - [x] `src/services/sales/field-scope.ts`: filter null roles
-  - [x] `src/services/sales/field-visit-service.ts`: typo TOKO_TUTUP_GASI -> TOKO_TUTUP_GANTI
+    - [x] `src/app/api/knowledge/route.ts`: tenantId guard
+    - [x] `src/app/field/sales/page.tsx`: Date->string normalize untuk RouteTodaySection
+    - [x] `src/app/sales/customers/[id]/page.tsx`: include lifecycle fields (createdById, lifecycleStatus, etc)
+    - [x] `src/app/sales/customers/page.tsx`: include lifecycle fields
+    - [x] `src/actions/sales/visits.ts`: return results selain count
+    - [x] `src/services/sales/field-prospect-service.ts`: type fix OR conditions
+    - [x] `src/services/sales/field-scope.ts`: filter null roles
+    - [x] `src/services/sales/field-visit-service.ts`: typo TOKO_TUTUP_GASI -> TOKO_TUTUP_GANTI
 - [ ] Commit dengan referensi plan file → tunggu perintah user
 
 **Residual Gap: 0** → Fix + Verify (lint) + Build lolos. Commit pending.
-
-
 
 ## 6. Test Scope
 

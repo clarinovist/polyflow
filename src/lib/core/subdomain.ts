@@ -13,7 +13,15 @@
  * against the main DB (e.g. superadmin portal at admin.polyflow.uk), not a
  * tenant DB.
  */
-export const RESERVED_SUBDOMAINS = new Set(['admin', 'www', 'app', 'api', 'auth', 'static', 'assets']);
+export const RESERVED_SUBDOMAINS = new Set([
+    'admin',
+    'www',
+    'app',
+    'api',
+    'auth',
+    'static',
+    'assets',
+]);
 
 /**
  * Robust utility to extract tenant subdomain from a host string.

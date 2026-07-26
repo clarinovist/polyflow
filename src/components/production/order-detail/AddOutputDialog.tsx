@@ -1,15 +1,39 @@
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Plus, Users, Package, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import {
+    Plus,
+    Users,
+    Package,
+    AlertTriangle,
+    Trash2,
+    Loader2,
+} from 'lucide-react';
 import { ExtendedProductionOrder } from './types';
-import { Location, Employee, WorkShift, Machine, ProductVariant } from '@prisma/client';
+import {
+    Location,
+    Employee,
+    WorkShift,
+    Machine,
+    ProductVariant,
+} from '@prisma/client';
 import { addProductionOutput } from '@/actions/production/production';
-import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
+import {
+    BrandCard,
+    BrandCardContent,
+    BrandCardHeader,
+} from '@/components/brand/BrandCard';
 import { productionLabels } from '@/lib/labels';
 
 interface OutputFormData {
@@ -21,77 +45,100 @@ interface OutputFormData {
     rawMaterials: ProductVariant[];
 }
 
-export function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, formData: OutputFormData }) {
+export function AddOutputDialog({
+    order,
+    formData,
+}: {
+    order: ExtendedProductionOrder;
+    formData: OutputFormData;
+}) {
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showScrapWarning, setShowScrapWarning] = useState(false);
     const [rolls, setRolls] = useState<number[]>([]);
-    const [currentRollWeight, setCurrentRollWeight] = useState("");
+    const [currentRollWeight, setCurrentRollWeight] = useState('');
 
     // New Scrap Inputs
-    const [scrapProngkol, setScrapProngkol] = useState("");
-    const [scrapDaun, setScrapDaun] = useState("");
+    const [scrapProngkol, setScrapProngkol] = useState('');
+    const [scrapDaun, setScrapDaun] = useState('');
 
-    const [notes, setNotes] = useState("");
+    const [notes, setNotes] = useState('');
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
 
     // Auto-detect ProductionShift (order-scoped). WorkShift is template only — FK needs ProductionShift.id.
-    const { matchedShift, defaultShift, defaultOperator, shiftOptions } = useMemo(() => {
-        const prodShifts = order.shifts || [];
-        const now = new Date();
+    const { matchedShift, defaultShift, defaultOperator, shiftOptions } =
+        useMemo(() => {
+            const prodShifts = order.shifts || [];
+            const now = new Date();
 
-        const activeByTime = prodShifts.find((ps) => {
-            const start = new Date(ps.startTime).getTime();
-            const end = new Date(ps.endTime).getTime();
-            const t = now.getTime();
-            return t >= start && t <= end;
-        });
+            const activeByTime = prodShifts.find((ps) => {
+                const start = new Date(ps.startTime).getTime();
+                const end = new Date(ps.endTime).getTime();
+                const t = now.getTime();
+                return t >= start && t <= end;
+            });
 
-        const matchedWorkShift = formData.workShifts.find((shift) => {
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            const currentTimeVal = currentHour * 60 + currentMinute;
-            const [startH, startM] = shift.startTime.split(':').map(Number);
-            const [endH, endM] = shift.endTime.split(':').map(Number);
-            const startVal = startH * 60 + startM;
-            const endVal = endH * 60 + endM;
-            if (startVal <= endVal) {
-                return currentTimeVal >= startVal && currentTimeVal <= endVal;
-            }
-            return currentTimeVal >= startVal || currentTimeVal <= endVal;
-        });
+            const matchedWorkShift = formData.workShifts.find((shift) => {
+                const currentHour = now.getHours();
+                const currentMinute = now.getMinutes();
+                const currentTimeVal = currentHour * 60 + currentMinute;
+                const [startH, startM] = shift.startTime.split(':').map(Number);
+                const [endH, endM] = shift.endTime.split(':').map(Number);
+                const startVal = startH * 60 + startM;
+                const endVal = endH * 60 + endM;
+                if (startVal <= endVal) {
+                    return (
+                        currentTimeVal >= startVal && currentTimeVal <= endVal
+                    );
+                }
+                return currentTimeVal >= startVal || currentTimeVal <= endVal;
+            });
 
-        const matchedByName = matchedWorkShift
-            ? prodShifts.find((ps) => ps.shiftName === matchedWorkShift.name)
-            : null;
+            const matchedByName = matchedWorkShift
+                ? prodShifts.find(
+                      (ps) => ps.shiftName === matchedWorkShift.name,
+                  )
+                : null;
 
-        const activeProdShift = activeByTime || matchedByName || prodShifts[0] || null;
+            const activeProdShift =
+                activeByTime || matchedByName || prodShifts[0] || null;
 
-        return {
-            matchedShift: matchedWorkShift,
-            defaultShift: activeProdShift?.id || '',
-            defaultOperator: activeProdShift?.operatorId || formData.operators[0]?.id,
-            shiftOptions: prodShifts,
-        };
-    }, [formData.workShifts, formData.operators, order.shifts]);
+            return {
+                matchedShift: matchedWorkShift,
+                defaultShift: activeProdShift?.id || '',
+                defaultOperator:
+                    activeProdShift?.operatorId || formData.operators[0]?.id,
+                shiftOptions: prodShifts,
+            };
+        }, [formData.workShifts, formData.operators, order.shifts]);
 
     // Determine Logic based on UOM
     const variant = order.bom.productVariant;
     const primaryUnit = variant.primaryUnit || 'KG';
     const salesUnit = variant.salesUnit;
     const conversionFactor = Number(variant.conversionFactor || 1);
-    const useAlternateUnit = Boolean(salesUnit && salesUnit !== primaryUnit && conversionFactor > 0);
+    const useAlternateUnit = Boolean(
+        salesUnit && salesUnit !== primaryUnit && conversionFactor > 0,
+    );
     const displayUnit = useAlternateUnit ? salesUnit : primaryUnit;
-    const itemName = primaryUnit === 'ROLL' ? 'Roll' : (primaryUnit === 'ZAK' ? 'Sack' : 'Item');
+    const itemName =
+        primaryUnit === 'ROLL'
+            ? 'Roll'
+            : primaryUnit === 'ZAK'
+              ? 'Sack'
+              : 'Item';
 
     // Compute base quantity from entered PACK quantity
     const totalBaseQty = useAlternateUnit
-        ? rolls.reduce((sum, w) => sum + (w * conversionFactor), 0)
+        ? rolls.reduce((sum, w) => sum + w * conversionFactor, 0)
         : rolls.reduce((sum, w) => sum + w, 0);
     const totalDisplayQty = rolls.reduce((sum, w) => sum + w, 0);
 
     const handleHelperChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+        const selectedOptions = Array.from(
+            e.target.selectedOptions,
+            (option) => option.value,
+        );
         setSelectedHelpers(selectedOptions);
     };
 
@@ -99,7 +146,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
         const weight = parseFloat(currentRollWeight);
         if (!isNaN(weight) && weight > 0) {
             setRolls([...rolls, weight]);
-            setCurrentRollWeight("");
+            setCurrentRollWeight('');
         }
     };
 
@@ -117,14 +164,14 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
     async function doSubmit(fd: FormData) {
         setIsSubmitting(true);
 
-        let finalNotes = notes || "";
+        let finalNotes = notes || '';
 
         // Append Helpers
         if (selectedHelpers.length > 0) {
             const helperNames = formData.helpers
-                .filter(h => selectedHelpers.includes(h.id))
-                .map(h => h.name)
-                .join(", ");
+                .filter((h) => selectedHelpers.includes(h.id))
+                .map((h) => h.name)
+                .join(', ');
             finalNotes += `\nHelpers: ${helperNames}`;
         }
 
@@ -135,7 +182,9 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
         const nowIso = new Date().toISOString();
         const enteredQty = totalDisplayQty;
-        const baseQty = useAlternateUnit ? (enteredQty * conversionFactor) : enteredQty;
+        const baseQty = useAlternateUnit
+            ? enteredQty * conversionFactor
+            : enteredQty;
 
         const data: Record<string, unknown> = {
             productionOrderId: order.id,
@@ -154,7 +203,9 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
             enteredQuantity: useAlternateUnit ? enteredQty : undefined,
             enteredUnit: useAlternateUnit ? (displayUnit as string) : undefined,
             baseQuantityProduced: useAlternateUnit ? baseQty : undefined,
-            conversionFactorSnapshot: useAlternateUnit ? conversionFactor : undefined,
+            conversionFactorSnapshot: useAlternateUnit
+                ? conversionFactor
+                : undefined,
         };
 
         const result = await addProductionOutput(
@@ -162,13 +213,13 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
         );
         setIsSubmitting(false);
         if (result.success) {
-            toast.success("Hasil produksi berhasil dicatat");
+            toast.success('Hasil produksi berhasil dicatat');
             setOpen(false);
             setRolls([]);
-            setScrapProngkol("");
-            setScrapDaun("");
-            setNotes("");
-            setCurrentRollWeight("");
+            setScrapProngkol('');
+            setScrapDaun('');
+            setNotes('');
+            setCurrentRollWeight('');
             setSelectedHelpers([]);
             setShowScrapWarning(false);
         } else {
@@ -197,103 +248,200 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus className="w-4 h-4 mr-2" /> {productionLabels.productionOutput}
+                    <Plus className="w-4 h-4 mr-2" />{' '}
+                    {productionLabels.productionOutput}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[900px]">
-                <DialogHeader><DialogTitle>Catat Hasil Produksi</DialogTitle></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle>Catat Hasil Produksi</DialogTitle>
+                </DialogHeader>
                 <form onSubmit={onSubmit}>
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 py-6">
                         {/* LEFT COLUMN: Metadata & Team */}
                         <div className="lg:col-span-4 space-y-6 flex flex-col">
-                            <BrandCard variant="default" className="shadow-brand h-full">
+                            <BrandCard
+                                variant="default"
+                                className="shadow-brand h-full"
+                            >
                                 <BrandCardHeader className="pb-4">
                                     <div className="flex items-center gap-3">
                                         <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                                             <Users className="w-4 h-4 text-primary" />
                                         </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Konteks & Tim</h3>
+                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
+                                            Konteks & Tim
+                                        </h3>
                                     </div>
                                 </BrandCardHeader>
 
                                 <BrandCardContent className="space-y-5">
                                     <div className="space-y-4">
                                         <div>
-                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1">Tercatat Pada</span>
-                                            <p className="text-sm font-semibold text-foreground">{new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1">
+                                                Tercatat Pada
+                                            </span>
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {new Date().toLocaleString(
+                                                    'en-US',
+                                                    {
+                                                        dateStyle: 'medium',
+                                                        timeStyle: 'short',
+                                                    },
+                                                )}
+                                            </p>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Shift</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                                Shift
+                                            </Label>
                                             <div className="relative">
                                                 <select
                                                     name="shiftId"
                                                     defaultValue={defaultShift}
                                                     required
-                                                    disabled={shiftOptions.length === 0}
+                                                    disabled={
+                                                        shiftOptions.length ===
+                                                        0
+                                                    }
                                                     className="flex h-10 w-full items-center justify-between rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
                                                 >
-                                                    {shiftOptions.length === 0 ? (
-                                                        <option value="">Belum ada shift di SPK — tambah dulu di tab Sumber Daya</option>
+                                                    {shiftOptions.length ===
+                                                    0 ? (
+                                                        <option value="">
+                                                            Belum ada shift di
+                                                            SPK — tambah dulu di
+                                                            tab Sumber Daya
+                                                        </option>
                                                     ) : (
-                                                        shiftOptions.map((s) => (
-                                                            <option key={s.id} value={s.id}>
-                                                                {s.shiftName}
-                                                                {s.operator?.name ? ` — ${s.operator.name}` : ''}
-                                                            </option>
-                                                        ))
+                                                        shiftOptions.map(
+                                                            (s) => (
+                                                                <option
+                                                                    key={s.id}
+                                                                    value={s.id}
+                                                                >
+                                                                    {
+                                                                        s.shiftName
+                                                                    }
+                                                                    {s.operator
+                                                                        ?.name
+                                                                        ? ` — ${s.operator.name}`
+                                                                        : ''}
+                                                                </option>
+                                                            ),
+                                                        )
                                                     )}
                                                 </select>
                                                 <div className="pointer-events-none absolute right-3 top-3 opacity-50">
-                                                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <svg
+                                                        width="10"
+                                                        height="6"
+                                                        viewBox="0 0 10 6"
+                                                        fill="none"
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                    >
+                                                        <path
+                                                            d="M1 1L5 5L9 1"
+                                                            stroke="currentColor"
+                                                            strokeWidth="1.5"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        />
                                                     </svg>
                                                 </div>
                                             </div>
-                                            {matchedShift && shiftOptions.length > 0 && (
-                                                <p className="text-[10px] text-success font-bold uppercase tracking-tight">Active: {matchedShift.name} ({matchedShift.startTime} - {matchedShift.endTime})</p>
-                                            )}
+                                            {matchedShift &&
+                                                shiftOptions.length > 0 && (
+                                                    <p className="text-[10px] text-success font-bold uppercase tracking-tight">
+                                                        Active:{' '}
+                                                        {matchedShift.name} (
+                                                        {matchedShift.startTime}{' '}
+                                                        - {matchedShift.endTime}
+                                                        )
+                                                    </p>
+                                                )}
                                             {shiftOptions.length === 0 && (
-                                                <p className="text-[10px] text-destructive font-bold uppercase tracking-tight">Tambah ProductionShift di detail SPK dulu</p>
+                                                <p className="text-[10px] text-destructive font-bold uppercase tracking-tight">
+                                                    Tambah ProductionShift di
+                                                    detail SPK dulu
+                                                </p>
                                             )}
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Operator (Ketua)</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                                Operator (Ketua)
+                                            </Label>
                                             <div className="relative">
                                                 <select
                                                     name="operatorId"
-                                                    defaultValue={defaultOperator}
+                                                    defaultValue={
+                                                        defaultOperator
+                                                    }
                                                     required
                                                     className="flex h-10 w-full items-center justify-between rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
                                                 >
-                                                    {formData.operators.map(op => (
-                                                        <option key={op.id} value={op.id}>{op.name}</option>
-                                                    ))}
+                                                    {formData.operators.map(
+                                                        (op) => (
+                                                            <option
+                                                                key={op.id}
+                                                                value={op.id}
+                                                            >
+                                                                {op.name}
+                                                            </option>
+                                                        ),
+                                                    )}
                                                 </select>
                                                 <div className="pointer-events-none absolute right-3 top-3 opacity-50">
-                                                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <svg
+                                                        width="10"
+                                                        height="6"
+                                                        viewBox="0 0 10 6"
+                                                        fill="none"
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                    >
+                                                        <path
+                                                            d="M1 1L5 5L9 1"
+                                                            stroke="currentColor"
+                                                            strokeWidth="1.5"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        />
                                                     </svg>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Helper/Asisten (Tahan Ctrl/Cmd untuk pilih banyak)</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                                Helper/Asisten (Tahan Ctrl/Cmd
+                                                untuk pilih banyak)
+                                            </Label>
                                             <div className="relative">
                                                 <select
                                                     multiple
                                                     value={selectedHelpers}
-                                                    onChange={handleHelperChange}
+                                                    onChange={
+                                                        handleHelperChange
+                                                    }
                                                     className="flex h-32 w-full rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                                 >
-                                                    {formData.helpers.map(h => (
-                                                        <option key={h.id} value={h.id}>{h.name}</option>
-                                                    ))}
+                                                    {formData.helpers.map(
+                                                        (h) => (
+                                                            <option
+                                                                key={h.id}
+                                                                value={h.id}
+                                                            >
+                                                                {h.name}
+                                                            </option>
+                                                        ),
+                                                    )}
                                                 </select>
                                                 <p className="text-[10px] text-muted-foreground mt-1">
-                                                    {selectedHelpers.length > 0 ? `${selectedHelpers.length} helper dipilih` : "Belum ada helper dipilih"}
+                                                    {selectedHelpers.length > 0
+                                                        ? `${selectedHelpers.length} helper dipilih`
+                                                        : 'Belum ada helper dipilih'}
                                                 </p>
                                             </div>
                                         </div>
@@ -304,29 +452,43 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
                         {/* RIGHT COLUMN: Production Data */}
                         <div className="lg:col-span-8 space-y-6">
-                            <BrandCard variant="default" className="shadow-brand">
+                            <BrandCard
+                                variant="default"
+                                className="shadow-brand"
+                            >
                                 <BrandCardHeader className="justify-between pb-4">
                                     <div className="flex items-center gap-3">
                                         <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center">
                                             <Package className="w-4 h-4 text-success" />
                                         </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">{productionLabels.goodQuantity}</h3>
+                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
+                                            {productionLabels.goodQuantity}
+                                        </h3>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block">
-                                            Total {productionLabels.goodQuantity}
+                                            Total{' '}
+                                            {productionLabels.goodQuantity}
                                             {useAlternateUnit && (
-                                                <span className="text-[9px] font-normal ml-1">(dicatat sebagai {primaryUnit})</span>
+                                                <span className="text-[9px] font-normal ml-1">
+                                                    (dicatat sebagai{' '}
+                                                    {primaryUnit})
+                                                </span>
                                             )}
                                         </span>
                                         <span className="text-2xl font-black text-foreground drop-shadow-sm">
-                                            {totalDisplayQty.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">{displayUnit}</span>
+                                            {totalDisplayQty.toFixed(2)}{' '}
+                                            <span className="text-xs font-normal text-muted-foreground">
+                                                {displayUnit}
+                                            </span>
                                         </span>
-                                        {useAlternateUnit && totalDisplayQty > 0 && (
-                                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                = {totalBaseQty.toFixed(2)} {primaryUnit}
-                                            </div>
-                                        )}
+                                        {useAlternateUnit &&
+                                            totalDisplayQty > 0 && (
+                                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                    = {totalBaseQty.toFixed(2)}{' '}
+                                                    {primaryUnit}
+                                                </div>
+                                            )}
                                     </div>
                                 </BrandCardHeader>
 
@@ -338,28 +500,55 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                             step="0.01"
                                             className="flex-1 no-stepper bg-background/80 border-brand-border h-11 text-lg font-mono font-bold text-foreground"
                                             value={currentRollWeight}
-                                            onChange={(e) => setCurrentRollWeight(e.target.value)}
+                                            onChange={(e) =>
+                                                setCurrentRollWeight(
+                                                    e.target.value,
+                                                )
+                                            }
                                             onKeyDown={handleKeyDown}
                                         />
-                                        <Button type="button" size="lg" onClick={handleAddRoll} disabled={!currentRollWeight} className="h-11 px-8 font-bold italic uppercase tracking-tight shadow-md">Add</Button>
+                                        <Button
+                                            type="button"
+                                            size="lg"
+                                            onClick={handleAddRoll}
+                                            disabled={!currentRollWeight}
+                                            className="h-11 px-8 font-bold italic uppercase tracking-tight shadow-md"
+                                        >
+                                            Add
+                                        </Button>
                                     </div>
 
                                     <div className="h-[250px] overflow-y-auto border border-brand-border/50 rounded-xl bg-muted/20 p-4 custom-scrollbar">
                                         {rolls.length === 0 && (
                                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60 italic">
                                                 <Package className="w-10 h-10 opacity-10 mb-3" />
-                                                <span className="text-sm font-medium">No {itemName.toLowerCase()}s recorded for this run</span>
+                                                <span className="text-sm font-medium">
+                                                    No {itemName.toLowerCase()}s
+                                                    recorded for this run
+                                                </span>
                                             </div>
                                         )}
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                             {rolls.map((weight, idx) => (
-                                                <div key={idx} className="group relative flex flex-col items-center justify-center bg-brand-glass backdrop-blur-md border border-brand-border p-4 rounded-xl shadow-sm transition-all hover:bg-brand-glass-heavy hover:border-brand-border-heavy hover:shadow-brand">
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1 opacity-70">{itemName} {idx + 1}</span>
-                                                    <span className="text-base font-mono font-bold text-foreground">{weight} <span className="text-[10px] font-normal opacity-70 uppercase">{displayUnit}</span></span>
+                                                <div
+                                                    key={idx}
+                                                    className="group relative flex flex-col items-center justify-center bg-brand-glass backdrop-blur-md border border-brand-border p-4 rounded-xl shadow-sm transition-all hover:bg-brand-glass-heavy hover:border-brand-border-heavy hover:shadow-brand"
+                                                >
+                                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1 opacity-70">
+                                                        {itemName} {idx + 1}
+                                                    </span>
+                                                    <span className="text-base font-mono font-bold text-foreground">
+                                                        {weight}{' '}
+                                                        <span className="text-[10px] font-normal opacity-70 uppercase">
+                                                            {displayUnit}
+                                                        </span>
+                                                    </span>
                                                     <button
                                                         type="button"
                                                         className="absolute -top-1.5 -right-1.5 h-6 w-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg z-10"
-                                                        onClick={() => removeRoll(idx)}
+                                                        onClick={() =>
+                                                            removeRoll(idx)
+                                                        }
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
@@ -370,41 +559,64 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                 </BrandCardContent>
                             </BrandCard>
 
-                            <BrandCard variant="default" className="shadow-brand">
+                            <BrandCard
+                                variant="default"
+                                className="shadow-brand"
+                            >
                                 <BrandCardHeader className="pb-4">
                                     <div className="flex items-center gap-3">
                                         <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
                                             <AlertTriangle className="w-4 h-4 text-warning" />
                                         </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">{productionLabels.scrap}</h3>
+                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
+                                            {productionLabels.scrap}
+                                        </h3>
                                     </div>
                                 </BrandCardHeader>
                                 <BrandCardContent className="space-y-5">
                                     <div className="grid grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Affal Prongkol (Lumps)</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                                Affal Prongkol (Lumps)
+                                            </Label>
                                             <div className="flex items-center gap-3 relative">
                                                 <Input
-                                                    type="number" step="0.01"
+                                                    type="number"
+                                                    step="0.01"
                                                     placeholder="0.00"
                                                     className="text-right no-stepper bg-background/80 border-brand-border h-10 font-mono font-bold pr-8 text-foreground"
                                                     value={scrapProngkol}
-                                                    onChange={(e) => setScrapProngkol(e.target.value)}
+                                                    onChange={(e) =>
+                                                        setScrapProngkol(
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                 />
-                                                <span className="absolute right-3 text-[10px] text-muted-foreground font-bold uppercase pointer-events-none">kg</span>
+                                                <span className="absolute right-3 text-[10px] text-muted-foreground font-bold uppercase pointer-events-none">
+                                                    kg
+                                                </span>
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Affal Daun (Trim)</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                                Affal Daun (Trim)
+                                            </Label>
                                             <div className="flex items-center gap-3 relative">
                                                 <Input
-                                                    type="number" step="0.01"
+                                                    type="number"
+                                                    step="0.01"
                                                     placeholder="0.00"
                                                     className="text-right no-stepper bg-background/80 border-brand-border h-10 font-mono font-bold pr-8 text-foreground"
                                                     value={scrapDaun}
-                                                    onChange={(e) => setScrapDaun(e.target.value)}
+                                                    onChange={(e) =>
+                                                        setScrapDaun(
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                 />
-                                                <span className="absolute right-3 text-[10px] text-muted-foreground font-bold uppercase pointer-events-none">kg</span>
+                                                <span className="absolute right-3 text-[10px] text-muted-foreground font-bold uppercase pointer-events-none">
+                                                    kg
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -415,10 +627,15 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                             <div className="flex items-start gap-3">
                                                 <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                                                 <div>
-                                                    <p className="font-semibold text-amber-800">Scrap masih 0</p>
+                                                    <p className="font-semibold text-amber-800">
+                                                        Scrap masih 0
+                                                    </p>
                                                     <p className="text-sm text-amber-700 mt-1">
-                                                        Apakah Anda yakin tidak ada affal/scrap dari batch ini?
-                                                        Jika ada, silakan isi jumlah scrap terlebih dahulu.
+                                                        Apakah Anda yakin tidak
+                                                        ada affal/scrap dari
+                                                        batch ini? Jika ada,
+                                                        silakan isi jumlah scrap
+                                                        terlebih dahulu.
                                                     </p>
                                                 </div>
                                             </div>
@@ -428,7 +645,11 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                                     variant="outline"
                                                     size="sm"
                                                     className="border-amber-400 text-amber-700 hover:bg-amber-100"
-                                                    onClick={() => setShowScrapWarning(false)}
+                                                    onClick={() =>
+                                                        setShowScrapWarning(
+                                                            false,
+                                                        )
+                                                    }
                                                 >
                                                     Isi Scrap
                                                 </Button>
@@ -438,7 +659,9 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                                     className="bg-amber-600 hover:bg-amber-700 text-white"
                                                     disabled={isSubmitting}
                                                 >
-                                                    {isSubmitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                                                    {isSubmitting ? (
+                                                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                                    ) : null}
                                                     Ya, Tidak Ada Scrap
                                                 </Button>
                                             </div>
@@ -447,16 +670,23 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                 </BrandCardContent>
                             </BrandCard>
 
-                            <BrandCard variant="default" className="shadow-brand">
+                            <BrandCard
+                                variant="default"
+                                className="shadow-brand"
+                            >
                                 <BrandCardContent className="pt-8">
                                     <div className="space-y-3">
-                                        <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Catatan / Komentar</Label>
+                                        <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                            Catatan / Komentar
+                                        </Label>
                                         <Textarea
                                             className="h-[80px] bg-background/80 border-brand-border resize-none text-foreground placeholder:text-muted-foreground/50"
                                             placeholder="Tambahkan observasi atau kendala selama produksi..."
                                             name="notes"
                                             value={notes}
-                                            onChange={(e) => setNotes(e.target.value)}
+                                            onChange={(e) =>
+                                                setNotes(e.target.value)
+                                            }
                                         />
                                     </div>
                                 </BrandCardContent>
@@ -465,12 +695,24 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                     </div>
 
                     <DialogFooter className="mt-8 border-t border-brand-border pt-6 pb-2">
-                        <Button type="button" variant="ghost" className="font-bold tracking-tight italic uppercase" onClick={() => setOpen(false)}>Batal</Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="font-bold tracking-tight italic uppercase"
+                            onClick={() => setOpen(false)}
+                        >
+                            Batal
+                        </Button>
                         <Button
                             type="submit"
                             size="lg"
                             className="px-10 font-bold tracking-tight italic uppercase shadow-brand"
-                            disabled={isSubmitting || (rolls.length === 0 && !scrapProngkol && !scrapDaun)}
+                            disabled={
+                                isSubmitting ||
+                                (rolls.length === 0 &&
+                                    !scrapProngkol &&
+                                    !scrapDaun)
+                            }
                         >
                             {isSubmitting ? (
                                 <>
@@ -482,7 +724,6 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                             )}
                         </Button>
                     </DialogFooter>
-
                 </form>
             </DialogContent>
         </Dialog>

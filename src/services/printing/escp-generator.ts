@@ -1,9 +1,9 @@
 /**
  * ESC/P (Epson Standard Code for Printers) generator for dot matrix invoices.
- * 
+ *
  * Generates raw ESC/P binary data that can be sent directly to a dot matrix printer.
  * Uses the printer's built-in fonts for SHARP, clear text — not browser-rendered text.
- * 
+ *
  * Paper: 9.5" continuous feed (typical Indonesian dot matrix invoice paper)
  * At 12 CPI: ~114 characters per line
  * At 10 CPI: ~95 characters per line
@@ -11,10 +11,10 @@
 
 // ─── ESC/P Control Codes ──────────────────────────────────────────────
 
-const ESC = 0x1B;  // Escape
-const FF  = 0x0C;  // Form Feed
-const CR  = 0x0D;  // Carriage Return
-const LF  = 0x0A;  // Line Feed
+const ESC = 0x1b; // Escape
+const FF = 0x0c; // Form Feed
+const CR = 0x0d; // Carriage Return
+const LF = 0x0a; // Line Feed
 
 // ─── Helper: Convert string to byte array (ASCII-safe ESC/P) ──────────
 
@@ -30,7 +30,7 @@ function toPrinterSafeText(s: string): string {
 }
 
 function str(s: string): number[] {
-    return Array.from(toPrinterSafeText(s), c => c.charCodeAt(0));
+    return Array.from(toPrinterSafeText(s), (c) => c.charCodeAt(0));
 }
 
 // ─── ESC/P Command Builders ───────────────────────────────────────────
@@ -48,15 +48,18 @@ function setQuality(mode: 0 | 1): number[] {
 /** Set character pitch: 10=CPI, 12=CPI, 17=Condensed */
 function setCPI(pitch: 10 | 12 | 17): number[] {
     switch (pitch) {
-        case 10: return [ESC, 0x50]; // ESC P
-        case 12: return [ESC, 0x4D]; // ESC M
-        case 17: return [0x0F];      // SI (Shift In) = condensed
+        case 10:
+            return [ESC, 0x50]; // ESC P
+        case 12:
+            return [ESC, 0x4d]; // ESC M
+        case 17:
+            return [0x0f]; // SI (Shift In) = condensed
     }
 }
 
 /** Turn condensed mode on/off */
 function _setCondensed(on: boolean): number[] {
-    return on ? [0x0F] : [0x12]; // SI on, DC2 off
+    return on ? [0x0f] : [0x12]; // SI on, DC2 off
 }
 
 /** Bold on/off */
@@ -66,7 +69,7 @@ function setBold(on: boolean): number[] {
 
 /** Underline on/off */
 function _setUnderline(on: boolean): number[] {
-    return [ESC, 0x2D, on ? 1 : 0]; // ESC - n
+    return [ESC, 0x2d, on ? 1 : 0]; // ESC - n
 }
 
 /** Set absolute horizontal position (in columns at current CPI) */
@@ -78,7 +81,7 @@ function _setAbsolutePosition(col: number): number[] {
 
 /** Set left margin (in columns at current CPI) */
 function setLeftMargin(col: number): number[] {
-    return [ESC, 0x6C, col]; // ESC l n
+    return [ESC, 0x6c, col]; // ESC l n
 }
 
 /** Set right margin (in columns at current CPI) */
@@ -110,7 +113,11 @@ function _lines(n: number): number[] {
 const LINE_WIDTH = 108; // characters at 12 CPI on 9.5" paper (with 2-col margins)
 
 /** Pad string to fixed width */
-function pad(s: string, width: number, align: 'left' | 'right' | 'center' = 'left'): string {
+function pad(
+    s: string,
+    width: number,
+    align: 'left' | 'right' | 'center' = 'left',
+): string {
     if (s.length >= width) return s.substring(0, width);
     const padLen = width - s.length;
     if (align === 'right') return ' '.repeat(padLen) + s;
@@ -142,7 +149,20 @@ function formatRupiah(n: number): string {
 
 function formatDate(date: Date): string {
     const d = date.getDate().toString().padStart(2, '0');
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+    const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agt',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
+    ];
     const m = months[date.getMonth()];
     const y = date.getFullYear();
     return `${d} ${m} ${y}`;
@@ -213,8 +233,8 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
 
     // ── Initialize printer ──
     bytes.push(...init());
-    bytes.push(...setQuality(1));   // NLQ mode
-    bytes.push(...setCPI(12));      // 12 CPI for main body
+    bytes.push(...setQuality(1)); // NLQ mode
+    bytes.push(...setCPI(12)); // 12 CPI for main body
 
     // ── Set explicit margins (at 12 CPI) ──
     // LX-300+II on 9.5" paper: 9.5 × 12 = 114 columns
@@ -235,7 +255,14 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...setCPI(12));
     bytes.push(...str(pad(data.companyAddress, LINE_WIDTH)));
     bytes.push(...newline());
-    bytes.push(...str(pad(`Telp: ${data.companyPhone}  Email: ${data.companyEmail}`, LINE_WIDTH)));
+    bytes.push(
+        ...str(
+            pad(
+                `Telp: ${data.companyPhone}  Email: ${data.companyEmail}`,
+                LINE_WIDTH,
+            ),
+        ),
+    );
     bytes.push(...newline());
     bytes.push(...str(dashLine()));
     bytes.push(...newline());
@@ -277,14 +304,16 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
 
     // ── ITEMS TABLE HEADER ──
     bytes.push(...setBold(true));
-    bytes.push(...str(
-        pad('Nama Barang', COL_NAME) +
-        pad('Qty', COL_QTY, 'right') +
-        pad('Satuan', COL_UNIT, 'center') +
-        pad('Harga @', COL_PRICE, 'right') +
-        pad('Diskon', COL_DISC, 'right') +
-        pad('Jumlah (Rp)', COL_TOTAL, 'right')
-    ));
+    bytes.push(
+        ...str(
+            pad('Nama Barang', COL_NAME) +
+                pad('Qty', COL_QTY, 'right') +
+                pad('Satuan', COL_UNIT, 'center') +
+                pad('Harga @', COL_PRICE, 'right') +
+                pad('Diskon', COL_DISC, 'right') +
+                pad('Jumlah (Rp)', COL_TOTAL, 'right'),
+        ),
+    );
     bytes.push(...setBold(false));
     bytes.push(...newline());
     bytes.push(...str(dashLine()));
@@ -292,14 +321,16 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
 
     // ── ITEMS TABLE BODY ──
     for (const item of data.items) {
-        bytes.push(...str(
-            pad(item.name, COL_NAME) +
-            pad(item.qty.toString(), COL_QTY, 'right') +
-            pad(item.unit, COL_UNIT, 'center') +
-            pad(formatRupiah(item.unitPrice), COL_PRICE, 'right') +
-            pad('0', COL_DISC, 'right') +
-            pad(formatRupiah(item.lineTotal), COL_TOTAL, 'right')
-        ));
+        bytes.push(
+            ...str(
+                pad(item.name, COL_NAME) +
+                    pad(item.qty.toString(), COL_QTY, 'right') +
+                    pad(item.unit, COL_UNIT, 'center') +
+                    pad(formatRupiah(item.unitPrice), COL_PRICE, 'right') +
+                    pad('0', COL_DISC, 'right') +
+                    pad(formatRupiah(item.lineTotal), COL_TOTAL, 'right'),
+            ),
+        );
         bytes.push(...newline());
     }
 
@@ -315,12 +346,14 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
 
     // ── TOTAL ROW ──
     bytes.push(...setBold(true));
-    bytes.push(...str(
-        pad('TOTAL :', COL_NAME + COL_QTY + COL_UNIT, 'right') +
-        pad(data.totalQty.toString(), COL_PRICE, 'right') +
-        pad('', COL_DISC) +
-        pad('', COL_TOTAL)
-    ));
+    bytes.push(
+        ...str(
+            pad('TOTAL :', COL_NAME + COL_QTY + COL_UNIT, 'right') +
+                pad(data.totalQty.toString(), COL_PRICE, 'right') +
+                pad('', COL_DISC) +
+                pad('', COL_TOTAL),
+        ),
+    );
     bytes.push(...setBold(false));
     bytes.push(...newline());
     bytes.push(...str(dashLine()));
@@ -335,7 +368,10 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
         ['SUBTOTAL :', formatRupiah(data.subtotal)],
     ];
     if (data.discountAmount > 0) {
-        summaryLines.push(['DISKON :', `-${formatRupiah(data.discountAmount)}`]);
+        summaryLines.push([
+            'DISKON :',
+            `-${formatRupiah(data.discountAmount)}`,
+        ]);
     }
     summaryLines.push(['DPP :', formatRupiah(data.dpp)]);
     if (data.taxAmount > 0) {
@@ -353,11 +389,11 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     for (const [label, value] of summaryLines) {
         const isTotal = label === 'TOTAL :' || label === 'SISA TAGIHAN :';
         if (isTotal) bytes.push(...setBold(true));
-        bytes.push(...str(
-            pad('', 65) +
-            pad(label, 23, 'right') +
-            pad(value, 20, 'right')
-        ));
+        bytes.push(
+            ...str(
+                pad('', 65) + pad(label, 23, 'right') + pad(value, 20, 'right'),
+            ),
+        );
         if (isTotal) bytes.push(...setBold(false));
         bytes.push(...newline());
     }
@@ -372,7 +408,9 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...str('KETERANGAN BANK :'));
     bytes.push(...setBold(false));
     bytes.push(...newline());
-    bytes.push(...str(`(${data.isPPN ? 'Penjualan PPN' : 'Penjualan Non PPN'})`));
+    bytes.push(
+        ...str(`(${data.isPPN ? 'Penjualan PPN' : 'Penjualan Non PPN'})`),
+    );
     bytes.push(...newline());
     bytes.push(...str(`A/N ${data.bankHolder}`));
     bytes.push(...newline());

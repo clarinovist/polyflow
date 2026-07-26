@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,18 @@ import { acknowledgeHandover } from '@/actions/inventory/inventory';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
 
-export function AcknowledgeHandoverButton({ movementId }: { movementId: string }) {
+export function AcknowledgeHandoverButton({
+    movementId,
+}: {
+    movementId: string;
+}) {
     const [loading, setLoading] = useState(false);
 
     const handleAck = async () => {
-        if (!confirm('Konfirmasi serah terima ini dan tandai sebagai diterima?')) return;
+        if (
+            !confirm('Konfirmasi serah terima ini dan tandai sebagai diterima?')
+        )
+            return;
         setLoading(true);
         try {
             const res = await acknowledgeHandover(movementId);
@@ -29,8 +36,14 @@ export function AcknowledgeHandoverButton({ movementId }: { movementId: string }
     };
 
     return (
-        <Button size="sm" className="text-xs" onClick={handleAck} disabled={loading}>
-            <ClipboardCheck className="mr-2 h-4 w-4" /> {productionComponentLabels.acknowledge}
+        <Button
+            size="sm"
+            className="text-xs"
+            onClick={handleAck}
+            disabled={loading}
+        >
+            <ClipboardCheck className="mr-2 h-4 w-4" />{' '}
+            {productionComponentLabels.acknowledge}
         </Button>
     );
 }

@@ -11,7 +11,8 @@ function getRootDomain(): string {
     if (typeof window === 'undefined') return 'polyflow.uk';
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') return 'localhost';
-    if (host === 'polyflow.uk' || host === 'www.polyflow.uk') return 'polyflow.uk';
+    if (host === 'polyflow.uk' || host === 'www.polyflow.uk')
+        return 'polyflow.uk';
     // Fallback: strip first subdomain segment
     const parts = host.split('.');
     return parts.length > 2 ? parts.slice(1).join('.') : host;
@@ -28,17 +29,25 @@ export default function WorkspaceDiscovery() {
         setIsLoading(true);
 
         // Clean up workspace input (remove protocol, spaces, etc)
-        const cleanWorkspace = workspace.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const cleanWorkspace = workspace
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, '');
 
         const currentHost = window.location.hostname;
-        const currentPort = window.location.port ? `:${window.location.port}` : '';
+        const currentPort = window.location.port
+            ? `:${window.location.port}`
+            : '';
         const protocol = window.location.protocol;
 
         let targetHost = '';
 
         if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
             targetHost = `${cleanWorkspace}.localhost${currentPort}`;
-        } else if (currentHost === 'polyflow.uk' || currentHost === 'www.polyflow.uk') {
+        } else if (
+            currentHost === 'polyflow.uk' ||
+            currentHost === 'www.polyflow.uk'
+        ) {
             targetHost = `${cleanWorkspace}.polyflow.uk${currentPort}`;
         } else {
             const parts = currentHost.split('.');
@@ -54,7 +63,8 @@ export default function WorkspaceDiscovery() {
     };
 
     const rootDomain = getRootDomain();
-    const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+    const protocol =
+        typeof window !== 'undefined' ? window.location.protocol : 'https:';
     const adminUrl = `${protocol}//admin.${rootDomain}/login`;
 
     return (
@@ -66,16 +76,16 @@ export default function WorkspaceDiscovery() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
                     {L.signInToWorkspace}
                 </h1>
-                <p className="text-muted-foreground">
-                    {L.description}
-                </p>
+                <p className="text-muted-foreground">{L.description}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                     <div className="flex flex-col sm:flex-row shadow-sm rounded-md bg-transparent">
                         <div className="flex items-center rounded-md border border-input focus-within:ring-1 focus-within:ring-ring focus-within:border-primary transition-all overflow-hidden bg-background w-full">
-                            <span className="pl-4 text-muted-foreground whitespace-nowrap hidden sm:inline select-none">{L.protocolPrefix}</span>
+                            <span className="pl-4 text-muted-foreground whitespace-nowrap hidden sm:inline select-none">
+                                {L.protocolPrefix}
+                            </span>
                             <Input
                                 type="text"
                                 placeholder={L.placeholder}
@@ -85,7 +95,9 @@ export default function WorkspaceDiscovery() {
                                 autoFocus
                                 required
                             />
-                            <span className="pr-4 pl-3 bg-muted h-full flex items-center border-l border-border text-muted-foreground font-medium select-none">{L.domainSuffix}</span>
+                            <span className="pr-4 pl-3 bg-muted h-full flex items-center border-l border-border text-muted-foreground font-medium select-none">
+                                {L.domainSuffix}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -106,8 +118,14 @@ export default function WorkspaceDiscovery() {
             </div>
 
             <div className="mt-6 pt-6 border-t border-zinc-200 text-center">
-                <p className="text-sm text-muted-foreground mb-3">{L.noWorkspace}</p>
-                <Button variant="outline" className="w-full h-10 border-zinc-300" asChild>
+                <p className="text-sm text-muted-foreground mb-3">
+                    {L.noWorkspace}
+                </p>
+                <Button
+                    variant="outline"
+                    className="w-full h-10 border-zinc-300"
+                    asChild
+                >
                     <a href="/register">{L.registerNewCompany}</a>
                 </Button>
             </div>
@@ -121,7 +139,6 @@ export default function WorkspaceDiscovery() {
                     Super Admin Login
                 </a>
             </div>
-
         </div>
     );
 }

@@ -1,20 +1,20 @@
 import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
 
 export type OrderTotals = {
-  gross: number;
-  discount: number;
-  tax: number;
-  dpp: number;
-  net: number;
-  hasInclude: boolean;
+    gross: number;
+    discount: number;
+    tax: number;
+    dpp: number;
+    net: number;
+    hasInclude: boolean;
 };
 
 type OrderLineItem = {
-  quantity?: number;
-  unitPrice?: number;
-  discountPercent?: number;
-  taxPercent?: number;
-  ppnMode?: 'INCLUDE' | 'EXCLUDE';
+    quantity?: number;
+    unitPrice?: number;
+    discountPercent?: number;
+    taxPercent?: number;
+    ppnMode?: 'INCLUDE' | 'EXCLUDE';
 };
 
 /**
@@ -23,27 +23,39 @@ type OrderLineItem = {
  * Supports both INCLUDE and EXCLUDE PPN modes.
  */
 export function computeOrderTotals(items: OrderLineItem[]): OrderTotals {
-  return items.reduce(
-    (acc, item) => {
-      const qty = item.quantity || 0;
-      const price = item.unitPrice || 0;
-      const subtotal = qty * price;
-      const discount = subtotal * ((item.discountPercent || 0) / 100);
-      const taxable = subtotal - discount;
-      
-      // Use calculatePpn based on ppnMode
-      const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
-      const ppnResult = calculatePpn(taxable, item.taxPercent || 0, ppnMode);
+    return items.reduce(
+        (acc, item) => {
+            const qty = item.quantity || 0;
+            const price = item.unitPrice || 0;
+            const subtotal = qty * price;
+            const discount = subtotal * ((item.discountPercent || 0) / 100);
+            const taxable = subtotal - discount;
 
-      acc.gross += subtotal;
-      acc.discount += discount;
-      acc.tax += ppnResult.taxAmount;
-      acc.dpp += ppnResult.dpp;
-      if (ppnMode === 'INCLUDE' && ppnResult.taxAmount > 0) acc.hasInclude = true;
-      // net = what customer actually pays
-      acc.net += ppnResult.total;
-      return acc;
-    },
-    { gross: 0, discount: 0, tax: 0, dpp: 0, net: 0, hasInclude: false } as OrderTotals,
-  );
+            // Use calculatePpn based on ppnMode
+            const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
+            const ppnResult = calculatePpn(
+                taxable,
+                item.taxPercent || 0,
+                ppnMode,
+            );
+
+            acc.gross += subtotal;
+            acc.discount += discount;
+            acc.tax += ppnResult.taxAmount;
+            acc.dpp += ppnResult.dpp;
+            if (ppnMode === 'INCLUDE' && ppnResult.taxAmount > 0)
+                acc.hasInclude = true;
+            // net = what customer actually pays
+            acc.net += ppnResult.total;
+            return acc;
+        },
+        {
+            gross: 0,
+            discount: 0,
+            tax: 0,
+            dpp: 0,
+            net: 0,
+            hasInclude: false,
+        } as OrderTotals,
+    );
 }

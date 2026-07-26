@@ -9,7 +9,7 @@ import {
     DialogTitle,
     DialogFooter,
     DialogDescription,
-    DialogTrigger
+    DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,7 +25,12 @@ interface DowntimeDialogProps {
     trigger?: React.ReactNode;
 }
 
-export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: DowntimeDialogProps) {
+export function DowntimeDialog({
+    machineId,
+    machineName,
+    operatorId,
+    trigger,
+}: DowntimeDialogProps) {
     const [open, setOpen] = useState(false);
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
@@ -34,23 +39,29 @@ export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: 
         e.preventDefault();
 
         if (!reason.trim()) {
-            toast.error("Masukkan alasan kerusakan");
+            toast.error('Masukkan alasan kerusakan');
             return;
         }
 
         setLoading(true);
 
         try {
-            const result = await logMachineDowntime(machineId, reason, operatorId);
+            const result = await logMachineDowntime(
+                machineId,
+                reason,
+                operatorId,
+            );
             if (result.success) {
-                toast.success("Downtime tercatat. Status mesin diubah ke Maintenance.");
+                toast.success(
+                    'Downtime tercatat. Status mesin diubah ke Maintenance.',
+                );
                 setOpen(false);
                 setReason('');
             } else {
                 toast.error(result.error);
             }
         } catch {
-            toast.error("Gagal mencatat downtime");
+            toast.error('Gagal mencatat downtime');
         } finally {
             setLoading(false);
         }
@@ -59,25 +70,36 @@ export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {trigger ? trigger : (
-                    <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100">
-                        <AlertTriangle className="mr-2 h-4 w-4" /> {kioskLabels.logDowntime}
+                {trigger ? (
+                    trigger
+                ) : (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100"
+                    >
+                        <AlertTriangle className="mr-2 h-4 w-4" />{' '}
+                        {kioskLabels.logDowntime}
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle className="text-destructive flex items-center">
-                        <AlertTriangle className="mr-2 h-5 w-5" /> Laporkan Masalah Mesin
+                        <AlertTriangle className="mr-2 h-5 w-5" /> Laporkan
+                        Masalah Mesin
                     </DialogTitle>
                     <DialogDescription>
-                        Melaporkan kerusakan untuk: <span className="font-bold">{machineName}</span>
+                        Melaporkan kerusakan untuk:{' '}
+                        <span className="font-bold">{machineName}</span>
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="reason">Alasan / Deskripsi Masalah</Label>
+                        <Label htmlFor="reason">
+                            Alasan / Deskripsi Masalah
+                        </Label>
                         <Textarea
                             id="reason"
                             placeholder="contoh: Motor panas, Belt putus..."
@@ -87,9 +109,21 @@ export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: 
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Batal</Button>
-                        <Button type="submit" variant="destructive" disabled={loading}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setOpen(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="destructive"
+                            disabled={loading}
+                        >
+                            {loading && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
                             Laporkan Kerusakan
                         </Button>
                     </DialogFooter>

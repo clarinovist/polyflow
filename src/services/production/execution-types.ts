@@ -1,4 +1,10 @@
-import { BomItem, Prisma, ProductType, ProductionMaterial, Unit } from '@prisma/client';
+import {
+    BomItem,
+    Prisma,
+    ProductType,
+    ProductionMaterial,
+    Unit,
+} from '@prisma/client';
 
 export interface BackflushOrder {
     isMaklon: boolean;
@@ -7,8 +13,8 @@ export interface BackflushOrder {
 }
 
 export type MaterialLike = (
-    Pick<ProductionMaterial, 'productVariantId' | 'quantity'> |
-    Pick<BomItem, 'productVariantId' | 'quantity'>
+    | Pick<ProductionMaterial, 'productVariantId' | 'quantity'>
+    | Pick<BomItem, 'productVariantId' | 'quantity'>
 ) & {
     productVariant?: {
         name?: string | null;

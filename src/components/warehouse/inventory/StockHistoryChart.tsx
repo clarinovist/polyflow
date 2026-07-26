@@ -6,7 +6,7 @@ import {
     Tooltip,
     ResponsiveContainer,
     AreaChart,
-    Area
+    Area,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, parseISO } from 'date-fns';
@@ -19,7 +19,11 @@ interface StockHistoryChartProps {
     variantName?: string;
 }
 
-export function StockHistoryChart({ data, title, variantName }: StockHistoryChartProps) {
+export function StockHistoryChart({
+    data,
+    title,
+    variantName,
+}: StockHistoryChartProps) {
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -38,7 +42,9 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
         <Card className="w-full">
             <CardHeader>
                 <CardTitle className="text-lg font-semibold flex items-center justify-between">
-                    <span>{title || warehouseComponentLabels.stockHistory}</span>
+                    <span>
+                        {title || warehouseComponentLabels.stockHistory}
+                    </span>
                     {variantName && (
                         <span className="text-sm font-normal text-muted-foreground">
                             {variantName}
@@ -47,48 +53,95 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="h-[300px] w-full" style={{ height: 300, minHeight: 300 }}>
+                <div
+                    className="h-[300px] w-full"
+                    style={{ height: 300, minHeight: 300 }}
+                >
                     {isMounted ? (
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart
                                 data={data}
-                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                                margin={{
+                                    top: 10,
+                                    right: 30,
+                                    left: 0,
+                                    bottom: 0,
+                                }}
                             >
                                 <defs>
-                                    <linearGradient id="colorStock" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                                    <linearGradient
+                                        id="colorStock"
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="1"
+                                    >
+                                        <stop
+                                            offset="5%"
+                                            stopColor="#2563eb"
+                                            stopOpacity={0.1}
+                                        />
+                                        <stop
+                                            offset="95%"
+                                            stopColor="#2563eb"
+                                            stopOpacity={0}
+                                        />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    vertical={false}
+                                    stroke="hsl(var(--border))"
+                                />
                                 <XAxis
                                     dataKey="date"
                                     tickFormatter={(str) => {
                                         const date = parseISO(str);
                                         return format(date, 'MMM d');
                                     }}
-                                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                                    tick={{
+                                        fontSize: 12,
+                                        fill: 'hsl(var(--muted-foreground))',
+                                    }}
                                     axisLine={false}
                                     tickLine={false}
                                 />
                                 <YAxis
-                                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                                    tick={{
+                                        fontSize: 12,
+                                        fill: 'hsl(var(--muted-foreground))',
+                                    }}
                                     axisLine={false}
                                     tickLine={false}
                                     tickFormatter={(val) => formatQuantity(val)}
                                 />
                                 <Tooltip
                                     content={({ active, payload, label }) => {
-                                        if (active && payload && payload.length) {
+                                        if (
+                                            active &&
+                                            payload &&
+                                            payload.length
+                                        ) {
                                             return (
                                                 <div className="bg-popover p-3 border rounded-lg shadow-lg border-border">
                                                     <p className="text-sm font-medium text-foreground border-b pb-1 mb-2">
-                                                        {format(parseISO(label as string), 'MMMM d, yyyy')}
+                                                        {format(
+                                                            parseISO(
+                                                                label as string,
+                                                            ),
+                                                            'MMMM d, yyyy',
+                                                        )}
                                                     </p>
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-blue-600" />
                                                         <p className="text-sm font-semibold text-blue-600">
-                                                            Stock: {formatQuantity(Number(payload[0].value) || 0)}
+                                                            Stock:{' '}
+                                                            {formatQuantity(
+                                                                Number(
+                                                                    payload[0]
+                                                                        .value,
+                                                                ) || 0,
+                                                            )}
                                                         </p>
                                                     </div>
                                                 </div>

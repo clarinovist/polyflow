@@ -12,40 +12,61 @@ export const BUSINESS_TIMEZONE = 'Asia/Jakarta';
  * Format a UTC date to WIB display string.
  * Use in Server Components where browser timezone is not available.
  */
-export function formatWIB(date: Date | string | null | undefined, pattern: string): string {
-  if (!date) return '-';
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '-';
+export function formatWIB(
+    date: Date | string | null | undefined,
+    pattern: string,
+): string {
+    if (!date) return '-';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '-';
 
-  // Convert to WIB parts
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: BUSINESS_TIMEZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false,
-  }).formatToParts(d);
+    // Convert to WIB parts
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: BUSINESS_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).formatToParts(d);
 
-  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+    const get = (type: string) =>
+        parts.find((p) => p.type === type)?.value || '';
 
-  const year = get('year');
-  const month = get('month');
-  const day = get('day');
-  const hour = get('hour');
-  const minute = get('minute');
-  const second = get('second');
+    const year = get('year');
+    const month = get('month');
+    const day = get('day');
+    const hour = get('hour');
+    const minute = get('minute');
+    const second = get('second');
 
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const monthName = monthNames[parseInt(month, 10) - 1] || month;
+    const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+    ];
+    const monthName = monthNames[parseInt(month, 10) - 1] || month;
 
-  // Simple pattern replacement
-  return pattern
-    .replace('yyyy', year)
-    .replace('MMM', monthName)
-    .replace('MM', month)
-    .replace('dd', day)
-    .replace('HH', hour)
-    .replace('mm', minute)
-    .replace('ss', second);
+    // Simple pattern replacement
+    return pattern
+        .replace('yyyy', year)
+        .replace('MMM', monthName)
+        .replace('MM', month)
+        .replace('dd', day)
+        .replace('HH', hour)
+        .replace('mm', minute)
+        .replace('ss', second);
 }
 
 // ---------------------------------------------------------------------------
@@ -57,16 +78,22 @@ export function formatWIB(date: Date | string | null | undefined, pattern: strin
  * Returns the same string if valid, throws if not.
  */
 export function parseBusinessDate(dateStr: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    throw new Error(`Invalid date format: "${dateStr}". Expected YYYY-MM-DD.`);
-  }
-  // Validate it's a real date (e.g. not 2026-02-30)
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const check = new Date(Date.UTC(y, m - 1, d));
-  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) {
-    throw new Error(`Invalid date: "${dateStr}".`);
-  }
-  return dateStr;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        throw new Error(
+            `Invalid date format: "${dateStr}". Expected YYYY-MM-DD.`,
+        );
+    }
+    // Validate it's a real date (e.g. not 2026-02-30)
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const check = new Date(Date.UTC(y, m - 1, d));
+    if (
+        check.getUTCFullYear() !== y ||
+        check.getUTCMonth() !== m - 1 ||
+        check.getUTCDate() !== d
+    ) {
+        throw new Error(`Invalid date: "${dateStr}".`);
+    }
+    return dateStr;
 }
 
 /**
@@ -77,20 +104,23 @@ export function parseBusinessDate(dateStr: string): string {
  *   start = 2026-07-01T17:00:00.000Z  (2 Jul 00:00 WIB)
  *   end   = 2026-07-02T16:59:59.999Z  (2 Jul 23:59:59.999 WIB)
  */
-export function getWibDayBounds(dateStr: string): { startOfDay: Date; endOfDay: Date } {
-  const validated = parseBusinessDate(dateStr);
-  const [y, m, d] = validated.split('-').map(Number);
+export function getWibDayBounds(dateStr: string): {
+    startOfDay: Date;
+    endOfDay: Date;
+} {
+    const validated = parseBusinessDate(dateStr);
+    const [y, m, d] = validated.split('-').map(Number);
 
-  // WIB midnight for day D in UTC instant
-  // WIB = UTC+7, so WIB 00:00 = UTC previous day 17:00
-  const startMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0) - 7 * 60 * 60 * 1000;
-  // WIB 23:59:59.999 = start + 24h - 1ms
-  const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
+    // WIB midnight for day D in UTC instant
+    // WIB = UTC+7, so WIB 00:00 = UTC previous day 17:00
+    const startMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0) - 7 * 60 * 60 * 1000;
+    // WIB 23:59:59.999 = start + 24h - 1ms
+    const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
 
-  return {
-    startOfDay: new Date(startMs),
-    endOfDay: new Date(endMs),
-  };
+    return {
+        startOfDay: new Date(startMs),
+        endOfDay: new Date(endMs),
+    };
 }
 
 /**
@@ -101,22 +131,24 @@ export function getWibDayBounds(dateStr: string): { startOfDay: Date; endOfDay: 
  *      new Date('2026-07-01T17:00:00.000Z')  → '2026-07-02'
  */
 export function toBusinessDateString(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) {
-    throw new Error('Invalid date for toBusinessDateString');
-  }
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) {
+        throw new Error('Invalid date for toBusinessDateString');
+    }
 
-  // Get WIB parts via Intl
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: BUSINESS_TIMEZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(d);
+    // Get WIB parts via Intl
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: BUSINESS_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(d);
 
-  const year = parts.find(p => p.type === 'year')?.value || '';
-  const month = parts.find(p => p.type === 'month')?.value || '';
-  const day = parts.find(p => p.type === 'day')?.value || '';
+    const year = parts.find((p) => p.type === 'year')?.value || '';
+    const month = parts.find((p) => p.type === 'month')?.value || '';
+    const day = parts.find((p) => p.type === 'day')?.value || '';
 
-  return `${year}-${month}-${day}`;
+    return `${year}-${month}-${day}`;
 }
 
 /**
@@ -126,8 +158,8 @@ export function toBusinessDateString(date: Date | string): string {
  * e.g. businessDateToEntryDate('2026-07-02') → Date('2026-07-01T17:00:00.000Z')
  */
 export function businessDateToEntryDate(dateStr: string): Date {
-  const { startOfDay } = getWibDayBounds(dateStr);
-  return startOfDay;
+    const { startOfDay } = getWibDayBounds(dateStr);
+    return startOfDay;
 }
 
 /**
@@ -138,17 +170,17 @@ export function businessDateToEntryDate(dateStr: string): Date {
  * with WIB-midnight entryDate storage regardless of process timezone.
  */
 export function wibRangeBounds(
-  startDate?: Date | null,
-  endDate?: Date | null,
+    startDate?: Date | null,
+    endDate?: Date | null,
 ): { gte?: Date; lte?: Date } {
-  const out: { gte?: Date; lte?: Date } = {};
-  if (startDate) {
-    out.gte = getWibDayBounds(toBusinessDateString(startDate)).startOfDay;
-  }
-  if (endDate) {
-    out.lte = getWibDayBounds(toBusinessDateString(endDate)).endOfDay;
-  }
-  return out;
+    const out: { gte?: Date; lte?: Date } = {};
+    if (startDate) {
+        out.gte = getWibDayBounds(toBusinessDateString(startDate)).startOfDay;
+    }
+    if (endDate) {
+        out.lte = getWibDayBounds(toBusinessDateString(endDate)).endOfDay;
+    }
+    return out;
 }
 
 /**
@@ -165,8 +197,8 @@ export function wibRangeBounds(
  *      new Date('2026-07-01T20:00:00.000Z')  → Date('2026-07-01T17:00:00.000Z')
  */
 export function normalizeToBusinessDay(date: Date | string): Date {
-  const businessDate = toBusinessDateString(date);
-  return businessDateToEntryDate(businessDate);
+    const businessDate = toBusinessDateString(date);
+    return businessDateToEntryDate(businessDate);
 }
 
 /**
@@ -176,36 +208,67 @@ export function normalizeToBusinessDay(date: Date | string): Date {
  * This is the safe replacement for format(new Date(iso), 'dd MMM yyyy')
  * without a timeZone option.
  */
-export function formatWibDate(date: Date | string, pattern: string = 'dd MMM yyyy'): string {
-  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    // Already a date string — format directly as business date
-    const [y, m, d] = date.split('-').map(Number);
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function formatWibDate(
+    date: Date | string,
+    pattern: string = 'dd MMM yyyy',
+): string {
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        // Already a date string — format directly as business date
+        const [y, m, d] = date.split('-').map(Number);
+        const monthNames = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+        ];
+        return pattern
+            .replace('yyyy', String(y))
+            .replace('MMM', monthNames[m - 1])
+            .replace('MM', String(m).padStart(2, '0'))
+            .replace('dd', String(d).padStart(2, '0'));
+    }
+
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '-';
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: BUSINESS_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(d);
+
+    const year = parts.find((p) => p.type === 'year')?.value || '';
+    const month = parts.find((p) => p.type === 'month')?.value || '';
+    const day = parts.find((p) => p.type === 'day')?.value || '';
+
+    const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+    ];
+    const monthName = monthNames[parseInt(month, 10) - 1] || month;
+
     return pattern
-      .replace('yyyy', String(y))
-      .replace('MMM', monthNames[m - 1])
-      .replace('MM', String(m).padStart(2, '0'))
-      .replace('dd', String(d).padStart(2, '0'));
-  }
-
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '-';
-
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: BUSINESS_TIMEZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(d);
-
-  const year = parts.find(p => p.type === 'year')?.value || '';
-  const month = parts.find(p => p.type === 'month')?.value || '';
-  const day = parts.find(p => p.type === 'day')?.value || '';
-
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const monthName = monthNames[parseInt(month, 10) - 1] || month;
-
-  return pattern
-    .replace('yyyy', year)
-    .replace('MMM', monthName)
-    .replace('MM', month)
-    .replace('dd', day);
+        .replace('yyyy', year)
+        .replace('MMM', monthName)
+        .replace('MM', month)
+        .replace('dd', day);
 }

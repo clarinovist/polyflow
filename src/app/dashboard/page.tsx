@@ -10,7 +10,8 @@ export default async function DashboardPage() {
     const permissionsRes = await getMyPermissions();
 
     const sessionAllowed =
-        (session?.user as { allowedResources?: string[] } | undefined)?.allowedResources || [];
+        (session?.user as { allowedResources?: string[] } | undefined)
+            ?.allowedResources || [];
     const permissions: string[] | 'ALL' =
         permissionsRes.success && permissionsRes.data
             ? permissionsRes.data
@@ -24,7 +25,9 @@ export default async function DashboardPage() {
 
     return (
         <DashboardClient
-            stats={serializeData(stats.success && stats.data ? stats.data : null)}
+            stats={serializeData(
+                stats.success && stats.data ? stats.data : null,
+            )}
             userName={userName}
             userRole={userRole}
             permissions={permissions}

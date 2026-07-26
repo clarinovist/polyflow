@@ -27,7 +27,11 @@ import { getLocations } from '@/actions/inventory/inventory';
 import { useRouter } from 'next/navigation';
 import { warehouseComponentLabels } from '@/lib/labels';
 
-export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePath?: string }) {
+export function CreateOpnameDialog({
+    basePath = '/warehouse/opname',
+}: {
+    basePath?: string;
+}) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     interface Location {
@@ -41,7 +45,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePat
 
     useEffect(() => {
         if (open) {
-            getLocations().then(res => {
+            getLocations().then((res) => {
                 if (!res.success) {
                     toast.error(res.error || 'Gagal memuat lokasi');
                     return;
@@ -63,11 +67,13 @@ export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePat
         try {
             const result = await createOpnameSession(locationId, remarks);
             if (!result.success) {
-                toast.error(`Gagal membuat opname: ${result.error || 'Silakan coba lagi'}`);
+                toast.error(
+                    `Gagal membuat opname: ${result.error || 'Silakan coba lagi'}`,
+                );
                 return;
             }
             if (result.data) {
-                toast.success("Sesi Stock Opname berhasil dibuat");
+                toast.success('Sesi Stock Opname berhasil dibuat');
                 setOpen(false);
                 router.push(`${basePath}/${result.data.id}`);
             }
@@ -88,7 +94,9 @@ export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePat
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>{warehouseComponentLabels.createOpname}</DialogTitle>
+                    <DialogTitle>
+                        {warehouseComponentLabels.createOpname}
+                    </DialogTitle>
                     <DialogDescription>
                         {warehouseComponentLabels.createOpnameDesc}
                     </DialogDescription>
@@ -96,9 +104,16 @@ export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePat
                 <div className="grid gap-6 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="location">Location</Label>
-                        <Select value={locationId} onValueChange={setLocationId}>
+                        <Select
+                            value={locationId}
+                            onValueChange={setLocationId}
+                        >
                             <SelectTrigger>
-                                <SelectValue placeholder={warehouseComponentLabels.selectWarehouseOpname} />
+                                <SelectValue
+                                    placeholder={
+                                        warehouseComponentLabels.selectWarehouseOpname
+                                    }
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {locations.map((loc) => (
@@ -108,7 +123,9 @@ export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePat
                                 ))}
                             </SelectContent>
                         </Select>
-                        <p className="text-[10px] text-muted-foreground">Select the warehouse location to audit.</p>
+                        <p className="text-[10px] text-muted-foreground">
+                            Select the warehouse location to audit.
+                        </p>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="remarks">Remarks (Optional)</Label>
@@ -130,7 +147,9 @@ export function CreateOpnameDialog({ basePath = '/warehouse/opname' }: { basePat
                                 <span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin mr-2" />
                                 Creating...
                             </>
-                        ) : "Start Session"}
+                        ) : (
+                            'Start Session'
+                        )}
                     </Button>
                 </DialogFooter>
             </DialogContent>

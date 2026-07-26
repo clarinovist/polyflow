@@ -1,19 +1,38 @@
 'use client';
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { logRunningOutput } from "@/actions/production/production";
-import { Loader2, Users, Camera, CheckCircle2, ArrowLeft, ArrowRight, Save, RotateCcw, AlertTriangle } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
-import { getProductionUnitMeta, toBaseQuantity } from "@/lib/utils/production-units";
-import { Unit } from "@prisma/client";
-import { kioskLabels } from "@/lib/labels";
-import { CameraCapture } from "@/components/ui/camera-capture";
-import { KioskStepHeader } from "@/components/kiosk/KioskStepHeader";
+import { useState } from 'react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { logRunningOutput } from '@/actions/production/production';
+import {
+    Loader2,
+    Users,
+    Camera,
+    CheckCircle2,
+    ArrowLeft,
+    ArrowRight,
+    Save,
+    RotateCcw,
+    AlertTriangle,
+} from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    getProductionUnitMeta,
+    toBaseQuantity,
+} from '@/lib/utils/production-units';
+import { Unit } from '@prisma/client';
+import { kioskLabels } from '@/lib/labels';
+import { CameraCapture } from '@/components/ui/camera-capture';
+import { KioskStepHeader } from '@/components/kiosk/KioskStepHeader';
 
 interface ShiftInfo {
     id: string;
@@ -38,10 +57,26 @@ interface KioskLogOutputDialogProps {
 }
 
 const STEPS = [
-    { key: 'qty', title: kioskLabels.wizardStepQty, subtitle: kioskLabels.wizardQtyDesc },
-    { key: 'scrap', title: kioskLabels.wizardStepScrap, subtitle: kioskLabels.wizardScrapDesc },
-    { key: 'photo', title: kioskLabels.wizardStepFoto, subtitle: kioskLabels.wizardFotoDesc },
-    { key: 'confirm', title: kioskLabels.wizardStepKonfirmasi, subtitle: kioskLabels.wizardKonfirmasiDesc },
+    {
+        key: 'qty',
+        title: kioskLabels.wizardStepQty,
+        subtitle: kioskLabels.wizardQtyDesc,
+    },
+    {
+        key: 'scrap',
+        title: kioskLabels.wizardStepScrap,
+        subtitle: kioskLabels.wizardScrapDesc,
+    },
+    {
+        key: 'photo',
+        title: kioskLabels.wizardStepFoto,
+        subtitle: kioskLabels.wizardFotoDesc,
+    },
+    {
+        key: 'confirm',
+        title: kioskLabels.wizardStepKonfirmasi,
+        subtitle: kioskLabels.wizardKonfirmasiDesc,
+    },
 ] as const;
 
 type ScrapConfirmMode = 'idle' | 'scrap-zero' | 'scrap-only';
@@ -57,7 +92,7 @@ export function KioskLogOutputDialog({
     operatorId,
     orderHelpers = [],
     shifts = [],
-    onSuccess
+    onSuccess,
 }: KioskLogOutputDialogProps) {
     const [step, setStep] = useState(0);
     const [quantity, setQuantity] = useState<string>('');
@@ -68,12 +103,15 @@ export function KioskLogOutputDialog({
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
-    const [scrapConfirmMode, setScrapConfirmMode] = useState<ScrapConfirmMode>('idle');
-    const [loggedOutputs, setLoggedOutputs] = useState<Array<{
-        quantity: number;
-        unit: string;
-        hasPhoto: boolean;
-    }>>([]);
+    const [scrapConfirmMode, setScrapConfirmMode] =
+        useState<ScrapConfirmMode>('idle');
+    const [loggedOutputs, setLoggedOutputs] = useState<
+        Array<{
+            quantity: number;
+            unit: string;
+            hasPhoto: boolean;
+        }>
+    >([]);
     const [selectedShiftId, setSelectedShiftId] = useState<string>('');
 
     // Is any shift currently active by time window (startTime <= now <= endTime)?
@@ -81,7 +119,7 @@ export function KioskLogOutputDialog({
     const hasActiveShiftByTime = (() => {
         if (shifts.length === 0) return false;
         const now = Date.now();
-        return shifts.some(s => {
+        return shifts.some((s) => {
             const start = new Date(s.startTime).getTime();
             const end = new Date(s.endTime).getTime();
             return now >= start && now <= end;
@@ -100,9 +138,11 @@ export function KioskLogOutputDialog({
             return now >= start && now <= end;
         };
         if (operatorId) {
-            const activeByOperator = shifts.find(s => s.operatorId === operatorId && isActive(s));
+            const activeByOperator = shifts.find(
+                (s) => s.operatorId === operatorId && isActive(s),
+            );
             if (activeByOperator) return activeByOperator;
-            const byOperator = shifts.find(s => s.operatorId === operatorId);
+            const byOperator = shifts.find((s) => s.operatorId === operatorId);
             if (byOperator) return byOperator;
         }
         const activeAny = shifts.find(isActive);
@@ -110,11 +150,15 @@ export function KioskLogOutputDialog({
         return shifts[shifts.length - 1]; // fallback: latest shift overall (findLatestShiftForOrder equivalent)
     })();
 
-    const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
+    const unitMeta = getProductionUnitMeta({
+        primaryUnit,
+        salesUnit,
+        conversionFactor,
+    });
 
     const helperIds = orderHelpers
-        .filter(h => h.id !== operatorId)
-        .map(h => h.id);
+        .filter((h) => h.id !== operatorId)
+        .map((h) => h.id);
 
     const qtyNum = parseFloat(quantity) || 0;
     const prongkolNum = parseFloat(scrapProngkol) || 0;
@@ -128,13 +172,19 @@ export function KioskLogOutputDialog({
         formData.append('file', file);
         formData.append('executionId', executionId);
         try {
-            const res = await fetch('/api/upload/production-photo', { method: 'POST', body: formData });
+            const res = await fetch('/api/upload/production-photo', {
+                method: 'POST',
+                body: formData,
+            });
             if (!res.ok) {
                 let errMsg = `Gagal upload foto (${res.status})`;
                 try {
                     const errBody = await res.json();
-                    if (errBody?.error) errMsg = `Upload foto: ${errBody.error}`;
-                } catch { /* response not JSON */ }
+                    if (errBody?.error)
+                        errMsg = `Upload foto: ${errBody.error}`;
+                } catch {
+                    /* response not JSON */
+                }
                 toast.error(errMsg);
                 return null;
             }
@@ -142,7 +192,9 @@ export function KioskLogOutputDialog({
             return data.publicUrl || null;
         } catch (error) {
             console.error('Photo upload failed:', error);
-            toast.error('Koneksi gagal saat upload foto. Periksa jaringan lalu coba lagi.');
+            toast.error(
+                'Koneksi gagal saat upload foto. Periksa jaringan lalu coba lagi.',
+            );
             return null;
         }
     };
@@ -159,7 +211,7 @@ export function KioskLogOutputDialog({
             let photoUrl: string | undefined;
             if (photoFile) {
                 setIsUploadingPhoto(true);
-                photoUrl = await uploadPhoto(photoFile) || undefined;
+                photoUrl = (await uploadPhoto(photoFile)) || undefined;
                 setIsUploadingPhoto(false);
             }
 
@@ -167,9 +219,15 @@ export function KioskLogOutputDialog({
                 executionId,
                 quantityProduced: baseQty,
                 enteredQuantity: unitMeta.hasAlternateUnit ? qtyNum : undefined,
-                enteredUnit: unitMeta.hasAlternateUnit ? unitMeta.salesUnit as Unit : undefined,
-                baseQuantityProduced: unitMeta.hasAlternateUnit ? baseQty : undefined,
-                conversionFactorSnapshot: unitMeta.hasAlternateUnit ? unitMeta.conversionFactor : undefined,
+                enteredUnit: unitMeta.hasAlternateUnit
+                    ? (unitMeta.salesUnit as Unit)
+                    : undefined,
+                baseQuantityProduced: unitMeta.hasAlternateUnit
+                    ? baseQty
+                    : undefined,
+                conversionFactorSnapshot: unitMeta.hasAlternateUnit
+                    ? unitMeta.conversionFactor
+                    : undefined,
                 scrapQuantity: totalScrap,
                 scrapProngkolQty: prongkolNum,
                 scrapDaunQty: daunNum,
@@ -182,15 +240,18 @@ export function KioskLogOutputDialog({
 
             if (result.success) {
                 toast.success(kioskLabels.wizardSuccessDesc);
-                setLoggedOutputs(prev => [...prev, {
-                    quantity: qtyNum,
-                    unit: unitMeta.displayUnit,
-                    hasPhoto: !!photoUrl,
-                }]);
+                setLoggedOutputs((prev) => [
+                    ...prev,
+                    {
+                        quantity: qtyNum,
+                        unit: unitMeta.displayUnit,
+                        hasPhoto: !!photoUrl,
+                    },
+                ]);
                 setShowSuccess(true);
                 if (onSuccess) onSuccess();
             } else {
-                toast.error(result.error || "Gagal mencatat hasil");
+                toast.error(result.error || 'Gagal mencatat hasil');
             }
         } catch (error) {
             toast.error('Gagal memproses. Silakan coba lagi.');
@@ -203,7 +264,7 @@ export function KioskLogOutputDialog({
     // Step 0: Qty — only reject negative
     const handleNextFromQty = () => {
         if (qtyNum < 0) {
-            toast.error("Jumlah hasil tidak boleh negatif");
+            toast.error('Jumlah hasil tidak boleh negatif');
             return;
         }
         // Allow qty=0 (will be validated at confirm step)
@@ -216,7 +277,7 @@ export function KioskLogOutputDialog({
 
         if (qtyNum === 0 && scrapAlreadyZero) {
             // qty=0 + scrap=0 → block, need at least one
-            toast.error("Masukkan jumlah hasil atau scrap");
+            toast.error('Masukkan jumlah hasil atau scrap');
             return;
         }
 
@@ -299,18 +360,29 @@ export function KioskLogOutputDialog({
                         <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center">
                             <CheckCircle2 className="h-8 w-8 text-emerald-600" />
                         </div>
-                        <h2 className="text-2xl font-black">{kioskLabels.wizardSuccessTitle}</h2>
-                        <p className="text-muted-foreground text-center">{kioskLabels.wizardSuccessDesc}</p>
+                        <h2 className="text-2xl font-black">
+                            {kioskLabels.wizardSuccessTitle}
+                        </h2>
+                        <p className="text-muted-foreground text-center">
+                            {kioskLabels.wizardSuccessDesc}
+                        </p>
 
                         {loggedOutputs.length > 0 && (
                             <div className="w-full bg-muted/50 rounded-lg p-3 text-sm">
                                 <div className="font-bold text-emerald-600">
-                                    +{qtyNum.toLocaleString('id-ID')} {unitMeta.displayUnit}
-                                    {hasPhoto && <Camera className="inline ml-2 h-4 w-4" />}
+                                    +{qtyNum.toLocaleString('id-ID')}{' '}
+                                    {unitMeta.displayUnit}
+                                    {hasPhoto && (
+                                        <Camera className="inline ml-2 h-4 w-4" />
+                                    )}
                                 </div>
                                 {loggedOutputs.length > 1 && (
                                     <div className="text-xs text-muted-foreground mt-1">
-                                        Total dicatat: {loggedOutputs.reduce((s, l) => s + l.quantity, 0).toLocaleString('id-ID')} {unitMeta.displayUnit}
+                                        Total dicatat:{' '}
+                                        {loggedOutputs
+                                            .reduce((s, l) => s + l.quantity, 0)
+                                            .toLocaleString('id-ID')}{' '}
+                                        {unitMeta.displayUnit}
                                     </div>
                                 )}
                             </div>
@@ -343,7 +415,9 @@ export function KioskLogOutputDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="text-xl">{kioskLabels.logOutput}: {productName}</DialogTitle>
+                    <DialogTitle className="text-xl">
+                        {kioskLabels.logOutput}: {productName}
+                    </DialogTitle>
                     <DialogDescription className="sr-only">
                         Wizard catat hasil produksi
                     </DialogDescription>
@@ -363,8 +437,12 @@ export function KioskLogOutputDialog({
                     {step === 0 && (
                         <div className="space-y-4 animate-in fade-in duration-200">
                             <div className="space-y-2">
-                                <Label htmlFor="log-quantity" className="text-base font-semibold">
-                                    {kioskLabels.wizardQtyLabel} ({unitMeta.displayUnit})
+                                <Label
+                                    htmlFor="log-quantity"
+                                    className="text-base font-semibold"
+                                >
+                                    {kioskLabels.wizardQtyLabel} (
+                                    {unitMeta.displayUnit})
                                 </Label>
                                 <Input
                                     id="log-quantity"
@@ -374,12 +452,15 @@ export function KioskLogOutputDialog({
                                     placeholder="0.00"
                                     className="h-16 text-2xl font-bold bg-emerald-500/10 border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500"
                                     value={quantity}
-                                    onChange={(e) => setQuantity(e.target.value)}
+                                    onChange={(e) =>
+                                        setQuantity(e.target.value)
+                                    }
                                     autoFocus
                                 />
                                 {unitMeta.hasAlternateUnit && (
                                     <p className="text-xs text-muted-foreground">
-                                        Dicatat internal sebagai {unitMeta.primaryUnit}
+                                        Dicatat internal sebagai{' '}
+                                        {unitMeta.primaryUnit}
                                     </p>
                                 )}
                             </div>
@@ -395,8 +476,16 @@ export function KioskLogOutputDialog({
                                     <div className="flex items-start gap-3">
                                         <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-amber-800">{kioskLabels.wizardScrapZeroTitle}</p>
-                                            <p className="text-sm text-amber-700 mt-1">{kioskLabels.wizardScrapZeroDesc}</p>
+                                            <p className="font-semibold text-amber-800">
+                                                {
+                                                    kioskLabels.wizardScrapZeroTitle
+                                                }
+                                            </p>
+                                            <p className="text-sm text-amber-700 mt-1">
+                                                {
+                                                    kioskLabels.wizardScrapZeroDesc
+                                                }
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 justify-end">
@@ -405,7 +494,9 @@ export function KioskLogOutputDialog({
                                             variant="outline"
                                             size="sm"
                                             className="border-amber-400 text-amber-700 hover:bg-amber-100"
-                                            onClick={handleScrapConfirmEditScrap}
+                                            onClick={
+                                                handleScrapConfirmEditScrap
+                                            }
                                         >
                                             Isi Scrap
                                         </Button>
@@ -426,8 +517,16 @@ export function KioskLogOutputDialog({
                                     <div className="flex items-start gap-3">
                                         <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-blue-800">{kioskLabels.wizardScrapOnlyTitle}</p>
-                                            <p className="text-sm text-blue-700 mt-1">{kioskLabels.wizardScrapOnlyDesc}</p>
+                                            <p className="font-semibold text-blue-800">
+                                                {
+                                                    kioskLabels.wizardScrapOnlyTitle
+                                                }
+                                            </p>
+                                            <p className="text-sm text-blue-700 mt-1">
+                                                {
+                                                    kioskLabels.wizardScrapOnlyDesc
+                                                }
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 justify-end">
@@ -455,8 +554,12 @@ export function KioskLogOutputDialog({
                             {scrapConfirmMode === 'idle' && (
                                 <>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="log-scrap-prongkol" className="text-sm font-semibold text-amber-500">
-                                            {kioskLabels.wizardScrapProngkol} ({unitMeta.primaryUnit})
+                                        <Label
+                                            htmlFor="log-scrap-prongkol"
+                                            className="text-sm font-semibold text-amber-500"
+                                        >
+                                            {kioskLabels.wizardScrapProngkol} (
+                                            {unitMeta.primaryUnit})
                                         </Label>
                                         <Input
                                             id="log-scrap-prongkol"
@@ -466,13 +569,19 @@ export function KioskLogOutputDialog({
                                             placeholder="0.00"
                                             className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
                                             value={scrapProngkol}
-                                            onChange={(e) => setScrapProngkol(e.target.value)}
+                                            onChange={(e) =>
+                                                setScrapProngkol(e.target.value)
+                                            }
                                             autoFocus
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="log-scrap-daun" className="text-sm font-semibold text-amber-500">
-                                            {kioskLabels.wizardScrapDaun} ({unitMeta.primaryUnit})
+                                        <Label
+                                            htmlFor="log-scrap-daun"
+                                            className="text-sm font-semibold text-amber-500"
+                                        >
+                                            {kioskLabels.wizardScrapDaun} (
+                                            {unitMeta.primaryUnit})
                                         </Label>
                                         <Input
                                             id="log-scrap-daun"
@@ -482,11 +591,14 @@ export function KioskLogOutputDialog({
                                             placeholder="0.00"
                                             className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
                                             value={scrapDaun}
-                                            onChange={(e) => setScrapDaun(e.target.value)}
+                                            onChange={(e) =>
+                                                setScrapDaun(e.target.value)
+                                            }
                                         />
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                        Kosongkan jika tidak ada scrap. Lanjut untuk skip.
+                                        Kosongkan jika tidak ada scrap. Lanjut
+                                        untuk skip.
                                     </p>
                                 </>
                             )}
@@ -497,7 +609,9 @@ export function KioskLogOutputDialog({
                     {step === 2 && (
                         <div className="space-y-4 animate-in fade-in duration-200">
                             <div className="space-y-2">
-                                <Label className="text-sm font-semibold">{kioskLabels.wizardPhotoLabel}</Label>
+                                <Label className="text-sm font-semibold">
+                                    {kioskLabels.wizardPhotoLabel}
+                                </Label>
                                 <CameraCapture
                                     onCapture={setPhotoFile}
                                     onRemove={() => setPhotoFile(null)}
@@ -505,12 +619,15 @@ export function KioskLogOutputDialog({
                                 />
                                 {isUploadingPhoto && (
                                     <p className="text-sm text-muted-foreground flex items-center gap-2">
-                                        <Loader2 className="h-3 w-3 animate-spin" /> Mengupload foto...
+                                        <Loader2 className="h-3 w-3 animate-spin" />{' '}
+                                        Mengupload foto...
                                     </p>
                                 )}
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="log-notes">{kioskLabels.wizardNotesLabel}</Label>
+                                <Label htmlFor="log-notes">
+                                    {kioskLabels.wizardNotesLabel}
+                                </Label>
                                 <Textarea
                                     id="log-notes"
                                     placeholder="contoh: Nomor Batch, ID Roll..."
@@ -529,28 +646,47 @@ export function KioskLogOutputDialog({
                             <div className="bg-muted/50 rounded-xl border p-4 space-y-3">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.wizardSummaryQty}</span>
+                                        <span className="text-xs text-muted-foreground uppercase font-bold">
+                                            {kioskLabels.wizardSummaryQty}
+                                        </span>
                                         <p className="text-2xl font-black text-emerald-600">
-                                            {qtyNum.toLocaleString('id-ID')} {unitMeta.displayUnit}
+                                            {qtyNum.toLocaleString('id-ID')}{' '}
+                                            {unitMeta.displayUnit}
                                         </p>
                                     </div>
                                     <div>
-                                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.wizardSummaryScrap}</span>
+                                        <span className="text-xs text-muted-foreground uppercase font-bold">
+                                            {kioskLabels.wizardSummaryScrap}
+                                        </span>
                                         <p className="text-2xl font-black text-amber-600">
-                                            {totalScrap.toLocaleString('id-ID')} {unitMeta.primaryUnit}
+                                            {totalScrap.toLocaleString('id-ID')}{' '}
+                                            {unitMeta.primaryUnit}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm">
                                     <Camera className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-medium">{kioskLabels.wizardSummaryFoto}:</span>
-                                    <span className={hasPhoto ? "text-emerald-600 font-bold" : "text-muted-foreground"}>
-                                        {hasPhoto ? kioskLabels.wizardSummaryAda : kioskLabels.wizardSummaryTidak}
+                                    <span className="font-medium">
+                                        {kioskLabels.wizardSummaryFoto}:
+                                    </span>
+                                    <span
+                                        className={
+                                            hasPhoto
+                                                ? 'text-emerald-600 font-bold'
+                                                : 'text-muted-foreground'
+                                        }
+                                    >
+                                        {hasPhoto
+                                            ? kioskLabels.wizardSummaryAda
+                                            : kioskLabels.wizardSummaryTidak}
                                     </span>
                                 </div>
                                 {notes && (
                                     <div className="text-sm">
-                                        <span className="font-medium">Catatan:</span> {notes}
+                                        <span className="font-medium">
+                                            Catatan:
+                                        </span>{' '}
+                                        {notes}
                                     </div>
                                 )}
                             </div>
@@ -565,16 +701,27 @@ export function KioskLogOutputDialog({
                                         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
                                             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                                             <p className="text-xs text-amber-700">
-                                                Semua shift untuk SPK ini sudah lewat. Sistem memilih shift terakhir secara otomatis — periksa kembali sebelum simpan, atau hubungi PPIC untuk tambah shift baru.
+                                                Semua shift untuk SPK ini sudah
+                                                lewat. Sistem memilih shift
+                                                terakhir secara otomatis —
+                                                periksa kembali sebelum simpan,
+                                                atau hubungi PPIC untuk tambah
+                                                shift baru.
                                             </p>
                                         </div>
                                     )}
                                     <select
-                                        value={selectedShiftId || autoSelectedShift?.id || ''}
-                                        onChange={(e) => setSelectedShiftId(e.target.value)}
+                                        value={
+                                            selectedShiftId ||
+                                            autoSelectedShift?.id ||
+                                            ''
+                                        }
+                                        onChange={(e) =>
+                                            setSelectedShiftId(e.target.value)
+                                        }
                                         className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
-                                        {shifts.map(s => (
+                                        {shifts.map((s) => (
                                             <option key={s.id} value={s.id}>
                                                 {s.shiftName}
                                             </option>
@@ -586,7 +733,9 @@ export function KioskLogOutputDialog({
                                 <div className="rounded-lg border border-red-300 bg-red-50 p-3 flex items-start gap-2">
                                     <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
                                     <p className="text-xs text-red-700">
-                                        Belum ada shift di SPK ini — tambah shift dulu di detail SPK atau hubungi PPIC.
+                                        Belum ada shift di SPK ini — tambah
+                                        shift dulu di detail SPK atau hubungi
+                                        PPIC.
                                     </p>
                                 </div>
                             )}
@@ -594,7 +743,8 @@ export function KioskLogOutputDialog({
                             {/* Final validation warning */}
                             {qtyNum === 0 && totalScrap === 0 && (
                                 <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 font-medium">
-                                    Qty bagus dan scrap keduanya 0. Masukkan minimal satu.
+                                    Qty bagus dan scrap keduanya 0. Masukkan
+                                    minimal satu.
                                 </div>
                             )}
 
@@ -616,7 +766,8 @@ export function KioskLogOutputDialog({
                                                 }`}
                                             >
                                                 {emp.name}
-                                                {emp.id === operatorId && ' (Anda)'}
+                                                {emp.id === operatorId &&
+                                                    ' (Anda)'}
                                             </span>
                                         ))}
                                     </div>
@@ -646,17 +797,26 @@ export function KioskLogOutputDialog({
                     {step < STEPS.length - 1 && scrapConfirmMode === 'idle' ? (
                         <Button
                             type="button"
-                            onClick={step === 0 ? handleNextFromQty : step === 1 ? handleNextFromScrap : () => setStep(step + 1)}
+                            onClick={
+                                step === 0
+                                    ? handleNextFromQty
+                                    : step === 1
+                                      ? handleNextFromScrap
+                                      : () => setStep(step + 1)
+                            }
                             className="h-12 font-bold px-8 bg-emerald-600 hover:bg-emerald-700"
                         >
                             {kioskLabels.wizardNext}
                             <ArrowRight className="ml-1 h-4 w-4" />
                         </Button>
-                    ) : step === STEPS.length - 1 && scrapConfirmMode === 'idle' ? (
+                    ) : step === STEPS.length - 1 &&
+                      scrapConfirmMode === 'idle' ? (
                         <Button
                             type="button"
                             onClick={submitOutput}
-                            disabled={isLoading || (qtyNum === 0 && totalScrap === 0)}
+                            disabled={
+                                isLoading || (qtyNum === 0 && totalScrap === 0)
+                            }
                             className="h-12 font-bold px-8 bg-emerald-600 hover:bg-emerald-700"
                         >
                             {isLoading ? (

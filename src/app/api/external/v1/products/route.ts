@@ -1,10 +1,9 @@
-import { withTenantRoute } from "@/lib/core/tenant";
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/core/prisma";
-import { validateExternalRequest } from "@/lib/api/external-api-helper";
+import { withTenantRoute } from '@/lib/core/tenant';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/core/prisma';
+import { validateExternalRequest } from '@/lib/api/external-api-helper';
 
-export const GET = withTenantRoute(
-async function GET(req: NextRequest) {
+export const GET = withTenantRoute(async function GET(req: NextRequest) {
     // 1. Validate API Key
     const { isValid, response } = await validateExternalRequest(req);
     if (!isValid) {
@@ -25,10 +24,10 @@ async function GET(req: NextRequest) {
                             },
                         },
                     },
-                    orderBy: { name: "asc" },
+                    orderBy: { name: 'asc' },
                 },
             },
-            orderBy: { name: "asc" },
+            orderBy: { name: 'asc' },
         });
 
         // 3. Transform data for API response
@@ -37,7 +36,7 @@ async function GET(req: NextRequest) {
             const variants = product.variants.map((variant) => {
                 const stock = variant.inventories.reduce(
                     (sum, inv) => sum + Number(inv.quantity),
-                    0
+                    0,
                 );
                 totalStock += stock;
                 return {
@@ -65,11 +64,10 @@ async function GET(req: NextRequest) {
             data,
         });
     } catch (error) {
-        console.error("External API Error:", error);
+        console.error('External API Error:', error);
         return NextResponse.json(
-            { success: false, error: "Internal Server Error" },
-            { status: 500 }
+            { success: false, error: 'Internal Server Error' },
+            { status: 500 },
         );
     }
-}
-);
+});

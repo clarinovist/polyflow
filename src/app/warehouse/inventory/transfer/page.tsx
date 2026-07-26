@@ -1,7 +1,15 @@
-import { getInventoryStats, getLocations, getProductVariants, getStockMovements } from '@/actions/inventory/inventory';
+import {
+    getInventoryStats,
+    getLocations,
+    getProductVariants,
+    getStockMovements,
+} from '@/actions/inventory/inventory';
 import { TransferForm } from '@/components/warehouse/inventory/TransferForm';
 import { QuickStockCheck } from '@/components/warehouse/inventory/QuickStockCheck';
-import { RecentTransfers, StockMovement } from '@/components/warehouse/inventory/RecentTransfers';
+import {
+    RecentTransfers,
+    StockMovement,
+} from '@/components/warehouse/inventory/RecentTransfers';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
@@ -13,24 +21,49 @@ export const metadata: Metadata = {
 };
 
 export default async function WarehouseTransferPage() {
-    const [liveInventoryRes, locationsRes, productsDataRes, recentMovementsRes] = await Promise.all([
+    const [
+        liveInventoryRes,
+        locationsRes,
+        productsDataRes,
+        recentMovementsRes,
+    ] = await Promise.all([
         getInventoryStats(),
         getLocations(),
         getProductVariants(),
         getStockMovements(10),
     ]);
-    
-    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
-    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
-    const productsData = productsDataRes.success && productsDataRes.data ? productsDataRes.data : [];
-    const recentMovements = recentMovementsRes.success && recentMovementsRes.data ? recentMovementsRes.data : [];
 
-    const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
-    const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));
-    const liveInventorySimple = serializeData(liveInventory) as unknown as { locationId: string; productVariantId: string; quantity: number }[];
+    const liveInventory =
+        liveInventoryRes.success && liveInventoryRes.data
+            ? liveInventoryRes.data
+            : [];
+    const locations =
+        locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const productsData =
+        productsDataRes.success && productsDataRes.data
+            ? productsDataRes.data
+            : [];
+    const recentMovements =
+        recentMovementsRes.success && recentMovementsRes.data
+            ? recentMovementsRes.data
+            : [];
+
+    const formLocations = locations.map((l) => ({ id: l.id, name: l.name }));
+    const formProducts = productsData.map((p) => ({
+        id: p.id,
+        name: p.name,
+        skuCode: p.skuCode,
+    }));
+    const liveInventorySimple = serializeData(liveInventory) as unknown as {
+        locationId: string;
+        productVariantId: string;
+        quantity: number;
+    }[];
 
     // Serialize movements to plain objects for Client Component
-    const recentMovementsSerialized = serializeData(recentMovements) as unknown as StockMovement[];
+    const recentMovementsSerialized = serializeData(
+        recentMovements,
+    ) as unknown as StockMovement[];
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -40,13 +73,23 @@ export default async function WarehouseTransferPage() {
                         <ArrowLeftRight className="h-4 w-4" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-foreground tracking-tight">Stock Transfer</h2>
-                        <p className="text-xs text-muted-foreground">Pindahkan stok antar lokasi</p>
+                        <h2 className="text-lg font-bold text-foreground tracking-tight">
+                            Stock Transfer
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                            Pindahkan stok antar lokasi
+                        </p>
                     </div>
                 </div>
-                <Button variant="outline" size="sm" asChild className="h-8 text-xs gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="h-8 text-xs gap-2"
+                >
                     <Link href="/warehouse/inventory">
-                        <ArrowLeft className="h-3.5 w-3.5" /> Kembali ke Inventaris
+                        <ArrowLeft className="h-3.5 w-3.5" /> Kembali ke
+                        Inventaris
                     </Link>
                 </Button>
             </div>
@@ -68,9 +111,7 @@ export default async function WarehouseTransferPage() {
                         locations={formLocations}
                     />
 
-                    <RecentTransfers
-                        movements={recentMovementsSerialized}
-                    />
+                    <RecentTransfers movements={recentMovementsSerialized} />
                 </div>
             </div>
         </div>

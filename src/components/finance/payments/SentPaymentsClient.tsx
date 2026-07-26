@@ -38,18 +38,29 @@ interface SentPaymentsClientProps {
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
-export function SentPaymentsClient({ payments, unpaidInvoices, paymentBanks = {} }: SentPaymentsClientProps) {
+export function SentPaymentsClient({
+    payments,
+    unpaidInvoices,
+    paymentBanks = {},
+}: SentPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Pembayaran Supplier</h1>
-                    <p className="text-muted-foreground">Lacak dan kelola pembayaran yang dikirim ke supplier.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Pembayaran Supplier
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Lacak dan kelola pembayaran yang dikirim ke supplier.
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
+                    <UrlTransactionDateFilter
+                        defaultPreset="this_month"
+                        align="end"
+                    />
                     <Button onClick={() => setDialogOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Catat Pembayaran

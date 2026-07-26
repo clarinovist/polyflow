@@ -1,6 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/components/layout/theme-provider';
 import { cn } from '@/lib/utils/utils';
@@ -26,9 +32,12 @@ export function ThemeSettings() {
             <CardContent>
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="space-y-0.5">
-                        <h3 className="text-base font-medium">Preferensi Tema</h3>
+                        <h3 className="text-base font-medium">
+                            Preferensi Tema
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                            Beralih antara mode terang, gelap, atau ikuti sistem.
+                            Beralih antara mode terang, gelap, atau ikuti
+                            sistem.
                         </p>
                     </div>
                     <div className="flex gap-1">
@@ -39,7 +48,8 @@ export function ThemeSettings() {
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    theme === opt.value && 'bg-muted border-primary'
+                                    theme === opt.value &&
+                                        'bg-muted border-primary',
                                 )}
                                 onClick={() => setTheme(opt.value)}
                                 aria-pressed={theme === opt.value}

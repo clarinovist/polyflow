@@ -11,7 +11,9 @@ interface PageProps {
 }
 
 /** Secondary: Sales Order context from warehouse (not the load queue unit of work). */
-export default async function WarehouseOutgoingSODetailPage({ params }: PageProps) {
+export default async function WarehouseOutgoingSODetailPage({
+    params,
+}: PageProps) {
     const { id } = await params;
     const response = await getSalesOrderById(id);
 

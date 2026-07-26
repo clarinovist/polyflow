@@ -6,8 +6,17 @@ import { LayoutDashboard } from 'lucide-react';
 
 export function AdminBackButton() {
     return (
-        <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-primary">
-            <Link href="/dashboard" className="flex items-center gap-2" aria-label="Kembali ke Dashboard">
+        <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-muted-foreground hover:text-primary"
+        >
+            <Link
+                href="/dashboard"
+                className="flex items-center gap-2"
+                aria-label="Kembali ke Dashboard"
+            >
                 <LayoutDashboard className="h-4 w-4" />
                 <span className="hidden sm:inline">Dashboard</span>
             </Link>

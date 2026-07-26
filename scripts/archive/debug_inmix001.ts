@@ -12,9 +12,9 @@ async function checkLedger() {
         where: { skuCode: sku },
         include: {
             inventories: {
-                include: { location: true }
-            }
-        }
+                include: { location: true },
+            },
+        },
     });
 
     if (!productVariant) {
@@ -24,8 +24,10 @@ async function checkLedger() {
 
     console.log(`Product: ${productVariant.name} (${productVariant.skuCode})`);
     console.log('Current Inventory:');
-    productVariant.inventories.forEach(inv => {
-        console.log(`- Location: ${inv.location.name} (${inv.location.slug}), Qty: ${inv.quantity}`);
+    productVariant.inventories.forEach((inv) => {
+        console.log(
+            `- Location: ${inv.location.name} (${inv.location.slug}), Qty: ${inv.quantity}`,
+        );
     });
 
     const movements = await prisma.stockMovement.findMany({
@@ -35,19 +37,23 @@ async function checkLedger() {
         include: {
             fromLocation: true,
             toLocation: true,
-            productionOrder: true
-        }
+            productionOrder: true,
+        },
     });
 
     console.log('\nRecent Stock Movements (Last 50):');
-    movements.forEach(m => {
+    movements.forEach((m) => {
         const from = m.fromLocation ? m.fromLocation.name : 'N/A';
         const to = m.toLocation ? m.toLocation.name : 'N/A';
-        const ref = m.reference || (m.productionOrder ? m.productionOrder.orderNumber : 'N/A');
-        console.log(`[${m.createdAt.toISOString()}] Type: ${m.type}, Qty: ${m.quantity}, From: ${from}, To: ${to}, Ref: ${ref}`);
+        const ref =
+            m.reference ||
+            (m.productionOrder ? m.productionOrder.orderNumber : 'N/A');
+        console.log(
+            `[${m.createdAt.toISOString()}] Type: ${m.type}, Qty: ${m.quantity}, From: ${from}, To: ${to}, Ref: ${ref}`,
+        );
     });
 }
 
 checkLedger()
-    .catch(e => console.error(e))
+    .catch((e) => console.error(e))
     .finally(async () => await prisma.$disconnect());

@@ -5,7 +5,8 @@ type UnitConfig = {
 };
 
 export function unitNumber(value: unknown, fallback = 0): number {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+    if (typeof value === 'number')
+        return Number.isFinite(value) ? value : fallback;
     if (typeof value === 'string') {
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : fallback;
@@ -30,7 +31,7 @@ export function getProductionUnitMeta(config: UnitConfig) {
         salesUnit &&
         salesUnit !== primaryUnit &&
         Number.isFinite(conversionFactor) &&
-        conversionFactor > 0
+        conversionFactor > 0,
     );
 
     return {
@@ -42,11 +43,17 @@ export function getProductionUnitMeta(config: UnitConfig) {
     };
 }
 
-export function toBaseQuantity(enteredQuantity: number, conversionFactor: number) {
+export function toBaseQuantity(
+    enteredQuantity: number,
+    conversionFactor: number,
+) {
     return enteredQuantity * conversionFactor;
 }
 
-export function toDisplayQuantity(baseQuantity: number, conversionFactor: number) {
+export function toDisplayQuantity(
+    baseQuantity: number,
+    conversionFactor: number,
+) {
     if (!conversionFactor || conversionFactor <= 0) return baseQuantity;
     return baseQuantity / conversionFactor;
 }
@@ -61,7 +68,7 @@ export function formatQuantity(value: number, fractionDigits = 2) {
 export function formatProductionQuantity(
     baseQuantity: number,
     config: UnitConfig,
-    options: { showBaseWhenAlternate?: boolean; fractionDigits?: number } = {}
+    options: { showBaseWhenAlternate?: boolean; fractionDigits?: number } = {},
 ) {
     const { showBaseWhenAlternate = true, fractionDigits = 2 } = options;
     const meta = getProductionUnitMeta(config);
@@ -89,29 +96,35 @@ export type EnteredQuantitySnapshot = UnitConfig & {
 
 export function getEnteredQuantityDisplay(
     item: EnteredQuantitySnapshot,
-    options: { showBaseWhenAlternate?: boolean; fractionDigits?: number } = {}
+    options: { showBaseWhenAlternate?: boolean; fractionDigits?: number } = {},
 ) {
     const { showBaseWhenAlternate = true, fractionDigits = 2 } = options;
     const baseQuantity = unitNumber(item.quantity, 0);
-    const snapshotQty = item.enteredQuantity !== undefined && item.enteredQuantity !== null
-        ? unitNumber(item.enteredQuantity, 0)
-        : null;
+    const snapshotQty =
+        item.enteredQuantity !== undefined && item.enteredQuantity !== null
+            ? unitNumber(item.enteredQuantity, 0)
+            : null;
     const snapshotUnit = item.enteredUnit || null;
 
     if (snapshotQty !== null && snapshotUnit) {
         const display = `${formatQuantity(snapshotQty, fractionDigits)} ${snapshotUnit}`;
-        if (!showBaseWhenAlternate || snapshotUnit === item.primaryUnit) return display;
+        if (!showBaseWhenAlternate || snapshotUnit === item.primaryUnit)
+            return display;
 
         return `${display} (${formatQuantity(baseQuantity, fractionDigits)} ${item.primaryUnit || 'KG'})`;
     }
 
-    return formatProductionQuantity(baseQuantity, item, { showBaseWhenAlternate, fractionDigits });
+    return formatProductionQuantity(baseQuantity, item, {
+        showBaseWhenAlternate,
+        fractionDigits,
+    });
 }
 
 export function getEnteredUnitPriceDisplay(item: EnteredQuantitySnapshot) {
-    const snapshotPrice = item.enteredUnitPrice !== undefined && item.enteredUnitPrice !== null
-        ? unitNumber(item.enteredUnitPrice, 0)
-        : null;
+    const snapshotPrice =
+        item.enteredUnitPrice !== undefined && item.enteredUnitPrice !== null
+            ? unitNumber(item.enteredUnitPrice, 0)
+            : null;
     const snapshotUnit = item.enteredUnit || null;
 
     if (snapshotPrice !== null && snapshotUnit) {
@@ -124,7 +137,9 @@ export function getEnteredUnitPriceDisplay(item: EnteredQuantitySnapshot) {
     const meta = getProductionUnitMeta(item);
     const basePrice = unitNumber(item.unitPrice, 0);
     return {
-        price: meta.hasAlternateUnit ? basePrice * meta.conversionFactor : basePrice,
+        price: meta.hasAlternateUnit
+            ? basePrice * meta.conversionFactor
+            : basePrice,
         unit: meta.displayUnit,
     };
 }

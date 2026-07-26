@@ -1,15 +1,19 @@
-"use server";
+'use server';
 
-import { prisma } from "@/lib/core/prisma";
-import { exec } from "child_process";
-import util from "util";
-import { Role } from "@prisma/client";
-import { Client } from "pg";
-import { auth } from "@/auth";
-import bcrypt from "bcryptjs";
-import { logger } from "@/lib/config/logger";
-import { safeAction, AuthorizationError, BusinessRuleError } from "@/lib/errors/errors";
-import { logActivity } from "@/lib/tools/audit";
+import { prisma } from '@/lib/core/prisma';
+import { exec } from 'child_process';
+import util from 'util';
+import { Role } from '@prisma/client';
+import { Client } from 'pg';
+import { auth } from '@/auth';
+import bcrypt from 'bcryptjs';
+import { logger } from '@/lib/config/logger';
+import {
+    safeAction,
+    AuthorizationError,
+    BusinessRuleError,
+} from '@/lib/errors/errors';
+import { logActivity } from '@/lib/tools/audit';
 
 const execPromise = util.promisify(exec);
 
@@ -18,7 +22,7 @@ function buildTenantDbName(subdomain: string): string {
     const dbName = `polyflow_${normalized}`;
 
     if (!/^[a-z][a-z0-9_]*$/.test(dbName)) {
-        throw new BusinessRuleError("Nama database turunan tidak valid.");
+        throw new BusinessRuleError('Nama database turunan tidak valid.');
     }
 
     return dbName;
@@ -32,22 +36,32 @@ export async function createAndProvisionTenant(formData: FormData) {
     return safeAction(async () => {
         const session = await auth();
         if (session?.user?.role !== Role.ADMIN) {
-            throw new AuthorizationError("Unauthorized: Super Admin access required.");
+            throw new AuthorizationError(
+                'Unauthorized: Super Admin access required.',
+            );
         }
 
-        const name = formData.get("name") as string;
-        const subdomain = formData.get("subdomain") as string;
-        const adminName = formData.get("adminName") as string;
-        const adminEmail = formData.get("adminEmail") as string;
-        const adminPassword = formData.get("adminPassword") as string;
+        const name = formData.get('name') as string;
+        const subdomain = formData.get('subdomain') as string;
+        const adminName = formData.get('adminName') as string;
+        const adminEmail = formData.get('adminEmail') as string;
+        const adminPassword = formData.get('adminPassword') as string;
 
-        if (!name || !subdomain || !adminName || !adminEmail || !adminPassword) {
-            throw new BusinessRuleError("Semua field wajib diisi.");
+        if (
+            !name ||
+            !subdomain ||
+            !adminName ||
+            !adminEmail ||
+            !adminPassword
+        ) {
+            throw new BusinessRuleError('Semua field wajib diisi.');
         }
 
         // Basic validation
         if (!/^[a-z0-9-]+$/.test(subdomain)) {
-            throw new BusinessRuleError("Subdomain hanya boleh berisi huruf kecil, angka, dan strip.");
+            throw new BusinessRuleError(
+                'Subdomain hanya boleh berisi huruf kecil, angka, dan strip.',
+            );
         }
 
         // Hash the password before passing to the seeder
@@ -59,7 +73,7 @@ export async function createAndProvisionTenant(formData: FormData) {
         });
 
         if (existing) {
-            throw new BusinessRuleError("Subdomain sudah ada.");
+            throw new BusinessRuleError('Subdomain sudah ada.');
         }
 
         const dbName = buildTenantDbName(subdomain);
@@ -67,7 +81,9 @@ export async function createAndProvisionTenant(formData: FormData) {
         // Parse DATABASE_URL from environment to build the new one
         const mainDbUrl = process.env.DATABASE_URL;
         if (!mainDbUrl) {
-            throw new BusinessRuleError("DATABASE_URL utama tidak ditemukan di environment.");
+            throw new BusinessRuleError(
+                'DATABASE_URL utama tidak ditemukan di environment.',
+            );
         }
 
         const urlObj = new URL(mainDbUrl);
@@ -83,18 +99,26 @@ export async function createAndProvisionTenant(formData: FormData) {
                 port: Number(urlObj.port),
                 user: urlObj.username,
                 password: urlObj.password,
-                database: "postgres", // Connect to default postgres DB to create a new one
+                database: 'postgres', // Connect to default postgres DB to create a new one
             });
 
             try {
                 await client.connect();
-                await client.query(`CREATE DATABASE ${quoteIdentifier(dbName)};`);
+                await client.query(
+                    `CREATE DATABASE ${quoteIdentifier(dbName)};`,
+                );
             } finally {
                 await client.end();
             }
         } catch (dbError: unknown) {
-            logger.error("Failed to create database", { error: dbError, dbName, module: 'AdminActions' });
-            throw new BusinessRuleError(`Failed to create database: ${(dbError as Error).message}`);
+            logger.error('Failed to create database', {
+                error: dbError,
+                dbName,
+                module: 'AdminActions',
+            });
+            throw new BusinessRuleError(
+                `Failed to create database: ${(dbError as Error).message}`,
+            );
         }
 
         try {
@@ -105,14 +129,16 @@ export async function createAndProvisionTenant(formData: FormData) {
             });
 
             // 4. Seed the database
-            console.log(`[SuperAdmin] Seeding database: ${dbName} for tenant: ${name}`);
+            console.log(
+                `[SuperAdmin] Seeding database: ${dbName} for tenant: ${name}`,
+            );
             await execPromise(`npx tsx prisma/seed-tenant.ts`, {
                 env: {
                     ...process.env,
                     DATABASE_URL: newDbUrl,
                     TENANT_ADMIN_NAME: adminName,
                     TENANT_ADMIN_EMAIL: adminEmail,
-                    TENANT_ADMIN_PASSWORD_HASH: passwordHash
+                    TENANT_ADMIN_PASSWORD_HASH: passwordHash,
                 },
             });
 
@@ -125,7 +151,7 @@ export async function createAndProvisionTenant(formData: FormData) {
                     dbUrl: newDbUrl,
                     status: 'ACTIVE',
                     plan: 'TRIAL',
-                }
+                },
             });
 
             await logActivity({
@@ -138,28 +164,40 @@ export async function createAndProvisionTenant(formData: FormData) {
             });
 
             return null;
-
         } catch (provisionError: unknown) {
             // Rollback: try to drop the database if provisioning failed
-            logger.error("Provisioning failed, rolling back...", { error: provisionError, dbName, tenantName: name, module: 'AdminActions' });
+            logger.error('Provisioning failed, rolling back...', {
+                error: provisionError,
+                dbName,
+                tenantName: name,
+                module: 'AdminActions',
+            });
             try {
                 const client = new Client({
                     host: urlObj.hostname,
                     port: Number(urlObj.port),
                     user: urlObj.username,
                     password: urlObj.password,
-                    database: "postgres",
+                    database: 'postgres',
                 });
                 try {
                     await client.connect();
-                    await client.query(`DROP DATABASE ${quoteIdentifier(dbName)};`);
+                    await client.query(
+                        `DROP DATABASE ${quoteIdentifier(dbName)};`,
+                    );
                 } finally {
                     await client.end();
                 }
             } catch (e) {
-                logger.error("Rollback DROP DATABASE failed", { error: e, dbName, module: 'AdminActions' });
+                logger.error('Rollback DROP DATABASE failed', {
+                    error: e,
+                    dbName,
+                    module: 'AdminActions',
+                });
             }
-            throw new BusinessRuleError(`Provisioning failed: ${(provisionError as Error).message}`);
+            throw new BusinessRuleError(
+                `Provisioning failed: ${(provisionError as Error).message}`,
+            );
         }
     });
 }
@@ -168,20 +206,24 @@ export async function updateTenant(tenantId: string, formData: FormData) {
     return safeAction(async () => {
         const session = await auth();
         if (session?.user?.role !== Role.ADMIN) {
-            throw new AuthorizationError("Unauthorized: Super Admin access required.");
+            throw new AuthorizationError(
+                'Unauthorized: Super Admin access required.',
+            );
         }
 
-        const name = formData.get("name") as string;
-        const subdomain = formData.get("subdomain") as string;
-        const status = formData.get("status") as string;
-        const dbUrl = formData.get("dbUrl") as string;
+        const name = formData.get('name') as string;
+        const subdomain = formData.get('subdomain') as string;
+        const status = formData.get('status') as string;
+        const dbUrl = formData.get('dbUrl') as string;
 
         if (!name || !subdomain) {
-            throw new BusinessRuleError("Nama dan subdomain wajib diisi.");
+            throw new BusinessRuleError('Nama dan subdomain wajib diisi.');
         }
 
         if (!/^[a-z0-9-]+$/.test(subdomain)) {
-            throw new BusinessRuleError("Subdomain hanya boleh berisi huruf kecil, angka, dan strip.");
+            throw new BusinessRuleError(
+                'Subdomain hanya boleh berisi huruf kecil, angka, dan strip.',
+            );
         }
 
         try {
@@ -190,19 +232,23 @@ export async function updateTenant(tenantId: string, formData: FormData) {
             });
 
             if (existing && existing.id !== tenantId) {
-                throw new BusinessRuleError("Subdomain sudah digunakan tenant lain.");
+                throw new BusinessRuleError(
+                    'Subdomain sudah digunakan tenant lain.',
+                );
             }
 
-            const before = await prisma.tenant.findUnique({ where: { id: tenantId } });
+            const before = await prisma.tenant.findUnique({
+                where: { id: tenantId },
+            });
 
             await prisma.tenant.update({
                 where: { id: tenantId },
                 data: {
                     name,
                     subdomain,
-                    status: status as import("@prisma/client").TenantStatus,
+                    status: status as import('@prisma/client').TenantStatus,
                     dbUrl: dbUrl || undefined,
-                }
+                },
             });
 
             await logActivity({
@@ -212,16 +258,34 @@ export async function updateTenant(tenantId: string, formData: FormData) {
                 entityId: tenantId,
                 details: `Updated tenant "${name}" (subdomain: ${subdomain}, status: ${status})`,
                 changes: {
-                    before: before ? { name: before.name, subdomain: before.subdomain, status: before.status, dbUrl: before.dbUrl } : null,
-                    after: { name, subdomain, status, dbUrl: dbUrl || undefined },
+                    before: before
+                        ? {
+                              name: before.name,
+                              subdomain: before.subdomain,
+                              status: before.status,
+                              dbUrl: before.dbUrl,
+                          }
+                        : null,
+                    after: {
+                        name,
+                        subdomain,
+                        status,
+                        dbUrl: dbUrl || undefined,
+                    },
                 },
             });
 
             return null;
         } catch (error: unknown) {
             if (error instanceof BusinessRuleError) throw error;
-            logger.error("Failed to update tenant", { error, tenantId, module: 'AdminActions' });
-            throw new BusinessRuleError(`Failed to update tenant: ${(error as Error).message}`);
+            logger.error('Failed to update tenant', {
+                error,
+                tenantId,
+                module: 'AdminActions',
+            });
+            throw new BusinessRuleError(
+                `Failed to update tenant: ${(error as Error).message}`,
+            );
         }
     });
 }
@@ -232,31 +296,38 @@ export async function updateTenant(tenantId: string, formData: FormData) {
  */
 export async function setTenantStatus(
     tenantId: string,
-    status: 'ACTIVE' | 'SUSPENDED' | 'TRIAL'
+    status: 'ACTIVE' | 'SUSPENDED' | 'TRIAL',
 ) {
     return safeAction(async () => {
         const session = await auth();
         if (session?.user?.role !== Role.ADMIN) {
-            throw new AuthorizationError("Unauthorized: Super Admin access required.");
+            throw new AuthorizationError(
+                'Unauthorized: Super Admin access required.',
+            );
         }
 
         if (!['ACTIVE', 'SUSPENDED', 'TRIAL'].includes(status)) {
-            throw new BusinessRuleError("Status tenant tidak valid.");
+            throw new BusinessRuleError('Status tenant tidak valid.');
         }
 
-        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+        });
         if (!tenant) {
-            throw new BusinessRuleError("Tenant tidak ditemukan.");
+            throw new BusinessRuleError('Tenant tidak ditemukan.');
         }
 
         await prisma.tenant.update({
             where: { id: tenantId },
-            data: { status: status as import("@prisma/client").TenantStatus },
+            data: { status: status as import('@prisma/client').TenantStatus },
         });
 
         await logActivity({
             userId: session.user.id,
-            action: status === 'SUSPENDED' ? 'TENANT_SUSPENDED' : 'TENANT_STATUS_CHANGED',
+            action:
+                status === 'SUSPENDED'
+                    ? 'TENANT_SUSPENDED'
+                    : 'TENANT_STATUS_CHANGED',
             entityType: 'Tenant',
             entityId: tenantId,
             details: `Tenant "${tenant.name}" status: ${tenant.status} -> ${status}`,
@@ -267,50 +338,62 @@ export async function setTenantStatus(
     });
 }
 
-export async function resetTenantAdminPassword(tenantId: string, formData: FormData) {
+export async function resetTenantAdminPassword(
+    tenantId: string,
+    formData: FormData,
+) {
     return safeAction(async () => {
         const session = await auth();
         if (session?.user?.role !== Role.ADMIN) {
-            throw new AuthorizationError("Unauthorized: Super Admin access required.");
+            throw new AuthorizationError(
+                'Unauthorized: Super Admin access required.',
+            );
         }
 
-        const newPassword = formData.get("newPassword") as string;
+        const newPassword = formData.get('newPassword') as string;
         if (!newPassword || newPassword.length < 6) {
-            throw new BusinessRuleError("Password minimal 6 karakter.");
+            throw new BusinessRuleError('Password minimal 6 karakter.');
         }
 
         try {
             const tenant = await prisma.tenant.findUnique({
-                where: { id: tenantId }
+                where: { id: tenantId },
             });
 
             if (!tenant || !tenant.dbUrl) {
-                throw new BusinessRuleError("Tenant or database URL not found.");
+                throw new BusinessRuleError(
+                    'Tenant or database URL not found.',
+                );
             }
 
             const passwordHash = await bcrypt.hash(newPassword, 10);
 
-            const { getTenantDb, tenantContext, tenantIdContext } = await import('@/lib/core/prisma');
+            const { getTenantDb, tenantContext, tenantIdContext } =
+                await import('@/lib/core/prisma');
             const tenantDb = getTenantDb(tenant.dbUrl);
 
             const result = await tenantContext.run(tenantDb, () =>
                 tenantIdContext.run(tenant.id, async () => {
-                const adminUser = await getTenantDb(tenant.dbUrl).user.findFirst({
-                    where: { role: Role.ADMIN },
-                    orderBy: { createdAt: 'asc' }
-                });
+                    const adminUser = await getTenantDb(
+                        tenant.dbUrl,
+                    ).user.findFirst({
+                        where: { role: Role.ADMIN },
+                        orderBy: { createdAt: 'asc' },
+                    });
 
-                if (!adminUser) {
-                    throw new BusinessRuleError("Tidak ada user admin untuk tenant ini.");
-                }
+                    if (!adminUser) {
+                        throw new BusinessRuleError(
+                            'Tidak ada user admin untuk tenant ini.',
+                        );
+                    }
 
-                await getTenantDb(tenant.dbUrl).user.update({
-                    where: { id: adminUser.id },
-                    data: { password: passwordHash }
-                });
+                    await getTenantDb(tenant.dbUrl).user.update({
+                        where: { id: adminUser.id },
+                        data: { password: passwordHash },
+                    });
 
-                return adminUser.id;
-                })
+                    return adminUser.id;
+                }),
             );
 
             await logActivity({
@@ -319,14 +402,24 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
                 entityType: 'Tenant',
                 entityId: tenantId,
                 details: `Reset admin password for tenant "${tenant.name}" (admin userId: ${result})`,
-                changes: { tenantId, tenantName: tenant.name, adminUserId: result },
+                changes: {
+                    tenantId,
+                    tenantName: tenant.name,
+                    adminUserId: result,
+                },
             });
 
             return result;
         } catch (e: unknown) {
             if (e instanceof BusinessRuleError) throw e;
-            logger.error("Failed to reset tenant admin password", { error: e, tenantId, module: 'AdminActions' });
-            throw new BusinessRuleError(`Failed to reset password: ${(e as Error).message}`);
+            logger.error('Failed to reset tenant admin password', {
+                error: e,
+                tenantId,
+                module: 'AdminActions',
+            });
+            throw new BusinessRuleError(
+                `Failed to reset password: ${(e as Error).message}`,
+            );
         }
     });
 }

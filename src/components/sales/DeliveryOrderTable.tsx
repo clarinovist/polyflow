@@ -1,225 +1,245 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
-import { type ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
-import { Eye, Truck, ChevronRight } from "lucide-react";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { salesLabels, formLabels } from "@/lib/labels";
-import { getDeliveryStatusLabel } from "@/lib/sales/delivery-status";
+import { useMemo } from 'react';
+import { type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
+import { Eye, Truck, ChevronRight } from 'lucide-react';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { salesLabels, formLabels } from '@/lib/labels';
+import { getDeliveryStatusLabel } from '@/lib/sales/delivery-status';
 
 /** Serialized delivery-order row shape consumed by this table (Decimals/Dates already serialized). */
 interface DeliveryOrderRow {
-  id: string;
-  orderNumber: string;
-  deliveryDate: string | Date;
-  status: string;
-  salesOrderId?: string | null;
-  carrier?: string | null;
-  salesOrder?: {
+    id: string;
     orderNumber: string;
-    customer?: { name: string } | null;
-  } | null;
-  sourceLocation?: { name: string } | null;
+    deliveryDate: string | Date;
+    status: string;
+    salesOrderId?: string | null;
+    carrier?: string | null;
+    salesOrder?: {
+        orderNumber: string;
+        customer?: { name: string } | null;
+    } | null;
+    sourceLocation?: { name: string } | null;
 }
 
 interface DeliveryOrderTableProps {
-  initialData: DeliveryOrderRow[];
-  /** Detail/list base path — sales or warehouse portal */
-  basePath?: string;
-  /** active = open queue; history = closed archive (UI copy only for now) */
-  mode?: "active" | "history";
+    initialData: DeliveryOrderRow[];
+    /** Detail/list base path — sales or warehouse portal */
+    basePath?: string;
+    /** active = open queue; history = closed archive (UI copy only for now) */
+    mode?: 'active' | 'history';
 }
 
 export function DeliveryOrderTable({
-  initialData,
-  basePath = "/sales/deliveries",
-  mode = "active",
+    initialData,
+    basePath = '/sales/deliveries',
+    mode = 'active',
 }: DeliveryOrderTableProps) {
-  const router = useRouter();
-  void mode;
+    const router = useRouter();
+    void mode;
 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      PENDING: "bg-yellow-100 text-yellow-800",
-      LOADING: "bg-orange-100 text-orange-800",
-      SHIPPED: "bg-blue-100 text-blue-800",
-      IN_TRANSIT: "bg-indigo-100 text-indigo-800",
-      ARRIVED: "bg-teal-100 text-teal-800",
-      DELIVERED: "bg-green-100 text-green-800",
-      RETURNED: "bg-red-100 text-red-800",
-      CANCELLED: "bg-gray-100 text-gray-800",
+    const getStatusBadge = (status: string) => {
+        const styles: Record<string, string> = {
+            PENDING: 'bg-yellow-100 text-yellow-800',
+            LOADING: 'bg-orange-100 text-orange-800',
+            SHIPPED: 'bg-blue-100 text-blue-800',
+            IN_TRANSIT: 'bg-indigo-100 text-indigo-800',
+            ARRIVED: 'bg-teal-100 text-teal-800',
+            DELIVERED: 'bg-green-100 text-green-800',
+            RETURNED: 'bg-red-100 text-red-800',
+            CANCELLED: 'bg-gray-100 text-gray-800',
+        };
+        return (
+            <Badge
+                variant="secondary"
+                className={styles[status] || styles.PENDING}
+            >
+                {getDeliveryStatusLabel(status)}
+            </Badge>
+        );
     };
-    return (
-      <Badge variant="secondary" className={styles[status] || styles.PENDING}>
-        {getDeliveryStatusLabel(status)}
-      </Badge>
+
+    const columns: ColumnDef<DeliveryOrderRow, unknown>[] = useMemo(
+        () => [
+            {
+                id: 'orderNumber',
+                header: `No. ${salesLabels.deliveryOrder}`,
+                size: 160,
+                accessorFn: (row) => row.orderNumber,
+                sortingFn: (a, b) =>
+                    new Date(a.original.deliveryDate).getTime() -
+                    new Date(b.original.deliveryDate).getTime(),
+                cell: ({ row }) => (
+                    <div>
+                        <span className="font-medium">
+                            {row.original.orderNumber}
+                        </span>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                            {format(
+                                new Date(row.original.deliveryDate),
+                                'dd MMM yyyy',
+                            )}
+                        </div>
+                        {row.original.salesOrder?.orderNumber && (
+                            <div className="mt-0.5">
+                                <Link
+                                    href={`/sales/orders/${row.original.salesOrderId}`}
+                                    className="text-[11px] text-blue-600 hover:underline font-mono"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    SO: {row.original.salesOrder.orderNumber}
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+                ),
+            },
+            {
+                id: 'customer',
+                header: salesLabels.customer,
+                size: 220,
+                accessorFn: (row) => row.salesOrder?.customer?.name || '',
+                cell: ({ row }) => {
+                    const customerName =
+                        row.original.salesOrder?.customer?.name || '-';
+                    const locationName = row.original.sourceLocation?.name;
+                    return (
+                        <div className="min-w-0">
+                            <div
+                                className="font-medium truncate"
+                                title={customerName}
+                            >
+                                {customerName}
+                            </div>
+                            {locationName && (
+                                <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                                    Gudang: {locationName}
+                                </div>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: 'status',
+                header: formLabels.status,
+                size: 120,
+                cell: ({ row }) => getStatusBadge(row.original.status),
+            },
+            {
+                id: 'actions',
+                header: () => <div className="text-right">Aksi</div>,
+                size: 80,
+                enableSorting: false,
+                cell: ({ row }) => (
+                    <div className="text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                            <Link href={`${basePath}/${row.original.id}`}>
+                                <Eye className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </div>
+                ),
+            },
+        ],
+        [basePath],
     );
-  };
 
-  const columns: ColumnDef<DeliveryOrderRow, unknown>[] = useMemo(
-    () => [
-      {
-        id: "orderNumber",
-        header: `No. ${salesLabels.deliveryOrder}`,
-        size: 160,
-        accessorFn: (row) => row.orderNumber,
-        sortingFn: (a, b) =>
-          new Date(a.original.deliveryDate).getTime() -
-          new Date(b.original.deliveryDate).getTime(),
-        cell: ({ row }) => (
-          <div>
-            <span className="font-medium">{row.original.orderNumber}</span>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {format(new Date(row.original.deliveryDate), "dd MMM yyyy")}
-            </div>
-            {row.original.salesOrder?.orderNumber && (
-              <div className="mt-0.5">
-                <Link
-                  href={`/sales/orders/${row.original.salesOrderId}`}
-                  className="text-[11px] text-blue-600 hover:underline font-mono"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  SO: {row.original.salesOrder.orderNumber}
-                </Link>
-              </div>
-            )}
-          </div>
-        ),
-      },
-      {
-        id: "customer",
-        header: salesLabels.customer,
-        size: 220,
-        accessorFn: (row) => row.salesOrder?.customer?.name || "",
-        cell: ({ row }) => {
-          const customerName = row.original.salesOrder?.customer?.name || "-";
-          const locationName = row.original.sourceLocation?.name;
-          return (
-            <div className="min-w-0">
-              <div className="font-medium truncate" title={customerName}>
-                {customerName}
-              </div>
-              {locationName && (
-                <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                  Gudang: {locationName}
+    const renderMobileView = (orders: DeliveryOrderRow[]) => (
+        <>
+            {orders.length === 0 ? (
+                <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
+                    {salesLabels.emptyDeliveries}
                 </div>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "status",
-        header: formLabels.status,
-        size: 120,
-        cell: ({ row }) => getStatusBadge(row.original.status),
-      },
-      {
-        id: "actions",
-        header: () => <div className="text-right">Aksi</div>,
-        size: 80,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="text-right">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`${basePath}/${row.original.id}`}>
-                <Eye className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        ),
-      },
-    ],
-    [basePath],
-  );
-
-  const renderMobileView = (orders: DeliveryOrderRow[]) => (
-    <>
-      {orders.length === 0 ? (
-        <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-          {salesLabels.emptyDeliveries}
-        </div>
-      ) : (
-        orders.map((order) => (
-          <Card
-            key={order.id}
-            className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-            onClick={() => router.push(`${basePath}/${order.id}`)}
-          >
-            <CardHeader className="p-4 pb-2">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                  <div className="bg-primary/10 p-1.5 rounded-full">
-                    <Truck className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">
-                      {order.orderNumber}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(order.deliveryDate), "MMM d, yyyy")}
-                    </p>
-                  </div>
-                </div>
-                {getStatusBadge(order.status)}
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-1">
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                      {salesLabels.customer}
-                    </p>
-                    <p className="font-medium truncate">
-                      {order.salesOrder?.customer?.name || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                      {salesLabels.salesOrder}
-                    </p>
-                    <Link
-                      href={`/sales/orders/${order.salesOrderId}`}
-                      className="font-medium text-blue-600 hover:underline"
-                      onClick={(e) => e.stopPropagation()}
+            ) : (
+                orders.map((order) => (
+                    <Card
+                        key={order.id}
+                        className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+                        onClick={() => router.push(`${basePath}/${order.id}`)}
                     >
-                      {order.salesOrder?.orderNumber || "-"}
-                    </Link>
-                  </div>
-                </div>
-                {order.carrier && (
-                  <div className="text-xs text-muted-foreground">
-                    Ekspedisi: {order.carrier}
-                  </div>
-                )}
-                <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
-                  <span>{order.sourceLocation?.name || "-"}</span>
-                  <div className="flex items-center text-primary font-medium">
-                    Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))
-      )}
-    </>
-  );
+                        <CardHeader className="p-4 pb-2">
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-2">
+                                    <div className="bg-primary/10 p-1.5 rounded-full">
+                                        <Truck className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-sm">
+                                            {order.orderNumber}
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            {format(
+                                                new Date(order.deliveryDate),
+                                                'MMM d, yyyy',
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                {getStatusBadge(order.status)}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-1">
+                            <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                            {salesLabels.customer}
+                                        </p>
+                                        <p className="font-medium truncate">
+                                            {order.salesOrder?.customer?.name ||
+                                                '-'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                            {salesLabels.salesOrder}
+                                        </p>
+                                        <Link
+                                            href={`/sales/orders/${order.salesOrderId}`}
+                                            className="font-medium text-blue-600 hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {order.salesOrder?.orderNumber ||
+                                                '-'}
+                                        </Link>
+                                    </div>
+                                </div>
+                                {order.carrier && (
+                                    <div className="text-xs text-muted-foreground">
+                                        Ekspedisi: {order.carrier}
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
+                                    <span>
+                                        {order.sourceLocation?.name || '-'}
+                                    </span>
+                                    <div className="flex items-center text-primary font-medium">
+                                        Lihat Detail{' '}
+                                        <ChevronRight className="h-3 w-3 ml-0.5" />
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))
+            )}
+        </>
+    );
 
-  return (
-    <DataTable
-      columns={columns}
-      data={initialData}
-      emptyMessage={salesLabels.emptyDeliveries}
-      minWidth={720}
-      renderMobileView={renderMobileView}
-    />
-  );
+    return (
+        <DataTable
+            columns={columns}
+            data={initialData}
+            emptyMessage={salesLabels.emptyDeliveries}
+            minWidth={720}
+            renderMobileView={renderMobileView}
+        />
+    );
 }

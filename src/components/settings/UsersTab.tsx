@@ -2,9 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { Role } from '@prisma/client';
-import { getUsers, createUser, updateUser, deleteUser, reactivateUser, setUserRoles, CreateUserInput, UpdateUserInput } from '@/actions/admin/users';
+import {
+    getUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+    reactivateUser,
+    setUserRoles,
+    CreateUserInput,
+    UpdateUserInput,
+} from '@/actions/admin/users';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -42,8 +57,20 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, UserX, Loader2, Pencil, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+    Plus,
+    UserX,
+    Loader2,
+    Pencil,
+    RotateCcw,
+    Eye,
+    EyeOff,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { SYSTEM_ROLES } from '@/lib/auth/system-roles';
 
@@ -57,7 +84,10 @@ interface UserData {
     createdAt: Date;
 }
 
-const USER_ROLES = SYSTEM_ROLES.map(r => ({ value: r.value, label: r.label }));
+const USER_ROLES = SYSTEM_ROLES.map((r) => ({
+    value: r.value,
+    label: r.label,
+}));
 
 export function UsersTab({ currentUserId }: { currentUserId?: string }) {
     const [users, setUsers] = useState<UserData[]>([]);
@@ -94,8 +124,11 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [showEditPassword, setShowEditPassword] = useState(false);
-    const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
-    const [deactivateTarget, setDeactivateTarget] = useState<UserData | null>(null);
+    const [showEditConfirmPassword, setShowEditConfirmPassword] =
+        useState(false);
+    const [deactivateTarget, setDeactivateTarget] = useState<UserData | null>(
+        null,
+    );
 
     const fetchUsers = async () => {
         const result = await getUsers();
@@ -112,21 +145,28 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
     }, []);
 
     const filteredUsers = users.filter((user) => {
-        const matchesSearch = searchQuery === '' ||
+        const matchesSearch =
+            searchQuery === '' ||
             user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.email.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesRole = filterRole === 'ALL' || user.roles?.includes(filterRole as Role) || user.role === filterRole;
-        const matchesStatus = filterStatus === 'ALL' ||
+        const matchesRole =
+            filterRole === 'ALL' ||
+            user.roles?.includes(filterRole as Role) ||
+            user.role === filterRole;
+        const matchesStatus =
+            filterStatus === 'ALL' ||
             (filterStatus === 'active' && user.isActive) ||
             (filterStatus === 'inactive' && !user.isActive);
         return matchesSearch && matchesRole && matchesStatus;
     });
 
-    const activeAdminCount = users.filter(u =>
-        u.isActive && (u.role === 'ADMIN' || u.roles?.includes('ADMIN'))
+    const activeAdminCount = users.filter(
+        (u) => u.isActive && (u.role === 'ADMIN' || u.roles?.includes('ADMIN')),
     ).length;
     const isLastAdmin = (user: UserData) =>
-        user.isActive && (user.role === 'ADMIN' || user.roles?.includes('ADMIN')) && activeAdminCount <= 1;
+        user.isActive &&
+        (user.role === 'ADMIN' || user.roles?.includes('ADMIN')) &&
+        activeAdminCount <= 1;
 
     const handleCreate = async () => {
         if (!formData.name || !formData.email || !formData.password) {
@@ -156,9 +196,12 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
             const roleResult = await setUserRoles(userId, allRoles);
             if (!roleResult.success) {
                 rolesOk = false;
-                toast.warning('Pengguna dibuat; peran tambahan gagal. Edit untuk memperbaiki.', {
-                    description: roleResult.error,
-                });
+                toast.warning(
+                    'Pengguna dibuat; peran tambahan gagal. Edit untuk memperbaiki.',
+                    {
+                        description: roleResult.error,
+                    },
+                );
             }
         }
         if (rolesOk) {
@@ -188,7 +231,9 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
             return;
         }
         setIsSubmitting(true);
-        const primaryRole = editRoles.includes(editData.role as Role) ? editData.role : editRoles[0];
+        const primaryRole = editRoles.includes(editData.role as Role)
+            ? editData.role
+            : editRoles[0];
         const updateResult = await updateUser({
             id: editData.id,
             name: editData.name,
@@ -205,10 +250,14 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                 setEditConfirmPassword('');
                 fetchUsers();
             } else {
-                toast.error(roleResult.error || 'Gagal memperbarui peran pengguna');
+                toast.error(
+                    roleResult.error || 'Gagal memperbarui peran pengguna',
+                );
             }
         } else {
-            toast.error(updateResult.error || 'Gagal memperbarui informasi pengguna');
+            toast.error(
+                updateResult.error || 'Gagal memperbarui informasi pengguna',
+            );
         }
         setIsSubmitting(false);
     };
@@ -258,16 +307,24 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                         Kelola akses sistem dan peran.
                     </CardDescription>
                 </div>
-                <Dialog open={createOpen} onOpenChange={(open) => {
-                    setCreateOpen(open);
-                    if (!open) {
-                        setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
-                        setCreateRoles([]);
-                        setConfirmPassword('');
-                        setShowPassword(false);
-                        setShowConfirmPassword(false);
-                    }
-                }}>
+                <Dialog
+                    open={createOpen}
+                    onOpenChange={(open) => {
+                        setCreateOpen(open);
+                        if (!open) {
+                            setFormData({
+                                name: '',
+                                email: '',
+                                password: '',
+                                role: 'WAREHOUSE',
+                            });
+                            setCreateRoles([]);
+                            setConfirmPassword('');
+                            setShowPassword(false);
+                            setShowConfirmPassword(false);
+                        }
+                    }}
+                >
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="mr-2 h-4 w-4" />
@@ -278,7 +335,8 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                         <DialogHeader>
                             <DialogTitle>Buat Pengguna Baru</DialogTitle>
                             <DialogDescription>
-                                Tambahkan pengguna baru ke sistem. Pengguna akan memakai email ini untuk login.
+                                Tambahkan pengguna baru ke sistem. Pengguna akan
+                                memakai email ini untuk login.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
@@ -287,7 +345,12 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                 <Input
                                     id="name"
                                     value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            name: e.target.value,
+                                        })
+                                    }
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -296,7 +359,12 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                     id="email"
                                     type="email"
                                     value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            email: e.target.value,
+                                        })
+                                    }
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -304,36 +372,65 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                 <div className="relative">
                                     <Input
                                         id="password"
-                                        type={showPassword ? "text" : "password"}
+                                        type={
+                                            showPassword ? 'text' : 'password'
+                                        }
                                         value={formData.password}
-                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                password: e.target.value,
+                                            })
+                                        }
                                         className="pr-10"
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
+                                        onClick={() =>
+                                            setShowPassword(!showPassword)
+                                        }
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                     >
-                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        {showPassword ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
                                     </button>
                                 </div>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="confirm-password">Konfirmasi Kata Sandi</Label>
+                                <Label htmlFor="confirm-password">
+                                    Konfirmasi Kata Sandi
+                                </Label>
                                 <div className="relative">
                                     <Input
                                         id="confirm-password"
-                                        type={showConfirmPassword ? "text" : "password"}
+                                        type={
+                                            showConfirmPassword
+                                                ? 'text'
+                                                : 'password'
+                                        }
                                         value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        onChange={(e) =>
+                                            setConfirmPassword(e.target.value)
+                                        }
                                         className="pr-10"
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        onClick={() =>
+                                            setShowConfirmPassword(
+                                                !showConfirmPassword,
+                                            )
+                                        }
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                     >
-                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        {showConfirmPassword ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -341,14 +438,19 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                 <Label htmlFor="role">Role Utama</Label>
                                 <Select
                                     value={formData.role}
-                                    onValueChange={(val: Role) => setFormData({ ...formData, role: val })}
+                                    onValueChange={(val: Role) =>
+                                        setFormData({ ...formData, role: val })
+                                    }
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Pilih peran" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {USER_ROLES.map((role) => (
-                                            <SelectItem key={role.value} value={role.value}>
+                                            <SelectItem
+                                                key={role.value}
+                                                value={role.value}
+                                            >
                                                 {role.label}
                                             </SelectItem>
                                         ))}
@@ -359,23 +461,40 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                 <Label>Tambahan Peran (Opsional)</Label>
                                 <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                                     {USER_ROLES.map((role) => {
-                                        const checked = createRoles.includes(role.value);
+                                        const checked = createRoles.includes(
+                                            role.value,
+                                        );
                                         return (
-                                            <div key={role.value} className="flex items-center space-x-2">
+                                            <div
+                                                key={role.value}
+                                                className="flex items-center space-x-2"
+                                            >
                                                 <input
                                                     type="checkbox"
                                                     id={`create-role-${role.value}`}
                                                     checked={checked}
                                                     onChange={() => {
                                                         if (checked) {
-                                                            setCreateRoles(createRoles.filter((r) => r !== role.value));
+                                                            setCreateRoles(
+                                                                createRoles.filter(
+                                                                    (r) =>
+                                                                        r !==
+                                                                        role.value,
+                                                                ),
+                                                            );
                                                         } else {
-                                                            setCreateRoles([...createRoles, role.value]);
+                                                            setCreateRoles([
+                                                                ...createRoles,
+                                                                role.value,
+                                                            ]);
                                                         }
                                                     }}
                                                     className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                                                 />
-                                                <Label htmlFor={`create-role-${role.value}`} className="cursor-pointer">
+                                                <Label
+                                                    htmlFor={`create-role-${role.value}`}
+                                                    className="cursor-pointer"
+                                                >
                                                     {role.label}
                                                 </Label>
                                             </div>
@@ -383,16 +502,26 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                     })}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Pilih tambahan peran jika diperlukan. Perubahan peran aktif setelah login ulang.
+                                    Pilih tambahan peran jika diperlukan.
+                                    Perubahan peran aktif setelah login ulang.
                                 </p>
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={isSubmitting}>
+                            <Button
+                                variant="outline"
+                                onClick={() => setCreateOpen(false)}
+                                disabled={isSubmitting}
+                            >
                                 Batal
                             </Button>
-                            <Button onClick={handleCreate} disabled={isSubmitting}>
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button
+                                onClick={handleCreate}
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                )}
                                 Buat Pengguna
                             </Button>
                         </DialogFooter>
@@ -413,27 +542,44 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="sm:max-w-xs"
                             />
-                            <Select value={filterRole} onValueChange={setFilterRole}>
+                            <Select
+                                value={filterRole}
+                                onValueChange={setFilterRole}
+                            >
                                 <SelectTrigger className="sm:w-[160px]">
                                     <SelectValue placeholder="Semua Peran" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ALL">Semua Peran</SelectItem>
+                                    <SelectItem value="ALL">
+                                        Semua Peran
+                                    </SelectItem>
                                     {USER_ROLES.map((role) => (
-                                        <SelectItem key={role.value} value={role.value}>
+                                        <SelectItem
+                                            key={role.value}
+                                            value={role.value}
+                                        >
                                             {role.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                            <Select
+                                value={filterStatus}
+                                onValueChange={setFilterStatus}
+                            >
                                 <SelectTrigger className="sm:w-[140px]">
                                     <SelectValue placeholder="Semua Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ALL">Semua Status</SelectItem>
-                                    <SelectItem value="active">Aktif</SelectItem>
-                                    <SelectItem value="inactive">Nonaktif</SelectItem>
+                                    <SelectItem value="ALL">
+                                        Semua Status
+                                    </SelectItem>
+                                    <SelectItem value="active">
+                                        Aktif
+                                    </SelectItem>
+                                    <SelectItem value="inactive">
+                                        Nonaktif
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -444,7 +590,9 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                     <TableHead>Email</TableHead>
                                     <TableHead>Peran</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Aksi</TableHead>
+                                    <TableHead className="text-right">
+                                        Aksi
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -452,186 +600,298 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                     const isSelf = user.id === currentUserId;
                                     const lastAdmin = isLastAdmin(user);
                                     return (
-                                    <TableRow key={user.id}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                                                    {user.name?.[0]?.toUpperCase() || 'U'}
-                                                </div>
+                                        <TableRow key={user.id}>
+                                            <TableCell className="font-medium">
                                                 <div className="flex items-center gap-2">
-                                                    {user.name || 'Tidak diketahui'}
-                                                    {isSelf && (
-                                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Anda</Badge>
+                                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                                                        {user.name?.[0]?.toUpperCase() ||
+                                                            'U'}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {user.name ||
+                                                            'Tidak diketahui'}
+                                                        {isSelf && (
+                                                            <Badge
+                                                                variant="secondary"
+                                                                className="text-[10px] px-1.5 py-0"
+                                                            >
+                                                                Anda
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>{user.email}</TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {user.roles?.map((role) => (
+                                                        <Badge
+                                                            key={role}
+                                                            variant={
+                                                                role ===
+                                                                user.role
+                                                                    ? 'default'
+                                                                    : 'outline'
+                                                            }
+                                                        >
+                                                            {USER_ROLES.find(
+                                                                (r) =>
+                                                                    r.value ===
+                                                                    role,
+                                                            )?.label || role}
+                                                        </Badge>
+                                                    )) || (
+                                                        <Badge variant="default">
+                                                            {USER_ROLES.find(
+                                                                (r) =>
+                                                                    r.value ===
+                                                                    user.role,
+                                                            )?.label ||
+                                                                user.role}
+                                                        </Badge>
                                                     )}
                                                 </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{user.email}</TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {user.roles?.map((role) => (
-                                                    <Badge key={role} variant={role === user.role ? "default" : "outline"}>
-                                                        {USER_ROLES.find(r => r.value === role)?.label || role}
-                                                    </Badge>
-                                                )) || <Badge variant="default">{USER_ROLES.find(r => r.value === user.role)?.label || user.role}</Badge>}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                                                {user.isActive ? 'Aktif' : 'Nonaktif'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                                    onClick={() => openEdit(user)}
-                                                    title="Ubah pengguna"
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant={
+                                                        user.isActive
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
                                                 >
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                {user.isActive ? (
-                                                    isSelf ? (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <span className="inline-flex">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-8 w-8 text-muted-foreground/30 cursor-not-allowed"
-                                                                        disabled
-                                                                    >
-                                                                        <UserX className="h-4 w-4" />
-                                                                    </Button>
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                Tidak dapat menonaktifkan akun sendiri
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    ) : lastAdmin ? (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <span className="inline-flex">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-8 w-8 text-muted-foreground/30 cursor-not-allowed"
-                                                                        disabled
-                                                                    >
-                                                                        <UserX className="h-4 w-4" />
-                                                                    </Button>
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                Tidak dapat menonaktifkan admin terakhir
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                                    {user.isActive
+                                                        ? 'Aktif'
+                                                        : 'Nonaktif'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                                        onClick={() =>
+                                                            openEdit(user)
+                                                        }
+                                                        title="Ubah pengguna"
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                    {user.isActive ? (
+                                                        isSelf ? (
+                                                            <Tooltip>
+                                                                <TooltipTrigger
+                                                                    asChild
+                                                                >
+                                                                    <span className="inline-flex">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-muted-foreground/30 cursor-not-allowed"
+                                                                            disabled
+                                                                        >
+                                                                            <UserX className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    Tidak dapat
+                                                                    menonaktifkan
+                                                                    akun sendiri
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        ) : lastAdmin ? (
+                                                            <Tooltip>
+                                                                <TooltipTrigger
+                                                                    asChild
+                                                                >
+                                                                    <span className="inline-flex">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-muted-foreground/30 cursor-not-allowed"
+                                                                            disabled
+                                                                        >
+                                                                            <UserX className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    Tidak dapat
+                                                                    menonaktifkan
+                                                                    admin
+                                                                    terakhir
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                                onClick={() =>
+                                                                    setDeactivateTarget(
+                                                                        user,
+                                                                    )
+                                                                }
+                                                                title="Nonaktifkan pengguna"
+                                                            >
+                                                                <UserX className="h-4 w-4" />
+                                                            </Button>
+                                                        )
                                                     ) : (
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                                            onClick={() => setDeactivateTarget(user)}
-                                                            title="Nonaktifkan pengguna"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
+                                                            onClick={() =>
+                                                                handleReactivate(
+                                                                    user.id,
+                                                                )
+                                                            }
+                                                            title="Aktifkan pengguna"
                                                         >
-                                                            <UserX className="h-4 w-4" />
+                                                            <RotateCcw className="h-4 w-4" />
                                                         </Button>
-                                                    )
-                                                ) : (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
-                                                        onClick={() => handleReactivate(user.id)}
-                                                        title="Aktifkan pengguna"
-                                                    >
-                                                        <RotateCcw className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
                                     );
                                 })}
                             </TableBody>
                         </Table>
 
                         {/* Edit User Dialog */}
-                        <Dialog open={editOpen} onOpenChange={(open) => {
-                            setEditOpen(open);
-                            if (!open) {
-                                setEditConfirmPassword('');
-                                setShowEditPassword(false);
-                                setShowEditConfirmPassword(false);
-                            }
-                        }}>
+                        <Dialog
+                            open={editOpen}
+                            onOpenChange={(open) => {
+                                setEditOpen(open);
+                                if (!open) {
+                                    setEditConfirmPassword('');
+                                    setShowEditPassword(false);
+                                    setShowEditConfirmPassword(false);
+                                }
+                            }}
+                        >
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>Ubah Pengguna</DialogTitle>
                                     <DialogDescription>
-                                        Perbarui informasi pengguna. Kosongkan kata sandi jika tidak ingin mengubah kata sandi saat ini.
+                                        Perbarui informasi pengguna. Kosongkan
+                                        kata sandi jika tidak ingin mengubah
+                                        kata sandi saat ini.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="edit-name">Nama Lengkap</Label>
+                                        <Label htmlFor="edit-name">
+                                            Nama Lengkap
+                                        </Label>
                                         <Input
                                             id="edit-name"
                                             value={editData.name}
-                                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                            onChange={(e) =>
+                                                setEditData({
+                                                    ...editData,
+                                                    name: e.target.value,
+                                                })
+                                            }
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="edit-email">Email</Label>
+                                        <Label htmlFor="edit-email">
+                                            Email
+                                        </Label>
                                         <Input
                                             id="edit-email"
                                             type="email"
                                             value={editData.email}
-                                            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                                            onChange={(e) =>
+                                                setEditData({
+                                                    ...editData,
+                                                    email: e.target.value,
+                                                })
+                                            }
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="edit-password">Kata Sandi Baru (Opsional)</Label>
+                                        <Label htmlFor="edit-password">
+                                            Kata Sandi Baru (Opsional)
+                                        </Label>
                                         <div className="relative">
                                             <Input
                                                 id="edit-password"
-                                                type={showEditPassword ? "text" : "password"}
+                                                type={
+                                                    showEditPassword
+                                                        ? 'text'
+                                                        : 'password'
+                                                }
                                                 placeholder="••••••••"
                                                 value={editData.password}
-                                                onChange={(e) => setEditData({ ...editData, password: e.target.value })}
+                                                onChange={(e) =>
+                                                    setEditData({
+                                                        ...editData,
+                                                        password:
+                                                            e.target.value,
+                                                    })
+                                                }
                                                 className="pr-10"
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => setShowEditPassword(!showEditPassword)}
+                                                onClick={() =>
+                                                    setShowEditPassword(
+                                                        !showEditPassword,
+                                                    )
+                                                }
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                             >
-                                                {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                {showEditPassword ? (
+                                                    <EyeOff className="h-4 w-4" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" />
+                                                )}
                                             </button>
                                         </div>
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="edit-confirm-password">Konfirmasi Kata Sandi Baru</Label>
+                                        <Label htmlFor="edit-confirm-password">
+                                            Konfirmasi Kata Sandi Baru
+                                        </Label>
                                         <div className="relative">
                                             <Input
                                                 id="edit-confirm-password"
-                                                type={showEditConfirmPassword ? "text" : "password"}
+                                                type={
+                                                    showEditConfirmPassword
+                                                        ? 'text'
+                                                        : 'password'
+                                                }
                                                 placeholder="••••••••"
                                                 value={editConfirmPassword}
-                                                onChange={(e) => setEditConfirmPassword(e.target.value)}
+                                                onChange={(e) =>
+                                                    setEditConfirmPassword(
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 className="pr-10"
                                                 disabled={!editData.password}
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => setShowEditConfirmPassword(!showEditConfirmPassword)}
+                                                onClick={() =>
+                                                    setShowEditConfirmPassword(
+                                                        !showEditConfirmPassword,
+                                                    )
+                                                }
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                                 disabled={!editData.password}
                                             >
-                                                {showEditConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                {showEditConfirmPassword ? (
+                                                    <EyeOff className="h-4 w-4" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" />
+                                                )}
                                             </button>
                                         </div>
                                     </div>
@@ -639,23 +899,45 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                         <Label>Peran Pengguna (Roles)</Label>
                                         <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                                             {USER_ROLES.map((role) => {
-                                                const checked = editRoles.includes(role.value);
+                                                const checked =
+                                                    editRoles.includes(
+                                                        role.value,
+                                                    );
                                                 return (
-                                                    <div key={role.value} className="flex items-center space-x-2">
+                                                    <div
+                                                        key={role.value}
+                                                        className="flex items-center space-x-2"
+                                                    >
                                                         <input
                                                             type="checkbox"
                                                             id={`edit-role-${role.value}`}
                                                             checked={checked}
                                                             onChange={() => {
                                                                 if (checked) {
-                                                                    setEditRoles(editRoles.filter((r) => r !== role.value));
+                                                                    setEditRoles(
+                                                                        editRoles.filter(
+                                                                            (
+                                                                                r,
+                                                                            ) =>
+                                                                                r !==
+                                                                                role.value,
+                                                                        ),
+                                                                    );
                                                                 } else {
-                                                                    setEditRoles([...editRoles, role.value]);
+                                                                    setEditRoles(
+                                                                        [
+                                                                            ...editRoles,
+                                                                            role.value,
+                                                                        ],
+                                                                    );
                                                                 }
                                                             }}
                                                             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                                                         />
-                                                        <Label htmlFor={`edit-role-${role.value}`} className="cursor-pointer">
+                                                        <Label
+                                                            htmlFor={`edit-role-${role.value}`}
+                                                            className="cursor-pointer"
+                                                        >
                                                             {role.label}
                                                         </Label>
                                                     </div>
@@ -663,16 +945,27 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                             })}
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            Pilih satu atau lebih peran. Pengguna harus log out dan log in kembali agar perubahan peran aktif.
+                                            Pilih satu atau lebih peran.
+                                            Pengguna harus log out dan log in
+                                            kembali agar perubahan peran aktif.
                                         </p>
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => setEditOpen(false)} disabled={isSubmitting}>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setEditOpen(false)}
+                                        disabled={isSubmitting}
+                                    >
                                         Batal
                                     </Button>
-                                    <Button onClick={handleUpdate} disabled={isSubmitting}>
-                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    <Button
+                                        onClick={handleUpdate}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting && (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        )}
                                         Simpan Perubahan
                                     </Button>
                                 </DialogFooter>
@@ -680,19 +973,38 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                         </Dialog>
 
                         {/* Deactivate Confirmation AlertDialog */}
-                        <AlertDialog open={!!deactivateTarget} onOpenChange={(open) => { if (!open) setDeactivateTarget(null); }}>
+                        <AlertDialog
+                            open={!!deactivateTarget}
+                            onOpenChange={(open) => {
+                                if (!open) setDeactivateTarget(null);
+                            }}
+                        >
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Nonaktifkan Pengguna</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                        Nonaktifkan Pengguna
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Pengguna <strong>{deactivateTarget?.name || deactivateTarget?.email}</strong> tidak akan bisa login setelah dinonaktifkan. Histori transaksi tetap aman.
+                                        Pengguna{' '}
+                                        <strong>
+                                            {deactivateTarget?.name ||
+                                                deactivateTarget?.email}
+                                        </strong>{' '}
+                                        tidak akan bisa login setelah
+                                        dinonaktifkan. Histori transaksi tetap
+                                        aman.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Batal</AlertDialogCancel>
                                     <AlertDialogAction
                                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        onClick={() => deactivateTarget && handleDeactivate(deactivateTarget.id)}
+                                        onClick={() =>
+                                            deactivateTarget &&
+                                            handleDeactivate(
+                                                deactivateTarget.id,
+                                            )
+                                        }
                                     >
                                         Nonaktifkan
                                     </AlertDialogAction>

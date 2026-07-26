@@ -23,7 +23,11 @@ interface DeleteButtonProps {
     entityName?: string;
 }
 
-export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButtonProps) {
+export function DeleteButton({
+    id,
+    onDelete,
+    entityName = 'Item',
+}: DeleteButtonProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [open, setOpen] = useState(false);
     const router = useRouter();
@@ -49,7 +53,11 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                >
                     <Trash2 className="h-4 w-4" />
                 </Button>
             </AlertDialogTrigger>
@@ -57,12 +65,16 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
                 <AlertDialogHeader>
                     <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Tindakan ini tidak dapat dibatalkan. Ini akan menghapus permanen {entityName.toLowerCase()}
-                        {entityName !== 'Item' ? '' : ''} dan menghapusnya dari server kami.
+                        Tindakan ini tidak dapat dibatalkan. Ini akan menghapus
+                        permanen {entityName.toLowerCase()}
+                        {entityName !== 'Item' ? '' : ''} dan menghapusnya dari
+                        server kami.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
+                    <AlertDialogCancel disabled={isDeleting}>
+                        Batal
+                    </AlertDialogCancel>
                     <AlertDialogAction
                         onClick={(e) => {
                             e.preventDefault();
@@ -71,7 +83,9 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
                         disabled={isDeleting}
                         className="bg-red-500 hover:bg-red-600 focus:ring-red-500"
                     >
-                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isDeleting && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         Delete
                     </AlertDialogAction>
                 </AlertDialogFooter>

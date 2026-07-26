@@ -1,356 +1,400 @@
-"use client";
+'use client';
 
-import { format } from "date-fns";
-import { id as idLocale } from "date-fns/locale";
-import { getCompanyConfig, type CompanyConfig } from "@/lib/config/company";
-import { terbilang } from "@/lib/utils/terbilang";
-import { InvoiceStatus } from "@prisma/client";
+import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
+import { terbilang } from '@/lib/utils/terbilang';
+import { InvoiceStatus } from '@prisma/client';
 
 type InvoiceLineItem = {
-  id?: string;
-  quantity?: unknown;
-  unitPrice?: unknown;
-  subtotal?: unknown;
-  enteredQuantity?: unknown;
-  enteredUnit?: string | null;
-  enteredUnitPrice?: unknown;
-  productVariant?: {
-    name?: string;
-    primaryUnit?: string | null;
-    salesUnit?: string | null;
-    product?: { name?: string };
-  };
+    id?: string;
+    quantity?: unknown;
+    unitPrice?: unknown;
+    subtotal?: unknown;
+    enteredQuantity?: unknown;
+    enteredUnit?: string | null;
+    enteredUnitPrice?: unknown;
+    productVariant?: {
+        name?: string;
+        primaryUnit?: string | null;
+        salesUnit?: string | null;
+        product?: { name?: string };
+    };
 };
 
 interface InvoicePrintData {
-  invoiceNumber: string;
-  invoiceDate: Date;
-  dueDate: Date | null;
-  status: InvoiceStatus;
-  totalAmount: number;
-  paidAmount: number;
-  salesOrder?: {
-    orderNumber: string;
-    taxAmount?: unknown;
-    discountAmount?: unknown;
-    shippingCost?: unknown;
-    customer?: {
-      name: string;
-      phone?: string | null;
-      email?: string | null;
-      billingAddress?: string | null;
-      shippingAddress?: string | null;
-      taxId?: string | null;
+    invoiceNumber: string;
+    invoiceDate: Date;
+    dueDate: Date | null;
+    status: InvoiceStatus;
+    totalAmount: number;
+    paidAmount: number;
+    salesOrder?: {
+        orderNumber: string;
+        taxAmount?: unknown;
+        discountAmount?: unknown;
+        shippingCost?: unknown;
+        customer?: {
+            name: string;
+            phone?: string | null;
+            email?: string | null;
+            billingAddress?: string | null;
+            shippingAddress?: string | null;
+            taxId?: string | null;
+        } | null;
+        items?: InvoiceLineItem[];
     } | null;
-    items?: InvoiceLineItem[];
-  } | null;
 }
 
 // Company config loaded from env vars — see src/lib/config/company.ts
 
 function formatNumberWithDots(n: number): string {
-  return n.toLocaleString("id-ID", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+    return n.toLocaleString('id-ID', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
 }
 
 function formatDate(date: Date): string {
-  return format(date, "dd MMM yyyy", { locale: idLocale });
+    return format(date, 'dd MMM yyyy', { locale: idLocale });
 }
 
 interface InvoiceDotMatrixPrintProps {
-  invoice: InvoicePrintData;
-  invoiceId?: string;
-  showButton?: boolean;
-  previewMode?: boolean;
-  companyConfig?: CompanyConfig;
+    invoice: InvoicePrintData;
+    invoiceId?: string;
+    showButton?: boolean;
+    previewMode?: boolean;
+    companyConfig?: CompanyConfig;
 }
 
 export function InvoiceDotMatrixPrint({
-  invoice,
-  invoiceId,
-  showButton = true,
-  previewMode = false,
-  companyConfig,
+    invoice,
+    invoiceId,
+    showButton = true,
+    previewMode = false,
+    companyConfig,
 }: InvoiceDotMatrixPrintProps) {
-  const COMPANY: CompanyConfig = companyConfig || getCompanyConfig();
-  const so = invoice.salesOrder;
-  const customer = so?.customer;
-  const items = so?.items ?? [];
-  const taxAmount = Number(so?.taxAmount || 0);
-  const isPPN = taxAmount > 0;
+    const COMPANY: CompanyConfig = companyConfig || getCompanyConfig();
+    const so = invoice.salesOrder;
+    const customer = so?.customer;
+    const items = so?.items ?? [];
+    const taxAmount = Number(so?.taxAmount || 0);
+    const isPPN = taxAmount > 0;
 
-  const subtotal = items.reduce(
-    (sum, item) => sum + Number(item.subtotal || 0),
-    0,
-  );
-  const totalQty = items.reduce(
-    (sum, item) => sum + Number(item.quantity || 0),
-    0,
-  );
-  const discountAmount = Number(so?.discountAmount || 0);
-  const shippingCost = Number(so?.shippingCost || 0);
-  const grandTotal = Number(invoice.totalAmount);
-  // rawSubtotal = sebelum diskon & pajak (SUBTOTAL di invoice)
-  // item.subtotal = subtotalAfterDiscount + taxAmount
-  // rawSubtotal = subtotal + discountAmount - taxAmount
-  const rawSubtotal = subtotal + discountAmount - taxAmount;
-  // DPP = dasar pengenaan pajak = rawSubtotal - discountAmount = subtotal - taxAmount
-  const dpp = subtotal - taxAmount;
-  const dppLain = 0;
-  const _coretax = 0;
-  const potongan = 0;
-  const sisaTagihan = grandTotal - Number(invoice.paidAmount);
+    const subtotal = items.reduce(
+        (sum, item) => sum + Number(item.subtotal || 0),
+        0,
+    );
+    const totalQty = items.reduce(
+        (sum, item) => sum + Number(item.quantity || 0),
+        0,
+    );
+    const discountAmount = Number(so?.discountAmount || 0);
+    const shippingCost = Number(so?.shippingCost || 0);
+    const grandTotal = Number(invoice.totalAmount);
+    // rawSubtotal = sebelum diskon & pajak (SUBTOTAL di invoice)
+    // item.subtotal = subtotalAfterDiscount + taxAmount
+    // rawSubtotal = subtotal + discountAmount - taxAmount
+    const rawSubtotal = subtotal + discountAmount - taxAmount;
+    // DPP = dasar pengenaan pajak = rawSubtotal - discountAmount = subtotal - taxAmount
+    const dpp = subtotal - taxAmount;
+    const dppLain = 0;
+    const _coretax = 0;
+    const potongan = 0;
+    const sisaTagihan = grandTotal - Number(invoice.paidAmount);
 
-  const { paperSize } = COMPANY;
+    const { paperSize } = COMPANY;
 
-  const handlePrint = () => {
-    window.print();
-  };
+    const handlePrint = () => {
+        window.print();
+    };
 
-  return (
-    <>
-      {showButton && !previewMode && (
-        <div className="no-print p-4 bg-gray-50 border-b flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">
-            Preview cetak dot matrix — {invoice.invoiceNumber}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-medium"
-            >
-              📄 Export PDF
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-            >
-              🖨️ Cetak Invoice
-            </button>
-            {invoiceId && (
-              <a
-                href={`/api/print/invoice?id=${invoiceId}`}
-                className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 font-medium inline-flex items-center gap-1"
-              >
-                🖨️ ESC/P (Dot Matrix)
-              </a>
+    return (
+        <>
+            {showButton && !previewMode && (
+                <div className="no-print p-4 bg-gray-50 border-b flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">
+                        Preview cetak dot matrix — {invoice.invoiceNumber}
+                    </span>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+                        >
+                            📄 Export PDF
+                        </button>
+                        <button
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                        >
+                            🖨️ Cetak Invoice
+                        </button>
+                        {invoiceId && (
+                            <a
+                                href={`/api/print/invoice?id=${invoiceId}`}
+                                className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 font-medium inline-flex items-center gap-1"
+                            >
+                                🖨️ ESC/P (Dot Matrix)
+                            </a>
+                        )}
+                    </div>
+                </div>
             )}
-          </div>
-        </div>
-      )}
 
-      <div className="print-page">
-        {/* === HEADER === */}
-        <div className="company-section">
-          {COMPANY.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={COMPANY.logoUrl}
-              alt={COMPANY.name}
-              className="company-logo-img"
-            />
-          ) : (
-            <div className="company-logo">MJ</div>
-          )}
-          <div className="company-details">
-            <div className="company-name">{COMPANY.name}</div>
-            <div className="company-address">{COMPANY.address}</div>
-            <div className="company-contact">Telp : {COMPANY.phone}</div>
-            <div className="company-contact">Email : {COMPANY.email}</div>
-          </div>
-        </div>
-        {/* === INVOICE TITLE (centered) === */}
-        <div className="title-section">INVOICE</div>
-
-        {/* === CUSTOMER & INVOICE INFO (two columns) === */}
-        <div className="customer-info-row">
-          <div className="customer-left">
-            <div className="customer-row">
-              <span className="customer-label">NO INVOICE :</span>
-              <span className="customer-value">{invoice.invoiceNumber}</span>
-            </div>
-            <div className="customer-row">
-              <span className="customer-label">TGL INVOICE :</span>
-              <span className="customer-value">
-                {formatDate(new Date(invoice.invoiceDate))}
-              </span>
-            </div>
-            <div className="customer-row">
-              <span className="customer-label">TGL JATUH TEMPO :</span>
-              <span className="customer-value">
-                {invoice.dueDate ? formatDate(new Date(invoice.dueDate)) : "-"}
-              </span>
-            </div>
-          </div>
-          <div className="customer-right">
-            <div className="customer-row">
-              <span className="customer-label">NAMA PELANGGAN :</span>
-              <span className="customer-value">{customer?.name || "-"}</span>
-            </div>
-            <div className="customer-row">
-              <span className="customer-label">ALAMAT :</span>
-              <span className="customer-value">
-                {customer?.billingAddress || "-"}
-              </span>
-            </div>
-            <div className="customer-row">
-              <span className="customer-label">NPWP :</span>
-              <span className="customer-value">{customer?.taxId || "-"}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* === ITEMS TABLE === */}
-        <table className="items-table">
-          <thead>
-            <tr>
-              <th className="col-name">Nama Barang</th>
-              <th className="col-qty">Qty</th>
-              <th className="col-unit">Satuan</th>
-              <th className="col-price">Harga @</th>
-              <th className="col-disc">Diskon</th>
-              <th className="col-total">Jumlah (Rp)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, idx) => {
-              const pv = item.productVariant;
-              const productName = pv?.name || pv?.product?.name || "-";
-              const qty = Number(item.enteredQuantity || item.quantity || 0);
-              const unit =
-                item.enteredUnit || pv?.salesUnit || pv?.primaryUnit || "";
-              const unitPrice = Number(
-                item.enteredUnitPrice || item.unitPrice || 0,
-              );
-              const lineTotal = Number(item.subtotal || 0);
-
-              return (
-                <tr key={item.id || idx}>
-                  <td className="col-name">{productName}</td>
-                  <td className="col-qty">{qty}</td>
-                  <td className="col-unit">{unit}</td>
-                  <td className="col-price">
-                    {formatNumberWithDots(unitPrice)}
-                  </td>
-                  <td className="col-disc">0</td>
-                  <td className="col-total">
-                    {formatNumberWithDots(lineTotal)}
-                  </td>
-                </tr>
-              );
-            })}
-            {/* Empty rows to fill space like the screenshot */}
-            {items.length < 3 &&
-              Array.from({ length: 3 - items.length }).map((_, i) => (
-                <tr key={`empty-${i}`} className="empty-row">
-                  <td colSpan={6}>&nbsp;</td>
-                </tr>
-              ))}
-          </tbody>
-          <tfoot>
-            <tr className="total-row">
-              <td colSpan={1} className="text-right">
-                TOTAL :
-              </td>
-              <td className="col-qty">{totalQty}</td>
-              <td colSpan={4}></td>
-            </tr>
-          </tfoot>
-        </table>
-
-        {/* === BOTTOM SECTION: Terbilang + Bank (left) | Summary + Signature (right) === */}
-        <div className="bottom-section">
-          <div className="bottom-left">
-            <div className="terbilang-line">
-              Terbilang : {terbilang(grandTotal)}
-            </div>
-            <div className="bank-section">
-              <div className="keterangan-label">KETERANGAN BANK :</div>
-              <div className="bank-type-label">
-                {isPPN ? "(Penjualan PPN)" : "(Penjualan Non PPN)"}
-              </div>
-              <div className="bank-account">
-                A/N{" "}
-                {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN)[0]
-                  ?.holder || COMPANY.name}
-              </div>
-              {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map(
-                (acc) => (
-                  <div key={acc.account} className="bank-account">
-                    {acc.bank} : {acc.account}
-                  </div>
-                ),
-              )}
-            </div>
-          </div>
-
-          <div className="bottom-right">
-            <div className="financial-summary">
-              <div className="summary-row">
-                <span>SUBTOTAL :</span>
-                <span>{formatNumberWithDots(rawSubtotal)}</span>
-              </div>
-              {discountAmount > 0 && (
-                <div className="summary-row">
-                  <span>DISKON :</span>
-                  <span>-{formatNumberWithDots(discountAmount)}</span>
+            <div className="print-page">
+                {/* === HEADER === */}
+                <div className="company-section">
+                    {COMPANY.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            src={COMPANY.logoUrl}
+                            alt={COMPANY.name}
+                            className="company-logo-img"
+                        />
+                    ) : (
+                        <div className="company-logo">MJ</div>
+                    )}
+                    <div className="company-details">
+                        <div className="company-name">{COMPANY.name}</div>
+                        <div className="company-address">{COMPANY.address}</div>
+                        <div className="company-contact">
+                            Telp : {COMPANY.phone}
+                        </div>
+                        <div className="company-contact">
+                            Email : {COMPANY.email}
+                        </div>
+                    </div>
                 </div>
-              )}
-              <div className="summary-row">
-                <span>DPP :</span>
-                <span>{formatNumberWithDots(dpp)}</span>
-              </div>
-              {taxAmount > 0 && (
-                <div className="summary-row">
-                  <span>PPN 11% :</span>
-                  <span>{formatNumberWithDots(taxAmount)}</span>
-                </div>
-              )}
-              {dppLain > 0 && (
-                <div className="summary-row">
-                  <span>DPP :</span>
-                  <span>{formatNumberWithDots(dppLain)}</span>
-                </div>
-              )}
-              {shippingCost > 0 && (
-                <div className="summary-row">
-                  <span>ONGKOS KIRIM :</span>
-                  <span>{formatNumberWithDots(shippingCost)}</span>
-                </div>
-              )}
-              <div className="summary-row bold">
-                <span>TOTAL :</span>
-                <span>{formatNumberWithDots(grandTotal)}</span>
-              </div>
-              <div className="summary-row">
-                <span>POTONGAN :</span>
-                <span>{formatNumberWithDots(potongan)}</span>
-              </div>
-              <div className="summary-row bold">
-                <span>SISA TAGIHAN :</span>
-                <span className="highlight">
-                  {formatNumberWithDots(sisaTagihan)}
-                </span>
-              </div>
-            </div>
-            <div className="footer-right">
-              <div className="hormat-text">Hormat kami,</div>
-              <div className="signature-space"></div>
-              <div className="signer-name">( {COMPANY.signerName} )</div>
-            </div>
-          </div>
-        </div>
+                {/* === INVOICE TITLE (centered) === */}
+                <div className="title-section">INVOICE</div>
 
-        {/* === NOTE === */}
-        <div className="invoice-note">NOTE :{COMPANY.footerNote}</div>
-      </div>
+                {/* === CUSTOMER & INVOICE INFO (two columns) === */}
+                <div className="customer-info-row">
+                    <div className="customer-left">
+                        <div className="customer-row">
+                            <span className="customer-label">NO INVOICE :</span>
+                            <span className="customer-value">
+                                {invoice.invoiceNumber}
+                            </span>
+                        </div>
+                        <div className="customer-row">
+                            <span className="customer-label">
+                                TGL INVOICE :
+                            </span>
+                            <span className="customer-value">
+                                {formatDate(new Date(invoice.invoiceDate))}
+                            </span>
+                        </div>
+                        <div className="customer-row">
+                            <span className="customer-label">
+                                TGL JATUH TEMPO :
+                            </span>
+                            <span className="customer-value">
+                                {invoice.dueDate
+                                    ? formatDate(new Date(invoice.dueDate))
+                                    : '-'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="customer-right">
+                        <div className="customer-row">
+                            <span className="customer-label">
+                                NAMA PELANGGAN :
+                            </span>
+                            <span className="customer-value">
+                                {customer?.name || '-'}
+                            </span>
+                        </div>
+                        <div className="customer-row">
+                            <span className="customer-label">ALAMAT :</span>
+                            <span className="customer-value">
+                                {customer?.billingAddress || '-'}
+                            </span>
+                        </div>
+                        <div className="customer-row">
+                            <span className="customer-label">NPWP :</span>
+                            <span className="customer-value">
+                                {customer?.taxId || '-'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
-      {/* Dynamic @page from company paper size config */}
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
+                {/* === ITEMS TABLE === */}
+                <table className="items-table">
+                    <thead>
+                        <tr>
+                            <th className="col-name">Nama Barang</th>
+                            <th className="col-qty">Qty</th>
+                            <th className="col-unit">Satuan</th>
+                            <th className="col-price">Harga @</th>
+                            <th className="col-disc">Diskon</th>
+                            <th className="col-total">Jumlah (Rp)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {items.map((item, idx) => {
+                            const pv = item.productVariant;
+                            const productName =
+                                pv?.name || pv?.product?.name || '-';
+                            const qty = Number(
+                                item.enteredQuantity || item.quantity || 0,
+                            );
+                            const unit =
+                                item.enteredUnit ||
+                                pv?.salesUnit ||
+                                pv?.primaryUnit ||
+                                '';
+                            const unitPrice = Number(
+                                item.enteredUnitPrice || item.unitPrice || 0,
+                            );
+                            const lineTotal = Number(item.subtotal || 0);
+
+                            return (
+                                <tr key={item.id || idx}>
+                                    <td className="col-name">{productName}</td>
+                                    <td className="col-qty">{qty}</td>
+                                    <td className="col-unit">{unit}</td>
+                                    <td className="col-price">
+                                        {formatNumberWithDots(unitPrice)}
+                                    </td>
+                                    <td className="col-disc">0</td>
+                                    <td className="col-total">
+                                        {formatNumberWithDots(lineTotal)}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {/* Empty rows to fill space like the screenshot */}
+                        {items.length < 3 &&
+                            Array.from({ length: 3 - items.length }).map(
+                                (_, i) => (
+                                    <tr
+                                        key={`empty-${i}`}
+                                        className="empty-row"
+                                    >
+                                        <td colSpan={6}>&nbsp;</td>
+                                    </tr>
+                                ),
+                            )}
+                    </tbody>
+                    <tfoot>
+                        <tr className="total-row">
+                            <td colSpan={1} className="text-right">
+                                TOTAL :
+                            </td>
+                            <td className="col-qty">{totalQty}</td>
+                            <td colSpan={4}></td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                {/* === BOTTOM SECTION: Terbilang + Bank (left) | Summary + Signature (right) === */}
+                <div className="bottom-section">
+                    <div className="bottom-left">
+                        <div className="terbilang-line">
+                            Terbilang : {terbilang(grandTotal)}
+                        </div>
+                        <div className="bank-section">
+                            <div className="keterangan-label">
+                                KETERANGAN BANK :
+                            </div>
+                            <div className="bank-type-label">
+                                {isPPN
+                                    ? '(Penjualan PPN)'
+                                    : '(Penjualan Non PPN)'}
+                            </div>
+                            <div className="bank-account">
+                                A/N{' '}
+                                {(isPPN
+                                    ? COMPANY.bankAccountsPPN
+                                    : COMPANY.bankAccountsNonPPN)[0]?.holder ||
+                                    COMPANY.name}
+                            </div>
+                            {(isPPN
+                                ? COMPANY.bankAccountsPPN
+                                : COMPANY.bankAccountsNonPPN
+                            ).map((acc) => (
+                                <div key={acc.account} className="bank-account">
+                                    {acc.bank} : {acc.account}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bottom-right">
+                        <div className="financial-summary">
+                            <div className="summary-row">
+                                <span>SUBTOTAL :</span>
+                                <span>{formatNumberWithDots(rawSubtotal)}</span>
+                            </div>
+                            {discountAmount > 0 && (
+                                <div className="summary-row">
+                                    <span>DISKON :</span>
+                                    <span>
+                                        -{formatNumberWithDots(discountAmount)}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="summary-row">
+                                <span>DPP :</span>
+                                <span>{formatNumberWithDots(dpp)}</span>
+                            </div>
+                            {taxAmount > 0 && (
+                                <div className="summary-row">
+                                    <span>PPN 11% :</span>
+                                    <span>
+                                        {formatNumberWithDots(taxAmount)}
+                                    </span>
+                                </div>
+                            )}
+                            {dppLain > 0 && (
+                                <div className="summary-row">
+                                    <span>DPP :</span>
+                                    <span>{formatNumberWithDots(dppLain)}</span>
+                                </div>
+                            )}
+                            {shippingCost > 0 && (
+                                <div className="summary-row">
+                                    <span>ONGKOS KIRIM :</span>
+                                    <span>
+                                        {formatNumberWithDots(shippingCost)}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="summary-row bold">
+                                <span>TOTAL :</span>
+                                <span>{formatNumberWithDots(grandTotal)}</span>
+                            </div>
+                            <div className="summary-row">
+                                <span>POTONGAN :</span>
+                                <span>{formatNumberWithDots(potongan)}</span>
+                            </div>
+                            <div className="summary-row bold">
+                                <span>SISA TAGIHAN :</span>
+                                <span className="highlight">
+                                    {formatNumberWithDots(sisaTagihan)}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="footer-right">
+                            <div className="hormat-text">Hormat kami,</div>
+                            <div className="signature-space"></div>
+                            <div className="signer-name">
+                                ( {COMPANY.signerName} )
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* === NOTE === */}
+                <div className="invoice-note">NOTE :{COMPANY.footerNote}</div>
+            </div>
+
+            {/* Dynamic @page from company paper size config */}
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
         @page {
           size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm landscape;
           margin: ${paperSize.marginMm}mm;
@@ -379,10 +423,10 @@ export function InvoiceDotMatrixPrint({
           }
         }
       `,
-        }}
-      />
+                }}
+            />
 
-      <style>{`
+            <style>{`
         .print-page {
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
           font-size: 12px;
@@ -635,6 +679,6 @@ export function InvoiceDotMatrixPrint({
           font-weight: bold;
         }
       `}</style>
-    </>
-  );
+        </>
+    );
 }

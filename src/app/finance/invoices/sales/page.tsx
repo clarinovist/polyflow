@@ -1,8 +1,8 @@
-import type { ComponentProps } from "react";
-import { getInvoices } from "@/actions/finance/invoice";
-import { InvoiceTable } from "@/components/sales/InvoiceTable";
+import type { ComponentProps } from 'react';
+import { getInvoices } from '@/actions/finance/invoice';
+import { InvoiceTable } from '@/components/sales/InvoiceTable';
 
-import { serializeData } from "@/lib/utils/utils";
+import { serializeData } from '@/lib/utils/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -11,15 +11,28 @@ import { ContextualHelp } from '@/components/support/contextual-help';
 import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
-export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal', status?: string }> }) {
+export default async function InvoicesPage({
+    searchParams,
+}: {
+    searchParams: Promise<{
+        startDate?: string;
+        endDate?: string;
+        demand?: 'customer' | 'legacy-internal';
+        status?: string;
+    }>;
+}) {
     const params = await searchParams;
     const demand = params?.demand || 'customer';
     const initialStatus = params?.status;
 
     // Only filter by date when explicitly provided via URL params
-    const dateRange = params?.startDate && params?.endDate
-        ? { startDate: parseISO(params.startDate), endDate: parseISO(params.endDate) }
-        : undefined;
+    const dateRange =
+        params?.startDate && params?.endDate
+            ? {
+                  startDate: parseISO(params.startDate),
+                  endDate: parseISO(params.endDate),
+              }
+            : undefined;
 
     const buildDemandHref = (nextDemand: 'customer' | 'legacy-internal') => {
         const query = new URLSearchParams();
@@ -33,13 +46,16 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
     const invoices = await getInvoices(dateRange, demand);
 
     // Serialize all Prisma objects for Client Components
-    const serializedInvoices = invoices.success && invoices.data ? serializeData(invoices.data) : [];
+    const serializedInvoices =
+        invoices.success && invoices.data ? serializeData(invoices.data) : [];
 
     return (
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Invoice Sales</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Invoice Sales
+                    </h1>
                     <p className="text-muted-foreground">
                         Kelola tagihan customer dan lacak pembayaran tertunggak.
                     </p>
@@ -49,8 +65,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                         title="Panduan Invoice"
                         prefillQuestion="Kenapa error period locked saat posting invoice?"
                         links={[
-                            { title: 'Cara Lihat Invoice Belum Lunas', slug: 'cara-lihat-invoice-belum-lunas' },
-                            { title: 'Error Period Locked', slug: 'error-period-locked-finance' },
+                            {
+                                title: 'Cara Lihat Invoice Belum Lunas',
+                                slug: 'cara-lihat-invoice-belum-lunas',
+                            },
+                            {
+                                title: 'Error Period Locked',
+                                slug: 'error-period-locked-finance',
+                            },
                         ]}
                     />
                     <UrlTransactionDateFilter defaultPreset="all" align="end" />
@@ -60,10 +82,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
             <Tabs defaultValue={demand} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 md:w-[420px]">
                     <TabsTrigger value="customer" asChild>
-                        <Link href={buildDemandHref('customer')}>Customer AR</Link>
+                        <Link href={buildDemandHref('customer')}>
+                            Customer AR
+                        </Link>
                     </TabsTrigger>
                     <TabsTrigger value="legacy-internal" asChild>
-                        <Link href={buildDemandHref('legacy-internal')}>Legacy Internal</Link>
+                        <Link href={buildDemandHref('legacy-internal')}>
+                            Legacy Internal
+                        </Link>
                     </TabsTrigger>
                 </TabsList>
             </Tabs>
@@ -72,12 +98,23 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                 <Alert className="border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20">
                     <AlertTitle>Legacy internal review</AlertTitle>
                     <AlertDescription>
-                        This tab is for historical invoices that originated from internal stock build flows before customer enforcement was added. Treat it as cleanup and audit review, not as a normal receivables workflow.
+                        This tab is for historical invoices that originated from
+                        internal stock build flows before customer enforcement
+                        was added. Treat it as cleanup and audit review, not as
+                        a normal receivables workflow.
                     </AlertDescription>
                 </Alert>
             )}
 
-            <InvoiceTable invoices={serializedInvoices as ComponentProps<typeof InvoiceTable>['invoices']} basePath="/finance/invoices/sales" initialStatus={initialStatus} />
+            <InvoiceTable
+                invoices={
+                    serializedInvoices as ComponentProps<
+                        typeof InvoiceTable
+                    >['invoices']
+                }
+                basePath="/finance/invoices/sales"
+                initialStatus={initialStatus}
+            />
         </div>
     );
 }

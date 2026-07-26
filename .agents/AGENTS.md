@@ -6,20 +6,20 @@
 
 Route to the right module based on the problem you're solving:
 
-| Problem Domain | Start Here | Deep Dive |
-|----------------|------------|-----------|
-| **Auth / Login / Session** | `src/auth.ts` + `src/proxy.ts` | `src/lib/auth/AGENTS.md` |
-| **Tenant / Subdomain** | `src/lib/core/tenant.ts` | Architecture gotcha below |
-| **Inventory / Stock** | `src/actions/inventory/` | `src/actions/inventory/AGENTS.md` |
-| **Finance / Accounting / Journal** | `src/actions/finance/` | `src/actions/finance/AGENTS.md` |
-| **Production / BOM / Work Order** | `src/actions/production/` | `src/actions/production/AGENTS.md` |
-| **Sales / Quotation / Delivery** | `src/actions/sales/` | `src/actions/sales/AGENTS.md` |
-| **Purchasing / PO / Receipt** | `src/actions/purchasing/` | `src/actions/purchasing/AGENTS.md` |
-| **HRD / Payroll / Attendance** | `src/actions/hrd/` | `src/actions/hrd/AGENTS.md` |
-| **Service Layer / Business Logic** | `src/services/` | `src/services/AGENTS.md` |
-| **Utilities / Schemas / Config** | `src/lib/` | `src/lib/AGENTS.md` |
-| **Dashboard / Analytics** | `src/actions/dashboard/` | — |
-| **Settings / Profile** | `src/actions/settings/` | — |
+| Problem Domain                     | Start Here                     | Deep Dive                          |
+| ---------------------------------- | ------------------------------ | ---------------------------------- |
+| **Auth / Login / Session**         | `src/auth.ts` + `src/proxy.ts` | `src/lib/auth/AGENTS.md`           |
+| **Tenant / Subdomain**             | `src/lib/core/tenant.ts`       | Architecture gotcha below          |
+| **Inventory / Stock**              | `src/actions/inventory/`       | `src/actions/inventory/AGENTS.md`  |
+| **Finance / Accounting / Journal** | `src/actions/finance/`         | `src/actions/finance/AGENTS.md`    |
+| **Production / BOM / Work Order**  | `src/actions/production/`      | `src/actions/production/AGENTS.md` |
+| **Sales / Quotation / Delivery**   | `src/actions/sales/`           | `src/actions/sales/AGENTS.md`      |
+| **Purchasing / PO / Receipt**      | `src/actions/purchasing/`      | `src/actions/purchasing/AGENTS.md` |
+| **HRD / Payroll / Attendance**     | `src/actions/hrd/`             | `src/actions/hrd/AGENTS.md`        |
+| **Service Layer / Business Logic** | `src/services/`                | `src/services/AGENTS.md`           |
+| **Utilities / Schemas / Config**   | `src/lib/`                     | `src/lib/AGENTS.md`                |
+| **Dashboard / Analytics**          | `src/actions/dashboard/`       | —                                  |
+| **Settings / Profile**             | `src/actions/settings/`        | —                                  |
 
 ## Architecture Overview
 
@@ -47,19 +47,20 @@ Auth: NextAuth v5 (JWT) → proxy.ts → tenant resolution
 
 ## Common Pitfalls
 
-| Pitfall | Why | Fix |
-|---------|-----|-----|
-| Hardcode tenant ID | Breaks multi-tenancy | Always use `getTenantContext()` |
-| Unbalanced journal | Accounting invariant violated | Debit must equal credit |
-| Stock movement without reference | Audit trail broken | Always link to source transaction |
-| Use `middleware.ts` for auth | It's stale/unused | Use `src/proxy.ts` (active middleware) |
-| Parse subdomain manually | Duplicates logic | Use `extractSubdomain()` from `src/lib/core/tenant.ts` |
-| Block `/api/auth/*` unauthenticated | Breaks login entirely | `authConfig.callbacks.authorized()` must return true for `/api/auth` paths |
-| Skip lint/typecheck before commit | Catches errors late | Always run `npm run lint` + `npm run build` |
+| Pitfall                             | Why                           | Fix                                                                        |
+| ----------------------------------- | ----------------------------- | -------------------------------------------------------------------------- |
+| Hardcode tenant ID                  | Breaks multi-tenancy          | Always use `getTenantContext()`                                            |
+| Unbalanced journal                  | Accounting invariant violated | Debit must equal credit                                                    |
+| Stock movement without reference    | Audit trail broken            | Always link to source transaction                                          |
+| Use `middleware.ts` for auth        | It's stale/unused             | Use `src/proxy.ts` (active middleware)                                     |
+| Parse subdomain manually            | Duplicates logic              | Use `extractSubdomain()` from `src/lib/core/tenant.ts`                     |
+| Block `/api/auth/*` unauthenticated | Breaks login entirely         | `authConfig.callbacks.authorized()` must return true for `/api/auth` paths |
+| Skip lint/typecheck before commit   | Catches errors late           | Always run `npm run lint` + `npm run build`                                |
 
 ## Module Navigation
 
 Each module directory contains its own `AGENTS.md` explaining:
+
 - **Purpose** — what this module does
 - **Key files** — entry points and important files
 - **Patterns** — coding conventions specific to this module
@@ -102,6 +103,7 @@ entirely (CSRF token fetch returns a redirect instead of JSON).
 ---
 
 Whenever completing a task, modifications, or code refactoring in this repository:
+
 1. **Always run ESLint check** via `npm run lint` on the modified files or the entire project to ensure clean code style and prevent unresolved imports/variables.
 2. **Always perform type-checking & build** via `npm run build` or `npx tsc --noEmit` to verify code correctness and ensure there are no Next.js compilation issues or TypeScript structural type errors.
 3. **Always run unit tests** via `npx vitest run` if files under `services/`, `actions/`, or other logically-heavy components are changed.

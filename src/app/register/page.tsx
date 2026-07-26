@@ -17,8 +17,12 @@ export default function RegisterPage() {
 
                 <div className="relative z-10 w-full max-w-lg">
                     <div className="text-center mb-10">
-                        <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">Create your workspace</h1>
-                        <p className="text-zinc-400">Set up PolyFlow ERP for your manufacturing team.</p>
+                        <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
+                            Create your workspace
+                        </h1>
+                        <p className="text-zinc-400">
+                            Set up PolyFlow ERP for your manufacturing team.
+                        </p>
                     </div>
 
                     <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 shadow-2xl">
@@ -26,7 +30,6 @@ export default function RegisterPage() {
                     </div>
                 </div>
             </main>
-
         </div>
     );
 }

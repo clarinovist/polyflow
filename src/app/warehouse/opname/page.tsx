@@ -20,7 +20,8 @@ export default async function WarehouseOpnameListPage() {
     }
 
     const sessionsRes = await getOpnameSessions();
-    const sessions = sessionsRes.success && sessionsRes.data ? sessionsRes.data : [];
+    const sessions =
+        sessionsRes.success && sessionsRes.data ? sessionsRes.data : [];
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -29,8 +30,12 @@ export default async function WarehouseOpnameListPage() {
             </Suspense>
             <div className="flex items-center justify-between space-y-2">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Stock Opname</h2>
-                    <p className="text-muted-foreground">Manage physical inventory audits and reconciliation</p>
+                    <h2 className="text-3xl font-bold tracking-tight">
+                        Stock Opname
+                    </h2>
+                    <p className="text-muted-foreground">
+                        Manage physical inventory audits and reconciliation
+                    </p>
                 </div>
                 <CreateOpnameDialog basePath="/warehouse/opname" />
             </div>
@@ -41,19 +46,32 @@ export default async function WarehouseOpnameListPage() {
                 {sessions.length === 0 ? (
                     <div className="col-span-full flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-muted/10 text-muted-foreground">
                         <History className="h-10 w-10 mb-3 opacity-50" />
-                        <p className="font-medium">Tidak ada sesi stock opname ditemukan</p>
-                        <p className="text-sm mt-1">Start a new audit session to track inventory.</p>
+                        <p className="font-medium">
+                            Tidak ada sesi stock opname ditemukan
+                        </p>
+                        <p className="text-sm mt-1">
+                            Start a new audit session to track inventory.
+                        </p>
                     </div>
                 ) : (
                     sessions.map((session) => (
-                        <Link href={`/warehouse/opname/${session.id}`} key={session.id} className="block h-full">
+                        <Link
+                            href={`/warehouse/opname/${session.id}`}
+                            key={session.id}
+                            className="block h-full"
+                        >
                             <Card className="h-full hover:shadow-md transition-all cursor-pointer border-border/60 hover:border-primary/50 group">
                                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                                     <Badge
-                                        variant={session.status === 'OPEN' ? 'secondary' : 'outline'}
-                                        className={session.status === 'OPEN'
-                                            ? "bg-primary/10 text-primary hover:bg-primary/20"
-                                            : "border-emerald-500/30 text-emerald-600"
+                                        variant={
+                                            session.status === 'OPEN'
+                                                ? 'secondary'
+                                                : 'outline'
+                                        }
+                                        className={
+                                            session.status === 'OPEN'
+                                                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                                : 'border-emerald-500/30 text-emerald-600'
                                         }
                                     >
                                         {session.status}
@@ -66,10 +84,14 @@ export default async function WarehouseOpnameListPage() {
                                 </CardHeader>
                                 <CardContent>
                                     <CardTitle className="text-lg font-semibold mb-1 group-hover:text-primary transition-colors">
-                                        {session.opnameNumber || <span className="text-muted-foreground italic">No Code</span>}
+                                        {session.opnameNumber || (
+                                            <span className="text-muted-foreground italic">
+                                                No Code
+                                            </span>
+                                        )}
                                     </CardTitle>
                                     <p className="text-muted-foreground text-sm mb-2 line-clamp-1">
-                                        {session.remarks || "No Remarks"}
+                                        {session.remarks || 'No Remarks'}
                                     </p>
 
                                     <div className="space-y-2 mt-4 text-sm text-muted-foreground">
@@ -83,7 +105,12 @@ export default async function WarehouseOpnameListPage() {
                                             <div className="p-1 rounded bg-muted">
                                                 <Calendar className="h-3.5 w-3.5" />
                                             </div>
-                                            <span>{format(new Date(session.createdAt), 'PPP')}</span>
+                                            <span>
+                                                {format(
+                                                    new Date(session.createdAt),
+                                                    'PPP',
+                                                )}
+                                            </span>
                                         </div>
                                     </div>
                                 </CardContent>

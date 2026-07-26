@@ -2,36 +2,40 @@ import { prisma } from '@/lib/core/prisma';
 import { AccountingService } from '../accounting/accounting-service';
 
 export class BudgetService {
-
     /**
      * Get Budgets for a Year/Month
      */
     static async getBudgets(year: number, month: number) {
         return await prisma.budget.findMany({
             where: { year, month },
-            include: { account: true }
+            include: { account: true },
         });
     }
 
     /**
      * Set or Update Budget
      */
-    static async setBudget(data: { accountId: string, year: number, month: number, amount: number }) {
+    static async setBudget(data: {
+        accountId: string;
+        year: number;
+        month: number;
+        amount: number;
+    }) {
         return await prisma.budget.upsert({
             where: {
                 accountId_year_month: {
                     accountId: data.accountId,
                     year: data.year,
-                    month: data.month
-                }
+                    month: data.month,
+                },
             },
             update: { amount: data.amount },
             create: {
                 accountId: data.accountId,
                 year: data.year,
                 month: data.month,
-                amount: data.amount
-            }
+                amount: data.amount,
+            },
         });
     }
 
@@ -46,7 +50,11 @@ export class BudgetService {
         const report = [];
 
         for (const b of budgets) {
-            const actual = await AccountingService.getAccountBalance(b.accountId, startDate, endDate);
+            const actual = await AccountingService.getAccountBalance(
+                b.accountId,
+                startDate,
+                endDate,
+            );
 
             // For Balance Sheet accounts, get total balance as of end date
             // For P&L accounts, get period movement
@@ -54,7 +62,8 @@ export class BudgetService {
             const actualVal = actual; // Preserve sign for direction (negative = underspend/under-earn)
             const budgetVal = Number(b.amount);
             const variance = actualVal - budgetVal;
-            const variancePercent = budgetVal !== 0 ? (variance / budgetVal) * 100 : 0;
+            const variancePercent =
+                budgetVal !== 0 ? (variance / budgetVal) * 100 : 0;
 
             report.push({
                 accountCode: b.account.code,
@@ -62,7 +71,7 @@ export class BudgetService {
                 budget: budgetVal,
                 actual: actualVal,
                 variance,
-                variancePercent
+                variancePercent,
             });
         }
 

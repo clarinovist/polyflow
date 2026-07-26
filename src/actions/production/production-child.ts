@@ -1,102 +1,120 @@
-"use server";
+'use server';
 
-import { withTenant } from "@/lib/core/tenant";
-import { prisma } from "@/lib/core/prisma";
-import { logger } from "@/lib/config/logger";
-import { safeAction, BusinessRuleError, NotFoundError } from "@/lib/errors/errors";
-import { requirePlanningRole } from "@/lib/tools/auth-checks";
-import { serializeData } from "@/lib/utils/utils";
-import { revalidatePath } from "next/cache";
-import { createProductionOrderWithGeneratedNumber } from "@/services/production/order-number-service";
-import { isRiskyOutputLocation } from "@/lib/locations/resolve-location";
+import { withTenant } from '@/lib/core/tenant';
+import { prisma } from '@/lib/core/prisma';
+import { logger } from '@/lib/config/logger';
+import {
+    safeAction,
+    BusinessRuleError,
+    NotFoundError,
+} from '@/lib/errors/errors';
+import { requirePlanningRole } from '@/lib/tools/auth-checks';
+import { serializeData } from '@/lib/utils/utils';
+import { revalidatePath } from 'next/cache';
+import { createProductionOrderWithGeneratedNumber } from '@/services/production/order-number-service';
+import { isRiskyOutputLocation } from '@/lib/locations/resolve-location';
 
 export const createChildProductionOrder = withTenant(
-  async function createChildProductionOrder(
-    parentOrderId: string,
-    productVariantId: string,
-    quantity: number,
-  ) {
-    return safeAction(async () => {
-      try {
-        await requirePlanningRole();
+    async function createChildProductionOrder(
+        parentOrderId: string,
+        productVariantId: string,
+        quantity: number,
+    ) {
+        return safeAction(async () => {
+            try {
+                await requirePlanningRole();
 
-        const result = await prisma.$transaction(async (tx) => {
-          const parentOrder = await tx.productionOrder.findUnique({
-            where: { id: parentOrderId },
-            select: { salesOrderId: true, locationId: true, status: true, location: true },
-          });
+                const result = await prisma.$transaction(async (tx) => {
+                    const parentOrder = await tx.productionOrder.findUnique({
+                        where: { id: parentOrderId },
+                        select: {
+                            salesOrderId: true,
+                            locationId: true,
+                            status: true,
+                            location: true,
+                        },
+                    });
 
-          if (!parentOrder) throw new NotFoundError("Production Order", parentOrderId);
+                    if (!parentOrder)
+                        throw new NotFoundError(
+                            'Production Order',
+                            parentOrderId,
+                        );
 
-          if (isRiskyOutputLocation(parentOrder.location)) {
-            throw new BusinessRuleError(
-              "Lokasi parent SPK tidak valid untuk SPK baru (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan perbaiki lokasi parent SPK terlebih dahulu.",
-              { parentOrderId, locationId: parentOrder.locationId },
-              "RISKY_OUTPUT_LOCATION",
-            );
-          }
+                    if (isRiskyOutputLocation(parentOrder.location)) {
+                        throw new BusinessRuleError(
+                            'Lokasi parent SPK tidak valid untuk SPK baru (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan perbaiki lokasi parent SPK terlebih dahulu.',
+                            {
+                                parentOrderId,
+                                locationId: parentOrder.locationId,
+                            },
+                            'RISKY_OUTPUT_LOCATION',
+                        );
+                    }
 
-          const bom = await tx.bom.findFirst({
-            where: { productVariantId, isDefault: true },
-          });
+                    const bom = await tx.bom.findFirst({
+                        where: { productVariantId, isDefault: true },
+                    });
 
-          if (!bom)
-            throw new BusinessRuleError(
-              "No default BOM found for this item. Please set a Primary Default Recipe first.",
-              { productVariantId },
-              "MISSING_DEFAULT_BOM",
-            );
+                    if (!bom)
+                        throw new BusinessRuleError(
+                            'No default BOM found for this item. Please set a Primary Default Recipe first.',
+                            { productVariantId },
+                            'MISSING_DEFAULT_BOM',
+                        );
 
-          const po = await createProductionOrderWithGeneratedNumber(
-            tx,
-            {
-              salesOrder: parentOrder.salesOrderId
-                ? { connect: { id: parentOrder.salesOrderId } }
-                : undefined,
-              bom: { connect: { id: bom.id } },
-              plannedQuantity: quantity,
-              status: "DRAFT",
-              plannedStartDate: new Date(),
-              location: { connect: { id: parentOrder.locationId } },
-              parentOrder: { connect: { id: parentOrderId } },
-              notes: `Sub-order for ${parentOrder.status} parent`,
-            },
-            {
-              prefix: "SWO",
-            },
-          );
+                    const po = await createProductionOrderWithGeneratedNumber(
+                        tx,
+                        {
+                            salesOrder: parentOrder.salesOrderId
+                                ? { connect: { id: parentOrder.salesOrderId } }
+                                : undefined,
+                            bom: { connect: { id: bom.id } },
+                            plannedQuantity: quantity,
+                            status: 'DRAFT',
+                            plannedStartDate: new Date(),
+                            location: {
+                                connect: { id: parentOrder.locationId },
+                            },
+                            parentOrder: { connect: { id: parentOrderId } },
+                            notes: `Sub-order for ${parentOrder.status} parent`,
+                        },
+                        {
+                            prefix: 'SWO',
+                        },
+                    );
 
-          const bomItems = await tx.bomItem.findMany({
-            where: { bomId: bom.id },
-          });
+                    const bomItems = await tx.bomItem.findMany({
+                        where: { bomId: bom.id },
+                    });
 
-          const outputRatio = quantity / Number(bom.outputQuantity);
+                    const outputRatio = quantity / Number(bom.outputQuantity);
 
-          await tx.productionMaterial.createMany({
-            data: bomItems.map((bi) => ({
-              productionOrderId: po.id,
-              productVariantId: bi.productVariantId,
-              quantity: Number(bi.quantity) * outputRatio,
-            })),
-          });
+                    await tx.productionMaterial.createMany({
+                        data: bomItems.map((bi) => ({
+                            productionOrderId: po.id,
+                            productVariantId: bi.productVariantId,
+                            quantity: Number(bi.quantity) * outputRatio,
+                        })),
+                    });
 
-          return po;
+                    return po;
+                });
+
+                revalidatePath(`/production/orders/${parentOrderId}`);
+                revalidatePath('/production');
+                return serializeData(result);
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                logger.error('Failed to create child PO', {
+                    parentOrderId,
+                    error,
+                    module: 'ProductionActions',
+                });
+                throw new BusinessRuleError(
+                    'Failed to create sub-order. Please try again.',
+                );
+            }
         });
-
-        revalidatePath(`/production/orders/${parentOrderId}`);
-        revalidatePath("/production");
-        return serializeData(result);
-      } catch (error) {
-        if (error instanceof BusinessRuleError) throw error;
-        logger.error("Failed to create child PO", {
-          parentOrderId,
-          error,
-          module: "ProductionActions",
-        });
-        throw new BusinessRuleError(
-          "Failed to create sub-order. Please try again.",
-        );
-      }
-    });
-  },
+    },
 );

@@ -4,7 +4,8 @@ import { PaymentBanksSettings } from '@/components/finance/PaymentBanksSettings'
 
 export const metadata = {
     title: 'Rekening Bank Pembayaran | Polyflow Finance',
-    description: 'Kelola nomor rekening perusahaan untuk metode pembayaran Transfer BCA/Mandiri.',
+    description:
+        'Kelola nomor rekening perusahaan untuk metode pembayaran Transfer BCA/Mandiri.',
 };
 
 export default async function PaymentBanksPage() {

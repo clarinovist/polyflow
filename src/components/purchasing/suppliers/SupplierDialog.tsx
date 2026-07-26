@@ -3,7 +3,12 @@
 import { useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createSupplierSchema, updateSupplierSchema, CreateSupplierValues, UpdateSupplierValues } from '@/lib/schemas/partner';
+import {
+    createSupplierSchema,
+    updateSupplierSchema,
+    CreateSupplierValues,
+    UpdateSupplierValues,
+} from '@/lib/schemas/partner';
 import { createSupplier, updateSupplier } from '@/actions/purchasing/supplier';
 import { Supplier } from '@prisma/client';
 import { Button } from '@/components/ui/button';
@@ -29,7 +34,13 @@ import { Loader2, Plus, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
 import { PAYMENT_TERM_OPTIONS } from '@/lib/purchasing/payment-terms';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 interface SupplierDialogProps {
     mode: 'create' | 'edit';
@@ -37,7 +48,11 @@ interface SupplierDialogProps {
     trigger?: React.ReactNode;
 }
 
-export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogProps) {
+export function SupplierDialog({
+    mode,
+    initialData,
+    trigger,
+}: SupplierDialogProps) {
     const [open, setOpen] = useState(false);
     const router = useRouter();
 
@@ -45,44 +60,53 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
         resolver: zodResolver(
             mode === 'create' ? createSupplierSchema : updateSupplierSchema,
         ) as Resolver<CreateSupplierValues | UpdateSupplierValues>,
-        defaultValues: mode === 'edit' && initialData ? {
-            id: initialData.id,
-            name: initialData.name,
-            code: initialData.code || '',
-            phone: initialData.phone || '',
-            email: initialData.email || '',
-            address: initialData.address || '',
-            taxId: initialData.taxId || '',
-            paymentTermDays: initialData.paymentTermDays ?? 30,
-            bankName: initialData.bankName || '',
-            bankAccount: initialData.bankAccount || '',
-            notes: initialData.notes || '',
-        } : {
-            name: '',
-            code: '',
-            phone: '',
-            email: '',
-            address: '',
-            taxId: '',
-            paymentTermDays: 30,
-            bankName: '',
-            bankAccount: '',
-            notes: '',
-        },
+        defaultValues:
+            mode === 'edit' && initialData
+                ? {
+                      id: initialData.id,
+                      name: initialData.name,
+                      code: initialData.code || '',
+                      phone: initialData.phone || '',
+                      email: initialData.email || '',
+                      address: initialData.address || '',
+                      taxId: initialData.taxId || '',
+                      paymentTermDays: initialData.paymentTermDays ?? 30,
+                      bankName: initialData.bankName || '',
+                      bankAccount: initialData.bankAccount || '',
+                      notes: initialData.notes || '',
+                  }
+                : {
+                      name: '',
+                      code: '',
+                      phone: '',
+                      email: '',
+                      address: '',
+                      taxId: '',
+                      paymentTermDays: 30,
+                      bankName: '',
+                      bankAccount: '',
+                      notes: '',
+                  },
     });
 
     async function onSubmit(data: CreateSupplierValues | UpdateSupplierValues) {
-        const result = mode === 'create'
-            ? await createSupplier(data as CreateSupplierValues)
-            : await updateSupplier(data as UpdateSupplierValues);
+        const result =
+            mode === 'create'
+                ? await createSupplier(data as CreateSupplierValues)
+                : await updateSupplier(data as UpdateSupplierValues);
 
         if (result.success) {
-            toast.success(`Supplier berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`);
+            toast.success(
+                `Supplier berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`,
+            );
             setOpen(false);
             if (mode === 'create') form.reset();
             router.refresh();
         } else {
-            toast.error(result.error || `Gagal ${mode === 'create' ? 'membuat' : 'memperbarui'} supplier. Silakan coba lagi.`);
+            toast.error(
+                result.error ||
+                    `Gagal ${mode === 'create' ? 'membuat' : 'memperbarui'} supplier. Silakan coba lagi.`,
+            );
         }
     }
 
@@ -90,7 +114,10 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {trigger || (
-                    <Button variant={mode === 'create' ? 'default' : 'ghost'} size={mode === 'create' ? 'default' : 'icon'}>
+                    <Button
+                        variant={mode === 'create' ? 'default' : 'ghost'}
+                        size={mode === 'create' ? 'default' : 'icon'}
+                    >
                         {mode === 'create' ? (
                             <>
                                 <Plus className="h-4 w-4 mr-2" />
@@ -104,20 +131,32 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle>{mode === 'create' ? 'Tambah Supplier' : 'Edit Supplier'}</DialogTitle>
+                    <DialogTitle>
+                        {mode === 'create'
+                            ? 'Tambah Supplier'
+                            : 'Edit Supplier'}
+                    </DialogTitle>
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-4"
+                    >
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{formLabels.name} *</FormLabel>
+                                        <FormLabel>
+                                            {formLabels.name} *
+                                        </FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Nama Supplier" {...field} />
+                                            <Input
+                                                placeholder="Nama Supplier"
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -129,16 +168,23 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 render={({ field }) => (
                                     <FormItem>
                                         <div className="flex justify-between items-center">
-                                            <FormLabel>{purchasingLabels.supplierCode}</FormLabel>
+                                            <FormLabel>
+                                                {purchasingLabels.supplierCode}
+                                            </FormLabel>
                                             {mode === 'create' && (
                                                 <span className="text-[0.8rem] text-muted-foreground">
-                                                    (Otomatis dibuat jika kosong)
+                                                    (Otomatis dibuat jika
+                                                    kosong)
                                                 </span>
                                             )}
                                         </div>
                                         <FormControl>
                                             <Input
-                                                placeholder={mode === 'create' ? "Otomatis dibuat" : "SUP-XXX"}
+                                                placeholder={
+                                                    mode === 'create'
+                                                        ? 'Otomatis dibuat'
+                                                        : 'SUP-XXX'
+                                                }
                                                 {...field}
                                                 disabled={mode === 'edit'}
                                             />
@@ -155,9 +201,14 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="phone"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{formLabels.phone}</FormLabel>
+                                        <FormLabel>
+                                            {formLabels.phone}
+                                        </FormLabel>
                                         <FormControl>
-                                            <Input placeholder="+62..." {...field} />
+                                            <Input
+                                                placeholder="+62..."
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -170,7 +221,10 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                     <FormItem>
                                         <FormLabel>Email</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="email@example.com" {...field} />
+                                            <Input
+                                                placeholder="email@example.com"
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -185,7 +239,10 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 <FormItem>
                                     <FormLabel>{formLabels.address}</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Alamat Lengkap" {...field} />
+                                        <Textarea
+                                            placeholder="Alamat Lengkap"
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -198,7 +255,9 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="taxId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{purchasingLabels.taxId}</FormLabel>
+                                        <FormLabel>
+                                            {purchasingLabels.taxId}
+                                        </FormLabel>
                                         <FormControl>
                                             <Input placeholder="" {...field} />
                                         </FormControl>
@@ -211,10 +270,14 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="paymentTermDays"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{purchasingLabels.paymentTermDays}</FormLabel>
+                                        <FormLabel>
+                                            {purchasingLabels.paymentTermDays}
+                                        </FormLabel>
                                         <Select
                                             value={String(field.value ?? 30)}
-                                            onValueChange={(v) => field.onChange(parseInt(v, 10))}
+                                            onValueChange={(v) =>
+                                                field.onChange(parseInt(v, 10))
+                                            }
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
@@ -222,23 +285,42 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {PAYMENT_TERM_OPTIONS.map((opt) => (
-                                                    <SelectItem key={opt.value} value={String(opt.value)}>
-                                                        {opt.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {PAYMENT_TERM_OPTIONS.map(
+                                                    (opt) => (
+                                                        <SelectItem
+                                                            key={opt.value}
+                                                            value={String(
+                                                                opt.value,
+                                                            )}
+                                                        >
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-[11px] text-muted-foreground">Custom:</span>
+                                            <span className="text-[11px] text-muted-foreground">
+                                                Custom:
+                                            </span>
                                             <Input
                                                 type="number"
                                                 min={0}
                                                 max={365}
                                                 placeholder="hari"
                                                 className="h-7 w-20 text-xs"
-                                                value={String(field.value ?? "")}
-                                                onChange={(e) => field.onChange(parseInt(e.target.value || "0", 10))}
+                                                value={String(
+                                                    field.value ?? '',
+                                                )}
+                                                onChange={(e) =>
+                                                    field.onChange(
+                                                        parseInt(
+                                                            e.target.value ||
+                                                                '0',
+                                                            10,
+                                                        ),
+                                                    )
+                                                }
                                             />
                                         </div>
                                         <FormMessage />
@@ -250,9 +332,14 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="bankName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{purchasingLabels.bankName}</FormLabel>
+                                        <FormLabel>
+                                            {purchasingLabels.bankName}
+                                        </FormLabel>
                                         <FormControl>
-                                            <Input placeholder="BCA" {...field} />
+                                            <Input
+                                                placeholder="BCA"
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -265,7 +352,9 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                             name="bankAccount"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{purchasingLabels.bankAccount}</FormLabel>
+                                    <FormLabel>
+                                        {purchasingLabels.bankAccount}
+                                    </FormLabel>
                                     <FormControl>
                                         <Input placeholder="" {...field} />
                                     </FormControl>
@@ -281,7 +370,10 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 <FormItem>
                                     <FormLabel>{formLabels.notes}</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Catatan internal..." {...field} />
+                                        <Textarea
+                                            placeholder="Catatan internal..."
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -289,12 +381,23 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                         />
 
                         <div className="flex justify-end gap-2 pt-4">
-                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setOpen(false)}
+                            >
                                 {actionLabels.cancel}
                             </Button>
-                            <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                {mode === 'create' ? 'Tambah Supplier' : 'Simpan Perubahan'}
+                            <Button
+                                type="submit"
+                                disabled={form.formState.isSubmitting}
+                            >
+                                {form.formState.isSubmitting && (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                )}
+                                {mode === 'create'
+                                    ? 'Tambah Supplier'
+                                    : 'Simpan Perubahan'}
                             </Button>
                         </div>
                     </form>

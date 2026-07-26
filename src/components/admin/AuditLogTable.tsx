@@ -51,16 +51,22 @@ export default function AuditLogTable({
     total,
     page,
     limit,
-    onPageChange
+    onPageChange,
 }: AuditLogTableProps) {
-    const [selectedLog, setSelectedLog] = useState<AuditLogClientData | null>(null);
+    const [selectedLog, setSelectedLog] = useState<AuditLogClientData | null>(
+        null,
+    );
     const totalPages = Math.ceil(total / limit);
 
     const getActionColor = (action: string) => {
-        if (action.includes('CREATE')) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
-        if (action.includes('UPDATE')) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-        if (action.includes('DELETE')) return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-        if (action.includes('APPROVE') || action.includes('POST')) return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+        if (action.includes('CREATE'))
+            return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+        if (action.includes('UPDATE'))
+            return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        if (action.includes('DELETE'))
+            return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        if (action.includes('APPROVE') || action.includes('POST'))
+            return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
         return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     };
 
@@ -70,45 +76,73 @@ export default function AuditLogTable({
                 <Table>
                     <TableHeader className="bg-gray-50/50 dark:bg-gray-800/50">
                         <TableRow>
-                            <TableHead className="w-[180px]">Timestamp</TableHead>
+                            <TableHead className="w-[180px]">
+                                Timestamp
+                            </TableHead>
                             <TableHead>User</TableHead>
                             <TableHead>Action</TableHead>
                             <TableHead>Entity</TableHead>
                             <TableHead className="w-[120px]">Source</TableHead>
-                            <TableHead className="w-[100px] text-center">View</TableHead>
+                            <TableHead className="w-[100px] text-center">
+                                View
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {logs.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                <TableCell
+                                    colSpan={6}
+                                    className="h-24 text-center text-muted-foreground"
+                                >
                                     <div className="flex flex-col items-center justify-center space-y-2">
                                         <Clock className="h-6 w-6 text-gray-400 dark:text-gray-500" />
-                                        <span>Tidak ada log audit yang cocok dengan kriteria.</span>
+                                        <span>
+                                            Tidak ada log audit yang cocok
+                                            dengan kriteria.
+                                        </span>
                                     </div>
                                 </TableCell>
                             </TableRow>
                         ) : (
                             logs.map((log) => (
-                                <TableRow key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                                <TableRow
+                                    key={log.id}
+                                    className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                                >
                                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                                        {format(new Date(log.createdAt), 'MMM d, yyyy HH:mm:ss')}
+                                        {format(
+                                            new Date(log.createdAt),
+                                            'MMM d, yyyy HH:mm:ss',
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium">{log.user?.name || log.userId}</span>
-                                            <span className="text-xs text-muted-foreground">{log.user?.email || 'N/A'}</span>
+                                            <span className="text-sm font-medium">
+                                                {log.user?.name || log.userId}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {log.user?.email || 'N/A'}
+                                            </span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className={`font-mono text-xs ${getActionColor(log.action)}`}>
+                                        <Badge
+                                            variant="outline"
+                                            className={`font-mono text-xs ${getActionColor(log.action)}`}
+                                        >
                                             {log.action}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium">{log.entityType}</span>
-                                            <span className="text-xs font-mono text-muted-foreground truncate max-w-[200px]" title={log.entityId}>
+                                            <span className="text-sm font-medium">
+                                                {log.entityType}
+                                            </span>
+                                            <span
+                                                className="text-xs font-mono text-muted-foreground truncate max-w-[200px]"
+                                                title={log.entityId}
+                                            >
                                                 ID: {log.entityId}
                                             </span>
                                         </div>
@@ -119,13 +153,24 @@ export default function AuditLogTable({
                                                 Platform
                                             </Badge>
                                         ) : log.tenantName ? (
-                                            <Link href={`/admin/super-admin/${log.tenantId}`} title={`Open ${log.tenantName} detail`}>
-                                                <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 font-mono text-[10px] cursor-pointer hover:underline" title={log.tenantSubdomain ?? ''}>
+                                            <Link
+                                                href={`/admin/super-admin/${log.tenantId}`}
+                                                title={`Open ${log.tenantName} detail`}
+                                            >
+                                                <Badge
+                                                    className="bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 font-mono text-[10px] cursor-pointer hover:underline"
+                                                    title={
+                                                        log.tenantSubdomain ??
+                                                        ''
+                                                    }
+                                                >
                                                     {log.tenantName}
                                                 </Badge>
                                             </Link>
                                         ) : (
-                                            <span className="text-xs text-muted-foreground">—</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                —
+                                            </span>
                                         )}
                                     </TableCell>
                                     <TableCell className="text-center">
@@ -149,9 +194,19 @@ export default function AuditLogTable({
             {totalPages > 1 && (
                 <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
-                        Showing <span className="font-medium text-foreground">{(page - 1) * limit + 1}</span> to{' '}
-                        <span className="font-medium text-foreground">{Math.min(page * limit, total)}</span> of{' '}
-                        <span className="font-medium text-foreground">{total}</span> results
+                        Showing{' '}
+                        <span className="font-medium text-foreground">
+                            {(page - 1) * limit + 1}
+                        </span>{' '}
+                        to{' '}
+                        <span className="font-medium text-foreground">
+                            {Math.min(page * limit, total)}
+                        </span>{' '}
+                        of{' '}
+                        <span className="font-medium text-foreground">
+                            {total}
+                        </span>{' '}
+                        results
                     </p>
                     <div className="flex space-x-2">
                         <Button
@@ -175,10 +230,10 @@ export default function AuditLogTable({
             )}
 
             {/* Detail Dialog */}
-            <AuditLogDetailDialog 
+            <AuditLogDetailDialog
                 log={selectedLog}
-                open={!!selectedLog} 
-                onOpenChange={(open: boolean) => !open && setSelectedLog(null)} 
+                open={!!selectedLog}
+                onOpenChange={(open: boolean) => !open && setSelectedLog(null)}
             />
         </div>
     );

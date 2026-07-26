@@ -4,12 +4,12 @@ Source of truth: `.env.example`
 
 ## Required Variables
 
-| Variable            | Description                   | Example                                                  |
-| ------------------- | ----------------------------- | -------------------------------------------------------- |
-| `DATABASE_URL`      | PostgreSQL connection string  | `postgresql://polyflow:polyflow@localhost:5434/polyflow` |
-| `AUTH_SECRET`       | NextAuth.js session secret    | Generate: `openssl rand -base64 32`                      |
-| `NEXTAUTH_SECRET`   | NextAuth.js encryption secret | Generate: `openssl rand -base64 32`                      |
-| `AUTH_TRUST_HOST`   | Trust reverse-proxy host headers (required behind nginx, multi-tenant) | `true`                          |
+| Variable          | Description                                                            | Example                                                  |
+| ----------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`    | PostgreSQL connection string                                           | `postgresql://polyflow:polyflow@localhost:5434/polyflow` |
+| `AUTH_SECRET`     | NextAuth.js session secret                                             | Generate: `openssl rand -base64 32`                      |
+| `NEXTAUTH_SECRET` | NextAuth.js encryption secret                                          | Generate: `openssl rand -base64 32`                      |
+| `AUTH_TRUST_HOST` | Trust reverse-proxy host headers (required behind nginx, multi-tenant) | `true`                                                   |
 
 > **Multi-tenant note:** Do **not** set `NEXTAUTH_URL`/`AUTH_URL` to a single
 > canonical domain. This app is multi-tenant (each tenant is served on its own
@@ -45,15 +45,15 @@ Source of truth: `.env.example`
 
 Used for print templates (invoices, delivery orders, etc.):
 
-| Variable                | Description                                  | Example                                              |
-| ----------------------- | -------------------------------------------- | ---------------------------------------------------- |
-| `COMPANY_NAME`          | Business name                                | `CV MELINDO JAYA`                                    |
-| `COMPANY_LOGO_URL`      | Logo path                                    | `/logos/melindo.png`                                 |
-| `COMPANY_ADDRESS`       | Business address                             | `Puri Niaga RT.005 RW.006, Sawahan...`               |
-| `COMPANY_PHONE`         | Contact phone                                | `0271 82017580, 0271 6882007`                        |
-| `COMPANY_EMAIL`         | Contact email                                | `jaya.melindo@gmail.com`                             |
-| `COMPANY_SIGNER_NAME`   | Authorized signer                            | `Nugroho Pramono`                                    |
-| `COMPANY_FOOTER_NOTE`   | Print footer text                            | `BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN` |
+| Variable                | Description                                                    | Example                                              |
+| ----------------------- | -------------------------------------------------------------- | ---------------------------------------------------- |
+| `COMPANY_NAME`          | Business name                                                  | `CV MELINDO JAYA`                                    |
+| `COMPANY_LOGO_URL`      | Logo path                                                      | `/logos/melindo.png`                                 |
+| `COMPANY_ADDRESS`       | Business address                                               | `Puri Niaga RT.005 RW.006, Sawahan...`               |
+| `COMPANY_PHONE`         | Contact phone                                                  | `0271 82017580, 0271 6882007`                        |
+| `COMPANY_EMAIL`         | Contact email                                                  | `jaya.melindo@gmail.com`                             |
+| `COMPANY_SIGNER_NAME`   | Authorized signer                                              | `Nugroho Pramono`                                    |
+| `COMPANY_FOOTER_NOTE`   | Print footer text                                              | `BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN` |
 | `BANK_ACCOUNTS_NON_PPN` | Bank accounts (JSON array) for non-PPN sales (print templates) | `[{"holder":"...","bank":"...","account":"..."}]`    |
 | `BANK_ACCOUNTS_PPN`     | Bank accounts (JSON array) for PPN sales (print templates)     | `[{"holder":"...","bank":"...","account":"..."}]`    |
 

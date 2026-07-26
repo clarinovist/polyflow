@@ -15,7 +15,7 @@ export default async function EditBomPage({ params }: EditBomPageProps) {
     const [bomRes, variantsRes, showPrices] = await Promise.all([
         getBom(id),
         getProductVariants(),
-        canViewPrices()
+        canViewPrices(),
     ]);
 
     if (!bomRes.success || !bomRes.data) {

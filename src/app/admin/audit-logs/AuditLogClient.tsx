@@ -3,7 +3,9 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldAlert, Activity, Database } from 'lucide-react';
-import AuditLogTable, { AuditLogClientData } from '@/components/admin/AuditLogTable';
+import AuditLogTable, {
+    AuditLogClientData,
+} from '@/components/admin/AuditLogTable';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -30,7 +32,7 @@ export default function AuditLogClient({
     initialData,
     stats,
     currentPage,
-    limit
+    limit,
 }: AuditLogClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -66,7 +68,9 @@ export default function AuditLogClient({
                         <ShieldAlert className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{initialData.pagination.total}</div>
+                        <div className="text-2xl font-bold">
+                            {initialData.pagination.total}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                             {L.eventTrailsCaptured}
                         </p>
@@ -80,7 +84,9 @@ export default function AuditLogClient({
                         <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.actions.length}</div>
+                        <div className="text-2xl font-bold">
+                            {stats.actions.length}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                             {L.uniqueSystemOperations}
                         </p>
@@ -94,7 +100,9 @@ export default function AuditLogClient({
                         <Database className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.entities.length}</div>
+                        <div className="text-2xl font-bold">
+                            {stats.entities.length}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                             {L.databaseModelsTracked}
                         </p>
@@ -103,8 +111,13 @@ export default function AuditLogClient({
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-center bg-white dark:bg-zinc-900 p-4 rounded-md border shadow-sm w-full">
-                <div className="font-medium text-sm text-slate-700 dark:text-slate-300 mr-2">{L.filters}</div>
-                <Select value={currentAction} onValueChange={(val) => handleFilterChange('action', val)}>
+                <div className="font-medium text-sm text-slate-700 dark:text-slate-300 mr-2">
+                    {L.filters}
+                </div>
+                <Select
+                    value={currentAction}
+                    onValueChange={(val) => handleFilterChange('action', val)}
+                >
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder={L.allActions} />
                     </SelectTrigger>
@@ -118,7 +131,12 @@ export default function AuditLogClient({
                     </SelectContent>
                 </Select>
 
-                <Select value={currentEntity} onValueChange={(val) => handleFilterChange('entityType', val)}>
+                <Select
+                    value={currentEntity}
+                    onValueChange={(val) =>
+                        handleFilterChange('entityType', val)
+                    }
+                >
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder={L.allEntities} />
                     </SelectTrigger>
@@ -131,17 +149,20 @@ export default function AuditLogClient({
                         ))}
                     </SelectContent>
                 </Select>
-                
+
                 <div className="flex-1"></div>
-                
+
                 {(currentAction !== 'all' || currentEntity !== 'all') && (
-                    <Button variant="ghost" onClick={() => router.push('/admin/audit-logs')}>
+                    <Button
+                        variant="ghost"
+                        onClick={() => router.push('/admin/audit-logs')}
+                    >
                         {L.clearFilters}
                     </Button>
                 )}
             </div>
 
-            <AuditLogTable 
+            <AuditLogTable
                 logs={initialData.logs}
                 total={initialData.pagination.total}
                 page={currentPage}

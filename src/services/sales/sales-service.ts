@@ -1,4 +1,7 @@
-import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
+import {
+    CreateSalesOrderValues,
+    UpdateSalesOrderValues,
+} from '@/lib/schemas/sales';
 import { SalesOrderStatus } from '@prisma/client';
 import {
     getOrders,
@@ -10,23 +13,26 @@ import {
     deleteOrder,
     type ConfirmOrderResult,
 } from '@/services/sales/orders-service';
-import { markReadyToShip, shipOrder, deliverOrder } from '@/services/sales/fulfillment-service';
+import {
+    markReadyToShip,
+    shipOrder,
+    deliverOrder,
+} from '@/services/sales/fulfillment-service';
 
 export class SalesService {
-
     /**
      * Get All Sales Orders (Optimized)
      */
     static async getOrders(filters?: {
-        customerId?: string,
-        includeItems?: boolean,
-        startDate?: Date,
-        endDate?: Date,
-        demandType?: 'customer' | 'legacy-internal',
-        orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA',
-        orderTypes?: Array<'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA'>,
-        paymentState?: 'outstanding' | 'paid' | 'no_invoice',
-        statusFilter?: SalesOrderStatus[]
+        customerId?: string;
+        includeItems?: boolean;
+        startDate?: Date;
+        endDate?: Date;
+        demandType?: 'customer' | 'legacy-internal';
+        orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA';
+        orderTypes?: Array<'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA'>;
+        paymentState?: 'outstanding' | 'paid' | 'no_invoice';
+        statusFilter?: SalesOrderStatus[];
     }) {
         return getOrders(filters);
     }
@@ -46,7 +52,10 @@ export class SalesService {
         return updateOrder(data, _userId);
     }
 
-    static async confirmOrder(id: string, userId: string): Promise<ConfirmOrderResult> {
+    static async confirmOrder(
+        id: string,
+        userId: string,
+    ): Promise<ConfirmOrderResult> {
         return confirmOrder(id, userId);
     }
 
@@ -54,7 +63,11 @@ export class SalesService {
         return markReadyToShip(id, userId);
     }
 
-    static async shipOrder(id: string, userId: string, trackingInfo?: { trackingNumber?: string, carrier?: string }) {
+    static async shipOrder(
+        id: string,
+        userId: string,
+        trackingInfo?: { trackingNumber?: string; carrier?: string },
+    ) {
         return shipOrder(id, userId, trackingInfo);
     }
 
@@ -69,4 +82,3 @@ export class SalesService {
         return deleteOrder(id);
     }
 }
-

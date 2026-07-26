@@ -1,9 +1,13 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { ProductionStatus, PurchaseOrderStatus, DeliveryStatus } from '@prisma/client';
+import {
+    ProductionStatus,
+    PurchaseOrderStatus,
+    DeliveryStatus,
+} from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
@@ -21,8 +25,16 @@ export interface WarehouseShiftBoard {
         materialIssues: number;
     };
     attention: {
-        loadingUnverified: Array<{ id: string; number: string; customerName?: string }>;
-        partialPOs: Array<{ id: string; orderNumber: string; supplierName: string }>;
+        loadingUnverified: Array<{
+            id: string;
+            number: string;
+            customerName?: string;
+        }>;
+        partialPOs: Array<{
+            id: string;
+            orderNumber: string;
+            supplierName: string;
+        }>;
         waitingMaterial: Array<{ id: string; orderNumber: string }>;
     };
 }
@@ -52,17 +64,39 @@ export const getWarehouseShiftBoard = withTenant(
             ] = await Promise.all([
                 // Receivable POs: SENT | PARTIAL_RECEIVED
                 prisma.purchaseOrder.count({
-                    where: { status: { in: [PurchaseOrderStatus.SENT, PurchaseOrderStatus.PARTIAL_RECEIVED] } }
+                    where: {
+                        status: {
+                            in: [
+                                PurchaseOrderStatus.SENT,
+                                PurchaseOrderStatus.PARTIAL_RECEIVED,
+                            ],
+                        },
+                    },
                 }),
 
                 // Open load orders: DO PENDING | LOADING
                 prisma.deliveryOrder.count({
-                    where: { status: { in: [DeliveryStatus.PENDING, DeliveryStatus.LOADING] } }
+                    where: {
+                        status: {
+                            in: [
+                                DeliveryStatus.PENDING,
+                                DeliveryStatus.LOADING,
+                            ],
+                        },
+                    },
                 }),
 
                 // Material queue: production RELEASED | IN_PROGRESS | WAITING_MATERIAL
                 prisma.productionOrder.count({
-                    where: { status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.WAITING_MATERIAL] } }
+                    where: {
+                        status: {
+                            in: [
+                                ProductionStatus.RELEASED,
+                                ProductionStatus.IN_PROGRESS,
+                                ProductionStatus.WAITING_MATERIAL,
+                            ],
+                        },
+                    },
                 }),
 
                 // Low stock count
@@ -75,16 +109,16 @@ export const getWarehouseShiftBoard = withTenant(
                 prisma.goodsReceipt.count({
                     where: {
                         isMaklon: false,
-                        receivedDate: { gte: todayStart, lte: todayEnd }
-                    }
+                        receivedDate: { gte: todayStart, lte: todayEnd },
+                    },
                 }),
 
                 // Today shipped DOs
                 prisma.deliveryOrder.count({
                     where: {
                         status: DeliveryStatus.SHIPPED,
-                        updatedAt: { gte: todayStart, lte: todayEnd }
-                    }
+                        updatedAt: { gte: todayStart, lte: todayEnd },
+                    },
                 }),
 
                 // Today material issues (best-effort: movements with productionOrderId OUT type)
@@ -92,8 +126,8 @@ export const getWarehouseShiftBoard = withTenant(
                     where: {
                         type: 'OUT',
                         productionOrderId: { not: null },
-                        createdAt: { gte: todayStart, lte: todayEnd }
-                    }
+                        createdAt: { gte: todayStart, lte: todayEnd },
+                    },
                 }),
 
                 // Attention: LOADING but not verified
@@ -105,10 +139,12 @@ export const getWarehouseShiftBoard = withTenant(
                     select: {
                         id: true,
                         orderNumber: true,
-                        salesOrder: { select: { customer: { select: { name: true } } } }
+                        salesOrder: {
+                            select: { customer: { select: { name: true } } },
+                        },
                     },
                     take: 5,
-                    orderBy: { deliveryDate: 'asc' }
+                    orderBy: { deliveryDate: 'asc' },
                 }),
 
                 // Attention: Partial POs awaiting remaining
@@ -117,10 +153,10 @@ export const getWarehouseShiftBoard = withTenant(
                     select: {
                         id: true,
                         orderNumber: true,
-                        supplier: { select: { name: true } }
+                        supplier: { select: { name: true } },
                     },
                     take: 5,
-                    orderBy: { expectedDate: 'asc' }
+                    orderBy: { expectedDate: 'asc' },
                 }),
 
                 // Attention: SPK waiting material
@@ -131,7 +167,7 @@ export const getWarehouseShiftBoard = withTenant(
                         orderNumber: true,
                     },
                     take: 5,
-                    orderBy: { createdAt: 'asc' }
+                    orderBy: { createdAt: 'asc' },
                 }),
             ]);
 
@@ -149,24 +185,24 @@ export const getWarehouseShiftBoard = withTenant(
                     materialIssues: todayMaterialIssues,
                 },
                 attention: {
-                    loadingUnverified: loadingUnverified.map(d => ({
+                    loadingUnverified: loadingUnverified.map((d) => ({
                         id: d.id,
                         number: d.orderNumber,
                         customerName: d.salesOrder?.customer?.name ?? undefined,
                     })),
-                    partialPOs: partialPOs.map(p => ({
+                    partialPOs: partialPOs.map((p) => ({
                         id: p.id,
                         orderNumber: p.orderNumber,
                         supplierName: p.supplier.name,
                     })),
-                    waitingMaterial: waitingMaterial.map(p => ({
+                    waitingMaterial: waitingMaterial.map((p) => ({
                         id: p.id,
                         orderNumber: p.orderNumber,
                     })),
                 },
             };
         });
-    }
+    },
 );
 
 async function computeLowStockCount(): Promise<number> {
@@ -178,17 +214,22 @@ async function computeLowStockCount(): Promise<number> {
             inventories: {
                 select: {
                     quantity: true,
-                    location: { select: { slug: true } }
-                }
-            }
-        }
+                    location: { select: { slug: true } },
+                },
+            },
+        },
     });
 
-    const allowedSlugs = new Set<string>([WAREHOUSE_SLUGS.RAW_MATERIAL, WAREHOUSE_SLUGS.FINISHING]);
+    const allowedSlugs = new Set<string>([
+        WAREHOUSE_SLUGS.RAW_MATERIAL,
+        WAREHOUSE_SLUGS.FINISHING,
+    ]);
 
-    return lowStockVariants.filter(variant => {
+    return lowStockVariants.filter((variant) => {
         const total = variant.inventories
-            .filter(inv => inv.location && allowedSlugs.has(inv.location.slug))
+            .filter(
+                (inv) => inv.location && allowedSlugs.has(inv.location.slug),
+            )
             .reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
         const threshold = variant.minStockAlert?.toNumber() || 0;
         return total < threshold;
@@ -201,12 +242,15 @@ async function computeSuggestedReorderCount(): Promise<number> {
         select: {
             id: true,
             reorderPoint: true,
-            inventories: { select: { quantity: true } }
-        }
+            inventories: { select: { quantity: true } },
+        },
     });
 
-    return reorderVariants.filter(variant => {
-        const total = variant.inventories.reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
+    return reorderVariants.filter((variant) => {
+        const total = variant.inventories.reduce(
+            (sum, inv) => sum + inv.quantity.toNumber(),
+            0,
+        );
         const reorderPoint = variant.reorderPoint?.toNumber() || 0;
         return total < reorderPoint;
     }).length;

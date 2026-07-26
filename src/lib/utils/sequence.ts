@@ -9,12 +9,12 @@ export async function getNextSequence(key: string): Promise<string> {
     const result = await prisma.$transaction(async (tx) => {
         // Get or create sequence
         let sequence = await tx.systemSequence.findUnique({
-            where: { key }
+            where: { key },
         });
 
         if (!sequence) {
             sequence = await tx.systemSequence.create({
-                data: { key, value: BigInt(1) }
+                data: { key, value: BigInt(1) },
             });
             return BigInt(1);
         }
@@ -23,7 +23,7 @@ export async function getNextSequence(key: string): Promise<string> {
         const nextValue = sequence.value + BigInt(1);
         await tx.systemSequence.update({
             where: { key },
-            data: { value: nextValue }
+            data: { value: nextValue },
         });
 
         return nextValue;

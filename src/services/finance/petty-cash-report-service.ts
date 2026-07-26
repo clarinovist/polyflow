@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/core/prisma';
 import { JournalStatus } from '@prisma/client';
-import { NotFoundError, BusinessRuleError, ConflictError } from '@/lib/errors/errors';
+import {
+    NotFoundError,
+    BusinessRuleError,
+    ConflictError,
+} from '@/lib/errors/errors';
 import { resolveAccount } from '@/services/accounting/account-resolver';
 import { getWibDayBounds } from '@/lib/utils/timezone';
 
@@ -17,24 +21,29 @@ export class PettyCashReportService {
      */
     private static async getPettyCashAccount() {
         const resolvedAccount = await resolveAccount('petty-cash');
-        const account = await prisma.account.findUnique({ where: { id: resolvedAccount.id } });
-        if (!account) throw new NotFoundError("Account", "Petty Cash");
+        const account = await prisma.account.findUnique({
+            where: { id: resolvedAccount.id },
+        });
+        if (!account) throw new NotFoundError('Account', 'Petty Cash');
         return account;
     }
 
     /**
      * Calculate opening balance from POSTED journal lines before startOfDay (WIB)
      */
-    private static async calcOpeningBalance(accountId: string, startOfDay: Date): Promise<number> {
+    private static async calcOpeningBalance(
+        accountId: string,
+        startOfDay: Date,
+    ): Promise<number> {
         const raw = await prisma.journalLine.aggregate({
             where: {
                 accountId,
                 journalEntry: {
                     status: JournalStatus.POSTED,
-                    entryDate: { lt: startOfDay }
-                }
+                    entryDate: { lt: startOfDay },
+                },
             },
-            _sum: { debit: true, credit: true }
+            _sum: { debit: true, credit: true },
         });
         const debit = raw._sum?.debit ? Number(raw._sum.debit) : 0;
         const credit = raw._sum?.credit ? Number(raw._sum.credit) : 0;
@@ -47,21 +56,21 @@ export class PettyCashReportService {
     private static async calcDailyTotals(
         accountId: string,
         startOfDay: Date,
-        endOfDay: Date
+        endOfDay: Date,
     ): Promise<{ totalIn: number; totalOut: number }> {
         const raw = await prisma.journalLine.aggregate({
             where: {
                 accountId,
                 journalEntry: {
                     status: JournalStatus.POSTED,
-                    entryDate: { gte: startOfDay, lte: endOfDay }
-                }
+                    entryDate: { gte: startOfDay, lte: endOfDay },
+                },
             },
-            _sum: { debit: true, credit: true }
+            _sum: { debit: true, credit: true },
         });
         return {
             totalIn: raw._sum?.debit ? Number(raw._sum.debit) : 0,
-            totalOut: raw._sum?.credit ? Number(raw._sum.credit) : 0
+            totalOut: raw._sum?.credit ? Number(raw._sum.credit) : 0,
         };
     }
 
@@ -72,7 +81,7 @@ export class PettyCashReportService {
     private static async getDailyTransactionsFromJournals(
         accountId: string,
         startOfDay: Date,
-        endOfDay: Date
+        endOfDay: Date,
     ) {
         // Get all journal lines hitting the petty cash account on this date
         const pettyCashLines = await prisma.journalLine.findMany({
@@ -80,8 +89,8 @@ export class PettyCashReportService {
                 accountId,
                 journalEntry: {
                     status: JournalStatus.POSTED,
-                    entryDate: { gte: startOfDay, lte: endOfDay }
-                }
+                    entryDate: { gte: startOfDay, lte: endOfDay },
+                },
             },
             include: {
                 journalEntry: {
@@ -92,25 +101,27 @@ export class PettyCashReportService {
                         description: true,
                         reference: true,
                         createdById: true,
-                    }
-                }
+                    },
+                },
             },
-            orderBy: { journalEntry: { entryDate: 'asc' } }
+            orderBy: { journalEntry: { entryDate: 'asc' } },
         });
 
         if (pettyCashLines.length === 0) return [];
 
         // For each petty cash line, find the contra-line to get the expense account & description
-        const journalEntryIds = [...new Set(pettyCashLines.map(l => l.journalEntryId))];
+        const journalEntryIds = [
+            ...new Set(pettyCashLines.map((l) => l.journalEntryId)),
+        ];
 
         const allLines = await prisma.journalLine.findMany({
             where: {
                 journalEntryId: { in: journalEntryIds },
-                accountId: { not: accountId }
+                accountId: { not: accountId },
             },
             include: {
-                account: { select: { id: true, code: true, name: true } }
-            }
+                account: { select: { id: true, code: true, name: true } },
+            },
         });
 
         // Group contra-lines by journalEntryId
@@ -122,21 +133,26 @@ export class PettyCashReportService {
         }
 
         // Get unique creator IDs for user name lookup
-        const creatorIds = [...new Set(
-            pettyCashLines.map(l => l.journalEntry.createdById).filter(Boolean)
-        )] as string[];
+        const creatorIds = [
+            ...new Set(
+                pettyCashLines
+                    .map((l) => l.journalEntry.createdById)
+                    .filter(Boolean),
+            ),
+        ] as string[];
 
-        const creators = creatorIds.length > 0
-            ? await prisma.user.findMany({
-                where: { id: { in: creatorIds } },
-                select: { id: true, name: true }
-            })
-            : [];
+        const creators =
+            creatorIds.length > 0
+                ? await prisma.user.findMany({
+                      where: { id: { in: creatorIds } },
+                      select: { id: true, name: true },
+                  })
+                : [];
 
-        const creatorMap = new Map(creators.map(u => [u.id, u]));
+        const creatorMap = new Map(creators.map((u) => [u.id, u]));
 
         // Build transaction-like objects
-        return pettyCashLines.map(line => {
+        return pettyCashLines.map((line) => {
             const je = line.journalEntry;
             const pcDebit = Number(line.debit);
             const pcCredit = Number(line.credit);
@@ -146,12 +162,16 @@ export class PettyCashReportService {
             const amount = pcDebit > 0 ? pcDebit : pcCredit;
 
             // Find contra-line for expense account info
-            const contraLines = contraLinesByEntry.get(line.journalEntryId) || [];
-            const expenseLine = type === 'EXPENSE'
-                ? contraLines.find(cl => Number(cl.debit) > 0) // expense account is debited
-                : contraLines.find(cl => Number(cl.credit) > 0); // bank account is credited
+            const contraLines =
+                contraLinesByEntry.get(line.journalEntryId) || [];
+            const expenseLine =
+                type === 'EXPENSE'
+                    ? contraLines.find((cl) => Number(cl.debit) > 0) // expense account is debited
+                    : contraLines.find((cl) => Number(cl.credit) > 0); // bank account is credited
 
-            const creator = je.createdById ? creatorMap.get(je.createdById) : null;
+            const creator = je.createdById
+                ? creatorMap.get(je.createdById)
+                : null;
 
             return {
                 id: line.journalEntryId,
@@ -182,7 +202,7 @@ export class PettyCashReportService {
         const savedReport = await prisma.pettyCashDailyReport.findFirst({
             where: {
                 reportDate: { gte: startOfDay, lte: endOfDay },
-                status: { not: 'VOIDED' }
+                status: { not: 'VOIDED' },
             },
             include: {
                 createdBy: { select: { id: true, name: true, role: true } },
@@ -193,11 +213,11 @@ export class PettyCashReportService {
                 transactions: {
                     include: {
                         expenseAccount: true,
-                        createdBy: { select: { name: true } }
+                        createdBy: { select: { name: true } },
                     },
-                    orderBy: { voucherNumber: 'asc' }
-                }
-            }
+                    orderBy: { voucherNumber: 'asc' },
+                },
+            },
         });
 
         if (savedReport) {
@@ -209,20 +229,31 @@ export class PettyCashReportService {
                 totalOut: Number(savedReport.totalOut),
                 closingBalance: Number(savedReport.closingBalance),
                 transactions: savedReport.transactions,
-                status: savedReport.status as DailyReportStatus
+                status: savedReport.status as DailyReportStatus,
             };
         }
 
         // No saved report — compute on-the-fly
         const account = await PettyCashReportService.getPettyCashAccount();
-        const openingBalance = await PettyCashReportService.calcOpeningBalance(account.id, startOfDay);
-        const { totalIn, totalOut } = await PettyCashReportService.calcDailyTotals(account.id, startOfDay, endOfDay);
+        const openingBalance = await PettyCashReportService.calcOpeningBalance(
+            account.id,
+            startOfDay,
+        );
+        const { totalIn, totalOut } =
+            await PettyCashReportService.calcDailyTotals(
+                account.id,
+                startOfDay,
+                endOfDay,
+            );
         const closingBalance = openingBalance + totalIn - totalOut;
 
         // Fetch transactions from journal lines affecting the petty cash account
-        const transactions = await PettyCashReportService.getDailyTransactionsFromJournals(
-            account.id, startOfDay, endOfDay
-        );
+        const transactions =
+            await PettyCashReportService.getDailyTransactionsFromJournals(
+                account.id,
+                startOfDay,
+                endOfDay,
+            );
 
         return {
             savedReport: null,
@@ -232,7 +263,7 @@ export class PettyCashReportService {
             totalOut,
             closingBalance,
             transactions,
-            status: null
+            status: null,
         };
     }
 
@@ -248,20 +279,34 @@ export class PettyCashReportService {
 
         // Prevent duplicate reports (skip VOIDED — they don't block new reports)
         const existing = await prisma.pettyCashDailyReport.findFirst({
-            where: { reportDate: { gte: startOfDay, lte: endOfDay }, status: { not: 'VOIDED' } }
+            where: {
+                reportDate: { gte: startOfDay, lte: endOfDay },
+                status: { not: 'VOIDED' },
+            },
         });
-        if (existing) throw new ConflictError('Laporan untuk tanggal ini sudah ada.', { reportDate: startOfDay });
+        if (existing)
+            throw new ConflictError('Laporan untuk tanggal ini sudah ada.', {
+                reportDate: startOfDay,
+            });
 
         const account = await PettyCashReportService.getPettyCashAccount();
-        const openingBalance = await PettyCashReportService.calcOpeningBalance(account.id, startOfDay);
-        const { totalIn, totalOut } = await PettyCashReportService.calcDailyTotals(account.id, startOfDay, endOfDay);
+        const openingBalance = await PettyCashReportService.calcOpeningBalance(
+            account.id,
+            startOfDay,
+        );
+        const { totalIn, totalOut } =
+            await PettyCashReportService.calcDailyTotals(
+                account.id,
+                startOfDay,
+                endOfDay,
+            );
         const closingBalance = openingBalance + totalIn - totalOut;
 
         // Generate a unique report number: PCRP-YYYYMMDD-XXX
         // Use the business date string directly — stable regardless of TZ
         const dateKey = dateStr.replace(/-/g, '');
         const countToday = await prisma.pettyCashDailyReport.count({
-            where: { reportNumber: { startsWith: `PCRP-${dateKey}` } }
+            where: { reportNumber: { startsWith: `PCRP-${dateKey}` } },
         });
         const reportNumber = `PCRP-${dateKey}-${String(countToday + 1).padStart(3, '0')}`;
 
@@ -275,17 +320,17 @@ export class PettyCashReportService {
                     totalOut,
                     closingBalance,
                     status: 'DRAFT',
-                    createdById: userId
-                }
+                    createdById: userId,
+                },
             });
 
             // Link all petty cash transactions on this date to this report
             await tx.pettyCashTransaction.updateMany({
                 where: {
                     date: { gte: startOfDay, lte: endOfDay },
-                    pettyCashDailyReportId: null
+                    pettyCashDailyReportId: null,
                 },
-                data: { pettyCashDailyReportId: report.id }
+                data: { pettyCashDailyReportId: report.id },
             });
 
             return report;
@@ -299,59 +344,89 @@ export class PettyCashReportService {
         id: string,
         allowedCurrentStatus: DailyReportStatus,
         nextStatus: DailyReportStatus,
-        fields: Record<string, unknown>
+        fields: Record<string, unknown>,
     ) {
-        const report = await prisma.pettyCashDailyReport.findUnique({ where: { id } });
-        if (!report) throw new NotFoundError("Laporan Harian", id);
+        const report = await prisma.pettyCashDailyReport.findUnique({
+            where: { id },
+        });
+        if (!report) throw new NotFoundError('Laporan Harian', id);
         if (report.status !== allowedCurrentStatus) {
             throw new BusinessRuleError(
                 `Aksi tidak valid. Status laporan saat ini adalah "${report.status}", bukan "${allowedCurrentStatus}".`,
-                { reportId: id, currentStatus: report.status, expectedStatus: allowedCurrentStatus }
+                {
+                    reportId: id,
+                    currentStatus: report.status,
+                    expectedStatus: allowedCurrentStatus,
+                },
             );
         }
         return await prisma.pettyCashDailyReport.update({
             where: { id },
-            data: { status: nextStatus, ...fields }
+            data: { status: nextStatus, ...fields },
         });
     }
 
     /** DRAFT → READY_TO_PRINT */
     static async markReadyToPrint(id: string, userId: string) {
-        return PettyCashReportService.transition(id, 'DRAFT', 'READY_TO_PRINT', {
-            readyToPrintById: userId,
-            readyToPrintAt: new Date()
-        });
+        return PettyCashReportService.transition(
+            id,
+            'DRAFT',
+            'READY_TO_PRINT',
+            {
+                readyToPrintById: userId,
+                readyToPrintAt: new Date(),
+            },
+        );
     }
 
     /** READY_TO_PRINT → SIGNED_PHYSICAL */
     static async confirmPhysicalSignature(id: string, userId: string) {
-        return PettyCashReportService.transition(id, 'READY_TO_PRINT', 'SIGNED_PHYSICAL', {
-            physicalSignedConfirmedById: userId,
-            physicalSignedConfirmedAt: new Date()
-        });
+        return PettyCashReportService.transition(
+            id,
+            'READY_TO_PRINT',
+            'SIGNED_PHYSICAL',
+            {
+                physicalSignedConfirmedById: userId,
+                physicalSignedConfirmedAt: new Date(),
+            },
+        );
     }
 
     /** SIGNED_PHYSICAL → FINALIZED */
     static async finalizeDailyReport(id: string, userId: string) {
-        return PettyCashReportService.transition(id, 'SIGNED_PHYSICAL', 'FINALIZED', {
-            finalizedById: userId,
-            finalizedAt: new Date()
-        });
+        return PettyCashReportService.transition(
+            id,
+            'SIGNED_PHYSICAL',
+            'FINALIZED',
+            {
+                finalizedById: userId,
+                finalizedAt: new Date(),
+            },
+        );
     }
 
     /** Any non-FINALIZED → VOIDED */
     static async voidDailyReport(id: string, userId: string) {
-        const report = await prisma.pettyCashDailyReport.findUnique({ where: { id } });
-        if (!report) throw new NotFoundError("Laporan Harian", id);
-        if (report.status === 'FINALIZED') throw new BusinessRuleError('Laporan yang sudah FINALIZED tidak dapat di-void.', { reportId: id, currentStatus: report.status });
-        if (report.status === 'VOIDED') throw new BusinessRuleError('Laporan sudah VOIDED.', { reportId: id });
+        const report = await prisma.pettyCashDailyReport.findUnique({
+            where: { id },
+        });
+        if (!report) throw new NotFoundError('Laporan Harian', id);
+        if (report.status === 'FINALIZED')
+            throw new BusinessRuleError(
+                'Laporan yang sudah FINALIZED tidak dapat di-void.',
+                { reportId: id, currentStatus: report.status },
+            );
+        if (report.status === 'VOIDED')
+            throw new BusinessRuleError('Laporan sudah VOIDED.', {
+                reportId: id,
+            });
         return await prisma.pettyCashDailyReport.update({
             where: { id },
             data: {
                 status: 'VOIDED',
                 voidedById: userId,
-                voidedAt: new Date()
-            }
+                voidedAt: new Date(),
+            },
         });
     }
 }

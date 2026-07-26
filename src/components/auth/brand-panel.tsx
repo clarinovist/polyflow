@@ -4,8 +4,11 @@ import PolyFlowLogo from './polyflow-logo';
 import BrandDecoration from './brand-decoration';
 import { brandPanelLabels as L } from '@/lib/labels/auth';
 
-export default function BrandPanel({ subdomain }: { subdomain?: string | null }) {
-
+export default function BrandPanel({
+    subdomain,
+}: {
+    subdomain?: string | null;
+}) {
     return (
         <div className="hidden lg:flex lg:w-1/2 bg-zinc-950 relative overflow-hidden flex-col justify-between p-10">
             <BrandDecoration />
@@ -15,18 +18,19 @@ export default function BrandPanel({ subdomain }: { subdomain?: string | null })
                 {/* Brand Header */}
                 <div className="mb-6">
                     <PolyFlowLogo variant="light" size="sm" showText={false} />
-                    <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-2">PolyFlow</p>
+                    <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-2">
+                        PolyFlow
+                    </p>
                 </div>
 
                 {/* Welcome Text */}
                 <h1 className="text-4xl font-bold text-white mb-4">
-                    {subdomain ? `${L.welcomeTo} ${subdomain.toUpperCase()}` : `${L.welcomeTo} PolyFlow`}
+                    {subdomain
+                        ? `${L.welcomeTo} ${subdomain.toUpperCase()}`
+                        : `${L.welcomeTo} PolyFlow`}
                 </h1>
                 <p className="text-zinc-400 dark:text-zinc-500 text-sm leading-relaxed mb-4">
-                    {subdomain ?
-                        L.signInDescription :
-                        L.brandDescription
-                    }
+                    {subdomain ? L.signInDescription : L.brandDescription}
                 </p>
                 <p className="text-zinc-500 dark:text-zinc-400 text-sm">
                     {subdomain ? L.enterprisePortal : L.joinUs}

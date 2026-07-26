@@ -38,7 +38,9 @@ type ReceiptOrderItem = {
     } | null;
 };
 
-export default async function WarehouseCreateReceiptPage({ searchParams }: PageProps) {
+export default async function WarehouseCreateReceiptPage({
+    searchParams,
+}: PageProps) {
     const params = await searchParams;
     const poId = params.poId;
 
@@ -47,9 +49,12 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
             <div className="p-6">
                 <div className="text-center py-12">
                     <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h2 className="text-lg font-semibold">Pilih Purchase Order</h2>
+                    <h2 className="text-lg font-semibold">
+                        Pilih Purchase Order
+                    </h2>
                     <p className="text-muted-foreground mb-4">
-                        Pilih PO dari antrean penerimaan untuk membuat goods receipt.
+                        Pilih PO dari antrean penerimaan untuk membuat goods
+                        receipt.
                     </p>
                     <Link
                         href="/warehouse/incoming"
@@ -70,7 +75,8 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
 
     const order = serializeData(rawOrder);
     const locationsRes = await getLocations();
-    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const locations =
+        locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     // Map order to GoodsReceiptForm props
     const formProps = {
@@ -78,7 +84,10 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
         orderNumber: order.orderNumber,
         items: (order.items || []).map((item: ReceiptOrderItem) => ({
             productVariantId: item.productVariantId,
-            productName: item.productVariant?.product?.name || item.productVariant?.name || '',
+            productName:
+                item.productVariant?.product?.name ||
+                item.productVariant?.name ||
+                '',
             skuCode: item.productVariant?.skuCode || '',
             orderedQty: Number(item.quantity),
             receivedQty: Number(item.receivedQty || 0),

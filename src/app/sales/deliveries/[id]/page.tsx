@@ -1,5 +1,8 @@
 import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
-import { DeliveryOrderDetail, type DeliveryOrderDetailData } from '@/components/sales/DeliveryOrderDetail';
+import {
+    DeliveryOrderDetail,
+    type DeliveryOrderDetailData,
+} from '@/components/sales/DeliveryOrderDetail';
 import { notFound } from 'next/navigation';
 import { serializeData } from '@/lib/utils/utils';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
@@ -8,7 +11,9 @@ interface DeliveryOrderPageProps {
     params: Promise<{ id: string }>;
 }
 
-export default async function DeliveryOrderPage({ params }: DeliveryOrderPageProps) {
+export default async function DeliveryOrderPage({
+    params,
+}: DeliveryOrderPageProps) {
     const { id } = await params;
     const [result, companyConfig] = await Promise.all([
         getDeliveryOrderById(id),
@@ -24,7 +29,10 @@ export default async function DeliveryOrderPage({ params }: DeliveryOrderPagePro
 
     return (
         <div className="p-6">
-            <DeliveryOrderDetail order={serializedOrder as unknown as DeliveryOrderDetailData} companyConfig={companyConfig} />
+            <DeliveryOrderDetail
+                order={serializedOrder as unknown as DeliveryOrderDetailData}
+                companyConfig={companyConfig}
+            />
         </div>
     );
 }

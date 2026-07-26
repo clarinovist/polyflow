@@ -1,52 +1,52 @@
-import { prisma } from "@/lib/core/prisma";
+import { prisma } from '@/lib/core/prisma';
 import {
-  ProductType,
-  SalesOrderStatus,
-  ProductionStatus,
-} from "@prisma/client";
+    ProductType,
+    SalesOrderStatus,
+    ProductionStatus,
+} from '@prisma/client';
 
 export interface FgSourceSoItem {
-  /** SalesOrderItem.id — unique key (a SO can have multiple lines for the same variant) */
-  soItemId: string;
-  soId: string;
-  orderNumber: string;
-  customerName: string | null;
-  residualQty: number;
-  expectedDate: Date | null;
-  status: string;
+    /** SalesOrderItem.id — unique key (a SO can have multiple lines for the same variant) */
+    soItemId: string;
+    soId: string;
+    orderNumber: string;
+    customerName: string | null;
+    residualQty: number;
+    expectedDate: Date | null;
+    status: string;
 }
 
 export interface FgDemandRow {
-  productVariantId: string;
-  productName: string;
-  variantName: string;
-  skuCode: string;
-  unit: string;
-  /** Σ max(0, soItem.qty − soItem.deliveredQty) across open SOs */
-  openDemand: number;
-  /** Stock FG across non-scrap locations */
-  availableFg: number;
-  /** max(0, openDemand − availableFg) */
-  needToMake: number;
-  /** Σ plannedQuantity of open SPK (BOM.productVariantId = v) */
-  openSpkPlanned: number;
-  /** max(0, needToMake − openSpkPlanned) */
-  uncoveredNeed: number;
-  /** Earliest expectedDate from open SOs with residual > 0 */
-  earliestDue: Date | null;
-  /** Urgency signal based on days to due */
-  urgencyHint: "URGENT" | "NORMAL" | "LOW";
-  /** Number of open SPKs for this variant */
-  openSpkCount: number;
-  /** Total planned qty across open SPKs */
-  openSpkTotalQty: number;
-  /** Breakdown of source SO items contributing to demand */
-  sourceSoItems: FgSourceSoItem[];
+    productVariantId: string;
+    productName: string;
+    variantName: string;
+    skuCode: string;
+    unit: string;
+    /** Σ max(0, soItem.qty − soItem.deliveredQty) across open SOs */
+    openDemand: number;
+    /** Stock FG across non-scrap locations */
+    availableFg: number;
+    /** max(0, openDemand − availableFg) */
+    needToMake: number;
+    /** Σ plannedQuantity of open SPK (BOM.productVariantId = v) */
+    openSpkPlanned: number;
+    /** max(0, needToMake − openSpkPlanned) */
+    uncoveredNeed: number;
+    /** Earliest expectedDate from open SOs with residual > 0 */
+    earliestDue: Date | null;
+    /** Urgency signal based on days to due */
+    urgencyHint: 'URGENT' | 'NORMAL' | 'LOW';
+    /** Number of open SPKs for this variant */
+    openSpkCount: number;
+    /** Total planned qty across open SPKs */
+    openSpkTotalQty: number;
+    /** Breakdown of source SO items contributing to demand */
+    sourceSoItems: FgSourceSoItem[];
 }
 
 export interface FgDemandFilters {
-  search?: string;
-  onlyUncovered?: boolean;
+    search?: string;
+    onlyUncovered?: boolean;
 }
 
 /**
@@ -61,250 +61,241 @@ export interface FgDemandFilters {
  *   uncoveredNeed(v) = max(0, needToMake − openSpkPlanned)
  */
 export async function listFgDemandBoard(
-  filters?: FgDemandFilters,
+    filters?: FgDemandFilters,
 ): Promise<FgDemandRow[]> {
-  // 1. Fetch open SO items with residual > 0, excluding SERVICE
-  const openStatuses: SalesOrderStatus[] = [
-    SalesOrderStatus.CONFIRMED,
-    SalesOrderStatus.IN_PRODUCTION,
-    SalesOrderStatus.READY_TO_SHIP,
-  ];
+    // 1. Fetch open SO items with residual > 0, excluding SERVICE
+    const openStatuses: SalesOrderStatus[] = [
+        SalesOrderStatus.CONFIRMED,
+        SalesOrderStatus.IN_PRODUCTION,
+        SalesOrderStatus.READY_TO_SHIP,
+    ];
 
-  const soItems = await prisma.salesOrderItem.findMany({
-    where: {
-      salesOrder: { status: { in: openStatuses } },
-      productVariant: {
-        product: { productType: { not: ProductType.SERVICE } },
-      },
-    },
-    select: {
-      id: true,
-      productVariantId: true,
-      quantity: true,
-      deliveredQty: true,
-      salesOrder: {
-        select: {
-          id: true,
-          orderNumber: true,
-          status: true,
-          expectedDate: true,
-          customer: {
-            select: { name: true },
-          },
+    const soItems = await prisma.salesOrderItem.findMany({
+        where: {
+            salesOrder: { status: { in: openStatuses } },
+            productVariant: {
+                product: { productType: { not: ProductType.SERVICE } },
+            },
         },
-      },
-      productVariant: {
         select: {
-          id: true,
-          name: true,
-          skuCode: true,
-          primaryUnit: true,
-          product: {
-            select: { name: true },
-          },
+            id: true,
+            productVariantId: true,
+            quantity: true,
+            deliveredQty: true,
+            salesOrder: {
+                select: {
+                    id: true,
+                    orderNumber: true,
+                    status: true,
+                    expectedDate: true,
+                    customer: {
+                        select: { name: true },
+                    },
+                },
+            },
+            productVariant: {
+                select: {
+                    id: true,
+                    name: true,
+                    skuCode: true,
+                    primaryUnit: true,
+                    product: {
+                        select: { name: true },
+                    },
+                },
+            },
         },
-      },
-    },
-  });
+    });
 
-  // 2. Group by productVariantId: sum residual, track earliest due
-  const demandMap = new Map<
-    string,
-    {
-      variant: (typeof soItems)[0]["productVariant"];
-      totalResidual: number;
-      earliestDue: Date | null;
-      sourceSoItems: FgSourceSoItem[];
+    // 2. Group by productVariantId: sum residual, track earliest due
+    const demandMap = new Map<
+        string,
+        {
+            variant: (typeof soItems)[0]['productVariant'];
+            totalResidual: number;
+            earliestDue: Date | null;
+            sourceSoItems: FgSourceSoItem[];
+        }
+    >();
+
+    for (const item of soItems) {
+        const residual = Math.max(
+            0,
+            Number(item.quantity) - Number(item.deliveredQty),
+        );
+        if (residual <= 0) continue;
+
+        const vid = item.productVariantId;
+        const existing = demandMap.get(vid);
+        const sourceEntry: FgSourceSoItem = {
+            soItemId: item.id,
+            soId: item.salesOrder.id,
+            orderNumber: item.salesOrder.orderNumber,
+            customerName: item.salesOrder.customer?.name ?? null,
+            residualQty: residual,
+            expectedDate: item.salesOrder.expectedDate,
+            status: item.salesOrder.status,
+        };
+
+        if (existing) {
+            existing.totalResidual += residual;
+            const due = item.salesOrder.expectedDate;
+            if (due && (!existing.earliestDue || due < existing.earliestDue)) {
+                existing.earliestDue = due;
+            }
+            existing.sourceSoItems.push(sourceEntry);
+        } else {
+            demandMap.set(vid, {
+                variant: item.productVariant,
+                totalResidual: residual,
+                earliestDue: item.salesOrder.expectedDate,
+                sourceSoItems: [sourceEntry],
+            });
+        }
     }
-  >();
 
-  for (const item of soItems) {
-    const residual = Math.max(
-      0,
-      Number(item.quantity) - Number(item.deliveredQty),
-    );
-    if (residual <= 0) continue;
+    if (demandMap.size === 0) return [];
 
-    const vid = item.productVariantId;
-    const existing = demandMap.get(vid);
-    const sourceEntry: FgSourceSoItem = {
-      soItemId: item.id,
-      soId: item.salesOrder.id,
-      orderNumber: item.salesOrder.orderNumber,
-      customerName: item.salesOrder.customer?.name ?? null,
-      residualQty: residual,
-      expectedDate: item.salesOrder.expectedDate,
-      status: item.salesOrder.status,
+    const variantIds = [...demandMap.keys()];
+
+    // 3. Batch inventory — sum quantity across all non-scrap locations
+    const inventoryRows = await prisma.inventory.findMany({
+        where: {
+            productVariantId: { in: variantIds },
+            quantity: { gt: 0 },
+            location: {
+                locationPurpose: { not: 'SCRAP' },
+            },
+        },
+        select: {
+            productVariantId: true,
+            quantity: true,
+        },
+    });
+
+    const inventoryMap = new Map<string, number>();
+    for (const row of inventoryRows) {
+        const vid = row.productVariantId;
+        inventoryMap.set(
+            vid,
+            (inventoryMap.get(vid) || 0) + Number(row.quantity),
+        );
+    }
+
+    // 4. Batch open SPK planned via BOM.productVariantId
+    const openSpkStatuses: ProductionStatus[] = [
+        ProductionStatus.DRAFT,
+        ProductionStatus.RELEASED,
+        ProductionStatus.IN_PROGRESS,
+        ProductionStatus.WAITING_MATERIAL,
+    ];
+
+    const openSpks = await prisma.productionOrder.findMany({
+        where: {
+            status: { in: openSpkStatuses },
+            bom: { productVariantId: { in: variantIds } },
+        },
+        select: {
+            plannedQuantity: true,
+            bom: {
+                select: { productVariantId: true },
+            },
+        },
+    });
+
+    const spkMap = new Map<string, { count: number; totalPlanned: number }>();
+    for (const spk of openSpks) {
+        const vid = spk.bom.productVariantId;
+        const existing = spkMap.get(vid);
+        if (existing) {
+            existing.count++;
+            existing.totalPlanned += Number(spk.plannedQuantity);
+        } else {
+            spkMap.set(vid, {
+                count: 1,
+                totalPlanned: Number(spk.plannedQuantity),
+            });
+        }
+    }
+
+    // 5. Compute urgency hint
+    const now = new Date();
+    const computeUrgency = (due: Date | null): 'URGENT' | 'NORMAL' | 'LOW' => {
+        if (!due) return 'NORMAL';
+        const daysToDue = Math.ceil(
+            (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        if (daysToDue <= 2) return 'URGENT';
+        if (daysToDue <= 7) return 'NORMAL';
+        return 'LOW';
     };
 
-    if (existing) {
-      existing.totalResidual += residual;
-      const due = item.salesOrder.expectedDate;
-      if (
-        due &&
-        (!existing.earliestDue || due < existing.earliestDue)
-      ) {
-        existing.earliestDue = due;
-      }
-      existing.sourceSoItems.push(sourceEntry);
-    } else {
-      demandMap.set(vid, {
-        variant: item.productVariant,
-        totalResidual: residual,
-        earliestDue: item.salesOrder.expectedDate,
-        sourceSoItems: [sourceEntry],
-      });
-    }
-  }
+    // 6. Build rows
+    const rows: FgDemandRow[] = [];
 
-  if (demandMap.size === 0) return [];
+    for (const [vid, data] of demandMap) {
+        const availableFg = inventoryMap.get(vid) || 0;
+        const needToMake = Math.max(0, data.totalResidual - availableFg);
+        const spk = spkMap.get(vid);
+        const openSpkPlanned = spk?.totalPlanned || 0;
+        const uncoveredNeed = Math.max(0, needToMake - openSpkPlanned);
 
-  const variantIds = [...demandMap.keys()];
+        // Skip if nothing to make
+        if (needToMake <= 0) continue;
 
-  // 3. Batch inventory — sum quantity across all non-scrap locations
-  const inventoryRows = await prisma.inventory.findMany({
-    where: {
-      productVariantId: { in: variantIds },
-      quantity: { gt: 0 },
-      location: {
-        locationPurpose: { not: "SCRAP" },
-      },
-    },
-    select: {
-      productVariantId: true,
-      quantity: true,
-    },
-  });
+        // Apply filter: onlyUncovered
+        if (filters?.onlyUncovered && uncoveredNeed <= 0) continue;
 
-  const inventoryMap = new Map<string, number>();
-  for (const row of inventoryRows) {
-    const vid = row.productVariantId;
-    inventoryMap.set(
-      vid,
-      (inventoryMap.get(vid) || 0) + Number(row.quantity),
-    );
-  }
+        // Apply filter: search
+        if (filters?.search) {
+            const q = filters.search.toLowerCase();
+            const match =
+                data.variant.product.name.toLowerCase().includes(q) ||
+                data.variant.name.toLowerCase().includes(q) ||
+                data.variant.skuCode.toLowerCase().includes(q);
+            if (!match) continue;
+        }
 
-  // 4. Batch open SPK planned via BOM.productVariantId
-  const openSpkStatuses: ProductionStatus[] = [
-    ProductionStatus.DRAFT,
-    ProductionStatus.RELEASED,
-    ProductionStatus.IN_PROGRESS,
-    ProductionStatus.WAITING_MATERIAL,
-  ];
+        // Sort sourceSoItems by expectedDate ascending (nulls last)
+        data.sourceSoItems.sort((a, b) => {
+            const aTime = a.expectedDate?.getTime() ?? Infinity;
+            const bTime = b.expectedDate?.getTime() ?? Infinity;
+            return aTime - bTime;
+        });
 
-  const openSpks = await prisma.productionOrder.findMany({
-    where: {
-      status: { in: openSpkStatuses },
-      bom: { productVariantId: { in: variantIds } },
-    },
-    select: {
-      plannedQuantity: true,
-      bom: {
-        select: { productVariantId: true },
-      },
-    },
-  });
-
-  const spkMap = new Map<
-    string,
-    { count: number; totalPlanned: number }
-  >();
-  for (const spk of openSpks) {
-    const vid = spk.bom.productVariantId;
-    const existing = spkMap.get(vid);
-    if (existing) {
-      existing.count++;
-      existing.totalPlanned += Number(spk.plannedQuantity);
-    } else {
-      spkMap.set(vid, {
-        count: 1,
-        totalPlanned: Number(spk.plannedQuantity),
-      });
-    }
-  }
-
-  // 5. Compute urgency hint
-  const now = new Date();
-  const computeUrgency = (
-    due: Date | null,
-  ): "URGENT" | "NORMAL" | "LOW" => {
-    if (!due) return "NORMAL";
-    const daysToDue = Math.ceil(
-      (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    if (daysToDue <= 2) return "URGENT";
-    if (daysToDue <= 7) return "NORMAL";
-    return "LOW";
-  };
-
-  // 6. Build rows
-  const rows: FgDemandRow[] = [];
-
-  for (const [vid, data] of demandMap) {
-    const availableFg = inventoryMap.get(vid) || 0;
-    const needToMake = Math.max(0, data.totalResidual - availableFg);
-    const spk = spkMap.get(vid);
-    const openSpkPlanned = spk?.totalPlanned || 0;
-    const uncoveredNeed = Math.max(0, needToMake - openSpkPlanned);
-
-    // Skip if nothing to make
-    if (needToMake <= 0) continue;
-
-    // Apply filter: onlyUncovered
-    if (filters?.onlyUncovered && uncoveredNeed <= 0) continue;
-
-    // Apply filter: search
-    if (filters?.search) {
-      const q = filters.search.toLowerCase();
-      const match =
-        data.variant.product.name.toLowerCase().includes(q) ||
-        data.variant.name.toLowerCase().includes(q) ||
-        data.variant.skuCode.toLowerCase().includes(q);
-      if (!match) continue;
+        rows.push({
+            productVariantId: vid,
+            productName: data.variant.product.name,
+            variantName: data.variant.name,
+            skuCode: data.variant.skuCode,
+            unit: data.variant.primaryUnit,
+            openDemand: data.totalResidual,
+            availableFg,
+            needToMake,
+            openSpkPlanned,
+            uncoveredNeed,
+            earliestDue: data.earliestDue,
+            urgencyHint: computeUrgency(data.earliestDue),
+            openSpkCount: spk?.count || 0,
+            openSpkTotalQty: openSpkPlanned,
+            sourceSoItems: data.sourceSoItems,
+        });
     }
 
-    // Sort sourceSoItems by expectedDate ascending (nulls last)
-    data.sourceSoItems.sort((a, b) => {
-      const aTime = a.expectedDate?.getTime() ?? Infinity;
-      const bTime = b.expectedDate?.getTime() ?? Infinity;
-      return aTime - bTime;
+    // 7. Sort: URGENT first, then by earliest due (nulls last), then need desc
+    const urgencyOrder = { URGENT: 0, NORMAL: 1, LOW: 2 };
+    rows.sort((a, b) => {
+        const uDiff = urgencyOrder[a.urgencyHint] - urgencyOrder[b.urgencyHint];
+        if (uDiff !== 0) return uDiff;
+
+        const aTime = a.earliestDue?.getTime() ?? Infinity;
+        const bTime = b.earliestDue?.getTime() ?? Infinity;
+        if (aTime !== bTime) return aTime - bTime;
+
+        return b.needToMake - a.needToMake;
     });
 
-    rows.push({
-      productVariantId: vid,
-      productName: data.variant.product.name,
-      variantName: data.variant.name,
-      skuCode: data.variant.skuCode,
-      unit: data.variant.primaryUnit,
-      openDemand: data.totalResidual,
-      availableFg,
-      needToMake,
-      openSpkPlanned,
-      uncoveredNeed,
-      earliestDue: data.earliestDue,
-      urgencyHint: computeUrgency(data.earliestDue),
-      openSpkCount: spk?.count || 0,
-      openSpkTotalQty: openSpkPlanned,
-      sourceSoItems: data.sourceSoItems,
-    });
-  }
-
-  // 7. Sort: URGENT first, then by earliest due (nulls last), then need desc
-  const urgencyOrder = { URGENT: 0, NORMAL: 1, LOW: 2 };
-  rows.sort((a, b) => {
-    const uDiff =
-      urgencyOrder[a.urgencyHint] - urgencyOrder[b.urgencyHint];
-    if (uDiff !== 0) return uDiff;
-
-    const aTime = a.earliestDue?.getTime() ?? Infinity;
-    const bTime = b.earliestDue?.getTime() ?? Infinity;
-    if (aTime !== bTime) return aTime - bTime;
-
-    return b.needToMake - a.needToMake;
-  });
-
-  return rows;
+    return rows;
 }
 
 /**
@@ -315,9 +306,9 @@ export async function listFgDemandBoard(
  * into SQL (demand residual − fg inventory − open SPK) to avoid O(M) fetches.
  */
 export async function countUncoveredFgVariants(): Promise<number> {
-  // Thin projection: prisma findMany still pulls full rows, but list helper is already
-  // scoped to open SO items + non-scrap inventory + open SPK counts. For small variant count
-  // (< ~200) this single scan is fast; workloads here are tenant-scoped small.
-  const rows = await listFgDemandBoard({ onlyUncovered: true });
-  return rows.length;
+    // Thin projection: prisma findMany still pulls full rows, but list helper is already
+    // scoped to open SO items + non-scrap inventory + open SPK counts. For small variant count
+    // (< ~200) this single scan is fast; workloads here are tenant-scoped small.
+    const rows = await listFgDemandBoard({ onlyUncovered: true });
+    return rows.length;
 }

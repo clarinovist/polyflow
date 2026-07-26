@@ -16,15 +16,21 @@ interface PageProps {
     }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+    params,
+}: PageProps): Promise<Metadata> {
     const { id } = await params;
     const order = await getOrder(id);
     return {
-        title: order ? `PO ${order.orderNumber} | PolyFlow Warehouse` : 'Order Not Found',
+        title: order
+            ? `PO ${order.orderNumber} | PolyFlow Warehouse`
+            : 'Order Not Found',
     };
 }
 
-export default async function WarehousePurchaseOrderDetailPage({ params }: PageProps) {
+export default async function WarehousePurchaseOrderDetailPage({
+    params,
+}: PageProps) {
     const { id } = await params;
     const order = await getOrder(id);
 
@@ -38,7 +44,11 @@ export default async function WarehousePurchaseOrderDetailPage({ params }: PageP
     return (
         <div className="p-6 max-w-6xl mx-auto">
             <PurchaseOrderDetailClient
-                order={serializedOrder as unknown as ComponentProps<typeof PurchaseOrderDetailClient>['order']}
+                order={
+                    serializedOrder as unknown as ComponentProps<
+                        typeof PurchaseOrderDetailClient
+                    >['order']
+                }
                 basePath="/warehouse/incoming"
                 warehouseMode={true}
             />

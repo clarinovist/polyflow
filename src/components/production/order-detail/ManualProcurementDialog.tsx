@@ -9,7 +9,7 @@ import {
     DialogTitle,
     DialogFooter,
     DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,31 +23,40 @@ interface ManualProcurementDialogProps {
     order: ExtendedProductionOrder;
 }
 
-export function ManualProcurementDialog({ order }: ManualProcurementDialogProps) {
+export function ManualProcurementDialog({
+    order,
+}: ManualProcurementDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
     // Initialize quantities based on planned materials
     const [items, setItems] = useState(
         order.plannedMaterials
-            .filter(pm => {
+            .filter((pm) => {
                 const type = pm.productVariant.product.productType;
                 // Exclude internal items (Intermediate, WIP, Finished Goods)
-                return !['INTERMEDIATE', 'WIP', 'FINISHED_GOOD', 'SCRAP'].includes(type || '');
+                return ![
+                    'INTERMEDIATE',
+                    'WIP',
+                    'FINISHED_GOOD',
+                    'SCRAP',
+                ].includes(type || '');
             })
-            .map(pm => ({
+            .map((pm) => ({
                 productVariantId: pm.productVariantId,
                 name: pm.productVariant.name,
                 skuCode: pm.productVariant.skuCode,
                 unit: pm.productVariant.primaryUnit,
                 plannedQty: Number(pm.quantity),
                 procureQty: 0,
-                selected: false
-            }))
+                selected: false,
+            })),
     );
 
     const [priority, setPriority] = useState<'NORMAL' | 'URGENT'>('NORMAL');
-    const [notes, setNotes] = useState(`Manual procurement for WO ${order.orderNumber}`);
+    const [notes, setNotes] = useState(
+        `Manual procurement for WO ${order.orderNumber}`,
+    );
 
     const handleToggleSelect = (index: number) => {
         const newItems = [...items];
@@ -70,7 +79,9 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
     };
 
     const handleSubmit = async () => {
-        const selectedItems = items.filter(i => i.selected && i.procureQty > 0);
+        const selectedItems = items.filter(
+            (i) => i.selected && i.procureQty > 0,
+        );
 
         if (selectedItems.length === 0) {
             toast.error('Pilih minimal satu material untuk pengadaan.');
@@ -83,21 +94,29 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                 salesOrderId: order.salesOrderId || undefined,
                 priority,
                 notes,
-                items: selectedItems.map(i => ({
+                items: selectedItems.map((i) => ({
                     productVariantId: i.productVariantId,
                     quantity: i.procureQty,
-                    notes: `Manually requested from Work Order ${order.orderNumber}`
-                }))
+                    notes: `Manually requested from Work Order ${order.orderNumber}`,
+                })),
             });
 
             if (result) {
-                toast.success("Purchase Request berhasil dibuat!");
+                toast.success('Purchase Request berhasil dibuat!');
                 setIsOpen(false);
                 // Reset form
-                setItems(items.map(i => ({ ...i, procureQty: 0, selected: false })));
+                setItems(
+                    items.map((i) => ({
+                        ...i,
+                        procureQty: 0,
+                        selected: false,
+                    })),
+                );
             }
         } catch {
-            toast.error('Gagal membuat permintaan pembelian. Silakan coba lagi.');
+            toast.error(
+                'Gagal membuat permintaan pembelian. Silakan coba lagi.',
+            );
         } finally {
             setLoading(false);
         }
@@ -118,7 +137,9 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{productionComponentLabels.manualProcurement}</DialogTitle>
+                    <DialogTitle>
+                        {productionComponentLabels.manualProcurement}
+                    </DialogTitle>
                     <DialogDescription>
                         {productionComponentLabels.selectMaterialsDescription}
                     </DialogDescription>
@@ -129,26 +150,49 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                         <table className="w-full text-sm">
                             <thead className="bg-muted">
                                 <tr>
-                                    <th className="p-3 text-left w-10">{productionComponentLabels.select}</th>
-                                    <th className="p-3 text-left">{productionComponentLabels.materialHeader}</th>
-                                    <th className="p-3 text-right">{productionComponentLabels.plannedHeader}</th>
-                                    <th className="p-3 text-center w-32">{productionComponentLabels.qtyToProcure}</th>
+                                    <th className="p-3 text-left w-10">
+                                        {productionComponentLabels.select}
+                                    </th>
+                                    <th className="p-3 text-left">
+                                        {
+                                            productionComponentLabels.materialHeader
+                                        }
+                                    </th>
+                                    <th className="p-3 text-right">
+                                        {
+                                            productionComponentLabels.plannedHeader
+                                        }
+                                    </th>
+                                    <th className="p-3 text-center w-32">
+                                        {productionComponentLabels.qtyToProcure}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
                                 {items.map((item, index) => (
-                                    <tr key={item.productVariantId} className={item.selected ? "bg-blue-50/50" : ""}>
+                                    <tr
+                                        key={item.productVariantId}
+                                        className={
+                                            item.selected ? 'bg-blue-50/50' : ''
+                                        }
+                                    >
                                         <td className="p-3 text-center">
                                             <input
                                                 type="checkbox"
                                                 checked={item.selected}
-                                                onChange={() => handleToggleSelect(index)}
+                                                onChange={() =>
+                                                    handleToggleSelect(index)
+                                                }
                                                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
                                             />
                                         </td>
                                         <td className="p-3">
-                                            <div className="font-medium">{item.name}</div>
-                                            <div className="text-xs text-muted-foreground">{item.skuCode}</div>
+                                            <div className="font-medium">
+                                                {item.name}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {item.skuCode}
+                                            </div>
                                         </td>
                                         <td className="p-3 text-right text-muted-foreground">
                                             {item.plannedQty} {item.unit}
@@ -159,7 +203,12 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                                     variant="outline"
                                                     size="icon"
                                                     className="h-7 w-7"
-                                                    onClick={() => handleQtyChange(index, item.procureQty - 1)}
+                                                    onClick={() =>
+                                                        handleQtyChange(
+                                                            index,
+                                                            item.procureQty - 1,
+                                                        )
+                                                    }
                                                 >
                                                     <Minus className="h-3 w-3" />
                                                 </Button>
@@ -167,14 +216,26 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                                     type="number"
                                                     step="any"
                                                     value={item.procureQty}
-                                                    onChange={(e) => handleQtyChange(index, Number(e.target.value))}
+                                                    onChange={(e) =>
+                                                        handleQtyChange(
+                                                            index,
+                                                            Number(
+                                                                e.target.value,
+                                                            ),
+                                                        )
+                                                    }
                                                     className="h-7 text-center text-xs"
                                                 />
                                                 <Button
                                                     variant="outline"
                                                     size="icon"
                                                     className="h-7 w-7"
-                                                    onClick={() => handleQtyChange(index, item.procureQty + 1)}
+                                                    onClick={() =>
+                                                        handleQtyChange(
+                                                            index,
+                                                            item.procureQty + 1,
+                                                        )
+                                                    }
                                                 >
                                                     <Plus className="h-3 w-3" />
                                                 </Button>
@@ -184,8 +245,12 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                 ))}
                                 {items.length === 0 && (
                                     <tr>
-                                        <td colSpan={4} className="p-8 text-center text-muted-foreground italic">
-                                            Tidak ada material terencana ditemukan untuk order ini.
+                                        <td
+                                            colSpan={4}
+                                            className="p-8 text-center text-muted-foreground italic"
+                                        >
+                                            Tidak ada material terencana
+                                            ditemukan untuk order ini.
                                         </td>
                                     </tr>
                                 )}
@@ -199,7 +264,11 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                             <div className="flex gap-2">
                                 <Button
                                     type="button"
-                                    variant={priority === 'NORMAL' ? 'default' : 'outline'}
+                                    variant={
+                                        priority === 'NORMAL'
+                                            ? 'default'
+                                            : 'outline'
+                                    }
                                     size="sm"
                                     className="flex-1"
                                     onClick={() => setPriority('NORMAL')}
@@ -208,7 +277,11 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                 </Button>
                                 <Button
                                     type="button"
-                                    variant={priority === 'URGENT' ? 'destructive' : 'outline'}
+                                    variant={
+                                        priority === 'URGENT'
+                                            ? 'destructive'
+                                            : 'outline'
+                                    }
                                     size="sm"
                                     className="flex-1"
                                     onClick={() => setPriority('URGENT')}
@@ -218,12 +291,16 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="notes">{productionComponentLabels.notes}</Label>
+                            <Label htmlFor="notes">
+                                {productionComponentLabels.notes}
+                            </Label>
                             <Input
                                 id="notes"
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
-                                placeholder={productionComponentLabels.additionalNotes}
+                                placeholder={
+                                    productionComponentLabels.additionalNotes
+                                }
                             />
                         </div>
                     </div>
@@ -237,11 +314,23 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsOpen(false)} disabled={loading}>
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsOpen(false)}
+                        disabled={loading}
+                    >
                         {productionComponentLabels.cancel}
                     </Button>
-                    <Button onClick={handleSubmit} disabled={loading || items.filter(i => i.selected).length === 0}>
-                        {loading ? productionComponentLabels.creatingPR : productionComponentLabels.createPurchaseRequest}
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={
+                            loading ||
+                            items.filter((i) => i.selected).length === 0
+                        }
+                    >
+                        {loading
+                            ? productionComponentLabels.creatingPR
+                            : productionComponentLabels.createPurchaseRequest}
                     </Button>
                 </DialogFooter>
             </DialogContent>

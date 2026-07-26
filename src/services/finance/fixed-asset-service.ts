@@ -1,19 +1,67 @@
 import { prisma } from '@/lib/core/prisma';
-import { ReferenceType, AssetStatus, JournalStatus, Prisma } from '@prisma/client';
+import {
+    ReferenceType,
+    AssetStatus,
+    JournalStatus,
+    Prisma,
+} from '@prisma/client';
 import { CreateJournalEntryInput } from '@/services/accounting/types';
-import { createJournalEntry, postJournal } from '@/services/accounting/journals-service';
-import { resolveAccount, type AccountRole } from '@/services/accounting/account-resolver';
+import {
+    createJournalEntry,
+    postJournal,
+} from '@/services/accounting/journals-service';
+import {
+    resolveAccount,
+    type AccountRole,
+} from '@/services/accounting/account-resolver';
 import { resolveAccountCode } from '@/services/accounting/account-mapping-policy';
 import { BusinessRuleError } from '@/lib/errors/errors';
-import { toBusinessDateString, normalizeToBusinessDay, businessDateToEntryDate } from '@/lib/utils/timezone';
+import {
+    toBusinessDateString,
+    normalizeToBusinessDay,
+    businessDateToEntryDate,
+} from '@/lib/utils/timezone';
 
 /** Map AssetCategory → resolver roles for asset account, depreciation, accumulated depreciation */
-const ASSET_CATEGORY_ROLES: Record<string, { assetRole: string; deprRole: string; accumRole: string; defaultLifeMonths: number }> = {
-  MACHINERY: { assetRole: 'fixed-asset-machinery', deprRole: 'depreciation-expense', accumRole: 'accumulated-depreciation', defaultLifeMonths: 60 },
-  VEHICLE:   { assetRole: 'fixed-asset-vehicles',   deprRole: 'depreciation-expense', accumRole: 'accumulated-depreciation', defaultLifeMonths: 48 },
-  BUILDING:  { assetRole: 'fixed-asset-buildings',  deprRole: 'depreciation-expense', accumRole: 'accumulated-depreciation', defaultLifeMonths: 240 },
-  EQUIPMENT: { assetRole: 'fixed-asset-equipment',  deprRole: 'depreciation-expense', accumRole: 'accumulated-depreciation', defaultLifeMonths: 60 },
-  OTHER:     { assetRole: 'fixed-asset-machinery',  deprRole: 'depreciation-expense', accumRole: 'accumulated-depreciation', defaultLifeMonths: 60 },
+const ASSET_CATEGORY_ROLES: Record<
+    string,
+    {
+        assetRole: string;
+        deprRole: string;
+        accumRole: string;
+        defaultLifeMonths: number;
+    }
+> = {
+    MACHINERY: {
+        assetRole: 'fixed-asset-machinery',
+        deprRole: 'depreciation-expense',
+        accumRole: 'accumulated-depreciation',
+        defaultLifeMonths: 60,
+    },
+    VEHICLE: {
+        assetRole: 'fixed-asset-vehicles',
+        deprRole: 'depreciation-expense',
+        accumRole: 'accumulated-depreciation',
+        defaultLifeMonths: 48,
+    },
+    BUILDING: {
+        assetRole: 'fixed-asset-buildings',
+        deprRole: 'depreciation-expense',
+        accumRole: 'accumulated-depreciation',
+        defaultLifeMonths: 240,
+    },
+    EQUIPMENT: {
+        assetRole: 'fixed-asset-equipment',
+        deprRole: 'depreciation-expense',
+        accumRole: 'accumulated-depreciation',
+        defaultLifeMonths: 60,
+    },
+    OTHER: {
+        assetRole: 'fixed-asset-machinery',
+        deprRole: 'depreciation-expense',
+        accumRole: 'accumulated-depreciation',
+        defaultLifeMonths: 60,
+    },
 };
 
 export class FixedAssetService {
@@ -24,10 +72,14 @@ export class FixedAssetService {
         return await prisma.fixedAsset.findMany({
             include: {
                 assetAccount: { select: { name: true, code: true } },
-                accumDepreciationAccount: { select: { name: true, code: true } },
-                depreciationExpenseAccount: { select: { name: true, code: true } },
+                accumDepreciationAccount: {
+                    select: { name: true, code: true },
+                },
+                depreciationExpenseAccount: {
+                    select: { name: true, code: true },
+                },
             },
-            orderBy: { purchaseDate: 'desc' }
+            orderBy: { purchaseDate: 'desc' },
         });
     }
 
@@ -51,38 +103,58 @@ export class FixedAssetService {
 
         // Reject non-integer qty
         if (!Number.isInteger(params.receivedQty) || params.receivedQty < 1) {
-            throw new BusinessRuleError('Qty aset tetap harus bilangan bulat ≥ 1');
+            throw new BusinessRuleError(
+                'Qty aset tetap harus bilangan bulat ≥ 1',
+            );
         }
 
         const variant = await tx.productVariant.findUnique({
             where: { id: params.productVariantId },
             include: { product: true },
         });
-        if (!variant) throw new BusinessRuleError(`Product variant not found: ${params.productVariantId}`);
+        if (!variant)
+            throw new BusinessRuleError(
+                `Product variant not found: ${params.productVariantId}`,
+            );
 
         const product = variant.product;
-        const category = (product as Record<string, unknown>).assetCategory as string || 'OTHER';
-        const catConfig = ASSET_CATEGORY_ROLES[category] || ASSET_CATEGORY_ROLES['OTHER'];
+        const category =
+            ((product as Record<string, unknown>).assetCategory as string) ||
+            'OTHER';
+        const catConfig =
+            ASSET_CATEGORY_ROLES[category] || ASSET_CATEGORY_ROLES['OTHER'];
 
         // Enforce inventoryAccountId for FIXED_ASSET
         if (!product.inventoryAccountId) {
             throw new BusinessRuleError(
                 `Produk aset tetap "${product.name}" belum punya Akun Aset Tetap. ` +
-                `Silakan edit produk → pilih Akun Aset Tetap (category FIXED_ASSET) di master.`,
+                    `Silakan edit produk → pilih Akun Aset Tetap (category FIXED_ASSET) di master.`,
             );
         }
 
         // Resolve accounts
         const assetAccountId = product.inventoryAccountId;
-        const deprAccountId = (await resolveAccount(catConfig.deprRole as AccountRole)).id;
-        const accumAccountId = (await resolveAccount(catConfig.accumRole as AccountRole)).id;
+        const deprAccountId = (
+            await resolveAccount(catConfig.deprRole as AccountRole)
+        ).id;
+        const accumAccountId = (
+            await resolveAccount(catConfig.accumRole as AccountRole)
+        ).id;
 
         // Resolve AP account — align with inventory GR path (trade-payable role)
-        const apAccountCode = await resolveAccountCode(product.productType, 'trade-payable');
-        const apAccountId = (await tx.account.findFirst({
-            where: { code: apAccountCode.code },
-        }))?.id;
-        if (!apAccountId) throw new BusinessRuleError(`Akun Trade Payable tidak ditemukan: ${apAccountCode.code}`);
+        const apAccountCode = await resolveAccountCode(
+            product.productType,
+            'trade-payable',
+        );
+        const apAccountId = (
+            await tx.account.findFirst({
+                where: { code: apAccountCode.code },
+            })
+        )?.id;
+        if (!apAccountId)
+            throw new BusinessRuleError(
+                `Akun Trade Payable tidak ditemukan: ${apAccountCode.code}`,
+            );
 
         const qty = params.receivedQty;
 
@@ -95,15 +167,34 @@ export class FixedAssetService {
             orderBy: { assetCode: 'desc' },
             select: { assetCode: true },
         });
-        let seq = lastRow ? parseInt(lastRow.assetCode.replace(prefix, ''), 10) + 1 : 1;
+        let seq = lastRow
+            ? parseInt(lastRow.assetCode.replace(prefix, ''), 10) + 1
+            : 1;
 
         // Useful life: variant.attributes.usefulLifeMonths (we store custom here since Product has no attributes) → product.attributes (future) → category default → 60
-        const variantAttrs = (variant as unknown as { attributes?: Record<string, unknown> | null })?.attributes as Record<string, unknown> | null | undefined;
-        const productAttrs = (product as unknown as { attributes?: Record<string, unknown> | null })?.attributes as Record<string, unknown> | null | undefined;
-        const fromVariant = variantAttrs?.usefulLifeMonths != null ? Number(variantAttrs.usefulLifeMonths) : null;
-        const fromProduct = productAttrs?.usefulLifeMonths != null ? Number(productAttrs.usefulLifeMonths) : null;
+        const variantAttrs = (
+            variant as unknown as {
+                attributes?: Record<string, unknown> | null;
+            }
+        )?.attributes as Record<string, unknown> | null | undefined;
+        const productAttrs = (
+            product as unknown as {
+                attributes?: Record<string, unknown> | null;
+            }
+        )?.attributes as Record<string, unknown> | null | undefined;
+        const fromVariant =
+            variantAttrs?.usefulLifeMonths != null
+                ? Number(variantAttrs.usefulLifeMonths)
+                : null;
+        const fromProduct =
+            productAttrs?.usefulLifeMonths != null
+                ? Number(productAttrs.usefulLifeMonths)
+                : null;
         const customLife = fromVariant ?? fromProduct;
-        const usefulLifeMonths = (customLife && customLife > 0) ? customLife : catConfig.defaultLifeMonths;
+        const usefulLifeMonths =
+            customLife && customLife > 0
+                ? customLife
+                : catConfig.defaultLifeMonths;
 
         const createdAssets: string[] = [];
 
@@ -137,19 +228,32 @@ export class FixedAssetService {
         // Journal: Dr Asset Account / Cr Trade Payable — inside same tx
         const totalAmount = params.unitCost * qty;
 
-        await createJournalEntry({
-            entryDate: normalizeToBusinessDay(params.receivedDate),
-            description: `GR Pembelian Aset Tetap - ${product.name} (x${qty})`,
-            reference: `GR-${params.goodsReceiptId.slice(0, 8)}`,
-            referenceType: ReferenceType.GOODS_RECEIPT,
-            referenceId: params.goodsReceiptId,
-            isAutoGenerated: true,
-            status: JournalStatus.POSTED,
-            lines: [
-                { accountId: assetAccountId, debit: totalAmount, credit: 0, description: `Aset Tetap: ${product.name}` },
-                { accountId: apAccountId, debit: 0, credit: totalAmount, description: `Trade Payable: ${product.name}` },
-            ],
-        } as unknown as CreateJournalEntryInput, tx);
+        await createJournalEntry(
+            {
+                entryDate: normalizeToBusinessDay(params.receivedDate),
+                description: `GR Pembelian Aset Tetap - ${product.name} (x${qty})`,
+                reference: `GR-${params.goodsReceiptId.slice(0, 8)}`,
+                referenceType: ReferenceType.GOODS_RECEIPT,
+                referenceId: params.goodsReceiptId,
+                isAutoGenerated: true,
+                status: JournalStatus.POSTED,
+                lines: [
+                    {
+                        accountId: assetAccountId,
+                        debit: totalAmount,
+                        credit: 0,
+                        description: `Aset Tetap: ${product.name}`,
+                    },
+                    {
+                        accountId: apAccountId,
+                        debit: 0,
+                        credit: totalAmount,
+                        description: `Trade Payable: ${product.name}`,
+                    },
+                ],
+            } as unknown as CreateJournalEntryInput,
+            tx,
+        );
 
         return createdAssets;
     }
@@ -172,8 +276,8 @@ export class FixedAssetService {
             data: {
                 ...data,
                 scrapValue: 0,
-                status: AssetStatus.ACTIVE
-            }
+                status: AssetStatus.ACTIVE,
+            },
         });
     }
 
@@ -193,9 +297,9 @@ export class FixedAssetService {
                 status: AssetStatus.ACTIVE,
                 OR: [
                     { lastDepreciationDate: null },
-                    { lastDepreciationDate: { lt: firstDayOfMonth } }
-                ]
-            }
+                    { lastDepreciationDate: { lt: firstDayOfMonth } },
+                ],
+            },
         });
 
         if (assetsToDepreciate.length === 0) {
@@ -210,7 +314,8 @@ export class FixedAssetService {
                 // Formula: (Purchase Value - Scrap Value) / Useful Life Months
                 const purchaseValue = asset.purchaseValue.toNumber();
                 const scrapValue = asset.scrapValue.toNumber();
-                const monthlyDepreciation = (purchaseValue - scrapValue) / asset.usefulLifeMonths;
+                const monthlyDepreciation =
+                    (purchaseValue - scrapValue) / asset.usefulLifeMonths;
 
                 if (monthlyDepreciation <= 0) continue; // Already fully depreciated or invalid
 
@@ -224,16 +329,16 @@ export class FixedAssetService {
                         {
                             accountId: asset.depreciationAccountId,
                             debit: monthlyDepreciation,
-                            credit: 0
+                            credit: 0,
                         },
                         {
                             accountId: asset.accumulatedDepreciationAccountId,
                             debit: 0,
-                            credit: monthlyDepreciation
-                        }
+                            credit: monthlyDepreciation,
+                        },
                     ],
-                    userId: userId // Add createdById equivalent handled inside
-                } as unknown as CreateJournalEntryInput; 
+                    userId: userId, // Add createdById equivalent handled inside
+                } as unknown as CreateJournalEntryInput;
                 // Using "as any" since earlier we set it to createdById but we might have missed mapping it.
                 // Wait, in previous step I changed it to `createdById` internally, let's use createdById directly.
 
@@ -245,7 +350,7 @@ export class FixedAssetService {
                 // Update asset
                 await tx.fixedAsset.update({
                     where: { id: asset.id },
-                    data: { lastDepreciationDate: now }
+                    data: { lastDepreciationDate: now },
                 });
 
                 journalEntriesProcessed.push(journal.id);

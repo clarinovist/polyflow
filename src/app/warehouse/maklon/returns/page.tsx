@@ -8,13 +8,16 @@ import { MaklonReturnTable } from '@/components/production/maklon/MaklonReturnTa
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default async function WarehouseMaklonReturnsPage({
-    searchParams
+    searchParams,
 }: {
-    searchParams?: { [key: string]: string | string[] | undefined }
+    searchParams?: { [key: string]: string | string[] | undefined };
 }) {
     const awaitedSearchParams = await searchParams;
     const res = await getMaklonReturnsAction({
-        search: typeof awaitedSearchParams?.search === 'string' ? awaitedSearchParams.search : undefined,
+        search:
+            typeof awaitedSearchParams?.search === 'string'
+                ? awaitedSearchParams.search
+                : undefined,
     });
 
     return (
@@ -30,14 +33,23 @@ export default async function WarehouseMaklonReturnsPage({
                     </Link>
                 }
             />
-            
+
             {res.success && res.data ? (
                 <div className="bg-white dark:bg-sidebar rounded-xl border p-0 sm:p-2">
-                    <MaklonReturnTable initialData={res.data as unknown as ComponentProps<typeof MaklonReturnTable>['initialData']} basePath="/warehouse/maklon/returns" />
+                    <MaklonReturnTable
+                        initialData={
+                            res.data as unknown as ComponentProps<
+                                typeof MaklonReturnTable
+                            >['initialData']
+                        }
+                        basePath="/warehouse/maklon/returns"
+                    />
                 </div>
             ) : (
                 <Alert variant="destructive">
-                    <AlertDescription>{res.error || 'Gagal memuat retur Maklon.'}</AlertDescription>
+                    <AlertDescription>
+                        {res.error || 'Gagal memuat retur Maklon.'}
+                    </AlertDescription>
                 </Alert>
             )}
         </div>

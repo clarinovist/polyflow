@@ -1,6 +1,6 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { ProductType, Unit, Prisma } from '@prisma/client';
@@ -26,30 +26,29 @@ export interface ImportProduct {
     variants: ImportVariant[];
 }
 
-export const getExistingSKUs = withTenant(
-async function getExistingSKUs() {
+export const getExistingSKUs = withTenant(async function getExistingSKUs() {
     return safeAction(async () => {
         const variants = await prisma.productVariant.findMany({
             select: {
-                skuCode: true
-            }
+                skuCode: true,
+            },
         });
 
-        return Array.from(new Set(variants.map(v => v.skuCode)));
+        return Array.from(new Set(variants.map((v) => v.skuCode)));
     });
-}
-);
+});
 
-export const importProducts = withTenant(
-async function importProducts(products: ImportProduct[]) {
+export const importProducts = withTenant(async function importProducts(
+    products: ImportProduct[],
+) {
     return safeAction(async () => {
         try {
             let productCount = 0;
             let variantCount = 0;
 
             const supplierNames = new Set<string>();
-            products.forEach(p => {
-                p.variants.forEach(v => {
+            products.forEach((p) => {
+                p.variants.forEach((v) => {
                     if (v.supplierName?.trim()) {
                         supplierNames.add(v.supplierName.trim());
                     }
@@ -60,12 +59,12 @@ async function importProducts(products: ImportProduct[]) {
             if (supplierNames.size > 0) {
                 const suppliers = await prisma.supplier.findMany({
                     where: {
-                        name: { in: Array.from(supplierNames) }
+                        name: { in: Array.from(supplierNames) },
                     },
-                    select: { id: true, name: true }
+                    select: { id: true, name: true },
                 });
 
-                suppliers.forEach(s => supplierMap.set(s.name, s.id));
+                suppliers.forEach((s) => supplierMap.set(s.name, s.id));
             }
 
             await prisma.$transaction(async (tx) => {
@@ -90,20 +89,27 @@ async function importProducts(products: ImportProduct[]) {
                     const product = await tx.product.create({
                         data: {
                             name: productData.productName,
-                            productType: productData.productType
-                        }
+                            productType: productData.productType,
+                        },
                     });
 
                     productCount++;
 
                     for (const v of productData.variants) {
-                        const supplierId = v.supplierName && supplierMap.get(v.supplierName.trim());
+                        const supplierId =
+                            v.supplierName &&
+                            supplierMap.get(v.supplierName.trim());
 
                         let finalSku = v.skuCode?.trim().toUpperCase();
                         if (!finalSku) {
-                            const skuResult = await getNextSKU(productData.productType, productData.productName);
+                            const skuResult = await getNextSKU(
+                                productData.productType,
+                                productData.productName,
+                            );
                             if (!skuResult.success || !skuResult.data) {
-                                throw new BusinessRuleError(skuResult.error || "Gagal membuat SKU");
+                                throw new BusinessRuleError(
+                                    skuResult.error || 'Gagal membuat SKU',
+                                );
                             }
                             finalSku = skuResult.data;
 
@@ -122,12 +128,20 @@ async function importProducts(products: ImportProduct[]) {
                             skuCode: finalSku,
                             primaryUnit: v.primaryUnit,
                             salesUnit: v.salesUnit || v.primaryUnit,
-                            conversionFactor: new Prisma.Decimal(v.conversionFactor || 1),
+                            conversionFactor: new Prisma.Decimal(
+                                v.conversionFactor || 1,
+                            ),
                             price: v.price ? new Prisma.Decimal(v.price) : null,
-                            buyPrice: v.price ? new Prisma.Decimal(v.price) : null,
-                            minStockAlert: v.minStockAlert ? new Prisma.Decimal(v.minStockAlert) : null,
+                            buyPrice: v.price
+                                ? new Prisma.Decimal(v.price)
+                                : null,
+                            minStockAlert: v.minStockAlert
+                                ? new Prisma.Decimal(v.minStockAlert)
+                                : null,
                             preferredSupplierId: supplierId || null,
-                            attributes: v.attributes ? v.attributes as Prisma.InputJsonValue : Prisma.JsonNull,
+                            attributes: v.attributes
+                                ? (v.attributes as Prisma.InputJsonValue)
+                                : Prisma.JsonNull,
                             supplierName: v.supplierName?.trim(),
                             originalPrice: v.price,
                         });
@@ -137,21 +151,22 @@ async function importProducts(products: ImportProduct[]) {
                 }
 
                 // Bulk create all product variants
-                const createdVariants = await tx.productVariant.createManyAndReturn({
-                    data: allVariants.map(v => ({
-                        productId: v.productId,
-                        name: v.name,
-                        skuCode: v.skuCode,
-                        primaryUnit: v.primaryUnit,
-                        salesUnit: v.salesUnit,
-                        conversionFactor: v.conversionFactor,
-                        price: v.price,
-                        buyPrice: v.buyPrice,
-                        minStockAlert: v.minStockAlert,
-                        preferredSupplierId: v.preferredSupplierId,
-                        attributes: v.attributes,
-                    })),
-                });
+                const createdVariants =
+                    await tx.productVariant.createManyAndReturn({
+                        data: allVariants.map((v) => ({
+                            productId: v.productId,
+                            name: v.name,
+                            skuCode: v.skuCode,
+                            primaryUnit: v.primaryUnit,
+                            salesUnit: v.salesUnit,
+                            conversionFactor: v.conversionFactor,
+                            price: v.price,
+                            buyPrice: v.buyPrice,
+                            minStockAlert: v.minStockAlert,
+                            preferredSupplierId: v.preferredSupplierId,
+                            attributes: v.attributes,
+                        })),
+                    });
 
                 // Bulk create supplier-product links
                 const supplierProducts = createdVariants
@@ -160,12 +175,17 @@ async function importProducts(products: ImportProduct[]) {
                         supplierName: allVariants[idx].supplierName,
                         originalPrice: allVariants[idx].originalPrice,
                     }))
-                    .filter(x => x.supplierName && supplierMap.has(x.supplierName))
-                    .map(x => ({
+                    .filter(
+                        (x) =>
+                            x.supplierName && supplierMap.has(x.supplierName),
+                    )
+                    .map((x) => ({
                         supplierId: supplierMap.get(x.supplierName!)!,
                         productVariantId: x.variant.id,
                         isPreferred: true,
-                        unitPrice: x.originalPrice ? new Prisma.Decimal(x.originalPrice) : null,
+                        unitPrice: x.originalPrice
+                            ? new Prisma.Decimal(x.originalPrice)
+                            : null,
                     }));
 
                 if (supplierProducts.length > 0) {
@@ -180,12 +200,14 @@ async function importProducts(products: ImportProduct[]) {
             return {
                 imported: productCount + variantCount,
                 products: productCount,
-                variants: variantCount
+                variants: variantCount,
             };
         } catch (error) {
-            logger.error('Failed to import products', { error, module: 'ImportActions' });
+            logger.error('Failed to import products', {
+                error,
+                module: 'ImportActions',
+            });
             throw new BusinessRuleError('Gagal mengimpor data');
         }
     });
-}
-);
+});

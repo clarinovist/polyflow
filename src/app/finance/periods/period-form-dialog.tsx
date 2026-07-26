@@ -36,7 +36,10 @@ export function PeriodFormDialog() {
         setLoading(true);
 
         try {
-            const result = await createFiscalPeriod(parseInt(year), parseInt(month));
+            const result = await createFiscalPeriod(
+                parseInt(year),
+                parseInt(month),
+            );
             if (result.success) {
                 toast.success('Periode fiskal berhasil dibuat.');
                 setOpen(false);
@@ -44,7 +47,7 @@ export function PeriodFormDialog() {
                 toast.error(result.error || 'Gagal membuat periode');
             }
         } catch (_error) {
-            toast.error("Gagal menyimpan periode. Silakan coba lagi.")
+            toast.error('Gagal menyimpan periode. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -63,33 +66,58 @@ export function PeriodFormDialog() {
                     <DialogHeader>
                         <DialogTitle>Open Fiscal Period</DialogTitle>
                         <DialogDescription>
-                            Select the month and year to open for accounting entries.
+                            Select the month and year to open for accounting
+                            entries.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="year" className="text-right">Year</Label>
+                            <Label htmlFor="year" className="text-right">
+                                Year
+                            </Label>
                             <Select value={year} onValueChange={setYear}>
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue placeholder="Year" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {[currentYear - 1, currentYear, currentYear + 1].map(y => (
-                                        <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                                    {[
+                                        currentYear - 1,
+                                        currentYear,
+                                        currentYear + 1,
+                                    ].map((y) => (
+                                        <SelectItem
+                                            key={y}
+                                            value={y.toString()}
+                                        >
+                                            {y}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="month" className="text-right">Month</Label>
+                            <Label htmlFor="month" className="text-right">
+                                Month
+                            </Label>
                             <Select value={month} onValueChange={setMonth}>
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue placeholder="Month" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                        <SelectItem key={m} value={m.toString()}>
-                                            {new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}
+                                    {Array.from(
+                                        { length: 12 },
+                                        (_, i) => i + 1,
+                                    ).map((m) => (
+                                        <SelectItem
+                                            key={m}
+                                            value={m.toString()}
+                                        >
+                                            {new Date(
+                                                2000,
+                                                m - 1,
+                                            ).toLocaleString('default', {
+                                                month: 'long',
+                                            })}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -97,7 +125,13 @@ export function PeriodFormDialog() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancel
+                        </Button>
                         <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Open Period'}
                         </Button>

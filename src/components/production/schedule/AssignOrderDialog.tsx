@@ -2,11 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -41,9 +58,15 @@ export function AssignOrderDialog({
     machines,
 }: AssignOrderDialogProps) {
     const router = useRouter();
-    const [selectedOrderId, setSelectedOrderId] = useState<string>(presetOrderId || '');
-    const [selectedMachineId, setSelectedMachineId] = useState<string>(presetMachineId || '');
-    const [date, setDate] = useState<Date | undefined>(presetDate || new Date());
+    const [selectedOrderId, setSelectedOrderId] = useState<string>(
+        presetOrderId || '',
+    );
+    const [selectedMachineId, setSelectedMachineId] = useState<string>(
+        presetMachineId || '',
+    );
+    const [date, setDate] = useState<Date | undefined>(
+        presetDate || new Date(),
+    );
     const [isPending, setIsPending] = useState(false);
 
     // P0-fix: Sync prefill state every time dialog opens
@@ -55,8 +78,8 @@ export function AssignOrderDialog({
     }, [open, presetOrderId, presetMachineId, presetDate]);
 
     // Filter out IN_PROGRESS, COMPLETED, CANCELLED from assignable list
-    const assignableOrders = orders.filter(order =>
-        ['DRAFT', 'RELEASED', 'WAITING_MATERIAL'].includes(order.status)
+    const assignableOrders = orders.filter((order) =>
+        ['DRAFT', 'RELEASED', 'WAITING_MATERIAL'].includes(order.status),
     );
 
     // Sort orders: unassigned first, then assigned (but still eligible for reassign)
@@ -112,18 +135,24 @@ export function AssignOrderDialog({
                     <DialogDescription>
                         {presetOrderId
                             ? planningLabels.selectMachineAndDate
-                            : planningLabels.selectOrderToAssign
-                        }
+                            : planningLabels.selectOrderToAssign}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     {/* Order selection (hidden when pre-selected from queue) */}
                     {!presetOrderId && (
                         <div className="grid gap-2">
-                            <Label htmlFor="order">{planningLabels.chooseOrder}</Label>
-                            <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                            <Label htmlFor="order">
+                                {planningLabels.chooseOrder}
+                            </Label>
+                            <Select
+                                value={selectedOrderId}
+                                onValueChange={setSelectedOrderId}
+                            >
                                 <SelectTrigger id="order">
-                                    <SelectValue placeholder={planningLabels.chooseOrder} />
+                                    <SelectValue
+                                        placeholder={planningLabels.chooseOrder}
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sortedOrders.length === 0 ? (
@@ -131,12 +160,14 @@ export function AssignOrderDialog({
                                             {planningLabels.noOrdersToAssign}
                                         </SelectItem>
                                     ) : (
-                                        sortedOrders.map(order => (
-                                            <SelectItem key={order.id} value={order.id}>
-                                                {order.machineId 
+                                        sortedOrders.map((order) => (
+                                            <SelectItem
+                                                key={order.id}
+                                                value={order.id}
+                                            >
+                                                {order.machineId
                                                     ? `🔄 [Pindah Mesin] ${order.orderNumber} — ${order.bomName}`
-                                                    : `📌 [Baru] ${order.orderNumber} — ${order.bomName}`
-                                                }
+                                                    : `📌 [Baru] ${order.orderNumber} — ${order.bomName}`}
                                             </SelectItem>
                                         ))
                                     )}
@@ -148,17 +179,31 @@ export function AssignOrderDialog({
                     {/* Machine selection (hidden when pre-selected from cell "+") */}
                     {!presetMachineId && (
                         <div className="grid gap-2">
-                            <Label htmlFor="machine">{planningLabels.machine}</Label>
-                            <Select value={selectedMachineId} onValueChange={setSelectedMachineId}>
+                            <Label htmlFor="machine">
+                                {planningLabels.machine}
+                            </Label>
+                            <Select
+                                value={selectedMachineId}
+                                onValueChange={setSelectedMachineId}
+                            >
                                 <SelectTrigger id="machine">
-                                    <SelectValue placeholder={planningLabels.chooseMachine} />
+                                    <SelectValue
+                                        placeholder={
+                                            planningLabels.chooseMachine
+                                        }
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {machines.filter(m => m.status === 'ACTIVE').map(machine => (
-                                        <SelectItem key={machine.id} value={machine.id}>
-                                            {machine.code} - {machine.type}
-                                        </SelectItem>
-                                    ))}
+                                    {machines
+                                        .filter((m) => m.status === 'ACTIVE')
+                                        .map((machine) => (
+                                            <SelectItem
+                                                key={machine.id}
+                                                value={machine.id}
+                                            >
+                                                {machine.code} - {machine.type}
+                                            </SelectItem>
+                                        ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -172,12 +217,18 @@ export function AssignOrderDialog({
                                 <Button
                                     variant="outline"
                                     className={cn(
-                                        "w-full justify-start text-left font-normal h-12",
-                                        !date && "text-muted-foreground"
+                                        'w-full justify-start text-left font-normal h-12',
+                                        !date && 'text-muted-foreground',
                                     )}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date ? format(date, 'PPP', { locale: localeID }) : <span>{planningLabels.startDate}</span>}
+                                    {date ? (
+                                        format(date, 'PPP', {
+                                            locale: localeID,
+                                        })
+                                    ) : (
+                                        <span>{planningLabels.startDate}</span>
+                                    )}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
@@ -195,14 +246,25 @@ export function AssignOrderDialog({
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        disabled={isPending}
+                    >
                         Batal
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        disabled={isPending || !selectedOrderId || !selectedMachineId || !date}
+                        disabled={
+                            isPending ||
+                            !selectedOrderId ||
+                            !selectedMachineId ||
+                            !date
+                        }
                     >
-                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isPending && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         {planningLabels.assignOrder}
                     </Button>
                 </DialogFooter>

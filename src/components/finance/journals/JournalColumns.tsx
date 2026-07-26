@@ -27,8 +27,13 @@ export const columns: ColumnDef<JournalEntryWithDetails>[] = [
         size: 40,
         header: ({ table }) => (
             <Checkbox
-                checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                checked={
+                    table.getIsAllPageRowsSelected() ||
+                    (table.getIsSomePageRowsSelected() && 'indeterminate')
+                }
+                onCheckedChange={(value) =>
+                    table.toggleAllPageRowsSelected(!!value)
+                }
                 aria-label="Select all"
             />
         ),
@@ -47,7 +52,10 @@ export const columns: ColumnDef<JournalEntryWithDetails>[] = [
         header: 'Entry #',
         size: 110,
         cell: ({ row }) => (
-            <Link href={`/finance/journals/${row.original.id}`} className="font-medium text-blue-600 hover:underline">
+            <Link
+                href={`/finance/journals/${row.original.id}`}
+                className="font-medium text-blue-600 hover:underline"
+            >
                 {row.getValue('entryNumber')}
             </Link>
         ),
@@ -56,13 +64,18 @@ export const columns: ColumnDef<JournalEntryWithDetails>[] = [
         accessorKey: 'entryDate',
         header: 'Date',
         size: 120,
-        cell: ({ row }) => format(new Date(row.getValue('entryDate')), 'dd MMM yyyy'),
+        cell: ({ row }) =>
+            format(new Date(row.getValue('entryDate')), 'dd MMM yyyy'),
     },
     {
         accessorKey: 'description',
         header: 'Description',
         size: 250,
-        cell: ({ row }) => <div className="truncate" title={row.getValue('description')}>{row.getValue('description')}</div>,
+        cell: ({ row }) => (
+            <div className="truncate" title={row.getValue('description')}>
+                {row.getValue('description')}
+            </div>
+        ),
     },
     {
         accessorKey: 'reference',
@@ -70,8 +83,12 @@ export const columns: ColumnDef<JournalEntryWithDetails>[] = [
         size: 130,
         cell: ({ row }) => (
             <div className="flex flex-col truncate">
-                <span className="text-sm font-medium truncate">{row.original.reference || '-'}</span>
-                <span className="text-[10px] text-muted-foreground truncate">{row.original.referenceType}</span>
+                <span className="text-sm font-medium truncate">
+                    {row.original.reference || '-'}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">
+                    {row.original.referenceType}
+                </span>
             </div>
         ),
     },
@@ -82,9 +99,11 @@ export const columns: ColumnDef<JournalEntryWithDetails>[] = [
         cell: ({ row }) => {
             const status = row.getValue('status') as JournalStatus;
             const variant =
-                status === 'POSTED' ? 'default' :
-                    status === 'DRAFT' ? 'secondary' :
-                        'destructive';
+                status === 'POSTED'
+                    ? 'default'
+                    : status === 'DRAFT'
+                      ? 'secondary'
+                      : 'destructive';
 
             return <Badge variant={variant}>{status}</Badge>;
         },

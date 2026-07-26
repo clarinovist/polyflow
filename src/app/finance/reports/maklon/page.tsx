@@ -1,5 +1,8 @@
 import type { ComponentProps } from 'react';
-import { getMaklonReport, getMaklonCustomers } from '@/actions/maklon/maklon-report';
+import {
+    getMaklonReport,
+    getMaklonCustomers,
+} from '@/actions/maklon/maklon-report';
 import { MaklonReportClient } from '@/components/maklon/MaklonReportClient';
 import { Factory } from 'lucide-react';
 
@@ -11,25 +14,26 @@ export default async function MaklonReportPage() {
         getMaklonCustomers(),
     ]);
 
-    const report = reportRes.success && reportRes.data
-        ? reportRes.data
-        : {
-              totalOrders: 0,
-              totalServiceRevenue: 0,
-              totalInternalCost: 0,
-              totalGrossMargin: 0,
-              avgMarginPct: 0,
-              byCustomer: [],
-              totalCostBreakdown: {
-                  LABOR: 0,
-                  MACHINE: 0,
-                  ELECTRICITY: 0,
-                  ADDITIVE: 0,
-                  COLORANT: 0,
-                  OVERHEAD: 0,
-                  OTHER: 0,
-              },
-          };
+    const report =
+        reportRes.success && reportRes.data
+            ? reportRes.data
+            : {
+                  totalOrders: 0,
+                  totalServiceRevenue: 0,
+                  totalInternalCost: 0,
+                  totalGrossMargin: 0,
+                  avgMarginPct: 0,
+                  byCustomer: [],
+                  totalCostBreakdown: {
+                      LABOR: 0,
+                      MACHINE: 0,
+                      ELECTRICITY: 0,
+                      ADDITIVE: 0,
+                      COLORANT: 0,
+                      OVERHEAD: 0,
+                      OTHER: 0,
+                  },
+              };
 
     const customers =
         customersRes.success && customersRes.data ? customersRes.data : [];
@@ -42,11 +46,16 @@ export default async function MaklonReportPage() {
                     Maklon Profitability Report
                 </h1>
                 <p className="text-sm md:text-base text-muted-foreground mt-1">
-                    Track service revenue, internal conversion costs, and gross margin per Maklon order.
+                    Track service revenue, internal conversion costs, and gross
+                    margin per Maklon order.
                 </p>
             </div>
             <MaklonReportClient
-                initialReport={report as ComponentProps<typeof MaklonReportClient>['initialReport']}
+                initialReport={
+                    report as ComponentProps<
+                        typeof MaklonReportClient
+                    >['initialReport']
+                }
                 customers={customers}
             />
         </div>

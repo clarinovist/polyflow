@@ -32,7 +32,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { createOpeningBalance } from '@/actions/finance/opening-balance';
@@ -60,7 +66,10 @@ interface OpeningBalanceFormProps {
     suppliers: SelectableEntity[];
 }
 
-export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormProps) {
+export function OpeningBalanceForm({
+    customers,
+    suppliers,
+}: OpeningBalanceFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
 
@@ -112,33 +121,45 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
             <CardHeader>
                 <CardTitle>Opening Balance Wizard</CardTitle>
                 <CardDescription>
-                    Enter outstanding invoices from your previous system.
-                    These will be recorded against <strong>Opening Balance Equity</strong>.
+                    Enter outstanding invoices from your previous system. These
+                    will be recorded against{' '}
+                    <strong>Opening Balance Equity</strong>.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-6"
+                    >
                         <FormField
                             control={form.control}
                             name="type"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Entry Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                    >
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select type" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="AR">Customer Receivable (Piutang)</SelectItem>
-                                            <SelectItem value="AP">Supplier Payable (Hutang)</SelectItem>
+                                            <SelectItem value="AR">
+                                                Customer Receivable (Piutang)
+                                            </SelectItem>
+                                            <SelectItem value="AP">
+                                                Supplier Payable (Hutang)
+                                            </SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormDescription>
-                                        Select &apos;Receivable&apos; if someone implies money to you. Select &apos;Payable&apos; if you owe money.
+                                        Select &apos;Receivable&apos; if someone
+                                        implies money to you. Select
+                                        &apos;Payable&apos; if you owe money.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
@@ -152,15 +173,23 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>{entityLabel}</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                        >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder={`Select ${entityLabel}`} />
+                                                    <SelectValue
+                                                        placeholder={`Select ${entityLabel}`}
+                                                    />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {entityList.map((entity) => (
-                                                    <SelectItem key={entity.id} value={entity.id}>
+                                                    <SelectItem
+                                                        key={entity.id}
+                                                        value={entity.id}
+                                                    >
                                                         {entity.name}
                                                     </SelectItem>
                                                 ))}
@@ -176,9 +205,14 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                 name="invoiceNumber"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Original Invoice #</FormLabel>
+                                        <FormLabel>
+                                            Original Invoice #
+                                        </FormLabel>
                                         <FormControl>
-                                            <Input placeholder="e.g. INV-2023-001" {...field} />
+                                            <Input
+                                                placeholder="e.g. INV-2023-001"
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -197,28 +231,41 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                             <PopoverTrigger asChild>
                                                 <FormControl>
                                                     <Button
-                                                        variant={"outline"}
+                                                        variant={'outline'}
                                                         className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
+                                                            'w-full pl-3 text-left font-normal',
+                                                            !field.value &&
+                                                                'text-muted-foreground',
                                                         )}
                                                     >
                                                         {field.value ? (
-                                                            format(field.value, "PPP")
+                                                            format(
+                                                                field.value,
+                                                                'PPP',
+                                                            )
                                                         ) : (
-                                                            <span>Pick a date</span>
+                                                            <span>
+                                                                Pick a date
+                                                            </span>
                                                         )}
                                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <PopoverContent
+                                                className="w-auto p-0"
+                                                align="start"
+                                            >
                                                 <Calendar
                                                     mode="single"
                                                     selected={field.value}
                                                     onSelect={field.onChange}
                                                     disabled={(date) =>
-                                                        date > new Date() || date < new Date("1900-01-01")
+                                                        date > new Date() ||
+                                                        date <
+                                                            new Date(
+                                                                '1900-01-01',
+                                                            )
                                                     }
                                                     initialFocus
                                                 />
@@ -239,22 +286,31 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                             <PopoverTrigger asChild>
                                                 <FormControl>
                                                     <Button
-                                                        variant={"outline"}
+                                                        variant={'outline'}
                                                         className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
+                                                            'w-full pl-3 text-left font-normal',
+                                                            !field.value &&
+                                                                'text-muted-foreground',
                                                         )}
                                                     >
                                                         {field.value ? (
-                                                            format(field.value, "PPP")
+                                                            format(
+                                                                field.value,
+                                                                'PPP',
+                                                            )
                                                         ) : (
-                                                            <span>Pick a date</span>
+                                                            <span>
+                                                                Pick a date
+                                                            </span>
                                                         )}
                                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <PopoverContent
+                                                className="w-auto p-0"
+                                                align="start"
+                                            >
                                                 <Calendar
                                                     mode="single"
                                                     selected={field.value}
@@ -274,7 +330,9 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                             name="amount"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Outstanding Amount (IDR)</FormLabel>
+                                    <FormLabel>
+                                        Outstanding Amount (IDR)
+                                    </FormLabel>
                                     <FormControl>
                                         <AccountingInput
                                             value={field.value}
@@ -283,7 +341,8 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                         />
                                     </FormControl>
                                     <FormDescription>
-                                        Enter the remaining unpaid amount for this invoice.
+                                        Enter the remaining unpaid amount for
+                                        this invoice.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
@@ -309,7 +368,11 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                         />
 
                         <div className="flex justify-end">
-                            <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto">
+                            <Button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full md:w-auto"
+                            >
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

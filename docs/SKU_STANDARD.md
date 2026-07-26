@@ -198,10 +198,10 @@ SCWST003  → Edge Trim Waste
 - Increment sequentially (001, 002, 003...)
 - Don't skip numbers (avoid gaps)
 - Reserve ranges for variants:
-  - 001-099: Standard products
-  - 100-199: Premium/special variants
-  - 200-299: Custom/OEM products
-  - 900-999: Obsolete/discontinued (keep for history)
+    - 001-099: Standard products
+    - 100-199: Premium/special variants
+    - 200-299: Custom/OEM products
+    - 900-999: Obsolete/discontinued (keep for history)
 
 ### Example Sequence
 
@@ -315,51 +315,51 @@ FGRAF202  → Custom OEM Raffia (Client B)
 ### TypeScript Validation
 
 ```typescript
-import { z } from "zod";
+import { z } from 'zod';
 
 const skuCodeSchema = z
-  .string()
-  .length(8, "SKU must be exactly 8 characters")
-  .regex(
-    /^(RM|IN|PK|WP|FG|SC)[A-Z]{3}\d{3}$/,
-    "SKU format: [TYPE][CATEGORY][SEQUENCE] (e.g., RMPPG001)",
-  )
-  .toUpperCase();
+    .string()
+    .length(8, 'SKU must be exactly 8 characters')
+    .regex(
+        /^(RM|IN|PK|WP|FG|SC)[A-Z]{3}\d{3}$/,
+        'SKU format: [TYPE][CATEGORY][SEQUENCE] (e.g., RMPPG001)',
+    )
+    .toUpperCase();
 ```
 
 ### Auto-Generate Next SKU
 
 ```typescript
 async function generateNextSKU(
-  type: string,
-  category: string,
+    type: string,
+    category: string,
 ): Promise<string> {
-  const prefix = `${type}${category}`;
+    const prefix = `${type}${category}`;
 
-  // Find highest sequence number for this prefix
-  const lastSKU = await prisma.productVariant.findFirst({
-    where: {
-      skuCode: {
-        startsWith: prefix,
-      },
-    },
-    orderBy: {
-      skuCode: "desc",
-    },
-  });
+    // Find highest sequence number for this prefix
+    const lastSKU = await prisma.productVariant.findFirst({
+        where: {
+            skuCode: {
+                startsWith: prefix,
+            },
+        },
+        orderBy: {
+            skuCode: 'desc',
+        },
+    });
 
-  if (!lastSKU) {
-    return `${prefix}001`;
-  }
+    if (!lastSKU) {
+        return `${prefix}001`;
+    }
 
-  const lastSeq = parseInt(lastSKU.skuCode.slice(-3));
-  const nextSeq = (lastSeq + 1).toString().padStart(3, "0");
+    const lastSeq = parseInt(lastSKU.skuCode.slice(-3));
+    const nextSeq = (lastSeq + 1).toString().padStart(3, '0');
 
-  return `${prefix}${nextSeq}`;
+    return `${prefix}${nextSeq}`;
 }
 
 // Usage
-const newSKU = await generateNextSKU("RM", "PPG"); // Returns: RMPPG001, RMPPG002, etc.
+const newSKU = await generateNextSKU('RM', 'PPG'); // Returns: RMPPG001, RMPPG002, etc.
 ```
 
 ---

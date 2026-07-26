@@ -5,8 +5,10 @@ import { useEffect } from 'react';
  * Acculumates keypresses and detects "Enter" to trigger a scan action.
  * Ideal for USB/Bluetooth HID scanners that act as a keyboard.
  */
-export function useBarcodeScanner(onScan: (code: string) => void, minLength = 3) {
-
+export function useBarcodeScanner(
+    onScan: (code: string) => void,
+    minLength = 3,
+) {
     useEffect(() => {
         let buffer = '';
         let lastKeyTime = Date.now();

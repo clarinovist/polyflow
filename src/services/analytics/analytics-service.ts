@@ -1,6 +1,9 @@
 import { DateRange } from '@/types/analytics';
 
-import { getProductionAnalytics, type ProductionAnalyticsData } from './production-analytics-service';
+import {
+    getProductionAnalytics,
+    type ProductionAnalyticsData,
+} from './production-analytics-service';
 import { getSalesMetrics, type SalesMetrics } from './sales-metrics-service';
 
 export class AnalyticsService {
@@ -8,7 +11,9 @@ export class AnalyticsService {
         return getSalesMetrics(dateRange);
     }
 
-    static async getProductionAnalytics(dateRange?: DateRange): Promise<ProductionAnalyticsData> {
+    static async getProductionAnalytics(
+        dateRange?: DateRange,
+    ): Promise<ProductionAnalyticsData> {
         return getProductionAnalytics(dateRange);
     }
 }

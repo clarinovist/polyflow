@@ -3,7 +3,14 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Save, Loader2 } from 'lucide-react';
@@ -63,12 +70,12 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
     }, [session]);
 
     const handleCountChange = (id: string, value: string) => {
-        setCounts(prev => ({ ...prev, [id]: value }));
+        setCounts((prev) => ({ ...prev, [id]: value }));
         setHasChanges(true);
     };
 
     const handleNoteChange = (id: string, value: string) => {
-        setNotes(prev => ({ ...prev, [id]: value }));
+        setNotes((prev) => ({ ...prev, [id]: value }));
         setHasChanges(true);
     };
 
@@ -76,16 +83,16 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
         setIsSaving(true);
         try {
             // Convert state to array for server action
-            const updates = Object.keys(counts).map(id => ({
+            const updates = Object.keys(counts).map((id) => ({
                 id,
                 countedQuantity: parseFloat(counts[id] || '0'),
-                notes: notes[id]
+                notes: notes[id],
             }));
 
             const result = await saveOpnameCount(session.id, updates);
 
             if (result.success) {
-                toast.success("Jumlah perhitungan berhasil disimpan");
+                toast.success('Jumlah perhitungan berhasil disimpan');
                 setHasChanges(false);
             } else {
                 toast.error(`Gagal: ${result.error}`);
@@ -93,12 +100,24 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('Failed to find Server Action')) {
-                toast.error('Halaman sudah kedaluwarsa karena deploy baru. Silakan refresh halaman (F5) lalu coba lagi.', {
-                    duration: 10000,
-                    action: { label: 'Refresh', onClick: () => window.location.reload() },
-                });
-            } else if (message.includes('fetch') || message.includes('network') || message.includes('NetworkError')) {
-                toast.error('Koneksi gagal. Cek koneksi internet lalu coba lagi.');
+                toast.error(
+                    'Halaman sudah kedaluwarsa karena deploy baru. Silakan refresh halaman (F5) lalu coba lagi.',
+                    {
+                        duration: 10000,
+                        action: {
+                            label: 'Refresh',
+                            onClick: () => window.location.reload(),
+                        },
+                    },
+                );
+            } else if (
+                message.includes('fetch') ||
+                message.includes('network') ||
+                message.includes('NetworkError')
+            ) {
+                toast.error(
+                    'Koneksi gagal. Cek koneksi internet lalu coba lagi.',
+                );
             } else {
                 toast.error(`Gagal menyimpan: ${message}`);
             }
@@ -111,12 +130,26 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
         <div className="space-y-4 relative">
             <div className="flex items-center justify-between bg-muted/40 p-4 rounded-lg border border-border/50">
                 <div className="flex items-center space-x-3">
-                    <Switch id="blind-mode" checked={blindMode} onCheckedChange={setBlindMode} />
-                    <Label htmlFor="blind-mode" className="flex items-center gap-2 cursor-pointer select-none">
-                        {blindMode ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-primary" />}
+                    <Switch
+                        id="blind-mode"
+                        checked={blindMode}
+                        onCheckedChange={setBlindMode}
+                    />
+                    <Label
+                        htmlFor="blind-mode"
+                        className="flex items-center gap-2 cursor-pointer select-none"
+                    >
+                        {blindMode ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                            <Eye className="h-4 w-4 text-primary" />
+                        )}
                         <div className="flex flex-col">
                             <span className="font-medium">Blind Mode</span>
-                            <span className="text-[10px] text-muted-foreground font-normal">Hide system quantities to ensure unbiased counting</span>
+                            <span className="text-[10px] text-muted-foreground font-normal">
+                                Hide system quantities to ensure unbiased
+                                counting
+                            </span>
                         </div>
                     </Label>
                 </div>
@@ -132,13 +165,18 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                             <TableHead className="text-right">
                                 {warehouseComponentLabels.expectedQty}
                             </TableHead>
-                            <TableHead className="w-[180px] text-right">{warehouseComponentLabels.actualQty}</TableHead>
+                            <TableHead className="w-[180px] text-right">
+                                {warehouseComponentLabels.actualQty}
+                            </TableHead>
                             <TableHead className="w-[200px]">Notes</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {(session.items || []).map((item) => (
-                            <TableRow key={item.id} className="hover:bg-muted/20">
+                            <TableRow
+                                key={item.id}
+                                className="hover:bg-muted/20"
+                            >
                                 <TableCell className="font-medium">
                                     <div className="flex flex-col">
                                         <span>{item.productVariant.name}</span>
@@ -147,13 +185,21 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                         </span>
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-muted-foreground text-xs font-mono">{item.productVariant.skuCode}</TableCell>
-                                <TableCell className="text-xs">{item.productVariant.primaryUnit}</TableCell>
+                                <TableCell className="text-muted-foreground text-xs font-mono">
+                                    {item.productVariant.skuCode}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                    {item.productVariant.primaryUnit}
+                                </TableCell>
                                 <TableCell className="text-right text-muted-foreground font-mono">
                                     {blindMode ? (
-                                        <span className="opacity-20 select-none">••••</span>
+                                        <span className="opacity-20 select-none">
+                                            ••••
+                                        </span>
                                     ) : (
-                                        formatQuantity(Number(item.systemQuantity))
+                                        formatQuantity(
+                                            Number(item.systemQuantity),
+                                        )
                                     )}
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -163,16 +209,28 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                         className="text-right h-9 font-mono"
                                         placeholder="0"
                                         value={counts[item.id] || ''}
-                                        onChange={(e) => handleCountChange(item.id, e.target.value)}
+                                        onChange={(e) =>
+                                            handleCountChange(
+                                                item.id,
+                                                e.target.value,
+                                            )
+                                        }
                                         disabled={isReadOnly}
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <Input
-                                        placeholder={warehouseComponentLabels.optional}
+                                        placeholder={
+                                            warehouseComponentLabels.optional
+                                        }
                                         className="h-9 text-xs"
                                         value={notes[item.id] || ''}
-                                        onChange={(e) => handleNoteChange(item.id, e.target.value)}
+                                        onChange={(e) =>
+                                            handleNoteChange(
+                                                item.id,
+                                                e.target.value,
+                                            )
+                                        }
                                         disabled={isReadOnly}
                                     />
                                 </TableCell>
@@ -184,14 +242,22 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
 
             {/* Sticky Save Action */}
             {!isReadOnly && (
-                <div className={`sticky bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t border-border mt-6 flex justify-end transition-all ${hasChanges ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-10 pointer-events-none'}`}>
+                <div
+                    className={`sticky bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t border-border mt-6 flex justify-end transition-all ${hasChanges ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-10 pointer-events-none'}`}
+                >
                     <Button
                         onClick={handleSave}
                         disabled={!hasChanges || isSaving}
                         className="shadow-lg shadow-primary/20"
                     >
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        {isSaving ? `${warehouseComponentLabels.saveCount}...` : warehouseComponentLabels.saveCount}
+                        {isSaving ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                        )}
+                        {isSaving
+                            ? `${warehouseComponentLabels.saveCount}...`
+                            : warehouseComponentLabels.saveCount}
                     </Button>
                 </div>
             )}

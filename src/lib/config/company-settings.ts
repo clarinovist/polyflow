@@ -38,7 +38,9 @@ export const COMPANY_SETTING_KEYS: Record<keyof CompanySettings, string> = {
  * Returns a partial map keyed by field name. Never throws — on any error it
  * returns an empty object so callers safely fall back to env defaults.
  */
-export async function readCompanySettingOverrides(): Promise<Partial<CompanySettings>> {
+export async function readCompanySettingOverrides(): Promise<
+    Partial<CompanySettings>
+> {
     try {
         const { prisma } = await import('@/lib/core/prisma');
         const rows = await prisma.appSetting.findMany({
@@ -48,12 +50,15 @@ export async function readCompanySettingOverrides(): Promise<Partial<CompanySett
         if (rows.length === 0) return {};
         const byKey = new Map(rows.map((r) => [r.key, r.value]));
         const result: Partial<CompanySettings> = {};
-        (Object.entries(COMPANY_SETTING_KEYS) as [keyof CompanySettings, string][]).forEach(
-            ([field, key]) => {
-                const val = byKey.get(key);
-                if (val != null && val !== '') result[field] = val;
-            },
-        );
+        (
+            Object.entries(COMPANY_SETTING_KEYS) as [
+                keyof CompanySettings,
+                string,
+            ][]
+        ).forEach(([field, key]) => {
+            const val = byKey.get(key);
+            if (val != null && val !== '') result[field] = val;
+        });
         return result;
     } catch {
         return {};
@@ -67,7 +72,8 @@ export async function readCompanySettingOverrides(): Promise<Partial<CompanySett
  * getCompanyConfigAsync when they want tenant overrides applied.
  */
 export async function getCompanyConfigWithOverridesAsync() {
-    const { getCompanyConfigAsync, parseBankAccounts } = await import('./company');
+    const { getCompanyConfigAsync, parseBankAccounts } =
+        await import('./company');
     const base = await getCompanyConfigAsync();
     const overrides = await readCompanySettingOverrides();
     const merged = {
@@ -83,11 +89,15 @@ export async function getCompanyConfigWithOverridesAsync() {
     type BankAccount = { holder: string; bank: string; account: string };
     // Bank accounts: JSON stored in AppSetting; merge over env/base.
     if (overrides.bankAccountsNonPPN) {
-        const parsed = parseBankAccounts(overrides.bankAccountsNonPPN) as BankAccount[] | null;
+        const parsed = parseBankAccounts(overrides.bankAccountsNonPPN) as
+            | BankAccount[]
+            | null;
         if (parsed && parsed.length > 0) merged.bankAccountsNonPPN = parsed;
     }
     if (overrides.bankAccountsPPN) {
-        const parsed = parseBankAccounts(overrides.bankAccountsPPN) as BankAccount[] | null;
+        const parsed = parseBankAccounts(overrides.bankAccountsPPN) as
+            | BankAccount[]
+            | null;
         if (parsed && parsed.length > 0) merged.bankAccountsPPN = parsed;
     }
     return merged;

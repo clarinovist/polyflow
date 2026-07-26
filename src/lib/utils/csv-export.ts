@@ -19,7 +19,7 @@ function escapeCsvField(value: string): string {
 export function downloadCsv(
     filename: string,
     headers: string[],
-    rows: (string | number)[][]
+    rows: (string | number)[][],
 ): void {
     const csvLines: string[] = [];
 
@@ -29,10 +29,12 @@ export function downloadCsv(
     // Data rows
     for (const row of rows) {
         csvLines.push(
-            row.map((cell) => {
-                const str = String(cell ?? '');
-                return escapeCsvField(str);
-            }).join(',')
+            row
+                .map((cell) => {
+                    const str = String(cell ?? '');
+                    return escapeCsvField(str);
+                })
+                .join(','),
         );
     }
 

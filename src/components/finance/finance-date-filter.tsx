@@ -13,7 +13,7 @@ export function FinanceDateFilter() {
     // Initialize state from URL or current date
     const startDateParam = searchParams.get('startDate');
     const [currentDate, setCurrentDate] = useState<Date>(
-        startDateParam ? new Date(startDateParam) : new Date()
+        startDateParam ? new Date(startDateParam) : new Date(),
     );
 
     function handleMonthChange(range: { from: Date; to: Date }) {
@@ -34,7 +34,11 @@ export function FinanceDateFilter() {
                 currentDate={currentDate}
                 onDateChange={handleMonthChange}
             />
-            {isPending && <span className="text-xs text-muted-foreground animate-pulse">Updating...</span>}
+            {isPending && (
+                <span className="text-xs text-muted-foreground animate-pulse">
+                    Updating...
+                </span>
+            )}
         </div>
     );
 }

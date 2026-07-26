@@ -16,19 +16,25 @@ const getReceipts = withTenantPage(
         return PurchaseService.getGoodsReceipts(opts);
     },
 );
-export default async function WarehouseMaklonReceiptsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+export default async function WarehouseMaklonReceiptsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ startDate?: string; endDate?: string }>;
+}) {
     const params = await searchParams;
     const now = new Date();
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
 
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkStart = params?.startDate
+        ? parseISO(params.startDate)
+        : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const receipts = await getReceipts({ 
-        startDate: checkStart, 
+    const receipts = await getReceipts({
+        startDate: checkStart,
         endDate: checkEnd,
-        isMaklon: true 
+        isMaklon: true,
     });
 
     const serializedReceipts = serializeData(receipts);
@@ -51,7 +57,11 @@ export default async function WarehouseMaklonReceiptsPage({ searchParams }: { se
                 }
             />
             <GoodsReceiptTable
-                receipts={serializedReceipts as unknown as React.ComponentProps<typeof GoodsReceiptTable>['receipts']}
+                receipts={
+                    serializedReceipts as unknown as React.ComponentProps<
+                        typeof GoodsReceiptTable
+                    >['receipts']
+                }
                 basePath="/warehouse/maklon/receipts"
             />
         </div>

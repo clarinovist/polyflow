@@ -1,4 +1,3 @@
-
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -15,15 +14,20 @@ async function main() {
             where: { code },
             include: {
                 journalLines: {
-                    where: { journalEntry: { status: 'POSTED' } }
-                }
-            }
+                    where: { journalEntry: { status: 'POSTED' } },
+                },
+            },
         });
 
         if (account) {
-            const balance = account.journalLines.reduce((sum, l) => sum + (Number(l.debit) - Number(l.credit)), 0);
+            const balance = account.journalLines.reduce(
+                (sum, l) => sum + (Number(l.debit) - Number(l.credit)),
+                0,
+            );
             totalGL += balance;
-            console.log(`Account ${code} (${account.name}): Rp ${balance.toLocaleString()}`);
+            console.log(
+                `Account ${code} (${account.name}): Rp ${balance.toLocaleString()}`,
+            );
         } else {
             console.log(`Account ${code} not found!`);
         }
@@ -34,9 +38,9 @@ async function main() {
     const stock = await prisma.inventory.findMany({
         include: {
             productVariant: {
-                include: { product: true }
-            }
-        }
+                include: { product: true },
+            },
+        },
     });
 
     let totalValuation = 0;
@@ -46,7 +50,11 @@ async function main() {
     for (const item of stock) {
         const type = item.productVariant.product.productType;
         const qty = item.quantity.toNumber();
-        const cost = item.averageCost?.toNumber() || item.productVariant.standardCost?.toNumber() || item.productVariant.buyPrice?.toNumber() || 0;
+        const cost =
+            item.averageCost?.toNumber() ||
+            item.productVariant.standardCost?.toNumber() ||
+            item.productVariant.buyPrice?.toNumber() ||
+            0;
 
         if (cost === 0 && qty > 0) zeroCostCount++;
 
@@ -59,16 +67,20 @@ async function main() {
     for (const [type, val] of Object.entries(typeValuation)) {
         console.log(`${type}: Rp ${val.toLocaleString()}`);
     }
-    console.log(`Total Physical Valuation: Rp ${totalValuation.toLocaleString()}`);
+    console.log(
+        `Total Physical Valuation: Rp ${totalValuation.toLocaleString()}`,
+    );
     console.log(`Items with Quantity but Zero Cost: ${zeroCostCount}`);
 
     console.log('\n--- Final Comparison ---');
-    console.log(`Net Discrepancy (Total GL - Total Valuation): Rp ${(totalGL - totalValuation).toLocaleString()}`);
+    console.log(
+        `Net Discrepancy (Total GL - Total Valuation): Rp ${(totalGL - totalValuation).toLocaleString()}`,
+    );
 
     await prisma.$disconnect();
 }
 
-main().catch(e => {
+main().catch((e) => {
     console.error(e);
     process.exit(1);
 });

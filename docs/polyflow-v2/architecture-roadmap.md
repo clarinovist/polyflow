@@ -4,7 +4,7 @@
 **Status:** Official architecture planning document  
 **Documentation hub:** `docs/polyflow-v2/`  
 **Scope:** Evolusi arsitektur PolyFlow dari current modular monolith menuju platform ERP manufaktur yang lebih aman, scalable, dan mudah dikembangkan.  
-**Audience:** Owner, engineering, operator, implementor, dan reviewer produksi.  
+**Audience:** Owner, engineering, operator, implementor, dan reviewer produksi.
 
 ---
 
@@ -35,40 +35,40 @@ Baseline ini disusun dari kondisi repo lokal pada 2026-07-03.
 
 ### 2.1 Stack saat ini
 
-| Layer | Current |
-|---|---|
-| Framework | Next.js 16 App Router |
-| Language | TypeScript |
-| Runtime UI | React 19 |
-| ORM | Prisma 5 |
-| Database | PostgreSQL |
-| Auth | NextAuth/Auth.js v5 |
-| UI | shadcn/Radix/Tailwind |
-| Test | Vitest |
+| Layer      | Current                |
+| ---------- | ---------------------- |
+| Framework  | Next.js 16 App Router  |
+| Language   | TypeScript             |
+| Runtime UI | React 19               |
+| ORM        | Prisma 5               |
+| Database   | PostgreSQL             |
+| Auth       | NextAuth/Auth.js v5    |
+| UI         | shadcn/Radix/Tailwind  |
+| Test       | Vitest                 |
 | Deployment | Docker/Compose + CI/CD |
 
 ### 2.2 Folder utama saat ini
 
-| Folder | Fungsi |
-|---|---|
-| `src/app` | App Router pages, layouts, API routes |
-| `src/components` | UI components per portal/domain |
-| `src/actions` | Server Actions per domain |
-| `src/services` | Business/service layer per domain |
-| `src/lib` | shared utilities, schemas, auth, tenant, config |
-| `prisma` | Prisma schema, migrations, seed |
-| `scripts` | operational scripts, import, repair, audit |
-| `docs` | architecture, runbook, plans, SOP |
+| Folder           | Fungsi                                          |
+| ---------------- | ----------------------------------------------- |
+| `src/app`        | App Router pages, layouts, API routes           |
+| `src/components` | UI components per portal/domain                 |
+| `src/actions`    | Server Actions per domain                       |
+| `src/services`   | Business/service layer per domain               |
+| `src/lib`        | shared utilities, schemas, auth, tenant, config |
+| `prisma`         | Prisma schema, migrations, seed                 |
+| `scripts`        | operational scripts, import, repair, audit      |
+| `docs`           | architecture, runbook, plans, SOP               |
 
 ### 2.3 Current size indicator
 
-| Area | Jumlah file indikatif |
-|---|---:|
-| `src/app` | 223 |
-| `src/components` | 265 |
-| `src/actions` | 91 |
-| `src/services` | 139 |
-| `src/lib` | 102 |
+| Area             | Jumlah file indikatif |
+| ---------------- | --------------------: |
+| `src/app`        |                   223 |
+| `src/components` |                   265 |
+| `src/actions`    |                    91 |
+| `src/services`   |                   139 |
+| `src/lib`        |                   102 |
 
 Dominasi domain saat ini:
 
@@ -107,29 +107,29 @@ Model high-risk yang perlu diperlakukan sebagai shared kernel:
 
 ### 2.5 Strength saat ini
 
-| Area | Strength |
-|---|---|
-| Stack | Modern, cukup standard, tidak perlu ganti teknologi |
-| Domain | Sudah sangat nyata dan dekat kebutuhan operasional manufaktur |
-| Service layer | Sudah ada dan cukup luas |
-| Multi-tenancy | Sudah database-per-tenant, isolasi kuat |
-| Finance & Accounting | Sudah ada double-entry accounting foundation |
-| Inventory | Sudah ada movement, balance, reservation, opname |
-| Production | Sudah ada BOM, WO, execution, output, scrap, downtime, costing |
-| Documentation | Sudah ada architecture, schema domain map, tenant guardrail, runbook |
+| Area                 | Strength                                                             |
+| -------------------- | -------------------------------------------------------------------- |
+| Stack                | Modern, cukup standard, tidak perlu ganti teknologi                  |
+| Domain               | Sudah sangat nyata dan dekat kebutuhan operasional manufaktur        |
+| Service layer        | Sudah ada dan cukup luas                                             |
+| Multi-tenancy        | Sudah database-per-tenant, isolasi kuat                              |
+| Finance & Accounting | Sudah ada double-entry accounting foundation                         |
+| Inventory            | Sudah ada movement, balance, reservation, opname                     |
+| Production           | Sudah ada BOM, WO, execution, output, scrap, downtime, costing       |
+| Documentation        | Sudah ada architecture, schema domain map, tenant guardrail, runbook |
 
 ### 2.6 Risk saat ini
 
-| Risk | Dampak |
-|---|---|
-| Tenant operation ambiguity | Salah target DB bisa fatal |
-| Stock mutation tersebar | Balance bisa drift dari movement |
-| Historical stock/report berat | Timeout ketika data membesar |
-| Auto-journal coupling | Logic finance bisa tersebar di sales/purchase/production |
-| Fat actions/pages | Business rule susah dites dan reuse |
-| One-off scripts | Sulit audit, rawan salah tenant, rawan no rollback |
-| Reporting query langsung ke transaksi | Lambat dan rawan mengunci DB saat data besar |
-| AI assistant tanpa policy ketat | Potensi baca data sensitif atau cross-tenant |
+| Risk                                  | Dampak                                                   |
+| ------------------------------------- | -------------------------------------------------------- |
+| Tenant operation ambiguity            | Salah target DB bisa fatal                               |
+| Stock mutation tersebar               | Balance bisa drift dari movement                         |
+| Historical stock/report berat         | Timeout ketika data membesar                             |
+| Auto-journal coupling                 | Logic finance bisa tersebar di sales/purchase/production |
+| Fat actions/pages                     | Business rule susah dites dan reuse                      |
+| One-off scripts                       | Sulit audit, rawan salah tenant, rawan no rollback       |
+| Reporting query langsung ke transaksi | Lambat dan rawan mengunci DB saat data besar             |
+| AI assistant tanpa policy ketat       | Potensi baca data sensitif atau cross-tenant             |
 
 ---
 
@@ -324,9 +324,9 @@ Setiap module harus punya public API yang jelas. Contoh:
 
 ```ts
 // src/modules/inventory/index.ts
-export { InventoryLedgerService } from "./services/inventory-ledger-service";
-export { InventoryBalanceService } from "./services/inventory-balance-service";
-export type { StockCommand, StockLedgerEntry } from "./types";
+export { InventoryLedgerService } from './services/inventory-ledger-service';
+export { InventoryBalanceService } from './services/inventory-balance-service';
+export type { StockCommand, StockLedgerEntry } from './types';
 ```
 
 File luar module sebaiknya import dari `index.ts`, bukan import internal path acak.
@@ -673,16 +673,16 @@ Semua mutasi stok dikemas sebagai command:
 
 ```ts
 type StockCommand =
-  | ReceiveStockCommand
-  | IssueStockCommand
-  | TransferStockCommand
-  | AdjustStockCommand
-  | ReserveStockCommand
-  | ReleaseReservationCommand
-  | PostProductionOutputCommand
-  | PostSalesDeliveryCommand
-  | PostPurchaseReturnCommand
-  | PostSalesReturnCommand;
+    | ReceiveStockCommand
+    | IssueStockCommand
+    | TransferStockCommand
+    | AdjustStockCommand
+    | ReserveStockCommand
+    | ReleaseReservationCommand
+    | PostProductionOutputCommand
+    | PostSalesDeliveryCommand
+    | PostPurchaseReturnCommand
+    | PostSalesReturnCommand;
 ```
 
 Command minimal membawa:
@@ -740,11 +740,11 @@ Karena sudah ada `StockMovement` dan `Inventory`, strategi aman:
 1. Jangan langsung hapus model lama.
 2. Jadikan `StockMovement` sebagai ledger existing jika cukup.
 3. Tambah field metadata secara additive jika perlu:
-   - source type
-   - source id
-   - idempotency key
-   - posted/reversed marker
-   - valuation metadata
+    - source type
+    - source id
+    - idempotency key
+    - posted/reversed marker
+    - valuation metadata
 4. Buat service wrapper baru.
 5. Pindahkan mutasi domain satu per satu lewat wrapper.
 6. Jalankan audit periodik.
@@ -809,16 +809,16 @@ FixedAssetAcquired
 
 ```ts
 type DomainEvent = {
-  id: string;
-  tenantId: string;
-  type: string;
-  sourceModule: string;
-  sourceDocumentType: string;
-  sourceDocumentId: string;
-  occurredAt: Date;
-  idempotencyKey: string;
-  payload: unknown;
-  status: "PENDING" | "PROCESSED" | "FAILED" | "IGNORED";
+    id: string;
+    tenantId: string;
+    type: string;
+    sourceModule: string;
+    sourceDocumentType: string;
+    sourceDocumentId: string;
+    occurredAt: Date;
+    idempotencyKey: string;
+    payload: unknown;
+    status: 'PENDING' | 'PROCESSED' | 'FAILED' | 'IGNORED';
 };
 ```
 
@@ -828,17 +828,17 @@ Accounting rule menghasilkan journal draft:
 
 ```ts
 type JournalDraft = {
-  eventId: string;
-  referenceType: string;
-  referenceId: string;
-  transactionDate: Date;
-  memo: string;
-  lines: Array<{
-    accountCode: string;
-    debit: number;
-    credit: number;
-    description?: string;
-  }>;
+    eventId: string;
+    referenceType: string;
+    referenceId: string;
+    transactionDate: Date;
+    memo: string;
+    lines: Array<{
+        accountCode: string;
+        debit: number;
+        credit: number;
+        description?: string;
+    }>;
 };
 ```
 
@@ -858,8 +858,8 @@ type JournalDraft = {
 2. Tambah event table/service secara additive.
 3. Pilot 1 event low-risk.
 4. Pilot event yang high-value:
-   - `GoodsReceived`
-   - `ProductionOutputPosted`
+    - `GoodsReceived`
+    - `ProductionOutputPosted`
 5. Bandingkan auto-journal lama vs event-generated journal.
 6. Cutover per event type, bukan big bang.
 
@@ -903,12 +903,12 @@ scripts/ops/
 
 Command classes:
 
-| Class | Default | Requirement |
-|---|---|---|
-| read-only | allowed | tenant explicit |
-| dry-run write | dry-run | tenant explicit |
-| write | blocked by default | tenant + backup + confirmation |
-| destructive | blocked | explicit approval + backup + rollback |
+| Class         | Default            | Requirement                           |
+| ------------- | ------------------ | ------------------------------------- |
+| read-only     | allowed            | tenant explicit                       |
+| dry-run write | dry-run            | tenant explicit                       |
+| write         | blocked by default | tenant + backup + confirmation        |
+| destructive   | blocked            | explicit approval + backup + rollback |
 
 ### 8.3 Operation preflight
 
@@ -946,15 +946,15 @@ Setiap command write harus mencatat:
 
 ### 8.5 Backup and rollback policy
 
-| Operation | Backup wajib? | Rollback |
-|---|---:|---|
-| read-only audit | no | n/a |
-| import preview | no | n/a |
-| import write | yes | reversal/delete batch if supported |
-| migration | yes | restore/forward fix |
-| repair stock | yes | reversal movement |
-| repair journal | yes | reversal journal |
-| destructive reset | yes + explicit approval | restore DB |
+| Operation         |           Backup wajib? | Rollback                           |
+| ----------------- | ----------------------: | ---------------------------------- |
+| read-only audit   |                      no | n/a                                |
+| import preview    |                      no | n/a                                |
+| import write      |                     yes | reversal/delete batch if supported |
+| migration         |                     yes | restore/forward fix                |
+| repair stock      |                     yes | reversal movement                  |
+| repair journal    |                     yes | reversal journal                   |
+| destructive reset | yes + explicit approval | restore DB                         |
 
 ---
 
@@ -966,17 +966,17 @@ ERP report semakin lama semakin berat. Query langsung ke transaction tables untu
 
 ### 9.2 Target read models
 
-| Read model | Source | Use case |
-|---|---|---|
-| `InventoryDailySnapshot` | stock ledger | stock as-of, inventory dashboard |
-| `StockValuationSnapshot` | stock ledger + valuation | inventory value, HPP |
-| `TrialBalanceSnapshot` | journal lines | finance report |
-| `ARAgingSnapshot` | invoices/payments | AR aging |
-| `APAgingSnapshot` | purchase invoices/payments | AP aging |
-| `ProductionDailySummary` | execution/output/scrap | production dashboard |
-| `MaterialVarianceSummary` | BOM vs actual issue | variance report |
-| `SalesDailySummary` | SO/invoice/payment | sales dashboard |
-| `PurchaseDailySummary` | PO/GR/invoice | purchasing analytics |
+| Read model                | Source                     | Use case                         |
+| ------------------------- | -------------------------- | -------------------------------- |
+| `InventoryDailySnapshot`  | stock ledger               | stock as-of, inventory dashboard |
+| `StockValuationSnapshot`  | stock ledger + valuation   | inventory value, HPP             |
+| `TrialBalanceSnapshot`    | journal lines              | finance report                   |
+| `ARAgingSnapshot`         | invoices/payments          | AR aging                         |
+| `APAgingSnapshot`         | purchase invoices/payments | AP aging                         |
+| `ProductionDailySummary`  | execution/output/scrap     | production dashboard             |
+| `MaterialVarianceSummary` | BOM vs actual issue        | variance report                  |
+| `SalesDailySummary`       | SO/invoice/payment         | sales dashboard                  |
+| `PurchaseDailySummary`    | PO/GR/invoice              | purchasing analytics             |
 
 ### 9.3 Snapshot rules
 
@@ -1029,13 +1029,13 @@ Setiap domain sebaiknya punya pola halaman konsisten:
 
 ### 10.3 Component rule
 
-| Component type | Boleh melakukan |
-|---|---|
-| Server page | fetch data via action/service adapter |
-| Client form | manage form state, call action |
-| Table/list | display, filter UI, trigger action |
-| Dialog/drawer | interaction UI |
-| Service | business logic |
+| Component type | Boleh melakukan                       |
+| -------------- | ------------------------------------- |
+| Server page    | fetch data via action/service adapter |
+| Client form    | manage form state, call action        |
+| Table/list     | display, filter UI, trigger action    |
+| Dialog/drawer  | interaction UI                        |
+| Service        | business logic                        |
 
 UI tidak boleh:
 
@@ -1063,27 +1063,27 @@ E2E smoke tests             critical flows only
 
 ### 11.2 Critical test coverage
 
-| Domain | Critical tests |
-|---|---|
-| Tenant | resolver, no cross-tenant, ops preflight |
-| Inventory | receive, issue, transfer, adjustment, reservation, opname |
+| Domain               | Critical tests                                                                |
+| -------------------- | ----------------------------------------------------------------------------- |
+| Tenant               | resolver, no cross-tenant, ops preflight                                      |
+| Inventory            | receive, issue, transfer, adjustment, reservation, opname                     |
 | Finance & Accounting | balanced journal, period lock, reversal, idempotency, AR/AP/payment workflows |
-| Production | output, backflush, scrap, unit conversion, costing |
-| Sales | delivery, invoice, payment, return |
-| Purchasing | receipt, invoice, payment, return |
-| Reporting | snapshot rebuild, stock as-of, trial balance |
-| AI | permission, tenant scope, read-only enforcement |
+| Production           | output, backflush, scrap, unit conversion, costing                            |
+| Sales                | delivery, invoice, payment, return                                            |
+| Purchasing           | receipt, invoice, payment, return                                             |
+| Reporting            | snapshot rebuild, stock as-of, trial balance                                  |
+| AI                   | permission, tenant scope, read-only enforcement                               |
 
 ### 11.3 Minimum verification per change
 
-| Change type | Verification |
-|---|---|
-| Docs only | review diff |
-| UI only | `npm run lint`, targeted visual/manual check |
-| Service logic | targeted Vitest + lint |
-| Prisma schema | migration review + generated client + targeted test |
-| Tenant/DB ops | dry-run + backup plan + explicit target |
-| Production data repair | backup + dry-run + row-count verification |
+| Change type            | Verification                                        |
+| ---------------------- | --------------------------------------------------- |
+| Docs only              | review diff                                         |
+| UI only                | `npm run lint`, targeted visual/manual check        |
+| Service logic          | targeted Vitest + lint                              |
+| Prisma schema          | migration review + generated client + targeted test |
+| Tenant/DB ops          | dry-run + backup plan + explicit target             |
+| Production data repair | backup + dry-run + row-count verification           |
 
 ---
 
@@ -1109,12 +1109,12 @@ E2E smoke tests             critical flows only
 3. Buat daftar write scripts dan dry-run status.
 4. Tetapkan `app -> actions -> services -> repositories -> db`.
 5. Dokumentasikan high-risk seams:
-   - inventory ↔ accounting
-   - production ↔ inventory
-   - production ↔ accounting
-   - sales ↔ inventory/accounting
-   - purchasing ↔ inventory/accounting
-   - maklon ↔ inventory/sales/accounting
+    - inventory ↔ accounting
+    - production ↔ inventory
+    - production ↔ accounting
+    - sales ↔ inventory/accounting
+    - purchasing ↔ inventory/accounting
+    - maklon ↔ inventory/sales/accounting
 
 ### Acceptance criteria
 
@@ -1378,32 +1378,32 @@ src/modules/inventory/
 
 ### Month 1 — Architecture and safety foundation
 
-| Week | Focus | Output |
-|---|---|---|
-| 1 | Finalisasi roadmap | Dokumen disetujui |
-| 1 | Baseline checks | lint/test/build status dicatat |
-| 2 | Script risk audit | daftar script read/write/destructive |
-| 2 | Module template | contoh folder dan README |
-| 3 | Tenant runbook | topology + targeting rules |
-| 4 | Inventory pilot planning | command contract + test plan |
+| Week | Focus                    | Output                               |
+| ---- | ------------------------ | ------------------------------------ |
+| 1    | Finalisasi roadmap       | Dokumen disetujui                    |
+| 1    | Baseline checks          | lint/test/build status dicatat       |
+| 2    | Script risk audit        | daftar script read/write/destructive |
+| 2    | Module template          | contoh folder dan README             |
+| 3    | Tenant runbook           | topology + targeting rules           |
+| 4    | Inventory pilot planning | command contract + test plan         |
 
 ### Month 2 — Tenant hardening and inventory pilot
 
-| Week | Focus | Output |
-|---|---|---|
-| 5 | Tenant resolver/wrapper | read wrapper ready |
-| 6 | Write preflight | write wrapper dry-run |
-| 7 | Inventory command pilot | receive/issue/transfer wrapper |
-| 8 | Stock audit | balance vs movement report |
+| Week | Focus                   | Output                         |
+| ---- | ----------------------- | ------------------------------ |
+| 5    | Tenant resolver/wrapper | read wrapper ready             |
+| 6    | Write preflight         | write wrapper dry-run          |
+| 7    | Inventory command pilot | receive/issue/transfer wrapper |
+| 8    | Stock audit             | balance vs movement report     |
 
 ### Month 3 — Ledger and accounting pilot
 
-| Week | Focus | Output |
-|---|---|---|
-| 9 | Stock-as-of optimization | DB-level query/read model |
-| 10 | Domain event schema | event service draft |
-| 11 | GoodsReceived event | journal draft pilot |
-| 12 | ProductionOutput event | journal draft pilot + review |
+| Week | Focus                    | Output                       |
+| ---- | ------------------------ | ---------------------------- |
+| 9    | Stock-as-of optimization | DB-level query/read model    |
+| 10   | Domain event schema      | event service draft          |
+| 11   | GoodsReceived event      | journal draft pilot          |
+| 12   | ProductionOutput event   | journal draft pilot + review |
 
 ---
 
@@ -1512,18 +1512,18 @@ Checklist:
 
 ## 16. Risk Register
 
-| Risk | Severity | Mitigation |
-|---|---:|---|
-| Salah target tenant DB | Critical | tenant-first resolver, preflight, backup |
-| Stock balance drift | Critical | ledger service, audit, no direct balance mutation |
-| Double journal posting | Critical | idempotency key, event status, unique reference |
-| Report timeout | High | read model/snapshot |
-| Big-bang refactor gagal | High | pilot module, additive migration |
-| Script lama bypass guardrail | High | script audit, deprecate, wrapper |
-| Production execution ambiguity | High | state machine, policy table |
-| Cross-domain model change ripple | High | shared kernel review |
-| AI leaking sensitive data | High | permission-aware tools, audit, no raw SQL |
-| Prisma transaction timeout/race | Medium | row locking, transaction timeout review, DB-level queries |
+| Risk                             | Severity | Mitigation                                                |
+| -------------------------------- | -------: | --------------------------------------------------------- |
+| Salah target tenant DB           | Critical | tenant-first resolver, preflight, backup                  |
+| Stock balance drift              | Critical | ledger service, audit, no direct balance mutation         |
+| Double journal posting           | Critical | idempotency key, event status, unique reference           |
+| Report timeout                   |     High | read model/snapshot                                       |
+| Big-bang refactor gagal          |     High | pilot module, additive migration                          |
+| Script lama bypass guardrail     |     High | script audit, deprecate, wrapper                          |
+| Production execution ambiguity   |     High | state machine, policy table                               |
+| Cross-domain model change ripple |     High | shared kernel review                                      |
+| AI leaking sensitive data        |     High | permission-aware tools, audit, no raw SQL                 |
+| Prisma transaction timeout/race  |   Medium | row locking, transaction timeout review, DB-level queries |
 
 ---
 
@@ -1581,13 +1581,13 @@ Urutan paling aman setelah dokumen ini:
 4. Buat tenant operation preflight standard.
 5. Pilih inventory sebagai module pilot.
 6. Buat inventory stock mutation map:
-   - transfer
-   - adjustment
-   - production material issue
-   - production output
-   - goods receipt
-   - sales delivery
-   - returns
+    - transfer
+    - adjustment
+    - production material issue
+    - production output
+    - goods receipt
+    - sales delivery
+    - returns
 7. Buat stock consistency audit command read-only.
 8. Baru lanjut Finance & Accounting event pilot.
 
@@ -1639,27 +1639,27 @@ Preferred pattern:
 Target:
 
 ```ts
-"use server";
+'use server';
 
 export async function postSomething(input: unknown) {
-  const user = await requireAuth();
-  const parsed = schema.safeParse(input);
+    const user = await requireAuth();
+    const parsed = schema.safeParse(input);
 
-  if (!parsed.success) {
-    return failure(parsed.error.issues[0]?.message ?? "Invalid input");
-  }
+    if (!parsed.success) {
+        return failure(parsed.error.issues[0]?.message ?? 'Invalid input');
+    }
 
-  try {
-    const result = await SomeDomainService.post({
-      input: parsed.data,
-      actorId: user.id,
-    });
+    try {
+        const result = await SomeDomainService.post({
+            input: parsed.data,
+            actorId: user.id,
+        });
 
-    revalidatePath("/some/path");
-    return success(result);
-  } catch (error) {
-    return failure(mapDomainError(error));
-  }
+        revalidatePath('/some/path');
+        return success(result);
+    } catch (error) {
+        return failure(mapDomainError(error));
+    }
 }
 ```
 
@@ -1741,17 +1741,17 @@ VOIDED
 
 Allowed transition example:
 
-| From | To | Requirement |
-|---|---|---|
-| DRAFT | PLANNED | BOM/product/quantity valid |
-| PLANNED | WAITING_MATERIAL | material shortage detected |
-| PLANNED | READY | material available |
-| READY | IN_PROGRESS | machine/operator assigned |
-| IN_PROGRESS | PAUSED | downtime/hold reason |
-| PAUSED | IN_PROGRESS | resume reason |
-| IN_PROGRESS | COMPLETED | output recorded and material handled |
-| any non-final | CANCELLED | no irreversible posting or reversal available |
-| posted/final | VOIDED | reversal path required |
+| From          | To               | Requirement                                   |
+| ------------- | ---------------- | --------------------------------------------- |
+| DRAFT         | PLANNED          | BOM/product/quantity valid                    |
+| PLANNED       | WAITING_MATERIAL | material shortage detected                    |
+| PLANNED       | READY            | material available                            |
+| READY         | IN_PROGRESS      | machine/operator assigned                     |
+| IN_PROGRESS   | PAUSED           | downtime/hold reason                          |
+| PAUSED        | IN_PROGRESS      | resume reason                                 |
+| IN_PROGRESS   | COMPLETED        | output recorded and material handled          |
+| any non-final | CANCELLED        | no irreversible posting or reversal available |
+| posted/final  | VOIDED           | reversal path required                        |
 
 This state machine must be validated against actual current statuses before implementation.
 

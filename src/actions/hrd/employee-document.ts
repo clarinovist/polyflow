@@ -11,10 +11,17 @@ import {
 } from '@/lib/hrd/employee-document';
 
 export const listEmployeeDocuments = withTenant(
-    async function listEmployeeDocuments(employeeId: string, includeArchived?: boolean) {
+    async function listEmployeeDocuments(
+        employeeId: string,
+        includeArchived?: boolean,
+    ) {
         return safeAction(async () => {
             await requireHrdFinance();
-            return EmployeeDocumentService.list(prisma, employeeId, includeArchived);
+            return EmployeeDocumentService.list(
+                prisma,
+                employeeId,
+                includeArchived,
+            );
         });
     },
 );
@@ -43,7 +50,10 @@ export const archiveEmployeeDocument = withTenant(
     async function archiveEmployeeDocument(documentId: string) {
         return safeAction(async () => {
             const session = await requireHrdApprover();
-            const doc = await EmployeeDocumentService.archive(prisma, documentId);
+            const doc = await EmployeeDocumentService.archive(
+                prisma,
+                documentId,
+            );
             await logActivity({
                 userId: session.user.id,
                 action: 'EMPLOYEE_DOCUMENT_ARCHIVED',
@@ -60,7 +70,10 @@ export const restoreEmployeeDocument = withTenant(
     async function restoreEmployeeDocument(documentId: string) {
         return safeAction(async () => {
             const session = await requireHrdApprover();
-            const doc = await EmployeeDocumentService.restore(prisma, documentId);
+            const doc = await EmployeeDocumentService.restore(
+                prisma,
+                documentId,
+            );
             await logActivity({
                 userId: session.user.id,
                 action: 'EMPLOYEE_DOCUMENT_RESTORED',

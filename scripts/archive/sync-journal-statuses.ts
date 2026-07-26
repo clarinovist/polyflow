@@ -8,7 +8,7 @@ async function syncStatuses() {
     // 1. Purchase Invoices
     const purchaseInvoices = await prisma.purchaseInvoice.findMany({
         where: { status: 'DRAFT' },
-        select: { id: true, invoiceNumber: true }
+        select: { id: true, invoiceNumber: true },
     });
 
     for (const pi of purchaseInvoices) {
@@ -16,15 +16,17 @@ async function syncStatuses() {
             where: {
                 referenceId: pi.id,
                 referenceType: 'PURCHASE_INVOICE',
-                status: 'POSTED'
-            }
+                status: 'POSTED',
+            },
         });
 
         if (postedJournal) {
-            console.log(`Updating Purchase Invoice ${pi.invoiceNumber} to UNPAID because it has POSTED journal ${postedJournal.entryNumber}`);
+            console.log(
+                `Updating Purchase Invoice ${pi.invoiceNumber} to UNPAID because it has POSTED journal ${postedJournal.entryNumber}`,
+            );
             await prisma.purchaseInvoice.update({
                 where: { id: pi.id },
-                data: { status: 'UNPAID' }
+                data: { status: 'UNPAID' },
             });
         }
     }
@@ -32,7 +34,7 @@ async function syncStatuses() {
     // 2. Sales Invoices
     const salesInvoices = await prisma.invoice.findMany({
         where: { status: 'DRAFT' },
-        select: { id: true, invoiceNumber: true }
+        select: { id: true, invoiceNumber: true },
     });
 
     for (const si of salesInvoices) {
@@ -40,15 +42,17 @@ async function syncStatuses() {
             where: {
                 referenceId: si.id,
                 referenceType: 'SALES_INVOICE',
-                status: 'POSTED'
-            }
+                status: 'POSTED',
+            },
         });
 
         if (postedJournal) {
-            console.log(`Updating Sales Invoice ${si.invoiceNumber} to UNPAID because it has POSTED journal ${postedJournal.entryNumber}`);
+            console.log(
+                `Updating Sales Invoice ${si.invoiceNumber} to UNPAID because it has POSTED journal ${postedJournal.entryNumber}`,
+            );
             await prisma.invoice.update({
                 where: { id: si.id },
-                data: { status: 'UNPAID' }
+                data: { status: 'UNPAID' },
             });
         }
     }
@@ -57,7 +61,7 @@ async function syncStatuses() {
 }
 
 syncStatuses()
-    .catch(e => console.error(e))
+    .catch((e) => console.error(e))
     .finally(async () => {
         await prisma.$disconnect();
     });

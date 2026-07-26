@@ -1,6 +1,6 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
@@ -8,8 +8,7 @@ import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 
 const DEFAULT_JOB_ROLES = ['OPERATOR', 'HELPER', 'PACKER', 'MANAGER'];
 
-export const getJobRoles = withTenant(
-async function getJobRoles() {
+export const getJobRoles = withTenant(async function getJobRoles() {
     return safeAction(async () => {
         try {
             let roles = await prisma.jobRole.findMany({
@@ -21,20 +20,25 @@ async function getJobRoles() {
                     data: DEFAULT_JOB_ROLES.map((name) => ({ name })),
                     skipDuplicates: true,
                 });
-                roles = await prisma.jobRole.findMany({ orderBy: { name: 'asc' } });
+                roles = await prisma.jobRole.findMany({
+                    orderBy: { name: 'asc' },
+                });
             }
 
             return roles;
         } catch (error) {
-            logger.error('Gagal mengambil peran pekerjaan', { error, module: 'RoleActions' });
+            logger.error('Gagal mengambil peran pekerjaan', {
+                error,
+                module: 'RoleActions',
+            });
             throw new BusinessRuleError('Gagal mengambil peran pekerjaan');
         }
     });
-}
-);
+});
 
-export const createJobRole = withTenant(
-async function createJobRole(name: string) {
+export const createJobRole = withTenant(async function createJobRole(
+    name: string,
+) {
     return safeAction(async () => {
         try {
             const role = await prisma.jobRole.create({
@@ -44,9 +48,12 @@ async function createJobRole(name: string) {
             revalidatePath('/production/resources');
             return role;
         } catch (error) {
-            logger.error('Gagal membuat peran pekerjaan', { error, roleName: name, module: 'RoleActions' });
+            logger.error('Gagal membuat peran pekerjaan', {
+                error,
+                roleName: name,
+                module: 'RoleActions',
+            });
             throw new BusinessRuleError('Gagal membuat peran pekerjaan');
         }
     });
-}
-);
+});

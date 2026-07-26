@@ -1,23 +1,49 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer, Package, Camera, Scale, CheckCircle, Upload, XCircle, RotateCcw } from 'lucide-react';
+import {
+    ArrowLeft,
+    Truck,
+    User,
+    Calendar,
+    MapPin,
+    CheckCircle2,
+    Clock,
+    Check,
+    Printer,
+    Package,
+    Camera,
+    Scale,
+    CheckCircle,
+    Upload,
+    XCircle,
+    RotateCcw,
+} from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
-import { SuratJalanDotMatrixPrint, type SuratJalanPrintData } from '@/components/sales/SuratJalanDotMatrixPrint';
+import {
+    SuratJalanDotMatrixPrint,
+    type SuratJalanPrintData,
+} from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
 import Image from 'next/image';
 import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
@@ -28,9 +54,15 @@ import {
     fetchDeliveryStockReadiness,
     updateDeliveryItemQuantities,
 } from '@/actions/inventory/deliveries';
-import { StockReadinessBanner, type StockReadinessLine } from '@/components/sales/StockReadinessBanner';
+import {
+    StockReadinessBanner,
+    type StockReadinessLine,
+} from '@/components/sales/StockReadinessBanner';
 import { attachDeliveryPhoto } from '@/actions/sales/delivery-photos';
-import { NEXT_STEP_LABELS, getDeliveryStatusLabel } from '@/lib/sales/delivery-status';
+import {
+    NEXT_STEP_LABELS,
+    getDeliveryStatusLabel,
+} from '@/lib/sales/delivery-status';
 import { EditDeliveryPricingDialog } from '@/components/sales/EditDeliveryPricingDialog';
 import { LoadVerifyPanel } from '@/components/warehouse/outgoing/LoadVerifyPanel';
 import { toast } from 'sonner';
@@ -39,7 +71,6 @@ import { type CompanyConfig } from '@/lib/config/company';
 import { compressImageForUpload } from '@/lib/media/compress-image';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { Input } from '@/components/ui/input';
-
 
 interface DeliveryOrderVehicle {
     plateNumber: string;
@@ -122,7 +153,9 @@ export function DeliveryOrderDetail({
     const [uploadingVehicle, setUploadingVehicle] = useState(false);
     const [uploadingPOD, setUploadingPOD] = useState(false);
     const [receivedByName, setReceivedByName] = useState('');
-    const [stockReadiness, setStockReadiness] = useState<StockReadinessLine[] | null>(null);
+    const [stockReadiness, setStockReadiness] = useState<
+        StockReadinessLine[] | null
+    >(null);
     const [editingQty, setEditingQty] = useState(false);
     const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
     const [savingQty, setSavingQty] = useState(false);
@@ -162,7 +195,12 @@ export function DeliveryOrderDetail({
             id,
             quantity: Number(q),
         }));
-        if (items.some((i) => !i.quantity || i.quantity <= 0 || Number.isNaN(i.quantity))) {
+        if (
+            items.some(
+                (i) =>
+                    !i.quantity || i.quantity <= 0 || Number.isNaN(i.quantity),
+            )
+        ) {
             toast.error('Qty harus angka > 0');
             return;
         }
@@ -191,7 +229,9 @@ export function DeliveryOrderDetail({
         try {
             const result = await updateDeliveryStatus(order.id, newStatus);
             if (result.success) {
-                toast.success(`Status berhasil diubah ke ${getDeliveryStatusLabel(newStatus)}`);
+                toast.success(
+                    `Status berhasil diubah ke ${getDeliveryStatusLabel(newStatus)}`,
+                );
                 router.refresh();
             } else {
                 toast.error(result.error || 'Gagal memperbarui status.');
@@ -206,12 +246,21 @@ export function DeliveryOrderDetail({
     const nextStep = NEXT_STEP_LABELS[order.status];
 
     const VEHICLE_PHOTO_STATUSES = ['PENDING', 'LOADING', 'SHIPPED'];
-    const POD_PHOTO_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED'];
+    const POD_PHOTO_STATUSES = [
+        'SHIPPED',
+        'IN_TRANSIT',
+        'ARRIVED',
+        'DELIVERED',
+    ];
     const canUploadVehicle = VEHICLE_PHOTO_STATUSES.includes(order.status);
     const canUploadPOD = POD_PHOTO_STATUSES.includes(order.status);
 
-    const handlePhotoUpload = async (file: File, photoType: 'vehicle' | 'proof_of_delivery') => {
-        const setUploading = photoType === 'vehicle' ? setUploadingVehicle : setUploadingPOD;
+    const handlePhotoUpload = async (
+        file: File,
+        photoType: 'vehicle' | 'proof_of_delivery',
+    ) => {
+        const setUploading =
+            photoType === 'vehicle' ? setUploadingVehicle : setUploadingPOD;
         setUploading(true);
         try {
             const compressed = await compressImageForUpload(file, {
@@ -224,7 +273,10 @@ export function DeliveryOrderDetail({
             formData.append('deliveryOrderId', order.id);
             formData.append('photoType', photoType);
 
-            const uploadRes = await fetch('/api/upload/delivery-photo', { method: 'POST', body: formData });
+            const uploadRes = await fetch('/api/upload/delivery-photo', {
+                method: 'POST',
+                body: formData,
+            });
             const uploadData = await uploadRes.json();
 
             if (!uploadData.success) {
@@ -237,11 +289,18 @@ export function DeliveryOrderDetail({
                 deliveryOrderId: order.id,
                 photoType,
                 publicUrl: uploadData.url,
-                receivedBy: photoType === 'proof_of_delivery' ? receivedByName : undefined,
+                receivedBy:
+                    photoType === 'proof_of_delivery'
+                        ? receivedByName
+                        : undefined,
             });
 
             if (attachRes.success) {
-                toast.success(photoType === 'vehicle' ? 'Foto truk berhasil diupload' : 'Bukti terima berhasil diupload');
+                toast.success(
+                    photoType === 'vehicle'
+                        ? 'Foto truk berhasil diupload'
+                        : 'Bukti terima berhasil diupload',
+                );
                 if (photoType === 'proof_of_delivery') setReceivedByName('');
                 router.refresh();
             } else {
@@ -255,17 +314,28 @@ export function DeliveryOrderDetail({
     };
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
-            PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
-            LOADING: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400',
-            SHIPPED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
-            IN_TRANSIT: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
-            ARRIVED: 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-400',
-            DELIVERED: 'bg-green-100 text-green-800 dark:bg-emerald-900/20 dark:text-emerald-400',
-            RETURNED: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
-            CANCELLED: 'bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:text-zinc-400',
+            PENDING:
+                'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
+            LOADING:
+                'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400',
+            SHIPPED:
+                'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+            IN_TRANSIT:
+                'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
+            ARRIVED:
+                'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-400',
+            DELIVERED:
+                'bg-green-100 text-green-800 dark:bg-emerald-900/20 dark:text-emerald-400',
+            RETURNED:
+                'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
+            CANCELLED:
+                'bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:text-zinc-400',
         };
         return (
-            <Badge variant="secondary" className={styles[status] || styles.PENDING}>
+            <Badge
+                variant="secondary"
+                className={styles[status] || styles.PENDING}
+            >
                 {getDeliveryStatusLabel(status)}
             </Badge>
         );
@@ -280,22 +350,30 @@ export function DeliveryOrderDetail({
         { status: 'DELIVERED', icon: CheckCircle2, label: 'Diterima' },
     ];
 
-    const currentStatusIndex = statusSteps.findIndex(s => s.status === order.status);
+    const currentStatusIndex = statusSteps.findIndex(
+        (s) => s.status === order.status,
+    );
 
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="sm" asChild>
                     <Link href={basePath}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
+                        <ArrowLeft className="mr-2 h-4 w-4" />{' '}
+                        {actionLabels.back}
                     </Link>
                 </Button>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrder} {order.orderNumber}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {salesLabels.deliveryOrder} {order.orderNumber}
+                    </h1>
                     <div className="flex items-center gap-3 mt-1 flex-wrap">
                         {getStatusBadge(order.status)}
                         {isLoadVerified && canEditQty && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            <Badge
+                                variant="secondary"
+                                className="bg-green-100 text-green-800"
+                            >
                                 Muat terverifikasi
                             </Badge>
                         )}
@@ -306,7 +384,8 @@ export function DeliveryOrderDetail({
                                 onClick={() => handleStatusChange(nextStep.to)}
                                 disabled={isLoading}
                             >
-                                <Check className="mr-1 h-3.5 w-3.5" /> {nextStep.label}
+                                <Check className="mr-1 h-3.5 w-3.5" />{' '}
+                                {nextStep.label}
                             </Button>
                         )}
                         {/* Tandai Dikirim — requires load verification + confirm dialog */}
@@ -323,25 +402,35 @@ export function DeliveryOrderDetail({
                                                 : undefined
                                         }
                                     >
-                                        <Check className="mr-1 h-3.5 w-3.5" /> {salesLabels.tandaiDikirim}
+                                        <Check className="mr-1 h-3.5 w-3.5" />{' '}
+                                        {salesLabels.tandaiDikirim}
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>{salesLabels.tandaiDikirim}?</AlertDialogTitle>
+                                        <AlertDialogTitle>
+                                            {salesLabels.tandaiDikirim}?
+                                        </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            {salesLabels.tandaiDikirimConfirm} Invoice draft akan dibuat otomatis.
+                                            {salesLabels.tandaiDikirimConfirm}{' '}
+                                            Invoice draft akan dibuat otomatis.
                                             {!canShip && (
                                                 <span className="block mt-2 text-amber-700 dark:text-amber-300">
-                                                    Verifikasi muat belum dikunci — lengkapi panel Verifikasi Muat dulu.
+                                                    Verifikasi muat belum
+                                                    dikunci — lengkapi panel
+                                                    Verifikasi Muat dulu.
                                                 </span>
                                             )}
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                        <AlertDialogCancel>
+                                            Batal
+                                        </AlertDialogCancel>
                                         <AlertDialogAction
-                                            onClick={() => handleStatusChange('SHIPPED')}
+                                            onClick={() =>
+                                                handleStatusChange('SHIPPED')
+                                            }
                                             className="bg-green-600 hover:bg-green-700"
                                             disabled={!canShip}
                                         >
@@ -355,20 +444,36 @@ export function DeliveryOrderDetail({
                         {['PENDING', 'LOADING'].includes(order.status) && (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50">
-                                        <XCircle className="mr-1 h-3.5 w-3.5" /> Batalkan
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                    >
+                                        <XCircle className="mr-1 h-3.5 w-3.5" />{' '}
+                                        Batalkan
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Batalkan Delivery Order?</AlertDialogTitle>
+                                        <AlertDialogTitle>
+                                            Batalkan Delivery Order?
+                                        </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            DO {order.orderNumber} akan dibatalkan. Tindakan ini tidak dapat diurungkan.
+                                            DO {order.orderNumber} akan
+                                            dibatalkan. Tindakan ini tidak dapat
+                                            diurungkan.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleStatusChange('CANCELLED')} className="bg-red-600 hover:bg-red-700">
+                                        <AlertDialogCancel>
+                                            Batal
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                handleStatusChange('CANCELLED')
+                                            }
+                                            className="bg-red-600 hover:bg-red-700"
+                                        >
                                             Ya, Batalkan
                                         </AlertDialogAction>
                                     </AlertDialogFooter>
@@ -376,29 +481,50 @@ export function DeliveryOrderDetail({
                             </AlertDialog>
                         )}
                         {/* Secondary: Return — hide in warehouse floor mode */}
-                        {!warehouseMode && ['SHIPPED', 'IN_TRANSIT', 'ARRIVED'].includes(order.status) && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-orange-600 border-orange-200 hover:bg-orange-50">
-                                        <RotateCcw className="mr-1 h-3.5 w-3.5" /> Retur
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Tandai sebagai Retur?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            DO {order.orderNumber} akan ditandai RETURNED. Pastikan barang sudah kembali.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleStatusChange('RETURNED')} className="bg-orange-600 hover:bg-orange-700">
-                                            Ya, Tandai Retur
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
+                        {!warehouseMode &&
+                            ['SHIPPED', 'IN_TRANSIT', 'ARRIVED'].includes(
+                                order.status,
+                            ) && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 px-2 text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
+                                        >
+                                            <RotateCcw className="mr-1 h-3.5 w-3.5" />{' '}
+                                            Retur
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                                Tandai sebagai Retur?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                DO {order.orderNumber} akan
+                                                ditandai RETURNED. Pastikan
+                                                barang sudah kembali.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>
+                                                Batal
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() =>
+                                                    handleStatusChange(
+                                                        'RETURNED',
+                                                    )
+                                                }
+                                                className="bg-orange-600 hover:bg-orange-700"
+                                            >
+                                                Ya, Tandai Retur
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         <span className="text-muted-foreground text-sm">
                             Terkait dengan{' '}
                             <Link
@@ -453,11 +579,21 @@ export function DeliveryOrderDetail({
                         <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-blue-900 dark:text-blue-300">Pengiriman dalam Perjalanan</h3>
+                        <h3 className="font-semibold text-blue-900 dark:text-blue-300">
+                            Pengiriman dalam Perjalanan
+                        </h3>
                         <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                            {order.carrier ? `${order.carrier}` : 'Informasi kurir tersedia.'}
+                            {order.carrier
+                                ? `${order.carrier}`
+                                : 'Informasi kurir tersedia.'}
                             {order.trackingNumber && (
-                                <> No. Resi: <span className="font-mono font-bold">{order.trackingNumber}</span></>
+                                <>
+                                    {' '}
+                                    No. Resi:{' '}
+                                    <span className="font-mono font-bold">
+                                        {order.trackingNumber}
+                                    </span>
+                                </>
                             )}
                         </p>
                     </div>
@@ -477,7 +613,12 @@ export function DeliveryOrderDetail({
                                 </CardDescription>
                             </div>
                             {canEditQty && !editingQty && (
-                                <Button type="button" size="sm" variant="outline" onClick={startEditQty}>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={startEditQty}
+                                >
                                     {salesLabels.editSjQty}
                                 </Button>
                             )}
@@ -498,7 +639,9 @@ export function DeliveryOrderDetail({
                                         disabled={savingQty}
                                         onClick={handleSaveQty}
                                     >
-                                        {savingQty ? 'Menyimpan…' : salesLabels.saveSjQty}
+                                        {savingQty
+                                            ? 'Menyimpan…'
+                                            : salesLabels.saveSjQty}
                                     </Button>
                                 </div>
                             )}
@@ -508,21 +651,43 @@ export function DeliveryOrderDetail({
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50 border-b">
                                         <tr>
-                                            <th className="h-10 px-4 text-left font-medium">{formLabels.product}</th>
-                                            <th className="h-10 px-4 text-right font-medium">SKU</th>
-                                            <th className="h-10 px-4 text-right font-medium">{formLabels.qty}</th>
+                                            <th className="h-10 px-4 text-left font-medium">
+                                                {formLabels.product}
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                SKU
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                {formLabels.qty}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {items.map((item) => (
-                                            <tr key={item.id} className="hover:bg-muted/50">
+                                            <tr
+                                                key={item.id}
+                                                className="hover:bg-muted/50"
+                                            >
                                                 <td className="p-4">
-                                                    <div className="font-medium">{item.productVariant?.product?.name}</div>
+                                                    <div className="font-medium">
+                                                        {
+                                                            item.productVariant
+                                                                ?.product?.name
+                                                        }
+                                                    </div>
                                                     <div className="text-xs text-muted-foreground">
-                                                        {item.productVariant?.name}
+                                                        {
+                                                            item.productVariant
+                                                                ?.name
+                                                        }
                                                     </div>
                                                 </td>
-                                                <td className="p-4 text-right font-mono text-xs">{item.productVariant?.skuCode}</td>
+                                                <td className="p-4 text-right font-mono text-xs">
+                                                    {
+                                                        item.productVariant
+                                                            ?.skuCode
+                                                    }
+                                                </td>
                                                 <td className="p-4 text-right font-medium">
                                                     {editingQty ? (
                                                         <div className="inline-flex items-center gap-1.5 justify-end">
@@ -531,25 +696,40 @@ export function DeliveryOrderDetail({
                                                                 step="0.01"
                                                                 min="0.01"
                                                                 className="h-8 w-28 text-right"
-                                                                value={qtyDraft[item.id] ?? ''}
+                                                                value={
+                                                                    qtyDraft[
+                                                                        item.id
+                                                                    ] ?? ''
+                                                                }
                                                                 onChange={(e) =>
-                                                                    setQtyDraft((prev) => ({
-                                                                        ...prev,
-                                                                        [item.id]: e.target.value,
-                                                                    }))
+                                                                    setQtyDraft(
+                                                                        (
+                                                                            prev,
+                                                                        ) => ({
+                                                                            ...prev,
+                                                                            [item.id]:
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                        }),
+                                                                    )
                                                                 }
                                                             />
                                                             <span className="text-xs text-muted-foreground">
                                                                 {item.enteredUnit ||
-                                                                    item.productVariant?.primaryUnit ||
+                                                                    item
+                                                                        .productVariant
+                                                                        ?.primaryUnit ||
                                                                     ''}
                                                             </span>
                                                         </div>
                                                     ) : (
-                                                        getEnteredQuantityDisplay({
-                                                            ...item,
-                                                            ...item.productVariant,
-                                                        } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot)
+                                                        getEnteredQuantityDisplay(
+                                                            {
+                                                                ...item,
+                                                                ...item.productVariant,
+                                                            } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot,
+                                                        )
                                                     )}
                                                 </td>
                                             </tr>
@@ -583,22 +763,42 @@ export function DeliveryOrderDetail({
                         <CardContent>
                             <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 dark:before:via-slate-600 before:to-transparent">
                                 {statusSteps.map((step, idx) => {
-                                    const isCompleted = idx <= currentStatusIndex;
+                                    const isCompleted =
+                                        idx <= currentStatusIndex;
                                     const Icon = step.icon;
                                     return (
-                                        <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                        <div
+                                            key={idx}
+                                            className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
+                                        >
                                             <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-700 bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400 group-[.is-active]:bg-emerald-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                                                <Icon className={`h-5 w-5 ${isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`} />
+                                                <Icon
+                                                    className={`h-5 w-5 ${isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}
+                                                />
                                             </div>
                                             <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded border border-slate-200 bg-white dark:border-slate-700 dark:bg-zinc-900 shadow">
                                                 <div className="flex items-center justify-between space-x-2 mb-1">
-                                                    <div className={`font-bold ${isCompleted ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'}`}>{step.label}</div>
-                                                    {isCompleted && idx === 1 && (
-                                                        <time className="font-caveat font-medium text-indigo-500">{format(new Date(order.deliveryDate), 'PP')}</time>
-                                                    )}
+                                                    <div
+                                                        className={`font-bold ${isCompleted ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'}`}
+                                                    >
+                                                        {step.label}
+                                                    </div>
+                                                    {isCompleted &&
+                                                        idx === 1 && (
+                                                            <time className="font-caveat font-medium text-indigo-500">
+                                                                {format(
+                                                                    new Date(
+                                                                        order.deliveryDate,
+                                                                    ),
+                                                                    'PP',
+                                                                )}
+                                                            </time>
+                                                        )}
                                                 </div>
                                                 <div className="text-slate-500 dark:text-slate-400">
-                                                    {isCompleted ? `Status tercapai: ${getDeliveryStatusLabel(step.status)}` : 'Menunggu...'}
+                                                    {isCompleted
+                                                        ? `Status tercapai: ${getDeliveryStatusLabel(step.status)}`
+                                                        : 'Menunggu...'}
                                                 </div>
                                             </div>
                                         </div>
@@ -619,44 +819,71 @@ export function DeliveryOrderDetail({
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
                                     <User className="h-3 w-3" /> Customer
                                 </label>
-                                <p className="font-medium">{order.salesOrder?.customer?.name || 'N/A'}</p>
-                                <p className="text-sm text-muted-foreground">{order.salesOrder?.customer?.shippingAddress}</p>
+                                <p className="font-medium">
+                                    {order.salesOrder?.customer?.name || 'N/A'}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    {
+                                        order.salesOrder?.customer
+                                            ?.shippingAddress
+                                    }
+                                </p>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
                                     <MapPin className="h-3 w-3" /> Asal Gudang
                                 </label>
-                                <p className="font-medium text-sm">{order.sourceLocation?.name}</p>
+                                <p className="font-medium text-sm">
+                                    {order.sourceLocation?.name}
+                                </p>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" /> {salesLabels.deliveryDate}
+                                    <Calendar className="h-3 w-3" />{' '}
+                                    {salesLabels.deliveryDate}
                                 </label>
-                                <p className="font-medium text-sm">{format(new Date(order.deliveryDate), 'PPP')}</p>
+                                <p className="font-medium text-sm">
+                                    {format(
+                                        new Date(order.deliveryDate),
+                                        'PPP',
+                                    )}
+                                </p>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
                                     <User className="h-3 w-3" /> Disiapkan Oleh
                                 </label>
-                                <p className="font-medium text-sm">{order.createdBy?.name || 'Sistem'}</p>
+                                <p className="font-medium text-sm">
+                                    {order.createdBy?.name || 'Sistem'}
+                                </p>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
                                     <MapPin className="h-3 w-3" /> Alamat Tujuan
                                 </label>
-                                <p className="font-medium text-sm">{order.destinationAddress || order.salesOrder?.customer?.shippingAddress || order.salesOrder?.customer?.billingAddress || '—'}</p>
+                                <p className="font-medium text-sm">
+                                    {order.destinationAddress ||
+                                        order.salesOrder?.customer
+                                            ?.shippingAddress ||
+                                        order.salesOrder?.customer
+                                            ?.billingAddress ||
+                                        '—'}
+                                </p>
                             </div>
 
                             {order.estimatedWeightKg && (
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                        <Scale className="h-3 w-3" /> Estimasi Berat
+                                        <Scale className="h-3 w-3" /> Estimasi
+                                        Berat
                                     </label>
-                                    <p className="font-medium text-sm">{Number(order.estimatedWeightKg)} Kg</p>
+                                    <p className="font-medium text-sm">
+                                        {Number(order.estimatedWeightKg)} Kg
+                                    </p>
                                 </div>
                             )}
                         </CardContent>
@@ -683,15 +910,20 @@ export function DeliveryOrderDetail({
                                     <Truck className="h-5 w-5" />
                                     Armada & Tarif
                                 </CardTitle>
-                                {!warehouseMode && order.status !== 'CANCELLED' && (
-                                    <EditDeliveryPricingDialog order={order} />
-                                )}
+                                {!warehouseMode &&
+                                    order.status !== 'CANCELLED' && (
+                                        <EditDeliveryPricingDialog
+                                            order={order}
+                                        />
+                                    )}
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div>
-                                    <span className="text-xs text-muted-foreground">Kendaraan</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        Kendaraan
+                                    </span>
                                     <p className="font-medium">
                                         {order.vehicle
                                             ? `${order.vehicle.plateNumber} — ${order.vehicle.name}`
@@ -699,59 +931,131 @@ export function DeliveryOrderDetail({
                                     </p>
                                 </div>
                                 <div>
-                                    <span className="text-xs text-muted-foreground">Kepemilikan</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        Kepemilikan
+                                    </span>
                                     <p className="font-medium">
-                                        {order.vehicle?.ownershipType === 'FACTORY' ? 'Pabrik' : order.vehicle?.ownershipType === 'PRIVATE' ? 'Perorangan' : '—'}
+                                        {order.vehicle?.ownershipType ===
+                                        'FACTORY'
+                                            ? 'Pabrik'
+                                            : order.vehicle?.ownershipType ===
+                                                'PRIVATE'
+                                              ? 'Perorangan'
+                                              : '—'}
                                     </p>
                                 </div>
                                 <div>
-                                    <span className="text-xs text-muted-foreground">Sopir</span>
-                                    <p className="font-medium">{order.vehicle?.driverName || '—'}</p>
-                                </div>
-                                <div>
-                                    <span className="text-xs text-muted-foreground">Rute</span>
-                                    <p className="font-medium">{order.appliedRouteName || 'Semua Rute'}</p>
-                                </div>
-                                <div>
-                                    <span className="text-xs text-muted-foreground">Tipe Tarif</span>
-                                    <p className="font-medium">{order.appliedRateType === 'PER_KG' ? 'Per Kg' : order.appliedRateType === 'FLAT_RATE' ? 'Flat Rate' : '—'}</p>
-                                </div>
-                                <div>
-                                    <span className="text-xs text-muted-foreground">Est. Berat</span>
-                                    <p className="font-medium">{order.estimatedWeightKg ? `${Number(order.estimatedWeightKg)} Kg` : '—'}</p>
-                                </div>
-                                <div>
-                                    <span className="text-xs text-muted-foreground">Biaya Ops / Rate</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        Sopir
+                                    </span>
                                     <p className="font-medium">
-                                        {order.appliedCostRate
-                                            ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(order.appliedCostRate))
+                                        {order.vehicle?.driverName || '—'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-muted-foreground">
+                                        Rute
+                                    </span>
+                                    <p className="font-medium">
+                                        {order.appliedRouteName || 'Semua Rute'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-muted-foreground">
+                                        Tipe Tarif
+                                    </span>
+                                    <p className="font-medium">
+                                        {order.appliedRateType === 'PER_KG'
+                                            ? 'Per Kg'
+                                            : order.appliedRateType ===
+                                                'FLAT_RATE'
+                                              ? 'Flat Rate'
+                                              : '—'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-muted-foreground">
+                                        Est. Berat
+                                    </span>
+                                    <p className="font-medium">
+                                        {order.estimatedWeightKg
+                                            ? `${Number(order.estimatedWeightKg)} Kg`
                                             : '—'}
                                     </p>
                                 </div>
                                 <div>
-                                    <span className="text-xs text-muted-foreground">Charge Customer / Rate</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        Biaya Ops / Rate
+                                    </span>
+                                    <p className="font-medium">
+                                        {order.appliedCostRate
+                                            ? new Intl.NumberFormat('id-ID', {
+                                                  style: 'currency',
+                                                  currency: 'IDR',
+                                                  minimumFractionDigits: 0,
+                                              }).format(
+                                                  Number(order.appliedCostRate),
+                                              )
+                                            : '—'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-muted-foreground">
+                                        Charge Customer / Rate
+                                    </span>
                                     <p className="font-medium">
                                         {order.appliedChargeRate
-                                            ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(order.appliedChargeRate))
+                                            ? new Intl.NumberFormat('id-ID', {
+                                                  style: 'currency',
+                                                  currency: 'IDR',
+                                                  minimumFractionDigits: 0,
+                                              }).format(
+                                                  Number(
+                                                      order.appliedChargeRate,
+                                                  ),
+                                              )
                                             : '—'}
                                     </p>
                                 </div>
                             </div>
-                            {(order.totalCost != null || order.totalCharge != null) && (
+                            {(order.totalCost != null ||
+                                order.totalCharge != null) && (
                                 <div className="border-t pt-3 grid grid-cols-2 gap-3 text-sm">
                                     <div>
-                                        <span className="text-xs text-muted-foreground">Total Biaya Ops</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            Total Biaya Ops
+                                        </span>
                                         <p className="font-semibold text-base">
                                             {order.totalCost != null
-                                                ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(order.totalCost))
+                                                ? new Intl.NumberFormat(
+                                                      'id-ID',
+                                                      {
+                                                          style: 'currency',
+                                                          currency: 'IDR',
+                                                          minimumFractionDigits: 0,
+                                                      },
+                                                  ).format(
+                                                      Number(order.totalCost),
+                                                  )
                                                 : '—'}
                                         </p>
                                     </div>
                                     <div>
-                                        <span className="text-xs text-muted-foreground">Total Charge Customer</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            Total Charge Customer
+                                        </span>
                                         <p className="font-semibold text-base text-emerald-600 dark:text-emerald-400">
                                             {order.totalCharge != null
-                                                ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(order.totalCharge))
+                                                ? new Intl.NumberFormat(
+                                                      'id-ID',
+                                                      {
+                                                          style: 'currency',
+                                                          currency: 'IDR',
+                                                          minimumFractionDigits: 0,
+                                                      },
+                                                  ).format(
+                                                      Number(order.totalCharge),
+                                                  )
                                                 : '—'}
                                         </p>
                                     </div>
@@ -762,128 +1066,175 @@ export function DeliveryOrderDetail({
                 </div>
             </div>
 
-                {/* Photos Section */}
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Camera className="h-5 w-5" />
-                            Foto Pengiriman
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Vehicle Photo */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-medium text-muted-foreground uppercase">Foto Truk Saat Muat</label>
-                                {order.vehiclePhotoUrl ? (
+            {/* Photos Section */}
+            <Card className="md:col-span-2">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Camera className="h-5 w-5" />
+                        Foto Pengiriman
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Vehicle Photo */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground uppercase">
+                                Foto Truk Saat Muat
+                            </label>
+                            {order.vehiclePhotoUrl ? (
+                                <div className="relative border rounded-lg overflow-hidden h-48">
+                                    <Image
+                                        src={order.vehiclePhotoUrl}
+                                        alt="Foto Truk"
+                                        fill
+                                        unoptimized
+                                        className="object-cover"
+                                        sizes="(max-width: 768px) 100vw, 50vw"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+                                    Belum ada foto truk
+                                </div>
+                            )}
+                            {canUploadVehicle && (
+                                <>
+                                    <input
+                                        ref={vehicleInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file)
+                                                handlePhotoUpload(
+                                                    file,
+                                                    'vehicle',
+                                                );
+                                        }}
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() =>
+                                            vehicleInputRef.current?.click()
+                                        }
+                                        disabled={uploadingVehicle}
+                                    >
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        {uploadingVehicle
+                                            ? 'Mengupload...'
+                                            : order.vehiclePhotoUrl
+                                              ? 'Ganti Foto Truk'
+                                              : 'Upload Foto Truk'}
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Proof of Delivery */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground uppercase">
+                                Bukti Terima
+                            </label>
+                            {order.proofOfDeliveryUrl ? (
+                                <>
                                     <div className="relative border rounded-lg overflow-hidden h-48">
                                         <Image
-                                            src={order.vehiclePhotoUrl}
-                                            alt="Foto Truk"
+                                            src={order.proofOfDeliveryUrl}
+                                            alt="Bukti Terima"
                                             fill
                                             unoptimized
                                             className="object-cover"
                                             sizes="(max-width: 768px) 100vw, 50vw"
                                         />
                                     </div>
-                                ) : (
-                                    <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-                                        Belum ada foto truk
-                                    </div>
-                                )}
-                                {canUploadVehicle && (
-                                    <>
+                                    {order.receivedBy && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Diterima oleh:{' '}
+                                            <span className="font-medium">
+                                                {order.receivedBy}
+                                            </span>
+                                        </p>
+                                    )}
+                                    {order.proofOfDeliveryAt && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Pada:{' '}
+                                            {format(
+                                                new Date(
+                                                    order.proofOfDeliveryAt,
+                                                ),
+                                                'PPpp',
+                                            )}
+                                        </p>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+                                    Belum ada bukti terima
+                                </div>
+                            )}
+                            {canUploadPOD && (
+                                <>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground">
+                                            Nama Penerima *
+                                        </label>
                                         <input
-                                            ref={vehicleInputRef}
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) handlePhotoUpload(file, 'vehicle');
-                                            }}
+                                            type="text"
+                                            value={receivedByName}
+                                            onChange={(e) =>
+                                                setReceivedByName(
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="Nama penerima"
+                                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                                         />
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={() => vehicleInputRef.current?.click()}
-                                            disabled={uploadingVehicle}
-                                        >
-                                            <Upload className="h-4 w-4 mr-2" />
-                                            {uploadingVehicle ? 'Mengupload...' : order.vehiclePhotoUrl ? 'Ganti Foto Truk' : 'Upload Foto Truk'}
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Proof of Delivery */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-medium text-muted-foreground uppercase">Bukti Terima</label>
-                                {order.proofOfDeliveryUrl ? (
-                                    <>
-                                        <div className="relative border rounded-lg overflow-hidden h-48">
-                                            <Image
-                                                src={order.proofOfDeliveryUrl}
-                                                alt="Bukti Terima"
-                                                fill
-                                                unoptimized
-                                                className="object-cover"
-                                                sizes="(max-width: 768px) 100vw, 50vw"
-                                            />
-                                        </div>
-                                        {order.receivedBy && (
-                                            <p className="text-sm text-muted-foreground">Diterima oleh: <span className="font-medium">{order.receivedBy}</span></p>
-                                        )}
-                                        {order.proofOfDeliveryAt && (
-                                            <p className="text-xs text-muted-foreground">Pada: {format(new Date(order.proofOfDeliveryAt), 'PPpp')}</p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-                                        Belum ada bukti terima
                                     </div>
-                                )}
-                                {canUploadPOD && (
-                                    <>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">Nama Penerima *</label>
-                                            <input
-                                                type="text"
-                                                value={receivedByName}
-                                                onChange={(e) => setReceivedByName(e.target.value)}
-                                                placeholder="Nama penerima"
-                                                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                                            />
-                                        </div>
-                                        <input
-                                            ref={podInputRef}
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) handlePhotoUpload(file, 'proof_of_delivery');
-                                            }}
-                                        />
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={() => podInputRef.current?.click()}
-                                            disabled={uploadingPOD || !receivedByName.trim()}
-                                        >
-                                            <Upload className="h-4 w-4 mr-2" />
-                                            {uploadingPOD ? 'Mengupload...' : 'Upload Bukti Terima'}
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
+                                    <input
+                                        ref={podInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file)
+                                                handlePhotoUpload(
+                                                    file,
+                                                    'proof_of_delivery',
+                                                );
+                                        }}
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() =>
+                                            podInputRef.current?.click()
+                                        }
+                                        disabled={
+                                            uploadingPOD ||
+                                            !receivedByName.trim()
+                                        }
+                                    >
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        {uploadingPOD
+                                            ? 'Mengupload...'
+                                            : 'Upload Bukti Terima'}
+                                    </Button>
+                                </>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </CardContent>
+            </Card>
 
-            <EntityStatusTimeline entityType="DeliveryOrder" entityId={order.id} />
+            <EntityStatusTimeline
+                entityType="DeliveryOrder"
+                entityId={order.id}
+            />
 
             <PrintPreviewModal
                 open={showPreview}
@@ -891,7 +1242,12 @@ export function DeliveryOrderDetail({
                 title={`Surat Jalan ${order.orderNumber}`}
                 landscape={true}
             >
-                <SuratJalanDotMatrixPrint order={order as unknown as SuratJalanPrintData} showButton={false} previewMode={true} companyConfig={companyConfig} />
+                <SuratJalanDotMatrixPrint
+                    order={order as unknown as SuratJalanPrintData}
+                    showButton={false}
+                    previewMode={true}
+                    companyConfig={companyConfig}
+                />
             </PrintPreviewModal>
         </div>
     );

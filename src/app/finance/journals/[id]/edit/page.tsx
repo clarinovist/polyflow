@@ -3,7 +3,10 @@ import { getChartOfAccounts } from '@/actions/finance/accounting';
 import { notFound, redirect } from 'next/navigation';
 import ManualJournalForm from '@/components/finance/accounting/manual-journal-form';
 import DetailJournalForm from '@/components/finance/accounting/detail-journal-form';
-import { DETAIL_JOURNAL_TEMPLATES, type DetailJournalTemplateKey } from '@/lib/config/detail-journal-templates';
+import {
+    DETAIL_JOURNAL_TEMPLATES,
+    type DetailJournalTemplateKey,
+} from '@/lib/config/detail-journal-templates';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,17 +17,23 @@ interface EditJournalPageProps {
 }
 
 type JournalEntryData = NonNullable<
-    Extract<Awaited<ReturnType<typeof getJournalById>>, { success: true }>['data']
+    Extract<
+        Awaited<ReturnType<typeof getJournalById>>,
+        { success: true }
+    >['data']
 >;
 type JournalGlLine = JournalEntryData['lines'][number];
 type JournalDetailRow = JournalEntryData['details'][number];
 
-export default async function EditJournalPage({ params }: EditJournalPageProps) {
+export default async function EditJournalPage({
+    params,
+}: EditJournalPageProps) {
     const { id } = await params;
 
     // Load journal
     const journalRes = await getJournalById(id);
-    const journal: JournalEntryData | null = journalRes.success && journalRes.data ? journalRes.data : null;
+    const journal: JournalEntryData | null =
+        journalRes.success && journalRes.data ? journalRes.data : null;
 
     if (!journal) {
         notFound();
@@ -37,25 +46,34 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
 
     // Load COA
     const accountsRes = await getChartOfAccounts();
-    const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
+    const accounts =
+        accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     const hasDetails = journal.details && journal.details.length > 0;
     const detailType = hasDetails ? journal.details[0].type : null;
-    const isKnownTemplate = detailType && detailType in DETAIL_JOURNAL_TEMPLATES;
+    const isKnownTemplate =
+        detailType && detailType in DETAIL_JOURNAL_TEMPLATES;
 
     if (isKnownTemplate) {
-        const template = DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey];
+        const template =
+            DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey];
 
         // Infer direction by matching journal lines against template primaryCodes.
-        const debitLine = journal.lines.find((l: JournalGlLine) => Number(l.debit) > 0);
-        const creditLine = journal.lines.find((l: JournalGlLine) => Number(l.credit) > 0);
+        const debitLine = journal.lines.find(
+            (l: JournalGlLine) => Number(l.debit) > 0,
+        );
+        const creditLine = journal.lines.find(
+            (l: JournalGlLine) => Number(l.credit) > 0,
+        );
 
         // Resolve account codes from the two GL lines
         const debitAccount = debitLine
             ? accounts.find((a: { id: string }) => a.id === debitLine.accountId)
             : null;
         const creditAccount = creditLine
-            ? accounts.find((a: { id: string }) => a.id === creditLine.accountId)
+            ? accounts.find(
+                  (a: { id: string }) => a.id === creditLine.accountId,
+              )
             : null;
 
         const primaryCodes = template.primaryAccountCodes;
@@ -75,8 +93,14 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
             entryDate: new Date(journal.entryDate),
             description: journal.description,
             reference: journal.reference || '',
-            primaryAccountId: direction === 'OUTFLOW' ? debitLine?.accountId || '' : creditLine?.accountId || '',
-            counterAccountId: direction === 'OUTFLOW' ? creditLine?.accountId || '' : debitLine?.accountId || '',
+            primaryAccountId:
+                direction === 'OUTFLOW'
+                    ? debitLine?.accountId || ''
+                    : creditLine?.accountId || '',
+            counterAccountId:
+                direction === 'OUTFLOW'
+                    ? creditLine?.accountId || ''
+                    : debitLine?.accountId || '',
             direction,
             templateKey: detailType,
             details: journal.details.map((d: JournalDetailRow) => ({
@@ -99,7 +123,8 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
                                 Edit Journal Entry #{journal.entryNumber}
                             </h1>
                             <p className="text-muted-foreground">
-                                Ubah detail jurnal {template.label} sebelum posting
+                                Ubah detail jurnal {template.label} sebelum
+                                posting
                             </p>
                         </div>
                         <Badge variant="secondary">{journal.status}</Badge>

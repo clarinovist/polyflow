@@ -10,16 +10,18 @@ interface ResponsiveButtonGroupProps {
 export function ResponsiveButtonGroup({
     children,
     mobileStack = false,
-    className
+    className,
 }: ResponsiveButtonGroupProps) {
     return (
-        <div className={cn(
-            "flex gap-2 items-center",
-            mobileStack
-                ? "flex-col sm:flex-row w-full sm:w-auto"
-                : "flex-wrap",
-            className
-        )}>
+        <div
+            className={cn(
+                'flex gap-2 items-center',
+                mobileStack
+                    ? 'flex-col sm:flex-row w-full sm:w-auto'
+                    : 'flex-wrap',
+                className,
+            )}
+        >
             {children}
         </div>
     );

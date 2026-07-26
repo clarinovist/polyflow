@@ -61,7 +61,10 @@ export class BomLifecycleService {
      * Throws BusinessRuleError if the BOM is in use or not found.
      * Uses warn for race condition (P2003 after pre-check).
      */
-    static async hardDelete(bomId: string, _ctx: BomLifecycleContext): Promise<void> {
+    static async hardDelete(
+        bomId: string,
+        _ctx: BomLifecycleContext,
+    ): Promise<void> {
         const bom = await prisma.bom.findUnique({ where: { id: bomId } });
         if (!bom) {
             throw new NotFoundError('Resep', bomId);
@@ -82,13 +85,19 @@ export class BomLifecycleService {
             // Race condition: PO was created between pre-check and delete
             if (
                 error instanceof Error &&
-                (error.message.toLowerCase().includes('foreign key constraint') ||
-                 (error as unknown as Record<string, unknown>).code === 'P2003')
+                (error.message
+                    .toLowerCase()
+                    .includes('foreign key constraint') ||
+                    (error as unknown as Record<string, unknown>).code ===
+                        'P2003')
             ) {
-                logger.warn('BOM delete race condition (FK constraint after pre-check)', {
-                    bomId,
-                    module: 'BomLifecycleService',
-                });
+                logger.warn(
+                    'BOM delete race condition (FK constraint after pre-check)',
+                    {
+                        bomId,
+                        module: 'BomLifecycleService',
+                    },
+                );
                 throw new BusinessRuleError(
                     'Resep baru saja digunakan di Production Order. Nonaktifkan saja agar tidak muncul di produksi baru.',
                     { bomId },
@@ -196,7 +205,10 @@ export class BomLifecycleService {
     /**
      * Reactivate an archived BOM.
      */
-    static async reactivate(bomId: string, _ctx: BomLifecycleContext): Promise<void> {
+    static async reactivate(
+        bomId: string,
+        _ctx: BomLifecycleContext,
+    ): Promise<void> {
         const bom = await prisma.bom.findUnique({ where: { id: bomId } });
         if (!bom) {
             throw new NotFoundError('Resep', bomId);

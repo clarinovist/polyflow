@@ -10,10 +10,10 @@ export class ProductionIssueService {
             where: { productionOrderId },
             include: {
                 reportedBy: {
-                    select: { id: true, name: true }
-                }
+                    select: { id: true, name: true },
+                },
             },
-            orderBy: { reportedAt: 'desc' }
+            orderBy: { reportedAt: 'desc' },
         });
     }
 
@@ -33,8 +33,8 @@ export class ProductionIssueService {
                 description: data.description,
                 reportedById: data.reportedById,
                 status: IssueStatus.OPEN,
-                reportedAt: new Date()
-            }
+                reportedAt: new Date(),
+            },
         });
     }
 
@@ -44,7 +44,7 @@ export class ProductionIssueService {
     static async updateIssueStatus(
         issueId: string,
         status: IssueStatus,
-        resolvedNotes?: string
+        resolvedNotes?: string,
     ) {
         const updateData: {
             status: IssueStatus;
@@ -59,7 +59,7 @@ export class ProductionIssueService {
 
         return await prisma.productionIssue.update({
             where: { id: issueId },
-            data: updateData
+            data: updateData,
         });
     }
 
@@ -68,7 +68,7 @@ export class ProductionIssueService {
      */
     static async deleteIssue(issueId: string) {
         return await prisma.productionIssue.delete({
-            where: { id: issueId }
+            where: { id: issueId },
         });
     }
 }

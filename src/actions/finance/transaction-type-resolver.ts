@@ -9,7 +9,7 @@ import type { TransactionTypeConfig } from '@/lib/config/transaction-types';
 import { resolveAccount } from '@/services/accounting/account-resolver';
 
 export async function resolveTransactionTypeAccounts(
-    type: TransactionTypeConfig
+    type: TransactionTypeConfig,
 ): Promise<{ debitAccountId: string; creditAccountId: string }> {
     const debitAccount = await resolveAccount(type.debitAccountRole);
     const creditAccount = await resolveAccount(type.creditAccountRole);

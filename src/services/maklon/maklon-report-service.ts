@@ -75,7 +75,9 @@ export class MaklonReportService {
                 ...(filters?.startDate || filters?.endDate
                     ? {
                           plannedStartDate: {
-                              ...(filters.startDate && { gte: filters.startDate }),
+                              ...(filters.startDate && {
+                                  gte: filters.startDate,
+                              }),
                               ...(filters.endDate && { lte: filters.endDate }),
                           },
                       }
@@ -125,7 +127,7 @@ export class MaklonReportService {
             }
             const totalInternalCost = Object.values(costBreakdown).reduce(
                 (sum, v) => sum + v,
-                0
+                0,
             );
 
             // Service revenue = invoiced SO amount. Fall back to 0 if not set.
@@ -135,9 +137,7 @@ export class MaklonReportService {
 
             const grossMargin = serviceRevenue - totalInternalCost;
             const grossMarginPct =
-                serviceRevenue > 0
-                    ? (grossMargin / serviceRevenue) * 100
-                    : 0;
+                serviceRevenue > 0 ? (grossMargin / serviceRevenue) * 100 : 0;
 
             const firstInvoice = po.salesOrder?.invoices?.[0] ?? null;
 
@@ -193,11 +193,11 @@ export class MaklonReportService {
         // Totals
         const totalServiceRevenue = customerList.reduce(
             (s, c) => s + c.totalServiceRevenue,
-            0
+            0,
         );
         const totalInternalCost = customerList.reduce(
             (s, c) => s + c.totalInternalCost,
-            0
+            0,
         );
         const totalGrossMargin = totalServiceRevenue - totalInternalCost;
         const avgMarginPct =
@@ -209,7 +209,9 @@ export class MaklonReportService {
         const totalCostBreakdown: MaklonCostBreakdown = { ...EMPTY_BREAKDOWN };
         for (const c of customerList) {
             for (const o of c.orders) {
-                for (const k of Object.keys(EMPTY_BREAKDOWN) as (keyof MaklonCostBreakdown)[]) {
+                for (const k of Object.keys(
+                    EMPTY_BREAKDOWN,
+                ) as (keyof MaklonCostBreakdown)[]) {
                     totalCostBreakdown[k] += o.costBreakdown[k];
                 }
             }

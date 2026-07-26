@@ -2,7 +2,13 @@ import { getCustomers } from '@/actions/sales/customer';
 import { getCustomerOwnedLocations } from '@/actions/inventory/locations';
 import { getProductVariants } from '@/actions/inventory/inventory';
 import { MaklonReturnForm } from '@/components/production/maklon/MaklonReturnForm';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { serializeData } from '@/lib/utils/utils';
 import type { Serialized } from '@/lib/types/serialized';
 
@@ -17,12 +23,21 @@ export default async function WarehouseCreateMaklonReturnPage() {
     const [customersRes, locationsRes, productsRes] = await Promise.all([
         getCustomers(),
         getCustomerOwnedLocations(),
-        getProductVariants()
+        getProductVariants(),
     ]);
 
-    const customers = customersRes.success && customersRes.data ? serializeData(customersRes.data) : [];
-    const locations = locationsRes.success && locationsRes.data ? serializeData(locationsRes.data) : [];
-    const rawProducts = productsRes.success && productsRes.data ? serializeData(productsRes.data) : [];
+    const customers =
+        customersRes.success && customersRes.data
+            ? serializeData(customersRes.data)
+            : [];
+    const locations =
+        locationsRes.success && locationsRes.data
+            ? serializeData(locationsRes.data)
+            : [];
+    const rawProducts =
+        productsRes.success && productsRes.data
+            ? serializeData(productsRes.data)
+            : [];
 
     const products = rawProducts.map((p: SerializedProductRow) => ({
         ...p,
@@ -34,10 +49,11 @@ export default async function WarehouseCreateMaklonReturnPage() {
         minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
         reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
         reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
-        inventories: p.inventories?.map((inv) => ({
-            locationId: inv.locationId,
-            quantity: inv.quantity ? Number(inv.quantity) : 0
-        })) || []
+        inventories:
+            p.inventories?.map((inv) => ({
+                locationId: inv.locationId,
+                quantity: inv.quantity ? Number(inv.quantity) : 0,
+            })) || [],
     }));
 
     return (
@@ -46,7 +62,9 @@ export default async function WarehouseCreateMaklonReturnPage() {
                 <CardHeader>
                     <CardTitle>Buat Retur Maklon Baru</CardTitle>
                     <CardDescription>
-                        Kembalikan sisa bahan milik customer dari Area Packing Maklon terlebih dahulu, atau dari tahap customer-owned lain jika diperlukan.
+                        Kembalikan sisa bahan milik customer dari Area Packing
+                        Maklon terlebih dahulu, atau dari tahap customer-owned
+                        lain jika diperlukan.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

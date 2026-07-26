@@ -44,44 +44,82 @@ export function ShiftList({ shifts }: ShiftListProps) {
 
     return (
         <>
-
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
-                        <TableHead className="font-semibold text-muted-foreground">Name</TableHead>
-                        <TableHead className="font-semibold text-muted-foreground">Start Time</TableHead>
-                        <TableHead className="font-semibold text-muted-foreground">End Time</TableHead>
-                        <TableHead className="font-semibold text-muted-foreground">Jam Rencana</TableHead>
-                        <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
-                        <TableHead className="text-right font-semibold text-muted-foreground">Actions</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">
+                            Name
+                        </TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">
+                            Start Time
+                        </TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">
+                            End Time
+                        </TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">
+                            Jam Rencana
+                        </TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">
+                            Status
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-muted-foreground">
+                            Actions
+                        </TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {shifts.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
+                            <TableCell
+                                colSpan={6}
+                                className="h-48 text-center text-muted-foreground"
+                            >
                                 <div className="flex flex-col items-center justify-center gap-2">
                                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-2">
                                         <Edit className="h-5 w-5 text-muted-foreground" />
                                     </div>
-                                    <p className="text-base font-medium text-foreground">Tidak ada shift ditemukan</p>
-                                    <p className="text-sm text-muted-foreground">Tambahkan shift baru untuk menentukan jam kerja.</p>
+                                    <p className="text-base font-medium text-foreground">
+                                        Tidak ada shift ditemukan
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Tambahkan shift baru untuk menentukan
+                                        jam kerja.
+                                    </p>
                                 </div>
                             </TableCell>
                         </TableRow>
                     ) : (
                         shifts.map((shift) => (
-                            <TableRow key={shift.id} className="hover:bg-muted/50">
-                                <TableCell className="font-medium text-foreground">{shift.name}</TableCell>
-                                <TableCell className="text-muted-foreground">{shift.startTime}</TableCell>
-                                <TableCell className="text-muted-foreground">{shift.endTime}</TableCell>
+                            <TableRow
+                                key={shift.id}
+                                className="hover:bg-muted/50"
+                            >
+                                <TableCell className="font-medium text-foreground">
+                                    {shift.name}
+                                </TableCell>
                                 <TableCell className="text-muted-foreground">
-                                    {shift.plannedHours != null ? `${shift.plannedHours}j` : '-'}
+                                    {shift.startTime}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                    {shift.endTime}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                    {shift.plannedHours != null
+                                        ? `${shift.plannedHours}j`
+                                        : '-'}
                                 </TableCell>
                                 <TableCell>
                                     <Badge
-                                        variant={shift.status === 'ACTIVE' ? 'default' : 'secondary'}
-                                        className={shift.status === 'ACTIVE' ? "bg-green-500/10 text-green-600 hover:bg-green-500/20" : "bg-muted text-muted-foreground"}
+                                        variant={
+                                            shift.status === 'ACTIVE'
+                                                ? 'default'
+                                                : 'secondary'
+                                        }
+                                        className={
+                                            shift.status === 'ACTIVE'
+                                                ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                                                : 'bg-muted text-muted-foreground'
+                                        }
                                     >
                                         {shift.status}
                                     </Badge>
@@ -100,7 +138,9 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => handleDelete(shift.id)}
+                                            onClick={() =>
+                                                handleDelete(shift.id)
+                                            }
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -111,7 +151,6 @@ export function ShiftList({ shifts }: ShiftListProps) {
                     )}
                 </TableBody>
             </Table>
-
 
             <ShiftDialog
                 open={dialogOpen}

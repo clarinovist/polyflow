@@ -1,17 +1,40 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-import { Loader2, AlertTriangle, Hammer, CheckCircle2, ArrowRight, ExternalLink } from 'lucide-react';
+import {
+    Loader2,
+    AlertTriangle,
+    Hammer,
+    CheckCircle2,
+    ArrowRight,
+    ExternalLink,
+} from 'lucide-react';
 import { checkSalesOrderFulfillment } from '@/actions/sales/sales';
 
 import Link from 'next/link';
 import { ProductionOrder } from '@prisma/client';
 
 // Define localized serialized type if not shared, or use partial
-type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity' | 'plannedStartDate' | 'plannedEndDate' | 'actualStartDate' | 'actualEndDate' | 'createdAt' | 'updatedAt'> & {
+type SerializedProductionOrder = Omit<
+    ProductionOrder,
+    | 'plannedQuantity'
+    | 'actualQuantity'
+    | 'plannedStartDate'
+    | 'plannedEndDate'
+    | 'actualStartDate'
+    | 'actualEndDate'
+    | 'createdAt'
+    | 'updatedAt'
+> & {
     plannedQuantity: number;
     actualQuantity: number | null;
     plannedStartDate: Date | string;
@@ -44,7 +67,13 @@ interface ProductionStatusCardProps {
     currentUserRole?: string;
 }
 
-export function ProductionStatusCard({ salesOrderId, status: _status, productionOrders, items, currentUserRole }: ProductionStatusCardProps) {
+export function ProductionStatusCard({
+    salesOrderId,
+    status: _status,
+    productionOrders,
+    items,
+    currentUserRole,
+}: ProductionStatusCardProps) {
     const [shortages, setShortages] = useState<Shortage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -69,11 +98,18 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
     }, [salesOrderId]);
 
     // Calculate overall production progress
-    const totalPlanned = productionOrders.reduce((sum, po) => sum + Number(po.plannedQuantity), 0);
-    const totalActual = productionOrders.reduce((sum, po) => sum + Number(po.actualQuantity || 0), 0);
+    const totalPlanned = productionOrders.reduce(
+        (sum, po) => sum + Number(po.plannedQuantity),
+        0,
+    );
+    const totalActual = productionOrders.reduce(
+        (sum, po) => sum + Number(po.actualQuantity || 0),
+        0,
+    );
     const progress = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
-    const canPlan = currentUserRole === 'PLANNING' || currentUserRole === 'ADMIN';
+    const canPlan =
+        currentUserRole === 'PLANNING' || currentUserRole === 'ADMIN';
 
     return (
         <>
@@ -85,7 +121,9 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                                 <Hammer className="h-5 w-5 text-amber-600 dark:text-amber-500" />
                                 Production Status
                             </CardTitle>
-                            <CardDescription>Track and manage manufacturing for this order</CardDescription>
+                            <CardDescription>
+                                Track and manage manufacturing for this order
+                            </CardDescription>
                         </div>
                     </div>
                 </CardHeader>
@@ -102,15 +140,30 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                             </div>
                             <div className="space-y-2">
                                 {shortages.map((s) => {
-                                    const itemInfo = items.find(i => i.productVariantId === s.productVariantId);
-                                    const variantName = itemInfo?.productVariant?.product?.name || 'Item';
+                                    const itemInfo = items.find(
+                                        (i) =>
+                                            i.productVariantId ===
+                                            s.productVariantId,
+                                    );
+                                    const variantName =
+                                        itemInfo?.productVariant?.product
+                                            ?.name || 'Item';
                                     return (
-                                        <div key={s.productVariantId} className="flex justify-between items-center text-sm border-b dark:border-amber-800/30 pb-2 last:border-0">
+                                        <div
+                                            key={s.productVariantId}
+                                            className="flex justify-between items-center text-sm border-b dark:border-amber-800/30 pb-2 last:border-0"
+                                        >
                                             <div>
-                                                <div className="font-medium">{variantName}</div>
+                                                <div className="font-medium">
+                                                    {variantName}
+                                                </div>
                                                 <div className="text-xs text-muted-foreground flex gap-2">
-                                                    <span>Avail: {s.available}</span>
-                                                    <span className="text-red-500 dark:text-red-500 font-medium">Need: {s.shortage}</span>
+                                                    <span>
+                                                        Avail: {s.available}
+                                                    </span>
+                                                    <span className="text-red-500 dark:text-red-500 font-medium">
+                                                        Need: {s.shortage}
+                                                    </span>
                                                 </div>
                                             </div>
                                             {canPlan && s.shortage > 0 && (
@@ -136,7 +189,9 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
 
                     {productionOrders.length > 0 && (
                         <div className="pt-2 border-t dark:border-amber-800/30 mt-4 space-y-3">
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Linked Orders</h4>
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Linked Orders
+                            </h4>
                             <div className="space-y-3">
                                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                                     <div
@@ -146,22 +201,43 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                                 </div>
                                 <div className="flex justify-between text-[10px] text-muted-foreground font-medium uppercase px-1">
                                     <span>Progress</span>
-                                    <span>{Math.round(progress)}% Complete</span>
+                                    <span>
+                                        {Math.round(progress)}% Complete
+                                    </span>
                                 </div>
 
                                 <ul className="space-y-2">
                                     {productionOrders.map((po) => (
-                                        <li key={po.id} className="bg-white dark:bg-slate-900 p-2 rounded border border-amber-100 dark:border-amber-900/50 text-xs shadow-sm hover:shadow-md transition-shadow">
+                                        <li
+                                            key={po.id}
+                                            className="bg-white dark:bg-slate-900 p-2 rounded border border-amber-100 dark:border-amber-900/50 text-xs shadow-sm hover:shadow-md transition-shadow"
+                                        >
                                             <div className="flex justify-between items-center mb-1">
-                                                <span className="font-bold">{po.orderNumber}</span>
-                                                <Badge variant="outline" className="text-[10px] h-4 py-0 border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400">
+                                                <span className="font-bold">
+                                                    {po.orderNumber}
+                                                </span>
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-[10px] h-4 py-0 border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400"
+                                                >
                                                     {po.status}
                                                 </Badge>
                                             </div>
                                             <div className="flex justify-between text-muted-foreground">
-                                                <span>Qty: {Number(po.actualQuantity || 0)} / {Number(po.plannedQuantity)}</span>
-                                                <Link href={`/production/orders/${po.id}`} className="text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline">
-                                                    details <ArrowRight className="h-3 w-3" />
+                                                <span>
+                                                    Qty:{' '}
+                                                    {Number(
+                                                        po.actualQuantity || 0,
+                                                    )}{' '}
+                                                    /{' '}
+                                                    {Number(po.plannedQuantity)}
+                                                </span>
+                                                <Link
+                                                    href={`/production/orders/${po.id}`}
+                                                    className="text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                                                >
+                                                    details{' '}
+                                                    <ArrowRight className="h-3 w-3" />
                                                 </Link>
                                             </div>
                                         </li>

@@ -41,15 +41,19 @@ export class AgingService {
         const invoices = await prisma.invoice.findMany({
             where: {
                 status: {
-                    in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE]
-                }
+                    in: [
+                        InvoiceStatus.UNPAID,
+                        InvoiceStatus.PARTIAL,
+                        InvoiceStatus.OVERDUE,
+                    ],
+                },
             },
             include: {
                 salesOrder: {
-                    include: { customer: true }
-                }
+                    include: { customer: true },
+                },
             },
-            orderBy: { invoiceDate: 'asc' }
+            orderBy: { invoiceDate: 'asc' },
         });
 
         const now = new Date().getTime();
@@ -57,8 +61,10 @@ export class AgingService {
 
         for (const inv of invoices) {
             const customerId = inv.salesOrder?.customerId || 'unknown';
-            const customerName = inv.salesOrder?.customer?.name || 'Unknown Customer';
-            const outstanding = inv.totalAmount.toNumber() - inv.paidAmount.toNumber();
+            const customerName =
+                inv.salesOrder?.customer?.name || 'Unknown Customer';
+            const outstanding =
+                inv.totalAmount.toNumber() - inv.paidAmount.toNumber();
 
             if (outstanding <= 0) continue;
 
@@ -73,13 +79,15 @@ export class AgingService {
                     days61to90: 0,
                     over90: 0,
                     total: 0,
-                    invoices: []
+                    invoices: [],
                 });
             }
 
             const row = map.get(customerId)!;
             const baseDate = inv.dueDate || inv.invoiceDate;
-            const daysOverdue = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
+            const daysOverdue = Math.floor(
+                (now - baseDate.getTime()) / (1000 * 3600 * 24),
+            );
             const bucket = getBucket(daysOverdue);
 
             if (daysOverdue < 0) row.notYetDue += outstanding;
@@ -97,7 +105,7 @@ export class AgingService {
                 daysOverdue,
                 outstanding,
                 status: inv.status,
-                bucket
+                bucket,
             });
         }
 
@@ -111,15 +119,19 @@ export class AgingService {
         const invoices = await prisma.purchaseInvoice.findMany({
             where: {
                 status: {
-                    in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL, PurchaseInvoiceStatus.OVERDUE]
-                }
+                    in: [
+                        PurchaseInvoiceStatus.UNPAID,
+                        PurchaseInvoiceStatus.PARTIAL,
+                        PurchaseInvoiceStatus.OVERDUE,
+                    ],
+                },
             },
             include: {
                 purchaseOrder: {
-                    include: { supplier: true }
-                }
+                    include: { supplier: true },
+                },
             },
-            orderBy: { invoiceDate: 'asc' }
+            orderBy: { invoiceDate: 'asc' },
         });
 
         const now = new Date().getTime();
@@ -127,8 +139,10 @@ export class AgingService {
 
         for (const inv of invoices) {
             const supplierId = inv.purchaseOrder?.supplierId || 'unknown';
-            const supplierName = inv.purchaseOrder?.supplier?.name || 'Unknown Supplier';
-            const outstanding = inv.totalAmount.toNumber() - inv.paidAmount.toNumber();
+            const supplierName =
+                inv.purchaseOrder?.supplier?.name || 'Unknown Supplier';
+            const outstanding =
+                inv.totalAmount.toNumber() - inv.paidAmount.toNumber();
 
             if (outstanding <= 0) continue;
 
@@ -143,13 +157,15 @@ export class AgingService {
                     days61to90: 0,
                     over90: 0,
                     total: 0,
-                    invoices: []
+                    invoices: [],
                 });
             }
 
             const row = map.get(supplierId)!;
             const baseDate = inv.dueDate || inv.invoiceDate;
-            const daysOverdue = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
+            const daysOverdue = Math.floor(
+                (now - baseDate.getTime()) / (1000 * 3600 * 24),
+            );
             const bucket = getBucket(daysOverdue);
 
             if (daysOverdue < 0) row.notYetDue += outstanding;
@@ -167,7 +183,7 @@ export class AgingService {
                 daysOverdue,
                 outstanding,
                 status: inv.status,
-                bucket
+                bucket,
             });
         }
 

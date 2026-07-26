@@ -6,7 +6,10 @@ import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { safeAction, AuthenticationError } from '@/lib/errors/errors';
-import { NOTIFICATION_CATEGORIES, type NotificationPrefs } from '@/lib/settings/notification-categories';
+import {
+    NOTIFICATION_CATEGORIES,
+    type NotificationPrefs,
+} from '@/lib/settings/notification-categories';
 
 async function requireUserId(): Promise<string> {
     const session = await auth();
@@ -15,50 +18,58 @@ async function requireUserId(): Promise<string> {
     return id;
 }
 
-export const getNotificationPrefs = withTenant(async function getNotificationPrefs() {
-    return safeAction(async () => {
-        const userId = await requireUserId();
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { notificationPrefs: true },
-        });
-        const prefs: NotificationPrefs = {};
-        // Default: everything enabled.
-        NOTIFICATION_CATEGORIES.forEach((c) => {
-            prefs[c.key] = true;
-        });
-        if (user?.notificationPrefs) {
-            try {
-                const stored = JSON.parse(user.notificationPrefs) as NotificationPrefs;
-                Object.entries(stored).forEach(([k, v]) => {
-                    if (k in prefs) prefs[k] = Boolean(v);
-                });
-            } catch {
-                // ignore malformed JSON, keep defaults
+export const getNotificationPrefs = withTenant(
+    async function getNotificationPrefs() {
+        return safeAction(async () => {
+            const userId = await requireUserId();
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { notificationPrefs: true },
+            });
+            const prefs: NotificationPrefs = {};
+            // Default: everything enabled.
+            NOTIFICATION_CATEGORIES.forEach((c) => {
+                prefs[c.key] = true;
+            });
+            if (user?.notificationPrefs) {
+                try {
+                    const stored = JSON.parse(
+                        user.notificationPrefs,
+                    ) as NotificationPrefs;
+                    Object.entries(stored).forEach(([k, v]) => {
+                        if (k in prefs) prefs[k] = Boolean(v);
+                    });
+                } catch {
+                    // ignore malformed JSON, keep defaults
+                }
             }
-        }
-        return prefs;
-    });
-});
+            return prefs;
+        });
+    },
+);
 
 const UpdatePrefsSchema = z.record(z.string(), z.boolean());
 
-export const updateNotificationPrefs = withTenant(async function updateNotificationPrefs(input: NotificationPrefs) {
-    return safeAction(async () => {
-        const userId = await requireUserId();
-        const parsed = UpdatePrefsSchema.parse(input);
-        const validKeys = new Set<string>(NOTIFICATION_CATEGORIES.map((c) => c.key));
-        const clean: NotificationPrefs = {};
-        Object.entries(parsed).forEach(([k, v]) => {
-            if (validKeys.has(k)) clean[k] = v;
-        });
+export const updateNotificationPrefs = withTenant(
+    async function updateNotificationPrefs(input: NotificationPrefs) {
+        return safeAction(async () => {
+            const userId = await requireUserId();
+            const parsed = UpdatePrefsSchema.parse(input);
+            const validKeys = new Set<string>(
+                NOTIFICATION_CATEGORIES.map((c) => c.key),
+            );
+            const clean: NotificationPrefs = {};
+            Object.entries(parsed).forEach(([k, v]) => {
+                if (validKeys.has(k)) clean[k] = v;
+            });
 
-        await prisma.user.update({
-            where: { id: userId },
-            data: { notificationPrefs: JSON.stringify(clean) },
-        });
+            await prisma.user.update({
+                where: { id: userId },
+                data: { notificationPrefs: JSON.stringify(clean) },
+            });
 
-        revalidatePath('/dashboard/settings');
-        return clean;
-    });
-});
+            revalidatePath('/dashboard/settings');
+            return clean;
+        });
+    },
+);

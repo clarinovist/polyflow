@@ -1,20 +1,20 @@
-import { auth } from "@/auth";
-import { prisma } from "@/lib/core/prisma";
-import { redirect } from "next/navigation";
-import { SuperAdminClient } from "./client";
-import { getTenantStatsCached } from "@/actions/admin/tenant-observability";
+import { auth } from '@/auth';
+import { prisma } from '@/lib/core/prisma';
+import { redirect } from 'next/navigation';
+import { SuperAdminClient } from './client';
+import { getTenantStatsCached } from '@/actions/admin/tenant-observability';
 
 export default async function SuperAdminPage() {
     const session = await auth();
 
     if (!session?.user || !session.user.isSuperAdmin) {
-        redirect("/dashboard");
+        redirect('/dashboard');
     }
 
     // Since this runs in the "main" request (not a tenant subdomain),
     // we can safely pull the tenants from the main database.
     const tenants = await prisma.tenant.findMany({
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
     });
 
     // Per-tenant stats — read from cache (denormalized columns on Tenant) so
@@ -25,7 +25,9 @@ export default async function SuperAdminPage() {
     return (
         <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
             <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">Super Admin Dashboard</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                    Super Admin Dashboard
+                </h1>
                 <p className="text-muted-foreground mt-1">
                     Manage system tenants and databases.
                 </p>

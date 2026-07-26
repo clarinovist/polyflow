@@ -15,6 +15,7 @@ Scope: persiapan sebelum mulai input opening balance lagi ke database
 ## 2. File acuan yang harus dipakai
 
 Wajib pakai file terbaru berikut:
+
 - `docs/data-import/melindo-initial/melindo-opening-balance-final-staging.csv`
 - `docs/data-import/melindo-initial/melindo-opening-balance-final-staging-summary.json`
 - `docs/data-import/melindo-initial/melindo-opening-balance-journal_only.csv`
@@ -26,18 +27,21 @@ Wajib pakai file terbaru berikut:
 ## 3. Preflight sebelum write ke DB
 
 ### A. Safety infra
+
 - [ ] pastikan target tetap `melindo_rafia`, bukan `polyflow`
 - [ ] cek container `polyflow-db` dan `polyflow-app` running
 - [ ] ambil backup fresh sebelum write pertama hari itu
 - [ ] simpan nama backup hasil preflight di handoff/notes
 
 ### B. Accounting decision lock
+
 - [x] `2-390 Hutang ke Nugroho Pramono` confirmed tetap dibawa sebagai liability owner loan
 - [x] `3-201b` diparkir ke `3-200b Laba Ditahan Rafia`
 - [x] `1-121 Konstruksi dalam Pengerjaan` tetap parkir sementara ke `1-199`
 - [x] zero-value rows tidak perlu diposting manual walau masih ada di audit trail CSV
 
 ### C. Module routing
+
 - [ ] journal-only hanya untuk bucket `JOURNAL_ONLY`
 - [ ] AR opening lewat package/module AR
 - [ ] AP opening lewat package/module AP
@@ -67,6 +71,7 @@ Wajib pakai file terbaru berikut:
 ## 6. Blocker yang masih tersisa
 
 Ini yang masih perlu dijawab sebelum write final penuh:
+
 1. keputusan final `2-390 Hutang ke Nugroho Pramono`
 2. desain posting detail untuk AR opening
 3. desain posting detail untuk AP opening
@@ -76,6 +81,7 @@ Ini yang masih perlu dijawab sebelum write final penuh:
 ## 7. Rekomendasi next move
 
 Kalau lanjut sekarang, langkah paling aman adalah:
+
 1. cek DB/container + backup fresh
 2. review satu kali lagi bucket `review owner liability`
 3. jalankan dry-run SQL journal-only

@@ -1,7 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { listDisciplinaryActions, listLeaveRequests } from '@/actions/hrd/disciplinary-leave';
+import {
+    listDisciplinaryActions,
+    listLeaveRequests,
+} from '@/actions/hrd/disciplinary-leave';
 import { listLoans } from '@/actions/hrd/payroll-monthly';
 import { listSalaryHistory } from '@/actions/hrd/salary-history';
 import {
@@ -87,10 +90,13 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
     });
     const [docFile, setDocFile] = useState<File | null>(null);
 
-    const loadDocs = useCallback(async (archived = false) => {
-        const sRes = await listEmployeeDocuments(employeeId, archived);
-        setDocuments(sRes.success ? (sRes.data ?? []) : []);
-    }, [employeeId]);
+    const loadDocs = useCallback(
+        async (archived = false) => {
+            const sRes = await listEmployeeDocuments(employeeId, archived);
+            setDocuments(sRes.success ? (sRes.data ?? []) : []);
+        },
+        [employeeId],
+    );
 
     useEffect(() => {
         const load = async () => {
@@ -105,15 +111,26 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
             setLeaves(lRes.success ? (lRes.data ?? []) : []);
             setLoans(kRes.success ? (kRes.data ?? []) : []);
             setSalaryHistory(
-                (sRes.success ? (sRes.data ?? []) : []).map((s: Record<string, unknown>) => ({
-                    id: s.id as string,
-                    changedAt: s.changedAt as string | Date,
-                    payType: (s.payType as string) ?? null,
-                    dailyRate: s.dailyRate != null ? Number(s.dailyRate) : null,
-                    monthlySalary: s.monthlySalary != null ? Number(s.monthlySalary) : null,
-                    changes: (s.changes as Record<string, { from: unknown; to: unknown }>) ?? null,
-                    changedBy: (s.changedBy as { name: string | null }) ?? null,
-                })),
+                (sRes.success ? (sRes.data ?? []) : []).map(
+                    (s: Record<string, unknown>) => ({
+                        id: s.id as string,
+                        changedAt: s.changedAt as string | Date,
+                        payType: (s.payType as string) ?? null,
+                        dailyRate:
+                            s.dailyRate != null ? Number(s.dailyRate) : null,
+                        monthlySalary:
+                            s.monthlySalary != null
+                                ? Number(s.monthlySalary)
+                                : null,
+                        changes:
+                            (s.changes as Record<
+                                string,
+                                { from: unknown; to: unknown }
+                            >) ?? null,
+                        changedBy:
+                            (s.changedBy as { name: string | null }) ?? null,
+                    }),
+                ),
             );
             await loadDocs(false);
             setLoading(false);
@@ -122,7 +139,8 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
     }, [employeeId, loadDocs]);
 
     const toN = (v: unknown) => toDecimalNumber(v);
-    const fmt = (d: string | Date) => format(new Date(d), 'dd MMM yyyy', { locale: id });
+    const fmt = (d: string | Date) =>
+        format(new Date(d), 'dd MMM yyyy', { locale: id });
 
     const handleUploadDocument = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -140,9 +158,14 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
             fd.append('file', docFile);
             fd.append('entityId', employeeId);
             fd.append('category', 'employee');
-            const up = await fetch('/api/upload/hrd-doc', { method: 'POST', body: fd });
+            const up = await fetch('/api/upload/hrd-doc', {
+                method: 'POST',
+                body: fd,
+            });
             if (!up.ok) {
-                const err = (await up.json().catch(() => ({}))) as { error?: string };
+                const err = (await up.json().catch(() => ({}))) as {
+                    error?: string;
+                };
                 toast.error(err.error || 'Gagal upload file');
                 return;
             }
@@ -202,20 +225,29 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                 ))}
             </div>
 
-            {loading && <p className="text-xs text-muted-foreground">Memuat riwayat…</p>}
+            {loading && (
+                <p className="text-xs text-muted-foreground">Memuat riwayat…</p>
+            )}
 
             {!loading && tab === 'disciplinary' && (
                 <div className="space-y-2 text-sm">
                     {disciplinary.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Belum ada sanksi.</p>
+                        <p className="text-xs text-muted-foreground">
+                            Belum ada sanksi.
+                        </p>
                     )}
                     {disciplinary.map((a) => (
-                        <div key={a.id} className="border-b border-border/50 py-2">
+                        <div
+                            key={a.id}
+                            className="border-b border-border/50 py-2"
+                        >
                             <div className="font-medium">
                                 {a.type} · {fmt(a.effectiveDate)}
                                 {a.expiryDate ? ` → ${fmt(a.expiryDate)}` : ''}
                             </div>
-                            <div className="text-xs text-muted-foreground">{a.reason}</div>
+                            <div className="text-xs text-muted-foreground">
+                                {a.reason}
+                            </div>
                             {a.documentUrl && (
                                 <a
                                     href={a.documentUrl}
@@ -233,13 +265,25 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
 
             {!loading && tab === 'leave' && (
                 <div className="space-y-2 text-sm">
-                    {leaves.length === 0 && <p className="text-xs text-muted-foreground">Belum ada cuti.</p>}
+                    {leaves.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                            Belum ada cuti.
+                        </p>
+                    )}
                     {leaves.map((l) => (
-                        <div key={l.id} className="border-b border-border/50 py-2">
+                        <div
+                            key={l.id}
+                            className="border-b border-border/50 py-2"
+                        >
                             <div className="font-medium">
-                                {l.type} · {l.status} · {fmt(l.startDate)} – {fmt(l.endDate)}
+                                {l.type} · {l.status} · {fmt(l.startDate)} –{' '}
+                                {fmt(l.endDate)}
                             </div>
-                            {l.reason && <div className="text-xs text-muted-foreground">{l.reason}</div>}
+                            {l.reason && (
+                                <div className="text-xs text-muted-foreground">
+                                    {l.reason}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -247,18 +291,37 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
 
             {!loading && tab === 'loans' && (
                 <div className="space-y-2 text-sm">
-                    {loans.length === 0 && <p className="text-xs text-muted-foreground">Belum ada kasbon.</p>}
+                    {loans.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                            Belum ada kasbon.
+                        </p>
+                    )}
                     {loans.map((k) => (
-                        <div key={k.id} className="border-b border-border/50 py-2 flex justify-between gap-2">
+                        <div
+                            key={k.id}
+                            className="border-b border-border/50 py-2 flex justify-between gap-2"
+                        >
                             <div>
                                 <div className="font-medium">
                                     {k.loanNumber} · {k.status}
                                 </div>
-                                <div className="text-xs text-muted-foreground">{fmt(k.date)}</div>
+                                <div className="text-xs text-muted-foreground">
+                                    {fmt(k.date)}
+                                </div>
                             </div>
                             <div className="text-right text-xs">
-                                <div>Pokok: {toN(k.principalAmount).toLocaleString('id-ID')}</div>
-                                <div>Sisa: {toN(k.remainingBalance).toLocaleString('id-ID')}</div>
+                                <div>
+                                    Pokok:{' '}
+                                    {toN(k.principalAmount).toLocaleString(
+                                        'id-ID',
+                                    )}
+                                </div>
+                                <div>
+                                    Sisa:{' '}
+                                    {toN(k.remainingBalance).toLocaleString(
+                                        'id-ID',
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -268,26 +331,46 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
             {!loading && tab === 'salary' && (
                 <div className="space-y-2 text-sm">
                     {salaryHistory.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Belum ada riwayat perubahan gaji.</p>
+                        <p className="text-xs text-muted-foreground">
+                            Belum ada riwayat perubahan gaji.
+                        </p>
                     )}
                     {salaryHistory.map((s) => (
-                        <div key={s.id} className="border-b border-border/50 py-2">
+                        <div
+                            key={s.id}
+                            className="border-b border-border/50 py-2"
+                        >
                             <div className="flex justify-between items-start">
-                                <div className="font-medium">{fmt(s.changedAt)}</div>
+                                <div className="font-medium">
+                                    {fmt(s.changedAt)}
+                                </div>
                                 {s.changedBy && (
-                                    <span className="text-xs text-muted-foreground">oleh {s.changedBy.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        oleh {s.changedBy.name}
+                                    </span>
                                 )}
                             </div>
                             {s.changes && (
                                 <div className="mt-1 space-y-0.5">
-                                    {Object.entries(s.changes).map(([field, diff]) => (
-                                        <div key={field} className="text-xs text-muted-foreground">
-                                            <span className="font-medium">{field}:</span>{' '}
-                                            <span className="line-through">{String(diff.from ?? '—')}</span>
-                                            {' → '}
-                                            <span>{String(diff.to ?? '—')}</span>
-                                        </div>
-                                    ))}
+                                    {Object.entries(s.changes).map(
+                                        ([field, diff]) => (
+                                            <div
+                                                key={field}
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                <span className="font-medium">
+                                                    {field}:
+                                                </span>{' '}
+                                                <span className="line-through">
+                                                    {String(diff.from ?? '—')}
+                                                </span>
+                                                {' → '}
+                                                <span>
+                                                    {String(diff.to ?? '—')}
+                                                </span>
+                                            </div>
+                                        ),
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -310,11 +393,18 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                                 <select
                                     className="w-full h-9 rounded-md border bg-background px-2 text-xs"
                                     value={docForm.category}
-                                    onChange={(e) => setDocForm({ ...docForm, category: e.target.value })}
+                                    onChange={(e) =>
+                                        setDocForm({
+                                            ...docForm,
+                                            category: e.target.value,
+                                        })
+                                    }
                                 >
                                     {EMPLOYEE_DOCUMENT_CATEGORIES.map((c) => (
                                         <option key={c} value={c}>
-                                            {employeeDocumentCategoryLabels[c] ?? c}
+                                            {employeeDocumentCategoryLabels[
+                                                c
+                                            ] ?? c}
                                         </option>
                                     ))}
                                 </select>
@@ -325,35 +415,59 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                                     className="h-9 text-xs"
                                     placeholder="KTP - Budi Santoso"
                                     value={docForm.name}
-                                    onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
+                                    onChange={(e) =>
+                                        setDocForm({
+                                            ...docForm,
+                                            name: e.target.value,
+                                        })
+                                    }
                                 />
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-[10px]">File (PDF/JPG/PNG, max 2MB)</Label>
+                            <Label className="text-[10px]">
+                                File (PDF/JPG/PNG, max 2MB)
+                            </Label>
                             <Input
                                 type="file"
                                 accept="image/*,application/pdf"
                                 className="h-9 text-xs"
-                                onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                                onChange={(e) =>
+                                    setDocFile(e.target.files?.[0] ?? null)
+                                }
                             />
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-[10px]">Catatan (opsional)</Label>
+                            <Label className="text-[10px]">
+                                Catatan (opsional)
+                            </Label>
                             <Input
                                 className="h-9 text-xs"
                                 value={docForm.notes}
-                                onChange={(e) => setDocForm({ ...docForm, notes: e.target.value })}
+                                onChange={(e) =>
+                                    setDocForm({
+                                        ...docForm,
+                                        notes: e.target.value,
+                                    })
+                                }
                             />
                         </div>
-                        <Button type="submit" size="sm" disabled={uploading || !docFile || !docForm.name.trim()}>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={
+                                uploading || !docFile || !docForm.name.trim()
+                            }
+                        >
                             {uploading ? 'Mengunggah…' : 'Unggah dokumen'}
                         </Button>
                     </form>
 
                     <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">
-                            {documents.length === 0 ? 'Belum ada dokumen.' : `${documents.length} dokumen`}
+                            {documents.length === 0
+                                ? 'Belum ada dokumen.'
+                                : `${documents.length} dokumen`}
                         </p>
                         <button
                             type="button"
@@ -364,7 +478,9 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                                 await loadDocs(next);
                             }}
                         >
-                            {showArchived ? 'Sembunyikan arsip' : 'Tampilkan arsip'}
+                            {showArchived
+                                ? 'Sembunyikan arsip'
+                                : 'Tampilkan arsip'}
                         </button>
                     </div>
                     {documents.map((d) => (
@@ -375,14 +491,20 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                             <div>
                                 <div className="font-medium">
                                     <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-muted/50 mr-1.5">
-                                        {employeeDocumentCategoryLabels[d.category] ?? d.category}
+                                        {employeeDocumentCategoryLabels[
+                                            d.category
+                                        ] ?? d.category}
                                     </span>
                                     {d.name}
                                     {d.status === 'ARCHIVED' && (
-                                        <span className="ml-1 text-[10px] text-muted-foreground">(arsip)</span>
+                                        <span className="ml-1 text-[10px] text-muted-foreground">
+                                            (arsip)
+                                        </span>
                                     )}
                                 </div>
-                                <div className="text-xs text-muted-foreground">{fmt(d.createdAt)}</div>
+                                <div className="text-xs text-muted-foreground">
+                                    {fmt(d.createdAt)}
+                                </div>
                             </div>
                             <div className="flex gap-1 shrink-0">
                                 <a
@@ -398,11 +520,19 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                                         type="button"
                                         className="text-xs text-muted-foreground hover:text-foreground"
                                         onClick={async () => {
-                                            const res = await archiveEmployeeDocument(d.id);
+                                            const res =
+                                                await archiveEmployeeDocument(
+                                                    d.id,
+                                                );
                                             if (res.success) {
-                                                toast.success('Dokumen diarsipkan');
+                                                toast.success(
+                                                    'Dokumen diarsipkan',
+                                                );
                                                 await loadDocs(showArchived);
-                                            } else toast.error(res.error || 'Gagal');
+                                            } else
+                                                toast.error(
+                                                    res.error || 'Gagal',
+                                                );
                                         }}
                                     >
                                         Arsip
@@ -412,11 +542,19 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                                         type="button"
                                         className="text-xs text-primary hover:underline"
                                         onClick={async () => {
-                                            const res = await restoreEmployeeDocument(d.id);
+                                            const res =
+                                                await restoreEmployeeDocument(
+                                                    d.id,
+                                                );
                                             if (res.success) {
-                                                toast.success('Dokumen dipulihkan');
+                                                toast.success(
+                                                    'Dokumen dipulihkan',
+                                                );
                                                 await loadDocs(showArchived);
-                                            } else toast.error(res.error || 'Gagal');
+                                            } else
+                                                toast.error(
+                                                    res.error || 'Gagal',
+                                                );
                                         }}
                                     >
                                         Pulihkan

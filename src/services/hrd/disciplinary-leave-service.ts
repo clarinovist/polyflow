@@ -36,7 +36,9 @@ export const DisciplinaryService = {
         const where: Record<string, unknown> = {};
         if (year != null && month != null) {
             const monthStart = new Date(Date.UTC(year, month - 1, 1));
-            const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+            const monthEnd = new Date(
+                Date.UTC(year, month, 0, 23, 59, 59, 999),
+            );
             where.effectiveDate = { gte: monthStart, lte: monthEnd };
         }
         const rows = await db.disciplinaryAction.findMany({
@@ -56,19 +58,25 @@ export const DisciplinaryService = {
         return {
             total: rows.length,
             activeCount,
-            byType: Array.from(byType.entries()).map(([type, count]) => ({ type, count })),
+            byType: Array.from(byType.entries()).map(([type, count]) => ({
+                type,
+                count,
+            })),
         };
     },
 
     async create(db: PrismaClient, data: DisciplinaryInput) {
-        if (!data.reason.trim()) throw new BusinessRuleError('Alasan sanksi wajib diisi');
+        if (!data.reason.trim())
+            throw new BusinessRuleError('Alasan sanksi wajib diisi');
         const employee = await db.employee.findUnique({
             where: { id: data.employeeId },
             select: { id: true, name: true, code: true },
         });
         if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
         if (data.expiryDate && data.expiryDate < data.effectiveDate) {
-            throw new BusinessRuleError('Tanggal hangus tidak boleh sebelum tanggal berlaku');
+            throw new BusinessRuleError(
+                'Tanggal hangus tidak boleh sebelum tanggal berlaku',
+            );
         }
         return db.disciplinaryAction.create({
             data: {
@@ -81,7 +89,9 @@ export const DisciplinaryService = {
                 issuedById: data.issuedById ?? null,
                 notes: data.notes?.trim() || null,
             },
-            include: { employee: { select: { id: true, name: true, code: true } } },
+            include: {
+                employee: { select: { id: true, name: true, code: true } },
+            },
         });
     },
 
@@ -108,8 +118,16 @@ export interface LeaveRequestInput {
 
 function eachUtcDateInclusive(start: Date, end: Date): Date[] {
     const dates: Date[] = [];
-    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-    const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+    const d = new Date(
+        Date.UTC(
+            start.getUTCFullYear(),
+            start.getUTCMonth(),
+            start.getUTCDate(),
+        ),
+    );
+    const last = new Date(
+        Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()),
+    );
     while (d <= last) {
         dates.push(new Date(d));
         d.setUTCDate(d.getUTCDate() + 1);
@@ -119,8 +137,16 @@ function eachUtcDateInclusive(start: Date, end: Date): Date[] {
 
 /** Inclusive calendar days between two dates (UTC day bounds). */
 export function leaveDayCount(start: Date, end: Date): number {
-    const a = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
-    const b = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+    const a = Date.UTC(
+        start.getUTCFullYear(),
+        start.getUTCMonth(),
+        start.getUTCDate(),
+    );
+    const b = Date.UTC(
+        end.getUTCFullYear(),
+        end.getUTCMonth(),
+        end.getUTCDate(),
+    );
     if (b < a) return 0;
     return Math.floor((b - a) / 86_400_000) + 1;
 }
@@ -128,7 +154,10 @@ export function leaveDayCount(start: Date, end: Date): number {
 export const LeaveService = {
     async list(
         db: PrismaClient,
-        filters?: { employeeId?: string; status?: 'PENDING' | 'APPROVED' | 'REJECTED' },
+        filters?: {
+            employeeId?: string;
+            status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+        },
     ) {
         const where: Record<string, unknown> = {};
         if (filters?.employeeId) where.employeeId = filters.employeeId;
@@ -161,7 +190,10 @@ export const LeaveService = {
             orderBy: { startDate: 'asc' },
         });
 
-        const byTypeStatus = new Map<string, { type: string; status: string; count: number; totalDays: number }>();
+        const byTypeStatus = new Map<
+            string,
+            { type: string; status: string; count: number; totalDays: number }
+        >();
         let pending = 0;
         let approved = 0;
         let rejected = 0;
@@ -170,7 +202,12 @@ export const LeaveService = {
         for (const r of rows) {
             const days = leaveDayCount(r.startDate, r.endDate);
             const key = `${r.type}|${r.status}`;
-            const existing = byTypeStatus.get(key) ?? { type: r.type, status: r.status, count: 0, totalDays: 0 };
+            const existing = byTypeStatus.get(key) ?? {
+                type: r.type,
+                status: r.status,
+                count: 0,
+                totalDays: 0,
+            };
             existing.count += 1;
             existing.totalDays += days;
             byTypeStatus.set(key, existing);
@@ -185,13 +222,21 @@ export const LeaveService = {
         return {
             rows,
             byTypeStatus: Array.from(byTypeStatus.values()),
-            totals: { pending, approved, rejected, totalDaysApproved, requestCount: rows.length },
+            totals: {
+                pending,
+                approved,
+                rejected,
+                totalDaysApproved,
+                requestCount: rows.length,
+            },
         };
     },
 
     async create(db: PrismaClient, data: LeaveRequestInput) {
         if (data.endDate < data.startDate) {
-            throw new BusinessRuleError('Tanggal selesai tidak boleh sebelum tanggal mulai');
+            throw new BusinessRuleError(
+                'Tanggal selesai tidak boleh sebelum tanggal mulai',
+            );
         }
         const employee = await db.employee.findUnique({
             where: { id: data.employeeId },
@@ -217,10 +262,16 @@ export const LeaveService = {
      * - Creates one ON_LEAVE record per day (using first ACTIVE WorkShift) when missing
      * Attendance create is best-effort if no WorkShift master exists.
      */
-    async approve(db: PrismaClient, id: string, reviewNotes: string | undefined, reviewedById: string) {
+    async approve(
+        db: PrismaClient,
+        id: string,
+        reviewNotes: string | undefined,
+        reviewedById: string,
+    ) {
         const req = await db.leaveRequest.findUnique({ where: { id } });
         if (!req) throw new NotFoundError('Pengajuan cuti tidak ditemukan');
-        if (req.status !== 'PENDING') throw new BusinessRuleError('Pengajuan sudah diproses');
+        if (req.status !== 'PENDING')
+            throw new BusinessRuleError('Pengajuan sudah diproses');
 
         return db.$transaction(async (tx) => {
             const updated = await tx.leaveRequest.update({
@@ -280,10 +331,16 @@ export const LeaveService = {
         });
     },
 
-    async reject(db: PrismaClient, id: string, reviewNotes: string | undefined, reviewedById: string) {
+    async reject(
+        db: PrismaClient,
+        id: string,
+        reviewNotes: string | undefined,
+        reviewedById: string,
+    ) {
         const req = await db.leaveRequest.findUnique({ where: { id } });
         if (!req) throw new NotFoundError('Pengajuan cuti tidak ditemukan');
-        if (req.status !== 'PENDING') throw new BusinessRuleError('Pengajuan sudah diproses');
+        if (req.status !== 'PENDING')
+            throw new BusinessRuleError('Pengajuan sudah diproses');
         return db.leaveRequest.update({
             where: { id },
             data: {

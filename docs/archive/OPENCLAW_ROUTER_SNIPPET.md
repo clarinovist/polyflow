@@ -9,6 +9,7 @@ Tujuan: memisahkan jalur command legacy Telegram dan jalur Virtual CS Polyflow s
 ## Routing Rule
 
 1. Jika pesan cocok command legacy berikut, jalankan script lama apa adanya:
+
 - `/stok`
 - `/stok_kritis`
 - `/produksi_aktif`
@@ -17,6 +18,7 @@ Tujuan: memisahkan jalur command legacy Telegram dan jalur Virtual CS Polyflow s
 - `/finance_summary`
 
 2. Jika bukan command legacy, arahkan ke bridge Virtual CS:
+
 - `node scripts/openclaw_polyflow_bridge.mjs "<question>" "<requesterName?>"`
 
 ## Kenapa Penting

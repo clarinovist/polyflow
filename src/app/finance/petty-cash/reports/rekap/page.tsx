@@ -4,13 +4,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDailyPettyCashReportAction } from '@/actions/finance/petty-cash-report-actions';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Printer, CalendarIcon } from 'lucide-react';
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils/utils";
-import { format, subDays } from "date-fns";
-import { id as localeID } from "date-fns/locale";
-import { formatWibDate } from "@/lib/utils/timezone";
-import Link from "next/link";
+import { Calendar } from '@/components/ui/calendar';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils/utils';
+import { format, subDays } from 'date-fns';
+import { id as localeID } from 'date-fns/locale';
+import { formatWibDate } from '@/lib/utils/timezone';
+import Link from 'next/link';
 
 interface Transaction {
     id: string;
@@ -58,7 +62,7 @@ export default function RekapKasPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const dateStr = format(date, "yyyy-MM-dd");
+            const dateStr = format(date, 'yyyy-MM-dd');
             const result = await getDailyPettyCashReportAction(dateStr);
             if (result && 'success' in result && result.success) {
                 setData(result.data as unknown as ReportData);
@@ -66,7 +70,7 @@ export default function RekapKasPage() {
                 setData(null);
             }
         } catch (error) {
-            console.error("Failed to load report data", error);
+            console.error('Failed to load report data', error);
             setData(null);
         } finally {
             setLoading(false);
@@ -105,10 +109,10 @@ export default function RekapKasPage() {
         });
 
         // Filter posted transactions
-        const posted = data.transactions.filter(t => t.status === 'POSTED');
+        const posted = data.transactions.filter((t) => t.status === 'POSTED');
 
         // 2) Cash inflows (REPLENISHMENT → Debit / BKM)
-        const inflows = posted.filter(t => t.type === 'REPLENISHMENT');
+        const inflows = posted.filter((t) => t.type === 'REPLENISHMENT');
         inflows.forEach((t, i) => {
             const amt = Number(t.amount);
             runningBalance += amt;
@@ -125,7 +129,7 @@ export default function RekapKasPage() {
         });
 
         // 3) Cash outflows (EXPENSE → Credit / BKK)
-        const outflows = posted.filter(t => t.type === 'EXPENSE');
+        const outflows = posted.filter((t) => t.type === 'EXPENSE');
         outflows.forEach((t, i) => {
             const amt = Number(t.amount);
             runningBalance -= amt;
@@ -149,7 +153,9 @@ export default function RekapKasPage() {
     return (
         <div>
             {/* Print styles */}
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
                 @media print {
                     aside, header, .h-16.lg\\\\\\\\:hidden, .print\\\\\\\\:hidden, button, .no-print, nav {
                         display: none !important;
@@ -173,23 +179,36 @@ export default function RekapKasPage() {
                         max-width: 100% !important;
                     }
                 }
-            `}} />
+            `,
+                }}
+            />
 
             {/* Controls (hidden on print) */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 print:hidden">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Rekap Pemasukan & Pengeluaran Kas</h1>
-                    <p className="text-muted-foreground">Cash opname kas kecil harian dengan detail transaksi</p>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Rekap Pemasukan & Pengeluaran Kas
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Cash opname kas kecil harian dengan detail transaksi
+                    </p>
                 </div>
                 <div className="flex gap-2 items-center">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
                                 variant="outline"
-                                className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                                className={cn(
+                                    'w-[240px] justify-start text-left font-normal',
+                                    !date && 'text-muted-foreground',
+                                )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {date ? format(date, "PPP") : <span>Pilih tanggal</span>}
+                                {date ? (
+                                    format(date, 'PPP')
+                                ) : (
+                                    <span>Pilih tanggal</span>
+                                )}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
@@ -204,10 +223,21 @@ export default function RekapKasPage() {
                             />
                         </PopoverContent>
                     </Popover>
-                    <Button variant="outline" size="icon" onClick={fetchData} title="Refresh">
-                        <RotateCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={fetchData}
+                        title="Refresh"
+                    >
+                        <RotateCw
+                            className={cn('h-4 w-4', loading && 'animate-spin')}
+                        />
                     </Button>
-                    <Button className="gap-2 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-400 dark:hover:bg-purple-300 dark:text-gray-900" onClick={handlePrint} disabled={loading || !data}>
+                    <Button
+                        className="gap-2 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-400 dark:hover:bg-purple-300 dark:text-gray-900"
+                        onClick={handlePrint}
+                        disabled={loading || !data}
+                    >
                         <Printer className="h-4 w-4" />
                         Cetak
                     </Button>
@@ -241,10 +271,16 @@ export default function RekapKasPage() {
                     {/* ===== TOTAL DEBIT / KREDIT SUMMARY ===== */}
                     <div className="flex justify-between text-sm font-semibold mb-4 px-2">
                         <div className="text-gray-900 dark:text-gray-100">
-                            Total Pemasukan (Debit) : <span className="font-mono">{formatNumber(data.totalIn)}</span>
+                            Total Pemasukan (Debit) :{' '}
+                            <span className="font-mono">
+                                {formatNumber(data.totalIn)}
+                            </span>
                         </div>
                         <div className="text-gray-900 dark:text-gray-100">
-                            Total Pengeluaran (Kredit) : <span className="font-mono">{formatNumber(data.totalOut)}</span>
+                            Total Pengeluaran (Kredit) :{' '}
+                            <span className="font-mono">
+                                {formatNumber(data.totalOut)}
+                            </span>
                         </div>
                     </div>
 
@@ -253,13 +289,27 @@ export default function RekapKasPage() {
                         <table className="w-full border-collapse text-sm">
                             <thead>
                                 <tr className="border border-black dark:border-gray-600">
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-24 text-gray-900 dark:text-gray-100">TANGGAL</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-28 text-gray-900 dark:text-gray-100">NO INV/ NO PO</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-32 text-gray-900 dark:text-gray-100">NOMOR BUKTI TRANSAKSI</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">MEMO</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">DEBIT</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">KREDIT</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-36 text-gray-900 dark:text-gray-100">SALDO</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-24 text-gray-900 dark:text-gray-100">
+                                        TANGGAL
+                                    </th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-28 text-gray-900 dark:text-gray-100">
+                                        NO INV/ NO PO
+                                    </th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-32 text-gray-900 dark:text-gray-100">
+                                        NOMOR BUKTI TRANSAKSI
+                                    </th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">
+                                        MEMO
+                                    </th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
+                                        DEBIT
+                                    </th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
+                                        KREDIT
+                                    </th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-36 text-gray-900 dark:text-gray-100">
+                                        SALDO
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -269,8 +319,9 @@ export default function RekapKasPage() {
                                         <tr
                                             key={i}
                                             className={cn(
-                                                "border border-black dark:border-gray-600",
-                                                isOpening && "bg-gray-50 dark:bg-gray-800 font-semibold"
+                                                'border border-black dark:border-gray-600',
+                                                isOpening &&
+                                                    'bg-gray-50 dark:bg-gray-800 font-semibold',
                                             )}
                                         >
                                             <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
@@ -280,7 +331,8 @@ export default function RekapKasPage() {
                                                 {row.noInv}
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
-                                                {row.id !== 'opening' && row.voucherNumber ? (
+                                                {row.id !== 'opening' &&
+                                                row.voucherNumber ? (
                                                     <Link
                                                         href="/finance/petty-cash"
                                                         className="text-blue-600 dark:text-blue-400 hover:underline"
@@ -296,13 +348,19 @@ export default function RekapKasPage() {
                                                 {row.memo}
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                                                {row.debit > 0 ? formatNumber(row.debit) : ''}
+                                                {row.debit > 0
+                                                    ? formatNumber(row.debit)
+                                                    : ''}
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                                                {row.credit > 0 ? formatNumber(row.credit) : ''}
+                                                {row.credit > 0
+                                                    ? formatNumber(row.credit)
+                                                    : ''}
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono font-semibold text-gray-800 dark:text-gray-200">
-                                                {formatNumber(row.runningBalance)}
+                                                {formatNumber(
+                                                    row.runningBalance,
+                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -310,15 +368,22 @@ export default function RekapKasPage() {
 
                                 {ledgerRows.length <= 1 && (
                                     <tr className="border border-black dark:border-gray-600">
-                                        <td colSpan={7} className="border border-black dark:border-gray-600 px-2 py-3 text-center text-muted-foreground italic">
-                                            Tidak ada transaksi terposting pada tanggal ini
+                                        <td
+                                            colSpan={7}
+                                            className="border border-black dark:border-gray-600 px-2 py-3 text-center text-muted-foreground italic"
+                                        >
+                                            Tidak ada transaksi terposting pada
+                                            tanggal ini
                                         </td>
                                     </tr>
                                 )}
 
                                 {/* Summary row */}
                                 <tr className="border border-black dark:border-gray-600 font-bold bg-gray-50 dark:bg-gray-800">
-                                    <td colSpan={4} className="border border-black dark:border-gray-600 px-2 py-1.5 text-right text-gray-900 dark:text-gray-100">
+                                    <td
+                                        colSpan={4}
+                                        className="border border-black dark:border-gray-600 px-2 py-1.5 text-right text-gray-900 dark:text-gray-100"
+                                    >
                                         TOTAL :
                                     </td>
                                     <td className="border border-black dark:border-gray-600 px-2 py-1.5 text-right font-mono text-gray-900 dark:text-gray-100">
@@ -338,11 +403,14 @@ export default function RekapKasPage() {
                     {/* ===== VERIFICATION FORMULA ===== */}
                     <div className="mb-8 text-sm text-gray-700 dark:text-gray-300">
                         <p>
-                            Saldo Awal ({formatNumber(data.openingBalance)}) + Total Debit ({formatNumber(data.totalIn)}) - Total Kredit ({formatNumber(data.totalOut)}) = <strong className="font-mono">{formatNumber(data.closingBalance)}</strong>
+                            Saldo Awal ({formatNumber(data.openingBalance)}) +
+                            Total Debit ({formatNumber(data.totalIn)}) - Total
+                            Kredit ({formatNumber(data.totalOut)}) ={' '}
+                            <strong className="font-mono">
+                                {formatNumber(data.closingBalance)}
+                            </strong>
                         </p>
                     </div>
-
-
                 </div>
             )}
         </div>

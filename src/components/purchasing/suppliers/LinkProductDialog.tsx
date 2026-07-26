@@ -64,7 +64,10 @@ interface Variant {
     };
 }
 
-export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialogProps) {
+export function LinkProductDialog({
+    supplierId,
+    supplierName,
+}: LinkProductDialogProps) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [variants, setVariants] = useState<Variant[]>([]);
@@ -87,7 +90,10 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
             setIsFetchingVariants(true);
             getVariants().then((res) => {
                 if (!res.success) {
-                    toast.error(res.error || 'Gagal memuat varian produk. Silakan coba lagi.');
+                    toast.error(
+                        res.error ||
+                            'Gagal memuat varian produk. Silakan coba lagi.',
+                    );
                     setIsFetchingVariants(false);
                     return;
                 }
@@ -124,7 +130,10 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                     notes: '',
                 });
             } else {
-                toast.error(result.error || 'Gagal menautkan produk. Silakan coba lagi.');
+                toast.error(
+                    result.error ||
+                        'Gagal menautkan produk. Silakan coba lagi.',
+                );
             }
         } catch (_error) {
             toast.error('Gagal menghubungkan produk. Silakan coba lagi.');
@@ -150,23 +159,40 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-4 py-4"
+                    >
                         <FormField
                             control={form.control}
                             name="productVariantId"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Varian Produk</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                    >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder={isFetchingVariants ? "Memuat..." : "Pilih varian produk"} />
+                                                <SelectValue
+                                                    placeholder={
+                                                        isFetchingVariants
+                                                            ? 'Memuat...'
+                                                            : 'Pilih varian produk'
+                                                    }
+                                                />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
                                             {variants.map((variant) => (
-                                                <SelectItem key={variant.id} value={variant.id}>
-                                                    {variant.skuCode} - {variant.product.name} ({variant.name})
+                                                <SelectItem
+                                                    key={variant.id}
+                                                    value={variant.id}
+                                                >
+                                                    {variant.skuCode} -{' '}
+                                                    {variant.product.name} (
+                                                    {variant.name})
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -184,7 +210,11 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                                     <FormItem>
                                         <FormLabel>Harga Pembelian</FormLabel>
                                         <FormControl>
-                                            <Input type="number" step="0.01" {...field} />
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -211,9 +241,15 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                             name="minOrderQty"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{purchasingLabels.minOrderQty}</FormLabel>
+                                    <FormLabel>
+                                        {purchasingLabels.minOrderQty}
+                                    </FormLabel>
                                     <FormControl>
-                                        <Input type="number" step="0.01" {...field} />
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -235,9 +271,14 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                                     <div className="flex items-center gap-2 flex-1">
                                         <Star className="h-4 w-4 text-amber-500" />
                                         <div className="space-y-0.5 leading-none">
-                                            <FormLabel className="text-sm font-medium">{purchasingLabels.preferredSupplier}</FormLabel>
+                                            <FormLabel className="text-sm font-medium">
+                                                {
+                                                    purchasingLabels.preferredSupplier
+                                                }
+                                            </FormLabel>
                                             <FormDescription className="text-xs text-muted-foreground">
-                                                Atur sebagai supplier utama untuk varian produk ini.
+                                                Atur sebagai supplier utama
+                                                untuk varian produk ini.
                                             </FormDescription>
                                         </div>
                                     </div>
@@ -252,7 +293,10 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                                 <FormItem>
                                     <FormLabel>{formLabels.notes}</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Ketentuan khusus atau catatan..." {...field} />
+                                        <Textarea
+                                            placeholder="Ketentuan khusus atau catatan..."
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -260,7 +304,11 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                         />
 
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setOpen(false)}
+                            >
                                 {actionLabels.cancel}
                             </Button>
                             <Button type="submit" disabled={isLoading}>

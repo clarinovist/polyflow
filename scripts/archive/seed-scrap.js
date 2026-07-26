@@ -1,4 +1,3 @@
-
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { PrismaClient, ProductType, Unit } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -13,7 +12,7 @@ async function main() {
             skuCode: 'SCRAP-PRONGKOL',
             price: 2000,
             sellPrice: 3000,
-            attributes: { type: 'Lumps', material: 'Mixed' }
+            attributes: { type: 'Lumps', material: 'Mixed' },
         },
         {
             productName: 'Affal Daun',
@@ -21,13 +20,13 @@ async function main() {
             skuCode: 'SCRAP-DAUN',
             price: 1500,
             sellPrice: 2000,
-            attributes: { type: 'Trim', material: 'Mixed' }
-        }
+            attributes: { type: 'Trim', material: 'Mixed' },
+        },
     ];
 
     for (const scrap of scrapTypes) {
         const existing = await prisma.productVariant.findUnique({
-            where: { skuCode: scrap.skuCode }
+            where: { skuCode: scrap.skuCode },
         });
 
         if (!existing) {
@@ -59,5 +58,5 @@ async function main() {
 }
 
 main()
-    .catch(e => console.error(e))
+    .catch((e) => console.error(e))
     .finally(async () => await prisma.$disconnect());

@@ -13,7 +13,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
     maxRetries: 3,
     baseDelayMs: 1000,
     maxDelayMs: 10000,
-    shouldRetry: () => true
+    shouldRetry: () => true,
 };
 
 /**
@@ -26,7 +26,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
  */
 export async function withRetry<T>(
     operation: () => Promise<T>,
-    options: RetryOptions = {}
+    options: RetryOptions = {},
 ): Promise<T> {
     const config = { ...DEFAULT_OPTIONS, ...options };
     let attempt = 0;
@@ -36,7 +36,7 @@ export async function withRetry<T>(
             return await operation();
         } catch (error) {
             attempt++;
-            
+
             if (attempt > config.maxRetries || !config.shouldRetry(error)) {
                 throw error;
             }
@@ -45,13 +45,16 @@ export async function withRetry<T>(
             // with a little bit of jitter to avoid thunder herd problems
             const backoff = Math.min(
                 config.baseDelayMs * Math.pow(2, attempt - 1),
-                config.maxDelayMs
+                config.maxDelayMs,
             );
-            
+
             const jitter = Math.random() * 200; // ± 200ms
             const waitTime = backoff + jitter;
 
-            console.warn(`[RetryUtil] Operation failed. Retrying attempt ${attempt}/${config.maxRetries} in ${Math.round(waitTime)}ms...`, error);
+            console.warn(
+                `[RetryUtil] Operation failed. Retrying attempt ${attempt}/${config.maxRetries} in ${Math.round(waitTime)}ms...`,
+                error,
+            );
 
             await new Promise((resolve) => setTimeout(resolve, waitTime));
         }

@@ -1,8 +1,8 @@
-"use server";
+'use server';
 
-import { prisma, getMainPrisma, getTenantDb } from "@/lib/core/prisma";
-import { auth } from "@/auth";
-import { AuthorizationError } from "@/lib/errors/errors";
+import { prisma, getMainPrisma, getTenantDb } from '@/lib/core/prisma';
+import { auth } from '@/auth';
+import { AuthorizationError } from '@/lib/errors/errors';
 
 export interface CrossTenantAuditLog {
     id: string;
@@ -51,21 +51,34 @@ export async function getCrossTenantAuditLogs({
 }: GetCrossTenantAuditLogsParams = {}) {
     const session = await auth();
     if (!session?.user || !session.user.isSuperAdmin) {
-        throw new AuthorizationError("Super Admin access required.");
+        throw new AuthorizationError('Super Admin access required.');
     }
 
     // Pull up to this many rows from each DB so we can merge & paginate in-app.
     const FETCH_PER_SOURCE = 200;
 
     // 1. Always include platform-level logs from main DB (provisioning, etc.)
-    type Source = { tenantId: string | null; tenantName: string | null; tenantSubdomain: string | null; db: typeof prisma };
-    const sources: Source[] = [{ tenantId: null, tenantName: null, tenantSubdomain: null, db: getMainPrisma() }];
+    type Source = {
+        tenantId: string | null;
+        tenantName: string | null;
+        tenantSubdomain: string | null;
+        db: typeof prisma;
+    };
+    const sources: Source[] = [
+        {
+            tenantId: null,
+            tenantName: null,
+            tenantSubdomain: null,
+            db: getMainPrisma(),
+        },
+    ];
 
     // 2. Add every tenant DB (unless filtered to main-only).
     if (tenantId !== 'main') {
-        const tenantList = tenantId && tenantId !== 'main'
-            ? await prisma.tenant.findMany({ where: { id: tenantId } })
-            : await prisma.tenant.findMany();
+        const tenantList =
+            tenantId && tenantId !== 'main'
+                ? await prisma.tenant.findMany({ where: { id: tenantId } })
+                : await prisma.tenant.findMany();
         for (const t of tenantList) {
             if (!t.dbUrl) continue;
             try {
@@ -106,7 +119,7 @@ export async function getCrossTenantAuditLogs({
                 tenantName: src.tenantName ?? undefined,
                 tenantSubdomain: src.tenantSubdomain ?? undefined,
             })) as CrossTenantAuditLog[];
-        })
+        }),
     );
 
     // 4. Merge, sort, paginate
@@ -126,7 +139,12 @@ export async function getCrossTenantAuditLogs({
 
     return {
         logs: paged,
-        pagination: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) },
+        pagination: {
+            total,
+            page,
+            limit,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
     };
 }
 
@@ -136,35 +154,71 @@ export async function getCrossTenantAuditLogs({
 export async function getCrossTenantAuditLogStats() {
     const session = await auth();
     if (!session?.user || !session.user.isSuperAdmin) {
-        throw new AuthorizationError("Super Admin access required.");
+        throw new AuthorizationError('Super Admin access required.');
     }
 
     const mainPrisma = getMainPrisma();
     const tenants = await prisma.tenant.findMany();
-    const dbs = [mainPrisma, ...tenants.filter(t => t.dbUrl).map(t => {
-        try { return getTenantDb(t.dbUrl!); } catch { return null; }
-    })].filter(Boolean) as typeof prisma[];
+    const dbs = [
+        mainPrisma,
+        ...tenants
+            .filter((t) => t.dbUrl)
+            .map((t) => {
+                try {
+                    return getTenantDb(t.dbUrl!);
+                } catch {
+                    return null;
+                }
+            }),
+    ].filter(Boolean) as (typeof prisma)[];
 
     const [actionLists, entityLists] = await Promise.all([
-        Promise.allSettled(dbs.map(db => db.auditLog.groupBy({ by: ['action'], _count: { action: true } }))),
-        Promise.allSettled(dbs.map(db => db.auditLog.groupBy({ by: ['entityType'], _count: { entityType: true } }))),
+        Promise.allSettled(
+            dbs.map((db) =>
+                db.auditLog.groupBy({
+                    by: ['action'],
+                    _count: { action: true },
+                }),
+            ),
+        ),
+        Promise.allSettled(
+            dbs.map((db) =>
+                db.auditLog.groupBy({
+                    by: ['entityType'],
+                    _count: { entityType: true },
+                }),
+            ),
+        ),
     ]);
 
     const actionsMap = new Map<string, number>();
     for (const r of actionLists) {
-        if (r.status === 'fulfilled') for (const s of r.value) {
-            actionsMap.set(s.action, (actionsMap.get(s.action) ?? 0) + s._count.action);
-        }
+        if (r.status === 'fulfilled')
+            for (const s of r.value) {
+                actionsMap.set(
+                    s.action,
+                    (actionsMap.get(s.action) ?? 0) + s._count.action,
+                );
+            }
     }
     const entitiesMap = new Map<string, number>();
     for (const r of entityLists) {
-        if (r.status === 'fulfilled') for (const s of r.value) {
-            entitiesMap.set(s.entityType, (entitiesMap.get(s.entityType) ?? 0) + s._count.entityType);
-        }
+        if (r.status === 'fulfilled')
+            for (const s of r.value) {
+                entitiesMap.set(
+                    s.entityType,
+                    (entitiesMap.get(s.entityType) ?? 0) + s._count.entityType,
+                );
+            }
     }
 
     return {
-        actions: Array.from(actionsMap.entries()).map(([action, count]) => ({ action, count })),
-        entities: Array.from(entitiesMap.entries()).map(([entityType, count]) => ({ entityType, count })),
+        actions: Array.from(actionsMap.entries()).map(([action, count]) => ({
+            action,
+            count,
+        })),
+        entities: Array.from(entitiesMap.entries()).map(
+            ([entityType, count]) => ({ entityType, count }),
+        ),
     };
 }

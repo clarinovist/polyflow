@@ -39,9 +39,9 @@ graph TB
 
 - **Server Components by default** - Reduced client-side JavaScript
 - **Client Components** (`"use client"`) only when needed:
-  - Forms with interactivity
-  - State management (useState, useContext)
-  - Browser APIs (localStorage, etc.)
+    - Forms with interactivity
+    - State management (useState, useContext)
+    - Browser APIs (localStorage, etc.)
 - **File-based routing** via Next.js App Router
 
 **Example Structure**:
@@ -91,28 +91,28 @@ graph TB
 **Pattern**:
 
 ```typescript
-"use server";
+'use server';
 
 export async function transferStock(data: TransferStockValues) {
-  // 1. Validation
-  const result = transferStockSchema.safeParse(data);
-  if (!result.success) {
-    return { success: false, error: result.error.issues[0].message };
-  }
+    // 1. Validation
+    const result = transferStockSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
 
-  // 2. Business logic + Database transaction
-  try {
-    await prisma.$transaction(async (tx) => {
-      // ... atomic operations
-    });
+    // 2. Business logic + Database transaction
+    try {
+        await prisma.$transaction(async (tx) => {
+            // ... atomic operations
+        });
 
-    // 3. Cache invalidation
-    revalidatePath("/dashboard/inventory");
+        // 3. Cache invalidation
+        revalidatePath('/dashboard/inventory');
 
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
 }
 ```
 
@@ -138,17 +138,17 @@ export async function transferStock(data: TransferStockValues) {
 **Singleton Pattern** (`/src/lib/prisma.ts`):
 
 ```typescript
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: ["query", "error", "warn"],
-  });
+    globalForPrisma.prisma ||
+    new PrismaClient({
+        log: ['query', 'error', 'warn'],
+    });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 ```
 
 **Benefits**:
@@ -353,11 +353,11 @@ PolyFlow is **multi-tenant with database-per-tenant** isolation.
 
 **Hosts**:
 
-| Host                     | Purpose                                             |
-| ------------------------ | --------------------------------------------------- |
-| `polyflow.uk`            | Public landing page (no login form)                 |
-| `<tenant>.polyflow.uk`   | Tenant ERP workspace (e.g. `kiyowo.polyflow.uk`)    |
-| `admin.polyflow.uk`      | Superadmin panel only                               |
+| Host                   | Purpose                                          |
+| ---------------------- | ------------------------------------------------ |
+| `polyflow.uk`          | Public landing page (no login form)              |
+| `<tenant>.polyflow.uk` | Tenant ERP workspace (e.g. `kiyowo.polyflow.uk`) |
+| `admin.polyflow.uk`    | Superadmin panel only                            |
 
 **Superadmin panel**: served on `admin.polyflow.uk`. The short URL
 `admin.polyflow.uk/super-admin` is rewritten internally (by `proxy.ts`) to the
@@ -512,33 +512,33 @@ POSTGRES_PASSWORD=...
 
 1. **Install dependencies**:
 
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 2. **Set up database**:
 
-   ```bash
-   npx prisma@5.22.0 migrate dev
-   npx prisma@5.22.0 db seed
-   ```
+    ```bash
+    npx prisma@5.22.0 migrate dev
+    npx prisma@5.22.0 db seed
+    ```
 
 3. **Run dev server**:
 
-   ```bash
-   npm run dev
-   ```
+    ```bash
+    npm run dev
+    ```
 
 4. **Generate Prisma Client** (after schema changes):
 
-   ```bash
-   npx prisma@5.22.0 generate
-   ```
+    ```bash
+    npx prisma@5.22.0 generate
+    ```
 
 5. **Create migration** (after schema changes):
-   ```bash
-   npx prisma@5.22.0 migrate dev --name add_batch_tracking
-   ```
+    ```bash
+    npx prisma@5.22.0 migrate dev --name add_batch_tracking
+    ```
 
 ### Code Quality Tools
 
@@ -605,14 +605,14 @@ polyflow/
 
 1. **Modify schema**: Edit `prisma/schema.prisma`
 2. **Create migration**:
-   ```bash
-   npx prisma@5.22.0 migrate dev --name add_batch_model
-   ```
+    ```bash
+    npx prisma@5.22.0 migrate dev --name add_batch_model
+    ```
 3. **Review SQL**: Check `prisma/migrations/<timestamp>_add_batch_model/migration.sql`
 4. **Apply to production**:
-   ```bash
-   npx prisma@5.22.0 migrate deploy
-   ```
+    ```bash
+    npx prisma@5.22.0 migrate deploy
+    ```
 
 **Important**:
 
@@ -683,14 +683,14 @@ PolyFlow serves a single business timezone: **`Asia/Jakarta` (WIB, UTC+7)**. The
 
 **Helpers** — always use `src/lib/utils/timezone.ts`; never `setHours()` or raw `new Date(y,m,d)` for business dates:
 
-| Concern | Helper |
-|---------|--------|
-| Store a date-picker value as `entryDate` | `normalizeToBusinessDay(date)` → WIB-midnight UTC instant |
-| Convert a `YYYY-MM-DD` string to `entryDate` | `businessDateToEntryDate(str)` |
-| Inclusive day filter for a single day | `getWibDayBounds(str)` → `{ startOfDay, endOfDay }` |
-| Inclusive filter for a report range | `wibRangeBounds(start?, end?)` → `{ gte?, lte? }` |
-| Extract the WIB `YYYY-MM-DD` from an instant | `toBusinessDateString(date)` |
-| Display an instant as a WIB date | `formatWibDate(date)` / `formatWIB(date, pattern)` |
+| Concern                                      | Helper                                                    |
+| -------------------------------------------- | --------------------------------------------------------- |
+| Store a date-picker value as `entryDate`     | `normalizeToBusinessDay(date)` → WIB-midnight UTC instant |
+| Convert a `YYYY-MM-DD` string to `entryDate` | `businessDateToEntryDate(str)`                            |
+| Inclusive day filter for a single day        | `getWibDayBounds(str)` → `{ startOfDay, endOfDay }`       |
+| Inclusive filter for a report range          | `wibRangeBounds(start?, end?)` → `{ gte?, lte? }`         |
+| Extract the WIB `YYYY-MM-DD` from an instant | `toBusinessDateString(date)`                              |
+| Display an instant as a WIB date             | `formatWibDate(date)` / `formatWIB(date, pattern)`        |
 
 **Conventions**:
 
@@ -732,10 +732,10 @@ src/services/
 
 ```typescript
 // src/actions/production.ts
-import { ProductionService } from "@/services/production-service";
+import { ProductionService } from '@/services/production-service';
 
 export async function startExecution(orderId: string) {
-  return await ProductionService.startOrder(orderId);
+    return await ProductionService.startOrder(orderId);
 }
 ```
 

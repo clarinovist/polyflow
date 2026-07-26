@@ -9,12 +9,12 @@ export const DEFAULT_PPN_PERCENT = 11;
 export type PpnMode = 'INCLUDE' | 'EXCLUDE';
 
 export interface PpnCalculation {
-  /** Harga sebelum PPN (Dasar Pengenaan Pajak) */
-  dpp: number;
-  /** Jumlah PPN */
-  taxAmount: number;
-  /** Total harga termasuk PPN */
-  total: number;
+    /** Harga sebelum PPN (Dasar Pengenaan Pajak) */
+    dpp: number;
+    /** Jumlah PPN */
+    taxAmount: number;
+    /** Total harga termasuk PPN */
+    total: number;
 }
 
 /**
@@ -35,32 +35,32 @@ export interface PpnCalculation {
  * // → { dpp: 1000000, taxAmount: 110000, total: 1110000 }
  */
 export function calculatePpn(
-  subtotal: number,
-  taxPercent: number = DEFAULT_PPN_PERCENT,
-  ppnMode: PpnMode = 'EXCLUDE'
+    subtotal: number,
+    taxPercent: number = DEFAULT_PPN_PERCENT,
+    ppnMode: PpnMode = 'EXCLUDE',
 ): PpnCalculation {
-  if (subtotal <= 0) {
-    return { dpp: 0, taxAmount: 0, total: 0 };
-  }
+    if (subtotal <= 0) {
+        return { dpp: 0, taxAmount: 0, total: 0 };
+    }
 
-  if (taxPercent <= 0) {
-    return { dpp: subtotal, taxAmount: 0, total: subtotal };
-  }
+    if (taxPercent <= 0) {
+        return { dpp: subtotal, taxAmount: 0, total: subtotal };
+    }
 
-  if (ppnMode === 'INCLUDE') {
-    // Harga sudah termasuk PPN
-    // Contoh: Harga Rp 111.000 → DPP Rp 100.000, PPN Rp 11.000
-    const dpp = Math.round((subtotal / (1 + taxPercent / 100)) * 100) / 100;
-    const taxAmount = Math.round((subtotal - dpp) * 100) / 100;
-    return { dpp, taxAmount, total: subtotal };
-  } else {
-    // Harga belum termasuk PPN (default)
-    // Contoh: Harga Rp 100.000 → PPN Rp 11.000, Total Rp 111.000
-    const dpp = subtotal;
-    const taxAmount = Math.round((subtotal * (taxPercent / 100)) * 100) / 100;
-    const total = Math.round((subtotal + taxAmount) * 100) / 100;
-    return { dpp, taxAmount, total };
-  }
+    if (ppnMode === 'INCLUDE') {
+        // Harga sudah termasuk PPN
+        // Contoh: Harga Rp 111.000 → DPP Rp 100.000, PPN Rp 11.000
+        const dpp = Math.round((subtotal / (1 + taxPercent / 100)) * 100) / 100;
+        const taxAmount = Math.round((subtotal - dpp) * 100) / 100;
+        return { dpp, taxAmount, total: subtotal };
+    } else {
+        // Harga belum termasuk PPN (default)
+        // Contoh: Harga Rp 100.000 → PPN Rp 11.000, Total Rp 111.000
+        const dpp = subtotal;
+        const taxAmount = Math.round(subtotal * (taxPercent / 100) * 100) / 100;
+        const total = Math.round((subtotal + taxAmount) * 100) / 100;
+        return { dpp, taxAmount, total };
+    }
 }
 
 /**
@@ -70,8 +70,11 @@ export function calculatePpn(
  * @param taxPercent - Persentase PPN (default 11%)
  * @returns DPP (harga tanpa PPN)
  */
-export function extractDppFromInclude(priceIncludePpn: number, taxPercent: number = DEFAULT_PPN_PERCENT): number {
-  return Math.round((priceIncludePpn / (1 + taxPercent / 100)) * 100) / 100;
+export function extractDppFromInclude(
+    priceIncludePpn: number,
+    taxPercent: number = DEFAULT_PPN_PERCENT,
+): number {
+    return Math.round((priceIncludePpn / (1 + taxPercent / 100)) * 100) / 100;
 }
 
 /**
@@ -81,6 +84,9 @@ export function extractDppFromInclude(priceIncludePpn: number, taxPercent: numbe
  * @param taxPercent - Persentase PPN (default 11%)
  * @returns Jumlah PPN
  */
-export function calculateTaxFromDpp(dpp: number, taxPercent: number = DEFAULT_PPN_PERCENT): number {
-  return Math.round((dpp * (taxPercent / 100)) * 100) / 100;
+export function calculateTaxFromDpp(
+    dpp: number,
+    taxPercent: number = DEFAULT_PPN_PERCENT,
+): number {
+    return Math.round(dpp * (taxPercent / 100) * 100) / 100;
 }

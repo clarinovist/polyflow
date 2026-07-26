@@ -1,18 +1,40 @@
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { ExtendedProductionOrder } from './types';
 import { Location } from '@prisma/client';
 import { recordScrap } from '@/actions/production/production';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Trash2 } from 'lucide-react';
-import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
+import {
+    BrandCard,
+    BrandCardContent,
+    BrandCardHeader,
+} from '@/components/brand/BrandCard';
 import { productionComponentLabels } from '@/lib/labels';
 
-export function RecordScrapDialog({ order, locations }: { order: ExtendedProductionOrder, locations: Location[] }) {
+export function RecordScrapDialog({
+    order,
+    locations,
+}: {
+    order: ExtendedProductionOrder;
+    locations: Location[];
+}) {
     const [open, setOpen] = useState(false);
     const [isPending, setIsPending] = useState(false);
 
@@ -25,7 +47,7 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
             productVariantId: formData.get('productVariantId') as string,
             locationId: formData.get('locationId') as string,
             quantity: Number(formData.get('quantity')),
-            reason: formData.get('reason') as string
+            reason: formData.get('reason') as string,
         };
 
         try {
@@ -46,9 +68,17 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button variant="destructive" size="sm">{productionComponentLabels.recordScrap}</Button></DialogTrigger>
+            <DialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                    {productionComponentLabels.recordScrap}
+                </Button>
+            </DialogTrigger>
             <DialogContent>
-                <DialogHeader><DialogTitle>{productionComponentLabels.recordScrap}</DialogTitle></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle>
+                        {productionComponentLabels.recordScrap}
+                    </DialogTitle>
+                </DialogHeader>
                 <form onSubmit={onSubmit}>
                     <BrandCard variant="default" className="mt-4 shadow-brand">
                         <BrandCardHeader className="pb-4">
@@ -56,50 +86,112 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                                 <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center">
                                     <Trash2 className="w-4 h-4 text-destructive" />
                                 </div>
-                                <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">{productionComponentLabels.scrapDetails}</h3>
+                                <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
+                                    {productionComponentLabels.scrapDetails}
+                                </h3>
                             </div>
                         </BrandCardHeader>
                         <BrandCardContent className="space-y-4 pt-6">
                             <div className="space-y-2">
-                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.itemScrapped}</Label>
-                                <Select name="productVariantId" required disabled={isPending}>
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                    {productionComponentLabels.itemScrapped}
+                                </Label>
+                                <Select
+                                    name="productVariantId"
+                                    required
+                                    disabled={isPending}
+                                >
                                     <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
-                                        <SelectValue placeholder={productionComponentLabels.selectItem} />
+                                        <SelectValue
+                                            placeholder={
+                                                productionComponentLabels.selectItem
+                                            }
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value={order.bom.productVariantId}>[Output] {order.bom.productVariant.name}</SelectItem>
+                                        <SelectItem
+                                            value={order.bom.productVariantId}
+                                        >
+                                            [Output]{' '}
+                                            {order.bom.productVariant.name}
+                                        </SelectItem>
                                         {order.bom.items.map((item) => (
-                                            <SelectItem key={item.id} value={item.productVariantId}>[Input] {item.productVariant.name}</SelectItem>
+                                            <SelectItem
+                                                key={item.id}
+                                                value={item.productVariantId}
+                                            >
+                                                [Input]{' '}
+                                                {item.productVariant.name}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.selectLocation}</Label>
-                                <Select name="locationId" required disabled={isPending}>
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                    {productionComponentLabels.selectLocation}
+                                </Label>
+                                <Select
+                                    name="locationId"
+                                    required
+                                    disabled={isPending}
+                                >
                                     <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
-                                        <SelectValue placeholder={productionComponentLabels.selectLocation} />
+                                        <SelectValue
+                                            placeholder={
+                                                productionComponentLabels.selectLocation
+                                            }
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                                        {locations.map((l) => (
+                                            <SelectItem key={l.id} value={l.id}>
+                                                {l.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.quantity}</Label>
-                                    <Input type="number" step="0.01" name="quantity" required disabled={isPending} className="bg-background/80 border-brand-border font-mono font-bold" />
+                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                        {productionComponentLabels.quantity}
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        name="quantity"
+                                        required
+                                        disabled={isPending}
+                                        className="bg-background/80 border-brand-border font-mono font-bold"
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.issueReason}</Label>
-                                    <Input name="reason" placeholder={productionComponentLabels.machineSetupPlaceholder} disabled={isPending} className="bg-background/80 border-brand-border" />
+                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                        {productionComponentLabels.issueReason}
+                                    </Label>
+                                    <Input
+                                        name="reason"
+                                        placeholder={
+                                            productionComponentLabels.machineSetupPlaceholder
+                                        }
+                                        disabled={isPending}
+                                        className="bg-background/80 border-brand-border"
+                                    />
                                 </div>
                             </div>
                         </BrandCardContent>
                     </BrandCard>
                     <div className="mt-6">
-                        <Button type="submit" variant="destructive" className="w-full font-bold italic uppercase tracking-tight h-12 shadow-lg" disabled={isPending}>
-                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        <Button
+                            type="submit"
+                            variant="destructive"
+                            className="w-full font-bold italic uppercase tracking-tight h-12 shadow-lg"
+                            disabled={isPending}
+                        >
+                            {isPending ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
                             {productionComponentLabels.confirmScrapRecord}
                         </Button>
                     </div>

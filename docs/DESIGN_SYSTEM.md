@@ -213,15 +213,15 @@ The `BrandCard` component creates high-end glassmorphism effects. **Use sparingl
 
 ```tsx
 import {
-  BrandCard,
-  BrandCardContent,
-  BrandCardHeader,
-} from "@/components/brand/BrandCard";
+    BrandCard,
+    BrandCardContent,
+    BrandCardHeader,
+} from '@/components/brand/BrandCard';
 
 // Only for hero/marketing sections
 <BrandCard variant="hero">
-  <BrandCardHeader>Feature Title</BrandCardHeader>
-  <BrandCardContent>Special content</BrandCardContent>
+    <BrandCardHeader>Feature Title</BrandCardHeader>
+    <BrandCardContent>Special content</BrandCardContent>
 </BrandCard>;
 ```
 
@@ -246,26 +246,26 @@ All finance and accounting pages follow a **clean, minimal design** based on the
 ```tsx
 // Top summary cards (like COA Ledger)
 <div className="grid gap-4 md:grid-cols-4">
-  <Card>
-    <CardHeader className="pb-3">
-      <CardTitle className="text-sm font-medium">Label</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{formatCurrency(value)}</div>
-    </CardContent>
-  </Card>
+    <Card>
+        <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Label</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(value)}</div>
+        </CardContent>
+    </Card>
 
-  {/* Highlighted card for key metric */}
-  <Card className="bg-muted/50">
-    <CardHeader className="pb-3">
-      <CardTitle className="text-sm font-medium">Key Metric</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold text-primary">
-        {formatCurrency(value)}
-      </div>
-    </CardContent>
-  </Card>
+    {/* Highlighted card for key metric */}
+    <Card className="bg-muted/50">
+        <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Key Metric</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold text-primary">
+                {formatCurrency(value)}
+            </div>
+        </CardContent>
+    </Card>
 </div>
 ```
 
@@ -273,62 +273,62 @@ All finance and accounting pages follow a **clean, minimal design** based on the
 
 ```tsx
 <Card>
-  <CardHeader>
-    <CardTitle>Report Title</CardTitle>
-    <CardDescription>Description text</CardDescription>
-  </CardHeader>
-  <CardContent>
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Column</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {/* Section header */}
-          <TableRow className="bg-muted/30 hover:bg-muted/30">
-            <TableCell colSpan={2} className="font-semibold">
-              Section Title
-            </TableCell>
-          </TableRow>
+    <CardHeader>
+        <CardTitle>Report Title</CardTitle>
+        <CardDescription>Description text</CardDescription>
+    </CardHeader>
+    <CardContent>
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Column</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {/* Section header */}
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={2} className="font-semibold">
+                            Section Title
+                        </TableCell>
+                    </TableRow>
 
-          {/* Data rows */}
-          <TableRow>
-            <TableCell className="pl-8">Item name</TableCell>
-            <TableCell className="text-right font-mono">
-              {formatCurrency(amount)}
-            </TableCell>
-          </TableRow>
+                    {/* Data rows */}
+                    <TableRow>
+                        <TableCell className="pl-8">Item name</TableCell>
+                        <TableCell className="text-right font-mono">
+                            {formatCurrency(amount)}
+                        </TableCell>
+                    </TableRow>
 
-          {/* Subtotal row */}
-          <TableRow className="font-semibold border-t">
-            <TableCell>Subtotal</TableCell>
-            <TableCell className="text-right font-mono">
-              {formatCurrency(subtotal)}
-            </TableCell>
-          </TableRow>
+                    {/* Subtotal row */}
+                    <TableRow className="font-semibold border-t">
+                        <TableCell>Subtotal</TableCell>
+                        <TableCell className="text-right font-mono">
+                            {formatCurrency(subtotal)}
+                        </TableCell>
+                    </TableRow>
 
-          {/* Important total row */}
-          <TableRow className="bg-muted/50 hover:bg-muted/50 font-bold">
-            <TableCell>TOTAL</TableCell>
-            <TableCell className="text-right font-mono text-lg">
-              {formatCurrency(total)}
-            </TableCell>
-          </TableRow>
+                    {/* Important total row */}
+                    <TableRow className="bg-muted/50 hover:bg-muted/50 font-bold">
+                        <TableCell>TOTAL</TableCell>
+                        <TableCell className="text-right font-mono text-lg">
+                            {formatCurrency(total)}
+                        </TableCell>
+                    </TableRow>
 
-          {/* Final result row (e.g., Net Income) */}
-          <TableRow className="bg-primary/10 hover:bg-primary/10 font-bold border-t-2">
-            <TableCell className="text-lg">FINAL RESULT</TableCell>
-            <TableCell className="text-right font-mono text-xl text-primary">
-              {formatCurrency(result)}
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
-  </CardContent>
+                    {/* Final result row (e.g., Net Income) */}
+                    <TableRow className="bg-primary/10 hover:bg-primary/10 font-bold border-t-2">
+                        <TableCell className="text-lg">FINAL RESULT</TableCell>
+                        <TableCell className="text-right font-mono text-xl text-primary">
+                            {formatCurrency(result)}
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
+        </div>
+    </CardContent>
 </Card>
 ```
 
@@ -367,7 +367,7 @@ All finance and accounting pages follow a **clean, minimal design** based on the
 
 ```tsx
 <Button className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white font-medium rounded-lg transition-all duration-200 active:scale-[0.98]">
-  Sign in
+    Sign in
 </Button>
 ```
 
@@ -386,11 +386,11 @@ All finance and accounting pages follow a **clean, minimal design** based on the
 For searchable product selection in forms:
 
 ```tsx
-import { ProductCombobox } from "@/components/products/ProductCombobox";
+import { ProductCombobox } from '@/components/products/ProductCombobox';
 
 <ProductCombobox
-  onSelect={(variant) => handleSelect(variant)}
-  placeholder="Search products..."
+    onSelect={(variant) => handleSelect(variant)}
+    placeholder="Search products..."
 />;
 ```
 
@@ -402,11 +402,11 @@ import { ProductCombobox } from "@/components/products/ProductCombobox";
 
 ```tsx
 <Card className="rounded-xl border shadow-sm">
-  <CardHeader>
-    <CardTitle>Title</CardTitle>
-    <CardDescription>Description</CardDescription>
-  </CardHeader>
-  <CardContent>Content</CardContent>
+    <CardHeader>
+        <CardTitle>Title</CardTitle>
+        <CardDescription>Description</CardDescription>
+    </CardHeader>
+    <CardContent>Content</CardContent>
 </Card>
 ```
 
@@ -414,8 +414,8 @@ import { ProductCombobox } from "@/components/products/ProductCombobox";
 
 ```tsx
 <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-2xl p-6">
-  <h3 className="text-white font-semibold text-lg mb-2">Title</h3>
-  <p className="text-zinc-400 text-sm">Description</p>
+    <h3 className="text-white font-semibold text-lg mb-2">Title</h3>
+    <p className="text-zinc-400 text-sm">Description</p>
 </div>
 ```
 
@@ -427,15 +427,15 @@ For displaying multiple users:
 
 ```tsx
 <div className="flex -space-x-2">
-  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-zinc-900 flex items-center justify-center text-white text-xs font-medium">
-    JD
-  </div>
-  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 border-2 border-zinc-900">
-    AK
-  </div>
-  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 border-2 border-zinc-900">
-    +5
-  </div>
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-zinc-900 flex items-center justify-center text-white text-xs font-medium">
+        JD
+    </div>
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 border-2 border-zinc-900">
+        AK
+    </div>
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 border-2 border-zinc-900">
+        +5
+    </div>
 </div>
 ```
 
@@ -449,15 +449,15 @@ Two-panel layout for authentication pages:
 
 ```tsx
 <main className="flex min-h-screen">
-  {/* Left Panel - Form (white) */}
-  <div className="w-full lg:w-1/2 flex flex-col items-center justify-center bg-white">
-    <LoginForm />
-  </div>
+    {/* Left Panel - Form (white) */}
+    <div className="w-full lg:w-1/2 flex flex-col items-center justify-center bg-white">
+        <LoginForm />
+    </div>
 
-  {/* Right Panel - Brand (dark) */}
-  <div className="hidden lg:flex lg:w-1/2 bg-zinc-950">
-    <BrandContent />
-  </div>
+    {/* Right Panel - Brand (dark) */}
+    <div className="hidden lg:flex lg:w-1/2 bg-zinc-950">
+        <BrandContent />
+    </div>
 </main>
 ```
 
@@ -473,18 +473,18 @@ For decorative background elements:
 
 ```tsx
 <div className="absolute opacity-15">
-  {/* Layer 1 - Back */}
-  <div className="transform translate-x-6 translate-y-6">
-    <svg>...</svg>
-  </div>
-  {/* Layer 2 - Middle */}
-  <div className="transform translate-x-3 translate-y-3">
-    <svg>...</svg>
-  </div>
-  {/* Layer 3 - Front */}
-  <div>
-    <svg>...</svg>
-  </div>
+    {/* Layer 1 - Back */}
+    <div className="transform translate-x-6 translate-y-6">
+        <svg>...</svg>
+    </div>
+    {/* Layer 2 - Middle */}
+    <div className="transform translate-x-3 translate-y-3">
+        <svg>...</svg>
+    </div>
+    {/* Layer 3 - Front */}
+    <div>
+        <svg>...</svg>
+    </div>
 </div>
 ```
 
@@ -497,7 +497,7 @@ For decorative background elements:
 We use **Lucide React** for icons.
 
 ```tsx
-import { Mail, Lock, AlertCircle, Loader2, ArrowRight } from "lucide-react";
+import { Mail, Lock, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 ```
 
 ### Sizes
@@ -531,16 +531,16 @@ import { Mail, Lock, AlertCircle, Loader2, ArrowRight } from "lucide-react";
 
 ```tsx
 // Button hover & active
-className = "transition-all duration-200 hover:bg-zinc-800 active:scale-[0.98]";
+className = 'transition-all duration-200 hover:bg-zinc-800 active:scale-[0.98]';
 
 // Focus ring
-className = "focus:ring-2 focus:ring-zinc-900/10";
+className = 'focus:ring-2 focus:ring-zinc-900/10';
 
 // Fade in animation
-className = "animate-in fade-in";
+className = 'animate-in fade-in';
 
 // Slide in animation
-className = "animate-in slide-in-from-top-1";
+className = 'animate-in slide-in-from-top-1';
 ```
 
 ### Loading States

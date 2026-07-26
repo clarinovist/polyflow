@@ -5,8 +5,8 @@ async function main() {
         select: {
             orderNumber: true,
             status: true,
-            orderDate: true
-        }
+            orderDate: true,
+        },
     });
     console.log('Current Sales Orders:');
     console.dir(orders, { depth: null });

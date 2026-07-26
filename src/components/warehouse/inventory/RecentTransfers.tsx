@@ -1,6 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { History, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +15,10 @@ import { warehouseComponentLabels } from '@/lib/labels';
 
 // Infer type from action return type
 type GetStockMovementsResult = Awaited<ReturnType<typeof getStockMovements>>;
-export type StockMovement = Extract<GetStockMovementsResult, { success: true }>['data'][number];
+export type StockMovement = Extract<
+    GetStockMovementsResult,
+    { success: true }
+>['data'][number];
 
 interface RecentTransfersProps {
     movements: StockMovement[];
@@ -17,7 +26,9 @@ interface RecentTransfersProps {
 
 export function RecentTransfers({ movements }: RecentTransfersProps) {
     // Filter client-side to be safe, though server should handle it
-    const transfers = movements.filter(m => m.type === 'TRANSFER').slice(0, 5);
+    const transfers = movements
+        .filter((m) => m.type === 'TRANSFER')
+        .slice(0, 5);
 
     return (
         <Card className="shadow-sm border-border/60 bg-card">
@@ -26,7 +37,9 @@ export function RecentTransfers({ movements }: RecentTransfersProps) {
                     <History className="h-4 w-4 text-muted-foreground" />
                     {warehouseComponentLabels.recentTransfers}
                 </CardTitle>
-                <CardDescription className="text-xs">Last 5 stock movements</CardDescription>
+                <CardDescription className="text-xs">
+                    Last 5 stock movements
+                </CardDescription>
             </CardHeader>
             <CardContent className="px-0">
                 {transfers.length === 0 ? (
@@ -35,24 +48,41 @@ export function RecentTransfers({ movements }: RecentTransfersProps) {
                     </div>
                 ) : (
                     <div className="divide-y divide-border/40">
-                        {transfers.map(movement => (
-                            <div key={movement.id} className="px-5 py-3 hover:bg-muted/30 transition-colors">
+                        {transfers.map((movement) => (
+                            <div
+                                key={movement.id}
+                                className="px-5 py-3 hover:bg-muted/30 transition-colors"
+                            >
                                 <div className="flex justify-between items-start mb-1">
                                     <span className="text-xs font-semibold text-foreground line-clamp-1 mr-2">
                                         {movement.productVariant.product.name}
                                     </span>
-                                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-bold shrink-0">
+                                    <Badge
+                                        variant="secondary"
+                                        className="text-[10px] h-5 px-1.5 font-bold shrink-0"
+                                    >
                                         {Number(movement.quantity)}
                                     </Badge>
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
-                                    <span className="truncate max-w-[80px] text-foreground/80">{movement.fromLocation?.name}</span>
+                                    <span className="truncate max-w-[80px] text-foreground/80">
+                                        {movement.fromLocation?.name}
+                                    </span>
                                     <ArrowRight className="h-3 w-3 opacity-50" />
-                                    <span className="truncate max-w-[80px] text-foreground/80">{movement.toLocation?.name}</span>
+                                    <span className="truncate max-w-[80px] text-foreground/80">
+                                        {movement.toLocation?.name}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] text-muted-foreground/60">
-                                    <span>{movement.productVariant.skuCode}</span>
-                                    <span>{formatDistanceToNow(new Date(movement.createdAt), { addSuffix: true })}</span>
+                                    <span>
+                                        {movement.productVariant.skuCode}
+                                    </span>
+                                    <span>
+                                        {formatDistanceToNow(
+                                            new Date(movement.createdAt),
+                                            { addSuffix: true },
+                                        )}
+                                    </span>
                                 </div>
                             </div>
                         ))}

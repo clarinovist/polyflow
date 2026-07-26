@@ -6,11 +6,14 @@ export class ProductionCostService {
      * Calculate Batch Cost of Goods Manufactured (COGM)
      * Formula: (Total Material Cost + Conversion Cost) / Total Yield
      */
-    static async calculateBatchCOGM(productionOrderId: string, tx?: Prisma.TransactionClient) {
+    static async calculateBatchCOGM(
+        productionOrderId: string,
+        tx?: Prisma.TransactionClient,
+    ) {
         const client = tx || prisma;
-        const order = await client.productionOrder.findUnique({ 
+        const order = await client.productionOrder.findUnique({
             where: { id: productionOrderId },
-            include: { bom: { select: { productVariantId: true } } }
+            include: { bom: { select: { productVariantId: true } } },
         });
         if (!order) return 0;
 
@@ -23,19 +26,19 @@ export class ProductionCostService {
             where: {
                 OR: [
                     { productionOrderId: order.id },
-                    { reference: { contains: `PO-${order.orderNumber}` } }
-                ]
-            }
+                    { reference: { contains: `PO-${order.orderNumber}` } },
+                ],
+            },
         });
 
         let totalMaterialCost = 0;
-        movements.forEach(m => {
+        movements.forEach((m) => {
             // Exclude movements of the finished good itself (e.g. FG output IN, or voided FG OUT)
             if (fgVariantId && m.productVariantId === fgVariantId) return;
 
             const c = Number(m.cost || 0);
             const q = Number(m.quantity);
-            
+
             if (m.type === MovementType.OUT) {
                 totalMaterialCost += c * q;
             } else if (m.type === MovementType.IN) {
@@ -48,10 +51,11 @@ export class ProductionCostService {
 
         if (order.isMaklon) {
             const maklonCosts = await client.maklonCostItem.findMany({
-                where: { productionOrderId: order.id }
+                where: { productionOrderId: order.id },
             });
             conversionCost = maklonCosts.reduce(
-                (sum, item) => sum + Number(item.amount), 0
+                (sum, item) => sum + Number(item.amount),
+                0,
             );
         }
 

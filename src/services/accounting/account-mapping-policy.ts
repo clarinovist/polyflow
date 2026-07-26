@@ -7,7 +7,11 @@
  */
 
 import type { ProductType } from '@prisma/client';
-import { resolveAccount, type AccountRole, type ResolvedAccount } from './account-resolver';
+import {
+    resolveAccount,
+    type AccountRole,
+    type ResolvedAccount,
+} from './account-resolver';
 
 // Re-export for backward compatibility
 export type GLAccountKey = string;
@@ -25,7 +29,9 @@ export type AccountMappingContext =
 /**
  * Maps ProductType to AccountRole for inventory accounts.
  */
-function productTypeToAccountRole(productType: ProductType | string | null | undefined): AccountRole {
+function productTypeToAccountRole(
+    productType: ProductType | string | null | undefined,
+): AccountRole {
     switch (productType) {
         case 'RAW_MATERIAL':
             return 'raw-material';

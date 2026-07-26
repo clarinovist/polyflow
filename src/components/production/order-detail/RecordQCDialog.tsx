@@ -1,11 +1,27 @@
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ExtendedProductionOrder } from './types';
 import { recordQualityInspection } from '@/actions/production/production';
-import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
+import {
+    BrandCard,
+    BrandCardContent,
+    BrandCardHeader,
+} from '@/components/brand/BrandCard';
 import { ClipboardCheck } from 'lucide-react';
 import { productionComponentLabels } from '@/lib/labels';
 
@@ -16,16 +32,24 @@ export function RecordQCDialog({ order }: { order: ExtendedProductionOrder }) {
         const data = {
             productionOrderId: order.id,
             result: formData.get('result') as 'PASS' | 'FAIL' | 'QUARANTINE',
-            notes: formData.get('notes') as string
+            notes: formData.get('notes') as string,
         };
         await recordQualityInspection(data);
     }
 
     return (
         <Dialog>
-            <DialogTrigger asChild><Button size="sm">{productionComponentLabels.addInspection}</Button></DialogTrigger>
+            <DialogTrigger asChild>
+                <Button size="sm">
+                    {productionComponentLabels.addInspection}
+                </Button>
+            </DialogTrigger>
             <DialogContent>
-                <DialogHeader><DialogTitle>{productionComponentLabels.qualityInspection}</DialogTitle></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle>
+                        {productionComponentLabels.qualityInspection}
+                    </DialogTitle>
+                </DialogHeader>
                 <form onSubmit={onSubmit}>
                     <BrandCard variant="default" className="mt-4 shadow-brand">
                         <BrandCardHeader className="pb-4">
@@ -33,31 +57,54 @@ export function RecordQCDialog({ order }: { order: ExtendedProductionOrder }) {
                                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                                     <ClipboardCheck className="w-4 h-4 text-primary" />
                                 </div>
-                                <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">{productionComponentLabels.qcAssessment}</h3>
+                                <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
+                                    {productionComponentLabels.qcAssessment}
+                                </h3>
                             </div>
                         </BrandCardHeader>
                         <BrandCardContent className="space-y-4 pt-6">
                             <div className="space-y-2">
-                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.result}</Label>
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                    {productionComponentLabels.result}
+                                </Label>
                                 <Select name="result" required>
                                     <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="PASS">PASS</SelectItem>
-                                        <SelectItem value="FAIL">FAIL</SelectItem>
-                                        <SelectItem value="QUARANTINE">QUARANTINE</SelectItem>
+                                        <SelectItem value="PASS">
+                                            PASS
+                                        </SelectItem>
+                                        <SelectItem value="FAIL">
+                                            FAIL
+                                        </SelectItem>
+                                        <SelectItem value="QUARANTINE">
+                                            QUARANTINE
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.notes}</Label>
-                                <Textarea name="notes" placeholder={productionComponentLabels.inspectionCommentsPlaceholder} className="bg-background/80 border-brand-border min-h-[100px] resize-none" />
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                    {productionComponentLabels.notes}
+                                </Label>
+                                <Textarea
+                                    name="notes"
+                                    placeholder={
+                                        productionComponentLabels.inspectionCommentsPlaceholder
+                                    }
+                                    className="bg-background/80 border-brand-border min-h-[100px] resize-none"
+                                />
                             </div>
                         </BrandCardContent>
                     </BrandCard>
                     <div className="mt-6">
-                        <Button type="submit" className="w-full font-bold italic uppercase tracking-tight h-12 shadow-lg">{productionComponentLabels.saveResult}</Button>
+                        <Button
+                            type="submit"
+                            className="w-full font-bold italic uppercase tracking-tight h-12 shadow-lg"
+                        >
+                            {productionComponentLabels.saveResult}
+                        </Button>
                     </div>
                 </form>
             </DialogContent>

@@ -2,7 +2,15 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SalesMetrics } from '@/actions/core/analytics';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+    Line,
+    LineChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+} from 'recharts';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format, parseISO } from 'date-fns';
 
@@ -18,43 +26,68 @@ export function RevenueChart({ data }: RevenueChartProps) {
             </CardHeader>
             <CardContent className="pl-2">
                 {data.length === 0 ? (
-                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data pendapatan.</p>
+                    <p className="text-muted-foreground py-8 text-center text-sm">
+                        Tidak ada data pendapatan.
+                    </p>
                 ) : (
-                <div className="h-[350px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={data}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis
-                                dataKey="date"
-                                stroke="#888888"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={(value) => format(parseISO(value + '-01'), 'MMM yyyy')}
-                            />
-                            <YAxis
-                                stroke="#888888"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={(value) => `${value / 1000000}`}
-                            />
-                            <Tooltip
-                                formatter={(value: unknown) => [formatRupiah(Number(value) || 0), 'Pendapatan']}
-                                labelFormatter={(label) => format(parseISO(label + '-01'), 'MMMM yyyy')}
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="revenue"
-                                stroke="#2563eb" // primary blue
-                                strokeWidth={2}
-                                activeDot={{ r: 4 }}
-                                dot={false}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
+                    <div className="h-[350px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={data}>
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    vertical={false}
+                                />
+                                <XAxis
+                                    dataKey="date"
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) =>
+                                        format(
+                                            parseISO(value + '-01'),
+                                            'MMM yyyy',
+                                        )
+                                    }
+                                />
+                                <YAxis
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) =>
+                                        `${value / 1000000}`
+                                    }
+                                />
+                                <Tooltip
+                                    formatter={(value: unknown) => [
+                                        formatRupiah(Number(value) || 0),
+                                        'Pendapatan',
+                                    ]}
+                                    labelFormatter={(label) =>
+                                        format(
+                                            parseISO(label + '-01'),
+                                            'MMMM yyyy',
+                                        )
+                                    }
+                                    contentStyle={{
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        boxShadow:
+                                            '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                    }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="revenue"
+                                    stroke="#2563eb" // primary blue
+                                    strokeWidth={2}
+                                    activeDot={{ r: 4 }}
+                                    dot={false}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </CardContent>
         </Card>

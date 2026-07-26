@@ -18,7 +18,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import {
     Table,
     TableBody,
@@ -27,7 +27,13 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { formatRupiah } from '@/lib/utils/utils';
 
 export interface HistoryItem {
@@ -76,9 +82,12 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
         >
             <Card className="border-secondary/20 shadow-lg bg-card/50 backdrop-blur-sm">
                 <CardHeader className="pb-4">
-                    <CardTitle className="text-xl font-bold tracking-tight">Recent Opening Balances</CardTitle>
+                    <CardTitle className="text-xl font-bold tracking-tight">
+                        Recent Opening Balances
+                    </CardTitle>
                     <CardDescription className="text-xs">
-                        The most recent outstanding invoices recorded in the system.
+                        The most recent outstanding invoices recorded in the
+                        system.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -86,10 +95,18 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                         <Table>
                             <TableHeader className="bg-muted/30">
                                 <TableRow className="hover:bg-transparent border-secondary/10">
-                                    <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold">Date</TableHead>
-                                    <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold text-center">Type</TableHead>
-                                    <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold">Entity & Inv #</TableHead>
-                                    <TableHead className="h-10 text-right text-[10px] uppercase tracking-wider font-semibold">Amount</TableHead>
+                                    <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold">
+                                        Date
+                                    </TableHead>
+                                    <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold text-center">
+                                        Type
+                                    </TableHead>
+                                    <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold">
+                                        Entity & Inv #
+                                    </TableHead>
+                                    <TableHead className="h-10 text-right text-[10px] uppercase tracking-wider font-semibold">
+                                        Amount
+                                    </TableHead>
                                     <TableHead className="h-10 w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -103,15 +120,20 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                                         className="group hover:bg-muted/50 transition-colors border-secondary/10"
                                     >
                                         <TableCell className="py-3 text-[13px] font-medium text-muted-foreground whitespace-nowrap">
-                                            {format(new Date(item.date), 'dd MMM yy')}
+                                            {format(
+                                                new Date(item.date),
+                                                'dd MMM yy',
+                                            )}
                                         </TableCell>
                                         <TableCell className="py-3 text-center">
                                             <Badge
                                                 className={`
                                                     text-[9px] px-1.5 py-0 uppercase tracking-tighter border-none
-                                                    ${item.type === 'AR'
-                                                        ? 'bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20'
-                                                        : 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/20'}
+                                                    ${
+                                                        item.type === 'AR'
+                                                            ? 'bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20'
+                                                            : 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/20'
+                                                    }
                                                 `}
                                             >
                                                 {item.type}
@@ -136,10 +158,14 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <button
-                                                        disabled={isDeleting === item.id}
+                                                        disabled={
+                                                            isDeleting ===
+                                                            item.id
+                                                        }
                                                         className="p-1 hover:bg-rose-500/10 rounded transition-colors text-muted-foreground hover:text-rose-500 disabled:opacity-50"
                                                     >
-                                                        {isDeleting === item.id ? (
+                                                        {isDeleting ===
+                                                        item.id ? (
                                                             <Loader2 className="h-4 w-4 animate-spin" />
                                                         ) : (
                                                             <Trash2 className="h-4 w-4" />
@@ -148,15 +174,36 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
+                                                        <AlertDialogTitle>
+                                                            Apakah Anda
+                                                            benar-benar yakin?
+                                                        </AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Ini akan menghapus permanen catatan saldo awal untuk <strong>{item.entityName}</strong> ({item.invoiceNumber}) beserta jurnal terkait.
+                                                            Ini akan menghapus
+                                                            permanen catatan
+                                                            saldo awal untuk{' '}
+                                                            <strong>
+                                                                {
+                                                                    item.entityName
+                                                                }
+                                                            </strong>{' '}
+                                                            (
+                                                            {item.invoiceNumber}
+                                                            ) beserta jurnal
+                                                            terkait.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
-                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                        <AlertDialogCancel>
+                                                            Batal
+                                                        </AlertDialogCancel>
                                                         <AlertDialogAction
-                                                            onClick={() => handleDelete(item.id, item.type)}
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    item.id,
+                                                                    item.type,
+                                                                )
+                                                            }
                                                             className="bg-rose-600 hover:bg-rose-700"
                                                         >
                                                             Hapus

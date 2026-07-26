@@ -23,7 +23,8 @@ export default async function DashboardLayout({
     // tokens are stale and must be signed out. Checked here in the Node runtime
     // (not in the Edge middleware) to keep Prisma out of the edge callbacks.
     const sessionUserId = (session.user as { id?: string })?.id;
-    const sessionTokenVersion = (session.user as { tokenVersion?: number })?.tokenVersion;
+    const sessionTokenVersion = (session.user as { tokenVersion?: number })
+        ?.tokenVersion;
     if (sessionUserId && typeof sessionTokenVersion === 'number') {
         try {
             const dbUser = await prisma.user.findUnique({
@@ -51,10 +52,15 @@ export default async function DashboardLayout({
     // The getMyPermissions action handles the 'ALL' logic for admins.
     const permissionsRes = await getMyPermissions();
     // Fallback: use session's allowedResources (set at login from tenant DB) when server action fails
-    const sessionAllowed = (session.user as { allowedResources?: string[] })?.allowedResources || [];
-    const permissions = permissionsRes.success && permissionsRes.data
-        ? permissionsRes.data
-        : (sessionAllowed.length > 0 ? sessionAllowed : []);
+    const sessionAllowed =
+        (session.user as { allowedResources?: string[] })?.allowedResources ||
+        [];
+    const permissions =
+        permissionsRes.success && permissionsRes.data
+            ? permissionsRes.data
+            : sessionAllowed.length > 0
+              ? sessionAllowed
+              : [];
     const reqHeaders = await headers();
     const pathname = reqHeaders.get('x-pathname') || '/dashboard';
 
@@ -62,10 +68,17 @@ export default async function DashboardLayout({
         const canAccessCurrentDashboardPath =
             pathname === '/dashboard'
                 ? permissions.includes('/dashboard')
-                : permissions.some((resource) => pathname === resource || pathname.startsWith(`${resource}/`));
+                : permissions.some(
+                      (resource) =>
+                          pathname === resource ||
+                          pathname.startsWith(`${resource}/`),
+                  );
 
         if (!canAccessCurrentDashboardPath) {
-            redirect(permissions.find((resource) => resource.startsWith('/')) || '/login');
+            redirect(
+                permissions.find((resource) => resource.startsWith('/')) ||
+                    '/login',
+            );
         }
     }
 

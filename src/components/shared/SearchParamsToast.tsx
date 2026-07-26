@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 const ERROR_MESSAGES: Record<string, { title: string; description: string }> = {
     'not-found': {
         title: 'Sesi tidak ditemukan',
-        description: 'Sesi stock opname yang Anda cari sudah dihapus atau tidak tersedia.',
+        description:
+            'Sesi stock opname yang Anda cari sudah dihapus atau tidak tersedia.',
     },
 };
 

@@ -6,7 +6,7 @@ import {
     CardContent,
     CardDescription,
     CardHeader,
-    CardTitle
+    CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
 } from '@/components/ui/table';
 import {
     LineChart,
@@ -25,10 +25,17 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip as RechartsTooltip,
-    ResponsiveContainer
+    ResponsiveContainer,
 } from 'recharts';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, Info, Package, History, LayoutDashboard } from 'lucide-react';
+import {
+    TrendingUp,
+    TrendingDown,
+    Info,
+    Package,
+    History,
+    LayoutDashboard,
+} from 'lucide-react';
 import { Product, ProductVariant, Inventory, Prisma } from '@prisma/client';
 import {
     type CostAnomalyFlag,
@@ -68,7 +75,10 @@ interface ExtendedInventory {
     location: { name: string } | null;
 }
 
-interface ExtendedVariant extends Pick<ProductVariant, 'id' | 'name' | 'skuCode' | 'primaryUnit' | 'price' | 'standardCost'> {
+interface ExtendedVariant extends Pick<
+    ProductVariant,
+    'id' | 'name' | 'skuCode' | 'primaryUnit' | 'price' | 'standardCost'
+> {
     costHistory: ExtendedCostHistory[];
     inventories: ExtendedInventory[];
     stock?: number; // Calculated field
@@ -90,7 +100,10 @@ interface ExtendedVariant extends Pick<ProductVariant, 'id' | 'name' | 'skuCode'
     };
 }
 
-interface ProductWithDetails extends Pick<Product, 'id' | 'name' | 'productType'> {
+interface ProductWithDetails extends Pick<
+    Product,
+    'id' | 'name' | 'productType'
+> {
     variants: ExtendedVariant[];
 }
 
@@ -116,27 +129,40 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
         .reverse()
         .map((h) => ({
             date: format(new Date(h.createdAt), 'MMM dd'),
-            cost: Number(h.newCost)
+            cost: Number(h.newCost),
         }));
 
     const latestHistory = mainVariant?.costHistory?.[0];
-    const changePercent = latestHistory?.changePercent ? Number(latestHistory.changePercent) : 0;
+    const changePercent = latestHistory?.changePercent
+        ? Number(latestHistory.changePercent)
+        : 0;
     const isCostUp = changePercent > 0;
     const isSignificantChange = Math.abs(changePercent) > 10;
     const mainDiagnostics = mainVariant?.costDiagnostics;
     const mainGapLabel = mainDiagnostics
-        ? formatCostGapLabel(mainDiagnostics.breakdown.currentCost, mainDiagnostics.breakdown.standardCost)
+        ? formatCostGapLabel(
+              mainDiagnostics.breakdown.currentCost,
+              mainDiagnostics.breakdown.standardCost,
+          )
         : null;
     const familyAlerts = product.variants.flatMap((variant) =>
         (variant.costDiagnostics?.flags || []).map((flag) => ({
             variantName: variant.name,
             flag,
-        }))
+        })),
     );
 
-    const flattenedHistory: FlattenedHistory[] = product.variants.flatMap((v) =>
-        (v.costHistory || []).map((h) => ({ ...h, variantName: v.name } as FlattenedHistory))
-    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const flattenedHistory: FlattenedHistory[] = product.variants
+        .flatMap((v) =>
+            (v.costHistory || []).map(
+                (h) => ({ ...h, variantName: v.name }) as FlattenedHistory,
+            ),
+        )
+        .sort(
+            (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime(),
+        );
 
     return (
         <Tabs defaultValue="overview" className="space-y-4">
@@ -156,22 +182,50 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Current Cost</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Current Cost
+                            </CardTitle>
                             <Info className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold" suppressHydrationWarning>{formatIDR(Number(mainVariant?.currentCost))}</div>
+                            <div
+                                className="text-2xl font-bold"
+                                suppressHydrationWarning
+                            >
+                                {formatIDR(Number(mainVariant?.currentCost))}
+                            </div>
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                 {mainDiagnostics && (
                                     <>
-                                        <Badge variant={getCostSourceTone(mainDiagnostics.breakdown.source)}>
-                                            {getCostSourceLabel(mainDiagnostics.breakdown.source)}
+                                        <Badge
+                                            variant={getCostSourceTone(
+                                                mainDiagnostics.breakdown
+                                                    .source,
+                                            )}
+                                        >
+                                            {getCostSourceLabel(
+                                                mainDiagnostics.breakdown
+                                                    .source,
+                                            )}
                                         </Badge>
-                                        <Badge variant={getCostHealthTone(mainDiagnostics.flags)}>
-                                            {getCostHealthLabel(mainDiagnostics.flags)}
+                                        <Badge
+                                            variant={getCostHealthTone(
+                                                mainDiagnostics.flags,
+                                            )}
+                                        >
+                                            {getCostHealthLabel(
+                                                mainDiagnostics.flags,
+                                            )}
                                         </Badge>
                                         {mainGapLabel && (
-                                            <Badge variant={mainDiagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                            <Badge
+                                                variant={
+                                                    mainDiagnostics.flags
+                                                        .length > 0
+                                                        ? 'destructive'
+                                                        : 'outline'
+                                                }
+                                            >
                                                 {mainGapLabel}
                                             </Badge>
                                         )}
@@ -179,8 +233,14 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                 )}
                             </div>
                             {latestHistory && (
-                                <p className={`text-xs flex items-center mt-2 ${isCostUp ? 'text-red-500' : 'text-green-500'}`}>
-                                    {isCostUp ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
+                                <p
+                                    className={`text-xs flex items-center mt-2 ${isCostUp ? 'text-red-500' : 'text-green-500'}`}
+                                >
+                                    {isCostUp ? (
+                                        <TrendingUp className="mr-1 h-3 w-3" />
+                                    ) : (
+                                        <TrendingDown className="mr-1 h-3 w-3" />
+                                    )}
                                     Weighted average from current stock
                                 </p>
                             )}
@@ -188,32 +248,54 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Standard Cost</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Standard Cost
+                            </CardTitle>
                             <Info className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold" suppressHydrationWarning>{formatIDR(Number(mainVariant?.standardCost))}</div>
-                            <p className="text-xs text-muted-foreground">Recipe or planning benchmark</p>
+                            <div
+                                className="text-2xl font-bold"
+                                suppressHydrationWarning
+                            >
+                                {formatIDR(Number(mainVariant?.standardCost))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Recipe or planning benchmark
+                            </p>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Product Type</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{product.productType.replace('_', ' ')}</div>
-                            <p className="text-xs text-muted-foreground">{product.variants.length} Variant(s)</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Stock</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Product Type
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
-                                {product.variants.reduce((sum: number, v) => sum + (v.stock || 0), 0)}
+                                {product.productType.replace('_', ' ')}
                             </div>
-                            <p className="text-xs text-muted-foreground">Across all locations</p>
+                            <p className="text-xs text-muted-foreground">
+                                {product.variants.length} Variant(s)
+                            </p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Total Stock
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {product.variants.reduce(
+                                    (sum: number, v) => sum + (v.stock || 0),
+                                    0,
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Across all locations
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
@@ -221,21 +303,41 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                 <div className="grid gap-4 md:grid-cols-2">
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Sell Price</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Sell Price
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold" suppressHydrationWarning>{formatIDR(Number(mainVariant?.price))}</div>
+                            <div
+                                className="text-2xl font-bold"
+                                suppressHydrationWarning
+                            >
+                                {formatIDR(Number(mainVariant?.price))}
+                            </div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Current Stock Value</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Current Stock Value
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold" suppressHydrationWarning>
-                                {formatIDR(product.variants.reduce((sum: number, v) => sum + (v.currentStockValue || 0), 0))}
+                            <div
+                                className="text-2xl font-bold"
+                                suppressHydrationWarning
+                            >
+                                {formatIDR(
+                                    product.variants.reduce(
+                                        (sum: number, v) =>
+                                            sum + (v.currentStockValue || 0),
+                                        0,
+                                    ),
+                                )}
                             </div>
-                            <p className="text-xs text-muted-foreground">Based on current weighted average stock cost</p>
+                            <p className="text-xs text-muted-foreground">
+                                Based on current weighted average stock cost
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
@@ -244,24 +346,36 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                     <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-semibold flex items-center text-amber-700 dark:text-amber-400">
-                                <Info className="mr-2 h-4 w-4" /> Cost Guardrail Alerts
+                                <Info className="mr-2 h-4 w-4" /> Cost Guardrail
+                                Alerts
                             </CardTitle>
                             <CardDescription>
-                                Variant dalam family ini punya sinyal costing yang perlu direview sebelum dipakai sebagai acuan pricing atau BOM.
+                                Variant dalam family ini punya sinyal costing
+                                yang perlu direview sebelum dipakai sebagai
+                                acuan pricing atau BOM.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                            {familyAlerts.map(({ variantName, flag }, index) => (
-                                <div key={`${variantName}-${flag}-${index}`} className="flex flex-col gap-1 rounded-md border border-amber-200/60 bg-background/70 p-3">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Badge variant="outline">{variantName}</Badge>
-                                        <Badge variant="destructive">{getCostAlertShortLabel(flag)}</Badge>
+                            {familyAlerts.map(
+                                ({ variantName, flag }, index) => (
+                                    <div
+                                        key={`${variantName}-${flag}-${index}`}
+                                        className="flex flex-col gap-1 rounded-md border border-amber-200/60 bg-background/70 p-3"
+                                    >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant="outline">
+                                                {variantName}
+                                            </Badge>
+                                            <Badge variant="destructive">
+                                                {getCostAlertShortLabel(flag)}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            {getCostAlertMessage(flag)}
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {getCostAlertMessage(flag)}
-                                    </p>
-                                </div>
-                            ))}
+                                ),
+                            )}
                         </CardContent>
                     </Card>
                 )}
@@ -275,8 +389,15 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-red-600">
-                                The standard cost for <strong>{mainVariant.name}</strong> has changed by <strong>{changePercent}%</strong> on {format(new Date(latestHistory.createdAt), 'PPP')}.
-                                Review planning margin against current stock cost.
+                                The standard cost for{' '}
+                                <strong>{mainVariant.name}</strong> has changed
+                                by <strong>{changePercent}%</strong> on{' '}
+                                {format(
+                                    new Date(latestHistory.createdAt),
+                                    'PPP',
+                                )}
+                                . Review planning margin against current stock
+                                cost.
                             </p>
                         </CardContent>
                     </Card>
@@ -285,7 +406,10 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                 <Card className="col-span-4">
                     <CardHeader>
                         <CardTitle>Family Cost Consistency</CardTitle>
-                        <CardDescription>Bandingkan source cost, stock basis, dan gap vs standard antar variant dalam product yang sama.</CardDescription>
+                        <CardDescription>
+                            Bandingkan source cost, stock basis, dan gap vs
+                            standard antar variant dalam product yang sama.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -295,8 +419,12 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                     <TableHead>Current Cost</TableHead>
                                     <TableHead>Source</TableHead>
                                     <TableHead>Standard Cost</TableHead>
-                                    <TableHead className="text-right">Stock Qty</TableHead>
-                                    <TableHead className="text-right">Gap</TableHead>
+                                    <TableHead className="text-right">
+                                        Stock Qty
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Gap
+                                    </TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -304,58 +432,119 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                 {product.variants.map((variant) => {
                                     const diagnostics = variant.costDiagnostics;
                                     const gapLabel = diagnostics
-                                        ? formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost)
+                                        ? formatCostGapLabel(
+                                              diagnostics.breakdown.currentCost,
+                                              diagnostics.breakdown
+                                                  .standardCost,
+                                          )
                                         : null;
 
                                     return (
                                         <TableRow key={`family-${variant.id}`}>
                                             <TableCell>
                                                 <div className="flex flex-col">
-                                                    <span className="font-medium">{variant.name}</span>
-                                                    <span className="text-xs text-muted-foreground">{variant.skuCode}</span>
+                                                    <span className="font-medium">
+                                                        {variant.name}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {variant.skuCode}
+                                                    </span>
                                                 </div>
                                             </TableCell>
                                             <TableCell suppressHydrationWarning>
-                                                {formatIDR(Number(variant.currentCost || 0))}
+                                                {formatIDR(
+                                                    Number(
+                                                        variant.currentCost ||
+                                                            0,
+                                                    ),
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {diagnostics ? (
-                                                    <Badge variant={getCostSourceTone(diagnostics.breakdown.source)}>
-                                                        {getCostSourceLabel(diagnostics.breakdown.source)}
+                                                    <Badge
+                                                        variant={getCostSourceTone(
+                                                            diagnostics
+                                                                .breakdown
+                                                                .source,
+                                                        )}
+                                                    >
+                                                        {getCostSourceLabel(
+                                                            diagnostics
+                                                                .breakdown
+                                                                .source,
+                                                        )}
                                                     </Badge>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        -
+                                                    </span>
                                                 )}
                                             </TableCell>
                                             <TableCell suppressHydrationWarning>
-                                                {formatIDR(Number(variant.standardCost || 0))}
+                                                {formatIDR(
+                                                    Number(
+                                                        variant.standardCost ||
+                                                            0,
+                                                    ),
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {diagnostics ? diagnostics.breakdown.stockQty.toLocaleString('id-ID') : '-'}
+                                                {diagnostics
+                                                    ? diagnostics.breakdown.stockQty.toLocaleString(
+                                                          'id-ID',
+                                                      )
+                                                    : '-'}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 {gapLabel ? (
-                                                    <Badge variant={diagnostics && diagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                                    <Badge
+                                                        variant={
+                                                            diagnostics &&
+                                                            diagnostics.flags
+                                                                .length > 0
+                                                                ? 'destructive'
+                                                                : 'outline'
+                                                        }
+                                                    >
                                                         {gapLabel}
                                                     </Badge>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        -
+                                                    </span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
                                                 {diagnostics ? (
                                                     <div className="flex flex-wrap gap-1">
-                                                        <Badge variant={getCostHealthTone(diagnostics.flags)}>
-                                                            {getCostHealthLabel(diagnostics.flags)}
+                                                        <Badge
+                                                            variant={getCostHealthTone(
+                                                                diagnostics.flags,
+                                                            )}
+                                                        >
+                                                            {getCostHealthLabel(
+                                                                diagnostics.flags,
+                                                            )}
                                                         </Badge>
-                                                        {diagnostics.flags.map((flag: CostAnomalyFlag) => (
-                                                            <Badge key={`${variant.id}-${flag}`} variant="outline">
-                                                                {getCostAlertShortLabel(flag)}
-                                                            </Badge>
-                                                        ))}
+                                                        {diagnostics.flags.map(
+                                                            (
+                                                                flag: CostAnomalyFlag,
+                                                            ) => (
+                                                                <Badge
+                                                                    key={`${variant.id}-${flag}`}
+                                                                    variant="outline"
+                                                                >
+                                                                    {getCostAlertShortLabel(
+                                                                        flag,
+                                                                    )}
+                                                                </Badge>
+                                                            ),
+                                                        )}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground">No diagnostics</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        No diagnostics
+                                                    </span>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -369,13 +558,19 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                 <Card className="col-span-4">
                     <CardHeader>
                         <CardTitle>Standard Cost Trend</CardTitle>
-                        <CardDescription>Planning cost movements over the last 10 recorded updates for primary variant</CardDescription>
+                        <CardDescription>
+                            Planning cost movements over the last 10 recorded
+                            updates for primary variant
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="h-[300px] pl-2">
                         {chartData.length > 1 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <CartesianGrid
+                                        strokeDasharray="3 3"
+                                        vertical={false}
+                                    />
                                     <XAxis
                                         dataKey="date"
                                         fontSize={12}
@@ -386,11 +581,21 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                         fontSize={12}
                                         tickLine={false}
                                         axisLine={false}
-                                        tickFormatter={(value) => `Rp${value.toLocaleString()}`}
+                                        tickFormatter={(value) =>
+                                            `Rp${value.toLocaleString()}`
+                                        }
                                     />
                                     <RechartsTooltip
-                                        formatter={(value: unknown) => [formatIDR(Number(value) || 0), 'Cost']}
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        formatter={(value: unknown) => [
+                                            formatIDR(Number(value) || 0),
+                                            'Cost',
+                                        ]}
+                                        contentStyle={{
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            boxShadow:
+                                                '0 4px 12px rgba(0,0,0,0.1)',
+                                        }}
                                     />
                                     <Line
                                         type="monotone"
@@ -415,7 +620,10 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                 <Card>
                     <CardHeader>
                         <CardTitle>Cost Change Logs</CardTitle>
-                        <CardDescription>Detailed history of standard cost updates for all variants</CardDescription>
+                        <CardDescription>
+                            Detailed history of standard cost updates for all
+                            variants
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -435,32 +643,72 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                     flattenedHistory.map((h) => (
                                         <TableRow key={h.id}>
                                             <TableCell className="font-medium">
-                                                {format(new Date(h.createdAt), 'MMM dd, yyyy HH:mm')}
+                                                {format(
+                                                    new Date(h.createdAt),
+                                                    'MMM dd, yyyy HH:mm',
+                                                )}
                                             </TableCell>
-                                            <TableCell>{h.variantName}</TableCell>
-                                            <TableCell className="text-muted-foreground" suppressHydrationWarning>
-                                                {formatIDR(Number(h.previousCost))}
+                                            <TableCell>
+                                                {h.variantName}
                                             </TableCell>
-                                            <TableCell className="font-semibold" suppressHydrationWarning>
+                                            <TableCell
+                                                className="text-muted-foreground"
+                                                suppressHydrationWarning
+                                            >
+                                                {formatIDR(
+                                                    Number(h.previousCost),
+                                                )}
+                                            </TableCell>
+                                            <TableCell
+                                                className="font-semibold"
+                                                suppressHydrationWarning
+                                            >
                                                 {formatIDR(Number(h.newCost))}
                                             </TableCell>
                                             <TableCell>
                                                 {h.changePercent !== null && (
-                                                    <Badge variant={Number(h.changePercent) > 0 ? 'destructive' : 'secondary'}>
-                                                        {Number(h.changePercent) > 0 ? '+' : ''}{Number(h.changePercent)}%
+                                                    <Badge
+                                                        variant={
+                                                            Number(
+                                                                h.changePercent,
+                                                            ) > 0
+                                                                ? 'destructive'
+                                                                : 'secondary'
+                                                        }
+                                                    >
+                                                        {Number(
+                                                            h.changePercent,
+                                                        ) > 0
+                                                            ? '+'
+                                                            : ''}
+                                                        {Number(
+                                                            h.changePercent,
+                                                        )}
+                                                        %
                                                     </Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{h.changeReason.replace('_', ' ')}</Badge>
+                                                <Badge variant="outline">
+                                                    {h.changeReason.replace(
+                                                        '_',
+                                                        ' ',
+                                                    )}
+                                                </Badge>
                                             </TableCell>
-                                            <TableCell>{h.createdBy?.name || 'System'}</TableCell>
+                                            <TableCell>
+                                                {h.createdBy?.name || 'System'}
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                            Tidak ada riwayat biaya untuk produk ini.
+                                        <TableCell
+                                            colSpan={7}
+                                            className="text-center py-8 text-muted-foreground"
+                                        >
+                                            Tidak ada riwayat biaya untuk produk
+                                            ini.
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -475,30 +723,43 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                     {product.variants.map((v) => (
                         <Card key={v.id}>
                             <CardHeader>
-                                <CardTitle className="text-lg">{v.name}</CardTitle>
-                                <CardDescription>SKU: {v.skuCode}</CardDescription>
+                                <CardTitle className="text-lg">
+                                    {v.name}
+                                </CardTitle>
+                                <CardDescription>
+                                    SKU: {v.skuCode}
+                                </CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Location</TableHead>
-                                            <TableHead className="text-right">On Hand</TableHead>
+                                            <TableHead className="text-right">
+                                                On Hand
+                                            </TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {v.inventories?.length > 0 ? (
                                             v.inventories.map((inv, idx) => (
                                                 <TableRow key={idx}>
-                                                    <TableCell>{inv.location?.name || 'Unknown'}</TableCell>
+                                                    <TableCell>
+                                                        {inv.location?.name ||
+                                                            'Unknown'}
+                                                    </TableCell>
                                                     <TableCell className="text-right font-medium">
-                                                        {Number(inv.quantity)} {v.primaryUnit}
+                                                        {Number(inv.quantity)}{' '}
+                                                        {v.primaryUnit}
                                                     </TableCell>
                                                 </TableRow>
                                             ))
                                         ) : (
                                             <TableRow>
-                                                <TableCell colSpan={2} className="text-center text-muted-foreground py-4">
+                                                <TableCell
+                                                    colSpan={2}
+                                                    className="text-center text-muted-foreground py-4"
+                                                >
                                                     Out of stock
                                                 </TableCell>
                                             </TableRow>

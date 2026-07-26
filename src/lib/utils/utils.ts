@@ -1,8 +1,8 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+    return twMerge(clsx(inputs));
 }
 
 /**
@@ -17,20 +17,20 @@ export function cn(...inputs: ClassValue[]) {
  * Whole numbers only (no decimals).
  */
 export function formatRupiah(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '-';
+    if (value === null || value === undefined) return '-';
 
-  const abs = Math.abs(value);
-  const formatted = new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(abs);
+    const abs = Math.abs(value);
+    const formatted = new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(abs);
 
-  if (value < 0) {
-    return `(${formatted})`;
-  }
-  return formatted;
+    if (value < 0) {
+        return `(${formatted})`;
+    }
+    return formatted;
 }
 
 /**
@@ -42,30 +42,30 @@ export function formatRupiah(value: number | null | undefined): string {
  * This creates clean columns where numbers always line up on the right.
  */
 export function formatRupiahParts(value: number | null | undefined): {
-  prefix: string;
-  amount: string;
-  isNegative: boolean;
+    prefix: string;
+    amount: string;
+    isNegative: boolean;
 } {
-  if (value === null || value === undefined) {
-    return { prefix: '', amount: '-', isNegative: false };
-  }
+    if (value === null || value === undefined) {
+        return { prefix: '', amount: '-', isNegative: false };
+    }
 
-  const isNegative = value < 0;
-  const abs = Math.abs(value);
-  const amount = new Intl.NumberFormat('id-ID', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(abs);
+    const isNegative = value < 0;
+    const abs = Math.abs(value);
+    const amount = new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(abs);
 
-  return { prefix: 'Rp', amount, isNegative };
+    return { prefix: 'Rp', amount, isNegative };
 }
 
 export function formatQuantity(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '-';
-  return new Intl.NumberFormat('id-ID', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
-  }).format(value);
+    if (value === null || value === undefined) return '-';
+    return new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 4,
+    }).format(value);
 }
 
 export { serializeData } from '@/lib/serialization/server-to-client';
@@ -75,22 +75,22 @@ export { serializeData } from '@/lib/serialization/server-to-client';
  * Handles: number (passthrough), Decimal objects (duck-typed), null/undefined.
  */
 export function toDecimalNumber(value: unknown): number {
-  if (value === null || value === undefined) return 0;
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') return parseFloat(value) || 0;
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return parseFloat(value) || 0;
 
-  // Duck-type: has toNumber() (Prisma Decimal)
-  const obj = value as { toNumber?: () => number };
-  if (typeof obj.toNumber === 'function') {
-    const num = obj.toNumber();
-    return typeof num === 'number' && !isNaN(num) ? num : 0;
-  }
+    // Duck-type: has toNumber() (Prisma Decimal)
+    const obj = value as { toNumber?: () => number };
+    if (typeof obj.toNumber === 'function') {
+        const num = obj.toNumber();
+        return typeof num === 'number' && !isNaN(num) ? num : 0;
+    }
 
-  // Duck-type: has toString() (fallback)
-  const strObj = value as { toString?: () => string };
-  if (typeof strObj.toString === 'function') {
-    return parseFloat(strObj.toString()) || 0;
-  }
+    // Duck-type: has toString() (fallback)
+    const strObj = value as { toString?: () => string };
+    if (typeof strObj.toString === 'function') {
+        return parseFloat(strObj.toString()) || 0;
+    }
 
-  return 0;
+    return 0;
 }

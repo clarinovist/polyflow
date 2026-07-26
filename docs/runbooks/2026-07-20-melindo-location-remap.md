@@ -12,13 +12,13 @@
 
 ## Mapping applied
 
-| Entity | Rule | Target location |
-|--------|------|-----------------|
-| Machine `MIXER` | all | Gudang WIP & Intermediate (`gudang-wip-intermediate`) |
-| Machine `EXTRUDER` | all | Gudang Barang Jadi (`gudang-barang-jadi`) |
-| Open WO `MIXING` | status ∉ COMPLETED/CANCELLED | WIP intermediate |
-| Open WO `EXTRUSION` | same | FG |
-| Open WO `PACKING` | same | packaging (0 rows this run) |
+| Entity              | Rule                         | Target location                                       |
+| ------------------- | ---------------------------- | ----------------------------------------------------- |
+| Machine `MIXER`     | all                          | Gudang WIP & Intermediate (`gudang-wip-intermediate`) |
+| Machine `EXTRUDER`  | all                          | Gudang Barang Jadi (`gudang-barang-jadi`)             |
+| Open WO `MIXING`    | status ∉ COMPLETED/CANCELLED | WIP intermediate                                      |
+| Open WO `EXTRUSION` | same                         | FG                                                    |
+| Open WO `PACKING`   | same                         | packaging (0 rows this run)                           |
 
 **Not changed:** COMPLETED / CANCELLED historical WOs (83+ rows on inactive).
 
@@ -26,20 +26,20 @@
 
 ### Machines (8)
 
-| Machine type | Location |
-|--------------|----------|
-| Mixing 1–2 | Gudang WIP & Intermediate |
+| Machine type                        | Location                            |
+| ----------------------------------- | ----------------------------------- |
+| Mixing 1–2                          | Gudang WIP & Intermediate           |
 | Extruder KW 1–3, Sedotan 1/4, Super | Gudang Barang Jadi & Hasil Produksi |
 
 ### Open WOs (5)
 
-| Order | Status | Category | Output after |
-|-------|--------|----------|--------------|
-| WO-260720-001 | WAITING_MATERIAL | MIXING | WIP intermediate |
-| SWO-CB7C-MRQ1QWD5FES2J1 | DRAFT | MIXING | WIP intermediate |
-| WO-MRQ18Z6M7R4DMS | IN_PROGRESS | MIXING | WIP intermediate |
-| WO-MRQ17FA0JNGBUT | IN_PROGRESS | EXTRUSION | FG |
-| SWO-CB7C-MRN8OFD12MQ0CX | DRAFT | MIXING | WIP intermediate |
+| Order                   | Status           | Category  | Output after     |
+| ----------------------- | ---------------- | --------- | ---------------- |
+| WO-260720-001           | WAITING_MATERIAL | MIXING    | WIP intermediate |
+| SWO-CB7C-MRQ1QWD5FES2J1 | DRAFT            | MIXING    | WIP intermediate |
+| WO-MRQ18Z6M7R4DMS       | IN_PROGRESS      | MIXING    | WIP intermediate |
+| WO-MRQ17FA0JNGBUT       | IN_PROGRESS      | EXTRUSION | FG               |
+| SWO-CB7C-MRN8OFD12MQ0CX | DRAFT            | MIXING    | WIP intermediate |
 
 ## Notes / caveats
 

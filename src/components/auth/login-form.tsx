@@ -6,7 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertCircle, Loader2, Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import {
+    AlertCircle,
+    Loader2,
+    Mail,
+    Lock,
+    ArrowLeft,
+    Eye,
+    EyeOff,
+} from 'lucide-react';
 import PolyFlowLogo from './polyflow-logo';
 import { RoleType } from './role-selection';
 import { loginFormLabels as L } from '@/lib/labels/auth';
@@ -56,11 +64,22 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                 {/* Hidden Subdomain field — needed for tenant resolution in NextAuth authorize.
                     Uses the shared extractSubdomain() so reserved subdomains (admin, www, ...)
                     resolve to '' → superadmin/main-DB login instead of a bogus tenant lookup. */}
-                <input type="hidden" name="subdomain" value={typeof window !== 'undefined' ? (extractSubdomain(window.location.host) || '') : ''} />
+                <input
+                    type="hidden"
+                    name="subdomain"
+                    value={
+                        typeof window !== 'undefined'
+                            ? extractSubdomain(window.location.host) || ''
+                            : ''
+                    }
+                />
 
                 {/* Email Field */}
                 <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-foreground">
+                    <Label
+                        htmlFor="email"
+                        className="text-sm font-medium text-foreground"
+                    >
                         {L.emailAddress}
                     </Label>
                     <div className="relative">
@@ -78,7 +97,10 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
 
                 {/* Password Field */}
                 <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                    <Label
+                        htmlFor="password"
+                        className="text-sm font-medium text-foreground"
+                    >
                         {L.password}
                     </Label>
                     <div className="relative">
@@ -86,7 +108,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                         <input
                             id="password"
                             name="password"
-                            type={showPassword ? "text" : "password"}
+                            type={showPassword ? 'text' : 'password'}
                             placeholder={L.passwordPlaceholder}
                             required
                             className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/10 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 pl-10 pr-10 transition-all"
@@ -95,7 +117,9 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                            aria-label={showPassword ? L.hidePassword : L.showPassword}
+                            aria-label={
+                                showPassword ? L.hidePassword : L.showPassword
+                            }
                         >
                             {showPassword ? (
                                 <EyeOff className="h-5 w-5" />
@@ -108,8 +132,15 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
 
                 {/* Remember Me */}
                 <div className="flex items-center space-x-2">
-                    <Checkbox id="remember" name="remember" className="border-input data-[state=checked]:bg-zinc-900 data-[state=checked]:border-zinc-900" />
-                    <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                    <Checkbox
+                        id="remember"
+                        name="remember"
+                        className="border-input data-[state=checked]:bg-zinc-900 data-[state=checked]:border-zinc-900"
+                    />
+                    <Label
+                        htmlFor="remember"
+                        className="text-sm text-muted-foreground cursor-pointer"
+                    >
                         {L.rememberMe}
                     </Label>
                 </div>
@@ -135,7 +166,6 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                     )}
                 </Button>
             </form>
-
         </div>
     );
 }

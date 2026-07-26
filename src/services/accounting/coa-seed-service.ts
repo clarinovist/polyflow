@@ -6,9 +6,17 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { getMainPrisma } from '@/lib/core/prisma';
-import { resolveByPatterns, getAllAccountRoles, clearAccountCache } from './account-resolver';
+import {
+    resolveByPatterns,
+    getAllAccountRoles,
+    clearAccountCache,
+} from './account-resolver';
 import type { AccountRole } from './account-resolver';
-import { ValidationError, NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    ValidationError,
+    NotFoundError,
+    BusinessRuleError,
+} from '@/lib/errors/errors';
 
 export type SeedResult = {
     created: number;
@@ -33,18 +41,25 @@ export type SeedOptions = {
  * Uses resolveByPatterns() directly — never resolveAccount() — to avoid
  * reading own incomplete rows / circularity.
  */
-export async function seedTenantAccountRoles(opts: SeedOptions): Promise<SeedResult> {
+export async function seedTenantAccountRoles(
+    opts: SeedOptions,
+): Promise<SeedResult> {
     const { tenantId, tenantDb, force = false } = opts;
     const mainPrisma = getMainPrisma();
     const roles = getAllAccountRoles();
 
-    const result: SeedResult = { created: 0, skipped: 0, updated: 0, failed: [] };
+    const result: SeedResult = {
+        created: 0,
+        skipped: 0,
+        updated: 0,
+        failed: [],
+    };
 
     // Load existing mappings for this tenant
     const existing = await mainPrisma.tenantAccountRole.findMany({
         where: { tenantId },
     });
-    const existingMap = new Map(existing.map(m => [m.role, m]));
+    const existingMap = new Map(existing.map((m) => [m.role, m]));
 
     for (const role of roles) {
         // Skip if mapping exists and not force mode
@@ -107,7 +122,10 @@ type RoleMappingResult = {
 /**
  * Get all role mappings for a tenant, including live account status.
  */
-export async function getRoleMappings(tenantId: string, tenantDb: PrismaClient): Promise<RoleMappingResult[]> {
+export async function getRoleMappings(
+    tenantId: string,
+    tenantDb: PrismaClient,
+): Promise<RoleMappingResult[]> {
     const mainPrisma = getMainPrisma();
     const mappings = await mainPrisma.tenantAccountRole.findMany({
         where: { tenantId },
@@ -115,13 +133,19 @@ export async function getRoleMappings(tenantId: string, tenantDb: PrismaClient):
     });
 
     const allRoles = getAllAccountRoles();
-    const mappedRoles = new Set(mappings.map(m => m.role));
+    const mappedRoles = new Set(mappings.map((m) => m.role));
 
     // Check which mapped accounts still exist and are active
     const results: RoleMappingResult[] = await Promise.all(
         mappings.map(async (m) => {
-            const account = await tenantDb.account.findUnique({ where: { id: m.accountId } });
-            const status = !account ? 'ORPHAN' : account.isActive === false ? 'INACTIVE' : 'OK';
+            const account = await tenantDb.account.findUnique({
+                where: { id: m.accountId },
+            });
+            const status = !account
+                ? 'ORPHAN'
+                : account.isActive === false
+                  ? 'INACTIVE'
+                  : 'OK';
             return {
                 role: m.role as AccountRole,
                 accountId: m.accountId,
@@ -131,7 +155,7 @@ export async function getRoleMappings(tenantId: string, tenantDb: PrismaClient):
                 liveName: account?.name ?? null,
                 status,
             };
-        })
+        }),
     );
 
     // Add unmapped roles
@@ -163,16 +187,25 @@ export async function updateRoleMapping(
 ) {
     const knownRoles = getAllAccountRoles();
     if (!knownRoles.includes(role as AccountRole)) {
-        throw new ValidationError(`Peran akun tidak dikenal: "${role}"`, { role, knownRoles });
+        throw new ValidationError(`Peran akun tidak dikenal: "${role}"`, {
+            role,
+            knownRoles,
+        });
     }
 
     // Validate account exists and is active in tenant DB
-    const account = await tenantDb.account.findUnique({ where: { id: accountId } });
+    const account = await tenantDb.account.findUnique({
+        where: { id: accountId },
+    });
     if (!account) {
-        throw new NotFoundError("Account", accountId);
+        throw new NotFoundError('Account', accountId);
     }
     if (account.isActive === false) {
-        throw new BusinessRuleError('Akun tidak aktif', { accountId, role, isActive: false });
+        throw new BusinessRuleError('Akun tidak aktif', {
+            accountId,
+            role,
+            isActive: false,
+        });
     }
 
     const mainPrisma = getMainPrisma();

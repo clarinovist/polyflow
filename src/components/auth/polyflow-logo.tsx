@@ -11,7 +11,7 @@ export default function PolyFlowLogo({
     variant = 'dark',
     size = 'md',
     showText = true,
-    className = ""
+    className = '',
 }: PolyFlowLogoProps) {
     const sizeClasses = {
         sm: { icon: 'w-8 h-8', text: 'text-lg' },
@@ -24,14 +24,14 @@ export default function PolyFlowLogo({
             circle: 'fill-white',
             path: 'stroke-zinc-900',
             secondary: 'stroke-zinc-400',
-            text: 'text-white'
+            text: 'text-white',
         },
         dark: {
             circle: 'fill-foreground',
             path: 'stroke-background',
             secondary: 'stroke-muted-foreground',
-            text: 'text-foreground'
-        }
+            text: 'text-foreground',
+        },
     };
 
     const colors = variantClasses[variant];

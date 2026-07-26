@@ -26,27 +26,36 @@ export function validateRow(
     row: ProductImportRow,
     rowIndex: number,
     existingSKUs: Set<string>,
-    fileSKUs: Set<string>
+    fileSKUs: Set<string>,
 ): ValidationResult {
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
 
     // Required fields
     if (!row.product_name?.trim()) {
-        errors.push({ field: 'product_name', message: 'Product name is required' });
+        errors.push({
+            field: 'product_name',
+            message: 'Product name is required',
+        });
     }
 
     if (!row.product_type?.trim()) {
-        errors.push({ field: 'product_type', message: 'Product type is required' });
+        errors.push({
+            field: 'product_type',
+            message: 'Product type is required',
+        });
     } else if (!VALID_PRODUCT_TYPES.includes(row.product_type as ProductType)) {
         errors.push({
             field: 'product_type',
-            message: `Invalid product type. Must be one of: ${VALID_PRODUCT_TYPES.join(', ')}`
+            message: `Invalid product type. Must be one of: ${VALID_PRODUCT_TYPES.join(', ')}`,
         });
     }
 
     if (!row.variant_name?.trim()) {
-        errors.push({ field: 'variant_name', message: 'Variant name is required' });
+        errors.push({
+            field: 'variant_name',
+            message: 'Variant name is required',
+        });
     }
 
     if (row.sku_code?.trim()) {
@@ -56,7 +65,8 @@ export function validateRow(
         if (!SKU_PATTERN.test(sku)) {
             errors.push({
                 field: 'sku_code',
-                message: 'Invalid SKU format. Must be 8 characters: [TYPE][CATEGORY][SEQ] (e.g., RMPPG001)'
+                message:
+                    'Invalid SKU format. Must be 8 characters: [TYPE][CATEGORY][SEQ] (e.g., RMPPG001)',
             });
         }
 
@@ -64,7 +74,7 @@ export function validateRow(
         if (existingSKUs.has(sku)) {
             errors.push({
                 field: 'sku_code',
-                message: `SKU ${sku} already exists in database`
+                message: `SKU ${sku} already exists in database`,
             });
         }
 
@@ -72,17 +82,20 @@ export function validateRow(
         if (fileSKUs.has(sku)) {
             errors.push({
                 field: 'sku_code',
-                message: `Duplicate SKU ${sku} in import file`
+                message: `Duplicate SKU ${sku} in import file`,
             });
         }
     }
 
     if (!row.primary_unit?.trim()) {
-        errors.push({ field: 'primary_unit', message: 'Primary unit is required' });
+        errors.push({
+            field: 'primary_unit',
+            message: 'Primary unit is required',
+        });
     } else if (!VALID_UNITS.includes(row.primary_unit as Unit)) {
         errors.push({
             field: 'primary_unit',
-            message: `Invalid unit. Must be one of: ${VALID_UNITS.join(', ')}`
+            message: `Invalid unit. Must be one of: ${VALID_UNITS.join(', ')}`,
         });
     }
 
@@ -90,7 +103,7 @@ export function validateRow(
     if (row.sales_unit && !VALID_UNITS.includes(row.sales_unit as Unit)) {
         errors.push({
             field: 'sales_unit',
-            message: `Invalid unit. Must be one of: ${VALID_UNITS.join(', ')}`
+            message: `Invalid unit. Must be one of: ${VALID_UNITS.join(', ')}`,
         });
     }
 
@@ -99,13 +112,16 @@ export function validateRow(
         if (isNaN(factor) || factor <= 0) {
             errors.push({
                 field: 'conversion_factor',
-                message: 'Conversion factor must be a positive number'
+                message: 'Conversion factor must be a positive number',
             });
         }
     }
 
     // Validate numeric fields
-    const numericFields: (keyof ProductImportRow)[] = ['price', 'min_stock_alert'];
+    const numericFields: (keyof ProductImportRow)[] = [
+        'price',
+        'min_stock_alert',
+    ];
     for (const field of numericFields) {
         const value = row[field];
         if (value !== undefined && value !== null && value !== '') {
@@ -113,7 +129,7 @@ export function validateRow(
             if (isNaN(num) || num < 0) {
                 errors.push({
                     field: field as string,
-                    message: `${field} must be a non-negative number`
+                    message: `${field} must be a non-negative number`,
                 });
             }
         }
@@ -123,14 +139,14 @@ export function validateRow(
     if (!row.price) {
         warnings.push({
             field: 'price',
-            message: 'No pricing information provided'
+            message: 'No pricing information provided',
         });
     }
 
     if (!row.min_stock_alert) {
         warnings.push({
             field: 'min_stock_alert',
-            message: 'No minimum stock alert set'
+            message: 'No minimum stock alert set',
         });
     }
 
@@ -139,7 +155,7 @@ export function validateRow(
         isValid: errors.length === 0,
         errors,
         warnings,
-        data: row
+        data: row,
     };
 }
 
@@ -148,7 +164,7 @@ export function validateRow(
  */
 export async function validateImportRows(
     rows: ProductImportRow[],
-    existingSKUs: Set<string>
+    existingSKUs: Set<string>,
 ): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
     const fileSKUs = new Set<string>();
@@ -172,14 +188,14 @@ export async function validateImportRows(
  * Get validation summary
  */
 export function getValidationSummary(results: ValidationResult[]) {
-    const validCount = results.filter(r => r.isValid).length;
-    const errorCount = results.filter(r => !r.isValid).length;
-    const warningCount = results.filter(r => r.warnings.length > 0).length;
+    const validCount = results.filter((r) => r.isValid).length;
+    const errorCount = results.filter((r) => !r.isValid).length;
+    const warningCount = results.filter((r) => r.warnings.length > 0).length;
 
     return {
         total: results.length,
         valid: validCount,
         errors: errorCount,
-        warnings: warningCount
+        warnings: warningCount,
     };
 }

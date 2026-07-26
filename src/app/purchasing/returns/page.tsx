@@ -9,31 +9,46 @@ import { serializeData } from '@/lib/utils/utils';
 import { PurchaseReturnStatus } from '@prisma/client';
 import { planningLabels } from '@/lib/labels';
 
-export default async function PurchaseReturnsPage({ searchParams }: { searchParams: Promise<{ search?: string, status?: PurchaseReturnStatus }> }) {
+export default async function PurchaseReturnsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ search?: string; status?: PurchaseReturnStatus }>;
+}) {
     const params = await searchParams;
 
     // Fetch returns
-    const returnsRes = await getPurchaseReturns({ 
+    const returnsRes = await getPurchaseReturns({
         search: params?.search,
-        status: params?.status 
+        status: params?.status,
     });
-    const returns = returnsRes.success && returnsRes.data ? returnsRes.data : [];
+    const returns =
+        returnsRes.success && returnsRes.data ? returnsRes.data : [];
 
     // Serialize all Prisma objects for Client Components
     const serializedReturns = serializeData(returns);
-    
+
     // Quick stats calculation
     const totalReturns = returns.length;
-    const activeCount = returns.filter(r => ['DRAFT', 'CONFIRMED', 'SHIPPED'].includes(r.status)).length;
-    const completedCount = returns.filter(r => r.status === 'COMPLETED').length;
-    const cancelledCount = returns.filter(r => r.status === 'CANCELLED').length;
+    const activeCount = returns.filter((r) =>
+        ['DRAFT', 'CONFIRMED', 'SHIPPED'].includes(r.status),
+    ).length;
+    const completedCount = returns.filter(
+        (r) => r.status === 'COMPLETED',
+    ).length;
+    const cancelledCount = returns.filter(
+        (r) => r.status === 'CANCELLED',
+    ).length;
 
     return (
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{planningLabels.purchaseReturns}</h1>
-                    <p className="text-muted-foreground">{planningLabels.purchaseReturnsDesc}</p>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {planningLabels.purchaseReturns}
+                    </h1>
+                    <p className="text-muted-foreground">
+                        {planningLabels.purchaseReturnsDesc}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button asChild>
@@ -49,7 +64,9 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{planningLabels.totalReturns}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {planningLabels.totalReturns}
+                        </CardTitle>
                         <RotateCcw className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -58,7 +75,9 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{planningLabels.activePending}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {planningLabels.activePending}
+                        </CardTitle>
                         <Clock className="h-4 w-4 text-amber-500" />
                     </CardHeader>
                     <CardContent>
@@ -67,20 +86,28 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{planningLabels.completed}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {planningLabels.completed}
+                        </CardTitle>
                         <CheckCircle className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{completedCount}</div>
+                        <div className="text-2xl font-bold">
+                            {completedCount}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{planningLabels.cancelled}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {planningLabels.cancelled}
+                        </CardTitle>
                         <XCircle className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{cancelledCount}</div>
+                        <div className="text-2xl font-bold">
+                            {cancelledCount}
+                        </div>
                     </CardContent>
                 </Card>
             </div>

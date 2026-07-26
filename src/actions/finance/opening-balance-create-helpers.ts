@@ -14,7 +14,10 @@ import {
 import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { AccountingService } from '@/services/accounting/accounting-service';
-import { resolveAccount, type AccountRole } from '@/services/accounting/account-resolver';
+import {
+    resolveAccount,
+    type AccountRole,
+} from '@/services/accounting/account-resolver';
 
 import {
     AP_ROLE,
@@ -24,35 +27,55 @@ import {
     UnifiedMakeOpeningBalanceInput,
 } from './opening-balance-types';
 
-export async function assertNoDuplicateOpeningBalanceEntries(data: UnifiedMakeOpeningBalanceInput) {
+export async function assertNoDuplicateOpeningBalanceEntries(
+    data: UnifiedMakeOpeningBalanceInput,
+) {
     for (const entry of data.arEntries) {
         const [existingInvoice, existingSO] = await Promise.all([
-            prisma.invoice.findFirst({ where: { invoiceNumber: entry.invoiceNumber } }),
-            prisma.salesOrder.findFirst({ where: { orderNumber: `SO-OPEN-${entry.invoiceNumber}` } })
+            prisma.invoice.findFirst({
+                where: { invoiceNumber: entry.invoiceNumber },
+            }),
+            prisma.salesOrder.findFirst({
+                where: { orderNumber: `SO-OPEN-${entry.invoiceNumber}` },
+            }),
         ]);
 
         if (existingInvoice || existingSO) {
-            throw new BusinessRuleError(`Customer Invoice #${entry.invoiceNumber} (or its placeholder SO) already exists. Please delete the previous entry or use a different number.`);
+            throw new BusinessRuleError(
+                `Customer Invoice #${entry.invoiceNumber} (or its placeholder SO) already exists. Please delete the previous entry or use a different number.`,
+            );
         }
     }
 
     for (const entry of data.apEntries) {
         const [existingBill, existingPO] = await Promise.all([
-            prisma.purchaseInvoice.findFirst({ where: { invoiceNumber: entry.invoiceNumber } }),
-            prisma.purchaseOrder.findFirst({ where: { orderNumber: `PO-OPEN-${entry.invoiceNumber}` } })
+            prisma.purchaseInvoice.findFirst({
+                where: { invoiceNumber: entry.invoiceNumber },
+            }),
+            prisma.purchaseOrder.findFirst({
+                where: { orderNumber: `PO-OPEN-${entry.invoiceNumber}` },
+            }),
         ]);
 
         if (existingBill || existingPO) {
-            throw new BusinessRuleError(`Supplier Bill #${entry.invoiceNumber} (or its placeholder PO) already exists. Please delete the previous entry or use a different number.`);
+            throw new BusinessRuleError(
+                `Supplier Bill #${entry.invoiceNumber} (or its placeholder PO) already exists. Please delete the previous entry or use a different number.`,
+            );
         }
     }
 }
 
-export async function ensureOpeningBalanceEquityAccount(db: Prisma.TransactionClient | typeof prisma) {
+export async function ensureOpeningBalanceEquityAccount(
+    db: Prisma.TransactionClient | typeof prisma,
+) {
     // Resolve by role (tenant-aware) — find or create
-    const resolved = await resolveAccount(OPENING_BALANCE_ROLE).catch(() => null);
+    const resolved = await resolveAccount(OPENING_BALANCE_ROLE).catch(
+        () => null,
+    );
     if (resolved) {
-        const existingAccount = await db.account.findUnique({ where: { id: resolved.id } });
+        const existingAccount = await db.account.findUnique({
+            where: { id: resolved.id },
+        });
         if (existingAccount) return existingAccount;
     }
 
@@ -65,8 +88,8 @@ export async function ensureOpeningBalanceEquityAccount(db: Prisma.TransactionCl
                 name: 'Opening Balance Equity',
                 type: AccountType.EQUITY,
                 category: AccountCategory.CAPITAL,
-                description: 'System account for initial balance setup'
-            }
+                description: 'System account for initial balance setup',
+            },
         });
     }
 
@@ -78,14 +101,14 @@ export async function ensureOpeningBalanceEquityAccount(db: Prisma.TransactionCl
             name: 'Opening Balance Equity',
             type: AccountType.EQUITY,
             category: AccountCategory.CAPITAL,
-            description: 'System account for initial balance setup'
-        }
+            description: 'System account for initial balance setup',
+        },
     });
 }
 
 export async function getSubLedgerAccountOrThrow(
     db: Prisma.TransactionClient | typeof prisma,
-    type: 'AR' | 'AP'
+    type: 'AR' | 'AP',
 ) {
     const role: AccountRole = type === 'AR' ? AR_ROLE : AP_ROLE;
     const resolved = await resolveAccount(role);
@@ -99,7 +122,7 @@ export async function createAROpeningBalance(
     userId: string,
     equityAccountId: string,
     arAccountId: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
 ) {
     const db = tx || prisma;
 
@@ -113,7 +136,7 @@ export async function createAROpeningBalance(
             totalAmount: data.amount,
             notes: 'Opening Balance Entry',
             createdById: userId,
-        }
+        },
     });
 
     const invoice = await db.invoice.create({
@@ -126,33 +149,36 @@ export async function createAROpeningBalance(
             totalAmount: data.amount,
             notes: data.notes || 'Opening Balance Transfer',
             termOfPaymentDays: 0,
-        }
+        },
     });
 
-    await AccountingService.createJournalEntry({
-        entryDate: data.date,
-        description: `Opening Balance AR - Inv #${data.invoiceNumber}`,
-        reference: data.invoiceNumber,
-        referenceType: ReferenceType.SALES_INVOICE,
-        referenceId: invoice.id,
-        isAutoGenerated: true,
-        status: JournalStatus.POSTED,
-        createdById: userId,
-        lines: [
-            {
-                accountId: arAccountId,
-                debit: data.amount,
-                credit: 0,
-                description: 'Opening Balance Receivable'
-            },
-            {
-                accountId: equityAccountId,
-                debit: 0,
-                credit: data.amount,
-                description: 'Opening Equity Offset'
-            }
-        ]
-    }, db);
+    await AccountingService.createJournalEntry(
+        {
+            entryDate: data.date,
+            description: `Opening Balance AR - Inv #${data.invoiceNumber}`,
+            reference: data.invoiceNumber,
+            referenceType: ReferenceType.SALES_INVOICE,
+            referenceId: invoice.id,
+            isAutoGenerated: true,
+            status: JournalStatus.POSTED,
+            createdById: userId,
+            lines: [
+                {
+                    accountId: arAccountId,
+                    debit: data.amount,
+                    credit: 0,
+                    description: 'Opening Balance Receivable',
+                },
+                {
+                    accountId: equityAccountId,
+                    debit: 0,
+                    credit: data.amount,
+                    description: 'Opening Equity Offset',
+                },
+            ],
+        },
+        db,
+    );
 
     return invoice;
 }
@@ -162,7 +188,7 @@ export async function createAPOpeningBalance(
     userId: string,
     equityAccountId: string,
     apAccountId: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
 ) {
     const db = tx || prisma;
 
@@ -175,7 +201,7 @@ export async function createAPOpeningBalance(
             totalAmount: data.amount,
             notes: 'Opening Balance Entry',
             createdById: userId,
-        }
+        },
     });
 
     const invoice = await db.purchaseInvoice.create({
@@ -188,33 +214,36 @@ export async function createAPOpeningBalance(
             totalAmount: data.amount,
             termOfPaymentDays: 0,
             notes: data.notes || 'Opening Balance Transfer',
-        }
+        },
     });
 
-    await AccountingService.createJournalEntry({
-        entryDate: data.date,
-        description: `Opening Balance AP - Inv #${data.invoiceNumber}`,
-        reference: data.invoiceNumber,
-        referenceType: ReferenceType.PURCHASE_INVOICE,
-        referenceId: invoice.id,
-        isAutoGenerated: true,
-        status: JournalStatus.POSTED,
-        createdById: userId,
-        lines: [
-            {
-                accountId: equityAccountId,
-                debit: data.amount,
-                credit: 0,
-                description: 'Opening Equity Offset'
-            },
-            {
-                accountId: apAccountId,
-                debit: 0,
-                credit: data.amount,
-                description: 'Opening Balance Payable'
-            }
-        ]
-    }, db);
+    await AccountingService.createJournalEntry(
+        {
+            entryDate: data.date,
+            description: `Opening Balance AP - Inv #${data.invoiceNumber}`,
+            reference: data.invoiceNumber,
+            referenceType: ReferenceType.PURCHASE_INVOICE,
+            referenceId: invoice.id,
+            isAutoGenerated: true,
+            status: JournalStatus.POSTED,
+            createdById: userId,
+            lines: [
+                {
+                    accountId: equityAccountId,
+                    debit: data.amount,
+                    credit: 0,
+                    description: 'Opening Equity Offset',
+                },
+                {
+                    accountId: apAccountId,
+                    debit: 0,
+                    credit: data.amount,
+                    description: 'Opening Balance Payable',
+                },
+            ],
+        },
+        db,
+    );
 
     return invoice;
 }
@@ -223,22 +252,30 @@ export async function postGeneralOpeningBalanceJournal(
     data: UnifiedMakeOpeningBalanceInput,
     equityAccountId: string,
     userId: string,
-    tx: Prisma.TransactionClient
+    tx: Prisma.TransactionClient,
 ) {
-    const nonZeroLines = data.generalLines.filter(line => line.debit > 0 || line.credit > 0);
-    const generalDebit = data.generalLines.reduce((sum, line) => sum + line.debit, 0);
-    const generalCredit = data.generalLines.reduce((sum, line) => sum + line.credit, 0);
+    const nonZeroLines = data.generalLines.filter(
+        (line) => line.debit > 0 || line.credit > 0,
+    );
+    const generalDebit = data.generalLines.reduce(
+        (sum, line) => sum + line.debit,
+        0,
+    );
+    const generalCredit = data.generalLines.reduce(
+        (sum, line) => sum + line.credit,
+        0,
+    );
     const generalOffset = generalDebit - generalCredit;
 
     if (nonZeroLines.length === 0 && Math.abs(generalOffset) <= 0.01) {
         return;
     }
 
-    const journalLines = nonZeroLines.map(line => ({
+    const journalLines = nonZeroLines.map((line) => ({
         accountId: line.accountId,
         debit: line.debit,
         credit: line.credit,
-        description: 'Opening Balance'
+        description: 'Opening Balance',
     }));
 
     if (Math.abs(generalOffset) > 0.01) {
@@ -246,19 +283,22 @@ export async function postGeneralOpeningBalanceJournal(
             accountId: equityAccountId,
             debit: generalOffset < 0 ? Math.abs(generalOffset) : 0,
             credit: generalOffset > 0 ? generalOffset : 0,
-            description: 'Opening Balance Equity (General Offset)'
+            description: 'Opening Balance Equity (General Offset)',
         });
     }
 
-    const journal = await AccountingService.createJournalEntry({
-        entryDate: data.date,
-        description: `General Opening Balance - ${data.date.toISOString().split('T')[0]}`,
-        reference: 'OPENING-GEN',
-        referenceType: ReferenceType.MANUAL_ENTRY,
-        isAutoGenerated: true,
-        createdById: userId,
-        lines: journalLines,
-    }, tx);
+    const journal = await AccountingService.createJournalEntry(
+        {
+            entryDate: data.date,
+            description: `General Opening Balance - ${data.date.toISOString().split('T')[0]}`,
+            reference: 'OPENING-GEN',
+            referenceType: ReferenceType.MANUAL_ENTRY,
+            isAutoGenerated: true,
+            createdById: userId,
+            lines: journalLines,
+        },
+        tx,
+    );
 
     await AccountingService.postJournal(journal.id, userId, tx);
 }

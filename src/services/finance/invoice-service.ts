@@ -1,4 +1,7 @@
-import { CreateInvoiceValues, UpdateInvoiceStatusValues } from '@/lib/schemas/invoice';
+import {
+    CreateInvoiceValues,
+    UpdateInvoiceStatusValues,
+} from '@/lib/schemas/invoice';
 
 import {
     createDraftInvoiceFromOrder,
@@ -21,7 +24,10 @@ export class InvoiceService {
         return updateInvoiceStatus(data, userId);
     }
 
-    static async createDraftInvoiceFromOrder(salesOrderId: string, userId: string) {
+    static async createDraftInvoiceFromOrder(
+        salesOrderId: string,
+        userId: string,
+    ) {
         return createDraftInvoiceFromOrder(salesOrderId, userId);
     }
 

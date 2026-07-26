@@ -3,22 +3,46 @@
 import { useState } from 'react';
 import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { manualJournalSchema, ManualJournalValues } from '@/lib/schemas/journal';
-import { createManualJournal, updateManualJournal } from '@/actions/finance/journal';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+    manualJournalSchema,
+    ManualJournalValues,
+} from '@/lib/schemas/journal';
+import {
+    createManualJournal,
+    updateManualJournal,
+} from '@/actions/finance/journal';
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Trash, Plus, Loader2, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils/utils";
-import { AccountCombobox } from "./account-combobox";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils/utils';
+import { AccountCombobox } from './account-combobox';
 import { JOURNAL_TEMPLATES } from '@/lib/config/accounting-templates';
 import { AccountingInput } from './accounting-input';
 
@@ -45,29 +69,37 @@ export default function ManualJournalForm({
     const [loading, setLoading] = useState(false);
 
     const form = useForm<ManualJournalValues>({
-        resolver: zodResolver(manualJournalSchema) as Resolver<ManualJournalValues>,
+        resolver: zodResolver(
+            manualJournalSchema,
+        ) as Resolver<ManualJournalValues>,
         defaultValues: defaultValues || {
             entryDate: new Date(),
             description: '',
             reference: '',
             lines: [
                 { accountId: '', debit: 0, credit: 0, description: '' },
-                { accountId: '', debit: 0, credit: 0, description: '' }
-            ]
-        }
+                { accountId: '', debit: 0, credit: 0, description: '' },
+            ],
+        },
     });
 
     const { fields, append, remove, replace } = useFieldArray({
         control: form.control,
-        name: "lines"
+        name: 'lines',
     });
 
     const { watch } = form;
     const lines = watch('lines');
 
     // Calculate totals
-    const totalDebit = lines.reduce((sum, line) => sum + (Number(line.debit) || 0), 0);
-    const totalCredit = lines.reduce((sum, line) => sum + (Number(line.credit) || 0), 0);
+    const totalDebit = lines.reduce(
+        (sum, line) => sum + (Number(line.debit) || 0),
+        0,
+    );
+    const totalCredit = lines.reduce(
+        (sum, line) => sum + (Number(line.credit) || 0),
+        0,
+    );
     const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
 
     // Importing Templates logic
@@ -85,7 +117,7 @@ export default function ManualJournalForm({
             'factory-maintenance': ['Maintenance', 'Pemeliharaan'],
             'factory-rent': ['Sewa', 'Rent'],
             'raw-material': ['Bahan Baku', 'Raw Material'],
-            'packaging': ['Kemasan', 'Packaging'],
+            packaging: ['Kemasan', 'Packaging'],
             'inventory-consumables': ['Perlengkapan', 'Consumable'],
             'shipping-expense': ['Pengiriman', 'Shipping', 'Transport'],
         };
@@ -94,14 +126,16 @@ export default function ManualJournalForm({
             const hints = ROLE_NAME_HINTS[line.accountRole];
             if (!matched && hints) {
                 matched = accounts.find((acc) =>
-                    hints.some((h) => acc.name.toLowerCase().includes(h.toLowerCase()))
+                    hints.some((h) =>
+                        acc.name.toLowerCase().includes(h.toLowerCase()),
+                    ),
                 );
             }
             return {
-                accountId: matched ? matched.id : "",
-                description: line.description || "",
+                accountId: matched ? matched.id : '',
+                description: line.description || '',
                 debit: 0,
-                credit: 0
+                credit: 0,
             };
         });
         replace(newLines);
@@ -122,9 +156,10 @@ export default function ManualJournalForm({
 
             if (result.success) {
                 const action = mode === 'edit' ? 'diperbarui' : 'dibuat';
-                toast.success(post
-                    ? `Jurnal Entri berhasil ${action} dan diposting.`
-                    : `Jurnal Entri berhasil ${action} (DRAFT).`
+                toast.success(
+                    post
+                        ? `Jurnal Entri berhasil ${action} dan diposting.`
+                        : `Jurnal Entri berhasil ${action} (DRAFT).`,
                 );
                 if (mode === 'edit' && journalId) {
                     router.push(`/finance/journals/${journalId}`);
@@ -136,7 +171,9 @@ export default function ManualJournalForm({
                 toast.error(result.error || 'Gagal memproses jurnal');
             }
         } catch (_error) {
-            toast.error('Gagal memproses jurnal. Periksa koneksi Anda dan coba lagi.');
+            toast.error(
+                'Gagal memproses jurnal. Periksa koneksi Anda dan coba lagi.',
+            );
         } finally {
             setLoading(false);
         }
@@ -160,14 +197,15 @@ export default function ManualJournalForm({
                                     <PopoverTrigger asChild>
                                         <FormControl>
                                             <Button
-                                                variant={"outline"}
+                                                variant={'outline'}
                                                 className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
+                                                    'w-full pl-3 text-left font-normal',
+                                                    !field.value &&
+                                                        'text-muted-foreground',
                                                 )}
                                             >
                                                 {field.value ? (
-                                                    format(field.value, "PPP")
+                                                    format(field.value, 'PPP')
                                                 ) : (
                                                     <span>Pick a date</span>
                                                 )}
@@ -175,17 +213,23 @@ export default function ManualJournalForm({
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <PopoverContent
+                                        className="w-auto p-0"
+                                        align="start"
+                                    >
                                         <Calendar
                                             mode="single"
                                             selected={field.value}
                                             onSelect={field.onChange}
                                             disabled={(date) =>
-                                                date > new Date() || date < new Date("1900-01-01")
+                                                date > new Date() ||
+                                                date < new Date('1900-01-01')
                                             }
                                             captionLayout="dropdown"
                                             fromYear={2000}
-                                            toYear={new Date().getFullYear() + 1}
+                                            toYear={
+                                                new Date().getFullYear() + 1
+                                            }
                                             initialFocus
                                         />
                                     </PopoverContent>
@@ -202,7 +246,10 @@ export default function ManualJournalForm({
                             <FormItem>
                                 <FormLabel>Reference</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., ADJ-001" {...field} />
+                                    <Input
+                                        placeholder="e.g., ADJ-001"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -216,34 +263,55 @@ export default function ManualJournalForm({
                             <FormItem className="md:col-span-1">
                                 <FormLabel className="flex justify-between items-center">
                                     Description
-                                    <Popover open={templateOpen} onOpenChange={setTemplateOpen}>
+                                    <Popover
+                                        open={templateOpen}
+                                        onOpenChange={setTemplateOpen}
+                                    >
                                         <PopoverTrigger asChild>
-                                            <Button variant="outline" size="sm" className="h-6 text-xs px-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 text-xs px-2"
+                                            >
                                                 Load Template
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-[200px] p-0" align="end">
+                                        <PopoverContent
+                                            className="w-[200px] p-0"
+                                            align="end"
+                                        >
                                             <div className="p-2">
-                                                <p className="text-xs font-medium text-muted-foreground mb-2 px-2">Select Template</p>
+                                                <p className="text-xs font-medium text-muted-foreground mb-2 px-2">
+                                                    Select Template
+                                                </p>
                                                 <div className="space-y-1">
-                                                    {JOURNAL_TEMPLATES.map((t) => (
-                                                        <Button
-                                                            key={t.id}
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="w-full justify-start text-xs"
-                                                            onClick={() => applyTemplate(t.id)}
-                                                        >
-                                                            {t.name}
-                                                        </Button>
-                                                    ))}
+                                                    {JOURNAL_TEMPLATES.map(
+                                                        (t) => (
+                                                            <Button
+                                                                key={t.id}
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="w-full justify-start text-xs"
+                                                                onClick={() =>
+                                                                    applyTemplate(
+                                                                        t.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {t.name}
+                                                            </Button>
+                                                        ),
+                                                    )}
                                                 </div>
                                             </div>
                                         </PopoverContent>
                                     </Popover>
                                 </FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., Monthly Depreciation" {...field} />
+                                    <Input
+                                        placeholder="e.g., Monthly Depreciation"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -257,10 +325,18 @@ export default function ManualJournalForm({
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[300px]">Account</TableHead>
-                                    <TableHead>Description (Optional)</TableHead>
-                                    <TableHead className="w-[150px] text-right">Debit</TableHead>
-                                    <TableHead className="w-[150px] text-right">Credit</TableHead>
+                                    <TableHead className="w-[300px]">
+                                        Account
+                                    </TableHead>
+                                    <TableHead>
+                                        Description (Optional)
+                                    </TableHead>
+                                    <TableHead className="w-[150px] text-right">
+                                        Debit
+                                    </TableHead>
+                                    <TableHead className="w-[150px] text-right">
+                                        Credit
+                                    </TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -275,9 +351,15 @@ export default function ManualJournalForm({
                                                     <FormItem>
                                                         <FormControl>
                                                             <AccountCombobox
-                                                                accounts={accounts}
-                                                                value={field.value}
-                                                                onValueChange={field.onChange}
+                                                                accounts={
+                                                                    accounts
+                                                                }
+                                                                value={
+                                                                    field.value
+                                                                }
+                                                                onValueChange={
+                                                                    field.onChange
+                                                                }
                                                             />
                                                         </FormControl>
                                                         <FormMessage />
@@ -306,11 +388,22 @@ export default function ManualJournalForm({
                                                     <FormItem>
                                                         <FormControl>
                                                             <AccountingInput
-                                                                value={Number(field.value)}
-                                                                onValueChange={(val: number) => {
-                                                                    field.onChange(val);
-                                                                    if (val > 0) {
-                                                                        form.setValue(`lines.${index}.credit`, 0);
+                                                                value={Number(
+                                                                    field.value,
+                                                                )}
+                                                                onValueChange={(
+                                                                    val: number,
+                                                                ) => {
+                                                                    field.onChange(
+                                                                        val,
+                                                                    );
+                                                                    if (
+                                                                        val > 0
+                                                                    ) {
+                                                                        form.setValue(
+                                                                            `lines.${index}.credit`,
+                                                                            0,
+                                                                        );
                                                                     }
                                                                 }}
                                                             />
@@ -327,11 +420,22 @@ export default function ManualJournalForm({
                                                     <FormItem>
                                                         <FormControl>
                                                             <AccountingInput
-                                                                value={Number(field.value)}
-                                                                onValueChange={(val: number) => {
-                                                                    field.onChange(val);
-                                                                    if (val > 0) {
-                                                                        form.setValue(`lines.${index}.debit`, 0);
+                                                                value={Number(
+                                                                    field.value,
+                                                                )}
+                                                                onValueChange={(
+                                                                    val: number,
+                                                                ) => {
+                                                                    field.onChange(
+                                                                        val,
+                                                                    );
+                                                                    if (
+                                                                        val > 0
+                                                                    ) {
+                                                                        form.setValue(
+                                                                            `lines.${index}.debit`,
+                                                                            0,
+                                                                        );
                                                                     }
                                                                 }}
                                                             />
@@ -360,25 +464,40 @@ export default function ManualJournalForm({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => append({ accountId: '', debit: 0, credit: 0, description: '' })}
+                                onClick={() =>
+                                    append({
+                                        accountId: '',
+                                        debit: 0,
+                                        credit: 0,
+                                        description: '',
+                                    })
+                                }
                             >
                                 <Plus className="h-4 w-4 mr-2" /> Add Line
                             </Button>
 
                             <div className="flex gap-8 text-sm font-medium">
                                 <div>
-                                    <span className="text-muted-foreground mr-2">Total Debit:</span>
+                                    <span className="text-muted-foreground mr-2">
+                                        Total Debit:
+                                    </span>
                                     {formatRupiah(totalDebit)}
                                 </div>
                                 <div>
-                                    <span className="text-muted-foreground mr-2">Total Credit:</span>
+                                    <span className="text-muted-foreground mr-2">
+                                        Total Credit:
+                                    </span>
                                     {formatRupiah(totalCredit)}
                                 </div>
-                                <div className={cn(
-                                    "px-2 py-1 rounded",
-                                    isBalanced ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                )}>
-                                    {isBalanced ? "Balanced" : "Unbalanced"}
+                                <div
+                                    className={cn(
+                                        'px-2 py-1 rounded',
+                                        isBalanced
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700',
+                                    )}
+                                >
+                                    {isBalanced ? 'Balanced' : 'Unbalanced'}
                                 </div>
                             </div>
                         </div>
@@ -402,7 +521,9 @@ export default function ManualJournalForm({
                         disabled={loading || !isBalanced}
                         onClick={handleSaveDraft}
                     >
-                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {loading && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         {mode === 'edit' ? 'Simpan Draft' : 'Save as Draft'}
                     </Button>
                     <Button
@@ -410,7 +531,9 @@ export default function ManualJournalForm({
                         disabled={loading || !isBalanced}
                         onClick={handleSavePost}
                     >
-                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {loading && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         {mode === 'edit' ? 'Simpan & Post' : 'Save & Post'}
                     </Button>
                 </div>

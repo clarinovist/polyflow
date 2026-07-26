@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 export default async function CreateBomPage() {
     const [variantsRes, showPrices] = await Promise.all([
         getProductVariants(),
-        canViewPrices()
+        canViewPrices(),
     ]);
 
     if (!variantsRes.success) {

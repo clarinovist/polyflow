@@ -1,5 +1,18 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ProductionRealizationItem } from '@/types/analytics';
 import { analyticsLabels } from '@/lib/labels';
@@ -13,14 +26,18 @@ export function ProductionRealizationTable({ data }: Props) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{analyticsLabels.productionRealizationTable}</CardTitle>
+                <CardTitle>
+                    {analyticsLabels.productionRealizationTable}
+                </CardTitle>
                 <CardDescription>
                     {analyticsLabels.productionRealizationDesc}
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 {data.length === 0 ? (
-                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data produksi untuk periode ini.</p>
+                    <p className="text-muted-foreground py-8 text-center text-sm">
+                        Tidak ada data produksi untuk periode ini.
+                    </p>
                 ) : (
                     <div className="rounded-md border">
                         <Table>
@@ -28,9 +45,15 @@ export function ProductionRealizationTable({ data }: Props) {
                                 <TableRow>
                                     <TableHead>No. Order</TableHead>
                                     <TableHead>Produk</TableHead>
-                                    <TableHead className="text-right">Rencana</TableHead>
-                                    <TableHead className="text-right">Aktual</TableHead>
-                                    <TableHead className="w-[150px]">Tingkat Hasil</TableHead>
+                                    <TableHead className="text-right">
+                                        Rencana
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Aktual
+                                    </TableHead>
+                                    <TableHead className="w-[150px]">
+                                        Tingkat Hasil
+                                    </TableHead>
                                     <TableHead>Kepatuhan</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
@@ -38,32 +61,64 @@ export function ProductionRealizationTable({ data }: Props) {
                             <TableBody>
                                 {data.map((item) => (
                                     <TableRow key={item.orderNumber}>
-                                        <TableCell className="font-medium">{item.orderNumber}</TableCell>
-                                        <TableCell>{item.productName}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground">{item.plannedQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right font-medium">{item.actualQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {item.orderNumber}
+                                        </TableCell>
+                                        <TableCell>
+                                            {item.productName}
+                                        </TableCell>
+                                        <TableCell className="text-right text-muted-foreground">
+                                            {item.plannedQuantity.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">
+                                            {item.actualQuantity.toLocaleString()}
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <Progress value={Math.min(item.yieldRate, 100)} className={`h-2 ${item.yieldRate < 90 ? 'bg-red-100' : 'bg-green-100'}`} />
-                                                <span className={`text-xs font-medium ${item.yieldRate < 90 ? 'text-red-600' : 'text-green-600'}`}>
+                                                <Progress
+                                                    value={Math.min(
+                                                        item.yieldRate,
+                                                        100,
+                                                    )}
+                                                    className={`h-2 ${item.yieldRate < 90 ? 'bg-red-100' : 'bg-green-100'}`}
+                                                />
+                                                <span
+                                                    className={`text-xs font-medium ${item.yieldRate < 90 ? 'text-red-600' : 'text-green-600'}`}
+                                                >
                                                     {item.yieldRate.toFixed(1)}%
                                                 </span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant={
-                                                item.scheduleAdherence === 'On Time' ? 'outline' : // was 'success' but not standard
-                                                    item.scheduleAdherence === 'Early' ? 'secondary' :
-                                                        item.scheduleAdherence === 'Late' ? 'destructive' : 'secondary'
-                                            } className={
-                                                item.scheduleAdherence === 'On Time' ? 'bg-green-50 text-green-700 border-green-200' : ''
-                                            }>
+                                            <Badge
+                                                variant={
+                                                    item.scheduleAdherence ===
+                                                    'On Time'
+                                                        ? 'outline' // was 'success' but not standard
+                                                        : item.scheduleAdherence ===
+                                                            'Early'
+                                                          ? 'secondary'
+                                                          : item.scheduleAdherence ===
+                                                              'Late'
+                                                            ? 'destructive'
+                                                            : 'secondary'
+                                                }
+                                                className={
+                                                    item.scheduleAdherence ===
+                                                    'On Time'
+                                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                                        : ''
+                                                }
+                                            >
                                                 {item.scheduleAdherence}
-                                                {item.delayDays > 0 && ` (+${item.delayDays}d)`}
+                                                {item.delayDays > 0 &&
+                                                    ` (+${item.delayDays}d)`}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="text-xs text-muted-foreground">{item.status}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {item.status}
+                                            </span>
                                         </TableCell>
                                     </TableRow>
                                 ))}

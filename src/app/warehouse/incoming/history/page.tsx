@@ -29,9 +29,14 @@ export default async function WarehouseIncomingHistoryPage({
     const now = new Date();
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkStart = params?.startDate
+        ? parseISO(params.startDate)
+        : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
-    const receipts = await getReceipts({ startDate: checkStart, endDate: checkEnd });
+    const receipts = await getReceipts({
+        startDate: checkStart,
+        endDate: checkEnd,
+    });
     const serializedReceipts = serializeData(receipts);
 
     return (
@@ -45,7 +50,9 @@ export default async function WarehouseIncomingHistoryPage({
                                 Antrean
                             </Link>
                         </Button>
-                        <h1 className="text-3xl font-bold tracking-tight">Riwayat Penerimaan</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Riwayat Penerimaan
+                        </h1>
                     </div>
                     <p className="text-muted-foreground">
                         Lihat riwayat semua penerimaan barang dari supplier.
@@ -53,7 +60,14 @@ export default async function WarehouseIncomingHistoryPage({
                 </div>
                 <UrlTransactionDateFilter defaultPreset="this_month" />
             </div>
-            <GoodsReceiptTable receipts={serializedReceipts as unknown as React.ComponentProps<typeof GoodsReceiptTable>['receipts']} basePath="/warehouse/incoming" />
+            <GoodsReceiptTable
+                receipts={
+                    serializedReceipts as unknown as React.ComponentProps<
+                        typeof GoodsReceiptTable
+                    >['receipts']
+                }
+                basePath="/warehouse/incoming"
+            />
         </div>
     );
 }

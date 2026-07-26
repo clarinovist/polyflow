@@ -1,13 +1,31 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { recordCustomerPayment } from '@/actions/finance/finance';
 import { formatRupiah, cn } from '@/lib/utils/utils';
 import { Loader2, ChevronsUpDown, Check, FileText } from 'lucide-react';
@@ -38,21 +56,33 @@ interface RecordCustomerPaymentDialogProps {
     paymentBanks?: TenantPaymentBanks;
 }
 
-export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paymentBanks = {} }: RecordCustomerPaymentDialogProps) {
+export function RecordCustomerPaymentDialog({
+    open,
+    onOpenChange,
+    invoices,
+    paymentBanks = {},
+}: RecordCustomerPaymentDialogProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
     const [amount, setAmount] = useState('');
-    const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+    const [paymentDate, setPaymentDate] = useState(
+        new Date().toISOString().split('T')[0],
+    );
     const [method, setMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
     const [referenceNumber, setReferenceNumber] = useState('');
-    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>('');
+    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>(
+        '',
+    );
     const [notes, setNotes] = useState('');
     const [invoiceSearchOpen, setInvoiceSearchOpen] = useState(false);
 
-    const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId);
+    const selectedInvoice = invoices.find(
+        (inv) => inv.id === selectedInvoiceId,
+    );
     const remainingBalance = selectedInvoice
-        ? Number(selectedInvoice.totalAmount) - Number(selectedInvoice.paidAmount)
+        ? Number(selectedInvoice.totalAmount) -
+          Number(selectedInvoice.paidAmount)
         : 0;
 
     // Reset form when dialog closes
@@ -74,13 +104,21 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
 
         // Client-side validation
         if (!selectedInvoiceId) {
-            toast({ title: 'Error', description: 'Pilih invoice terlebih dahulu', variant: 'destructive' });
+            toast({
+                title: 'Error',
+                description: 'Pilih invoice terlebih dahulu',
+                variant: 'destructive',
+            });
             return;
         }
 
         const paymentAmount = parseFloat(amount);
         if (isNaN(paymentAmount) || paymentAmount <= 0) {
-            toast({ title: 'Error', description: 'Masukkan jumlah pembayaran yang valid', variant: 'destructive' });
+            toast({
+                title: 'Error',
+                description: 'Masukkan jumlah pembayaran yang valid',
+                variant: 'destructive',
+            });
             return;
         }
 
@@ -88,7 +126,7 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
             toast({
                 title: 'Error',
                 description: `Pembayaran ${formatRupiah(paymentAmount)} melebihi sisa tagihan ${formatRupiah(remainingBalance)}`,
-                variant: 'destructive'
+                variant: 'destructive',
             });
             return;
         }
@@ -96,7 +134,7 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
         // Show confirmation for large payments or partial payments
         if (paymentAmount < remainingBalance) {
             const confirmed = window.confirm(
-                `Pembayaran ${formatRupiah(paymentAmount)} adalah pembayaran sebagian dari sisa tagihan ${formatRupiah(remainingBalance)}.\n\nSisa yang belum dibayar: ${formatRupiah(remainingBalance - paymentAmount)}\n\nLanjutkan?`
+                `Pembayaran ${formatRupiah(paymentAmount)} adalah pembayaran sebagian dari sisa tagihan ${formatRupiah(remainingBalance)}.\n\nSisa yang belum dibayar: ${formatRupiah(remainingBalance - paymentAmount)}\n\nLanjutkan?`,
             );
             if (!confirmed) return;
         }
@@ -105,11 +143,19 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
 
         if (method === 'Check') {
             if (!referenceNumber.trim()) {
-                toast({ title: 'Error', description: 'Nomor Cek / Giro wajib diisi', variant: 'destructive' });
+                toast({
+                    title: 'Error',
+                    description: 'Nomor Cek / Giro wajib diisi',
+                    variant: 'destructive',
+                });
                 return;
             }
             if (!destinationBank) {
-                toast({ title: 'Error', description: 'Pilih bank tujuan clearing', variant: 'destructive' });
+                toast({
+                    title: 'Error',
+                    description: 'Pilih bank tujuan clearing',
+                    variant: 'destructive',
+                });
                 return;
             }
         }
@@ -121,8 +167,10 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
                 paymentDate: new Date(paymentDate),
                 method,
                 notes,
-                referenceNumber: method === 'Check' ? referenceNumber.trim() : undefined,
-                destinationBank: method === 'Check' ? destinationBank : undefined,
+                referenceNumber:
+                    method === 'Check' ? referenceNumber.trim() : undefined,
+                destinationBank:
+                    method === 'Check' ? destinationBank : undefined,
             });
 
             if (result.success) {
@@ -135,14 +183,15 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
                 toast({
                     title: 'Gagal',
                     description: result.error,
-                    variant: 'destructive'
+                    variant: 'destructive',
                 });
             }
         } catch {
             toast({
                 title: 'Gagal',
-                description: 'Gagal mencatat pembayaran customer. Silakan coba lagi.',
-                variant: 'destructive'
+                description:
+                    'Gagal mencatat pembayaran customer. Silakan coba lagi.',
+                variant: 'destructive',
             });
         } finally {
             setLoading(false);
@@ -155,14 +204,18 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
                 <DialogHeader>
                     <DialogTitle>Catat Pembayaran</DialogTitle>
                     <DialogDescription>
-                        Catat pembayaran yang diterima untuk invoice penjualan yang masih outstanding.
+                        Catat pembayaran yang diterima untuk invoice penjualan
+                        yang masih outstanding.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="invoice">Pilih Invoice</Label>
-                        <Popover open={invoiceSearchOpen} onOpenChange={setInvoiceSearchOpen}>
+                        <Popover
+                            open={invoiceSearchOpen}
+                            onOpenChange={setInvoiceSearchOpen}
+                        >
                             <PopoverTrigger asChild>
                                 <Button
                                     type="button"
@@ -170,22 +223,36 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
                                     role="combobox"
                                     aria-expanded={invoiceSearchOpen}
                                     className={cn(
-                                        "w-full justify-between font-normal min-w-0 h-11",
-                                        !selectedInvoiceId && "text-muted-foreground",
+                                        'w-full justify-between font-normal min-w-0 h-11',
+                                        !selectedInvoiceId &&
+                                            'text-muted-foreground',
                                     )}
                                 >
                                     {selectedInvoice ? (
                                         <span className="flex items-center gap-2 truncate min-w-0">
                                             <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                                             <span className="truncate flex-1 text-left">
-                                                {selectedInvoice.invoiceNumber} — {selectedInvoice.salesOrder.customer?.name || `Build Stok Internal Lama (${selectedInvoice.salesOrder.orderNumber})`}
+                                                {selectedInvoice.invoiceNumber}{' '}
+                                                —{' '}
+                                                {selectedInvoice.salesOrder
+                                                    .customer?.name ||
+                                                    `Build Stok Internal Lama (${selectedInvoice.salesOrder.orderNumber})`}
                                             </span>
                                             <span className="text-xs text-muted-foreground shrink-0 font-mono">
-                                                {formatRupiah(Number(selectedInvoice.totalAmount) - Number(selectedInvoice.paidAmount))}
+                                                {formatRupiah(
+                                                    Number(
+                                                        selectedInvoice.totalAmount,
+                                                    ) -
+                                                        Number(
+                                                            selectedInvoice.paidAmount,
+                                                        ),
+                                                )}
                                             </span>
                                         </span>
                                     ) : (
-                                        <span className="truncate">Pilih invoice yang belum lunas</span>
+                                        <span className="truncate">
+                                            Pilih invoice yang belum lunas
+                                        </span>
                                     )}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
@@ -196,50 +263,80 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
                             >
                                 <Command
                                     filter={(val, search) => {
-                                        const inv = invoices.find(i => i.id === val);
+                                        const inv = invoices.find(
+                                            (i) => i.id === val,
+                                        );
                                         if (!inv) return 0;
                                         const q = search.toLowerCase();
-                                        const customerName = inv.salesOrder.customer?.name || `Build Stok Internal Lama (${inv.salesOrder.orderNumber})`;
-                                        return inv.invoiceNumber.toLowerCase().includes(q) ||
-                                            customerName.toLowerCase().includes(q)
+                                        const customerName =
+                                            inv.salesOrder.customer?.name ||
+                                            `Build Stok Internal Lama (${inv.salesOrder.orderNumber})`;
+                                        return inv.invoiceNumber
+                                            .toLowerCase()
+                                            .includes(q) ||
+                                            customerName
+                                                .toLowerCase()
+                                                .includes(q)
                                             ? 1
                                             : 0;
                                     }}
                                 >
                                     <CommandInput placeholder="Cari no invoice atau customer..." />
                                     <CommandList>
-                                        <CommandEmpty>Tidak ada invoice ditemukan.</CommandEmpty>
+                                        <CommandEmpty>
+                                            Tidak ada invoice ditemukan.
+                                        </CommandEmpty>
                                         <CommandGroup>
                                             {invoices.map((inv) => {
-                                                const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
-                                                const customerLabel = inv.salesOrder.customer?.name
-                                                    || `Build Stok Internal Lama (${inv.salesOrder.orderNumber})`;
+                                                const balance =
+                                                    Number(inv.totalAmount) -
+                                                    Number(inv.paidAmount);
+                                                const customerLabel =
+                                                    inv.salesOrder.customer
+                                                        ?.name ||
+                                                    `Build Stok Internal Lama (${inv.salesOrder.orderNumber})`;
                                                 return (
                                                     <CommandItem
                                                         key={inv.id}
                                                         value={inv.id}
-                                                        onSelect={(currentValue) => {
-                                                            setSelectedInvoiceId(currentValue === selectedInvoiceId ? '' : currentValue);
-                                                            setInvoiceSearchOpen(false);
+                                                        onSelect={(
+                                                            currentValue,
+                                                        ) => {
+                                                            setSelectedInvoiceId(
+                                                                currentValue ===
+                                                                    selectedInvoiceId
+                                                                    ? ''
+                                                                    : currentValue,
+                                                            );
+                                                            setInvoiceSearchOpen(
+                                                                false,
+                                                            );
                                                         }}
                                                         className="flex items-center gap-2"
                                                     >
                                                         <Check
                                                             className={cn(
-                                                                "h-4 w-4 shrink-0",
-                                                                selectedInvoiceId === inv.id ? "opacity-100" : "opacity-0",
+                                                                'h-4 w-4 shrink-0',
+                                                                selectedInvoiceId ===
+                                                                    inv.id
+                                                                    ? 'opacity-100'
+                                                                    : 'opacity-0',
                                                             )}
                                                         />
                                                         <div className="flex flex-col min-w-0 flex-1">
                                                             <span className="truncate font-medium">
-                                                                {inv.invoiceNumber}
+                                                                {
+                                                                    inv.invoiceNumber
+                                                                }
                                                             </span>
                                                             <span className="text-xs text-muted-foreground">
                                                                 {customerLabel}
                                                             </span>
                                                         </div>
                                                         <span className="text-xs font-mono text-muted-foreground shrink-0">
-                                                            {formatRupiah(balance)}
+                                                            {formatRupiah(
+                                                                balance,
+                                                            )}
                                                         </span>
                                                     </CommandItem>
                                                 );
@@ -254,16 +351,32 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
                     {selectedInvoice && (
                         <div className="p-3 bg-muted rounded-md text-sm space-y-1">
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Total Tagihan:</span>
-                                <span className="font-medium">{formatRupiah(Number(selectedInvoice.totalAmount))}</span>
+                                <span className="text-muted-foreground">
+                                    Total Tagihan:
+                                </span>
+                                <span className="font-medium">
+                                    {formatRupiah(
+                                        Number(selectedInvoice.totalAmount),
+                                    )}
+                                </span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Sudah Dibayar:</span>
-                                <span className="font-medium text-emerald-600">{formatRupiah(Number(selectedInvoice.paidAmount))}</span>
+                                <span className="text-muted-foreground">
+                                    Sudah Dibayar:
+                                </span>
+                                <span className="font-medium text-emerald-600">
+                                    {formatRupiah(
+                                        Number(selectedInvoice.paidAmount),
+                                    )}
+                                </span>
                             </div>
                             <div className="flex justify-between border-t pt-1">
-                                <span className="text-muted-foreground font-semibold">Sisa Tagihan:</span>
-                                <span className="font-bold text-red-600">{formatRupiah(remainingBalance)}</span>
+                                <span className="text-muted-foreground font-semibold">
+                                    Sisa Tagihan:
+                                </span>
+                                <span className="font-bold text-red-600">
+                                    {formatRupiah(remainingBalance)}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -316,11 +429,21 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices, paym
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            disabled={loading}
+                        >
                             Batal
                         </Button>
-                        <Button type="submit" disabled={loading || !selectedInvoiceId}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button
+                            type="submit"
+                            disabled={loading || !selectedInvoiceId}
+                        >
+                            {loading && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
                             Catat Pembayaran
                         </Button>
                     </DialogFooter>

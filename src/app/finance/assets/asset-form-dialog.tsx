@@ -13,7 +13,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { createFixedAsset } from '@/actions/finance/accounting';
 import { toast } from 'sonner';
@@ -30,8 +36,8 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const assetAccounts = accounts.filter(a => a.category === 'FIXED_ASSET');
-    const expenseAccounts = accounts.filter(a => a.type === 'EXPENSE');
+    const assetAccounts = accounts.filter((a) => a.category === 'FIXED_ASSET');
+    const expenseAccounts = accounts.filter((a) => a.type === 'EXPENSE');
 
     const [formData, setFormData] = useState({
         assetCode: '',
@@ -63,7 +69,7 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
                 toast.error(res.error || 'Gagal membuat aset');
             }
         } catch (_error) {
-            toast.error("Gagal menyimpan aset. Silakan coba lagi.")
+            toast.error('Gagal menyimpan aset. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -81,46 +87,123 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>Daftarkan Aset Tetap</DialogTitle>
-                        <DialogDescription>Masukkan detail perolehan dan pemetaan akun akuntansi.</DialogDescription>
+                        <DialogDescription>
+                            Masukkan detail perolehan dan pemetaan akun
+                            akuntansi.
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Asset Code</Label>
-                                <Input required value={formData.assetCode} onChange={e => setFormData({ ...formData, assetCode: e.target.value })} placeholder="ASSET-001" />
+                                <Input
+                                    required
+                                    value={formData.assetCode}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            assetCode: e.target.value,
+                                        })
+                                    }
+                                    placeholder="ASSET-001"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Asset Name</Label>
-                                <Input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Injection Machine" />
+                                <Input
+                                    required
+                                    value={formData.name}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            name: e.target.value,
+                                        })
+                                    }
+                                    placeholder="Injection Machine"
+                                />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Purchase Date</Label>
-                                <Input type="date" required value={formData.purchaseDate} onChange={e => setFormData({ ...formData, purchaseDate: e.target.value })} />
+                                <Input
+                                    type="date"
+                                    required
+                                    value={formData.purchaseDate}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            purchaseDate: e.target.value,
+                                        })
+                                    }
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Useful Life (Months)</Label>
-                                <Input type="number" required value={formData.usefulLifeMonths} onChange={e => setFormData({ ...formData, usefulLifeMonths: e.target.value })} />
+                                <Input
+                                    type="number"
+                                    required
+                                    value={formData.usefulLifeMonths}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            usefulLifeMonths: e.target.value,
+                                        })
+                                    }
+                                />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Purchase Value</Label>
-                                <Input type="number" required value={formData.purchaseValue} onChange={e => setFormData({ ...formData, purchaseValue: e.target.value })} />
+                                <Input
+                                    type="number"
+                                    required
+                                    value={formData.purchaseValue}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            purchaseValue: e.target.value,
+                                        })
+                                    }
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Scrap Value</Label>
-                                <Input type="number" required value={formData.scrapValue} onChange={e => setFormData({ ...formData, scrapValue: e.target.value })} />
+                                <Input
+                                    type="number"
+                                    required
+                                    value={formData.scrapValue}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            scrapValue: e.target.value,
+                                        })
+                                    }
+                                />
                             </div>
                         </div>
 
                         <div className="space-y-2">
                             <Label>Asset Account (GL)</Label>
-                            <Select value={formData.assetAccountId} onValueChange={val => setFormData({ ...formData, assetAccountId: val })}>
-                                <SelectTrigger><SelectValue placeholder="Select Account" /></SelectTrigger>
+                            <Select
+                                value={formData.assetAccountId}
+                                onValueChange={(val) =>
+                                    setFormData({
+                                        ...formData,
+                                        assetAccountId: val,
+                                    })
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Account" />
+                                </SelectTrigger>
                                 <SelectContent>
-                                    {assetAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>)}
+                                    {assetAccounts.map((a) => (
+                                        <SelectItem key={a.id} value={a.id}>
+                                            {a.code} - {a.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -128,26 +211,59 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Depr. Expense Account</Label>
-                                <Select value={formData.depreciationAccountId} onValueChange={val => setFormData({ ...formData, depreciationAccountId: val })}>
-                                    <SelectTrigger><SelectValue placeholder="Expense Acc" /></SelectTrigger>
+                                <Select
+                                    value={formData.depreciationAccountId}
+                                    onValueChange={(val) =>
+                                        setFormData({
+                                            ...formData,
+                                            depreciationAccountId: val,
+                                        })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Expense Acc" />
+                                    </SelectTrigger>
                                     <SelectContent>
-                                        {expenseAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>)}
+                                        {expenseAccounts.map((a) => (
+                                            <SelectItem key={a.id} value={a.id}>
+                                                {a.code} - {a.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Accum. Depr. Account</Label>
-                                <Select value={formData.accumulatedDepreciationAccountId} onValueChange={val => setFormData({ ...formData, accumulatedDepreciationAccountId: val })}>
-                                    <SelectTrigger><SelectValue placeholder="Contra Asset Acc" /></SelectTrigger>
+                                <Select
+                                    value={
+                                        formData.accumulatedDepreciationAccountId
+                                    }
+                                    onValueChange={(val) =>
+                                        setFormData({
+                                            ...formData,
+                                            accumulatedDepreciationAccountId:
+                                                val,
+                                        })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Contra Asset Acc" />
+                                    </SelectTrigger>
                                     <SelectContent>
-                                        {assetAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>)}
+                                        {assetAccounts.map((a) => (
+                                            <SelectItem key={a.id} value={a.id}>
+                                                {a.code} - {a.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit" disabled={loading}>{loading ? 'Menyimpan...' : 'Daftarkan'}</Button>
+                        <Button type="submit" disabled={loading}>
+                            {loading ? 'Menyimpan...' : 'Daftarkan'}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

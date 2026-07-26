@@ -8,10 +8,16 @@ import RoleSelection, { RoleType } from '@/components/auth/role-selection';
 import WorkspaceDiscovery from '@/components/auth/workspace-discovery';
 import { AnimatePresence, motion } from 'framer-motion';
 
-export default function LoginClient({ subdomain, isAdminSubdomain }: { subdomain: string | null; isAdminSubdomain: boolean }) {
+export default function LoginClient({
+    subdomain,
+    isAdminSubdomain,
+}: {
+    subdomain: string | null;
+    isAdminSubdomain: boolean;
+}) {
     // On admin subdomain, skip role selection — go straight to login
     const [selectedRole, setSelectedRole] = useState<RoleType | null>(
-        isAdminSubdomain ? 'ADMIN' : null
+        isAdminSubdomain ? 'ADMIN' : null,
     );
     const router = useRouter();
 
@@ -51,9 +57,17 @@ export default function LoginClient({ subdomain, isAdminSubdomain }: { subdomain
                                     key="admin-login-form"
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                    transition={{
+                                        duration: 0.3,
+                                        ease: 'easeInOut',
+                                    }}
                                 >
-                                    <LoginForm selectedRole="ADMIN" onBack={() => { window.location.href = `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk'}/login`; }} />
+                                    <LoginForm
+                                        selectedRole="ADMIN"
+                                        onBack={() => {
+                                            window.location.href = `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk'}/login`;
+                                        }}
+                                    />
                                 </motion.div>
                             </AnimatePresence>
                         </>
@@ -61,7 +75,10 @@ export default function LoginClient({ subdomain, isAdminSubdomain }: { subdomain
                         <>
                             <div className="flex justify-center mb-10">
                                 <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-800 text-sm border border-zinc-200 shadow-sm">
-                                    Tenant: <strong className="ml-1 text-zinc-950 uppercase">{subdomain}</strong>
+                                    Tenant:{' '}
+                                    <strong className="ml-1 text-zinc-950 uppercase">
+                                        {subdomain}
+                                    </strong>
                                 </span>
                             </div>
                             <AnimatePresence mode="wait">
@@ -71,9 +88,14 @@ export default function LoginClient({ subdomain, isAdminSubdomain }: { subdomain
                                         initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: 20 }}
-                                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                        transition={{
+                                            duration: 0.3,
+                                            ease: 'easeInOut',
+                                        }}
                                     >
-                                        <RoleSelection onSelectRole={handleSelectRole} />
+                                        <RoleSelection
+                                            onSelectRole={handleSelectRole}
+                                        />
                                     </motion.div>
                                 ) : (
                                     <motion.div
@@ -81,9 +103,15 @@ export default function LoginClient({ subdomain, isAdminSubdomain }: { subdomain
                                         initial={{ opacity: 0, x: 20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: -20 }}
-                                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                        transition={{
+                                            duration: 0.3,
+                                            ease: 'easeInOut',
+                                        }}
                                     >
-                                        <LoginForm selectedRole={selectedRole} onBack={handleBack} />
+                                        <LoginForm
+                                            selectedRole={selectedRole}
+                                            onBack={handleBack}
+                                        />
                                     </motion.div>
                                 )}
                             </AnimatePresence>

@@ -2,13 +2,13 @@
 
 ## Informasi Modul
 
-| Field | Detail |
-|-------|--------|
-| **Modul** | Autentikasi & Role-Based Access Control |
+| Field               | Detail                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| **Modul**           | Autentikasi & Role-Based Access Control                                             |
 | **Halaman Terkait** | `/login`, `/register`, `/logout` (Super Admin via subdomain `admin.<domain>/login`) |
-| **Tanggal UAT** | ____/____/________ |
-| **Nama Tester** | _________________________ |
-| **Versi Aplikasi** | _________________________ |
+| **Tanggal UAT**     | \_**\_/\_\_**/**\_\_\_\_**                                                          |
+| **Nama Tester**     | ************\_************                                                          |
+| **Versi Aplikasi**  | ************\_************                                                          |
 
 ## Prasyarat
 
@@ -24,11 +24,11 @@
 
 ### TC-AUTH-001: Login dengan Akun yang Benar
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-001 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan pengguna bisa masuk ke aplikasi dengan email dan password yang benar |
+| Field         | Detail                                                                          |
+| ------------- | ------------------------------------------------------------------------------- |
+| **ID**        | TC-AUTH-001                                                                     |
+| **Prioritas** | 🔴 P1 — Kritis                                                                  |
+| **Tujuan**    | Memastikan pengguna bisa masuk ke aplikasi dengan email dan password yang benar |
 
 **Langkah-langkah:**
 
@@ -43,25 +43,25 @@
 
 - Pengguna berhasil masuk ke aplikasi
 - Halaman berpindah ke dashboard sesuai role pengguna:
-  - ADMIN → `/dashboard`
-  - WAREHOUSE → `/warehouse`
-  - PRODUCTION → `/production`
-  - FINANCE/SALES/PPIC → `/dashboard`
+    - ADMIN → `/dashboard`
+    - WAREHOUSE → `/warehouse`
+    - PRODUCTION → `/production`
+    - FINANCE/SALES/PPIC → `/dashboard`
 - Nama pengguna terlihat di bagian atas/header aplikasi
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-002: Login dengan Password Salah
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-002 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan sistem menolak login jika password salah |
+| Field         | Detail                                              |
+| ------------- | --------------------------------------------------- |
+| **ID**        | TC-AUTH-002                                         |
+| **Prioritas** | 🔴 P1 — Kritis                                      |
+| **Tujuan**    | Memastikan sistem menolak login jika password salah |
 
 **Langkah-langkah:**
 
@@ -78,17 +78,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-003: Login dengan Email yang Tidak Terdaftar
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-003 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan sistem menolak login jika email tidak terdaftar |
+| Field         | Detail                                                     |
+| ------------- | ---------------------------------------------------------- |
+| **ID**        | TC-AUTH-003                                                |
+| **Prioritas** | 🔴 P1 — Kritis                                             |
+| **Tujuan**    | Memastikan sistem menolak login jika email tidak terdaftar |
 
 **Langkah-langkah:**
 
@@ -105,17 +105,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-004: Login dengan Form Kosong
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-004 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan sistem tidak crash jika form login dikosongkan |
+| Field         | Detail                                                    |
+| ------------- | --------------------------------------------------------- |
+| **ID**        | TC-AUTH-004                                               |
+| **Prioritas** | 🟡 P2 — Penting                                           |
+| **Tujuan**    | Memastikan sistem tidak crash jika form login dikosongkan |
 
 **Langkah-langkah:**
 
@@ -131,17 +131,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-005: Fitur Lihat/Sembunyikan Password
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-005 |
-| **Prioritas** | 🟢 P3 — Pelengkap |
-| **Tujuan** | Memastikan pengguna bisa melihat password yang diketik |
+| Field         | Detail                                                 |
+| ------------- | ------------------------------------------------------ |
+| **ID**        | TC-AUTH-005                                            |
+| **Prioritas** | 🟢 P3 — Pelengkap                                      |
+| **Tujuan**    | Memastikan pengguna bisa melihat password yang diketik |
 
 **Langkah-langkah:**
 
@@ -156,17 +156,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-006: Fitur "Ingat Saya" (Remember Me)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-006 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan sesi login bertahan lebih lama jika "Ingat Saya" dicentang |
+| Field         | Detail                                                                |
+| ------------- | --------------------------------------------------------------------- |
+| **ID**        | TC-AUTH-006                                                           |
+| **Prioritas** | 🟡 P2 — Penting                                                       |
+| **Tujuan**    | Memastikan sesi login bertahan lebih lama jika "Ingat Saya" dicentang |
 
 **Langkah-langkah:**
 
@@ -184,17 +184,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-007: Auto-Logout Setelah Tidak Aktif (Tanpa Remember Me)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-007 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan sesi habis otomatis setelah 2 jam tidak aktif |
+| Field         | Detail                                                   |
+| ------------- | -------------------------------------------------------- |
+| **ID**        | TC-AUTH-007                                              |
+| **Prioritas** | 🟡 P2 — Penting                                          |
+| **Tujuan**    | Memastikan sesi habis otomatis setelah 2 jam tidak aktif |
 
 **Langkah-langkah:**
 
@@ -209,17 +209,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-008: Logout Manual
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-008 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan pengguna bisa keluar dari aplikasi |
+| Field         | Detail                                        |
+| ------------- | --------------------------------------------- |
+| **ID**        | TC-AUTH-008                                   |
+| **Prioritas** | 🔴 P1 — Kritis                                |
+| **Tujuan**    | Memastikan pengguna bisa keluar dari aplikasi |
 
 **Langkah-langkah:**
 
@@ -235,17 +235,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-009: Akses Halaman ADMIN oleh Role WAREHOUSE
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-009 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan user dengan role WAREHOUSE tidak bisa mengakses halaman lain |
+| Field         | Detail                                                                  |
+| ------------- | ----------------------------------------------------------------------- |
+| **ID**        | TC-AUTH-009                                                             |
+| **Prioritas** | 🔴 P1 — Kritis                                                          |
+| **Tujuan**    | Memastikan user dengan role WAREHOUSE tidak bisa mengakses halaman lain |
 
 **Langkah-langkah:**
 
@@ -263,17 +263,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-010: Akses Halaman oleh Role PRODUCTION
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-010 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan user PRODUCTION hanya bisa akses `/production` |
+| Field         | Detail                                                    |
+| ------------- | --------------------------------------------------------- |
+| **ID**        | TC-AUTH-010                                               |
+| **Prioritas** | 🔴 P1 — Kritis                                            |
+| **Tujuan**    | Memastikan user PRODUCTION hanya bisa akses `/production` |
 
 **Langkah-langkah:**
 
@@ -289,17 +289,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-011: Akses Dashboard oleh Role ADMIN
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-011 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan user ADMIN bisa mengakses semua halaman |
+| Field         | Detail                                             |
+| ------------- | -------------------------------------------------- |
+| **ID**        | TC-AUTH-011                                        |
+| **Prioritas** | 🔴 P1 — Kritis                                     |
+| **Tujuan**    | Memastikan user ADMIN bisa mengakses semua halaman |
 
 **Langkah-langkah:**
 
@@ -319,17 +319,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-012: Super Admin — Isolasi ke /admin
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-012 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan Super Admin hanya bisa akses halaman `/admin` |
+| Field         | Detail                                                   |
+| ------------- | -------------------------------------------------------- |
+| **ID**        | TC-AUTH-012                                              |
+| **Prioritas** | 🔴 P1 — Kritis                                           |
+| **Tujuan**    | Memastikan Super Admin hanya bisa akses halaman `/admin` |
 
 **Langkah-langkah:**
 
@@ -346,26 +346,26 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-013: Registrasi Pengguna Baru
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-013 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan proses pendaftaran akun baru berjalan |
+| Field         | Detail                                           |
+| ------------- | ------------------------------------------------ |
+| **ID**        | TC-AUTH-013                                      |
+| **Prioritas** | 🟡 P2 — Penting                                  |
+| **Tujuan**    | Memastikan proses pendaftaran akun baru berjalan |
 
 **Langkah-langkah:**
 
 1. Buka halaman `/register`
 2. Isi formulir pendaftaran:
-   - Nama lengkap
-   - Email (gunakan email baru yang belum terdaftar)
-   - Password (minimal sesuai persyaratan)
-   - Konfirmasi password
+    - Nama lengkap
+    - Email (gunakan email baru yang belum terdaftar)
+    - Password (minimal sesuai persyaratan)
+    - Konfirmasi password
 3. Klik tombol **Daftar / Register**
 
 **Hasil yang Diharapkan:**
@@ -376,28 +376,28 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-014: Akses Halaman Tanpa Login
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-014 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan halaman yang dilindungi tidak bisa diakses tanpa login |
+| Field         | Detail                                                            |
+| ------------- | ----------------------------------------------------------------- |
+| **ID**        | TC-AUTH-014                                                       |
+| **Prioritas** | 🔴 P1 — Kritis                                                    |
+| **Tujuan**    | Memastikan halaman yang dilindungi tidak bisa diakses tanpa login |
 
 **Langkah-langkah:**
 
 1. Pastikan **tidak sedang login** (logout dulu jika perlu)
 2. Buka langsung URL:
-   - `/dashboard`
-   - `/warehouse`
-   - `/production`
-   - `/finance`
-   - `/sales`
-   - `/planning`
+    - `/dashboard`
+    - `/warehouse`
+    - `/production`
+    - `/finance`
+    - `/sales`
+    - `/planning`
 3. Catat apa yang terjadi di masing-masing URL
 
 **Hasil yang Diharapkan:**
@@ -408,17 +408,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-AUTH-015: Kiosk Bisa Diakses Tanpa Login
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-AUTH-015 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan halaman Kiosk Operator bisa diakses tanpa login |
+| Field         | Detail                                                     |
+| ------------- | ---------------------------------------------------------- |
+| **ID**        | TC-AUTH-015                                                |
+| **Prioritas** | 🟡 P2 — Penting                                            |
+| **Tujuan**    | Memastikan halaman Kiosk Operator bisa diakses tanpa login |
 
 **Langkah-langkah:**
 
@@ -433,22 +433,22 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ## Ringkasan Hasil
 
-| Total TC | Lulus | Gagal | Sebagian |
-|----------|-------|-------|----------|
-| 15 | _____ | _____ | _____ |
+| Total TC | Lulus  | Gagal  | Sebagian |
+| -------- | ------ | ------ | -------- |
+| 15       | **\_** | **\_** | **\_**   |
 
 **Catatan Umum:**
 
-_______________________________________________
+---
 
-_______________________________________________
+---
 
-**Tanda Tangan Tester:** _________________________
+**Tanda Tangan Tester:** ************\_************
 
-**Tanggal:** ____/____/________
+**Tanggal:** \_**\_/\_\_**/**\_\_\_\_**

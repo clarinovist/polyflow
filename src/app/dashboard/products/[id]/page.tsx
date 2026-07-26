@@ -1,4 +1,3 @@
-
 import { getProductById } from '@/actions/product';
 import { ProductDetail } from '@/components/products/ProductDetail';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ComponentProps } from 'react';
 
-export default async function ProductDetailPage(props: { params: Promise<{ id: string }> }) {
+export default async function ProductDetailPage(props: {
+    params: Promise<{ id: string }>;
+}) {
     const params = await props.params;
     const productRes = await getProductById(params.id);
 
@@ -15,7 +16,9 @@ export default async function ProductDetailPage(props: { params: Promise<{ id: s
         notFound();
     }
 
-    const product = productRes.data as unknown as ComponentProps<typeof ProductDetail>['product'];
+    const product = productRes.data as unknown as ComponentProps<
+        typeof ProductDetail
+    >['product'];
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -26,7 +29,9 @@ export default async function ProductDetailPage(props: { params: Promise<{ id: s
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>
-                    <h2 className="text-3xl font-bold tracking-tight">{product.name}</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">
+                        {product.name}
+                    </h2>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" asChild>

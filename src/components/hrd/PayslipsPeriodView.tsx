@@ -32,13 +32,21 @@ type Payslip = {
     notes: string | null;
     employee: { code: string; name: string };
     allowances: Array<{ id: string; name: string; amount: unknown }>;
-    loanPayments: Array<{ id: string; amount: unknown; loan: { loanNumber: string } }>;
+    loanPayments: Array<{
+        id: string;
+        amount: unknown;
+        loan: { loanNumber: string };
+    }>;
 };
 
 const toN = (v: unknown): number => toDecimalNumber(v);
 
 function formatIdr(n: number) {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(n);
 }
 
 const STATUS_BADGE: Record<Payslip['status'], string> = {
@@ -68,7 +76,8 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
         const data = res.success ? (res.data ?? []) : [];
         setPayslips(data as Payslip[]);
         if (selected) {
-            const refreshed = (data as Payslip[]).find((p) => p.id === selected.id) ?? null;
+            const refreshed =
+                (data as Payslip[]).find((p) => p.id === selected.id) ?? null;
             setSelected(refreshed);
             if (refreshed) syncEditForm(refreshed);
         }
@@ -111,10 +120,12 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
         } else toast.error(res.error || 'Gagal');
     };
     const handleUnfinalize = async (id: string) => {
-        if (!confirm('Batalkan finalize? Potongan kasbon akan dikembalikan.')) return;
+        if (!confirm('Batalkan finalize? Potongan kasbon akan dikembalikan.'))
+            return;
         setUnfinalizing(true);
         try {
-            const { unfinalizePayslip } = await import('@/actions/hrd/payroll-monthly');
+            const { unfinalizePayslip } =
+                await import('@/actions/hrd/payroll-monthly');
             const res = await unfinalizePayslip(id);
             if (res.success) {
                 toast.success('Payslip dikembalikan ke DRAFT');
@@ -125,7 +136,8 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
         }
     };
     const handleClose = async () => {
-        if (!confirm('Tutup periode? Hanya bisa jika semua payslip PAID.')) return;
+        if (!confirm('Tutup periode? Hanya bisa jika semua payslip PAID.'))
+            return;
         const res = await closePayrollPeriod(periodId);
         if (res.success) {
             toast.success('Periode ditutup');
@@ -156,19 +168,25 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
     };
 
     const totalNet = payslips.reduce((s, p) => s + toN(p.netPay), 0);
-    const allPaid = payslips.length > 0 && payslips.every((p) => p.status === 'PAID');
+    const allPaid =
+        payslips.length > 0 && payslips.every((p) => p.status === 'PAID');
 
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
-                <Link href="/hrd/payroll-monthly" className="text-xs text-muted-foreground hover:underline">
+                <Link
+                    href="/hrd/payroll-monthly"
+                    className="text-xs text-muted-foreground hover:underline"
+                >
                     ← Daftar periode
                 </Link>
                 <div className="flex gap-2">
                     <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => window.location.href = `/api/hrd/payroll-monthly/export?periodId=${periodId}`}
+                        onClick={() =>
+                            (window.location.href = `/api/hrd/payroll-monthly/export?periodId=${periodId}`)
+                        }
                         disabled={payslips.length === 0}
                     >
                         Export CSV
@@ -176,12 +194,22 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                     <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => window.open(`/hrd/payroll-monthly/${periodId}/print`, '_blank')}
+                        onClick={() =>
+                            window.open(
+                                `/hrd/payroll-monthly/${periodId}/print`,
+                                '_blank',
+                            )
+                        }
                         disabled={payslips.length === 0}
                     >
                         Print
                     </Button>
-                    <Button size="sm" variant="outline" onClick={handleClose} disabled={!allPaid}>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleClose}
+                        disabled={!allPaid}
+                    >
                         Tutup Periode
                     </Button>
                 </div>
@@ -206,14 +234,20 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                     <tbody>
                         {loading && (
                             <tr>
-                                <td colSpan={10} className="p-4 text-center text-muted-foreground">
+                                <td
+                                    colSpan={10}
+                                    className="p-4 text-center text-muted-foreground"
+                                >
                                     Memuat…
                                 </td>
                             </tr>
                         )}
                         {!loading && payslips.length === 0 && (
                             <tr>
-                                <td colSpan={10} className="p-4 text-center text-muted-foreground">
+                                <td
+                                    colSpan={10}
+                                    className="p-4 text-center text-muted-foreground"
+                                >
                                     Belum ada payslip — generate dulu
                                 </td>
                             </tr>
@@ -227,15 +261,27 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                 <td className="p-2">
                                     {p.employee.code} — {p.employee.name}
                                 </td>
-                                <td className="p-2 text-right">{formatIdr(toN(p.baseSalary))}</td>
-                                <td className="p-2 text-right">{formatIdr(toN(p.allowanceTotal))}</td>
-                                <td className="p-2 text-right">{formatIdr(toN(p.thrAmount))}</td>
-                                <td className="p-2 text-right text-red-600">-{formatIdr(toN(p.bpjsDeduction))}</td>
-                                <td className="p-2 text-right text-red-600">-{formatIdr(toN(p.loanDeduction))}</td>
+                                <td className="p-2 text-right">
+                                    {formatIdr(toN(p.baseSalary))}
+                                </td>
+                                <td className="p-2 text-right">
+                                    {formatIdr(toN(p.allowanceTotal))}
+                                </td>
+                                <td className="p-2 text-right">
+                                    {formatIdr(toN(p.thrAmount))}
+                                </td>
+                                <td className="p-2 text-right text-red-600">
+                                    -{formatIdr(toN(p.bpjsDeduction))}
+                                </td>
+                                <td className="p-2 text-right text-red-600">
+                                    -{formatIdr(toN(p.loanDeduction))}
+                                </td>
                                 <td className="p-2 text-right text-red-600">
                                     -{formatIdr(toN(p.prorationDeduction))}
                                 </td>
-                                <td className="p-2 text-right font-semibold">{formatIdr(toN(p.netPay))}</td>
+                                <td className="p-2 text-right font-semibold">
+                                    {formatIdr(toN(p.netPay))}
+                                </td>
                                 <td className="p-2">
                                     <span
                                         className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[p.status]}`}
@@ -243,7 +289,10 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                         {p.status}
                                     </span>
                                 </td>
-                                <td className="p-2 text-right" onClick={(e) => e.stopPropagation()}>
+                                <td
+                                    className="p-2 text-right"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
                                     {p.status === 'DRAFT' && (
                                         <Button
                                             size="sm"
@@ -268,7 +317,9 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                                 size="sm"
                                                 variant="outline"
                                                 className="h-7 text-xs text-amber-600"
-                                                onClick={() => handleUnfinalize(p.id)}
+                                                onClick={() =>
+                                                    handleUnfinalize(p.id)
+                                                }
                                                 disabled={unfinalizing}
                                             >
                                                 Unfinalize
@@ -285,7 +336,9 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                 <td className="p-2" colSpan={7}>
                                     Total Net Pay
                                 </td>
-                                <td className="p-2 text-right">{formatIdr(totalNet)}</td>
+                                <td className="p-2 text-right">
+                                    {formatIdr(totalNet)}
+                                </td>
                                 <td colSpan={2}></td>
                             </tr>
                         </tfoot>
@@ -302,30 +355,48 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                 size="sm"
                                 variant="ghost"
                                 className="h-7 text-xs"
-                                onClick={() => window.open(`/hrd/payroll-monthly/${periodId}/print?payslipId=${selected.id}`, '_blank')}
+                                onClick={() =>
+                                    window.open(
+                                        `/hrd/payroll-monthly/${periodId}/print?payslipId=${selected.id}`,
+                                        '_blank',
+                                    )
+                                }
                             >
                                 Print
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7" onClick={() => setSelected(null)}>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7"
+                                onClick={() => setSelected(null)}
+                            >
                                 ×
                             </Button>
                         </div>
                     </div>
                     <div className="text-xs space-y-1">
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Karyawan</span>
+                            <span className="text-muted-foreground">
+                                Karyawan
+                            </span>
                             <span>
-                                {selected.employee.code} — {selected.employee.name}
+                                {selected.employee.code} —{' '}
+                                {selected.employee.name}
                             </span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Gaji Pokok</span>
+                            <span className="text-muted-foreground">
+                                Gaji Pokok
+                            </span>
                             <span>{formatIdr(toN(selected.baseSalary))}</span>
                         </div>
                         {selected.allowances.length > 0 && (
                             <div className="pl-3 space-y-1">
                                 {selected.allowances.map((a) => (
-                                    <div key={a.id} className="flex justify-between text-muted-foreground">
+                                    <div
+                                        key={a.id}
+                                        className="flex justify-between text-muted-foreground"
+                                    >
                                         <span>• {a.name}</span>
                                         <span>{formatIdr(toN(a.amount))}</span>
                                     </div>
@@ -337,13 +408,20 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                             <span>{formatIdr(toN(selected.grossPay))}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Total potongan</span>
-                            <span>-{formatIdr(toN(selected.deductionTotal))}</span>
+                            <span className="text-muted-foreground">
+                                Total potongan
+                            </span>
+                            <span>
+                                -{formatIdr(toN(selected.deductionTotal))}
+                            </span>
                         </div>
                         {selected.loanPayments.length > 0 && (
                             <div className="pl-3 space-y-1">
                                 {selected.loanPayments.map((lp) => (
-                                    <div key={lp.id} className="flex justify-between text-muted-foreground">
+                                    <div
+                                        key={lp.id}
+                                        className="flex justify-between text-muted-foreground"
+                                    >
                                         <span>• {lp.loan.loanNumber}</span>
                                         <span>{formatIdr(toN(lp.amount))}</span>
                                     </div>
@@ -369,7 +447,12 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                         min="0"
                                         className="h-8 text-xs"
                                         value={editForm.thrAmount}
-                                        onChange={(e) => setEditForm({ ...editForm, thrAmount: e.target.value })}
+                                        onChange={(e) =>
+                                            setEditForm({
+                                                ...editForm,
+                                                thrAmount: e.target.value,
+                                            })
+                                        }
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -380,56 +463,86 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                         className="h-8 text-xs"
                                         value={editForm.bpjsDeduction}
                                         onChange={(e) =>
-                                            setEditForm({ ...editForm, bpjsDeduction: e.target.value })
+                                            setEditForm({
+                                                ...editForm,
+                                                bpjsDeduction: e.target.value,
+                                            })
                                         }
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-[10px]">Kasbon</Label>
+                                    <Label className="text-[10px]">
+                                        Kasbon
+                                    </Label>
                                     <Input
                                         type="number"
                                         min="0"
                                         className="h-8 text-xs"
                                         value={editForm.loanDeduction}
                                         onChange={(e) =>
-                                            setEditForm({ ...editForm, loanDeduction: e.target.value })
+                                            setEditForm({
+                                                ...editForm,
+                                                loanDeduction: e.target.value,
+                                            })
                                         }
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-[10px]">Prorata (ABSENT)</Label>
+                                    <Label className="text-[10px]">
+                                        Prorata (ABSENT)
+                                    </Label>
                                     <Input
                                         type="number"
                                         min="0"
                                         className="h-8 text-xs"
                                         value={editForm.prorationDeduction}
                                         onChange={(e) =>
-                                            setEditForm({ ...editForm, prorationDeduction: e.target.value })
+                                            setEditForm({
+                                                ...editForm,
+                                                prorationDeduction:
+                                                    e.target.value,
+                                            })
                                         }
                                     />
                                 </div>
                                 <div className="space-y-1 col-span-2">
-                                    <Label className="text-[10px]">Potongan lain</Label>
+                                    <Label className="text-[10px]">
+                                        Potongan lain
+                                    </Label>
                                     <Input
                                         type="number"
                                         min="0"
                                         className="h-8 text-xs"
                                         value={editForm.otherDeductions}
                                         onChange={(e) =>
-                                            setEditForm({ ...editForm, otherDeductions: e.target.value })
+                                            setEditForm({
+                                                ...editForm,
+                                                otherDeductions: e.target.value,
+                                            })
                                         }
                                     />
                                 </div>
                                 <div className="space-y-1 col-span-2">
-                                    <Label className="text-[10px]">Catatan</Label>
+                                    <Label className="text-[10px]">
+                                        Catatan
+                                    </Label>
                                     <Input
                                         className="h-8 text-xs"
                                         value={editForm.notes}
-                                        onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                                        onChange={(e) =>
+                                            setEditForm({
+                                                ...editForm,
+                                                notes: e.target.value,
+                                            })
+                                        }
                                     />
                                 </div>
                             </div>
-                            <Button size="sm" onClick={handleSaveDraft} disabled={saving}>
+                            <Button
+                                size="sm"
+                                onClick={handleSaveDraft}
+                                disabled={saving}
+                            >
                                 {saving ? 'Menyimpan…' : 'Simpan koreksi'}
                             </Button>
                         </div>

@@ -8,18 +8,24 @@ export async function getSuggestedPurchases() {
         include: {
             product: { select: { name: true, productType: true } },
             preferredSupplier: { select: { name: true } },
-            inventories: { select: { quantity: true } }
-        }
+            inventories: { select: { quantity: true } },
+        },
     });
 
-    return variants.map(v => {
-        const totalPhysical = v.inventories.reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
-        return {
-            ...v,
-            totalStock: totalPhysical,
-            shouldReorder: totalPhysical < (v.reorderPoint?.toNumber() || 0)
-        };
-    }).filter(v => v.shouldReorder);
+    return variants
+        .map((v) => {
+            const totalPhysical = v.inventories.reduce(
+                (sum, inv) => sum + inv.quantity.toNumber(),
+                0,
+            );
+            return {
+                ...v,
+                totalStock: totalPhysical,
+                shouldReorder:
+                    totalPhysical < (v.reorderPoint?.toNumber() || 0),
+            };
+        })
+        .filter((v) => v.shouldReorder);
 }
 
 export async function getInventoryValuation() {
@@ -31,12 +37,12 @@ export async function getInventoryValuation() {
                     id: true,
                     name: true,
                     locationType: true,
-                }
+                },
             },
             productVariant: {
-                select: { name: true, skuCode: true, buyPrice: true }
-            }
-        }
+                select: { name: true, skuCode: true, buyPrice: true },
+            },
+        },
     });
 
     let financeValuation = 0;
@@ -46,9 +52,13 @@ export async function getInventoryValuation() {
 
     for (const item of stock) {
         const quantity = item.quantity.toNumber();
-        const unitCost = item.averageCost?.toNumber() || item.productVariant.buyPrice?.toNumber() || 0;
+        const unitCost =
+            item.averageCost?.toNumber() ||
+            item.productVariant.buyPrice?.toNumber() ||
+            0;
         const value = quantity * unitCost;
-        const isCustomerOwned = item.location.locationType === LocationType.CUSTOMER_OWNED;
+        const isCustomerOwned =
+            item.location.locationType === LocationType.CUSTOMER_OWNED;
 
         totalValuation += value;
         if (isCustomerOwned) {
@@ -66,7 +76,7 @@ export async function getInventoryValuation() {
             locationType: item.location.locationType,
             quantity,
             unitCost,
-            totalValue: value
+            totalValue: value,
         });
     }
 
@@ -74,12 +84,18 @@ export async function getInventoryValuation() {
         totalValuation,
         financeValuation,
         customerOwnedValuation,
-        details: valuationDetails
+        details: valuationDetails,
     };
 }
 
 export async function getInventoryAsOf(targetDate: Date, locationId?: string) {
-    const result = await prisma.$queryRaw<Array<{ productVariantId: string, locationId: string, quantity: number }>>`
+    const result = await prisma.$queryRaw<
+        Array<{
+            productVariantId: string;
+            locationId: string;
+            quantity: number;
+        }>
+    >`
         SELECT
             "productVariantId",
             "locationId",
@@ -103,18 +119,25 @@ export async function getInventoryAsOf(targetDate: Date, locationId?: string) {
     return result;
 }
 
-export async function getStockHistory(productVariantId: string, startDate: Date, endDate: Date, locationId?: string) {
+export async function getStockHistory(
+    productVariantId: string,
+    startDate: Date,
+    endDate: Date,
+    locationId?: string,
+) {
     const initialMovements = await prisma.stockMovement.findMany({
         where: {
             productVariantId,
             createdAt: { lt: startDate },
-            ...(locationId ? {
-                OR: [
-                    { fromLocationId: locationId },
-                    { toLocationId: locationId }
-                ]
-            } : {})
-        }
+            ...(locationId
+                ? {
+                      OR: [
+                          { fromLocationId: locationId },
+                          { toLocationId: locationId },
+                      ],
+                  }
+                : {}),
+        },
     });
 
     let currentStock = initialMovements.reduce((sum, m) => {
@@ -135,16 +158,18 @@ export async function getStockHistory(productVariantId: string, startDate: Date,
             productVariantId,
             createdAt: {
                 gte: startDate,
-                lte: endDate
+                lte: endDate,
             },
-            ...(locationId ? {
-                OR: [
-                    { fromLocationId: locationId },
-                    { toLocationId: locationId }
-                ]
-            } : {})
+            ...(locationId
+                ? {
+                      OR: [
+                          { fromLocationId: locationId },
+                          { toLocationId: locationId },
+                      ],
+                  }
+                : {}),
         },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
     });
 
     const historyData = [];
@@ -156,11 +181,11 @@ export async function getStockHistory(productVariantId: string, startDate: Date,
         const dayEnd = new Date(curr);
         dayEnd.setHours(23, 59, 59, 999);
 
-        const dayMovements = movements.filter(m =>
-            m.createdAt >= dayStart && m.createdAt <= dayEnd
+        const dayMovements = movements.filter(
+            (m) => m.createdAt >= dayStart && m.createdAt <= dayEnd,
         );
 
-        dayMovements.forEach(m => {
+        dayMovements.forEach((m) => {
             const qty = m.quantity.toNumber();
             if (locationId) {
                 if (m.toLocationId === locationId) currentStock += qty;
@@ -173,7 +198,7 @@ export async function getStockHistory(productVariantId: string, startDate: Date,
 
         historyData.push({
             date: dayStart.toISOString().split('T')[0],
-            stock: currentStock
+            stock: currentStock,
         });
 
         curr.setDate(curr.getDate() + 1);
@@ -190,13 +215,13 @@ export async function getInventoryTurnover(periodDays = 30) {
         where: {
             type: MovementType.OUT,
             createdAt: { gte: startDate, lte: endDate },
-            cost: { not: null }
+            cost: { not: null },
         },
-        select: { quantity: true, cost: true }
+        select: { quantity: true, cost: true },
     });
 
     const cogs = outboundMovements.reduce((sum, m) => {
-        return sum + (m.quantity.toNumber() * (m.cost?.toNumber() || 0));
+        return sum + m.quantity.toNumber() * (m.cost?.toNumber() || 0);
     }, 0);
 
     const currentValuation = await getInventoryValuation();
@@ -206,11 +231,14 @@ export async function getInventoryTurnover(periodDays = 30) {
         where: {
             type: MovementType.IN,
             createdAt: { gte: startDate, lte: endDate },
-            cost: { not: null }
+            cost: { not: null },
         },
-        select: { quantity: true, cost: true }
+        select: { quantity: true, cost: true },
     });
-    const inValue = inboundMovements.reduce((sum, m) => sum + (m.quantity.toNumber() * (m.cost?.toNumber() || 0)), 0);
+    const inValue = inboundMovements.reduce(
+        (sum, m) => sum + m.quantity.toNumber() * (m.cost?.toNumber() || 0),
+        0,
+    );
     const outValue = cogs;
 
     const openingValue = closingValue - inValue + outValue;
@@ -222,7 +250,7 @@ export async function getInventoryTurnover(periodDays = 30) {
         periodDays,
         cogs,
         averageInventory,
-        turnoverRatio: Number(turnoverRatio.toFixed(2))
+        turnoverRatio: Number(turnoverRatio.toFixed(2)),
     };
 }
 
@@ -232,54 +260,85 @@ export async function getDaysOfInventoryOnHand(periodDays = 30) {
     if (turnoverStats.cogs === 0) {
         return {
             ...turnoverStats,
-            daysOnHand: turnoverStats.averageInventory > 0 ? 999 : 0
+            daysOnHand: turnoverStats.averageInventory > 0 ? 999 : 0,
         };
     }
 
-    const daysOnHand = (turnoverStats.averageInventory / turnoverStats.cogs) * periodDays;
+    const daysOnHand =
+        (turnoverStats.averageInventory / turnoverStats.cogs) * periodDays;
 
     return {
         ...turnoverStats,
-        daysOnHand: Number(daysOnHand.toFixed(1))
+        daysOnHand: Number(daysOnHand.toFixed(1)),
     };
 }
 
-export async function getStockMovementTrends(period: 'week' | 'month' | 'quarter' = 'month') {
+export async function getStockMovementTrends(
+    period: 'week' | 'month' | 'quarter' = 'month',
+) {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
     const startDate = subDays(new Date(), days);
 
     const movements = await prisma.stockMovement.findMany({
         where: {
-            createdAt: { gte: startDate }
+            createdAt: { gte: startDate },
         },
         select: {
             type: true,
             quantity: true,
-            createdAt: true
+            createdAt: true,
         },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
     });
 
-    const grouped = movements.reduce((acc, m) => {
-        const dateStr = format(m.createdAt, 'yyyy-MM-dd');
-        if (!acc[dateStr]) {
-            acc[dateStr] = { date: dateStr, in: 0, out: 0, transfer: 0, adjustment: 0 };
-        }
+    const grouped = movements.reduce(
+        (acc, m) => {
+            const dateStr = format(m.createdAt, 'yyyy-MM-dd');
+            if (!acc[dateStr]) {
+                acc[dateStr] = {
+                    date: dateStr,
+                    in: 0,
+                    out: 0,
+                    transfer: 0,
+                    adjustment: 0,
+                };
+            }
 
-        const qty = m.quantity.toNumber();
-        if (m.type === MovementType.IN) acc[dateStr].in += qty;
-        else if (m.type === MovementType.OUT) acc[dateStr].out += qty;
-        else if (m.type === MovementType.TRANSFER) acc[dateStr].transfer += qty;
-        else if (m.type === MovementType.ADJUSTMENT) acc[dateStr].adjustment += qty;
+            const qty = m.quantity.toNumber();
+            if (m.type === MovementType.IN) acc[dateStr].in += qty;
+            else if (m.type === MovementType.OUT) acc[dateStr].out += qty;
+            else if (m.type === MovementType.TRANSFER)
+                acc[dateStr].transfer += qty;
+            else if (m.type === MovementType.ADJUSTMENT)
+                acc[dateStr].adjustment += qty;
 
-        return acc;
-    }, {} as Record<string, { date: string; in: number; out: number; transfer: number; adjustment: number }>);
+            return acc;
+        },
+        {} as Record<
+            string,
+            {
+                date: string;
+                in: number;
+                out: number;
+                transfer: number;
+                adjustment: number;
+            }
+        >,
+    );
 
     const results = [];
     for (let i = 0; i <= days; i++) {
         const date = subDays(new Date(), days - i);
         const dateStr = format(date, 'yyyy-MM-dd');
-        results.push(grouped[dateStr] || { date: dateStr, in: 0, out: 0, transfer: 0, adjustment: 0 });
+        results.push(
+            grouped[dateStr] || {
+                date: dateStr,
+                in: 0,
+                out: 0,
+                transfer: 0,
+                adjustment: 0,
+            },
+        );
     }
 
     return results;

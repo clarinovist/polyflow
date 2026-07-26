@@ -61,7 +61,7 @@ export function DuplicateBomDialog({
     const [targetVariantId, setTargetVariantId] = useState('');
     const [name, setName] = useState(`Salinan - ${sourceBom.name}`);
     const [outputQuantity, setOutputQuantity] = useState(
-        sourceBom.outputQuantity.toString()
+        sourceBom.outputQuantity.toString(),
     );
     const [quantityScale, setQuantityScale] = useState('1');
     const [isDefault, setIsDefault] = useState(true);
@@ -112,7 +112,9 @@ export function DuplicateBomDialog({
                 sourceBomId: sourceBom.id,
                 productVariantId: targetVariantId,
                 name,
-                outputQuantity: outputQuantity ? parseFloat(outputQuantity) : undefined,
+                outputQuantity: outputQuantity
+                    ? parseFloat(outputQuantity)
+                    : undefined,
                 quantityScale: scale,
                 isDefault,
             });
@@ -144,7 +146,8 @@ export function DuplicateBomDialog({
                         Duplikat Formula
                     </DialogTitle>
                     <DialogDescription>
-                        Salin resep dari <strong>{sourceBom.name}</strong> ke variant baru.
+                        Salin resep dari <strong>{sourceBom.name}</strong> ke
+                        variant baru.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -156,7 +159,8 @@ export function DuplicateBomDialog({
                         </div>
                         <div>{sourceBom.name}</div>
                         <div className="text-muted-foreground text-xs mt-1">
-                            {sourceBom.itemCount} bahan · {sourceBom.category} · Output {sourceBom.outputQuantity}
+                            {sourceBom.itemCount} bahan · {sourceBom.category} ·
+                            Output {sourceBom.outputQuantity}
                         </div>
                     </div>
 
@@ -179,7 +183,10 @@ export function DuplicateBomDialog({
                             </SelectTrigger>
                             <SelectContent>
                                 {variants.map((variant: ProductVariant) => (
-                                    <SelectItem key={variant.id} value={variant.id}>
+                                    <SelectItem
+                                        key={variant.id}
+                                        value={variant.id}
+                                    >
                                         <span className="font-mono text-xs text-muted-foreground mr-2">
                                             {variant.skuCode}
                                         </span>
@@ -209,7 +216,9 @@ export function DuplicateBomDialog({
                                 id="output-qty"
                                 type="number"
                                 value={outputQuantity}
-                                onChange={(e) => setOutputQuantity(e.target.value)}
+                                onChange={(e) =>
+                                    setOutputQuantity(e.target.value)
+                                }
                                 min="0.0001"
                                 step="0.01"
                             />
@@ -220,7 +229,9 @@ export function DuplicateBomDialog({
                                 id="scale"
                                 type="number"
                                 value={quantityScale}
-                                onChange={(e) => setQuantityScale(e.target.value)}
+                                onChange={(e) =>
+                                    setQuantityScale(e.target.value)
+                                }
                                 min="0.0001"
                                 step="0.01"
                             />
@@ -231,7 +242,8 @@ export function DuplicateBomDialog({
                     <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded-md p-2">
                         <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-600" />
                         <span>
-                            Untuk spek beda berat: scale 0,9 = 90% qty bahan. Scrap % tidak diubah.
+                            Untuk spek beda berat: scale 0,9 = 90% qty bahan.
+                            Scrap % tidak diubah.
                         </span>
                     </div>
 
@@ -240,9 +252,14 @@ export function DuplicateBomDialog({
                         <Checkbox
                             id="is-default"
                             checked={isDefault}
-                            onCheckedChange={(checked) => setIsDefault(checked === true)}
+                            onCheckedChange={(checked) =>
+                                setIsDefault(checked === true)
+                            }
                         />
-                        <Label htmlFor="is-default" className="text-sm font-normal cursor-pointer">
+                        <Label
+                            htmlFor="is-default"
+                            className="text-sm font-normal cursor-pointer"
+                        >
                             Jadikan default
                         </Label>
                     </div>
@@ -250,7 +267,10 @@ export function DuplicateBomDialog({
                     {/* Preview */}
                     <div className="rounded-md border border-dashed p-3 text-sm">
                         <span className="font-medium">Preview:</span>{' '}
-                        {sourceBom.itemCount} bahan{previewScale ? ` (scale ${scale})` : ' (sama dengan sumber)'}
+                        {sourceBom.itemCount} bahan
+                        {previewScale
+                            ? ` (scale ${scale})`
+                            : ' (sama dengan sumber)'}
                         {isDefault ? ' · Default: Ya' : ''}
                     </div>
                 </div>
@@ -266,7 +286,9 @@ export function DuplicateBomDialog({
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        disabled={isSubmitting || !targetVariantId || !isValidScale}
+                        disabled={
+                            isSubmitting || !targetVariantId || !isValidScale
+                        }
                         className="bg-blue-600 hover:bg-blue-700"
                     >
                         {isSubmitting ? (

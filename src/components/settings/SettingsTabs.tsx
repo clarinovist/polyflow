@@ -8,7 +8,16 @@ import { AccessControlTab } from './AccessControlTab';
 import { CompanySettings } from './CompanySettings';
 import { NotificationSettings } from './NotificationSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings as SettingsIcon, User, Users, Lock, Monitor, Building2, Bell, LucideIcon } from 'lucide-react';
+import {
+    Settings as SettingsIcon,
+    User,
+    Users,
+    Lock,
+    Monitor,
+    Building2,
+    Bell,
+    LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { settingsLabels } from '@/lib/labels';
@@ -26,7 +35,13 @@ interface SettingsTabsProps {
     environment?: string;
 }
 
-type TabValue = 'general' | 'company' | 'notifications' | 'users' | 'access' | 'system';
+type TabValue =
+    | 'general'
+    | 'company'
+    | 'notifications'
+    | 'users'
+    | 'access'
+    | 'system';
 
 interface TabItem {
     value: TabValue;
@@ -47,7 +62,10 @@ export function SettingsTabs({
     appVersion,
     environment,
 }: SettingsTabsProps) {
-    const isAdmin = isTenantAdmin({ role: currentUserRole, roles: currentUserRoles });
+    const isAdmin = isTenantAdmin({
+        role: currentUserRole,
+        roles: currentUserRoles,
+    });
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
@@ -62,14 +80,46 @@ export function SettingsTabs({
     };
 
     const tabs: TabItem[] = [
-        { value: 'general', label: settingsLabels.general, icon: User, description: settingsLabels.generalDesc },
-        { value: 'notifications', label: settingsLabels.notifications, icon: Bell, description: settingsLabels.notificationsDesc },
-        ...(isAdmin ? [
-            { value: 'company', label: settingsLabels.company, icon: Building2, description: settingsLabels.companyDesc } as TabItem,
-            { value: 'users', label: settingsLabels.users, icon: Users, description: settingsLabels.usersDesc } as TabItem,
-            { value: 'access', label: settingsLabels.accessControl, icon: Lock, description: settingsLabels.accessControlDesc } as TabItem,
-        ] : []),
-        { value: 'system', label: settingsLabels.system, icon: Monitor, description: settingsLabels.systemDesc },
+        {
+            value: 'general',
+            label: settingsLabels.general,
+            icon: User,
+            description: settingsLabels.generalDesc,
+        },
+        {
+            value: 'notifications',
+            label: settingsLabels.notifications,
+            icon: Bell,
+            description: settingsLabels.notificationsDesc,
+        },
+        ...(isAdmin
+            ? [
+                  {
+                      value: 'company',
+                      label: settingsLabels.company,
+                      icon: Building2,
+                      description: settingsLabels.companyDesc,
+                  } as TabItem,
+                  {
+                      value: 'users',
+                      label: settingsLabels.users,
+                      icon: Users,
+                      description: settingsLabels.usersDesc,
+                  } as TabItem,
+                  {
+                      value: 'access',
+                      label: settingsLabels.accessControl,
+                      icon: Lock,
+                      description: settingsLabels.accessControlDesc,
+                  } as TabItem,
+              ]
+            : []),
+        {
+            value: 'system',
+            label: settingsLabels.system,
+            icon: Monitor,
+            description: settingsLabels.systemDesc,
+        },
     ];
 
     const renderContent = () => {
@@ -93,9 +143,7 @@ export function SettingsTabs({
                     <UsersTab currentUserId={currentUserId} />
                 ) : null;
             case 'access':
-                return isAdmin ? (
-                    <AccessControlTab />
-                ) : null;
+                return isAdmin ? <AccessControlTab /> : null;
             case 'system':
                 return (
                     <Card className="max-w-2xl">
@@ -107,20 +155,28 @@ export function SettingsTabs({
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 py-2 border-b">
-                                <span className="text-sm font-medium">{settingsLabels.erpVersion}</span>
+                                <span className="text-sm font-medium">
+                                    {settingsLabels.erpVersion}
+                                </span>
                                 <span className="text-sm text-muted-foreground text-right">
                                     {appVersion ? `v${appVersion}` : '—'}
                                 </span>
                             </div>
                             <div className="grid grid-cols-2 gap-4 py-2 border-b">
-                                <span className="text-sm font-medium">{settingsLabels.environment}</span>
+                                <span className="text-sm font-medium">
+                                    {settingsLabels.environment}
+                                </span>
                                 <span className="text-sm text-muted-foreground text-right capitalize">
                                     {environment || '—'}
                                 </span>
                             </div>
                             <div className="grid grid-cols-2 gap-4 py-2">
-                                <span className="text-sm font-medium">{settingsLabels.serverStatus}</span>
-                                <span className="text-sm text-green-500 font-medium text-right">{settingsLabels.online}</span>
+                                <span className="text-sm font-medium">
+                                    {settingsLabels.serverStatus}
+                                </span>
+                                <span className="text-sm text-green-500 font-medium text-right">
+                                    {settingsLabels.online}
+                                </span>
                             </div>
                         </CardContent>
                     </Card>
@@ -144,13 +200,13 @@ export function SettingsTabs({
                             key={tab.value}
                             role="tab"
                             aria-selected={isActive}
-                            aria-current={isActive ? "page" : undefined}
+                            aria-current={isActive ? 'page' : undefined}
                             onClick={() => setActiveTab(tab.value as TabValue)}
                             className={cn(
-                                "inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                'inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                                 isActive
-                                    ? "border-primary text-foreground"
-                                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                                    ? 'border-primary text-foreground'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30',
                             )}
                         >
                             <tab.icon className="h-4 w-4" />

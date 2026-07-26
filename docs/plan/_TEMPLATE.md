@@ -29,13 +29,16 @@ Related Issue/Request: <link / deskripsi>
 ## 4. Rencana Fix
 
 ### 4.1 Schema / Migration (jika ada)
+
 - ...
 
 ### 4.2 Code Change
+
 - Step 1: ...
 - Step 2: ...
 
 ### 4.3 Data Patch (jika perlu)
+
 - SQL / script: ...
 
 ## 5. Residual Gap

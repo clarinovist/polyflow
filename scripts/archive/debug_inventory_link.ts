@@ -9,41 +9,48 @@ async function main() {
 
     const gr = await prisma.goodsReceipt.findUnique({
         where: { id: goodsReceiptId },
-        select: { purchaseOrderId: true }
+        select: { purchaseOrderId: true },
     });
-    console.log("GR purchaseOrderId:", gr?.purchaseOrderId);
+    console.log('GR purchaseOrderId:', gr?.purchaseOrderId);
 
     if (gr?.purchaseOrderId) {
         const existingBill = await prisma.purchaseInvoice.findFirst({
-            where: { purchaseOrderId: gr.purchaseOrderId }
+            where: { purchaseOrderId: gr.purchaseOrderId },
         });
-        console.log("existingBill:", existingBill?.id, "invoiceNumber:", existingBill?.invoiceNumber);
+        console.log(
+            'existingBill:',
+            existingBill?.id,
+            'invoiceNumber:',
+            existingBill?.invoiceNumber,
+        );
 
         if (existingBill) {
             const billJournal = await prisma.journalEntry.findFirst({
                 where: { referenceId: existingBill.id, status: 'POSTED' },
-                include: { lines: true }
+                include: { lines: true },
             });
-            console.log("billJournal:", billJournal?.id);
+            console.log('billJournal:', billJournal?.id);
 
-            const acc11310 = await prisma.account.findUnique({ where: { code: '11310' } });
-            console.log("acc11310:", acc11310?.id);
+            const acc11310 = await prisma.account.findUnique({
+                where: { code: '11310' },
+            });
+            console.log('acc11310:', acc11310?.id);
 
             if (billJournal && acc11310) {
                 const directDebit = billJournal.lines.some(
-                    l => l.accountId === acc11310.id && Number(l.debit) > 0
+                    (l) => l.accountId === acc11310.id && Number(l.debit) > 0,
                 );
-                console.log("directDebit:", directDebit);
+                console.log('directDebit:', directDebit);
                 if (directDebit) billAlreadyExists = true;
             }
         }
     }
-    console.log("Final billAlreadyExists:", billAlreadyExists);
+    console.log('Final billAlreadyExists:', billAlreadyExists);
 }
 
 main()
     .then(() => process.exit(0))
     .catch((e) => {
-        console.error("Error executing script:", e);
+        console.error('Error executing script:', e);
         process.exit(1);
     });

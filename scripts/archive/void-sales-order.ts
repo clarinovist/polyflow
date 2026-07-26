@@ -8,16 +8,21 @@ async function main() {
 
     const order = await prisma.salesOrder.findUnique({
         where: { orderNumber },
-        include: { items: true, movements: true, invoices: true, deliveryOrders: true }
+        include: {
+            items: true,
+            movements: true,
+            invoices: true,
+            deliveryOrders: true,
+        },
     });
 
     if (!order) {
-        console.error("Order not found");
+        console.error('Order not found');
         return;
     }
 
     if (order.status === SalesOrderStatus.CANCELLED) {
-        console.log("Order is already cancelled.");
+        console.log('Order is already cancelled.');
         return;
     }
 
@@ -29,7 +34,7 @@ async function main() {
             console.log(`Cancelling Delivery Order ${doRecord.orderNumber}`);
             await tx.deliveryOrder.update({
                 where: { id: doRecord.id },
-                data: { status: 'CANCELLED' }
+                data: { status: 'CANCELLED' },
             });
         }
 
@@ -38,30 +43,32 @@ async function main() {
             console.log(`Cancelling Invoice ${invoice.invoiceNumber}`);
             await tx.invoice.update({
                 where: { id: invoice.id },
-                data: { status: 'CANCELLED' }
+                data: { status: 'CANCELLED' },
             });
         }
 
         // 3. Revert Stock Movements and Inventory
-        const outMovements = order.movements.filter(m => m.type === 'OUT');
+        const outMovements = order.movements.filter((m) => m.type === 'OUT');
         console.log(`Found ${outMovements.length} OUT movements to revert`);
 
         for (const movement of outMovements) {
             if (!movement.fromLocationId) continue;
 
-            console.log(`Reverting ${movement.quantity} of ${movement.productVariantId} to location ${movement.fromLocationId}`);
+            console.log(
+                `Reverting ${movement.quantity} of ${movement.productVariantId} to location ${movement.fromLocationId}`,
+            );
 
             // Add back to inventory
             await tx.inventory.update({
                 where: {
                     locationId_productVariantId: {
                         locationId: movement.fromLocationId,
-                        productVariantId: movement.productVariantId
-                    }
+                        productVariantId: movement.productVariantId,
+                    },
                 },
                 data: {
-                    quantity: { increment: movement.quantity }
-                }
+                    quantity: { increment: movement.quantity },
+                },
             });
 
             // Create compensating movement
@@ -73,8 +80,8 @@ async function main() {
                     quantity: movement.quantity,
                     salesOrderId: order.id,
                     reference: `Void revert for ${order.orderNumber}`,
-                    createdAt: new Date()
-                }
+                    createdAt: new Date(),
+                },
             });
         }
 
@@ -82,7 +89,7 @@ async function main() {
         console.log(`Marking Sales Order ${orderNumber} as CANCELLED`);
         await tx.salesOrder.update({
             where: { id: order.id },
-            data: { status: SalesOrderStatus.CANCELLED }
+            data: { status: SalesOrderStatus.CANCELLED },
         });
 
         console.log('Void process completed successfully inside transaction.');
@@ -91,10 +98,10 @@ async function main() {
 
 main()
     .then(() => {
-        console.log("Done.");
+        console.log('Done.');
         process.exit(0);
     })
     .catch((e) => {
-        console.error("Error during void process:", e);
+        console.error('Error during void process:', e);
         process.exit(1);
     });

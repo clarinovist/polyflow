@@ -8,8 +8,8 @@ Folder ini menjadi pusat dokumen untuk pengembangan PolyFlow v2 supaya roadmap, 
 
 ## Documents
 
-| Document | Purpose |
-|---|---|
+| Document                                               | Purpose                                                                                                                                         |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`architecture-roadmap.md`](./architecture-roadmap.md) | Master roadmap arsitektur PolyFlow v2: modular monolith, tenant safety, ledger-first inventory, Finance & Accounting, reporting, AI guardrails. |
 
 ---

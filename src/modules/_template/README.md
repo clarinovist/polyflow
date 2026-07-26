@@ -43,16 +43,16 @@ src/modules/<domain>/
 
 Folder purpose:
 
-| Folder | Purpose |
-|---|---|
-| `actions/` | Thin Server Actions/API adapters. Auth, parse input, call service, revalidate. |
-| `services/` | Business use cases and domain orchestration. |
-| `repositories/` | Prisma/raw SQL access for this module. Keep complex queries here. |
-| `schemas/` | Zod schemas and DTO validation. |
-| `events/` | Domain events published/consumed by this module. |
-| `policies/` | Permission and domain policy checks. |
-| `tests/` | Module-level service/repository/policy tests. |
-| `index.ts` | Public module exports only. |
+| Folder          | Purpose                                                                        |
+| --------------- | ------------------------------------------------------------------------------ |
+| `actions/`      | Thin Server Actions/API adapters. Auth, parse input, call service, revalidate. |
+| `services/`     | Business use cases and domain orchestration.                                   |
+| `repositories/` | Prisma/raw SQL access for this module. Keep complex queries here.              |
+| `schemas/`      | Zod schemas and DTO validation.                                                |
+| `events/`       | Domain events published/consumed by this module.                               |
+| `policies/`     | Permission and domain policy checks.                                           |
+| `tests/`        | Module-level service/repository/policy tests.                                  |
+| `index.ts`      | Public module exports only.                                                    |
 
 ---
 
@@ -88,14 +88,14 @@ Each real module should expose public contracts from `index.ts`.
 Example:
 
 ```ts
-export { InventoryLedgerService } from "./services/inventory-ledger-service";
-export type { StockCommand } from "./services/types";
+export { InventoryLedgerService } from './services/inventory-ledger-service';
+export type { StockCommand } from './services/types';
 ```
 
 Other domains should prefer importing from:
 
 ```ts
-import { InventoryLedgerService } from "@/modules/inventory";
+import { InventoryLedgerService } from '@/modules/inventory';
 ```
 
 not from deep internal paths unless there is a deliberate exception.
@@ -109,27 +109,30 @@ Server Actions are adapters, not business logic containers.
 Target shape:
 
 ```ts
-"use server";
+'use server';
 
 export async function runDomainAction(input: unknown) {
-  const user = await requireAuth();
-  const parsed = domainActionSchema.safeParse(input);
+    const user = await requireAuth();
+    const parsed = domainActionSchema.safeParse(input);
 
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
+    if (!parsed.success) {
+        return {
+            success: false,
+            error: parsed.error.issues[0]?.message ?? 'Invalid input',
+        };
+    }
 
-  try {
-    const result = await DomainService.run({
-      input: parsed.data,
-      actorId: user.id,
-    });
+    try {
+        const result = await DomainService.run({
+            input: parsed.data,
+            actorId: user.id,
+        });
 
-    revalidatePath("/target/path");
-    return { success: true, data: result };
-  } catch (error) {
-    return { success: false, error: mapDomainError(error) };
-  }
+        revalidatePath('/target/path');
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: mapDomainError(error) };
+    }
 }
 ```
 
@@ -151,15 +154,12 @@ Recommended shape:
 
 ```ts
 export class DomainService {
-  static async run(params: {
-    input: DomainInput;
-    actorId: string;
-  }) {
-    // validate domain invariants that cannot be expressed by Zod only
-    // call repositories
-    // publish domain event if needed
-    // return DTO
-  }
+    static async run(params: { input: DomainInput; actorId: string }) {
+        // validate domain invariants that cannot be expressed by Zod only
+        // call repositories
+        // publish domain event if needed
+        // return DTO
+    }
 }
 ```
 

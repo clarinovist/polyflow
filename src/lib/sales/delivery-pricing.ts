@@ -13,17 +13,17 @@
 export type RateTypeInput = 'PER_KG' | 'FLAT_RATE';
 
 export interface DeliveryTotalsInput {
-  rateType: RateTypeInput;
-  costRate: number;
-  chargeRate: number;
-  weightKg?: number | null;
-  minKg?: number | null;
+    rateType: RateTypeInput;
+    costRate: number;
+    chargeRate: number;
+    weightKg?: number | null;
+    minKg?: number | null;
 }
 
 export interface DeliveryTotals {
-  totalCost: number;
-  totalCharge: number;
-  billableKg: number | null;
+    totalCost: number;
+    totalCharge: number;
+    billableKg: number | null;
 }
 
 /**
@@ -31,23 +31,18 @@ export interface DeliveryTotals {
  * null / undefined / "" / whitespace-only → null (means "Semua Rute").
  * Otherwise: trimmed.
  */
-export function normalizeRouteKey(
-  routeName?: string | null,
-): string | null {
-  if (routeName == null) return null;
-  const trimmed = routeName.trim();
-  return trimmed.length > 0 ? trimmed : null;
+export function normalizeRouteKey(routeName?: string | null): string | null {
+    if (routeName == null) return null;
+    const trimmed = routeName.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }
 
 /**
  * Compare two route names for exact match (after normalization).
  * null matches null (both = "Semua Rute").
  */
-export function routesMatch(
-  a?: string | null,
-  b?: string | null,
-): boolean {
-  return normalizeRouteKey(a) === normalizeRouteKey(b);
+export function routesMatch(a?: string | null, b?: string | null): boolean {
+    return normalizeRouteKey(a) === normalizeRouteKey(b);
 }
 
 /**
@@ -60,27 +55,30 @@ export function routesMatch(
  *
  * All monetary values rounded to 2 decimal places (Math.round x*100 /100).
  */
-export function computeDeliveryTotals(input: DeliveryTotalsInput): DeliveryTotals {
-  const { rateType, costRate, chargeRate } = input;
+export function computeDeliveryTotals(
+    input: DeliveryTotalsInput,
+): DeliveryTotals {
+    const { rateType, costRate, chargeRate } = input;
 
-  if (rateType === 'FLAT_RATE') {
+    if (rateType === 'FLAT_RATE') {
+        return {
+            totalCost: round2(costRate),
+            totalCharge: round2(chargeRate),
+            billableKg: null,
+        };
+    }
+
+    // PER_KG
+    const weight =
+        input.weightKg != null && input.weightKg > 0 ? input.weightKg : 0;
+    const minKg = input.minKg != null && input.minKg > 0 ? input.minKg : 0;
+    const billableKg = Math.max(weight, minKg);
+
     return {
-      totalCost: round2(costRate),
-      totalCharge: round2(chargeRate),
-      billableKg: null,
+        totalCost: round2(billableKg * costRate),
+        totalCharge: round2(billableKg * chargeRate),
+        billableKg,
     };
-  }
-
-  // PER_KG
-  const weight = input.weightKg != null && input.weightKg > 0 ? input.weightKg : 0;
-  const minKg = input.minKg != null && input.minKg > 0 ? input.minKg : 0;
-  const billableKg = Math.max(weight, minKg);
-
-  return {
-    totalCost: round2(billableKg * costRate),
-    totalCharge: round2(billableKg * chargeRate),
-    billableKg,
-  };
 }
 
 /**
@@ -89,7 +87,7 @@ export function computeDeliveryTotals(input: DeliveryTotalsInput): DeliveryTotal
  * RETURNED is included per product decision A2.
  */
 export function isBillableDeliveryStatus(status: string): boolean {
-  return status !== 'CANCELLED';
+    return status !== 'CANCELLED';
 }
 
 /**
@@ -97,16 +95,19 @@ export function isBillableDeliveryStatus(status: string): boolean {
  * Skips CANCELLED and entries with null/undefined totalCharge.
  */
 export function sumBillableCharges(
-  deliveries: Array<{ status: string; totalCharge: number | null | undefined }>,
+    deliveries: Array<{
+        status: string;
+        totalCharge: number | null | undefined;
+    }>,
 ): number {
-  let sum = 0;
-  for (const d of deliveries) {
-    if (!isBillableDeliveryStatus(d.status)) continue;
-    if (d.totalCharge != null) {
-      sum += Number(d.totalCharge);
+    let sum = 0;
+    for (const d of deliveries) {
+        if (!isBillableDeliveryStatus(d.status)) continue;
+        if (d.totalCharge != null) {
+            sum += Number(d.totalCharge);
+        }
     }
-  }
-  return round2(sum);
+    return round2(sum);
 }
 
 /**
@@ -114,5 +115,5 @@ export function sumBillableCharges(
  * Matches project convention: Math.round(x * 100) / 100.
  */
 function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+    return Math.round(n * 100) / 100;
 }

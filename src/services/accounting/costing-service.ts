@@ -14,7 +14,6 @@ export interface ProductionCost {
 }
 
 export class CostingService {
-
     private static resolveIssueCost(
         issue: {
             id: string;
@@ -38,37 +37,52 @@ export class CostingService {
             cost: Prisma.Decimal | null;
             createdAt: Date;
         }>,
-        usedMovementIds: Set<string>
+        usedMovementIds: Set<string>,
     ): number {
         const matchedMovement = stockMovements.find((movement) => {
             if (usedMovementIds.has(movement.id)) return false;
-            if (movement.productVariantId !== issue.productVariantId) return false;
-            if ((movement.batchId ?? null) !== (issue.batchId ?? null)) return false;
-            if ((movement.fromLocationId ?? null) !== (issue.locationId ?? null)) return false;
-            if (Number(movement.quantity) !== Number(issue.quantity)) return false;
+            if (movement.productVariantId !== issue.productVariantId)
+                return false;
+            if ((movement.batchId ?? null) !== (issue.batchId ?? null))
+                return false;
+            if (
+                (movement.fromLocationId ?? null) !== (issue.locationId ?? null)
+            )
+                return false;
+            if (Number(movement.quantity) !== Number(issue.quantity))
+                return false;
 
-            return Math.abs(movement.createdAt.getTime() - issue.issuedAt.getTime()) <= 60_000;
+            return (
+                Math.abs(
+                    movement.createdAt.getTime() - issue.issuedAt.getTime(),
+                ) <= 60_000
+            );
         });
 
         if (matchedMovement) {
             usedMovementIds.add(matchedMovement.id);
-            if (matchedMovement.cost !== null && matchedMovement.cost !== undefined) {
+            if (
+                matchedMovement.cost !== null &&
+                matchedMovement.cost !== undefined
+            ) {
                 return matchedMovement.cost.toNumber();
             }
         }
 
         return Number(
             issue.productVariant.standardCost ??
-            issue.productVariant.buyPrice ??
-            issue.productVariant.price ??
-            0
+                issue.productVariant.buyPrice ??
+                issue.productVariant.price ??
+                0,
         );
     }
 
     /**
      * Calculate COGM for a single Production Order
      */
-    static async calculateOrderCost(productionOrderId: string): Promise<ProductionCost> {
+    static async calculateOrderCost(
+        productionOrderId: string,
+    ): Promise<ProductionCost> {
         // 1. Fetch Production Order with related data
         const order = await prisma.productionOrder.findUnique({
             where: { id: productionOrderId },
@@ -79,19 +93,19 @@ export class CostingService {
                             select: {
                                 standardCost: true,
                                 buyPrice: true,
-                                price: true
-                            }
-                        }
-                    }
+                                price: true,
+                            },
+                        },
+                    },
                 },
                 stockMovements: {
                     where: {
                         type: 'OUT',
                         reference: {
                             not: {
-                                startsWith: 'VOID:'
-                            }
-                        }
+                                startsWith: 'VOID:',
+                            },
+                        },
                     },
                     select: {
                         id: true,
@@ -100,8 +114,8 @@ export class CostingService {
                         fromLocationId: true,
                         quantity: true,
                         cost: true,
-                        createdAt: true
-                    }
+                        createdAt: true,
+                    },
                 },
                 executions: {
                     include: {
@@ -111,27 +125,35 @@ export class CostingService {
                                 dailyRate: true,
                                 standardDayHours: true,
                                 payType: true,
-                            }
-                        }
-                    }
-                }
-            }
+                            },
+                        },
+                    },
+                },
+            },
         });
 
-        if (!order) throw new NotFoundError("Production Order", productionOrderId);
+        if (!order)
+            throw new NotFoundError('Production Order', productionOrderId);
 
         // 2. Material Cost
         let materialCost = 0;
         const usedMovementIds = new Set<string>();
         for (const issue of order.materialIssues) {
             // STAGED = transfer ke WIP (belum konsumsi HPP). VOIDED = dibatalkan.
-            if (issue.status === 'VOIDED' || issue.status === 'STAGED') continue;
+            if (issue.status === 'VOIDED' || issue.status === 'STAGED')
+                continue;
             if (!issue.productVariant) {
-                console.warn(`Missing product variant for issue ${issue.id} in order ${order.orderNumber}`);
+                console.warn(
+                    `Missing product variant for issue ${issue.id} in order ${order.orderNumber}`,
+                );
                 continue;
             }
 
-            const unitCost = this.resolveIssueCost(issue, order.stockMovements, usedMovementIds);
+            const unitCost = this.resolveIssueCost(
+                issue,
+                order.stockMovements,
+                usedMovementIds,
+            );
             materialCost += Number(issue.quantity) * unitCost;
         }
 
@@ -143,18 +165,29 @@ export class CostingService {
             if (exec.status === 'VOIDED') continue;
             const endTime = exec.endTime ? new Date(exec.endTime) : new Date();
             const startTime = new Date(exec.startTime);
-            const durationMilliseconds = endTime.getTime() - startTime.getTime();
-            const durationHours = durationMilliseconds > 0 ? durationMilliseconds / (1000 * 60 * 60) : 0;
+            const durationMilliseconds =
+                endTime.getTime() - startTime.getTime();
+            const durationHours =
+                durationMilliseconds > 0
+                    ? durationMilliseconds / (1000 * 60 * 60)
+                    : 0;
 
             if (exec.machine) {
-                machineCost += durationHours * Number(exec.machine.costPerHour || 0);
+                machineCost +=
+                    durationHours * Number(exec.machine.costPerHour || 0);
             }
             if (exec.operator) {
                 const dailyRate = Number(exec.operator.dailyRate || 0);
-                const standardDayHours = Number(exec.operator.standardDayHours || 8);
-                const dayEquivalent = standardDayHours > 0 ? durationHours / standardDayHours : 0;
+                const standardDayHours = Number(
+                    exec.operator.standardDayHours || 8,
+                );
+                const dayEquivalent =
+                    standardDayHours > 0 ? durationHours / standardDayHours : 0;
                 // PIECE: use snapshot pieceEarnings (qty × rate) instead of time-based formula
-                if (exec.operator.payType === 'PIECE' && exec.pieceEarnings != null) {
+                if (
+                    exec.operator.payType === 'PIECE' &&
+                    exec.pieceEarnings != null
+                ) {
                     laborCost += Number(exec.pieceEarnings);
                 } else {
                     laborCost += dayEquivalent * dailyRate;
@@ -164,7 +197,8 @@ export class CostingService {
 
         const totalCost = materialCost + machineCost + laborCost;
         const quantityProduced = Number(order.actualQuantity || 0);
-        const unitCost = quantityProduced > 0 ? totalCost / quantityProduced : 0;
+        const unitCost =
+            quantityProduced > 0 ? totalCost / quantityProduced : 0;
 
         return {
             productionOrderId: order.id,
@@ -174,7 +208,7 @@ export class CostingService {
             laborCost,
             totalCost,
             quantityProduced,
-            unitCost
+            unitCost,
         };
     }
 
@@ -183,7 +217,11 @@ export class CostingService {
      */
     static async getPeriodCosts(startDate?: Date, endDate?: Date) {
         if (!startDate || isNaN(startDate.getTime())) {
-            startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+            startDate = new Date(
+                new Date().getFullYear(),
+                new Date().getMonth(),
+                1,
+            );
         }
         if (!endDate || isNaN(endDate.getTime())) {
             endDate = new Date();
@@ -194,16 +232,18 @@ export class CostingService {
                 status: { in: ['COMPLETED', 'IN_PROGRESS'] }, // Analyze In Progress too
                 updatedAt: {
                     gte: startDate,
-                    lte: endDate
-                }
+                    lte: endDate,
+                },
             },
-            select: { id: true }
+            select: { id: true },
         });
 
-        const results = await Promise.allSettled(orders.map(o => this.calculateOrderCost(o.id)));
+        const results = await Promise.allSettled(
+            orders.map((o) => this.calculateOrderCost(o.id)),
+        );
 
         return results
-            .filter(r => r.status === 'fulfilled')
-            .map(r => (r as PromiseFulfilledResult<ProductionCost>).value);
+            .filter((r) => r.status === 'fulfilled')
+            .map((r) => (r as PromiseFulfilledResult<ProductionCost>).value);
     }
 }

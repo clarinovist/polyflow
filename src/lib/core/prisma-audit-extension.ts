@@ -3,16 +3,46 @@ import { getActorUserId } from '@/lib/core/actor-context';
 
 const SYSTEM_USER_ID = 'system';
 const AUDITABLE_MODELS = new Set([
-    'SalesOrder', 'ProductionOrder', 'DeliveryOrder', 'PurchaseOrder',
-    'PurchaseRequest', 'PurchaseInvoice', 'Invoice', 'StockReservation',
-    'SalesQuotation', 'SalesReturn', 'PurchaseReturn', 'StockOpname',
-    'Machine', 'Vehicle', 'LeaveRequest', 'EmployeeDocument', 'EmployeeLoan',
-    'Employee', 'PayrollPeriod', 'Payslip', 'DeliverySchedule', 'DeliveryScheduleOrder',
-    'DeliveryScheduleVehicle', 'BankReconciliation', 'JournalEntry',
-    'MaterialIssue', 'ProductionExecution', 'ProductionIssue',
-    'PettyCashTransaction', 'PettyCashDailyReport', 'FiscalPeriod', 'FixedAsset',
-    'Batch', 'AttendanceRecord', 'HelpArticle', 'HelpQuestionCluster',
-    'HelpLearningDraft', 'Tenant', 'ProcessPieceRate', 'WorkShift',
+    'SalesOrder',
+    'ProductionOrder',
+    'DeliveryOrder',
+    'PurchaseOrder',
+    'PurchaseRequest',
+    'PurchaseInvoice',
+    'Invoice',
+    'StockReservation',
+    'SalesQuotation',
+    'SalesReturn',
+    'PurchaseReturn',
+    'StockOpname',
+    'Machine',
+    'Vehicle',
+    'LeaveRequest',
+    'EmployeeDocument',
+    'EmployeeLoan',
+    'Employee',
+    'PayrollPeriod',
+    'Payslip',
+    'DeliverySchedule',
+    'DeliveryScheduleOrder',
+    'DeliveryScheduleVehicle',
+    'BankReconciliation',
+    'JournalEntry',
+    'MaterialIssue',
+    'ProductionExecution',
+    'ProductionIssue',
+    'PettyCashTransaction',
+    'PettyCashDailyReport',
+    'FiscalPeriod',
+    'FixedAsset',
+    'Batch',
+    'AttendanceRecord',
+    'HelpArticle',
+    'HelpQuestionCluster',
+    'HelpLearningDraft',
+    'Tenant',
+    'ProcessPieceRate',
+    'WorkShift',
     'MaklonMaterialReturn',
 ]);
 
@@ -44,7 +74,15 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
     return client.$extends({
         query: {
             $allModels: {
-                async update({ model, args, query }: { model: string; args: QueryArgs; query: (args: QueryArgs) => Promise<unknown> }) {
+                async update({
+                    model,
+                    args,
+                    query,
+                }: {
+                    model: string;
+                    args: QueryArgs;
+                    query: (args: QueryArgs) => Promise<unknown>;
+                }) {
                     if (model === 'AuditLog' || !AUDITABLE_MODELS.has(model)) {
                         return query(args);
                     }
@@ -56,9 +94,16 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                     const newStatus = args.data.status as string;
 
                     // Pre-read old status
-                    const delegate = (client as unknown as Record<string, { findFirst: (args: QueryArgs) => Promise<Record<string, unknown> | null> }>)[
-                        model.charAt(0).toLowerCase() + model.slice(1)
-                    ];
+                    const delegate = (
+                        client as unknown as Record<
+                            string,
+                            {
+                                findFirst: (
+                                    args: QueryArgs,
+                                ) => Promise<Record<string, unknown> | null>;
+                            }
+                        >
+                    )[model.charAt(0).toLowerCase() + model.slice(1)];
                     if (!delegate) return query(args);
 
                     const oldRecord = await delegate.findFirst({
@@ -71,7 +116,9 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                     if (oldRecord && oldRecord.status !== newStatus) {
                         const userId = getActorUserId() ?? SYSTEM_USER_ID;
                         try {
-                            await (client as unknown as PrismaClient).auditLog.create({
+                            await (
+                                client as unknown as PrismaClient
+                            ).auditLog.create({
                                 data: {
                                     userId,
                                     action: 'STATUS_CHANGE',
@@ -80,19 +127,35 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                                     details: `${model} ${oldRecord.id}: ${oldRecord.status} → ${newStatus}`,
                                     fromStatus: oldRecord.status as string,
                                     toStatus: newStatus,
-                                    changes: JSON.stringify({ status: { from: oldRecord.status, to: newStatus } }),
+                                    changes: JSON.stringify({
+                                        status: {
+                                            from: oldRecord.status,
+                                            to: newStatus,
+                                        },
+                                    }),
                                 },
                             });
                         } catch (err) {
                             // Audit failure must not break the business operation
-                            console.error(`[StatusAudit] Failed to log status change for ${model} ${oldRecord.id}:`, err);
+                            console.error(
+                                `[StatusAudit] Failed to log status change for ${model} ${oldRecord.id}:`,
+                                err,
+                            );
                         }
                     }
 
                     return result;
                 },
 
-                async updateMany({ model, args, query }: { model: string; args: QueryArgs; query: (args: QueryArgs) => Promise<unknown> }) {
+                async updateMany({
+                    model,
+                    args,
+                    query,
+                }: {
+                    model: string;
+                    args: QueryArgs;
+                    query: (args: QueryArgs) => Promise<unknown>;
+                }) {
                     if (model === 'AuditLog' || !AUDITABLE_MODELS.has(model)) {
                         return query(args);
                     }
@@ -105,9 +168,16 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                     const userId = getActorUserId() ?? SYSTEM_USER_ID;
 
                     // Pre-read old records (capped to prevent runaway reads)
-                    const delegate = (client as unknown as Record<string, { findMany: (args: QueryArgs) => Promise<Array<Record<string, unknown>>> }>)[
-                        model.charAt(0).toLowerCase() + model.slice(1)
-                    ];
+                    const delegate = (
+                        client as unknown as Record<
+                            string,
+                            {
+                                findMany: (
+                                    args: QueryArgs,
+                                ) => Promise<Array<Record<string, unknown>>>;
+                            }
+                        >
+                    )[model.charAt(0).toLowerCase() + model.slice(1)];
                     if (!delegate) return query(args);
 
                     const oldRecords = await delegate.findMany({
@@ -119,10 +189,14 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                     const result = await query(args);
 
                     // Log only records whose status actually changed
-                    const changed = oldRecords.filter(r => r.status !== newStatus);
+                    const changed = oldRecords.filter(
+                        (r) => r.status !== newStatus,
+                    );
                     for (const rec of changed) {
                         try {
-                            await (client as unknown as PrismaClient).auditLog.create({
+                            await (
+                                client as unknown as PrismaClient
+                            ).auditLog.create({
                                 data: {
                                     userId,
                                     action: 'STATUS_CHANGE',
@@ -131,11 +205,19 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                                     details: `${model} ${rec.id}: ${rec.status} → ${newStatus}`,
                                     fromStatus: rec.status as string,
                                     toStatus: newStatus,
-                                    changes: JSON.stringify({ status: { from: rec.status, to: newStatus } }),
+                                    changes: JSON.stringify({
+                                        status: {
+                                            from: rec.status,
+                                            to: newStatus,
+                                        },
+                                    }),
                                 },
                             });
                         } catch (err) {
-                            console.error(`[StatusAudit] Failed to log status change for ${model} ${rec.id}:`, err);
+                            console.error(
+                                `[StatusAudit] Failed to log status change for ${model} ${rec.id}:`,
+                                err,
+                            );
                         }
                     }
 

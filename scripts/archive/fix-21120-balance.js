@@ -1,11 +1,11 @@
 /**
  * fix-21120-balance.js
- * 
+ *
  * Fixes the negative balance in account 21120 (Unbilled Payables).
- * 
+ *
  * Problem: Purchase Invoices (BILLs) debited 21120 before any GR credited it,
  * causing a -14,165,000 balance.
- * 
+ *
  * Solution: For each BILL journal that debited 21120 without a matching GR credit,
  * create a corrective entry that:
  *   - Credits 21120 (reverse the incorrect debit)
@@ -16,8 +16,12 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-    const acc21120 = await prisma.account.findUnique({ where: { code: '21120' } });
-    const acc11310 = await prisma.account.findUnique({ where: { code: '11310' } });
+    const acc21120 = await prisma.account.findUnique({
+        where: { code: '21120' },
+    });
+    const acc11310 = await prisma.account.findUnique({
+        where: { code: '11310' },
+    });
 
     if (!acc21120 || !acc11310) {
         console.error('Required accounts not found');
@@ -29,9 +33,9 @@ async function main() {
         where: {
             accountId: acc21120.id,
             debit: { gt: 0 },
-            journalEntry: { status: 'POSTED' }
+            journalEntry: { status: 'POSTED' },
         },
-        include: { journalEntry: true }
+        include: { journalEntry: true },
     });
 
     // Find all POSTED journal lines that CREDIT 21120 (Accrued Payable from GR)
@@ -39,18 +43,25 @@ async function main() {
         where: {
             accountId: acc21120.id,
             credit: { gt: 0 },
-            journalEntry: { status: 'POSTED' }
+            journalEntry: { status: 'POSTED' },
         },
-        include: { journalEntry: true }
+        include: { journalEntry: true },
     });
 
     const totalDebits = debitLines.reduce((sum, l) => sum + Number(l.debit), 0);
-    const totalCredits = creditLines.reduce((sum, l) => sum + Number(l.credit), 0);
+    const totalCredits = creditLines.reduce(
+        (sum, l) => sum + Number(l.credit),
+        0,
+    );
     const currentBalance = totalCredits - totalDebits; // Liability: Credit - Debit
 
     console.log(`Account 21120 (Unbilled Payables):`);
-    console.log(`  Total Credits (GR accruals): ${totalCredits.toLocaleString()}`);
-    console.log(`  Total Debits  (BILL clears): ${totalDebits.toLocaleString()}`);
+    console.log(
+        `  Total Credits (GR accruals): ${totalCredits.toLocaleString()}`,
+    );
+    console.log(
+        `  Total Debits  (BILL clears): ${totalDebits.toLocaleString()}`,
+    );
     console.log(`  Current Balance: ${currentBalance.toLocaleString()}`);
 
     if (currentBalance >= 0) {
@@ -60,7 +71,9 @@ async function main() {
 
     // The negative balance = excess debits without matching credits
     const excessDebit = Math.abs(currentBalance);
-    console.log(`\n❌ Negative balance detected: -${excessDebit.toLocaleString()}`);
+    console.log(
+        `\n❌ Negative balance detected: -${excessDebit.toLocaleString()}`,
+    );
 
     // Identify the unmatched debit entries (BILLs without GR)
     // We look for BILL journal entries that debit 21120 where the PO has no GR
@@ -70,7 +83,7 @@ async function main() {
         // Find the Purchase Invoice this journal was for
         const invoice = await prisma.purchaseInvoice.findFirst({
             where: { id: je.referenceId },
-            include: { purchaseOrder: { include: { goodsReceipts: true } } }
+            include: { purchaseOrder: { include: { goodsReceipts: true } } },
         });
 
         if (invoice && invoice.purchaseOrder.goodsReceipts.length === 0) {
@@ -78,34 +91,41 @@ async function main() {
                 reference: je.reference,
                 amount: Number(line.debit),
                 description: je.description,
-                date: je.entryDate
+                date: je.entryDate,
             });
         }
     }
 
     console.log(`\nUnmatched BILLs (debit 21120 without GR):`);
-    unmatchedBills.forEach(b => {
-        console.log(`  ${b.date.toISOString().slice(0, 10)} | ${b.reference} | Rp ${b.amount.toLocaleString()} | ${b.description}`);
+    unmatchedBills.forEach((b) => {
+        console.log(
+            `  ${b.date.toISOString().slice(0, 10)} | ${b.reference} | Rp ${b.amount.toLocaleString()} | ${b.description}`,
+        );
     });
 
     const unmatchedTotal = unmatchedBills.reduce((sum, b) => sum + b.amount, 0);
     console.log(`  Total unmatched: Rp ${unmatchedTotal.toLocaleString()}`);
 
     // Create corrective entry
-    console.log(`\nCreating corrective entry for Rp ${excessDebit.toLocaleString()}...`);
+    console.log(
+        `\nCreating corrective entry for Rp ${excessDebit.toLocaleString()}...`,
+    );
 
     // Generate entry number
     const lastEntry = await prisma.journalEntry.findFirst({
-        orderBy: { entryNumber: 'desc' }
+        orderBy: { entryNumber: 'desc' },
     });
-    const lastNum = lastEntry ? parseInt(lastEntry.entryNumber.split('-').pop()) : 0;
+    const lastNum = lastEntry
+        ? parseInt(lastEntry.entryNumber.split('-').pop())
+        : 0;
     const entryNumber = `JE - 2026 -${String(lastNum + 1).padStart(5, '0')}`;
 
     const correction = await prisma.journalEntry.create({
         data: {
             entryNumber,
             entryDate: new Date('2026-02-15T12:00:00Z'),
-            description: 'Correction: Reverse excess debit on Unbilled Payables (BILLs without GR)',
+            description:
+                'Correction: Reverse excess debit on Unbilled Payables (BILLs without GR)',
             reference: 'FIX-21120-BALANCE',
             referenceType: 'MANUAL_ENTRY',
             isAutoGenerated: false,
@@ -116,38 +136,45 @@ async function main() {
                         accountId: acc11310.id,
                         debit: excessDebit,
                         credit: 0,
-                        description: 'Inventory recognized (was incorrectly in 21120)'
+                        description:
+                            'Inventory recognized (was incorrectly in 21120)',
                     },
                     {
                         accountId: acc21120.id,
                         debit: 0,
                         credit: excessDebit,
-                        description: 'Reverse excess debit on Unbilled Payables'
-                    }
-                ]
-            }
-        }
+                        description:
+                            'Reverse excess debit on Unbilled Payables',
+                    },
+                ],
+            },
+        },
     });
 
     console.log(`✅ Created corrective entry: ${correction.entryNumber}`);
 
     // Verify final balance
     const finalLines = await prisma.journalLine.findMany({
-        where: { accountId: acc21120.id, journalEntry: { status: 'POSTED' } }
+        where: { accountId: acc21120.id, journalEntry: { status: 'POSTED' } },
     });
-    const finalBalance = finalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0);
+    const finalBalance = finalLines.reduce(
+        (sum, l) => sum + (Number(l.credit) - Number(l.debit)),
+        0,
+    );
     console.log(`\nFinal 21120 balance: ${finalBalance.toLocaleString()}`);
 
     if (Math.abs(finalBalance) < 0.01) {
         console.log('✅ Account 21120 is now balanced!');
     } else {
-        console.log(`⚠️  Balance is ${finalBalance.toLocaleString()}, may need further review.`);
+        console.log(
+            `⚠️  Balance is ${finalBalance.toLocaleString()}, may need further review.`,
+        );
     }
 
     process.exit(0);
 }
 
-main().catch(err => {
+main().catch((err) => {
     console.error(err);
     process.exit(1);
 });

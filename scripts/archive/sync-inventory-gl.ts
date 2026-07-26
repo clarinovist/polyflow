@@ -3,31 +3,38 @@ import { PrismaClient, JournalStatus, ReferenceType } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log("Starting Inventory GL Synchronization (Only 113xx)...");
+    console.log('Starting Inventory GL Synchronization (Only 113xx)...');
 
     const adminUser = await prisma.user.findFirst({
-        where: { role: 'ADMIN' }
+        where: { role: 'ADMIN' },
     });
-    if (!adminUser) throw new Error("No admin user found to post journals.");
+    if (!adminUser) throw new Error('No admin user found to post journals.');
 
     // 1. Calculate Physical Inventory Value by Product Type (USING CORRECT DEFAULT CODES)
     const inventory = await prisma.inventory.findMany({
         include: {
             productVariant: {
-                include: { product: true }
-            }
-        }
+                include: { product: true },
+            },
+        },
     });
 
     const getInventoryAccount = (pType: string) => {
         switch (pType) {
-            case 'RAW_MATERIAL': return '11310';
-            case 'FINISHED_GOOD': return '11330'; // Assuming Roll
-            case 'PACKAGING': return '11340';
-            case 'WIP': return '11320';
-            case 'INTERMEDIATE': return '11320';
-            case 'SCRAP': return '11350';
-            default: return '11300';
+            case 'RAW_MATERIAL':
+                return '11310';
+            case 'FINISHED_GOOD':
+                return '11330'; // Assuming Roll
+            case 'PACKAGING':
+                return '11340';
+            case 'WIP':
+                return '11320';
+            case 'INTERMEDIATE':
+                return '11320';
+            case 'SCRAP':
+                return '11350';
+            default:
+                return '11300';
         }
     };
 
@@ -46,30 +53,36 @@ async function main() {
         physicalMap.set(accCode, currentTotal + value);
     }
 
-    console.log("Target Physical Balances:");
-    physicalMap.forEach((v, k) => console.log(`[${k}] -> Rp ${v.toLocaleString('id-ID')}`));
+    console.log('Target Physical Balances:');
+    physicalMap.forEach((v, k) =>
+        console.log(`[${k}] -> Rp ${v.toLocaleString('id-ID')}`),
+    );
 
     // 2. Fetch all inventory accounts (113xx)
     const inventoryAccounts = await prisma.account.findMany({
         where: {
-            code: { startsWith: '113' }
+            code: { startsWith: '113' },
         },
         include: {
             journalLines: {
                 where: {
                     journalEntry: {
-                        status: 'POSTED'
-                    }
-                }
-            }
-        }
+                        status: 'POSTED',
+                    },
+                },
+            },
+        },
     });
 
-    const adjustmentGainAcc = await prisma.account.findUnique({ where: { code: '81100' } });
-    const adjustmentLossAcc = await prisma.account.findUnique({ where: { code: '91100' } });
+    const adjustmentGainAcc = await prisma.account.findUnique({
+        where: { code: '81100' },
+    });
+    const adjustmentLossAcc = await prisma.account.findUnique({
+        where: { code: '91100' },
+    });
 
     if (!adjustmentGainAcc || !adjustmentLossAcc) {
-        throw new Error("Missing 81100 or 91100 for adjustments.");
+        throw new Error('Missing 81100 or 91100 for adjustments.');
     }
 
     let totalAdjustmentRecordsCreated = 0;
@@ -86,21 +99,47 @@ async function main() {
         // Arbitrary threshold to avoid precision noise (1 cent)
         if (Math.abs(discrepancy) > 0.01) {
             console.log(`\nAccount [${acc.code}] ${acc.name}`);
-            console.log(`- Physical Value: Rp ${physicalValue.toLocaleString('id-ID')}`);
-            console.log(`- GL Value:       Rp ${glValue.toLocaleString('id-ID')}`);
-            console.log(`- Discrepancy:    Rp ${discrepancy.toLocaleString('id-ID')}`);
+            console.log(
+                `- Physical Value: Rp ${physicalValue.toLocaleString('id-ID')}`,
+            );
+            console.log(
+                `- GL Value:       Rp ${glValue.toLocaleString('id-ID')}`,
+            );
+            console.log(
+                `- Discrepancy:    Rp ${discrepancy.toLocaleString('id-ID')}`,
+            );
 
             const absDiscrepancy = Math.abs(discrepancy);
             const lines = [];
 
             if (discrepancy > 0) {
                 // Physical > GL -> Gain
-                lines.push({ accountId: acc.id, debit: absDiscrepancy, credit: 0, description: `GL Sync: Physical > GL` });
-                lines.push({ accountId: adjustmentGainAcc.id, debit: 0, credit: absDiscrepancy, description: `GL Sync Gain` });
+                lines.push({
+                    accountId: acc.id,
+                    debit: absDiscrepancy,
+                    credit: 0,
+                    description: `GL Sync: Physical > GL`,
+                });
+                lines.push({
+                    accountId: adjustmentGainAcc.id,
+                    debit: 0,
+                    credit: absDiscrepancy,
+                    description: `GL Sync Gain`,
+                });
             } else {
                 // GL > Physical -> Loss
-                lines.push({ accountId: adjustmentLossAcc.id, debit: absDiscrepancy, credit: 0, description: `GL Sync: GL > Physical` });
-                lines.push({ accountId: acc.id, debit: 0, credit: absDiscrepancy, description: `GL Sync Loss` });
+                lines.push({
+                    accountId: adjustmentLossAcc.id,
+                    debit: absDiscrepancy,
+                    credit: 0,
+                    description: `GL Sync: GL > Physical`,
+                });
+                lines.push({
+                    accountId: acc.id,
+                    debit: 0,
+                    credit: absDiscrepancy,
+                    description: `GL Sync Loss`,
+                });
             }
 
             const entryNum = `SYNC-${Date.now()}-${acc.code}`;
@@ -115,23 +154,27 @@ async function main() {
                     createdById: adminUser.id,
                     isAutoGenerated: true,
                     lines: {
-                        create: lines.map(l => ({
+                        create: lines.map((l) => ({
                             accountId: l.accountId,
                             debit: l.debit,
                             credit: l.credit,
-                            description: l.description
-                        }))
-                    }
-                }
+                            description: l.description,
+                        })),
+                    },
+                },
             });
             console.log(`✓ Created Adjusting Journal Entry for [${acc.code}]`);
             totalAdjustmentRecordsCreated++;
         } else {
-            console.log(`[${acc.code}] ${acc.name} is SYNCED. (Physical: Rp ${physicalValue.toLocaleString('id-ID')})`);
+            console.log(
+                `[${acc.code}] ${acc.name} is SYNCED. (Physical: Rp ${physicalValue.toLocaleString('id-ID')})`,
+            );
         }
     }
 
-    console.log(`\nSynchronization complete! Created ${totalAdjustmentRecordsCreated} adjusting journals.`);
+    console.log(
+        `\nSynchronization complete! Created ${totalAdjustmentRecordsCreated} adjusting journals.`,
+    );
 }
 
 main()

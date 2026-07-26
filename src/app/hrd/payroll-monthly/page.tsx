@@ -10,10 +10,15 @@ export default function PayrollMonthlyPage() {
                     <Wallet className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight uppercase">Gaji Bulanan</h1>
+                    <h1 className="text-2xl font-black tracking-tight uppercase">
+                        Gaji Bulanan
+                    </h1>
                     <p className="text-sm text-muted-foreground">
                         Untuk payType MONTHLY (kantor). Borongan/harian →{' '}
-                        <Link href="/hrd/payroll" className="text-primary font-medium hover:underline">
+                        <Link
+                            href="/hrd/payroll"
+                            className="text-primary font-medium hover:underline"
+                        >
                             Gaji Mingguan
                         </Link>
                         . BPJS, kasbon, THR ad-hoc.

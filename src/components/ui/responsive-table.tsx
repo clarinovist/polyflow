@@ -10,11 +10,22 @@ interface ResponsiveTableProps extends React.HTMLAttributes<HTMLDivElement> {
     maxHeight?: number | string;
 }
 
-export function ResponsiveTable({ children, minWidth = 800, stickyHeader = false, maxHeight, className, ...props }: ResponsiveTableProps) {
+export function ResponsiveTable({
+    children,
+    minWidth = 800,
+    stickyHeader = false,
+    maxHeight,
+    className,
+    ...props
+}: ResponsiveTableProps) {
     return (
         <div
-            className={cn("overflow-x-auto -mx-4 sm:mx-0", className)}
-            style={stickyHeader && maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}
+            className={cn('overflow-x-auto -mx-4 sm:mx-0', className)}
+            style={
+                stickyHeader && maxHeight
+                    ? { maxHeight, overflowY: 'auto' }
+                    : undefined
+            }
             {...props}
         >
             <div className="inline-block min-w-full align-middle">
@@ -22,7 +33,7 @@ export function ResponsiveTable({ children, minWidth = 800, stickyHeader = false
                     style={{ minWidth: `${minWidth}px` }}
                     className={cn(
                         stickyHeader &&
-                            "[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background",
+                            '[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background',
                     )}
                 >
                     {children}

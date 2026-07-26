@@ -36,7 +36,11 @@ function groupAdjustments(
     // Calculate net effect for each side
     const bankNet = bankAdjustments.reduce((sum, a) => {
         const sign =
-            a.type === 'DEPOSIT_IN_TRANSIT' ? 1 : a.type === 'OUTSTANDING_CHECK' ? -1 : 0;
+            a.type === 'DEPOSIT_IN_TRANSIT'
+                ? 1
+                : a.type === 'OUTSTANDING_CHECK'
+                  ? -1
+                  : 0;
         return sum + sign * Number(a.amount);
     }, 0);
 
@@ -49,8 +53,8 @@ function groupAdjustments(
                 : a.type === 'BANK_FEE' ||
                     a.type === 'NSF_CHECK' ||
                     a.type === 'CORRECTION_SUBTRACT'
-                    ? -1
-                    : 0;
+                  ? -1
+                  : 0;
         return sum + sign * Number(a.amount);
     }, 0);
 
@@ -66,8 +70,11 @@ function formatDate(d: string | Date): string {
     });
 }
 
-export function ReconciliationReport({ reconciliation }: ReconciliationReportProps) {
-    const { account, periodEnd, bankBalance, bookBalance, adjustments } = reconciliation;
+export function ReconciliationReport({
+    reconciliation,
+}: ReconciliationReportProps) {
+    const { account, periodEnd, bankBalance, bookBalance, adjustments } =
+        reconciliation;
 
     const { bankNet, bookNet } = groupAdjustments(adjustments);
 
@@ -86,7 +93,9 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                         <CardTitle className="text-lg font-bold">
                             LAPORAN REKONSILIASI BANK
                         </CardTitle>
-                        <p className="text-sm text-muted-foreground mt-1">{account.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            {account.name}
+                        </p>
                         <p className="text-sm text-muted-foreground">
                             per {formatDate(periodEnd)}
                         </p>
@@ -122,9 +131,13 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                             {adjustments
                                 .filter((a) => a.side === 'BANK')
                                 .map((adj) => {
-                                    const isAdd = adj.type === 'DEPOSIT_IN_TRANSIT';
+                                    const isAdd =
+                                        adj.type === 'DEPOSIT_IN_TRANSIT';
                                     return (
-                                        <div key={adj.id} className="flex justify-between text-sm">
+                                        <div
+                                            key={adj.id}
+                                            className="flex justify-between text-sm"
+                                        >
                                             <span className="flex items-center gap-1">
                                                 <span className="text-muted-foreground">
                                                     ({isAdd ? '+' : '-'})
@@ -132,7 +145,9 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                                                 <span>{adj.description}</span>
                                             </span>
                                             <span className="font-mono tabular-nums">
-                                                {formatRupiah(Number(adj.amount))}
+                                                {formatRupiah(
+                                                    Number(adj.amount),
+                                                )}
                                             </span>
                                         </div>
                                     );
@@ -143,7 +158,8 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                                     <div className="border-t my-2" />
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">
-                                            Total penyesuaian bank ({bankNet >= 0 ? '+' : '-'})
+                                            Total penyesuaian bank (
+                                            {bankNet >= 0 ? '+' : '-'})
                                         </span>
                                         <span className="font-mono tabular-nums">
                                             {formatRupiah(Math.abs(bankNet))}
@@ -186,7 +202,10 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                                         adj.type === 'COLLECTION' ||
                                         adj.type === 'CORRECTION_ADD';
                                     return (
-                                        <div key={adj.id} className="flex justify-between text-sm">
+                                        <div
+                                            key={adj.id}
+                                            className="flex justify-between text-sm"
+                                        >
                                             <span className="flex items-center gap-1">
                                                 <span className="text-muted-foreground">
                                                     ({isAdd ? '+' : '-'})
@@ -194,7 +213,9 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                                                 <span>{adj.description}</span>
                                             </span>
                                             <span className="font-mono tabular-nums">
-                                                {formatRupiah(Number(adj.amount))}
+                                                {formatRupiah(
+                                                    Number(adj.amount),
+                                                )}
                                             </span>
                                         </div>
                                     );
@@ -205,7 +226,8 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                                     <div className="border-t my-2" />
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">
-                                            Total penyesuaian buku ({bookNet >= 0 ? '+' : '-'})
+                                            Total penyesuaian buku (
+                                            {bookNet >= 0 ? '+' : '-'})
                                         </span>
                                         <span className="font-mono tabular-nums">
                                             {formatRupiah(Math.abs(bookNet))}
@@ -230,12 +252,15 @@ export function ReconciliationReport({ reconciliation }: ReconciliationReportPro
                 <div className="mt-4 text-center text-sm">
                     {adjustedBank === adjustedBook ? (
                         <p className="text-emerald-600 font-semibold">
-                            ✓ Rekonsiliasi seimbang — Saldo bank dan buku besar cocok.
+                            ✓ Rekonsiliasi seimbang — Saldo bank dan buku besar
+                            cocok.
                         </p>
                     ) : (
                         <p className="text-amber-600 font-semibold">
                             ⚠ Selisih:{' '}
-                            {formatRupiah(Math.abs(adjustedBank - adjustedBook))}
+                            {formatRupiah(
+                                Math.abs(adjustedBank - adjustedBook),
+                            )}
                         </p>
                     )}
                 </div>

@@ -1,85 +1,92 @@
-import { prisma } from "@/lib/core/prisma";
-import { Prisma } from "@prisma/client";
-import { getClosingBalances } from "./reports-service";
-import { resolveAccount } from "./account-resolver";
-import { createJournalEntry } from "./journal-posting";
-import { NotFoundError, BusinessRuleError } from "@/lib/errors/errors";
+import { prisma } from '@/lib/core/prisma';
+import { Prisma } from '@prisma/client';
+import { getClosingBalances } from './reports-service';
+import { resolveAccount } from './account-resolver';
+import { createJournalEntry } from './journal-posting';
+import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 
 export async function createClosingJournalEntry(
-  periodId: string,
-  userId: string,
-  tx?: Prisma.TransactionClient,
+    periodId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient,
 ) {
-  const db = tx || prisma;
+    const db = tx || prisma;
 
-  const period = await db.fiscalPeriod.findUnique({ where: { id: periodId } });
-  if (!period) throw new NotFoundError("Fiscal Period", periodId);
+    const period = await db.fiscalPeriod.findUnique({
+        where: { id: periodId },
+    });
+    if (!period) throw new NotFoundError('Fiscal Period', periodId);
 
-  const reference = `CLOSING-${period.name.replace(/\s+/g, "-")}`;
+    const reference = `CLOSING-${period.name.replace(/\s+/g, '-')}`;
 
-  // 1. Re-close capability: Delete existing closing entry if it exists
-  const existing = await db.journalEntry.findFirst({
-    where: { reference },
-  });
+    // 1. Re-close capability: Delete existing closing entry if it exists
+    const existing = await db.journalEntry.findFirst({
+        where: { reference },
+    });
 
-  if (existing) {
-    // We delete to keep it clean.
-    await db.journalLine.deleteMany({ where: { journalEntryId: existing.id } });
-    await db.journalEntry.delete({ where: { id: existing.id } });
-  }
+    if (existing) {
+        // We delete to keep it clean.
+        await db.journalLine.deleteMany({
+            where: { journalEntryId: existing.id },
+        });
+        await db.journalEntry.delete({ where: { id: existing.id } });
+    }
 
-  const balances = await getClosingBalances(period.startDate, period.endDate);
-  if (balances.length === 0) return null;
+    const balances = await getClosingBalances(period.startDate, period.endDate);
+    if (balances.length === 0) return null;
 
-  let totalNetIncome = 0;
-  const lines = balances.map((b) => {
-    const isRevenue = b.type === "REVENUE";
-    const amount = Math.abs(b.netBalance);
+    let totalNetIncome = 0;
+    const lines = balances.map((b) => {
+        const isRevenue = b.type === 'REVENUE';
+        const amount = Math.abs(b.netBalance);
 
-    totalNetIncome += isRevenue ? b.netBalance : -b.netBalance;
+        totalNetIncome += isRevenue ? b.netBalance : -b.netBalance;
 
-    // Determine closing direction based on account type AND balance sign:
-    // - Revenue with positive balance (credit-normal): debit to close ✓
-    // - Revenue with negative balance (debit abnormal): credit to close
-    // - Expense with positive balance (debit-normal): credit to close ✓
-    // - Expense with negative balance (credit abnormal): debit to close
-    const needsDebit = isRevenue === (b.netBalance > 0);
+        // Determine closing direction based on account type AND balance sign:
+        // - Revenue with positive balance (credit-normal): debit to close ✓
+        // - Revenue with negative balance (debit abnormal): credit to close
+        // - Expense with positive balance (debit-normal): credit to close ✓
+        // - Expense with negative balance (credit abnormal): debit to close
+        const needsDebit = isRevenue === b.netBalance > 0;
 
-    return {
-      accountId: b.id,
-      debit: needsDebit ? amount : 0,
-      credit: needsDebit ? 0 : amount,
-      description: `Closing Entry for ${period.name}`,
-    };
-  });
+        return {
+            accountId: b.id,
+            debit: needsDebit ? amount : 0,
+            credit: needsDebit ? 0 : amount,
+            description: `Closing Entry for ${period.name}`,
+        };
+    });
 
-  const resolvedEarnings = await resolveAccount("current-year-earnings");
-  const earningsAccount = await db.account.findUnique({
-    where: { id: resolvedEarnings.id },
-  });
-  if (!earningsAccount)
-    throw new NotFoundError("Current Year Earnings account", resolvedEarnings.id);
+    const resolvedEarnings = await resolveAccount('current-year-earnings');
+    const earningsAccount = await db.account.findUnique({
+        where: { id: resolvedEarnings.id },
+    });
+    if (!earningsAccount)
+        throw new NotFoundError(
+            'Current Year Earnings account',
+            resolvedEarnings.id,
+        );
 
-  lines.push({
-    accountId: earningsAccount.id,
-    debit: totalNetIncome < 0 ? Math.abs(totalNetIncome) : 0,
-    credit: totalNetIncome > 0 ? Math.abs(totalNetIncome) : 0,
-    description: `Net Income Transfer for ${period.name}`,
-  });
+    lines.push({
+        accountId: earningsAccount.id,
+        debit: totalNetIncome < 0 ? Math.abs(totalNetIncome) : 0,
+        credit: totalNetIncome > 0 ? Math.abs(totalNetIncome) : 0,
+        description: `Net Income Transfer for ${period.name}`,
+    });
 
-  return await createJournalEntry(
-    {
-      entryDate: period.endDate,
-      description: `Closing Entries for ${period.name}`,
-      reference,
-      referenceType: "MANUAL_ENTRY",
-      status: "POSTED",
-      isAutoGenerated: true,
-      createdById: userId,
-      lines,
-    },
-    tx,
-  );
+    return await createJournalEntry(
+        {
+            entryDate: period.endDate,
+            description: `Closing Entries for ${period.name}`,
+            reference,
+            referenceType: 'MANUAL_ENTRY',
+            status: 'POSTED',
+            isAutoGenerated: true,
+            createdById: userId,
+            lines,
+        },
+        tx,
+    );
 }
 
 /**
@@ -87,90 +94,101 @@ export async function createClosingJournalEntry(
  * to Retained Earnings (32000)
  */
 export async function createYearEndClosingEntry(
-  year: number,
-  userId: string,
-  tx?: Prisma.TransactionClient,
+    year: number,
+    userId: string,
+    tx?: Prisma.TransactionClient,
 ) {
-  const db = tx || prisma;
-  const reference = `YEAREND-${year}`;
+    const db = tx || prisma;
+    const reference = `YEAREND-${year}`;
 
-  // 1. Re-close check
-  const existing = await db.journalEntry.findFirst({ where: { reference } });
-  if (existing) {
-    await db.journalLine.deleteMany({ where: { journalEntryId: existing.id } });
-    await db.journalEntry.delete({ where: { id: existing.id } });
-  }
+    // 1. Re-close check
+    const existing = await db.journalEntry.findFirst({ where: { reference } });
+    if (existing) {
+        await db.journalLine.deleteMany({
+            where: { journalEntryId: existing.id },
+        });
+        await db.journalEntry.delete({ where: { id: existing.id } });
+    }
 
-  // 2. Get Balance of Current Year Earnings (33000)
-  const resolvedEarnings = await resolveAccount("current-year-earnings");
-  const earningsAccount = await db.account.findUnique({
-    where: { id: resolvedEarnings.id },
-  });
-  if (!earningsAccount)
-    throw new NotFoundError("Current Year Earnings account", resolvedEarnings.id);
+    // 2. Get Balance of Current Year Earnings (33000)
+    const resolvedEarnings = await resolveAccount('current-year-earnings');
+    const earningsAccount = await db.account.findUnique({
+        where: { id: resolvedEarnings.id },
+    });
+    if (!earningsAccount)
+        throw new NotFoundError(
+            'Current Year Earnings account',
+            resolvedEarnings.id,
+        );
 
-  const resolvedRetained = await resolveAccount("retained-earnings");
-  const retainedEarningsAccount = await db.account.findUnique({
-    where: { id: resolvedRetained.id },
-  });
-  if (!retainedEarningsAccount)
-    throw new NotFoundError("Retained Earnings account", resolvedRetained.id);
+    const resolvedRetained = await resolveAccount('retained-earnings');
+    const retainedEarningsAccount = await db.account.findUnique({
+        where: { id: resolvedRetained.id },
+    });
+    if (!retainedEarningsAccount)
+        throw new NotFoundError(
+            'Retained Earnings account',
+            resolvedRetained.id,
+        );
 
-  // Calculate sum of all journal lines for 33000 in this year
-  const journalLines = await db.journalLine.findMany({
-    where: {
-      accountId: earningsAccount.id,
-      journalEntry: {
-        entryDate: {
-          gte: new Date(year, 0, 1),
-          lte: new Date(year, 11, 31, 23, 59, 59),
+    // Calculate sum of all journal lines for 33000 in this year
+    const journalLines = await db.journalLine.findMany({
+        where: {
+            accountId: earningsAccount.id,
+            journalEntry: {
+                entryDate: {
+                    gte: new Date(year, 0, 1),
+                    lte: new Date(year, 11, 31, 23, 59, 59),
+                },
+                status: 'POSTED',
+            },
         },
-        status: "POSTED",
-      },
-    },
-  });
+    });
 
-  const totalDebit = journalLines.reduce((sum, l) => sum + Number(l.debit), 0);
-  const totalCredit = journalLines.reduce(
-    (sum, l) => sum + Number(l.credit),
-    0,
-  );
-  const balance = totalCredit - totalDebit; // Credit Normal
-
-  if (Math.abs(balance) < 0.01) {
-    throw new BusinessRuleError(
-      `Tidak ada saldo di Laba Tahun Berjalan (33000) untuk tahun ${year} yang bisa ditransfer.`,
-      { year, accountCode: "33000", balance },
+    const totalDebit = journalLines.reduce(
+        (sum, l) => sum + Number(l.debit),
+        0,
     );
-  }
+    const totalCredit = journalLines.reduce(
+        (sum, l) => sum + Number(l.credit),
+        0,
+    );
+    const balance = totalCredit - totalDebit; // Credit Normal
 
-  // 3. Create Transfer Entry
-  const closingLines = [
-    {
-      accountId: earningsAccount.id,
-      debit: balance > 0 ? balance : 0,
-      credit: balance < 0 ? Math.abs(balance) : 0,
-      description: `Year-End Transfer of Earnings to Retained Earnings - ${year}`,
-    },
-    {
-      accountId: retainedEarningsAccount.id,
-      debit: balance < 0 ? Math.abs(balance) : 0,
-      credit: balance > 0 ? balance : 0,
-      description: `Transferred from Current Year Earnings - ${year}`,
-    },
-  ];
+    if (Math.abs(balance) < 0.01) {
+        throw new BusinessRuleError(
+            `Tidak ada saldo di Laba Tahun Berjalan (33000) untuk tahun ${year} yang bisa ditransfer.`,
+            { year, accountCode: '33000', balance },
+        );
+    }
 
-  return await createJournalEntry(
-    {
-      entryDate: new Date(year, 11, 31, 23, 59, 59),
-      description: `Year-End Closing Entry ${year}`,
-      reference,
-      referenceType: "MANUAL_ENTRY",
-      status: "POSTED",
-      isAutoGenerated: true,
-      createdById: userId,
-      lines: closingLines,
-    },
-    tx,
-  );
+    // 3. Create Transfer Entry
+    const closingLines = [
+        {
+            accountId: earningsAccount.id,
+            debit: balance > 0 ? balance : 0,
+            credit: balance < 0 ? Math.abs(balance) : 0,
+            description: `Year-End Transfer of Earnings to Retained Earnings - ${year}`,
+        },
+        {
+            accountId: retainedEarningsAccount.id,
+            debit: balance < 0 ? Math.abs(balance) : 0,
+            credit: balance > 0 ? balance : 0,
+            description: `Transferred from Current Year Earnings - ${year}`,
+        },
+    ];
+
+    return await createJournalEntry(
+        {
+            entryDate: new Date(year, 11, 31, 23, 59, 59),
+            description: `Year-End Closing Entry ${year}`,
+            reference,
+            referenceType: 'MANUAL_ENTRY',
+            status: 'POSTED',
+            isAutoGenerated: true,
+            createdById: userId,
+            lines: closingLines,
+        },
+        tx,
+    );
 }

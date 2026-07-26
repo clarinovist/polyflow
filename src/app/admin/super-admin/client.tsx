@@ -1,31 +1,90 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { Tenant } from "@prisma/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword, setTenantStatus } from "@/actions/admin/admin-actions";
-import { globalUserSearch, type GlobalUserResult } from "@/actions/admin/global-search";
-import { impersonateTenant } from "@/actions/admin/impersonate";
-import { getAllTenantStats } from "@/actions/admin/tenant-observability";
-import { backupTenant, listTenantBackups, getTenantBackupDownloadUrl, deleteTenant, restoreTenantBackup } from "@/actions/admin/tenant-backup";
-import type { TenantStats } from "@/actions/admin/tenant-observability";
-import { Edit, KeyRound, Users, HardDrive, Clock, AlertTriangle, Ban, PlayCircle, Search, Loader2, ExternalLink, Database, Trash2, Download, RefreshCw, RotateCcw, UserRound } from "lucide-react";
+import { useState } from 'react';
+import Link from 'next/link';
+import { Tenant } from '@prisma/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
+import {
+    createAndProvisionTenant,
+    updateTenant,
+    resetTenantAdminPassword,
+    setTenantStatus,
+} from '@/actions/admin/admin-actions';
+import {
+    globalUserSearch,
+    type GlobalUserResult,
+} from '@/actions/admin/global-search';
+import { impersonateTenant } from '@/actions/admin/impersonate';
+import { getAllTenantStats } from '@/actions/admin/tenant-observability';
+import {
+    backupTenant,
+    listTenantBackups,
+    getTenantBackupDownloadUrl,
+    deleteTenant,
+    restoreTenantBackup,
+} from '@/actions/admin/tenant-backup';
+import type { TenantStats } from '@/actions/admin/tenant-observability';
+import {
+    Edit,
+    KeyRound,
+    Users,
+    HardDrive,
+    Clock,
+    AlertTriangle,
+    Ban,
+    PlayCircle,
+    Search,
+    Loader2,
+    ExternalLink,
+    Database,
+    Trash2,
+    Download,
+    RefreshCw,
+    RotateCcw,
+    UserRound,
+} from 'lucide-react';
 
-function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {
+function EditTenantDialog({
+    tenant,
+    onUpdated,
+}: {
+    tenant: Tenant;
+    onUpdated: () => void;
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     async function onSubmit(formData: FormData) {
         setIsSubmitting(true);
-        const name = formData.get("name") as string;
+        const name = formData.get('name') as string;
         const result = await updateTenant(tenant.id, formData);
 
         if (!result.success) {
@@ -41,7 +100,11 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shadow-none border gap-2"
+                >
                     <Edit className="h-4 w-4" /> Edit
                 </Button>
             </DialogTrigger>
@@ -49,22 +112,48 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
                 <DialogHeader>
                     <DialogTitle>Edit Tenant: {tenant.name}</DialogTitle>
                     <DialogDescription>
-                        Update system-level information for this tenant. Be careful when updating subdomain or DB URL.
+                        Update system-level information for this tenant. Be
+                        careful when updating subdomain or DB URL.
                     </DialogDescription>
                 </DialogHeader>
                 <form action={onSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor={`name-${tenant.id}`}>Company Name</Label>
-                        <Input id={`name-${tenant.id}`} name="name" required defaultValue={tenant.name} />
+                        <Label htmlFor={`name-${tenant.id}`}>
+                            Company Name
+                        </Label>
+                        <Input
+                            id={`name-${tenant.id}`}
+                            name="name"
+                            required
+                            defaultValue={tenant.name}
+                        />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor={`subdomain-${tenant.id}`}>Subdomain</Label>
-                        <Input id={`subdomain-${tenant.id}`} name="subdomain" required defaultValue={tenant.subdomain} pattern="[a-z0-9-]+" />
+                        <Label htmlFor={`subdomain-${tenant.id}`}>
+                            Subdomain
+                        </Label>
+                        <Input
+                            id={`subdomain-${tenant.id}`}
+                            name="subdomain"
+                            required
+                            defaultValue={tenant.subdomain}
+                            pattern="[a-z0-9-]+"
+                        />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor={`dbUrl-${tenant.id}`}>Database URL</Label>
-                        <Input id={`dbUrl-${tenant.id}`} name="dbUrl" defaultValue={tenant.dbUrl} type="text" className="font-mono text-xs" />
-                        <p className="text-xs text-muted-foreground">Leave as is unless migrating databases.</p>
+                        <Label htmlFor={`dbUrl-${tenant.id}`}>
+                            Database URL
+                        </Label>
+                        <Input
+                            id={`dbUrl-${tenant.id}`}
+                            name="dbUrl"
+                            defaultValue={tenant.dbUrl}
+                            type="text"
+                            className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Leave as is unless migrating databases.
+                        </p>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor={`status-${tenant.id}`}>Status</Label>
@@ -75,12 +164,21 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
                             <SelectContent>
                                 <SelectItem value="ACTIVE">Active</SelectItem>
                                 <SelectItem value="TRIAL">Trial</SelectItem>
-                                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                                <SelectItem value="SUSPENDED">
+                                    Suspended
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsOpen(false)}
+                            disabled={isSubmitting}
+                        >
+                            Cancel
+                        </Button>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
                         </Button>
@@ -100,7 +198,11 @@ function ImpersonateButton({ tenant }: { tenant: Tenant }) {
         try {
             await impersonateTenant(tenant.id);
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal mulai impersonation.");
+            toast.error(
+                err instanceof Error
+                    ? err.message
+                    : 'Gagal mulai impersonation.',
+            );
             setIsStarting(false);
             setIsOpen(false);
         }
@@ -109,7 +211,13 @@ function ImpersonateButton({ tenant }: { tenant: Tenant }) {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2" title="Login as tenant admin (impersonate)" disabled={tenant.status === "SUSPENDED"}>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shadow-none border gap-2"
+                    title="Login as tenant admin (impersonate)"
+                    disabled={tenant.status === 'SUSPENDED'}
+                >
                     <UserRound className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
@@ -117,16 +225,28 @@ function ImpersonateButton({ tenant }: { tenant: Tenant }) {
                 <DialogHeader>
                     <DialogTitle>Impersonate: {tenant.name}</DialogTitle>
                     <DialogDescription>
-                        You will be logged in as the primary ADMIN user of this tenant.
-                        Read-only default, 30-minute session. All actions are audit-logged
-                        under your superadmin ID.
-                        {tenant.status === "SUSPENDED" && " Note: suspended tenants cannot be impersonated."}
+                        You will be logged in as the primary ADMIN user of this
+                        tenant. Read-only default, 30-minute session. All
+                        actions are audit-logged under your superadmin ID.
+                        {tenant.status === 'SUSPENDED' &&
+                            ' Note: suspended tenants cannot be impersonated.'}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isStarting}>Cancel</Button>
-                    <Button type="button" onClick={onConfirm} disabled={isStarting || tenant.status === "SUSPENDED"}>
-                        {isStarting ? "Starting…" : "Start Impersonation"}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsOpen(false)}
+                        disabled={isStarting}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={isStarting || tenant.status === 'SUSPENDED'}
+                    >
+                        {isStarting ? 'Starting…' : 'Start Impersonation'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -137,21 +257,33 @@ function ImpersonateButton({ tenant }: { tenant: Tenant }) {
 function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
     const [isBackingUp, setIsBackingUp] = useState(false);
     const [showBackups, setShowBackups] = useState(false);
-    const [backups, setBackups] = useState<{ id: string; r2Key: string; sizeBytes: number; createdAt: Date; triggeredBy: string }[]>([]);
+    const [backups, setBackups] = useState<
+        {
+            id: string;
+            r2Key: string;
+            sizeBytes: number;
+            createdAt: Date;
+            triggeredBy: string;
+        }[]
+    >([]);
     const [loadingBackups, setLoadingBackups] = useState(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
     const [restoringId, setRestoringId] = useState<string | null>(null);
-    const [restoreConfirm, setRestoreConfirm] = useState<{ backupId: string } | null>(null);
-    const [restoreConfirmText, setRestoreConfirmText] = useState("");
+    const [restoreConfirm, setRestoreConfirm] = useState<{
+        backupId: string;
+    } | null>(null);
+    const [restoreConfirmText, setRestoreConfirmText] = useState('');
 
     async function onBackup() {
         setIsBackingUp(true);
         try {
             const result = await backupTenant(tenant.id);
-            if (!result.success) throw new Error("failed");
-            toast.success(`Backup tenant "${tenant.name}" tersimpan di R2 (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB).`);
+            if (!result.success) throw new Error('failed');
+            toast.success(
+                `Backup tenant "${tenant.name}" tersimpan di R2 (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB).`,
+            );
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal backup.");
+            toast.error(err instanceof Error ? err.message : 'Gagal backup.');
         } finally {
             setIsBackingUp(false);
         }
@@ -163,7 +295,11 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
             const list = await listTenantBackups(tenant.id);
             setBackups(list);
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal memuat daftar backup.");
+            toast.error(
+                err instanceof Error
+                    ? err.message
+                    : 'Gagal memuat daftar backup.',
+            );
         } finally {
             setLoadingBackups(false);
         }
@@ -173,9 +309,13 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
         setDownloadingId(backupId);
         try {
             const url = await getTenantBackupDownloadUrl(backupId);
-            window.open(url, "_blank");
+            window.open(url, '_blank');
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal membuat link download.");
+            toast.error(
+                err instanceof Error
+                    ? err.message
+                    : 'Gagal membuat link download.',
+            );
         } finally {
             setDownloadingId(null);
         }
@@ -185,32 +325,58 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
         if (!restoreConfirm || restoreConfirmText !== tenant.subdomain) return;
         setRestoringId(restoreConfirm.backupId);
         try {
-            const result = await restoreTenantBackup(restoreConfirm.backupId, restoreConfirmText);
-            if (!result.success) throw new Error("failed");
-            toast.success(`Tenant "${tenant.name}" berhasil di-restore dari backup (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB).`);
+            const result = await restoreTenantBackup(
+                restoreConfirm.backupId,
+                restoreConfirmText,
+            );
+            if (!result.success) throw new Error('failed');
+            toast.success(
+                `Tenant "${tenant.name}" berhasil di-restore dari backup (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB).`,
+            );
             setRestoreConfirm(null);
-            setRestoreConfirmText("");
+            setRestoreConfirmText('');
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal melakukan restore.");
+            toast.error(
+                err instanceof Error ? err.message : 'Gagal melakukan restore.',
+            );
         } finally {
             setRestoringId(null);
         }
     }
 
     function formatBytes(n: number) {
-        if (n === 0) return "0 B";
-        const units = ["B", "KB", "MB", "GB"];
+        if (n === 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(n) / Math.log(1024));
         return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
     }
 
     return (
         <>
-            <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2" onClick={onBackup} disabled={isBackingUp}>
-                {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shadow-none border gap-2"
+                onClick={onBackup}
+                disabled={isBackingUp}
+            >
+                {isBackingUp ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                    <Database className="h-4 w-4" />
+                )}
                 Backup
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2" onClick={() => { setShowBackups(true); loadBackups(); }} title="Daftar backup di R2">
+            <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shadow-none border gap-2"
+                onClick={() => {
+                    setShowBackups(true);
+                    loadBackups();
+                }}
+                title="Daftar backup di R2"
+            >
                 <Database className="h-4 w-4" />
             </Button>
 
@@ -218,13 +384,19 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Backups: {tenant.name}</DialogTitle>
-                        <DialogDescription>Daftar backup tersimpan di R2.</DialogDescription>
+                        <DialogDescription>
+                            Daftar backup tersimpan di R2.
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2 max-h-[60vh] overflow-auto">
                         {loadingBackups ? (
-                            <div className="text-center py-6 text-muted-foreground">Memuat…</div>
+                            <div className="text-center py-6 text-muted-foreground">
+                                Memuat…
+                            </div>
                         ) : backups.length === 0 ? (
-                            <div className="text-center py-6 text-muted-foreground">Belum ada backup.</div>
+                            <div className="text-center py-6 text-muted-foreground">
+                                Belum ada backup.
+                            </div>
                         ) : (
                             <Table>
                                 <TableHeader>
@@ -236,17 +408,60 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {backups.map(b => (
+                                    {backups.map((b) => (
                                         <TableRow key={b.id}>
-                                            <TableCell className="text-xs">{new Date(b.createdAt).toLocaleString()}</TableCell>
-                                            <TableCell className="text-xs">{formatBytes(b.sizeBytes)}</TableCell>
-                                            <TableCell className="text-xs">{b.triggeredBy}</TableCell>
+                                            <TableCell className="text-xs">
+                                                {new Date(
+                                                    b.createdAt,
+                                                ).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-xs">
+                                                {formatBytes(b.sizeBytes)}
+                                            </TableCell>
+                                            <TableCell className="text-xs">
+                                                {b.triggeredBy}
+                                            </TableCell>
                                             <TableCell className="flex gap-1">
-                                                <Button variant="ghost" size="sm" className="h-7" onClick={() => download(b.id)} disabled={downloadingId === b.id} title="Download">
-                                                    {downloadingId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7"
+                                                    onClick={() =>
+                                                        download(b.id)
+                                                    }
+                                                    disabled={
+                                                        downloadingId === b.id
+                                                    }
+                                                    title="Download"
+                                                >
+                                                    {downloadingId === b.id ? (
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    ) : (
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    )}
                                                 </Button>
-                                                <Button variant="ghost" size="sm" className="h-7 text-orange-600 hover:bg-orange-50 hover:dark:bg-orange-900/30" onClick={() => { setRestoreConfirm({ backupId: b.id }); setRestoreConfirmText(""); }} disabled={restoringId === b.id} title="Restore (destructive)">
-                                                    {restoringId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 text-orange-600 hover:bg-orange-50 hover:dark:bg-orange-900/30"
+                                                    onClick={() => {
+                                                        setRestoreConfirm({
+                                                            backupId: b.id,
+                                                        });
+                                                        setRestoreConfirmText(
+                                                            '',
+                                                        );
+                                                    }}
+                                                    disabled={
+                                                        restoringId === b.id
+                                                    }
+                                                    title="Restore (destructive)"
+                                                >
+                                                    {restoringId === b.id ? (
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    ) : (
+                                                        <RotateCcw className="h-3.5 w-3.5" />
+                                                    )}
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -259,31 +474,69 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
             </Dialog>
 
             {/* Restore confirmation */}
-            <Dialog open={!!restoreConfirm} onOpenChange={(o) => { if (!o) { setRestoreConfirm(null); setRestoreConfirmText(""); } }}>
+            <Dialog
+                open={!!restoreConfirm}
+                onOpenChange={(o) => {
+                    if (!o) {
+                        setRestoreConfirm(null);
+                        setRestoreConfirmText('');
+                    }
+                }}
+            >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="text-orange-600 dark:text-orange-400">Restore Tenant: {tenant.name}</DialogTitle>
+                        <DialogTitle className="text-orange-600 dark:text-orange-400">
+                            Restore Tenant: {tenant.name}
+                        </DialogTitle>
                         <DialogDescription>
-                            This <strong>overwrites</strong> the current tenant database with the backup. All data created after the backup will be lost.
+                            This <strong>overwrites</strong> the current tenant
+                            database with the backup. All data created after the
+                            backup will be lost.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3 py-2">
                         <div className="rounded-md bg-orange-50 dark:bg-orange-900/20 p-3 border border-orange-200 dark:border-orange-800 text-sm text-orange-800 dark:text-orange-300">
-                            <p>Type the tenant subdomain <code className="font-mono font-bold">{tenant.subdomain}</code> to confirm:</p>
+                            <p>
+                                Type the tenant subdomain{' '}
+                                <code className="font-mono font-bold">
+                                    {tenant.subdomain}
+                                </code>{' '}
+                                to confirm:
+                            </p>
                         </div>
                         <Input
                             type="text"
                             value={restoreConfirmText}
-                            onChange={(e) => setRestoreConfirmText(e.target.value)}
+                            onChange={(e) =>
+                                setRestoreConfirmText(e.target.value)
+                            }
                             placeholder={tenant.subdomain}
                             className="font-mono"
                             autoFocus
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => { setRestoreConfirm(null); setRestoreConfirmText(""); }} disabled={!!restoringId}>Cancel</Button>
-                        <Button type="button" variant="destructive" onClick={onRestore} disabled={restoreConfirmText !== tenant.subdomain || !!restoringId}>
-                            {restoringId ? "Restoring…" : "Restore Now"}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setRestoreConfirm(null);
+                                setRestoreConfirmText('');
+                            }}
+                            disabled={!!restoringId}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={onRestore}
+                            disabled={
+                                restoreConfirmText !== tenant.subdomain ||
+                                !!restoringId
+                            }
+                        >
+                            {restoringId ? 'Restoring…' : 'Restore Now'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -292,11 +545,17 @@ function BackupActions({ tenant }: { tenant: Tenant; onChanged: () => void }) {
     );
 }
 
-function DeleteTenantDialog({ tenant, onChanged }: { tenant: Tenant; onChanged: () => void }) {
+function DeleteTenantDialog({
+    tenant,
+    onChanged,
+}: {
+    tenant: Tenant;
+    onChanged: () => void;
+}) {
     const [isOpen, setIsOpen] = useState(false);
-    const [confirmText, setConfirmText] = useState("");
+    const [confirmText, setConfirmText] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
-    const isSuspended = tenant.status === "SUSPENDED";
+    const isSuspended = tenant.status === 'SUSPENDED';
     const canSubmit = confirmText === tenant.subdomain && isSuspended;
 
     async function onConfirm() {
@@ -304,35 +563,65 @@ function DeleteTenantDialog({ tenant, onChanged }: { tenant: Tenant; onChanged: 
         setIsDeleting(true);
         try {
             const result = await deleteTenant(tenant.id, confirmText);
-            if (!result.success) throw new Error("failed");
-            toast.success(`Tenant "${tenant.name}" permanently deleted. Pre-delete backup saved to R2.`);
+            if (!result.success) throw new Error('failed');
+            toast.success(
+                `Tenant "${tenant.name}" permanently deleted. Pre-delete backup saved to R2.`,
+            );
             setIsOpen(false);
             onChanged();
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal menghapus tenant.");
+            toast.error(
+                err instanceof Error ? err.message : 'Gagal menghapus tenant.',
+            );
         } finally {
             setIsDeleting(false);
         }
     }
 
     return (
-        <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) setConfirmText(""); }}>
+        <Dialog
+            open={isOpen}
+            onOpenChange={(o) => {
+                setIsOpen(o);
+                if (!o) setConfirmText('');
+            }}
+        >
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 hover:dark:bg-red-900/30" disabled={!isSuspended} title={isSuspended ? "Delete tenant permanently" : "Suspend tenant first (cooling period)"}>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shadow-none border gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 hover:dark:bg-red-900/30"
+                    disabled={!isSuspended}
+                    title={
+                        isSuspended
+                            ? 'Delete tenant permanently'
+                            : 'Suspend tenant first (cooling period)'
+                    }
+                >
                     <Trash2 className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle className="text-red-600 dark:text-red-400">Delete Tenant: {tenant.name}</DialogTitle>
+                    <DialogTitle className="text-red-600 dark:text-red-400">
+                        Delete Tenant: {tenant.name}
+                    </DialogTitle>
                     <DialogDescription>
-                        This is <strong>irreversible</strong>. The tenant&apos;s database will be dropped permanently.
-                        A pre-delete backup will be saved to R2 first — if that backup fails, the deletion is aborted.
+                        This is <strong>irreversible</strong>. The tenant&apos;s
+                        database will be dropped permanently. A pre-delete
+                        backup will be saved to R2 first — if that backup fails,
+                        the deletion is aborted.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                     <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-300">
-                        <p>Type the tenant subdomain <code className="font-mono font-bold">{tenant.subdomain}</code> to confirm:</p>
+                        <p>
+                            Type the tenant subdomain{' '}
+                            <code className="font-mono font-bold">
+                                {tenant.subdomain}
+                            </code>{' '}
+                            to confirm:
+                        </p>
                     </div>
                     <Input
                         type="text"
@@ -344,9 +633,23 @@ function DeleteTenantDialog({ tenant, onChanged }: { tenant: Tenant; onChanged: 
                     />
                 </div>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isDeleting}>Cancel</Button>
-                    <Button type="button" variant="destructive" onClick={onConfirm} disabled={!canSubmit || isDeleting}>
-                        {isDeleting ? "Deleting (backup in progress)…" : "Delete Permanently"}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsOpen(false)}
+                        disabled={isDeleting}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={onConfirm}
+                        disabled={!canSubmit || isDeleting}
+                    >
+                        {isDeleting
+                            ? 'Deleting (backup in progress)…'
+                            : 'Delete Permanently'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -354,23 +657,29 @@ function DeleteTenantDialog({ tenant, onChanged }: { tenant: Tenant; onChanged: 
     );
 }
 
-function SuspendToggleDialog({ tenant, onChanged }: { tenant: Tenant; onChanged: () => void }) {
+function SuspendToggleDialog({
+    tenant,
+    onChanged,
+}: {
+    tenant: Tenant;
+    onChanged: () => void;
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const isSuspended = tenant.status === "SUSPENDED";
-    const nextStatus = isSuspended ? "ACTIVE" : "SUSPENDED";
+    const isSuspended = tenant.status === 'SUSPENDED';
+    const nextStatus = isSuspended ? 'ACTIVE' : 'SUSPENDED';
 
     async function onConfirm() {
         setIsSubmitting(true);
         const result = await setTenantStatus(tenant.id, nextStatus);
 
         if (!result.success) {
-            toast.error(result.error || "Gagal memproses. Silakan coba lagi.");
+            toast.error(result.error || 'Gagal memproses. Silakan coba lagi.');
         } else {
             toast.success(
                 isSuspended
                     ? `${tenant.name} diaktifkan kembali. Login sudah diizinkan.`
-                    : `${tenant.name} disuspend. Semua login pada subdomain ini akan diblokir.`
+                    : `${tenant.name} disuspend. Semua login pada subdomain ini akan diblokir.`,
             );
             setIsOpen(false);
             onChanged();
@@ -382,18 +691,29 @@ function SuspendToggleDialog({ tenant, onChanged }: { tenant: Tenant; onChanged:
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 {isSuspended ? (
-                    <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 hover:dark:bg-emerald-900/30">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shadow-none border gap-2 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 hover:dark:bg-emerald-900/30"
+                    >
                         <PlayCircle className="h-4 w-4" /> Activate
                     </Button>
                 ) : (
-                    <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 hover:dark:bg-red-900/30">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shadow-none border gap-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 hover:dark:bg-red-900/30"
+                    >
                         <Ban className="h-4 w-4" /> Suspend
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{isSuspended ? "Reactivate" : "Suspend"} Tenant: {tenant.name}</DialogTitle>
+                    <DialogTitle>
+                        {isSuspended ? 'Reactivate' : 'Suspend'} Tenant:{' '}
+                        {tenant.name}
+                    </DialogTitle>
                     <DialogDescription>
                         {isSuspended
                             ? "This restores login access for all users on this tenant's subdomain."
@@ -401,14 +721,25 @@ function SuspendToggleDialog({ tenant, onChanged }: { tenant: Tenant; onChanged:
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
                     <Button
                         type="button"
-                        variant={isSuspended ? "default" : "destructive"}
+                        variant="outline"
+                        onClick={() => setIsOpen(false)}
+                        disabled={isSubmitting}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        variant={isSuspended ? 'default' : 'destructive'}
                         onClick={onConfirm}
                         disabled={isSubmitting}
                     >
-                        {isSubmitting ? "Processing..." : isSuspended ? "Confirm Reactivate" : "Confirm Suspend"}
+                        {isSubmitting
+                            ? 'Processing...'
+                            : isSuspended
+                              ? 'Confirm Reactivate'
+                              : 'Confirm Suspend'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -427,7 +758,9 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
         if (!result.success) {
             toast.error(result.error || 'Gagal memproses. Silakan coba lagi.');
         } else {
-            toast.success(`Password admin untuk ${tenant.name} berhasil direset.`);
+            toast.success(
+                `Password admin untuk ${tenant.name} berhasil direset.`,
+            );
             setIsOpen(false);
         }
         setIsSubmitting(false);
@@ -436,21 +769,30 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-50 hover:dark:bg-orange-900/30">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shadow-none border gap-2 text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-50 hover:dark:bg-orange-900/30"
+                >
                     <KeyRound className="h-4 w-4" /> Reset Pwd
                 </Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Reset Admin Password: {tenant.name}</DialogTitle>
+                    <DialogTitle>
+                        Reset Admin Password: {tenant.name}
+                    </DialogTitle>
                     <DialogDescription>
-                        This will override the primary admin account&apos;s password for this tenant.
-                        Make sure to securely communicate the new password to the user.
+                        This will override the primary admin account&apos;s
+                        password for this tenant. Make sure to securely
+                        communicate the new password to the user.
                     </DialogDescription>
                 </DialogHeader>
                 <form action={onSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor={`newPassword-${tenant.id}`}>New Admin Password</Label>
+                        <Label htmlFor={`newPassword-${tenant.id}`}>
+                            New Admin Password
+                        </Label>
                         <Input
                             id={`newPassword-${tenant.id}`}
                             name="newPassword"
@@ -461,9 +803,16 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsOpen(false)}
+                            disabled={isSubmitting}
+                        >
+                            Cancel
+                        </Button>
                         <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Resetting..." : "Confirm Reset"}
+                            {isSubmitting ? 'Resetting...' : 'Confirm Reset'}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -473,19 +822,19 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
 }
 
 function formatBytes(bytes: number | null): string {
-    if (bytes == null) return "—";
-    if (bytes === 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB", "TB"];
+    if (bytes == null) return '—';
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 function formatRelativeTime(iso: string | null): string {
-    if (!iso) return "No activity";
+    if (!iso) return 'No activity';
     const then = new Date(iso).getTime();
     const diffMs = Date.now() - then;
     const sec = Math.floor(diffMs / 1000);
-    if (sec < 60) return "just now";
+    if (sec < 60) return 'just now';
     const min = Math.floor(sec / 60);
     if (min < 60) return `${min}m ago`;
     const hr = Math.floor(min / 60);
@@ -496,7 +845,7 @@ function formatRelativeTime(iso: string | null): string {
 }
 
 function GlobalUserSearchBar() {
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState('');
     const [results, setResults] = useState<GlobalUserResult[] | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -508,9 +857,9 @@ function GlobalUserSearchBar() {
         try {
             const r = await globalUserSearch(query);
             setResults(r);
-            if (r.length === 0) toast.info("Tidak ada user yang cocok.");
+            if (r.length === 0) toast.info('Tidak ada user yang cocok.');
         } catch {
-            toast.error("Gagal mencari. Silakan coba lagi.");
+            toast.error('Gagal mencari. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -523,7 +872,8 @@ function GlobalUserSearchBar() {
                     <Search className="h-4 w-4" /> Global User Search
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">
-                    Cari user berdasarkan email atau nama di semua tenant (main DB + tenant DB).
+                    Cari user berdasarkan email atau nama di semua tenant (main
+                    DB + tenant DB).
                 </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -535,8 +885,15 @@ function GlobalUserSearchBar() {
                         onChange={(e) => setQuery(e.target.value)}
                         className="max-w-md"
                     />
-                    <Button type="submit" disabled={loading || query.trim().length < 2}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    <Button
+                        type="submit"
+                        disabled={loading || query.trim().length < 2}
+                    >
+                        {loading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Search className="h-4 w-4" />
+                        )}
                         Cari
                     </Button>
                 </form>
@@ -556,13 +913,21 @@ function GlobalUserSearchBar() {
                             </TableHeader>
                             <TableBody>
                                 {results.map((u) => (
-                                    <TableRow key={`${u.source}-${u.tenantId ?? "main"}-${u.id}`}>
-                                        <TableCell className="font-medium">{u.name || "—"}</TableCell>
-                                        <TableCell className="font-mono text-xs">{u.email}</TableCell>
+                                    <TableRow
+                                        key={`${u.source}-${u.tenantId ?? 'main'}-${u.id}`}
+                                    >
+                                        <TableCell className="font-medium">
+                                            {u.name || '—'}
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs">
+                                            {u.email}
+                                        </TableCell>
                                         <TableCell>{u.role}</TableCell>
                                         <TableCell>
-                                            {u.source === "main" ? (
-                                                <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded">Platform</span>
+                                            {u.source === 'main' ? (
+                                                <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded">
+                                                    Platform
+                                                </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1 text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 px-2 py-0.5 rounded">
                                                     {u.tenantName}
@@ -571,9 +936,13 @@ function GlobalUserSearchBar() {
                                         </TableCell>
                                         <TableCell>
                                             {u.isActive ? (
-                                                <span className="text-xs text-emerald-600 dark:text-emerald-400">active</span>
+                                                <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                                                    active
+                                                </span>
                                             ) : (
-                                                <span className="text-xs text-red-600 dark:text-red-400">inactive</span>
+                                                <span className="text-xs text-red-600 dark:text-red-400">
+                                                    inactive
+                                                </span>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -600,20 +969,28 @@ function GlobalUserSearchBar() {
     );
 }
 
-export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Tenant[]; stats: Record<string, TenantStats> }) {
+export function SuperAdminClient({
+    initialTenants,
+    stats,
+}: {
+    initialTenants: Tenant[];
+    stats: Record<string, TenantStats>;
+}) {
     const [tenants] = useState(initialTenants);
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     async function onSubmit(formData: FormData) {
         setIsSubmitting(true);
-        const name = formData.get("name") as string;
+        const name = formData.get('name') as string;
 
         toast.promise(createAndProvisionTenant(formData), {
             loading: `Provisioning ${name}... Please wait, this takes about 30 seconds...`,
             success: (result) => {
                 if (!result.success) {
-                    throw new Error(result.error || 'Gagal menjalankan perintah');
+                    throw new Error(
+                        result.error || 'Gagal menjalankan perintah',
+                    );
                 }
                 setIsOpen(false);
                 // In a real app we'd revalidate path to fetch the new tenant from DB
@@ -621,7 +998,7 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
                 window.location.reload();
                 return `${name} provisioned successfully!`;
             },
-            error: (err) => `Failed to provision: ${err.message}`
+            error: (err) => `Failed to provision: ${err.message}`,
         });
 
         setIsSubmitting(false);
@@ -630,150 +1007,265 @@ export function SuperAdminClient({ initialTenants, stats }: { initialTenants: Te
     return (
         <div className="space-y-6">
             <GlobalUserSearchBar />
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <CardTitle>Registered Tenants</CardTitle>
-                    {stats && Object.values(stats)[0]?.cachedAt && (
-                        <span className="text-xs text-muted-foreground">
-                            cached {(new Date(Object.values(stats)[0].cachedAt!).toLocaleString())}
-                        </span>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={async () => {
-                        toast.loading("Refreshing stats…", { id: "stats-refresh" });
-                        try {
-                            await getAllTenantStats();
-                            toast.success("Stats refreshed.", { id: "stats-refresh" });
-                            window.location.reload();
-                        } catch {
-                            toast.error("Failed to refresh stats.", { id: "stats-refresh" });
-                        }
-                    }}>
-                        <RefreshCw className="h-4 w-4" /> Refresh
-                    </Button>
-                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                        <DialogTrigger asChild>
-                            <Button>+ Onboard New Tenant</Button>
-                        </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Onboard New Tenant</DialogTitle>
-                            <DialogDescription>
-                                This will create a new isolated PostgreSQL Database, apply Prisma migrations, and run the initial seeds. It will take a few moments.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form action={onSubmit} className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Company Name</Label>
-                                <Input id="name" name="name" required placeholder="Example: PT Jaya Makmur" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="subdomain">Subdomain (URL)</Label>
-                                <Input id="subdomain" name="subdomain" required placeholder="jayamakmur" pattern="[a-z0-9-]+" title="Only lowercase letters, numbers, and hyphens" />
-                                <p className="text-xs text-muted-foreground">Will be accessed at <code>subdomain.domain.com</code></p>
-                            </div>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <CardTitle>Registered Tenants</CardTitle>
+                        {stats && Object.values(stats)[0]?.cachedAt && (
+                            <span className="text-xs text-muted-foreground">
+                                cached{' '}
+                                {new Date(
+                                    Object.values(stats)[0].cachedAt!,
+                                ).toLocaleString()}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                                toast.loading('Refreshing stats…', {
+                                    id: 'stats-refresh',
+                                });
+                                try {
+                                    await getAllTenantStats();
+                                    toast.success('Stats refreshed.', {
+                                        id: 'stats-refresh',
+                                    });
+                                    window.location.reload();
+                                } catch {
+                                    toast.error('Failed to refresh stats.', {
+                                        id: 'stats-refresh',
+                                    });
+                                }
+                            }}
+                        >
+                            <RefreshCw className="h-4 w-4" /> Refresh
+                        </Button>
+                        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                            <DialogTrigger asChild>
+                                <Button>+ Onboard New Tenant</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        Onboard New Tenant
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        This will create a new isolated
+                                        PostgreSQL Database, apply Prisma
+                                        migrations, and run the initial seeds.
+                                        It will take a few moments.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form
+                                    action={onSubmit}
+                                    className="space-y-4 py-4"
+                                >
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name">
+                                            Company Name
+                                        </Label>
+                                        <Input
+                                            id="name"
+                                            name="name"
+                                            required
+                                            placeholder="Example: PT Jaya Makmur"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="subdomain">
+                                            Subdomain (URL)
+                                        </Label>
+                                        <Input
+                                            id="subdomain"
+                                            name="subdomain"
+                                            required
+                                            placeholder="jayamakmur"
+                                            pattern="[a-z0-9-]+"
+                                            title="Only lowercase letters, numbers, and hyphens"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Will be accessed at{' '}
+                                            <code>subdomain.domain.com</code>
+                                        </p>
+                                    </div>
 
-                            <hr className="my-4 border-muted" />
-                            <h4 className="font-semibold text-sm">Initial Admin Account</h4>
+                                    <hr className="my-4 border-muted" />
+                                    <h4 className="font-semibold text-sm">
+                                        Initial Admin Account
+                                    </h4>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="adminName">Admin Name</Label>
-                                <Input id="adminName" name="adminName" required placeholder="John Doe" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="adminEmail">Admin Email</Label>
-                                <Input id="adminEmail" name="adminEmail" type="email" required placeholder="admin@jayamakmur.com" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="adminPassword">Admin Password</Label>
-                                <Input id="adminPassword" name="adminPassword" type="password" required placeholder="••••••••" minLength={8} />
-                            </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="adminName">
+                                            Admin Name
+                                        </Label>
+                                        <Input
+                                            id="adminName"
+                                            name="adminName"
+                                            required
+                                            placeholder="John Doe"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="adminEmail">
+                                            Admin Email
+                                        </Label>
+                                        <Input
+                                            id="adminEmail"
+                                            name="adminEmail"
+                                            type="email"
+                                            required
+                                            placeholder="admin@jayamakmur.com"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="adminPassword">
+                                            Admin Password
+                                        </Label>
+                                        <Input
+                                            id="adminPassword"
+                                            name="adminPassword"
+                                            type="password"
+                                            required
+                                            placeholder="••••••••"
+                                            minLength={8}
+                                        />
+                                    </div>
 
-                            <DialogFooter className="pt-4">
-                                <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? "Provisioning Database..." : "Provision Tenant"}
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Tenant Name</TableHead>
-                            <TableHead>Subdomain</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Users</TableHead>
-                            <TableHead>DB Size</TableHead>
-                            <TableHead>Last Activity</TableHead>
-                            <TableHead className="text-right w-[100px]">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {tenants.map(t => {
-                            const s = stats[t.id];
-                            return (
-                                <TableRow key={t.id}>
-                                    <TableCell className="font-medium">
-                                        <Link href={`/admin/super-admin/${t.id}`} className="hover:underline">{t.name}</Link>
-                                    </TableCell>
-                                    <TableCell><code>{t.subdomain}</code></TableCell>
-                                    <TableCell>{t.status}</TableCell>
-                                    {!s || !s.online ? (
-                                        <TableCell colSpan={3}>
-                                            <span className="inline-flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400" title={s?.error ?? "No stats"}>
-                                                <AlertTriangle className="h-3.5 w-3.5" /> DB unreachable
-                                            </span>
+                                    <DialogFooter className="pt-4">
+                                        <Button
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                        >
+                                            {isSubmitting
+                                                ? 'Provisioning Database...'
+                                                : 'Provision Tenant'}
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Tenant Name</TableHead>
+                                <TableHead>Subdomain</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Users</TableHead>
+                                <TableHead>DB Size</TableHead>
+                                <TableHead>Last Activity</TableHead>
+                                <TableHead className="text-right w-[100px]">
+                                    Actions
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {tenants.map((t) => {
+                                const s = stats[t.id];
+                                return (
+                                    <TableRow key={t.id}>
+                                        <TableCell className="font-medium">
+                                            <Link
+                                                href={`/admin/super-admin/${t.id}`}
+                                                className="hover:underline"
+                                            >
+                                                {t.name}
+                                            </Link>
                                         </TableCell>
-                                    ) : (
-                                        <>
-                                            <TableCell>
-                                                <span className="inline-flex items-center gap-1.5 text-sm">
-                                                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                                                    {s.activeUserCount}/{s.userCount}
+                                        <TableCell>
+                                            <code>{t.subdomain}</code>
+                                        </TableCell>
+                                        <TableCell>{t.status}</TableCell>
+                                        {!s || !s.online ? (
+                                            <TableCell colSpan={3}>
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
+                                                    title={
+                                                        s?.error ?? 'No stats'
+                                                    }
+                                                >
+                                                    <AlertTriangle className="h-3.5 w-3.5" />{' '}
+                                                    DB unreachable
                                                 </span>
                                             </TableCell>
-                                            <TableCell>
-                                                <span className="inline-flex items-center gap-1.5 text-sm">
-                                                    <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                                                    {formatBytes(s.dbSizeBytes)}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                    <Clock className="h-3.5 w-3.5" />
-                                                    {formatRelativeTime(s.lastActivityAt)}
-                                                </span>
-                                            </TableCell>
-                                        </>
-                                    )}
-                                    <TableCell className="text-right flex items-center justify-end gap-2 pr-4">
-                                        <SuspendToggleDialog tenant={t} onChanged={() => window.location.reload()} />
-                                        <ResetPasswordDialog tenant={t} />
-                                        <EditTenantDialog tenant={t} onUpdated={() => window.location.reload()} />
-                                        <BackupActions tenant={t} onChanged={() => window.location.reload()} />
-                                        <DeleteTenantDialog tenant={t} onChanged={() => window.location.reload()} />
-                                        <ImpersonateButton tenant={t} />
+                                        ) : (
+                                            <>
+                                                <TableCell>
+                                                    <span className="inline-flex items-center gap-1.5 text-sm">
+                                                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                                        {s.activeUserCount}/
+                                                        {s.userCount}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="inline-flex items-center gap-1.5 text-sm">
+                                                        <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                                                        {formatBytes(
+                                                            s.dbSizeBytes,
+                                                        )}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                        <Clock className="h-3.5 w-3.5" />
+                                                        {formatRelativeTime(
+                                                            s.lastActivityAt,
+                                                        )}
+                                                    </span>
+                                                </TableCell>
+                                            </>
+                                        )}
+                                        <TableCell className="text-right flex items-center justify-end gap-2 pr-4">
+                                            <SuspendToggleDialog
+                                                tenant={t}
+                                                onChanged={() =>
+                                                    window.location.reload()
+                                                }
+                                            />
+                                            <ResetPasswordDialog tenant={t} />
+                                            <EditTenantDialog
+                                                tenant={t}
+                                                onUpdated={() =>
+                                                    window.location.reload()
+                                                }
+                                            />
+                                            <BackupActions
+                                                tenant={t}
+                                                onChanged={() =>
+                                                    window.location.reload()
+                                                }
+                                            />
+                                            <DeleteTenantDialog
+                                                tenant={t}
+                                                onChanged={() =>
+                                                    window.location.reload()
+                                                }
+                                            />
+                                            <ImpersonateButton tenant={t} />
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                            {tenants.length === 0 && (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={7}
+                                        className="text-center text-muted-foreground py-8"
+                                    >
+                                        Tidak ada tenant ditemukan. Mulai
+                                        onboarding!
                                     </TableCell>
                                 </TableRow>
-                            );
-                        })}
-                        {tenants.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                                    Tidak ada tenant ditemukan. Mulai onboarding!
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
     );
 }

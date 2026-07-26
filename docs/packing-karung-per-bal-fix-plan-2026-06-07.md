@@ -44,10 +44,10 @@ Karung Besar = floor(enteredQuantity BAL)
 Artinya:
 
 | Output Input | Karung Besar |
-| ---: | ---: |
-| 6,2 BAL | 6 PACK |
-| 6,9 BAL | 6 PACK |
-| 7,0 BAL | 7 PACK |
+| -----------: | -----------: |
+|      6,2 BAL |       6 PACK |
+|      6,9 BAL |       6 PACK |
+|      7,0 BAL |       7 PACK |
 
 Catatan: jika nanti operasional memutuskan pecahan BAL tetap butuh karung tambahan, rule bisa diganti ke `ceil()`. Untuk sekarang berdasarkan contoh user, rule yang benar adalah `floor()`.
 
@@ -56,21 +56,21 @@ Catatan: jika nanti operasional memutuskan pecahan BAL tetap butuh karung tambah
 1. **Tidak ubah schema dulu**.
 2. **Tidak seed angka permisalan ke production**.
 3. Logic khusus hanya berlaku untuk:
-   - BOM kategori `PACKING`, dan
-   - material packaging/karung tertentu.
+    - BOM kategori `PACKING`, dan
+    - material packaging/karung tertentu.
 4. Material lain seperti roll/hasil proses sebelumnya tetap dihitung proporsional seperti sekarang.
 5. Output cost/HPP tetap mengambil dari movement OUT setelah backflush, sehingga biaya karung utuh ikut masuk HPP.
 
 ## 4. Source Code Terkait
 
-| Area | File | Kondisi Saat Ini |
-| --- | --- | --- |
-| Output produksi manual | `src/services/production/execution-service.ts` | Resolve `enteredQuantity`, `enteredUnit`, dan `baseQuantityProduced`, lalu panggil `backflushMaterials()`. |
-| Backflush material | `src/services/production/execution-material-consumption.ts` | Semua material dihitung proporsional dari `totalConsumed`. |
-| Type backflush order/material | `src/services/production/execution-types.ts` | `MaterialLike` belum include detail product type/unit/name. |
-| Output dialog | `src/components/production/order-detail/AddOutputDialog.tsx` | Sudah mengirim `enteredQuantity` dan `enteredUnit` saat alternate unit dipakai. |
-| Kiosk output | `src/components/production/kiosk/KioskLogOutputDialog.tsx`, `KioskStopDialog.tsx` | Juga mengirim `enteredQuantity` dan `enteredUnit` untuk alternate unit. |
-| BOM/material data | `prisma/schema.prisma` | Product type `PACKAGING`, unit `PACK`, dan unit `BAL` sudah ada. |
+| Area                          | File                                                                              | Kondisi Saat Ini                                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Output produksi manual        | `src/services/production/execution-service.ts`                                    | Resolve `enteredQuantity`, `enteredUnit`, dan `baseQuantityProduced`, lalu panggil `backflushMaterials()`. |
+| Backflush material            | `src/services/production/execution-material-consumption.ts`                       | Semua material dihitung proporsional dari `totalConsumed`.                                                 |
+| Type backflush order/material | `src/services/production/execution-types.ts`                                      | `MaterialLike` belum include detail product type/unit/name.                                                |
+| Output dialog                 | `src/components/production/order-detail/AddOutputDialog.tsx`                      | Sudah mengirim `enteredQuantity` dan `enteredUnit` saat alternate unit dipakai.                            |
+| Kiosk output                  | `src/components/production/kiosk/KioskLogOutputDialog.tsx`, `KioskStopDialog.tsx` | Juga mengirim `enteredQuantity` dan `enteredUnit` untuk alternate unit.                                    |
+| BOM/material data             | `prisma/schema.prisma`                                                            | Product type `PACKAGING`, unit `PACK`, dan unit `BAL` sudah ada.                                           |
 
 ## 5. Desain Perbaikan Teknis
 
@@ -135,14 +135,16 @@ Fungsi helper yang disarankan:
 
 ```ts
 function isWholeBalPackagingMaterial(item): boolean {
-  const productType = item.productVariant?.product?.productType;
-  const unit = item.productVariant?.primaryUnit;
-  const name = item.productVariant?.name?.toLowerCase() || '';
-  const sku = item.productVariant?.skuCode?.toLowerCase() || '';
+    const productType = item.productVariant?.product?.productType;
+    const unit = item.productVariant?.primaryUnit;
+    const name = item.productVariant?.name?.toLowerCase() || '';
+    const sku = item.productVariant?.skuCode?.toLowerCase() || '';
 
-  return productType === 'PACKAGING'
-    && unit === 'PACK'
-    && (name.includes('karung') || sku.includes('kar'));
+    return (
+        productType === 'PACKAGING' &&
+        unit === 'PACK' &&
+        (name.includes('karung') || sku.includes('kar'))
+    );
 }
 ```
 
@@ -157,7 +159,7 @@ Alternatif lebih rapi jangka panjang:
 
 ```json
 {
-  "consumptionRule": "FLOOR_ENTERED_BAL"
+    "consumptionRule": "FLOOR_ENTERED_BAL"
 }
 ```
 
@@ -171,12 +173,12 @@ Di `backflushMaterials()`:
 let qtyToDeduct = totalConsumed * ratio;
 
 if (
-  order.bom?.category === 'PACKING' &&
-  outputContext?.enteredUnit === 'BAL' &&
-  outputContext.enteredQuantity !== null &&
-  isWholeBalPackagingMaterial(item)
+    order.bom?.category === 'PACKING' &&
+    outputContext?.enteredUnit === 'BAL' &&
+    outputContext.enteredQuantity !== null &&
+    isWholeBalPackagingMaterial(item)
 ) {
-  qtyToDeduct = Math.floor(Number(outputContext.enteredQuantity));
+    qtyToDeduct = Math.floor(Number(outputContext.enteredQuantity));
 }
 ```
 
@@ -211,13 +213,13 @@ maka `ProductionCostService.calculateBatchCOGM()` akan membaca movement OUT karu
 
 ## 7. Risiko dan Guardrail
 
-| Risiko | Mitigasi |
-| --- | --- |
-| Salah deteksi packaging selain karung | Batasi rule ke `productType = PACKAGING`, `unit = PACK`, dan name/SKU mengandung `karung`/`kar`. |
-| `enteredQuantity` tidak dikirim | Fallback ke rumus proporsional existing. |
-| Output dicatat langsung dalam KG tanpa BAL | Fallback proporsional; perlu edukasi operator untuk input BAL jika ingin karung benar. |
-| Pecahan BAL sebenarnya butuh karung tambahan | Konfirmasi rule bisnis. Saat ini pakai `floor` sesuai contoh. |
-| Data historis lama tetap decimal | Tidak otomatis diperbaiki. Kalau perlu, buat script audit/recalculation terpisah dengan backup. |
+| Risiko                                       | Mitigasi                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Salah deteksi packaging selain karung        | Batasi rule ke `productType = PACKAGING`, `unit = PACK`, dan name/SKU mengandung `karung`/`kar`. |
+| `enteredQuantity` tidak dikirim              | Fallback ke rumus proporsional existing.                                                         |
+| Output dicatat langsung dalam KG tanpa BAL   | Fallback proporsional; perlu edukasi operator untuk input BAL jika ingin karung benar.           |
+| Pecahan BAL sebenarnya butuh karung tambahan | Konfirmasi rule bisnis. Saat ini pakai `floor` sesuai contoh.                                    |
+| Data historis lama tetap decimal             | Tidak otomatis diperbaiki. Kalau perlu, buat script audit/recalculation terpisah dengan backup.  |
 
 ## 8. Acceptance Criteria
 

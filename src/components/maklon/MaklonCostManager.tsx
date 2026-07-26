@@ -23,11 +23,31 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { PlusCircle, Trash2, Wrench, Zap, Users, FlaskConical, Droplets, Building, CircleDollarSign } from 'lucide-react';
+import {
+    PlusCircle,
+    Trash2,
+    Wrench,
+    Zap,
+    Users,
+    FlaskConical,
+    Droplets,
+    Building,
+    CircleDollarSign,
+} from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
-import { addMaklonCostAction, removeMaklonCostAction } from '@/actions/maklon/maklon-cost';
+import {
+    addMaklonCostAction,
+    removeMaklonCostAction,
+} from '@/actions/maklon/maklon-cost';
 
-type MaklonCostType = 'LABOR' | 'MACHINE' | 'ELECTRICITY' | 'ADDITIVE' | 'COLORANT' | 'OVERHEAD' | 'OTHER';
+type MaklonCostType =
+    | 'LABOR'
+    | 'MACHINE'
+    | 'ELECTRICITY'
+    | 'ADDITIVE'
+    | 'COLORANT'
+    | 'OVERHEAD'
+    | 'OTHER';
 
 type CostItem = {
     id: string;
@@ -36,14 +56,45 @@ type CostItem = {
     amount: string | number;
 };
 
-const COST_TYPE_CONFIG: Record<MaklonCostType, { label: string; icon: React.ElementType; color: string }> = {
-    LABOR:       { label: 'Labor',       icon: Users,          color: 'bg-secondary text-secondary-foreground border-border' },
-    MACHINE:     { label: 'Machine',     icon: Wrench,         color: 'bg-secondary text-secondary-foreground border-border' },
-    ELECTRICITY: { label: 'Electricity', icon: Zap,            color: 'bg-secondary text-secondary-foreground border-border' },
-    ADDITIVE:    { label: 'Additive',    icon: FlaskConical,   color: 'bg-secondary text-secondary-foreground border-border' },
-    COLORANT:    { label: 'Colorant',    icon: Droplets,       color: 'bg-secondary text-secondary-foreground border-border' },
-    OVERHEAD:    { label: 'Overhead',    icon: Building,       color: 'bg-secondary text-secondary-foreground border-border' },
-    OTHER:       { label: 'Other',       icon: CircleDollarSign, color: 'bg-muted text-muted-foreground border-muted' },
+const COST_TYPE_CONFIG: Record<
+    MaklonCostType,
+    { label: string; icon: React.ElementType; color: string }
+> = {
+    LABOR: {
+        label: 'Labor',
+        icon: Users,
+        color: 'bg-secondary text-secondary-foreground border-border',
+    },
+    MACHINE: {
+        label: 'Machine',
+        icon: Wrench,
+        color: 'bg-secondary text-secondary-foreground border-border',
+    },
+    ELECTRICITY: {
+        label: 'Electricity',
+        icon: Zap,
+        color: 'bg-secondary text-secondary-foreground border-border',
+    },
+    ADDITIVE: {
+        label: 'Additive',
+        icon: FlaskConical,
+        color: 'bg-secondary text-secondary-foreground border-border',
+    },
+    COLORANT: {
+        label: 'Colorant',
+        icon: Droplets,
+        color: 'bg-secondary text-secondary-foreground border-border',
+    },
+    OVERHEAD: {
+        label: 'Overhead',
+        icon: Building,
+        color: 'bg-secondary text-secondary-foreground border-border',
+    },
+    OTHER: {
+        label: 'Other',
+        icon: CircleDollarSign,
+        color: 'bg-muted text-muted-foreground border-muted',
+    },
 };
 
 interface MaklonCostManagerProps {
@@ -51,7 +102,10 @@ interface MaklonCostManagerProps {
     initialItems: CostItem[];
 }
 
-export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCostManagerProps) {
+export function MaklonCostManager({
+    productionOrderId,
+    initialItems,
+}: MaklonCostManagerProps) {
     const [items, setItems] = useState<CostItem[]>(initialItems);
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -86,7 +140,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                     description: description.trim() || null,
                     amount: parsedAmount,
                 };
-                setItems(prev => [...prev, tempItem]);
+                setItems((prev) => [...prev, tempItem]);
                 toast.success('Item biaya berhasil ditambahkan.');
                 setOpen(false);
                 setCostType('LABOR');
@@ -102,7 +156,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
         startTransition(async () => {
             const result = await removeMaklonCostAction(id, productionOrderId);
             if (result?.success) {
-                setItems(prev => prev.filter(item => item.id !== id));
+                setItems((prev) => prev.filter((item) => item.id !== id));
                 toast.success('Item biaya berhasil dihapus.');
             } else {
                 toast.error(result?.error || 'Gagal menghapus item biaya.');
@@ -120,7 +174,8 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                             Maklon Conversion Costs
                         </CardTitle>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            Record itemised conversion costs charged to customer for this Maklon order
+                            Record itemised conversion costs charged to customer
+                            for this Maklon order
                         </p>
                     </div>
                     <Dialog open={open} onOpenChange={setOpen}>
@@ -134,22 +189,36 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                             <DialogHeader>
                                 <DialogTitle>Add Conversion Cost</DialogTitle>
                                 <DialogDescription>
-                                    Add a cost line item for this Maklon production order.
+                                    Add a cost line item for this Maklon
+                                    production order.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-2">
                                 <div className="space-y-2">
                                     <Label>Cost Type</Label>
-                                    <Select value={costType} onValueChange={(v) => setCostType(v as MaklonCostType)}>
+                                    <Select
+                                        value={costType}
+                                        onValueChange={(v) =>
+                                            setCostType(v as MaklonCostType)
+                                        }
+                                    >
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {(Object.keys(COST_TYPE_CONFIG) as MaklonCostType[]).map(type => {
-                                                const cfg = COST_TYPE_CONFIG[type];
+                                            {(
+                                                Object.keys(
+                                                    COST_TYPE_CONFIG,
+                                                ) as MaklonCostType[]
+                                            ).map((type) => {
+                                                const cfg =
+                                                    COST_TYPE_CONFIG[type];
                                                 const Icon = cfg.icon;
                                                 return (
-                                                    <SelectItem key={type} value={type}>
+                                                    <SelectItem
+                                                        key={type}
+                                                        value={type}
+                                                    >
                                                         <span className="flex items-center gap-2">
                                                             <Icon className="w-3.5 h-3.5" />
                                                             {cfg.label}
@@ -166,28 +235,43 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                                         type="number"
                                         placeholder="e.g. 150000"
                                         value={amount}
-                                        onChange={e => setAmount(e.target.value)}
+                                        onChange={(e) =>
+                                            setAmount(e.target.value)
+                                        }
                                         min={0}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Description <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                                    <Label>
+                                        Description{' '}
+                                        <span className="text-muted-foreground font-normal">
+                                            (Optional)
+                                        </span>
+                                    </Label>
                                     <Input
                                         placeholder="e.g. 8 hours operator labor"
                                         value={description}
-                                        onChange={e => setDescription(e.target.value)}
+                                        onChange={(e) =>
+                                            setDescription(e.target.value)
+                                        }
                                     />
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setOpen(false)}
+                                    disabled={isPending}
+                                >
                                     Batal
                                 </Button>
                                 <Button
                                     onClick={handleAdd}
                                     disabled={isPending || !amount}
                                 >
-                                    {isPending ? 'Menyimpan...' : 'Simpan Biaya'}
+                                    {isPending
+                                        ? 'Menyimpan...'
+                                        : 'Simpan Biaya'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -198,12 +282,16 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                 {items.length === 0 ? (
                     <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
                         <CircleDollarSign className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">No conversion costs recorded yet.</p>
-                        <p className="text-xs text-muted-foreground mt-1">Click &quot;Add Cost&quot; to start recording.</p>
+                        <p className="text-sm text-muted-foreground">
+                            No conversion costs recorded yet.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Click &quot;Add Cost&quot; to start recording.
+                        </p>
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {items.map(item => {
+                        {items.map((item) => {
                             const cfg = COST_TYPE_CONFIG[item.costType];
                             const Icon = cfg.icon;
                             return (
@@ -212,7 +300,10 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                                     className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-white hover:bg-muted/20 transition-colors"
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <Badge variant="outline" className={`shrink-0 gap-1 text-xs ${cfg.color}`}>
+                                        <Badge
+                                            variant="outline"
+                                            className={`shrink-0 gap-1 text-xs ${cfg.color}`}
+                                        >
                                             <Icon className="w-3 h-3" />
                                             {cfg.label}
                                         </Badge>
@@ -228,7 +319,9 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                                             variant="ghost"
                                             size="icon"
                                             className="w-7 h-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                            onClick={() => handleRemove(item.id)}
+                                            onClick={() =>
+                                                handleRemove(item.id)
+                                            }
                                             disabled={isPending}
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
@@ -239,7 +332,9 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                         })}
 
                         <div className="flex justify-between items-center pt-3 border-t mt-3">
-                            <span className="text-sm font-medium text-muted-foreground">Total Conversion Cost</span>
+                            <span className="text-sm font-medium text-muted-foreground">
+                                Total Conversion Cost
+                            </span>
                             <span className="text-lg font-bold text-foreground">
                                 {formatRupiah(total)}
                             </span>

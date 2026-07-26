@@ -1,4 +1,3 @@
-
 import { PrismaClient, AccountType, AccountCategory } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -6,110 +5,557 @@ const prisma = new PrismaClient();
 const accounts = [
     // 1. ASSETS
     // 11000 Current Assets
-    { code: '11000', name: 'Current Assets', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: null },
-    { code: '11100', name: 'Cash & Bank', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
-    { code: '11110', name: 'Petty Cash', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11100', isCashAccount: true },
-    { code: '11120', name: 'Bank BCA - IDR', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11100', isCashAccount: true },
-    { code: '11130', name: 'Bank Mandiri - IDR', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11100', isCashAccount: true },
+    {
+        code: '11000',
+        name: 'Current Assets',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: null,
+    },
+    {
+        code: '11100',
+        name: 'Cash & Bank',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11000',
+    },
+    {
+        code: '11110',
+        name: 'Petty Cash',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11100',
+        isCashAccount: true,
+    },
+    {
+        code: '11120',
+        name: 'Bank BCA - IDR',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11100',
+        isCashAccount: true,
+    },
+    {
+        code: '11130',
+        name: 'Bank Mandiri - IDR',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11100',
+        isCashAccount: true,
+    },
 
-    { code: '11210', name: 'Accounts Receivable', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
-    { code: '11290', name: 'Allowance for Doubtful Accounts', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11210' },
+    {
+        code: '11210',
+        name: 'Accounts Receivable',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11000',
+    },
+    {
+        code: '11290',
+        name: 'Allowance for Doubtful Accounts',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11210',
+    },
 
-    { code: '11300', name: 'Inventory', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
-    { code: '11310', name: 'Raw Materials', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
-    { code: '11320', name: 'Work-in-Progress', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
-    { code: '11330', name: 'Finished Goods', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
-    { code: '11340', name: 'Packaging Materials', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
-    { code: '11350', name: 'Scrap & Waste', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
-    { code: '11360', name: 'Inventory - Consumables', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
+    {
+        code: '11300',
+        name: 'Inventory',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11000',
+    },
+    {
+        code: '11310',
+        name: 'Raw Materials',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11300',
+    },
+    {
+        code: '11320',
+        name: 'Work-in-Progress',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11300',
+    },
+    {
+        code: '11330',
+        name: 'Finished Goods',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11300',
+    },
+    {
+        code: '11340',
+        name: 'Packaging Materials',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11300',
+    },
+    {
+        code: '11350',
+        name: 'Scrap & Waste',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11300',
+    },
+    {
+        code: '11360',
+        name: 'Inventory - Consumables',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11300',
+    },
 
-    { code: '11400', name: 'Prepaid Expenses', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
-    { code: '11410', name: 'Prepaid Insurance', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11400' },
+    {
+        code: '11400',
+        name: 'Prepaid Expenses',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11000',
+    },
+    {
+        code: '11410',
+        name: 'Prepaid Insurance',
+        type: AccountType.ASSET,
+        category: AccountCategory.CURRENT_ASSET,
+        parentCode: '11400',
+    },
 
     // 12000 Fixed Assets
-    { code: '12000', name: 'Fixed Assets', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: null },
-    { code: '12100', name: 'Machinery & Equipment', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12000' },
-    { code: '12110', name: 'Extrusion Machines', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12100' },
-    { code: '12120', name: 'Mixing Equipment', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12100' },
-    { code: '12190', name: 'Accumulated Depreciation - Machinery', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12100' },
+    {
+        code: '12000',
+        name: 'Fixed Assets',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: null,
+    },
+    {
+        code: '12100',
+        name: 'Machinery & Equipment',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12000',
+    },
+    {
+        code: '12110',
+        name: 'Extrusion Machines',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12100',
+    },
+    {
+        code: '12120',
+        name: 'Mixing Equipment',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12100',
+    },
+    {
+        code: '12190',
+        name: 'Accumulated Depreciation - Machinery',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12100',
+    },
 
-    { code: '12200', name: 'Buildings', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12000' },
-    { code: '12290', name: 'Accumulated Depreciation - Buildings', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12200' },
+    {
+        code: '12200',
+        name: 'Buildings',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12000',
+    },
+    {
+        code: '12290',
+        name: 'Accumulated Depreciation - Buildings',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12200',
+    },
 
-    { code: '12300', name: 'Vehicles', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12000' },
-    { code: '12390', name: 'Accumulated Depreciation - Vehicles', type: AccountType.ASSET, category: AccountCategory.FIXED_ASSET, parentCode: '12300' },
+    {
+        code: '12300',
+        name: 'Vehicles',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12000',
+    },
+    {
+        code: '12390',
+        name: 'Accumulated Depreciation - Vehicles',
+        type: AccountType.ASSET,
+        category: AccountCategory.FIXED_ASSET,
+        parentCode: '12300',
+    },
 
     // 2. LIABILITIES
     // 21000 Current Liabilities
-    { code: '21000', name: 'Current Liabilities', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: null },
-    { code: '21100', name: 'Accounts Payable', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21000' },
-    { code: '21110', name: 'Trade Payables', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21100' },
-    { code: '21120', name: 'Other Payables', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21100' },
+    {
+        code: '21000',
+        name: 'Current Liabilities',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: null,
+    },
+    {
+        code: '21100',
+        name: 'Accounts Payable',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21000',
+    },
+    {
+        code: '21110',
+        name: 'Trade Payables',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21100',
+    },
+    {
+        code: '21120',
+        name: 'Other Payables',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21100',
+    },
 
-    { code: '21200', name: 'Accrued Expenses', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21000' },
+    {
+        code: '21200',
+        name: 'Accrued Expenses',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21000',
+    },
 
-    { code: '21300', name: 'Taxes Payable', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21000' },
-    { code: '21310', name: 'VAT Output (PPN Keluaran)', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21300' },
-    { code: '21320', name: 'VAT Input (PPN Masukan)', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21300' },
-    { code: '21330', name: 'Income Tax Payable (PPh 21)', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21300' },
+    {
+        code: '21300',
+        name: 'Taxes Payable',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21000',
+    },
+    {
+        code: '21310',
+        name: 'VAT Output (PPN Keluaran)',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21300',
+    },
+    {
+        code: '21320',
+        name: 'VAT Input (PPN Masukan)',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21300',
+    },
+    {
+        code: '21330',
+        name: 'Income Tax Payable (PPh 21)',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21300',
+    },
 
-    { code: '21400', name: 'Wages Payable', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21000' },
+    {
+        code: '21400',
+        name: 'Wages Payable',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21000',
+    },
 
     // 22000 Long Term
-    { code: '22000', name: 'Long-term Liabilities', type: AccountType.LIABILITY, category: AccountCategory.LONG_TERM_LIABILITY, parentCode: null },
-    { code: '22100', name: 'Bank Loans', type: AccountType.LIABILITY, category: AccountCategory.LONG_TERM_LIABILITY, parentCode: '22000' },
+    {
+        code: '22000',
+        name: 'Long-term Liabilities',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.LONG_TERM_LIABILITY,
+        parentCode: null,
+    },
+    {
+        code: '22100',
+        name: 'Bank Loans',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.LONG_TERM_LIABILITY,
+        parentCode: '22000',
+    },
 
     // 3. EQUITY
-    { code: '31000', name: "Owner's Capital", type: AccountType.EQUITY, category: AccountCategory.CAPITAL, parentCode: null },
-    { code: '32000', name: "Retained Earnings", type: AccountType.EQUITY, category: AccountCategory.RETAINED_EARNINGS, parentCode: null },
-    { code: '33000', name: "Current Year Earnings", type: AccountType.EQUITY, category: AccountCategory.RETAINED_EARNINGS, parentCode: null },
+    {
+        code: '31000',
+        name: "Owner's Capital",
+        type: AccountType.EQUITY,
+        category: AccountCategory.CAPITAL,
+        parentCode: null,
+    },
+    {
+        code: '32000',
+        name: 'Retained Earnings',
+        type: AccountType.EQUITY,
+        category: AccountCategory.RETAINED_EARNINGS,
+        parentCode: null,
+    },
+    {
+        code: '33000',
+        name: 'Current Year Earnings',
+        type: AccountType.EQUITY,
+        category: AccountCategory.RETAINED_EARNINGS,
+        parentCode: null,
+    },
 
     // 4. REVENUE
-    { code: '41000', name: "Sales Revenue", type: AccountType.REVENUE, category: AccountCategory.OPERATING_REVENUE, parentCode: null },
-    { code: '41100', name: "Product Sales", type: AccountType.REVENUE, category: AccountCategory.OPERATING_REVENUE, parentCode: '41000' },
-    { code: '41200', name: "Scrap Sales", type: AccountType.REVENUE, category: AccountCategory.OPERATING_REVENUE, parentCode: '41000' },
-    { code: '41900', name: "Sales Returns", type: AccountType.REVENUE, category: AccountCategory.OPERATING_REVENUE, parentCode: '41000' },
+    {
+        code: '41000',
+        name: 'Sales Revenue',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OPERATING_REVENUE,
+        parentCode: null,
+    },
+    {
+        code: '41100',
+        name: 'Product Sales',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OPERATING_REVENUE,
+        parentCode: '41000',
+    },
+    {
+        code: '41200',
+        name: 'Scrap Sales',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OPERATING_REVENUE,
+        parentCode: '41000',
+    },
+    {
+        code: '41900',
+        name: 'Sales Returns',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OPERATING_REVENUE,
+        parentCode: '41000',
+    },
 
     // 5. COGS
-    { code: '50000', name: "Cost of Goods Sold", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: null },
-    { code: '51000', name: "Direct Materials", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '50000' },
-    { code: '51100', name: "Raw Material Consumption", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '51000' },
-    { code: '51200', name: "Packaging Consumption", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '51000' },
+    {
+        code: '50000',
+        name: 'Cost of Goods Sold',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: null,
+    },
+    {
+        code: '51000',
+        name: 'Direct Materials',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '50000',
+    },
+    {
+        code: '51100',
+        name: 'Raw Material Consumption',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '51000',
+    },
+    {
+        code: '51200',
+        name: 'Packaging Consumption',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '51000',
+    },
 
-    { code: '52000', name: "Direct Labor", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '50000' },
-    { code: '52100', name: "Operator Wages", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '52000' },
-    { code: '52200', name: "Helper Wages", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '52000' },
+    {
+        code: '52000',
+        name: 'Direct Labor',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '50000',
+    },
+    {
+        code: '52100',
+        name: 'Operator Wages',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '52000',
+    },
+    {
+        code: '52200',
+        name: 'Helper Wages',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '52000',
+    },
 
-    { code: '53000', name: "Manufacturing Overhead", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '50000' },
-    { code: '53100', name: "Machine Depreciation", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
-    { code: '53200', name: "Factory Electricity", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
-    { code: '53300', name: "Factory Maintenance", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
-    { code: '53400', name: "Indirect Materials", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
-    { code: '53410', name: "Factory Rent", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
+    {
+        code: '53000',
+        name: 'Manufacturing Overhead',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '50000',
+    },
+    {
+        code: '53100',
+        name: 'Machine Depreciation',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '53000',
+    },
+    {
+        code: '53200',
+        name: 'Factory Electricity',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '53000',
+    },
+    {
+        code: '53300',
+        name: 'Factory Maintenance',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '53000',
+    },
+    {
+        code: '53400',
+        name: 'Indirect Materials',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '53000',
+    },
+    {
+        code: '53410',
+        name: 'Factory Rent',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.COGS,
+        parentCode: '53000',
+    },
 
     // 6. EXPENSES
-    { code: '60000', name: "Operating Expenses", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: null },
-    { code: '61000', name: "Selling Expenses", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '60000' },
-    { code: '61100', name: "Shipping & Delivery", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '61000' },
-    { code: '61200', name: "Sales Commission", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '61000' },
+    {
+        code: '60000',
+        name: 'Operating Expenses',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: null,
+    },
+    {
+        code: '61000',
+        name: 'Selling Expenses',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '60000',
+    },
+    {
+        code: '61100',
+        name: 'Shipping & Delivery',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '61000',
+    },
+    {
+        code: '61200',
+        name: 'Sales Commission',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '61000',
+    },
 
-    { code: '62000', name: "General & Admin", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '60000' },
-    { code: '62100', name: "Office Salaries", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '62000' },
-    { code: '62200', name: "Office Supplies", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '62000' },
-    { code: '62300', name: "Telecommunications", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '62000' },
-    { code: '62400', name: "Professional Fees", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '62000' },
+    {
+        code: '62000',
+        name: 'General & Admin',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '60000',
+    },
+    {
+        code: '62100',
+        name: 'Office Salaries',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '62000',
+    },
+    {
+        code: '62200',
+        name: 'Office Supplies',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '62000',
+    },
+    {
+        code: '62300',
+        name: 'Telecommunications',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '62000',
+    },
+    {
+        code: '62400',
+        name: 'Professional Fees',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OPERATING_EXPENSE,
+        parentCode: '62000',
+    },
 
     // 8. OTHER INCOME
-    { code: '80000', name: "Other Income", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: null },
-    { code: '81000', name: "Other Income Items", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: '80000' },
-    { code: '81100', name: "Inventory Adjustment Gain", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: '81000' },
-    { code: '81200', name: "Interest Income", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: '81000' },
+    {
+        code: '80000',
+        name: 'Other Income',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OTHER_REVENUE,
+        parentCode: null,
+    },
+    {
+        code: '81000',
+        name: 'Other Income Items',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OTHER_REVENUE,
+        parentCode: '80000',
+    },
+    {
+        code: '81100',
+        name: 'Inventory Adjustment Gain',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OTHER_REVENUE,
+        parentCode: '81000',
+    },
+    {
+        code: '81200',
+        name: 'Interest Income',
+        type: AccountType.REVENUE,
+        category: AccountCategory.OTHER_REVENUE,
+        parentCode: '81000',
+    },
 
     // 9. OTHER EXPENSES
-    { code: '90000', name: "Other Expenses", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: null },
-    { code: '91000', name: "Other Expense Items", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: '90000' },
-    { code: '91100', name: "Inventory Adjustment Loss", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: '91000' },
-    { code: '91200', name: "Bank Charges", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: '91000' },
+    {
+        code: '90000',
+        name: 'Other Expenses',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OTHER_EXPENSE,
+        parentCode: null,
+    },
+    {
+        code: '91000',
+        name: 'Other Expense Items',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OTHER_EXPENSE,
+        parentCode: '90000',
+    },
+    {
+        code: '91100',
+        name: 'Inventory Adjustment Loss',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OTHER_EXPENSE,
+        parentCode: '91000',
+    },
+    {
+        code: '91200',
+        name: 'Bank Charges',
+        type: AccountType.EXPENSE,
+        category: AccountCategory.OTHER_EXPENSE,
+        parentCode: '91000',
+    },
 ];
 
 export async function seedCoA() {
@@ -127,26 +573,28 @@ export async function seedCoA() {
                 name: acc.name,
                 type: acc.type,
                 category: acc.category,
-                isCashAccount: acc.isCashAccount || false
+                isCashAccount: acc.isCashAccount || false,
             },
             create: {
                 code: acc.code,
                 name: acc.name,
                 type: acc.type,
                 category: acc.category,
-                isCashAccount: acc.isCashAccount || false
-            }
+                isCashAccount: acc.isCashAccount || false,
+            },
         });
     }
 
     // Pass 2: Connect parents
     for (const acc of accounts) {
         if (acc.parentCode) {
-            const parent = await prisma.account.findUnique({ where: { code: acc.parentCode } });
+            const parent = await prisma.account.findUnique({
+                where: { code: acc.parentCode },
+            });
             if (parent) {
                 await prisma.account.update({
                     where: { code: acc.code },
-                    data: { parentId: parent.id }
+                    data: { parentId: parent.id },
                 });
             }
         }
@@ -158,38 +606,53 @@ export async function seedCoA() {
     // Move "Adj Gain" from 53300 to 81100
     // Move "Adj Loss" from 53300 to 91100
     try {
-        const overheadAcc = await prisma.account.findUnique({ where: { code: '53300' } });
-        const gainAcc = await prisma.account.findUnique({ where: { code: '81100' } });
-        const lossAcc = await prisma.account.findUnique({ where: { code: '91100' } });
+        const overheadAcc = await prisma.account.findUnique({
+            where: { code: '53300' },
+        });
+        const gainAcc = await prisma.account.findUnique({
+            where: { code: '81100' },
+        });
+        const lossAcc = await prisma.account.findUnique({
+            where: { code: '91100' },
+        });
 
         if (overheadAcc && gainAcc && lossAcc) {
             const gainLines = await prisma.journalLine.findMany({
-                where: { accountId: overheadAcc.id, description: { contains: 'Adj Gain' } }
+                where: {
+                    accountId: overheadAcc.id,
+                    description: { contains: 'Adj Gain' },
+                },
             });
             if (gainLines.length > 0) {
-                console.log(`Migrating ${gainLines.length} 'Adj Gain' lines from 53300 to 81100...`);
+                console.log(
+                    `Migrating ${gainLines.length} 'Adj Gain' lines from 53300 to 81100...`,
+                );
                 await prisma.journalLine.updateMany({
-                    where: { id: { in: gainLines.map(l => l.id) } },
-                    data: { accountId: gainAcc.id }
+                    where: { id: { in: gainLines.map((l) => l.id) } },
+                    data: { accountId: gainAcc.id },
                 });
             }
 
             const lossLines = await prisma.journalLine.findMany({
-                where: { accountId: overheadAcc.id, description: { contains: 'Adj Loss' } }
+                where: {
+                    accountId: overheadAcc.id,
+                    description: { contains: 'Adj Loss' },
+                },
             });
             if (lossLines.length > 0) {
-                console.log(`Migrating ${lossLines.length} 'Adj Loss' lines from 53300 to 91100...`);
+                console.log(
+                    `Migrating ${lossLines.length} 'Adj Loss' lines from 53300 to 91100...`,
+                );
                 await prisma.journalLine.updateMany({
-                    where: { id: { in: lossLines.map(l => l.id) } },
-                    data: { accountId: lossAcc.id }
+                    where: { id: { in: lossLines.map((l) => l.id) } },
+                    data: { accountId: lossAcc.id },
                 });
             }
         }
     } catch (error) {
-        console.error("Error migrating overhead journals:", error);
+        console.error('Error migrating overhead journals:', error);
     }
 }
-
 
 // Run direct if called directly
 // if (require.main === module) {

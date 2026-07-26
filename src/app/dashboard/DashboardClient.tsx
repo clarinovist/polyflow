@@ -24,7 +24,14 @@ import {
     type DashboardRole,
     type QuickActionItem,
 } from '@/lib/dashboard/role-dashboard-config';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
+import {
+    ResponsiveContainer,
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    Tooltip,
+} from 'recharts';
 import {
     TrendingUp,
     TrendingDown,
@@ -92,9 +99,17 @@ export default function DashboardClient({
         return (
             <div className="p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[50vh] space-y-4">
                 <AlertCircle className="w-12 h-12 text-muted-foreground/50" />
-                <h2 className="text-xl font-semibold">{dashboardLabels.loadFailed}</h2>
-                <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <h2 className="text-xl font-semibold">
+                    {dashboardLabels.loadFailed}
+                </h2>
+                <Button
+                    variant="outline"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                >
+                    <RefreshCw
+                        className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
+                    />
                     {dashboardLabels.tryAgain}
                 </Button>
             </div>
@@ -103,13 +118,13 @@ export default function DashboardClient({
 
     const kpis = buildKpis(role, stats);
     const attention = buildAttentionItems(role, stats).filter((item) =>
-        canAccessResource(permissions, item.resourceHint)
+        canAccessResource(permissions, item.resourceHint),
     );
     const quickActions = buildQuickActions(role).filter((a) =>
-        canAccessResource(permissions, a.resourceHint)
+        canAccessResource(permissions, a.resourceHint),
     );
     const modules = buildModuleShortcuts().filter((m) =>
-        canAccessResource(permissions, m.resourceHint)
+        canAccessResource(permissions, m.resourceHint),
     );
 
     return (
@@ -286,7 +301,7 @@ export default function DashboardClient({
                                                     className={cn(
                                                         'p-2.5 rounded-lg shrink-0',
                                                         mod.iconBg,
-                                                        mod.iconColor
+                                                        mod.iconColor,
                                                     )}
                                                 >
                                                     <Icon className="h-4 w-4" />
@@ -322,7 +337,10 @@ export default function DashboardClient({
                         </h2>
                         <div className="grid grid-cols-2 gap-3">
                             {quickActions.map((action) => (
-                                <QuickAction key={action.href + action.label} {...action} />
+                                <QuickAction
+                                    key={action.href + action.label}
+                                    {...action}
+                                />
                             ))}
                         </div>
                     </section>
@@ -331,7 +349,10 @@ export default function DashboardClient({
 
             {/* Compact ops: only quick actions under KPIs */}
             {opsCompact && quickActions.length > 0 && (
-                <section className="space-y-3" aria-labelledby="actions-heading-ops">
+                <section
+                    className="space-y-3"
+                    aria-labelledby="actions-heading-ops"
+                >
                     <h2
                         id="actions-heading-ops"
                         className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
@@ -340,7 +361,10 @@ export default function DashboardClient({
                     </h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {quickActions.map((action) => (
-                            <QuickAction key={action.href + action.label} {...action} />
+                            <QuickAction
+                                key={action.href + action.label}
+                                {...action}
+                            />
                         ))}
                     </div>
                 </section>
@@ -387,7 +411,8 @@ export default function DashboardClient({
                                             axisLine={false}
                                             tick={{ fontSize: 11 }}
                                             tickFormatter={(val) => {
-                                                const parts = String(val).split('-');
+                                                const parts =
+                                                    String(val).split('-');
                                                 const months = [
                                                     'Jan',
                                                     'Feb',
@@ -402,7 +427,12 @@ export default function DashboardClient({
                                                     'Nov',
                                                     'Des',
                                                 ];
-                                                return months[parseInt(parts[1], 10) - 1] || val;
+                                                return (
+                                                    months[
+                                                        parseInt(parts[1], 10) -
+                                                            1
+                                                    ] || val
+                                                );
                                             }}
                                         />
                                         <YAxis
@@ -427,7 +457,8 @@ export default function DashboardClient({
                                                 'Pendapatan',
                                             ]}
                                             labelFormatter={(label) => {
-                                                const parts = String(label).split('-');
+                                                const parts =
+                                                    String(label).split('-');
                                                 const months = [
                                                     'Januari',
                                                     'Februari',
@@ -484,7 +515,7 @@ function AttentionCard({ item }: { item: AttentionItem }) {
             <Card
                 className={cn(
                     'h-full shadow-sm transition-all hover:shadow-md cursor-pointer',
-                    severityStyles[item.severity]
+                    severityStyles[item.severity],
                 )}
             >
                 <CardContent className="p-3.5 flex items-center justify-between gap-3">
@@ -500,7 +531,7 @@ function AttentionCard({ item }: { item: AttentionItem }) {
                     <span
                         className={cn(
                             'text-2xl font-bold tabular-nums shrink-0',
-                            countStyles[item.severity]
+                            countStyles[item.severity],
                         )}
                     >
                         {item.count}
@@ -526,7 +557,8 @@ function KPICard({
         <Card
             className={cn(
                 'shadow-sm border-border/60 bg-card h-full transition-shadow',
-                href && 'hover:shadow-md cursor-pointer hover:border-primary/25'
+                href &&
+                    'hover:shadow-md cursor-pointer hover:border-primary/25',
             )}
         >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -560,7 +592,9 @@ function KPICard({
                     >
                         {trendValue}
                     </span>
-                    <span className="text-muted-foreground/80">· {subtitle}</span>
+                    <span className="text-muted-foreground/80">
+                        · {subtitle}
+                    </span>
                 </p>
                 {progressValue !== undefined && (
                     <div className="mt-3">
@@ -606,8 +640,15 @@ function CashStat({
                         <Icon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground font-medium">{label}</p>
-                        <p className={cn('text-base font-bold tabular-nums truncate', tone)}>
+                        <p className="text-xs text-muted-foreground font-medium">
+                            {label}
+                        </p>
+                        <p
+                            className={cn(
+                                'text-base font-bold tabular-nums truncate',
+                                tone,
+                            )}
+                        >
                             {value}
                         </p>
                     </div>
@@ -617,7 +658,14 @@ function CashStat({
     );
 }
 
-function QuickAction({ href, label, icon: Icon, color, bg, border }: QuickActionItem) {
+function QuickAction({
+    href,
+    label,
+    icon: Icon,
+    color,
+    bg,
+    border,
+}: QuickActionItem) {
     return (
         <Link href={href} className="block min-h-[44px]">
             <div
@@ -626,13 +674,13 @@ function QuickAction({ href, label, icon: Icon, color, bg, border }: QuickAction
                     'border border-transparent bg-card shadow-sm',
                     'cursor-pointer transition-all duration-200',
                     'hover:shadow-md hover:scale-[1.01] active:scale-[0.99]',
-                    border
+                    border,
                 )}
             >
                 <div
                     className={cn(
                         'h-10 w-10 rounded-full flex items-center justify-center transition-colors',
-                        bg
+                        bg,
                     )}
                 >
                     <Icon className={cn('h-5 w-5', color)} />

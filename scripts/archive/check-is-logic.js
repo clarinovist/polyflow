@@ -7,26 +7,29 @@ async function main() {
 
     const accounts = await prisma.account.findMany({
         where: {
-            type: { in: ['REVENUE', 'EXPENSE'] }
+            type: { in: ['REVENUE', 'EXPENSE'] },
         },
         include: {
             journalLines: {
                 where: {
                     journalEntry: {
                         entryDate: { gte: startDate, lte: endDate },
-                        status: 'POSTED'
-                    }
-                }
-            }
-        }
+                        status: 'POSTED',
+                    },
+                },
+            },
+        },
     });
 
     console.log('Income Statement Data Check:');
     let totalRevenue = 0;
     let totalExpense = 0;
 
-    accounts.forEach(a => {
-        const netBalance = a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0);
+    accounts.forEach((a) => {
+        const netBalance = a.journalLines.reduce(
+            (sum, l) => sum + (Number(l.credit) - Number(l.debit)),
+            0,
+        );
         if (a.type === 'REVENUE') {
             const amount = netBalance; // Credit - Debit for revenue
             if (amount !== 0) {

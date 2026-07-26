@@ -16,14 +16,21 @@ export const metadata: Metadata = {
 export default async function CreateMaklonReceiptPage() {
     // 1. Fetch Master Data Needed for Maklon
     const customersRes = await getCustomers();
-    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
+    const customers =
+        customersRes.success && customersRes.data ? customersRes.data : [];
 
     const locationsRes = await getLocations();
-    const allLocations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
-    const locations = allLocations.filter((l) => l.locationType === 'CUSTOMER_OWNED');
+    const allLocations =
+        locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const locations = allLocations.filter(
+        (l) => l.locationType === 'CUSTOMER_OWNED',
+    );
 
     const productVariantsRes = await getProductVariants();
-    const productVariants = productVariantsRes.success && productVariantsRes.data ? productVariantsRes.data : [];
+    const productVariants =
+        productVariantsRes.success && productVariantsRes.data
+            ? productVariantsRes.data
+            : [];
 
     // 2. Format product variants for the form
     const formattedVariants = productVariants.map((v) => ({
@@ -35,15 +42,25 @@ export default async function CreateMaklonReceiptPage() {
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">Penerimaan Barang Maklon</h1>
-                <p className="text-muted-foreground">Register raw materials and items supplied by customers for maklon orders.</p>
+                <h1 className="text-3xl font-bold tracking-tight">
+                    Penerimaan Barang Maklon
+                </h1>
+                <p className="text-muted-foreground">
+                    Register raw materials and items supplied by customers for
+                    maklon orders.
+                </p>
             </div>
 
             <MaklonGoodsReceiptForm
                 customers={serializeData(customers)}
                 productVariants={serializeData(formattedVariants)}
                 locations={serializeData(locations)}
-                defaultLocationId={locations.find((location: { slug: string }) => location.slug === MAKLON_STAGE_SLUGS.RAW_MATERIAL)?.id || locations[0]?.id}
+                defaultLocationId={
+                    locations.find(
+                        (location: { slug: string }) =>
+                            location.slug === MAKLON_STAGE_SLUGS.RAW_MATERIAL,
+                    )?.id || locations[0]?.id
+                }
                 basePath="/warehouse/incoming"
             />
         </div>

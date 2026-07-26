@@ -2,13 +2,13 @@
 
 ## Informasi Modul
 
-| Field | Detail |
-|-------|--------|
-| **Modul** | Data Master — Produk, Bill of Materials, Mesin, Karyawan, Supplier, Customer |
+| Field               | Detail                                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Modul**           | Data Master — Produk, Bill of Materials, Mesin, Karyawan, Supplier, Customer                                                       |
 | **Halaman Terkait** | `/dashboard/products`, `/dashboard/boms`, `/dashboard/machines`, `/dashboard/employees`, `/sales/customers`, `/planning/suppliers` |
-| **Login Sebagai** | ADMIN |
-| **Tanggal UAT** | ____/____/________ |
-| **Nama Tester** | _________________________ |
+| **Login Sebagai**   | ADMIN                                                                                                                              |
+| **Tanggal UAT**     | \_**\_/\_\_**/**\_\_\_\_**                                                                                                         |
+| **Nama Tester**     | ************\_************                                                                                                         |
 
 ## Prasyarat
 
@@ -23,28 +23,28 @@
 
 ### TC-PROD-001: Buat Produk Baru
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-001 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan bisa membuat produk baru dengan varian |
+| Field         | Detail                                            |
+| ------------- | ------------------------------------------------- |
+| **ID**        | TC-PROD-001                                       |
+| **Prioritas** | 🔴 P1 — Kritis                                    |
+| **Tujuan**    | Memastikan bisa membuat produk baru dengan varian |
 
 **Langkah-langkah:**
 
 1. Buka `/dashboard/products`
 2. Klik tombol **Buat Produk / Create Product**
 3. Isi detail produk:
-   - **Nama Produk**: contoh "PP Granule Merah"
-   - **Tipe Produk**: pilih **RAW_MATERIAL**
+    - **Nama Produk**: contoh "PP Granule Merah"
+    - **Tipe Produk**: pilih **RAW_MATERIAL**
 4. Di bagian **Varian**, tambahkan varian:
-   - **Nama Varian**: "PP Granule Merah Standard"
-   - **Kode SKU**: "RM-PP-RED-01"
-   - **Satuan Utama**: KG
-   - **Satuan Jual**: BAL
-   - **Faktor Konversi**: 25 (artinya 1 BAL = 25 KG)
-   - **Harga Beli**: 15000
-   - **Harga Jual**: 20000
-   - **Batas Minimum Stok**: 100
+    - **Nama Varian**: "PP Granule Merah Standard"
+    - **Kode SKU**: "RM-PP-RED-01"
+    - **Satuan Utama**: KG
+    - **Satuan Jual**: BAL
+    - **Faktor Konversi**: 25 (artinya 1 BAL = 25 KG)
+    - **Harga Beli**: 15000
+    - **Harga Jual**: 20000
+    - **Batas Minimum Stok**: 100
 5. Klik **Simpan**
 
 **Hasil yang Diharapkan:**
@@ -56,17 +56,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-002: Validasi SKU Duplikat
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-002 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan sistem menolak SKU yang sudah dipakai produk lain |
+| Field         | Detail                                                       |
+| ------------- | ------------------------------------------------------------ |
+| **ID**        | TC-PROD-002                                                  |
+| **Prioritas** | 🔴 P1 — Kritis                                               |
+| **Tujuan**    | Memastikan sistem menolak SKU yang sudah dipakai produk lain |
 
 **Langkah-langkah:**
 
@@ -82,17 +82,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-003: Lihat Daftar Produk
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-003 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan daftar produk tampil lengkap |
+| Field         | Detail                                  |
+| ------------- | --------------------------------------- |
+| **ID**        | TC-PROD-003                             |
+| **Prioritas** | 🔴 P1 — Kritis                          |
+| **Tujuan**    | Memastikan daftar produk tampil lengkap |
 
 **Langkah-langkah:**
 
@@ -108,17 +108,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-004: Edit Produk
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-004 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan bisa mengubah data produk yang sudah ada |
+| Field         | Detail                                              |
+| ------------- | --------------------------------------------------- |
+| **ID**        | TC-PROD-004                                         |
+| **Prioritas** | 🔴 P1 — Kritis                                      |
+| **Tujuan**    | Memastikan bisa mengubah data produk yang sudah ada |
 
 **Langkah-langkah:**
 
@@ -137,17 +137,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-005: Hapus Produk Tanpa Stok
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-005 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan bisa menghapus produk yang tidak punya stok |
+| Field         | Detail                                                 |
+| ------------- | ------------------------------------------------------ |
+| **ID**        | TC-PROD-005                                            |
+| **Prioritas** | 🟡 P2 — Penting                                        |
+| **Tujuan**    | Memastikan bisa menghapus produk yang tidak punya stok |
 
 **Langkah-langkah:**
 
@@ -164,17 +164,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-006: Hapus Produk yang Masih Punya Stok (Harus Ditolak)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-006 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan sistem melindungi produk yang masih ada stoknya |
+| Field         | Detail                                                     |
+| ------------- | ---------------------------------------------------------- |
+| **ID**        | TC-PROD-006                                                |
+| **Prioritas** | 🔴 P1 — Kritis                                             |
+| **Tujuan**    | Memastikan sistem melindungi produk yang masih ada stoknya |
 
 **Langkah-langkah:**
 
@@ -189,17 +189,17 @@
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-007: Semua Tipe Produk Tersedia
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-007 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan semua 6 tipe produk bisa dipilih |
+| Field         | Detail                                      |
+| ------------- | ------------------------------------------- |
+| **ID**        | TC-PROD-007                                 |
+| **Prioritas** | 🟡 P2 — Penting                             |
+| **Tujuan**    | Memastikan semua 6 tipe produk bisa dipilih |
 
 **Langkah-langkah:**
 
@@ -210,6 +210,7 @@
 **Hasil yang Diharapkan:**
 
 Dropdown berisi 6 tipe:
+
 - ✅ RAW_MATERIAL (Bahan Baku)
 - ✅ INTERMEDIATE (Bahan Antara/Setengah Jadi)
 - ✅ PACKAGING (Kemasan)
@@ -219,25 +220,25 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-008: Multi-Varian dalam Satu Produk
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-008 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan satu produk bisa memiliki beberapa varian |
+| Field         | Detail                                               |
+| ------------- | ---------------------------------------------------- |
+| **ID**        | TC-PROD-008                                          |
+| **Prioritas** | 🟡 P2 — Penting                                      |
+| **Tujuan**    | Memastikan satu produk bisa memiliki beberapa varian |
 
 **Langkah-langkah:**
 
 1. Buat produk baru
 2. Tambahkan **3 varian** dengan SKU berbeda:
-   - Varian 1: "Standard" — SKU: "TEST-01"
-   - Varian 2: "Premium" — SKU: "TEST-02"
-   - Varian 3: "Economy" — SKU: "TEST-03"
+    - Varian 1: "Standard" — SKU: "TEST-01"
+    - Varian 2: "Premium" — SKU: "TEST-02"
+    - Varian 3: "Economy" — SKU: "TEST-03"
 3. Simpan produk
 
 **Hasil yang Diharapkan:**
@@ -248,17 +249,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-PROD-009: Riwayat Perubahan Harga (Cost History)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-PROD-009 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan perubahan harga standar (standard cost) tercatat |
+| Field         | Detail                                                      |
+| ------------- | ----------------------------------------------------------- |
+| **ID**        | TC-PROD-009                                                 |
+| **Prioritas** | 🟡 P2 — Penting                                             |
+| **Tujuan**    | Memastikan perubahan harga standar (standard cost) tercatat |
 
 **Langkah-langkah:**
 
@@ -274,7 +275,7 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
@@ -284,24 +285,24 @@ Dropdown berisi 6 tipe:
 
 ### TC-BOM-001: Buat BOM Baru
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-BOM-001 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan bisa membuat resep produksi (BOM) baru |
+| Field         | Detail                                            |
+| ------------- | ------------------------------------------------- |
+| **ID**        | TC-BOM-001                                        |
+| **Prioritas** | 🔴 P1 — Kritis                                    |
+| **Tujuan**    | Memastikan bisa membuat resep produksi (BOM) baru |
 
 **Langkah-langkah:**
 
 1. Buka `/dashboard/boms`
 2. Klik **Buat BOM / Create BOM**
 3. Isi:
-   - **Nama BOM**: "Resep Mixing PP Merah"
-   - **Produk Output**: pilih produk tipe INTERMEDIATE atau FINISHED_GOOD
-   - **Jumlah Output**: 100 (artinya resep ini untuk menghasilkan 100 KG)
-   - **Kategori**: EXTRUSION
+    - **Nama BOM**: "Resep Mixing PP Merah"
+    - **Produk Output**: pilih produk tipe INTERMEDIATE atau FINISHED_GOOD
+    - **Jumlah Output**: 100 (artinya resep ini untuk menghasilkan 100 KG)
+    - **Kategori**: EXTRUSION
 4. Tambahkan **bahan/material**:
-   - Bahan 1: PP Granule — Qty: 98 KG — Scrap: 1%
-   - Bahan 2: Pewarna Merah — Qty: 2 KG — Scrap: 0%
+    - Bahan 1: PP Granule — Qty: 98 KG — Scrap: 1%
+    - Bahan 2: Pewarna Merah — Qty: 2 KG — Scrap: 0%
 5. Klik **Simpan**
 
 **Hasil yang Diharapkan:**
@@ -313,17 +314,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-BOM-002: Lihat Detail BOM & Cost per Unit
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-BOM-002 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan biaya per unit (Cost/Unit) tampil dihitung dengan benar |
+| Field         | Detail                                                             |
+| ------------- | ------------------------------------------------------------------ |
+| **ID**        | TC-BOM-002                                                         |
+| **Prioritas** | 🔴 P1 — Kritis                                                     |
+| **Tujuan**    | Memastikan biaya per unit (Cost/Unit) tampil dihitung dengan benar |
 
 **Langkah-langkah:**
 
@@ -339,17 +340,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-BOM-003: Sorting (Urutan) Cost/Unit
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-BOM-003 |
-| **Prioritas** | 🟢 P3 — Pelengkap |
-| **Tujuan** | Memastikan daftar BOM bisa diurutkan berdasarkan Cost/Unit |
+| Field         | Detail                                                     |
+| ------------- | ---------------------------------------------------------- |
+| **ID**        | TC-BOM-003                                                 |
+| **Prioritas** | 🟢 P3 — Pelengkap                                          |
+| **Tujuan**    | Memastikan daftar BOM bisa diurutkan berdasarkan Cost/Unit |
 
 **Langkah-langkah:**
 
@@ -365,17 +366,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-BOM-004: Edit BOM
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-BOM-004 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan bisa mengubah resep/formula BOM |
+| Field         | Detail                                     |
+| ------------- | ------------------------------------------ |
+| **ID**        | TC-BOM-004                                 |
+| **Prioritas** | 🟡 P2 — Penting                            |
+| **Tujuan**    | Memastikan bisa mengubah resep/formula BOM |
 
 **Langkah-langkah:**
 
@@ -393,17 +394,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-BOM-005: Hapus BOM
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-BOM-005 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan BOM bisa dihapus |
+| Field         | Detail                      |
+| ------------- | --------------------------- |
+| **ID**        | TC-BOM-005                  |
+| **Prioritas** | 🟡 P2 — Penting             |
+| **Tujuan**    | Memastikan BOM bisa dihapus |
 
 **Langkah-langkah:**
 
@@ -418,17 +419,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-BOM-006: Kategori BOM (EXTRUSION, PACKING, STANDARD)
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-BOM-006 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan semua kategori BOM tersedia dan berfungsi |
+| Field         | Detail                                               |
+| ------------- | ---------------------------------------------------- |
+| **ID**        | TC-BOM-006                                           |
+| **Prioritas** | 🟡 P2 — Penting                                      |
+| **Tujuan**    | Memastikan semua kategori BOM tersedia dan berfungsi |
 
 **Langkah-langkah:**
 
@@ -444,7 +445,7 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
@@ -454,23 +455,23 @@ Dropdown berisi 6 tipe:
 
 ### TC-MACH-001: Buat Mesin Baru
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-MACH-001 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan bisa menambahkan mesin produksi baru |
+| Field         | Detail                                          |
+| ------------- | ----------------------------------------------- |
+| **ID**        | TC-MACH-001                                     |
+| **Prioritas** | 🔴 P1 — Kritis                                  |
+| **Tujuan**    | Memastikan bisa menambahkan mesin produksi baru |
 
 **Langkah-langkah:**
 
 1. Buka `/dashboard/machines`
 2. Klik **Tambah Mesin**
 3. Isi:
-   - **Nama**: "Extruder Jumbo 02"
-   - **Kode Mesin**: "EXT-02"
-   - **Tipe**: EXTRUDER
-   - **Lokasi**: Extrusion Area
-   - **Status**: ACTIVE
-   - **Biaya per Jam**: 50000
+    - **Nama**: "Extruder Jumbo 02"
+    - **Kode Mesin**: "EXT-02"
+    - **Tipe**: EXTRUDER
+    - **Lokasi**: Extrusion Area
+    - **Status**: ACTIVE
+    - **Biaya per Jam**: 50000
 4. Klik **Simpan**
 
 **Hasil yang Diharapkan:**
@@ -481,17 +482,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-MACH-002: Semua Tipe Mesin Tersedia
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-MACH-002 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan semua 5 tipe mesin tersedia |
+| Field         | Detail                                 |
+| ------------- | -------------------------------------- |
+| **ID**        | TC-MACH-002                            |
+| **Prioritas** | 🟡 P2 — Penting                        |
+| **Tujuan**    | Memastikan semua 5 tipe mesin tersedia |
 
 **Langkah-langkah:**
 
@@ -508,17 +509,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-MACH-003: Ubah Status Mesin
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-MACH-003 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan status mesin bisa diubah |
+| Field         | Detail                              |
+| ------------- | ----------------------------------- |
+| **ID**        | TC-MACH-003                         |
+| **Prioritas** | 🟡 P2 — Penting                     |
+| **Tujuan**    | Memastikan status mesin bisa diubah |
 
 **Langkah-langkah:**
 
@@ -532,13 +533,13 @@ Dropdown berisi 6 tipe:
 
 - Status berubah dan tersimpan di setiap perubahan
 - Status ditampilkan dengan **warna berbeda**:
-  - ACTIVE → hijau
-  - MAINTENANCE → kuning/oranye
-  - BROKEN → merah
+    - ACTIVE → hijau
+    - MAINTENANCE → kuning/oranye
+    - BROKEN → merah
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
@@ -548,11 +549,11 @@ Dropdown berisi 6 tipe:
 
 ### TC-CUST-001: Buat Customer Baru
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-CUST-001 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan bisa menambahkan data customer |
+| Field         | Detail                                    |
+| ------------- | ----------------------------------------- |
+| **ID**        | TC-CUST-001                               |
+| **Prioritas** | 🔴 P1 — Kritis                            |
+| **Tujuan**    | Memastikan bisa menambahkan data customer |
 
 **Langkah-langkah:**
 
@@ -569,17 +570,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-SUPP-001: Buat Supplier Baru
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-SUPP-001 |
-| **Prioritas** | 🔴 P1 — Kritis |
-| **Tujuan** | Memastikan bisa menambahkan data supplier |
+| Field         | Detail                                    |
+| ------------- | ----------------------------------------- |
+| **ID**        | TC-SUPP-001                               |
+| **Prioritas** | 🔴 P1 — Kritis                            |
+| **Tujuan**    | Memastikan bisa menambahkan data supplier |
 
 **Langkah-langkah:**
 
@@ -596,17 +597,17 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-EMP-001: Buat Karyawan / Operator Baru
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-EMP-001 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan bisa menambahkan data karyawan/operator |
+| Field         | Detail                                             |
+| ------------- | -------------------------------------------------- |
+| **ID**        | TC-EMP-001                                         |
+| **Prioritas** | 🟡 P2 — Penting                                    |
+| **Tujuan**    | Memastikan bisa menambahkan data karyawan/operator |
 
 **Langkah-langkah:**
 
@@ -623,27 +624,27 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ### TC-SUPP-002: Hubungkan Supplier dengan Produk
 
-| Field | Detail |
-|-------|--------|
-| **ID** | TC-SUPP-002 |
-| **Prioritas** | 🟡 P2 — Penting |
-| **Tujuan** | Memastikan bisa menghubungkan supplier ke produk tertentu |
+| Field         | Detail                                                    |
+| ------------- | --------------------------------------------------------- |
+| **ID**        | TC-SUPP-002                                               |
+| **Prioritas** | 🟡 P2 — Penting                                           |
+| **Tujuan**    | Memastikan bisa menghubungkan supplier ke produk tertentu |
 
 **Langkah-langkah:**
 
 1. Buka detail supplier
 2. Cari bagian **Produk yg Disuplai / Supplier Products**
 3. Tambahkan hubungan ke produk bahan baku:
-   - Pilih produk
-   - Isi harga per unit
-   - Isi lead time (hari)
-   - Isi minimum order
+    - Pilih produk
+    - Isi harga per unit
+    - Isi lead time (hari)
+    - Isi minimum order
 4. Simpan
 
 **Hasil yang Diharapkan:**
@@ -654,20 +655,20 @@ Dropdown berisi 6 tipe:
 
 **Hasil Aktual:** ☐ Lulus / ☐ Gagal / ☐ Sebagian
 
-**Catatan:** _______________________________________________
+**Catatan:** **********************\_\_\_**********************
 
 ---
 
 ## Ringkasan Hasil
 
-| Bagian | Total TC | Lulus | Gagal | Sebagian |
-|--------|----------|-------|-------|----------|
-| Produk | 9 | | | |
-| BOM | 6 | | | |
-| Mesin | 3 | | | |
-| Customer/Supplier/Karyawan | 4 | | | |
-| **TOTAL** | **22** | | | |
+| Bagian                     | Total TC | Lulus | Gagal | Sebagian |
+| -------------------------- | -------- | ----- | ----- | -------- |
+| Produk                     | 9        |       |       |          |
+| BOM                        | 6        |       |       |          |
+| Mesin                      | 3        |       |       |          |
+| Customer/Supplier/Karyawan | 4        |       |       |          |
+| **TOTAL**                  | **22**   |       |       |          |
 
-**Tanda Tangan Tester:** _________________________
+**Tanda Tangan Tester:** ************\_************
 
-**Tanggal:** ____/____/________
+**Tanggal:** \_**\_/\_\_**/**\_\_\_\_**

@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { shipSalesOrderSchema, ShipSalesOrderValues } from '@/lib/schemas/sales';
+import {
+    shipSalesOrderSchema,
+    ShipSalesOrderValues,
+} from '@/lib/schemas/sales';
 import { shipSalesOrder } from '@/actions/sales/sales';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -114,7 +117,12 @@ export function ShipmentDialog({
           : salesLabels.createAndShip;
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <Dialog
+            open={isOpen}
+            onOpenChange={(open) => {
+                if (!open) onClose();
+            }}
+        >
             <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -148,24 +156,33 @@ export function ShipmentDialog({
                         <Package className="h-4 w-4" />
                         <AlertTitle>{salesLabels.createAndShip}</AlertTitle>
                         <AlertDescription className="text-sm">
-                            {salesLabels.sjPendingHint} hanya berlaku jika Anda buat SJ terpisah dulu.
-                            Tombol ini langsung commit stok.
+                            {salesLabels.sjPendingHint} hanya berlaku jika Anda
+                            buat SJ terpisah dulu. Tombol ini langsung commit
+                            stok.
                         </AlertDescription>
                     </Alert>
                 )}
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-4 py-2"
+                    >
                         <FormField
                             control={form.control}
                             name="carrier"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>
-                                        {isMaklon ? 'Kurir (opsional)' : 'Kurir / Ekspedisi'}
+                                        {isMaklon
+                                            ? 'Kurir (opsional)'
+                                            : 'Kurir / Ekspedisi'}
                                     </FormLabel>
                                     <FormControl>
-                                        <Input placeholder="contoh: JNE, J&T, Armada Internal" {...field} />
+                                        <Input
+                                            placeholder="contoh: JNE, J&T, Armada Internal"
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -177,10 +194,15 @@ export function ShipmentDialog({
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>
-                                        {isMaklon ? 'No. Resi (opsional)' : 'No. Resi / Tracking'}
+                                        {isMaklon
+                                            ? 'No. Resi (opsional)'
+                                            : 'No. Resi / Tracking'}
                                     </FormLabel>
                                     <FormControl>
-                                        <Input placeholder="AWB / nomor resi" {...field} />
+                                        <Input
+                                            placeholder="AWB / nomor resi"
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -188,10 +210,19 @@ export function ShipmentDialog({
                         />
 
                         <DialogFooter className="mt-6">
-                            <Button variant="outline" type="button" onClick={onClose} disabled={isPending}>
+                            <Button
+                                variant="outline"
+                                type="button"
+                                onClick={onClose}
+                                disabled={isPending}
+                            >
                                 Batal
                             </Button>
-                            <Button type="submit" className="bg-purple-600 hover:bg-purple-700" disabled={isPending}>
+                            <Button
+                                type="submit"
+                                className="bg-purple-600 hover:bg-purple-700"
+                                disabled={isPending}
+                            >
                                 {isPending ? 'Memproses...' : submitLabel}
                             </Button>
                         </DialogFooter>

@@ -12,13 +12,13 @@ interface UrlTransactionDateFilterProps {
         to: string;
     };
     defaultPreset?: 'today' | 'this_week' | 'this_month' | 'all';
-    align?: "start" | "center" | "end";
+    align?: 'start' | 'center' | 'end';
 }
 
 export function UrlTransactionDateFilter({
     paramNames = { from: 'startDate', to: 'endDate' },
     defaultPreset,
-    align
+    align,
 }: UrlTransactionDateFilterProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -26,29 +26,35 @@ export function UrlTransactionDateFilter({
     const from = searchParams.get(paramNames.from);
     const to = searchParams.get(paramNames.to);
 
-    const date: DateRange | undefined = from && to ? {
-        from: new Date(from),
-        to: new Date(to)
-    } : undefined;
+    const date: DateRange | undefined =
+        from && to
+            ? {
+                  from: new Date(from),
+                  to: new Date(to),
+              }
+            : undefined;
 
-    const handleDateChange = useCallback((range: DateRange | undefined) => {
-        const params = new URLSearchParams(searchParams.toString());
+    const handleDateChange = useCallback(
+        (range: DateRange | undefined) => {
+            const params = new URLSearchParams(searchParams.toString());
 
-        if (range?.from) {
-            params.set(paramNames.from, range.from.toISOString());
-        } else {
-            params.delete(paramNames.from);
-        }
+            if (range?.from) {
+                params.set(paramNames.from, range.from.toISOString());
+            } else {
+                params.delete(paramNames.from);
+            }
 
-        if (range?.to) {
-            const end = endOfDay(range.to);
-            params.set(paramNames.to, end.toISOString());
-        } else {
-            params.delete(paramNames.to);
-        }
+            if (range?.to) {
+                const end = endOfDay(range.to);
+                params.set(paramNames.to, end.toISOString());
+            } else {
+                params.delete(paramNames.to);
+            }
 
-        router.push(`?${params.toString()}`);
-    }, [searchParams, router, paramNames]);
+            router.push(`?${params.toString()}`);
+        },
+        [searchParams, router, paramNames],
+    );
 
     return (
         <TransactionDateFilter

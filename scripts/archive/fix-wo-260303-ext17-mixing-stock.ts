@@ -26,8 +26,8 @@ async function main() {
         where: { orderNumber: ORDER_NUMBER },
         include: {
             bom: { include: { items: true } },
-            plannedMaterials: true
-        }
+            plannedMaterials: true,
+        },
     });
 
     if (!order) {
@@ -38,18 +38,20 @@ async function main() {
 
     // 2. Find the Mixing Area location
     const mixingLoc = await prisma.location.findUnique({
-        where: { slug: MIXING_SLUG }
+        where: { slug: MIXING_SLUG },
     });
 
     if (!mixingLoc) {
-        console.error(`❌ Mixing Area location (slug: ${MIXING_SLUG}) not found!`);
+        console.error(
+            `❌ Mixing Area location (slug: ${MIXING_SLUG}) not found!`,
+        );
         return;
     }
     console.log(`✔ Mixing Area: ${mixingLoc.id} — ${mixingLoc.name}`);
 
     // 3. Check executions and calculate total missed affal
     const executions = await prisma.productionExecution.findMany({
-        where: { productionOrderId: order.id }
+        where: { productionOrderId: order.id },
     });
 
     let totalMissedAffal = 0;
@@ -68,9 +70,10 @@ async function main() {
     }
 
     // 4. Determine BOM items and ratio
-    const itemsToBackflush = order.plannedMaterials.length > 0
-        ? order.plannedMaterials
-        : (order.bom?.items || []);
+    const itemsToBackflush =
+        order.plannedMaterials.length > 0
+            ? order.plannedMaterials
+            : order.bom?.items || [];
     const isUsingPlanned = order.plannedMaterials.length > 0;
 
     if (itemsToBackflush.length === 0) {
@@ -85,23 +88,26 @@ async function main() {
             if (isUsingPlanned) {
                 ratio = Number(item.quantity) / Number(order.plannedQuantity);
             } else {
-                ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
+                ratio =
+                    Number(item.quantity) / Number(order.bom!.outputQuantity);
             }
 
             const qtyToDeduct = totalMissedAffal * ratio;
             if (qtyToDeduct < 0.0001) continue;
 
-            console.log(`\nDeducting ${qtyToDeduct.toFixed(4)} Kg from Mixing Area`);
+            console.log(
+                `\nDeducting ${qtyToDeduct.toFixed(4)} Kg from Mixing Area`,
+            );
             console.log(`  Variant: ${item.productVariantId}`);
 
             await tx.inventory.update({
                 where: {
                     locationId_productVariantId: {
                         locationId: mixingLoc.id,
-                        productVariantId: item.productVariantId
-                    }
+                        productVariantId: item.productVariantId,
+                    },
                 },
-                data: { quantity: { decrement: qtyToDeduct } }
+                data: { quantity: { decrement: qtyToDeduct } },
             });
 
             await tx.stockMovement.create({
@@ -111,13 +117,17 @@ async function main() {
                     fromLocationId: mixingLoc.id,
                     quantity: qtyToDeduct,
                     reference: `CORRECTION: Missed Affal Backflush WO#${order.orderNumber}`,
-                    productionOrderId: order.id
-                }
+                    productionOrderId: order.id,
+                },
             });
         }
     });
 
-    console.log(`\n✅ Done! Mixing Area stock corrected. Deducted ${totalMissedAffal} Kg total affal.`);
+    console.log(
+        `\n✅ Done! Mixing Area stock corrected. Deducted ${totalMissedAffal} Kg total affal.`,
+    );
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect());
+main()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());

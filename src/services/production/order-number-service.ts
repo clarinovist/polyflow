@@ -15,7 +15,9 @@ async function buildOrderNumber(
     tx: Prisma.TransactionClient,
     prefix: string,
 ): Promise<string> {
-    const datePart = toBusinessDateString(new Date()).slice(2).replace(/-/g, '');
+    const datePart = toBusinessDateString(new Date())
+        .slice(2)
+        .replace(/-/g, '');
     const dailyPrefix = `${prefix}-${datePart}-`;
 
     const lastOrder = await tx.productionOrder.findFirst({
@@ -26,7 +28,10 @@ async function buildOrderNumber(
 
     let nextNumber = 1;
     if (lastOrder?.orderNumber) {
-        const numPart = parseInt(lastOrder.orderNumber.slice(dailyPrefix.length), 10);
+        const numPart = parseInt(
+            lastOrder.orderNumber.slice(dailyPrefix.length),
+            10,
+        );
         if (!isNaN(numPart)) nextNumber = numPart + 1;
     }
 
@@ -34,10 +39,12 @@ async function buildOrderNumber(
 }
 
 function isOrderNumberUniqueViolation(error: unknown): boolean {
-    return error instanceof Prisma.PrismaClientKnownRequestError
-        && error.code === 'P2002'
-        && Array.isArray(error.meta?.target)
-        && error.meta.target.includes('orderNumber');
+    return (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        Array.isArray(error.meta?.target) &&
+        error.meta.target.includes('orderNumber')
+    );
 }
 
 export async function createProductionOrderWithGeneratedNumber(
@@ -46,7 +53,7 @@ export async function createProductionOrderWithGeneratedNumber(
     options?: {
         prefix?: string;
         maxAttempts?: number;
-    }
+    },
 ) {
     const prefix = options?.prefix ?? 'WO';
     const maxAttempts = options?.maxAttempts ?? 5;
@@ -57,10 +64,13 @@ export async function createProductionOrderWithGeneratedNumber(
                 data: {
                     ...data,
                     orderNumber: await buildOrderNumber(tx, prefix),
-                }
+                },
             });
         } catch (error) {
-            if (isOrderNumberUniqueViolation(error) && attempt < maxAttempts - 1) {
+            if (
+                isOrderNumberUniqueViolation(error) &&
+                attempt < maxAttempts - 1
+            ) {
                 continue;
             }
 
@@ -68,5 +78,7 @@ export async function createProductionOrderWithGeneratedNumber(
         }
     }
 
-    throw new ConflictError('Failed to generate a unique production order number after multiple attempts.');
+    throw new ConflictError(
+        'Failed to generate a unique production order number after multiple attempts.',
+    );
 }

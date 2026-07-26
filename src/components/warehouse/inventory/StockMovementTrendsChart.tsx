@@ -1,6 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import {
     AreaChart,
     Area,
@@ -9,7 +15,7 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    Legend
+    Legend,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Loader2 } from 'lucide-react';
@@ -28,7 +34,10 @@ interface StockMovementTrendsChartProps {
     loading?: boolean;
 }
 
-export function StockMovementTrendsChart({ data, loading }: StockMovementTrendsChartProps) {
+export function StockMovementTrendsChart({
+    data,
+    loading,
+}: StockMovementTrendsChartProps) {
     if (loading) {
         return (
             <Card className="h-full flex items-center justify-center min-h-[300px]">
@@ -40,7 +49,9 @@ export function StockMovementTrendsChart({ data, loading }: StockMovementTrendsC
     if (!data || data.length === 0) {
         return (
             <Card className="h-full flex items-center justify-center min-h-[300px]">
-                <p className="text-muted-foreground">Tidak ada data mutasi tersedia</p>
+                <p className="text-muted-foreground">
+                    Tidak ada data mutasi tersedia
+                </p>
             </Card>
         );
     }
@@ -48,7 +59,9 @@ export function StockMovementTrendsChart({ data, loading }: StockMovementTrendsC
     return (
         <Card className="col-span-4 h-full">
             <CardHeader>
-                <CardTitle>{warehouseComponentLabels.stockMovementTrends}</CardTitle>
+                <CardTitle>
+                    {warehouseComponentLabels.stockMovementTrends}
+                </CardTitle>
                 <CardDescription>
                     {warehouseComponentLabels.stockMovementDesc}
                 </CardDescription>
@@ -66,21 +79,55 @@ export function StockMovementTrendsChart({ data, loading }: StockMovementTrendsC
                             }}
                         >
                             <defs>
-                                <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                <linearGradient
+                                    id="colorIn"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="5%"
+                                        stopColor="#10b981"
+                                        stopOpacity={0.8}
+                                    />
+                                    <stop
+                                        offset="95%"
+                                        stopColor="#10b981"
+                                        stopOpacity={0}
+                                    />
                                 </linearGradient>
-                                <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
-                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                <linearGradient
+                                    id="colorOut"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="5%"
+                                        stopColor="#ef4444"
+                                        stopOpacity={0.8}
+                                    />
+                                    <stop
+                                        offset="95%"
+                                        stopColor="#ef4444"
+                                        stopOpacity={0}
+                                    />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                vertical={false}
+                                className="stroke-muted"
+                            />
                             <XAxis
                                 dataKey="date"
                                 tickLine={false}
                                 axisLine={false}
-                                tickFormatter={(str) => format(parseISO(str), 'MMM d')}
+                                tickFormatter={(str) =>
+                                    format(parseISO(str), 'MMM d')
+                                }
                                 className="text-xs text-muted-foreground"
                                 dy={10}
                             />
@@ -97,8 +144,12 @@ export function StockMovementTrendsChart({ data, loading }: StockMovementTrendsC
                                     borderRadius: 'var(--radius)',
                                 }}
                                 itemStyle={{ color: 'hsl(var(--foreground))' }}
-                                labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
-                                labelFormatter={(label) => format(parseISO(label), 'PPP')}
+                                labelStyle={{
+                                    color: 'hsl(var(--muted-foreground))',
+                                }}
+                                labelFormatter={(label) =>
+                                    format(parseISO(label), 'PPP')
+                                }
                             />
                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
                             <Area

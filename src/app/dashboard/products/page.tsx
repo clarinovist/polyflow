@@ -20,10 +20,12 @@ export default async function ProductsPage({
 
     // Validate type param against enum
     const typeParam = params.type;
-    const isValidType = typeParam && Object.values(ProductType).includes(typeParam as ProductType);
+    const isValidType =
+        typeParam &&
+        Object.values(ProductType).includes(typeParam as ProductType);
 
     const products = await getProducts({
-        type: isValidType ? (typeParam as ProductType) : undefined
+        type: isValidType ? (typeParam as ProductType) : undefined,
     });
 
     const showPricesRes = await canViewPrices();
@@ -31,13 +33,20 @@ export default async function ProductsPage({
 
     // Serialize Decimal fields for client component
     const serializedProducts = JSON.parse(
-        JSON.stringify(products.success && products.data ? products.data : [], (key, value) => {
-            // Convert Decimal to number — duck-type to survive minified builds
-            if (value && typeof value === 'object' && typeof value.toNumber === 'function') {
-                return parseFloat(value.toString());
-            }
-            return value;
-        })
+        JSON.stringify(
+            products.success && products.data ? products.data : [],
+            (key, value) => {
+                // Convert Decimal to number — duck-type to survive minified builds
+                if (
+                    value &&
+                    typeof value === 'object' &&
+                    typeof value.toNumber === 'function'
+                ) {
+                    return parseFloat(value.toString());
+                }
+                return value;
+            },
+        ),
     );
 
     const currentType = typeParam || 'all';
@@ -46,9 +55,12 @@ export default async function ProductsPage({
         <div className="flex flex-col gap-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Product Catalog</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Product Catalog
+                    </h1>
                     <p className="text-muted-foreground mt-1">
-                        Manage your raw materials, intermediate goods, and finished products.
+                        Manage your raw materials, intermediate goods, and
+                        finished products.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -65,18 +77,43 @@ export default async function ProductsPage({
 
             <Tabs defaultValue={currentType} className="w-full">
                 <TabsList className="mb-4">
-                    <Link href="/dashboard/products"><TabsTrigger value="all">All Items</TabsTrigger></Link>
-                    <Link href="/dashboard/products?type=RAW_MATERIAL"><TabsTrigger value="RAW_MATERIAL">Raw Materials</TabsTrigger></Link>
-                    <Link href="/dashboard/products?type=INTERMEDIATE"><TabsTrigger value="INTERMEDIATE">Intermediate</TabsTrigger></Link>
-                    <Link href="/dashboard/products?type=FINISHED_GOOD"><TabsTrigger value="FINISHED_GOOD">Finished Goods</TabsTrigger></Link>
-                    <Link href="/dashboard/products?type=PACKAGING"><TabsTrigger value="PACKAGING">Packaging</TabsTrigger></Link>
-                    <Link href="/dashboard/products?type=AUXILIARY"><TabsTrigger value="AUXILIARY">Bahan Penolong</TabsTrigger></Link>
-                    <Link href="/dashboard/products?type=SCRAP"><TabsTrigger value="SCRAP">Scrap</TabsTrigger></Link>
+                    <Link href="/dashboard/products">
+                        <TabsTrigger value="all">All Items</TabsTrigger>
+                    </Link>
+                    <Link href="/dashboard/products?type=RAW_MATERIAL">
+                        <TabsTrigger value="RAW_MATERIAL">
+                            Raw Materials
+                        </TabsTrigger>
+                    </Link>
+                    <Link href="/dashboard/products?type=INTERMEDIATE">
+                        <TabsTrigger value="INTERMEDIATE">
+                            Intermediate
+                        </TabsTrigger>
+                    </Link>
+                    <Link href="/dashboard/products?type=FINISHED_GOOD">
+                        <TabsTrigger value="FINISHED_GOOD">
+                            Finished Goods
+                        </TabsTrigger>
+                    </Link>
+                    <Link href="/dashboard/products?type=PACKAGING">
+                        <TabsTrigger value="PACKAGING">Packaging</TabsTrigger>
+                    </Link>
+                    <Link href="/dashboard/products?type=AUXILIARY">
+                        <TabsTrigger value="AUXILIARY">
+                            Bahan Penolong
+                        </TabsTrigger>
+                    </Link>
+                    <Link href="/dashboard/products?type=SCRAP">
+                        <TabsTrigger value="SCRAP">Scrap</TabsTrigger>
+                    </Link>
                 </TabsList>
 
                 <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 overflow-hidden shadow-xl">
                     <CardContent className="p-0">
-                        <ProductTable products={serializedProducts} showPrices={showPrices} />
+                        <ProductTable
+                            products={serializedProducts}
+                            showPrices={showPrices}
+                        />
                     </CardContent>
                 </Card>
             </Tabs>

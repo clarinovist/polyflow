@@ -36,15 +36,28 @@ type BomCostPayload = {
 };
 
 export class BomCostCascadeService {
-    static async validateNoBomCycle({ outputVariantId, itemVariantIds, ignoreBomId }: ValidateCycleOptions) {
+    static async validateNoBomCycle({
+        outputVariantId,
+        itemVariantIds,
+        ignoreBomId,
+    }: ValidateCycleOptions) {
         if (itemVariantIds.includes(outputVariantId)) {
-            throw new BusinessRuleError('Recipe (BOM) is cyclic: output variant cannot be an ingredient in the same chain.');
+            throw new BusinessRuleError(
+                'Recipe (BOM) is cyclic: output variant cannot be an ingredient in the same chain.',
+            );
         }
 
         for (const itemVariantId of itemVariantIds) {
-            const reachesOutput = await this.hasPathToVariant(itemVariantId, outputVariantId, ignoreBomId, new Set<string>());
+            const reachesOutput = await this.hasPathToVariant(
+                itemVariantId,
+                outputVariantId,
+                ignoreBomId,
+                new Set<string>(),
+            );
             if (reachesOutput) {
-                throw new BusinessRuleError('Recipe (BOM) is cyclic: ingredient chain loops back to output variant.');
+                throw new BusinessRuleError(
+                    'Recipe (BOM) is cyclic: ingredient chain loops back to output variant.',
+                );
             }
         }
     }
@@ -65,7 +78,9 @@ export class BomCostCascadeService {
 
         while (frontier.size > 0) {
             if (depth >= maxDepth) {
-                throw new BusinessRuleError('BOM cost cascade exceeded safe traversal depth. Please review potential cyclic BOM dependencies.');
+                throw new BusinessRuleError(
+                    'BOM cost cascade exceeded safe traversal depth. Please review potential cyclic BOM dependencies.',
+                );
             }
 
             const parentBoms = await db.bom.findMany({
@@ -106,18 +121,26 @@ export class BomCostCascadeService {
             const nextFrontier = new Set<string>();
 
             // Batch-fetch all existing variants for BOM parents
-            const parentVariantIds = Array.from(new Set(
-                (parentBoms as BomCostPayload[]).map(b => b.productVariantId)
-            ));
-            const existingVariants = parentVariantIds.length > 0
-                ? await db.productVariant.findMany({
-                    where: { id: { in: parentVariantIds } },
-                    select: { id: true, standardCost: true },
-                })
-                : [];
-            const existingVariantMap = new Map(existingVariants.map(v => [v.id, v]));
+            const parentVariantIds = Array.from(
+                new Set(
+                    (parentBoms as BomCostPayload[]).map(
+                        (b) => b.productVariantId,
+                    ),
+                ),
+            );
+            const existingVariants =
+                parentVariantIds.length > 0
+                    ? await db.productVariant.findMany({
+                          where: { id: { in: parentVariantIds } },
+                          select: { id: true, standardCost: true },
+                      })
+                    : [];
+            const existingVariantMap = new Map(
+                existingVariants.map((v) => [v.id, v]),
+            );
 
-            const pendingUpdates: Array<{ id: string; standardCost: number }> = [];
+            const pendingUpdates: Array<{ id: string; standardCost: number }> =
+                [];
             const pendingCostHistories: Array<{
                 productVariantId: string;
                 previousCost: number | null;
@@ -136,18 +159,25 @@ export class BomCostCascadeService {
 
                 const totalCost = calculateBomCost(bom.items);
                 const outputQty = Number(bom.outputQuantity || 1);
-                const nextUnitCost = outputQty > 0 ? (totalCost / outputQty) : totalCost;
+                const nextUnitCost =
+                    outputQty > 0 ? totalCost / outputQty : totalCost;
 
-                const existingVariant = existingVariantMap.get(bom.productVariantId);
+                const existingVariant = existingVariantMap.get(
+                    bom.productVariantId,
+                );
 
                 if (!existingVariant) {
                     continue;
                 }
 
-                const previousCost = existingVariant.standardCost === null
-                    ? null
-                    : Number(existingVariant.standardCost);
-                const delta = previousCost === null ? nextUnitCost : Math.abs(previousCost - nextUnitCost);
+                const previousCost =
+                    existingVariant.standardCost === null
+                        ? null
+                        : Number(existingVariant.standardCost);
+                const delta =
+                    previousCost === null
+                        ? nextUnitCost
+                        : Math.abs(previousCost - nextUnitCost);
 
                 if (delta <= CASCADE_COST_EPSILON) {
                     continue;
@@ -158,9 +188,10 @@ export class BomCostCascadeService {
                     standardCost: nextUnitCost,
                 });
 
-                const changePercent = previousCost !== null && previousCost !== 0
-                    ? ((nextUnitCost - previousCost) / previousCost) * 100
-                    : null;
+                const changePercent =
+                    previousCost !== null && previousCost !== 0
+                        ? ((nextUnitCost - previousCost) / previousCost) * 100
+                        : null;
 
                 pendingCostHistories.push({
                     productVariantId: bom.productVariantId,
@@ -181,12 +212,12 @@ export class BomCostCascadeService {
             // Batch execute all updates and creates
             if (pendingUpdates.length > 0) {
                 await Promise.all(
-                    pendingUpdates.map(u =>
+                    pendingUpdates.map((u) =>
                         db.productVariant.update({
                             where: { id: u.id },
                             data: { standardCost: u.standardCost },
-                        })
-                    )
+                        }),
+                    ),
                 );
 
                 await db.costHistory.createMany({
@@ -210,7 +241,7 @@ export class BomCostCascadeService {
         currentVariantId: string,
         targetVariantId: string,
         ignoreBomId: string | undefined,
-        visitedVariantIds: Set<string>
+        visitedVariantIds: Set<string>,
     ): Promise<boolean> {
         if (currentVariantId === targetVariantId) {
             return true;
@@ -242,7 +273,7 @@ export class BomCostCascadeService {
                     item.productVariantId,
                     targetVariantId,
                     ignoreBomId,
-                    visitedVariantIds
+                    visitedVariantIds,
                 );
                 if (reachesTarget) {
                     return true;

@@ -7,7 +7,13 @@ import {
     updatePermission,
     updatePermissionsBulk,
 } from '@/actions/admin/permissions';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -110,21 +116,23 @@ export function AccessControlTab() {
             setLoading(true);
             const newState: PermissionState = {};
 
-            ROLES.forEach(role => {
+            ROLES.forEach((role) => {
                 newState[role] = {};
-                ALL_CATALOG_KEYS.forEach(key => {
+                ALL_CATALOG_KEYS.forEach((key) => {
                     newState[role][key] = false;
                 });
-                FEATURE_PERMISSIONS.forEach(feat => {
+                FEATURE_PERMISSIONS.forEach((feat) => {
                     newState[role][feat.key] = false;
                 });
             });
 
-            const results = await Promise.all(ROLES.map(role => getRolePermissions(role)));
+            const results = await Promise.all(
+                ROLES.map((role) => getRolePermissions(role)),
+            );
             results.forEach((result, i) => {
                 const role = ROLES[i];
                 if (result.success && result.data) {
-                    result.data.forEach(p => {
+                    result.data.forEach((p) => {
                         if (p.resource in (newState[role] || {})) {
                             newState[role][p.resource] = p.canAccess;
                         }
@@ -168,28 +176,40 @@ export function AccessControlTab() {
     }, []);
 
     const applyLocal = (role: Role, updates: Record<string, boolean>) => {
-        setPermissions(prev => ({
+        setPermissions((prev) => ({
             ...prev,
             [role]: { ...prev[role], ...updates },
         }));
     };
 
-    const handleToggle = async (role: Role, node: PermissionNode, currentVal: boolean) => {
+    const handleToggle = async (
+        role: Role,
+        node: PermissionNode,
+        currentVal: boolean,
+    ) => {
         const newVal = !currentVal;
         const opKey = `${role}-${node.key}`;
         setUpdating(opKey);
 
         const descendants = descendantKeys(node);
         const previous: Record<string, boolean> = { [node.key]: currentVal };
-        descendants.forEach((d) => { previous[d] = permissions[role]?.[d] ?? false; });
+        descendants.forEach((d) => {
+            previous[d] = permissions[role]?.[d] ?? false;
+        });
 
         const optimistic: Record<string, boolean> = { [node.key]: newVal };
-        descendants.forEach((d) => { optimistic[d] = newVal; });
+        descendants.forEach((d) => {
+            optimistic[d] = newVal;
+        });
         applyLocal(role, optimistic);
 
         const result =
             newVal && descendants.length > 0
-                ? await updatePermissionsBulk(role, [node.key, ...descendants], true)
+                ? await updatePermissionsBulk(
+                      role,
+                      [node.key, ...descendants],
+                      true,
+                  )
                 : await updatePermission(role, node.key, newVal);
 
         if (!result.success) {
@@ -205,7 +225,11 @@ export function AccessControlTab() {
         setUpdating(null);
     };
 
-    const handleFeatureToggle = async (role: Role, resource: string, currentVal: boolean) => {
+    const handleFeatureToggle = async (
+        role: Role,
+        resource: string,
+        currentVal: boolean,
+    ) => {
         const newVal = !currentVal;
         setUpdating(`${role}-${resource}`);
         applyLocal(role, { [resource]: newVal });
@@ -260,8 +284,12 @@ export function AccessControlTab() {
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-sm space-y-1">
                         <p>{settingsLabels.permissionAutoSaveHint}</p>
-                        <p className="text-muted-foreground">{settingsLabels.permissionTreeHint}</p>
-                        <p className="text-muted-foreground">{settingsLabels.permissionReloginHint}</p>
+                        <p className="text-muted-foreground">
+                            {settingsLabels.permissionTreeHint}
+                        </p>
+                        <p className="text-muted-foreground">
+                            {settingsLabels.permissionReloginHint}
+                        </p>
                     </AlertDescription>
                 </Alert>
 
@@ -278,9 +306,16 @@ export function AccessControlTab() {
                     <Table>
                         <TableHeader className="sticky top-0 z-10 bg-background">
                             <TableRow>
-                                <TableHead className="w-[260px] min-w-[220px]">{settingsLabels.module}</TableHead>
-                                {ROLES.map(role => (
-                                    <TableHead key={role} className="text-center min-w-[72px]">{getRoleLabel(role)}</TableHead>
+                                <TableHead className="w-[260px] min-w-[220px]">
+                                    {settingsLabels.module}
+                                </TableHead>
+                                {ROLES.map((role) => (
+                                    <TableHead
+                                        key={role}
+                                        className="text-center min-w-[72px]"
+                                    >
+                                        {getRoleLabel(role)}
+                                    </TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
@@ -291,18 +326,39 @@ export function AccessControlTab() {
                                 const isExpanded = expandedKeys.has(node.key);
                                 return (
                                     <TableRow key={node.key}>
-                                        <TableCell className="font-medium" style={{ paddingLeft: `${12 + depth * 20}px` }}>
+                                        <TableCell
+                                            className="font-medium"
+                                            style={{
+                                                paddingLeft: `${12 + depth * 20}px`,
+                                            }}
+                                        >
                                             <div className="flex items-start gap-1">
                                                 {hasChildren ? (
                                                     <button
                                                         type="button"
-                                                        aria-expanded={isExpanded}
-                                                        aria-label={isExpanded ? `Collapse ${node.label}` : `Expand ${node.label}`}
-                                                        onClick={() => toggleExpand(node.key)}
+                                                        aria-expanded={
+                                                            isExpanded
+                                                        }
+                                                        aria-label={
+                                                            isExpanded
+                                                                ? `Collapse ${node.label}`
+                                                                : `Expand ${node.label}`
+                                                        }
+                                                        onClick={() =>
+                                                            toggleExpand(
+                                                                node.key,
+                                                            )
+                                                        }
                                                         onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                            if (
+                                                                e.key ===
+                                                                    'Enter' ||
+                                                                e.key === ' '
+                                                            ) {
                                                                 e.preventDefault();
-                                                                toggleExpand(node.key);
+                                                                toggleExpand(
+                                                                    node.key,
+                                                                );
                                                             }
                                                         }}
                                                         className="mt-0.5 shrink-0 rounded p-0.5 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -314,34 +370,69 @@ export function AccessControlTab() {
                                                         )}
                                                     </button>
                                                 ) : (
-                                                    <span className="w-5 shrink-0" aria-hidden />
+                                                    <span
+                                                        className="w-5 shrink-0"
+                                                        aria-hidden
+                                                    />
                                                 )}
                                                 <div className="flex flex-col min-w-0">
                                                     <button
                                                         type="button"
-                                                        onClick={() => hasChildren && toggleExpand(node.key)}
-                                                        className={hasChildren ? "text-left hover:underline underline-offset-2" : "text-left cursor-default"}
+                                                        onClick={() =>
+                                                            hasChildren &&
+                                                            toggleExpand(
+                                                                node.key,
+                                                            )
+                                                        }
+                                                        className={
+                                                            hasChildren
+                                                                ? 'text-left hover:underline underline-offset-2'
+                                                                : 'text-left cursor-default'
+                                                        }
                                                     >
                                                         {node.label}
                                                     </button>
-                                                    <span className="text-xs text-muted-foreground truncate">{node.key}</span>
+                                                    <span className="text-xs text-muted-foreground truncate">
+                                                        {node.key}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        {ROLES.map(role => {
-                                            const checked = permissions[role]?.[node.key] || false;
+                                        {ROLES.map((role) => {
+                                            const checked =
+                                                permissions[role]?.[node.key] ||
+                                                false;
                                             const isIndeterminate =
                                                 !checked &&
                                                 descendants.length > 0 &&
-                                                descendants.some((d) => permissions[role]?.[d]);
+                                                descendants.some(
+                                                    (d) =>
+                                                        permissions[role]?.[d],
+                                                );
                                             const opKey = `${role}-${node.key}`;
                                             return (
-                                                <TableCell key={opKey} className="text-center">
+                                                <TableCell
+                                                    key={opKey}
+                                                    className="text-center"
+                                                >
                                                     <div className="flex justify-center">
                                                         <Checkbox
-                                                            checked={isIndeterminate ? 'indeterminate' : checked}
-                                                            onCheckedChange={() => handleToggle(role, node, checked)}
-                                                            disabled={updating === opKey}
+                                                            checked={
+                                                                isIndeterminate
+                                                                    ? 'indeterminate'
+                                                                    : checked
+                                                            }
+                                                            onCheckedChange={() =>
+                                                                handleToggle(
+                                                                    role,
+                                                                    node,
+                                                                    checked,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                updating ===
+                                                                opKey
+                                                            }
                                                             aria-label={`${role} ${node.label}`}
                                                         />
                                                         {updating === opKey && (
@@ -359,17 +450,28 @@ export function AccessControlTab() {
                 </div>
 
                 <div className="mt-8 mb-4">
-                    <h3 className="text-lg font-medium">{settingsLabels.featurePermissions}</h3>
-                    <p className="text-sm text-muted-foreground">{settingsLabels.featurePermissionsDesc}</p>
+                    <h3 className="text-lg font-medium">
+                        {settingsLabels.featurePermissions}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {settingsLabels.featurePermissionsDesc}
+                    </p>
                 </div>
 
                 <div className="rounded-md border overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[200px]">{settingsLabels.feature}</TableHead>
-                                {ROLES.map(role => (
-                                    <TableHead key={role} className="text-center">{getRoleLabel(role)}</TableHead>
+                                <TableHead className="w-[200px]">
+                                    {settingsLabels.feature}
+                                </TableHead>
+                                {ROLES.map((role) => (
+                                    <TableHead
+                                        key={role}
+                                        className="text-center"
+                                    >
+                                        {getRoleLabel(role)}
+                                    </TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
@@ -379,19 +481,40 @@ export function AccessControlTab() {
                                     <TableCell className="font-medium">
                                         <div className="flex flex-col">
                                             <span>{feat.label}</span>
-                                            <span className="text-xs text-muted-foreground">{feat.key}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {feat.key}
+                                            </span>
                                         </div>
                                     </TableCell>
-                                    {ROLES.map(role => (
-                                        <TableCell key={`${role}-${feat.key}`} className="text-center">
+                                    {ROLES.map((role) => (
+                                        <TableCell
+                                            key={`${role}-${feat.key}`}
+                                            className="text-center"
+                                        >
                                             <div className="flex justify-center">
                                                 <Checkbox
-                                                    checked={permissions[role]?.[feat.key] || false}
-                                                    onCheckedChange={() => handleFeatureToggle(role, feat.key, permissions[role]?.[feat.key])}
-                                                    disabled={updating === `${role}-${feat.key}`}
+                                                    checked={
+                                                        permissions[role]?.[
+                                                            feat.key
+                                                        ] || false
+                                                    }
+                                                    onCheckedChange={() =>
+                                                        handleFeatureToggle(
+                                                            role,
+                                                            feat.key,
+                                                            permissions[role]?.[
+                                                                feat.key
+                                                            ],
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        updating ===
+                                                        `${role}-${feat.key}`
+                                                    }
                                                     aria-label={`${role} ${feat.label}`}
                                                 />
-                                                {updating === `${role}-${feat.key}` && (
+                                                {updating ===
+                                                    `${role}-${feat.key}` && (
                                                     <Loader2 className="ml-2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
                                                 )}
                                             </div>

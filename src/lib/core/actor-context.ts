@@ -6,7 +6,9 @@ const globalForActorContext = globalThis as unknown as {
 
 export const actorContext: AsyncLocalStorage<{ userId: string }> =
     globalForActorContext.__polyflowActorContext ??
-    (globalForActorContext.__polyflowActorContext = new AsyncLocalStorage<{ userId: string }>());
+    (globalForActorContext.__polyflowActorContext = new AsyncLocalStorage<{
+        userId: string;
+    }>());
 
 /** Get the current actor userId from async context (undefined outside actor scope). */
 export function getActorUserId(): string | undefined {

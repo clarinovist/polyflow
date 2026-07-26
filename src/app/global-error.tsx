@@ -10,8 +10,8 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
-    const isVersionMismatch = 
-        error.message.includes('Failed to find Server Action') || 
+    const isVersionMismatch =
+        error.message.includes('Failed to find Server Action') ||
         error.message.includes('NEXT_REDIRECT');
 
     const handleReload = () => {
@@ -28,11 +28,13 @@ export default function GlobalError({
                         </div>
 
                         <h1 className="mb-2 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                            {isVersionMismatch ? 'Pembaruan Sistem' : 'Application Error'}
+                            {isVersionMismatch
+                                ? 'Pembaruan Sistem'
+                                : 'Application Error'}
                         </h1>
 
                         <p className="mb-6 text-zinc-500 dark:text-zinc-400">
-                            {isVersionMismatch 
+                            {isVersionMismatch
                                 ? 'Sistem telah diperbarui untuk meningkatkan performa dan fitur. Mohon muat ulang halaman untuk melanjutkan.'
                                 : 'A critical error occurred. Please try refreshing the page.'}
                             {error.digest && (
@@ -42,9 +44,15 @@ export default function GlobalError({
                             )}
                         </p>
 
-                        <Button onClick={isVersionMismatch ? handleReload : reset} size="lg" className="gap-2">
+                        <Button
+                            onClick={isVersionMismatch ? handleReload : reset}
+                            size="lg"
+                            className="gap-2"
+                        >
                             <RefreshCw className="h-4 w-4" />
-                            {isVersionMismatch ? 'Muat Ulang Halaman' : 'Refresh Page'}
+                            {isVersionMismatch
+                                ? 'Muat Ulang Halaman'
+                                : 'Refresh Page'}
                         </Button>
                     </div>
                 </div>

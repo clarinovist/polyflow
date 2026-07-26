@@ -78,7 +78,12 @@ export async function resolveRevenueAccount(
 
     // 3. Rules (only if caller passed rules — Melindo gated outside)
     if (rules.length > 0 && item.variant) {
-        const ruleMatch = await matchRule(item.variant, rules, cacheKey, tenantDb);
+        const ruleMatch = await matchRule(
+            item.variant,
+            rules,
+            cacheKey,
+            tenantDb,
+        );
         if (ruleMatch) return ruleMatch;
     }
 
@@ -101,19 +106,28 @@ async function matchRule(
     for (const rule of sorted) {
         let matches = false;
         if (rule.matchType === 'VARIANT_NAME_CONTAINS') {
-            matches = variant.name.toLowerCase().includes(rule.matchValue.toLowerCase());
+            matches = variant.name
+                .toLowerCase()
+                .includes(rule.matchValue.toLowerCase());
         } else if (rule.matchType === 'PRODUCT_NAME') {
             // Product-level: case-insensitive equality (not loose includes on variant name)
             matches =
-                variant.product?.name?.toLowerCase() === rule.matchValue.toLowerCase();
+                variant.product?.name?.toLowerCase() ===
+                rule.matchValue.toLowerCase();
         }
 
         if (!matches) continue;
 
-        const accountId = await resolveAccountCodeAsync(rule.accountCode, cacheKey, tenantDb);
+        const accountId = await resolveAccountCodeAsync(
+            rule.accountCode,
+            cacheKey,
+            tenantDb,
+        );
         if (!accountId) continue;
 
-        const account = await tenantDb.account.findUnique({ where: { id: accountId } });
+        const account = await tenantDb.account.findUnique({
+            where: { id: accountId },
+        });
         if (!account || account.isActive === false) continue;
 
         return {

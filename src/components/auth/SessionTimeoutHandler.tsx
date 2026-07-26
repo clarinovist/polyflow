@@ -10,7 +10,7 @@ interface SessionTimeoutHandlerProps {
 }
 
 export default function SessionTimeoutHandler({
-    timeoutMs = SESSION_POLICY.idleTimeoutMs
+    timeoutMs = SESSION_POLICY.idleTimeoutMs,
 }: SessionTimeoutHandlerProps) {
     const { status } = useSession();
     const router = useRouter();
@@ -40,7 +40,7 @@ export default function SessionTimeoutHandler({
             'keypress',
             'scroll',
             'touchstart',
-            'click'
+            'click',
         ];
 
         if (status === 'authenticated') {
@@ -48,7 +48,7 @@ export default function SessionTimeoutHandler({
             resetTimer();
 
             // Add event listeners
-            events.forEach(event => {
+            events.forEach((event) => {
                 window.addEventListener(event, resetTimer);
             });
         }
@@ -58,7 +58,7 @@ export default function SessionTimeoutHandler({
             if (timerRef.current) {
                 clearTimeout(timerRef.current);
             }
-            events.forEach(event => {
+            events.forEach((event) => {
                 window.removeEventListener(event, resetTimer);
             });
         };

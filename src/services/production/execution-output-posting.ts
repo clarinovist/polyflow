@@ -3,7 +3,10 @@ import { MovementType, Prisma, ReservationType } from '@prisma/client';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { calculateBomCost } from '@/lib/utils/production-utils';
-import { createStockReservation, getSalesOrderResidualDemand } from '@/services/inventory/reservation-service';
+import {
+    createStockReservation,
+    getSalesOrderResidualDemand,
+} from '@/services/inventory/reservation-service';
 
 import { ProductionCostService } from './cost-service';
 import type { ProductionExecutionOrder } from './execution-types';
@@ -15,7 +18,8 @@ export async function recordFinishedGoodsOutput(params: {
     quantityProduced: number;
     reference: string;
 }) {
-    const { tx, productionOrderId, order, quantityProduced, reference } = params;
+    const { tx, productionOrderId, order, quantityProduced, reference } =
+        params;
     if (quantityProduced <= 0) {
         return;
     }
@@ -30,7 +34,10 @@ export async function recordFinishedGoodsOutput(params: {
     let unitCost = 0;
 
     try {
-        unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
+        unitCost = await ProductionCostService.calculateBatchCOGM(
+            productionOrderId,
+            tx,
+        );
     } catch (error) {
         console.warn(`COGM calc failed for ${productionOrderId}:`, error);
     }
@@ -40,7 +47,9 @@ export async function recordFinishedGoodsOutput(params: {
             where: { id: outputVariantId },
             select: { standardCost: true, buyPrice: true, price: true },
         });
-        unitCost = Number(variant?.standardCost ?? variant?.buyPrice ?? variant?.price ?? 0);
+        unitCost = Number(
+            variant?.standardCost ?? variant?.buyPrice ?? variant?.price ?? 0,
+        );
         if (unitCost > 0) {
             console.warn(
                 `COGM=0 for ${productionOrderId}, fallback to variant cost basis=${unitCost}`,
@@ -51,7 +60,11 @@ export async function recordFinishedGoodsOutput(params: {
     if (unitCost <= 0) {
         // Estimate from BOM recipe so production output is never zero-cost
         const bom = await tx.bom.findFirst({
-            where: { productVariantId: outputVariantId, isDefault: true, isActive: true },
+            where: {
+                productVariantId: outputVariantId,
+                isDefault: true,
+                isActive: true,
+            },
             select: {
                 outputQuantity: true,
                 items: {
@@ -59,7 +72,11 @@ export async function recordFinishedGoodsOutput(params: {
                         quantity: true,
                         scrapPercentage: true,
                         productVariant: {
-                            select: { standardCost: true, buyPrice: true, price: true },
+                            select: {
+                                standardCost: true,
+                                buyPrice: true,
+                                price: true,
+                            },
                         },
                     },
                 },
@@ -80,7 +97,7 @@ export async function recordFinishedGoodsOutput(params: {
     if (unitCost <= 0) {
         console.error(
             `CRITICAL: No cost basis found for production output ${productionOrderId} ` +
-            `(variant ${outputVariantId}). Recording at zero cost — inventory avgCost will be diluted.`,
+                `(variant ${outputVariantId}). Recording at zero cost — inventory avgCost will be diluted.`,
         );
     }
 
@@ -88,7 +105,11 @@ export async function recordFinishedGoodsOutput(params: {
     // Always use incrementStockWithCost so averageCost is recalculated,
     // even when unitCost is 0 (avoids stale avgCost from old stock opname).
     await InventoryCoreService.incrementStockWithCost(
-        tx, locationId, outputVariantId, quantityProduced, unitCost,
+        tx,
+        locationId,
+        outputVariantId,
+        quantityProduced,
+        unitCost,
     );
 
     let reservationId: string | undefined;
@@ -99,7 +120,11 @@ export async function recordFinishedGoodsOutput(params: {
             where: { id: order.salesOrderId },
             select: { expectedDate: true },
         });
-        const residualDemand = await getSalesOrderResidualDemand(order.salesOrderId, outputVariantId, tx);
+        const residualDemand = await getSalesOrderResidualDemand(
+            order.salesOrderId,
+            outputVariantId,
+            tx,
+        );
         const reserveQty = Math.min(quantityProduced, residualDemand);
 
         if (reserveQty > 0) {
@@ -125,7 +150,9 @@ export async function recordFinishedGoodsOutput(params: {
             toLocationId: locationId,
             quantity: quantityProduced,
             cost: unitCost,
-            reference: reservationId ? `${reference} | RESERVE:${reservationId}` : reference,
+            reference: reservationId
+                ? `${reference} | RESERVE:${reservationId}`
+                : reference,
             productionOrderId,
         },
     });
@@ -137,7 +164,10 @@ export async function recordFinishedGoodsOutput(params: {
  * directly under the Prisma transaction in `recordFinishedGoodsOutput` using `AccountingService.recordInventoryMovement`.
  * This method is now a no-op to prevent duplicate posting risks.
  */
-export async function triggerProductionOutputJournal(_executionId: string, _quantityProduced: number) {
+export async function triggerProductionOutputJournal(
+    _executionId: string,
+    _quantityProduced: number,
+) {
     // No-op: delegated to AccountingService.recordInventoryMovement inside transaction.
     return;
 }

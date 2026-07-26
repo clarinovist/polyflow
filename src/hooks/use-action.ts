@@ -1,10 +1,13 @@
-"use client";
+'use client';
 
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
-import { ActionResponse } from "@/lib/errors/error-handler";
-import { UseFormReturn, Path, FieldValues } from "react-hook-form";
-import { getHelpLinkForError, getHelpLinkForMessage } from "@/lib/errors/error-help-links";
+import { useState, useTransition } from 'react';
+import { toast } from 'sonner';
+import { ActionResponse } from '@/lib/errors/error-handler';
+import { UseFormReturn, Path, FieldValues } from 'react-hook-form';
+import {
+    getHelpLinkForError,
+    getHelpLinkForMessage,
+} from '@/lib/errors/error-help-links';
 
 interface UseActionOptions<T, V extends FieldValues> {
     onSuccess?: (data: T) => void;
@@ -15,7 +18,7 @@ interface UseActionOptions<T, V extends FieldValues> {
 
 export function useAction<T, V extends FieldValues>(
     action: (values: V) => Promise<ActionResponse<T>>,
-    options?: UseActionOptions<T, V>
+    options?: UseActionOptions<T, V>,
 ) {
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
@@ -33,15 +36,17 @@ export function useAction<T, V extends FieldValues>(
                     }
                     options?.onSuccess?.(result.data as T);
                 } else {
-                    setError(result.error || "An error occurred");
+                    setError(result.error || 'An error occurred');
 
                     if (result.fieldErrors && options?.form) {
-                        Object.entries(result.fieldErrors).forEach(([field, messages]) => {
-                            options.form?.setError(field as Path<V>, {
-                                type: "server",
-                                message: messages[0],
-                            });
-                        });
+                        Object.entries(result.fieldErrors).forEach(
+                            ([field, messages]) => {
+                                options.form?.setError(field as Path<V>, {
+                                    type: 'server',
+                                    message: messages[0],
+                                });
+                            },
+                        );
                     }
 
                     if (result.error && !result.fieldErrors) {
@@ -51,7 +56,11 @@ export function useAction<T, V extends FieldValues>(
                             : getHelpLinkForMessage(errMsg);
                         if (helpLink) {
                             toast.error(errMsg, {
-                                action: { label: '📖 Panduan', onClick: () => window.open(helpLink.href, '_blank') },
+                                action: {
+                                    label: '📖 Panduan',
+                                    onClick: () =>
+                                        window.open(helpLink.href, '_blank'),
+                                },
                                 duration: 8000,
                             });
                         } else {
@@ -59,15 +68,21 @@ export function useAction<T, V extends FieldValues>(
                         }
                     }
 
-                    options?.onError?.(result.error || "An error occurred");
+                    options?.onError?.(result.error || 'An error occurred');
                 }
             } catch (e) {
-                const msg = e instanceof Error ? e.message : "An unexpected error occurred";
+                const msg =
+                    e instanceof Error
+                        ? e.message
+                        : 'An unexpected error occurred';
                 setError(msg);
                 const helpLink = getHelpLinkForMessage(msg);
                 if (helpLink) {
                     toast.error(msg, {
-                        action: { label: '📖 Panduan', onClick: () => window.open(helpLink.href, '_blank') },
+                        action: {
+                            label: '📖 Panduan',
+                            onClick: () => window.open(helpLink.href, '_blank'),
+                        },
                         duration: 8000,
                     });
                 } else {

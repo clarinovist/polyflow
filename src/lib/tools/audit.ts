@@ -27,7 +27,7 @@ export async function logActivity({
     changes,
     fromStatus,
     toStatus,
-    tx
+    tx,
 }: AuditLogParams) {
     const data = {
         userId,

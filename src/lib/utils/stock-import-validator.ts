@@ -24,7 +24,7 @@ export function validateStockRow(
     rowIndex: number,
     skuToVariantId: Map<string, string>,
     locationNameToId: Map<string, string>,
-    processedEntries: Set<string> // SKU+Location combination check for duplicates within file
+    processedEntries: Set<string>, // SKU+Location combination check for duplicates within file
 ): ValidationResult {
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
@@ -40,13 +40,19 @@ export function validateStockRow(
         if (skuToVariantId.has(sku)) {
             productVariantId = skuToVariantId.get(sku);
         } else {
-            errors.push({ field: 'sku_code', message: `SKU '${row.sku_code}' not found in system` });
+            errors.push({
+                field: 'sku_code',
+                message: `SKU '${row.sku_code}' not found in system`,
+            });
         }
     }
 
     // 2. Validate Location
     if (!row.location) {
-        errors.push({ field: 'location', message: 'Location name is required' });
+        errors.push({
+            field: 'location',
+            message: 'Location name is required',
+        });
     } else {
         // Simple case-insensitive match could be better, but exact match for now as per Map key
         // Assuming the Map keys are already normalized or exact names are expected
@@ -55,23 +61,39 @@ export function validateStockRow(
         if (locationNameToId.has(locName)) {
             locationId = locationNameToId.get(locName);
         } else {
-            // Try to find case-insensitive match manually if map is small? 
+            // Try to find case-insensitive match manually if map is small?
             // For now assume Map is populated with what we expect to match
-            errors.push({ field: 'location', message: `Location '${row.location}' not found` });
+            errors.push({
+                field: 'location',
+                message: `Location '${row.location}' not found`,
+            });
         }
     }
 
     // 3. Validate Quantity
-    if (row.quantity === undefined || row.quantity === null || row.quantity.toString().trim() === '') {
+    if (
+        row.quantity === undefined ||
+        row.quantity === null ||
+        row.quantity.toString().trim() === ''
+    ) {
         errors.push({ field: 'quantity', message: 'Quantity is required' });
     } else {
         const qty = Number(row.quantity);
         if (isNaN(qty)) {
-            errors.push({ field: 'quantity', message: 'Quantity must be a number' });
+            errors.push({
+                field: 'quantity',
+                message: 'Quantity must be a number',
+            });
         } else if (qty < 0) {
-            errors.push({ field: 'quantity', message: 'Quantity cannot be negative' });
+            errors.push({
+                field: 'quantity',
+                message: 'Quantity cannot be negative',
+            });
         } else if (qty === 0) {
-            warnings.push({ field: 'quantity', message: 'Quantity is 0, this entry will be skipped' });
+            warnings.push({
+                field: 'quantity',
+                message: 'Quantity is 0, this entry will be skipped',
+            });
         }
     }
 
@@ -79,7 +101,11 @@ export function validateStockRow(
     if (row.sku_code && row.location) {
         const entryKey = `${row.sku_code.toUpperCase()}|${row.location}`;
         if (processedEntries.has(entryKey)) {
-            warnings.push({ field: 'sku_code', message: 'Duplicate SKU+Location entry in this file. It is recommended to combine them.' });
+            warnings.push({
+                field: 'sku_code',
+                message:
+                    'Duplicate SKU+Location entry in this file. It is recommended to combine them.',
+            });
             // We still process it (additive), but warn the user.
         }
         processedEntries.add(entryKey);
@@ -92,7 +118,7 @@ export function validateStockRow(
         warnings,
         data: row,
         productVariantId,
-        locationId
+        locationId,
     };
 }
 
@@ -102,13 +128,21 @@ export function validateStockRow(
 export function validateStockImportRows(
     rows: StockImportRow[],
     skuToVariantId: Map<string, string>,
-    locationNameToId: Map<string, string>
+    locationNameToId: Map<string, string>,
 ): ValidationResult[] {
     const results: ValidationResult[] = [];
     const processedEntries = new Set<string>();
 
     for (let i = 0; i < rows.length; i++) {
-        results.push(validateStockRow(rows[i], i, skuToVariantId, locationNameToId, processedEntries));
+        results.push(
+            validateStockRow(
+                rows[i],
+                i,
+                skuToVariantId,
+                locationNameToId,
+                processedEntries,
+            ),
+        );
     }
 
     return results;
@@ -118,14 +152,14 @@ export function validateStockImportRows(
  * Get validation summary
  */
 export function getStockValidationSummary(results: ValidationResult[]) {
-    const validCount = results.filter(r => r.isValid).length;
-    const errorCount = results.filter(r => !r.isValid).length;
-    const warningCount = results.filter(r => r.warnings.length > 0).length;
+    const validCount = results.filter((r) => r.isValid).length;
+    const errorCount = results.filter((r) => !r.isValid).length;
+    const warningCount = results.filter((r) => r.warnings.length > 0).length;
 
     return {
         total: results.length,
         valid: validCount,
         errors: errorCount,
-        warnings: warningCount
+        warnings: warningCount,
     };
 }

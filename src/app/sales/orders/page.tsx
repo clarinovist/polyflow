@@ -2,7 +2,17 @@ import type { ComponentProps } from 'react';
 import { getSalesOrders, getSalesOrderStats } from '@/actions/sales/sales';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, ShoppingCart, Clock, CheckCircle, XCircle, Archive, ArrowLeft, Banknote, Package as PackageIcon } from 'lucide-react';
+import {
+    Plus,
+    ShoppingCart,
+    Clock,
+    CheckCircle,
+    XCircle,
+    Archive,
+    ArrowLeft,
+    Banknote,
+    Package as PackageIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { SalesOrderFilters } from '@/components/sales/SalesOrderFilters';
@@ -20,17 +30,21 @@ import { redirect } from 'next/navigation';
 /** Map fulfill query param to SalesOrderType[] */
 function fulfillToOrderTypes(fulfill: string): SalesOrderType[] | undefined {
     switch (fulfill) {
-        case 'stock': return [SalesOrderType.MAKE_TO_STOCK];
-        case 'produce': return [SalesOrderType.MAKE_TO_ORDER];
-        case 'maklon': return [SalesOrderType.MAKLON_JASA];
-        default: return undefined;
+        case 'stock':
+            return [SalesOrderType.MAKE_TO_STOCK];
+        case 'produce':
+            return [SalesOrderType.MAKE_TO_ORDER];
+        case 'maklon':
+            return [SalesOrderType.MAKLON_JASA];
+        default:
+            return undefined;
     }
 }
 
 /** Map status query param to SalesOrderStatus[] */
 function parseStatusFilter(status: string): SalesOrderStatus[] | undefined {
     if (!status) return undefined;
-    const parts = status.split(',').map(s => s.trim());
+    const parts = status.split(',').map((s) => s.trim());
     const valid: SalesOrderStatus[] = [];
     for (const s of parts) {
         if (Object.values(SalesOrderStatus).includes(s as SalesOrderStatus)) {
@@ -61,14 +75,27 @@ function legacyViewToFilters(view: string | undefined): {
     }
 }
 
-export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: string, view?: string, status?: string, fulfill?: string, payment?: string }> }) {
+export default async function SalesPage({
+    searchParams,
+}: {
+    searchParams: Promise<{
+        startDate?: string;
+        endDate?: string;
+        demand?: string;
+        view?: string;
+        status?: string;
+        fulfill?: string;
+        payment?: string;
+    }>;
+}) {
     const params = await searchParams;
     const now = new Date();
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
 
     const demandParam = params?.demand;
-    const isArchive = demandParam === 'legacy-internal' || params?.view === 'archive';
+    const isArchive =
+        demandParam === 'legacy-internal' || params?.view === 'archive';
 
     // Redirect legacy chip URLs to plain filter params (one-time clean URL)
     if (!isArchive && params?.view) {
@@ -93,7 +120,9 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         payment: params?.payment || '',
     };
 
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkStart = params?.startDate
+        ? parseISO(params.startDate)
+        : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
     const fulfillTypes = fulfillToOrderTypes(currentFilters.fulfill);
@@ -103,15 +132,23 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     if (fulfillTypes) extraFilters.orderTypes = fulfillTypes;
     if (statusList) extraFilters.statusFilter = statusList;
     if (currentFilters.payment) {
-        extraFilters.paymentState = currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice';
+        extraFilters.paymentState = currentFilters.payment as
+            | 'outstanding'
+            | 'paid'
+            | 'no_invoice';
     }
 
     // Archive: default all-time unless user sets dates
-    const archiveCheckStart = params?.startDate ? parseISO(params.startDate) : undefined;
-    const archiveCheckEnd = params?.endDate ? parseISO(params.endDate) : undefined;
-    const archiveDateRange = archiveCheckStart && archiveCheckEnd
-        ? { startDate: archiveCheckStart, endDate: archiveCheckEnd }
+    const archiveCheckStart = params?.startDate
+        ? parseISO(params.startDate)
         : undefined;
+    const archiveCheckEnd = params?.endDate
+        ? parseISO(params.endDate)
+        : undefined;
+    const archiveDateRange =
+        archiveCheckStart && archiveCheckEnd
+            ? { startDate: archiveCheckStart, endDate: archiveCheckEnd }
+            : undefined;
 
     const dateRange = { startDate: checkStart, endDate: checkEnd };
 
@@ -125,24 +162,36 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         : await getSalesOrderStats(dateRange);
 
     const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
-    const stats = statsRes.success && statsRes.data ? statsRes.data : {
-        totalOrders: 0,
-        activeCount: 0,
-        completedCount: 0,
-        cancelledCount: 0,
-        totalAmount: 0,
-        activeAmount: 0,
-        completedAmount: 0,
-        pipelineAmount: 0,
-        cancelledAmount: 0,
-    } as {
-        totalOrders: number; activeCount: number; completedCount: number; cancelledCount: number;
-        totalAmount: number; activeAmount: number; completedAmount: number; pipelineAmount: number; cancelledAmount: number;
-    };
+    const stats =
+        statsRes.success && statsRes.data
+            ? statsRes.data
+            : ({
+                  totalOrders: 0,
+                  activeCount: 0,
+                  completedCount: 0,
+                  cancelledCount: 0,
+                  totalAmount: 0,
+                  activeAmount: 0,
+                  completedAmount: 0,
+                  pipelineAmount: 0,
+                  cancelledAmount: 0,
+              } as {
+                  totalOrders: number;
+                  activeCount: number;
+                  completedCount: number;
+                  cancelledCount: number;
+                  totalAmount: number;
+                  activeAmount: number;
+                  completedAmount: number;
+                  pipelineAmount: number;
+                  cancelledAmount: number;
+              });
 
     const serializedOrders = serializeData(orders);
     const displayedCount = Array.isArray(orders) ? orders.length : 0;
-    const emptyMessage = isArchive ? salesLabels.emptyOrdersArchive : salesLabels.emptyOrders;
+    const emptyMessage = isArchive
+        ? salesLabels.emptyOrdersArchive
+        : salesLabels.emptyOrders;
 
     const archiveHref = (() => {
         const q = new URLSearchParams();
@@ -180,18 +229,25 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                         <Archive className="h-7 w-7 text-muted-foreground" />
                         {salesLabels.archiveTitle}
                     </h1>
-                    <p className="text-muted-foreground mt-1">{salesLabels.archiveHint}</p>
+                    <p className="text-muted-foreground mt-1">
+                        {salesLabels.archiveHint}
+                    </p>
                 </div>
 
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                     <p className="font-medium">{salesLabels.archiveHint}</p>
-                    <p className="mt-1 text-amber-700">{salesLabels.archiveHintDetail}</p>
+                    <p className="mt-1 text-amber-700">
+                        {salesLabels.archiveHintDetail}
+                    </p>
                 </div>
 
                 <Card>
                     <CardHeader className="pb-2">
                         <p className="text-sm text-muted-foreground">
-                            {salesLabels.displayedCount}: <span className="font-semibold text-foreground">{displayedCount}</span>
+                            {salesLabels.displayedCount}:{' '}
+                            <span className="font-semibold text-foreground">
+                                {displayedCount}
+                            </span>
                         </p>
                     </CardHeader>
                     <CardContent>
@@ -215,17 +271,30 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.salesOrders}</h1>
-                    <p className="text-muted-foreground">{salesLabels.salesOrdersDesc}</p>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {salesLabels.salesOrders}
+                    </h1>
+                    <p className="text-muted-foreground">
+                        {salesLabels.salesOrdersDesc}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ContextualHelp
                         title="Panduan SO"
                         prefillQuestion="Cara membuat Sales Order di Polyflow?"
                         links={[
-                            { title: 'Cara Buat Sales Order', slug: 'cara-buat-sales-order' },
-                            { title: 'Cara Confirm SO Stok Kurang', slug: 'cara-confirm-so-stok-kurang' },
-                            { title: 'Jadwal Kirim & Surat Jalan', slug: 'cara-jadwal-kirim-dan-surat-jalan' },
+                            {
+                                title: 'Cara Buat Sales Order',
+                                slug: 'cara-buat-sales-order',
+                            },
+                            {
+                                title: 'Cara Confirm SO Stok Kurang',
+                                slug: 'cara-confirm-so-stok-kurang',
+                            },
+                            {
+                                title: 'Jadwal Kirim & Surat Jalan',
+                                slug: 'cara-jadwal-kirim-dan-surat-jalan',
+                            },
                         ]}
                     />
                     <UrlTransactionDateFilter defaultPreset="this_month" />
@@ -239,40 +308,91 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             </div>
 
             {/* P0 fix: period hint + pipeline omzet — original request "kalau semua terkonversi" */}
-            <OrderPeriodHint start={checkStart} end={checkEnd} displayedCount={displayedCount} />
+            <OrderPeriodHint
+                start={checkStart}
+                end={checkEnd}
+                displayedCount={displayedCount}
+            />
 
             {/* Omzet — money context */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Card className="md:col-span-2 border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Potensi Omzet (kalau semua terkirim)</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Potensi Omzet (kalau semua terkirim)
+                        </CardTitle>
                         <Banknote className="h-4 w-4 text-amber-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatRupiah((stats as { pipelineAmount?: number }).pipelineAmount ?? (stats as { activeAmount?: number }).activeAmount ?? 0)}</div>
+                        <div className="text-2xl font-bold">
+                            {formatRupiah(
+                                (stats as { pipelineAmount?: number })
+                                    .pipelineAmount ??
+                                    (stats as { activeAmount?: number })
+                                        .activeAmount ??
+                                    0,
+                            )}
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Order aktif non-batal dalam periode • {stats.activeCount} order
+                            Order aktif non-batal dalam periode •{' '}
+                            {stats.activeCount} order
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Realisasi (Shipped/Delivered)</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Realisasi (Shipped/Delivered)
+                        </CardTitle>
                         <PackageIcon className="h-4 w-4 text-emerald-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatRupiah((stats as { completedAmount?: number }).completedAmount ?? 0)}</div>
-                        <p className="text-xs text-muted-foreground mt-1">{stats.completedCount} order</p>
+                        <div className="text-2xl font-bold">
+                            {formatRupiah(
+                                (stats as { completedAmount?: number })
+                                    .completedAmount ?? 0,
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {stats.completedCount} order
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Periode (gross, exc. batal)</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Total Periode (gross, exc. batal)
+                        </CardTitle>
                         <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatRupiah(((stats as { totalAmount?: number; cancelledAmount?: number }).totalAmount != null && (stats as { cancelledAmount?: number }).cancelledAmount != null ? (stats as { totalAmount: number }).totalAmount - (stats as { cancelledAmount: number }).cancelledAmount : ((stats as { activeAmount?: number }).activeAmount ?? 0) + ((stats as { completedAmount?: number }).completedAmount ?? 0)))}</div>
-                        <p className="text-xs text-muted-foreground mt-1">{stats.totalOrders} order (incl. batal {stats.cancelledCount})</p>
+                        <div className="text-2xl font-bold">
+                            {formatRupiah(
+                                (
+                                    stats as {
+                                        totalAmount?: number;
+                                        cancelledAmount?: number;
+                                    }
+                                ).totalAmount != null &&
+                                    (stats as { cancelledAmount?: number })
+                                        .cancelledAmount != null
+                                    ? (stats as { totalAmount: number })
+                                          .totalAmount -
+                                          (stats as { cancelledAmount: number })
+                                              .cancelledAmount
+                                    : ((stats as { activeAmount?: number })
+                                          .activeAmount ?? 0) +
+                                          ((
+                                              stats as {
+                                                  completedAmount?: number;
+                                              }
+                                          ).completedAmount ?? 0),
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {stats.totalOrders} order (incl. batal{' '}
+                            {stats.cancelledCount})
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -281,38 +401,54 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.totalOrders}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {salesLabels.totalOrders}
+                        </CardTitle>
                         <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                        <div className="text-2xl font-bold">
+                            {stats.totalOrders}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.activePending}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {salesLabels.activePending}
+                        </CardTitle>
                         <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.activeCount}</div>
+                        <div className="text-2xl font-bold">
+                            {stats.activeCount}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.completed}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {salesLabels.completed}
+                        </CardTitle>
                         <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.completedCount}</div>
+                        <div className="text-2xl font-bold">
+                            {stats.completedCount}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.cancelled}</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {salesLabels.cancelled}
+                        </CardTitle>
                         <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.cancelledCount}</div>
+                        <div className="text-2xl font-bold">
+                            {stats.cancelledCount}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -323,7 +459,10 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <CardTitle>{salesLabels.allOrders}</CardTitle>
                             <span className="text-sm text-muted-foreground">
-                                {salesLabels.displayedCount}: <span className="font-medium text-foreground">{displayedCount}</span>
+                                {salesLabels.displayedCount}:{' '}
+                                <span className="font-medium text-foreground">
+                                    {displayedCount}
+                                </span>
                             </span>
                         </div>
                         <Suspense>

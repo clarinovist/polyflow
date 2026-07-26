@@ -4,14 +4,18 @@ import { useState } from 'react';
 import useSWR from 'swr';
 import { Bell, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverTrigger,
+    PopoverContent,
+} from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     getMyNotifications,
     getUnreadNotificationCount,
     markAllMyNotificationsAsRead,
-    markNotificationAsRead
+    markNotificationAsRead,
 } from '@/actions/core/notifications';
 import Link from 'next/link';
 import { NotificationType } from '@prisma/client';
@@ -34,36 +38,44 @@ export function NotificationBell() {
 
     // Fetch unread count, revalidating on focus to keep it snappy without costly polling
     const { data: count, mutate: mutateCount } = useSWR(
-        'notificationCount', 
+        'notificationCount',
         async () => {
             const res = await getUnreadNotificationCount();
             return res.success && res.data ? res.data : 0;
-        }, 
-        { revalidateOnFocus: true, refreshInterval: 60000 }
+        },
+        { revalidateOnFocus: true, refreshInterval: 60000 },
     );
 
     // Fetch notifications only if the popover is open or data doesn't exist yet
-    const { data: notifications, mutate: mutateNotifications, isLoading } = useSWR(
-        isOpen ? 'notificationList' : null, 
+    const {
+        data: notifications,
+        mutate: mutateNotifications,
+        isLoading,
+    } = useSWR(
+        isOpen ? 'notificationList' : null,
         async () => {
             const res = await getMyNotifications({ take: 20 });
             return res.success && res.data ? res.data : [];
         },
-        { revalidateOnFocus: true }
+        { revalidateOnFocus: true },
     );
 
     const handleMarkAsRead = async (id: string, currentlyUnread: boolean) => {
         if (!currentlyUnread) return;
-        
+
         // Optimistic UI updates
-        mutateCount((prev: number | undefined) => Math.max(0, (prev || 0) - 1), false);
+        mutateCount(
+            (prev: number | undefined) => Math.max(0, (prev || 0) - 1),
+            false,
+        );
         mutateNotifications(
-            (prev: NotificationItem[] | undefined) => prev?.map((n) => n.id === id ? { ...n, isRead: true } : n),
-            false
+            (prev: NotificationItem[] | undefined) =>
+                prev?.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+            false,
         );
 
         await markNotificationAsRead(id);
-        
+
         // Final sync
         mutateCount();
         mutateNotifications();
@@ -75,12 +87,13 @@ export function NotificationBell() {
         // Optimistic
         mutateCount(0, false);
         mutateNotifications(
-            (prev: NotificationItem[] | undefined) => prev?.map((n) => ({ ...n, isRead: true })),
-            false
+            (prev: NotificationItem[] | undefined) =>
+                prev?.map((n) => ({ ...n, isRead: true })),
+            false,
         );
 
         await markAllMyNotificationsAsRead();
-        
+
         // Final sync
         mutateCount();
         mutateNotifications();
@@ -89,11 +102,15 @@ export function NotificationBell() {
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative group hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative group hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
                     <Bell className="h-5 w-5 text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors" />
                     {count !== undefined && count > 0 && (
-                        <Badge 
-                            variant="destructive" 
+                        <Badge
+                            variant="destructive"
                             className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px]"
                         >
                             {count > 99 ? '99+' : count}
@@ -105,8 +122,8 @@ export function NotificationBell() {
                 <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
                     <div className="font-semibold text-sm">Notifications</div>
                     {count !== undefined && count > 0 && (
-                        <Button 
-                            variant="ghost" 
+                        <Button
+                            variant="ghost"
                             className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-primary"
                             onClick={handleMarkAllRead}
                         >
@@ -115,7 +132,7 @@ export function NotificationBell() {
                         </Button>
                     )}
                 </div>
-                
+
                 <ScrollArea className="h-[400px]">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full p-8 text-sm text-muted-foreground">
@@ -124,9 +141,14 @@ export function NotificationBell() {
                     ) : notifications && notifications.length > 0 ? (
                         <div className="flex flex-col">
                             {notifications.map((notif: NotificationItem) => (
-                                <div 
+                                <div
                                     key={notif.id}
-                                    onClick={() => handleMarkAsRead(notif.id, !notif.isRead)}
+                                    onClick={() =>
+                                        handleMarkAsRead(
+                                            notif.id,
+                                            !notif.isRead,
+                                        )
+                                    }
                                     className={`
                                         flex flex-col gap-1 p-4 border-b last:border-0 cursor-pointer transition-colors
                                         ${!notif.isRead ? 'bg-zinc-50 dark:bg-zinc-900' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}
@@ -145,15 +167,20 @@ export function NotificationBell() {
                                     </p>
                                     <div className="flex justify-between items-center mt-2">
                                         <span className="text-[10px] text-muted-foreground/70 font-mono">
-                                            {new Date(notif.createdAt).toLocaleDateString(undefined, {
+                                            {new Date(
+                                                notif.createdAt,
+                                            ).toLocaleDateString(undefined, {
                                                 month: 'short',
                                                 day: 'numeric',
                                                 hour: '2-digit',
-                                                minute: '2-digit'
+                                                minute: '2-digit',
                                             })}
                                         </span>
                                         {notif.link && (
-                                            <Link href={notif.link} className="text-xs text-primary hover:underline">
+                                            <Link
+                                                href={notif.link}
+                                                className="text-xs text-primary hover:underline"
+                                            >
                                                 Lihat Detail
                                             </Link>
                                         )}
@@ -164,7 +191,11 @@ export function NotificationBell() {
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full p-8 text-center text-sm text-muted-foreground space-y-3">
                             <Bell className="h-8 w-8 text-zinc-300 opacity-50" />
-                            <p>Semua notifikasi sudah dibaca!<br/>Belum ada notifikasi baru.</p>
+                            <p>
+                                Semua notifikasi sudah dibaca!
+                                <br />
+                                Belum ada notifikasi baru.
+                            </p>
                         </div>
                     )}
                 </ScrollArea>

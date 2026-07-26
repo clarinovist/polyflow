@@ -1,10 +1,18 @@
 import { prisma } from '@/lib/core/prisma';
-import { Prisma, BatchStatus, ProductType, ReservationStatus } from '@prisma/client';
+import {
+    Prisma,
+    BatchStatus,
+    ProductType,
+    ReservationStatus,
+} from '@prisma/client';
 import { InventoryWithRelations } from '@/types/inventory';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 export class InventoryQueryService {
-    static async getStats(filters?: { locationId?: string; type?: string }): Promise<InventoryWithRelations[]> {
+    static async getStats(filters?: {
+        locationId?: string;
+        type?: string;
+    }): Promise<InventoryWithRelations[]> {
         const where: Prisma.InventoryWhereInput = {};
 
         if (filters?.locationId) {
@@ -41,16 +49,16 @@ export class InventoryQueryService {
                                 id: true,
                                 name: true,
                                 productType: true,
-                            }
-                        }
-                    }
+                            },
+                        },
+                    },
                 },
                 location: {
                     select: {
                         id: true,
                         name: true,
                         locationType: true,
-                    }
+                    },
                 },
             },
             orderBy: {
@@ -64,17 +72,19 @@ export class InventoryQueryService {
         const reservations = await prisma.stockReservation.groupBy({
             by: ['productVariantId', 'locationId', 'status'],
             where: {
-                status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] }
+                status: {
+                    in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING],
+                },
             },
             _sum: {
-                quantity: true
-            }
+                quantity: true,
+            },
         });
 
         const activeReservationMap = new Map<string, number>();
         const waitingReservationMap = new Map<string, number>();
 
-        reservations.forEach(r => {
+        reservations.forEach((r) => {
             const key = `${r.locationId}-${r.productVariantId}`;
             const qty = r._sum.quantity?.toNumber() || 0;
             const status = r.status as string;
@@ -85,7 +95,7 @@ export class InventoryQueryService {
             }
         });
 
-        return inventory.map(item => {
+        return inventory.map((item) => {
             const key = `${item.locationId}-${item.productVariantId}`;
             const reservedQuantity = activeReservationMap.get(key) || 0;
             const waitingQuantity = waitingReservationMap.get(key) || 0;
@@ -96,7 +106,7 @@ export class InventoryQueryService {
                 ...item,
                 reservedQuantity,
                 waitingQuantity,
-                availableQuantity
+                availableQuantity,
             } as unknown as InventoryWithRelations;
         });
     }
@@ -119,14 +129,16 @@ export class InventoryQueryService {
 
     static async getProductVariants(includeFixedAsset = true) {
         return await prisma.productVariant.findMany({
-            where: includeFixedAsset ? {} : { product: { productType: { not: 'FIXED_ASSET' } } },
+            where: includeFixedAsset
+                ? {}
+                : { product: { productType: { not: 'FIXED_ASSET' } } },
             include: {
                 product: true,
                 inventories: {
                     select: {
                         locationId: true,
-                        quantity: true
-                    }
+                        quantity: true,
+                    },
                 },
                 customerPrices: {
                     where: { isActive: true },
@@ -134,9 +146,9 @@ export class InventoryQueryService {
                         customerId: true,
                         unitPrice: true,
                         isActive: true,
-                    }
-                }
-            }
+                    },
+                },
+            },
         });
     }
 
@@ -144,29 +156,36 @@ export class InventoryQueryService {
         return this.getProductVariants(false);
     }
 
-    static async getAvailableBatches(productVariantId: string, locationId: string) {
+    static async getAvailableBatches(
+        productVariantId: string,
+        locationId: string,
+    ) {
         if (!productVariantId || !locationId) return [];
         return await prisma.batch.findMany({
             where: {
                 productVariantId,
                 locationId,
                 status: BatchStatus.ACTIVE,
-                quantity: { gt: 0 }
+                quantity: { gt: 0 },
             },
             orderBy: {
-                manufacturingDate: 'asc'
-            }
+                manufacturingDate: 'asc',
+            },
         });
     }
 
-    static async getStockMovements(filters?: { limit?: number; startDate?: Date; endDate?: Date }) {
+    static async getStockMovements(filters?: {
+        limit?: number;
+        startDate?: Date;
+        endDate?: Date;
+    }) {
         const { limit = 50, startDate, endDate } = filters || {};
         const where: Prisma.StockMovementWhereInput = {};
 
         if (startDate && endDate) {
             where.createdAt = {
                 gte: startDate,
-                lte: endDate
+                lte: endDate,
             };
         } else if (startDate) {
             where.createdAt = { gte: startDate };
@@ -180,7 +199,7 @@ export class InventoryQueryService {
             orderBy: { createdAt: 'desc' },
             include: {
                 productVariant: {
-                    include: { product: true }
+                    include: { product: true },
                 },
                 fromLocation: true,
                 toLocation: true,
@@ -198,39 +217,55 @@ export class InventoryQueryService {
                     productVariantId: true,
                     location: { select: { id: true, slug: true } },
                     productVariant: {
-                        select: { minStockAlert: true }
-                    }
-                }
+                        select: { minStockAlert: true },
+                    },
+                },
             }),
             prisma.productVariant.findMany({
                 where: { minStockAlert: { not: null } },
                 select: {
                     id: true,
                     minStockAlert: true,
-                    inventories: { select: { quantity: true } }
-                }
-            })
+                    inventories: { select: { quantity: true } },
+                },
+            }),
         ]);
 
-        const totalStock = inventory.reduce((sum, item) => sum + item.quantity.toNumber(), 0);
+        const totalStock = inventory.reduce(
+            (sum, item) => sum + item.quantity.toNumber(),
+            0,
+        );
 
         // Build total quantities per variant for ALL locations
-        const variantQuantitiesAll = inventory.reduce((acc, item) => {
-            acc[item.productVariantId] = (acc[item.productVariantId] || 0) + item.quantity.toNumber();
-            return acc;
-        }, {} as Record<string, number>);
+        const variantQuantitiesAll = inventory.reduce(
+            (acc, item) => {
+                acc[item.productVariantId] =
+                    (acc[item.productVariantId] || 0) +
+                    item.quantity.toNumber();
+                return acc;
+            },
+            {} as Record<string, number>,
+        );
 
         // For low stock alert we only consider Raw Material and Finished Goods warehouses
-        const allowedLocationSlugs = new Set<string>([WAREHOUSE_SLUGS.RAW_MATERIAL, WAREHOUSE_SLUGS.FINISHING]);
-        const variantQuantitiesForAlerts = inventory.reduce((acc, item) => {
-            const slug = item.location?.slug;
-            if (slug && allowedLocationSlugs.has(slug)) {
-                acc[item.productVariantId] = (acc[item.productVariantId] || 0) + item.quantity.toNumber();
-            }
-            return acc;
-        }, {} as Record<string, number>);
+        const allowedLocationSlugs = new Set<string>([
+            WAREHOUSE_SLUGS.RAW_MATERIAL,
+            WAREHOUSE_SLUGS.FINISHING,
+        ]);
+        const variantQuantitiesForAlerts = inventory.reduce(
+            (acc, item) => {
+                const slug = item.location?.slug;
+                if (slug && allowedLocationSlugs.has(slug)) {
+                    acc[item.productVariantId] =
+                        (acc[item.productVariantId] || 0) +
+                        item.quantity.toNumber();
+                }
+                return acc;
+            },
+            {} as Record<string, number>,
+        );
 
-        const lowStockCount = lowStockVariants.filter(variant => {
+        const lowStockCount = lowStockVariants.filter((variant) => {
             const totalForAlert = variantQuantitiesForAlerts[variant.id] || 0;
             const threshold = variant.minStockAlert?.toNumber() || 0;
             return totalForAlert < threshold;
@@ -238,10 +273,10 @@ export class InventoryQueryService {
 
         const reorderVariants = await prisma.productVariant.findMany({
             where: { reorderPoint: { not: null } },
-            select: { id: true, reorderPoint: true }
+            select: { id: true, reorderPoint: true },
         });
 
-        const suggestedPurchasesCount = reorderVariants.filter(variant => {
+        const suggestedPurchasesCount = reorderVariants.filter((variant) => {
             const total = variantQuantitiesAll[variant.id] || 0;
             const reorderPoint = variant.reorderPoint?.toNumber() || 0;
             return total < reorderPoint;
@@ -250,9 +285,9 @@ export class InventoryQueryService {
         const recentMovements = await prisma.stockMovement.count({
             where: {
                 createdAt: {
-                    gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                }
-            }
+                    gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                },
+            },
         });
 
         return {
@@ -260,7 +295,7 @@ export class InventoryQueryService {
             totalStock,
             lowStockCount,
             recentMovements,
-            suggestedPurchasesCount
+            suggestedPurchasesCount,
         };
     }
 }

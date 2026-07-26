@@ -8,23 +8,50 @@ import {
     type Resolver,
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createGoodsReceiptSchema, CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
+import {
+    createGoodsReceiptSchema,
+    CreateGoodsReceiptValues,
+} from '@/lib/schemas/purchasing';
 import { createGoodsReceipt } from '@/actions/purchasing/purchasing';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Plus, Trash2, Package, Info } from 'lucide-react';
 import { ProductCombobox } from '@/components/products/product-combobox';
 import { purchasingLabels, formLabels } from '@/lib/labels';
 
 interface MaklonGoodsReceiptFormProps {
     customers: { id: string; name: string }[];
-    productVariants: { id: string; name: string; skuCode: string; defaultCost?: number | null }[];
+    productVariants: {
+        id: string;
+        name: string;
+        skuCode: string;
+        defaultCost?: number | null;
+    }[];
     locations: { id: string; name: string }[];
     defaultLocationId?: string;
     basePath?: string;
@@ -35,7 +62,7 @@ export function MaklonGoodsReceiptForm({
     productVariants,
     locations,
     defaultLocationId,
-    basePath = '/warehouse/incoming'
+    basePath = '/warehouse/incoming',
 }: MaklonGoodsReceiptFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -50,13 +77,13 @@ export function MaklonGoodsReceiptForm({
             receivedDate: new Date(),
             locationId: defaultLocationId || '',
             notes: 'Penerimaan material maklon',
-            items: [{ productVariantId: '', receivedQty: 1, unitCost: 0 }]
-        }
+            items: [{ productVariantId: '', receivedQty: 1, unitCost: 0 }],
+        },
     });
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
-        name: "items"
+        name: 'items',
     });
 
     const onSubmit: SubmitHandler<CreateGoodsReceiptValues> = async (data) => {
@@ -64,7 +91,10 @@ export function MaklonGoodsReceiptForm({
         try {
             const result = await createGoodsReceipt(data);
             if (!result.success) {
-                toast.error(result.error || 'Gagal memproses penerimaan maklon. Silakan coba lagi.');
+                toast.error(
+                    result.error ||
+                        'Gagal memproses penerimaan maklon. Silakan coba lagi.',
+                );
                 setIsLoading(false);
                 return;
             }
@@ -91,24 +121,39 @@ export function MaklonGoodsReceiptForm({
                                     <Package className="h-5 w-5 text-muted-foreground" />
                                     Penerimaan Material Maklon
                                 </CardTitle>
-                                <CardDescription>Daftarkan material yang disuplai oleh customer untuk produksi maklon.</CardDescription>
+                                <CardDescription>
+                                    Daftarkan material yang disuplai oleh
+                                    customer untuk produksi maklon.
+                                </CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
                                     {fields.map((field, index) => (
-                                        <div key={field.id} className="p-4 border rounded-lg bg-muted/30 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                                        <div
+                                            key={field.id}
+                                            className="p-4 border rounded-lg bg-muted/30 grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
+                                        >
                                             <div className="md:col-span-6">
                                                 <FormField
                                                     control={form.control}
                                                     name={`items.${index}.productVariantId`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-xs">Produk / Material</FormLabel>
+                                                            <FormLabel className="text-xs">
+                                                                Produk /
+                                                                Material
+                                                            </FormLabel>
                                                             <FormControl>
                                                                 <ProductCombobox
-                                                                    products={productVariants}
-                                                                    value={field.value}
-                                                                    onValueChange={field.onChange}
+                                                                    products={
+                                                                        productVariants
+                                                                    }
+                                                                    value={
+                                                                        field.value
+                                                                    }
+                                                                    onValueChange={
+                                                                        field.onChange
+                                                                    }
                                                                     placeholder="Pilih bahan baku..."
                                                                     className="h-9 w-full justify-start border-input bg-background"
                                                                 />
@@ -125,12 +170,24 @@ export function MaklonGoodsReceiptForm({
                                                     name={`items.${index}.receivedQty`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-xs">{formLabels.qty}</FormLabel>
+                                                            <FormLabel className="text-xs">
+                                                                {formLabels.qty}
+                                                            </FormLabel>
                                                             <FormControl>
                                                                 <Input
                                                                     type="number"
                                                                     {...field}
-                                                                    onChange={e => field.onChange(Number(e.target.value))}
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) =>
+                                                                        field.onChange(
+                                                                            Number(
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            ),
+                                                                        )
+                                                                    }
                                                                     className="h-9"
                                                                     min={1}
                                                                 />
@@ -147,12 +204,24 @@ export function MaklonGoodsReceiptForm({
                                                     name={`items.${index}.unitCost`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-xs">Biaya Valuasi</FormLabel>
+                                                            <FormLabel className="text-xs">
+                                                                Biaya Valuasi
+                                                            </FormLabel>
                                                             <FormControl>
                                                                 <Input
                                                                     type="number"
                                                                     {...field}
-                                                                    onChange={e => field.onChange(Number(e.target.value))}
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) =>
+                                                                        field.onChange(
+                                                                            Number(
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            ),
+                                                                        )
+                                                                    }
                                                                     className="h-9"
                                                                     min={0}
                                                                 />
@@ -168,8 +237,12 @@ export function MaklonGoodsReceiptForm({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => remove(index)}
-                                                    disabled={fields.length === 1}
+                                                    onClick={() =>
+                                                        remove(index)
+                                                    }
+                                                    disabled={
+                                                        fields.length === 1
+                                                    }
                                                     className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-50 focus:ring-0"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -182,10 +255,17 @@ export function MaklonGoodsReceiptForm({
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            onClick={() => append({ productVariantId: '', receivedQty: 1, unitCost: 0 })}
+                                            onClick={() =>
+                                                append({
+                                                    productVariantId: '',
+                                                    receivedQty: 1,
+                                                    unitCost: 0,
+                                                })
+                                            }
                                             className="w-full border-dashed text-muted-foreground"
                                         >
-                                            <Plus className="h-4 w-4 mr-2" /> Tambah Material
+                                            <Plus className="h-4 w-4 mr-2" />{' '}
+                                            Tambah Material
                                         </Button>
                                     </div>
                                 </div>
@@ -194,7 +274,9 @@ export function MaklonGoodsReceiptForm({
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Informasi Tambahan</CardTitle>
+                                <CardTitle className="text-sm">
+                                    Informasi Tambahan
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <FormField
@@ -202,9 +284,15 @@ export function MaklonGoodsReceiptForm({
                                     name="notes"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs">{formLabels.notes}</FormLabel>
+                                            <FormLabel className="text-xs">
+                                                {formLabels.notes}
+                                            </FormLabel>
                                             <FormControl>
-                                                <Textarea {...field} className="h-20" placeholder="Kondisi barang, deviasi, dll." />
+                                                <Textarea
+                                                    {...field}
+                                                    className="h-20"
+                                                    placeholder="Kondisi barang, deviasi, dll."
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -217,8 +305,12 @@ export function MaklonGoodsReceiptForm({
                     <div className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Detail Maklon</CardTitle>
-                                <CardDescription>Pemetaan customer dan lokasi.</CardDescription>
+                                <CardTitle className="text-sm">
+                                    Detail Maklon
+                                </CardTitle>
+                                <CardDescription>
+                                    Pemetaan customer dan lokasi.
+                                </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <FormField
@@ -226,16 +318,28 @@ export function MaklonGoodsReceiptForm({
                                     name="customerId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-bold">Customer Maklon</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                                            <FormLabel className="text-xs font-bold">
+                                                Customer Maklon
+                                            </FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                defaultValue={
+                                                    field.value || undefined
+                                                }
+                                            >
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Pilih customer..." />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {customers.map(c => (
-                                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                                    {customers.map((c) => (
+                                                        <SelectItem
+                                                            key={c.id}
+                                                            value={c.id}
+                                                        >
+                                                            {c.name}
+                                                        </SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -249,16 +353,28 @@ export function MaklonGoodsReceiptForm({
                                     name="locationId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-bold">{purchasingLabels.destinationWarehouse}</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormLabel className="text-xs font-bold">
+                                                {
+                                                    purchasingLabels.destinationWarehouse
+                                                }
+                                            </FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                defaultValue={field.value}
+                                            >
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Pilih lokasi" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {locations.map(loc => (
-                                                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                                                    {locations.map((loc) => (
+                                                        <SelectItem
+                                                            key={loc.id}
+                                                            value={loc.id}
+                                                        >
+                                                            {loc.name}
+                                                        </SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -272,11 +388,25 @@ export function MaklonGoodsReceiptForm({
                                     name="receivedDate"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel className="text-xs font-bold">{purchasingLabels.grDate}</FormLabel>
+                                            <FormLabel className="text-xs font-bold">
+                                                {purchasingLabels.grDate}
+                                            </FormLabel>
                                             <Input
                                                 type="date"
-                                                value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                                onChange={e => field.onChange(new Date(e.target.value))}
+                                                value={
+                                                    field.value
+                                                        ? new Date(field.value)
+                                                              .toISOString()
+                                                              .split('T')[0]
+                                                        : ''
+                                                }
+                                                onChange={(e) =>
+                                                    field.onChange(
+                                                        new Date(
+                                                            e.target.value,
+                                                        ),
+                                                    )
+                                                }
                                                 className="h-10"
                                             />
                                             <FormMessage />
@@ -287,7 +417,10 @@ export function MaklonGoodsReceiptForm({
                                 <div className="bg-muted/50 p-3 rounded-md border border-border flex gap-3 mt-4">
                                     <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                     <div className="text-[11px] text-muted-foreground">
-                                        Penerimaan Maklon tidak ditautkan ke Purchase Order. Biaya Valuasi digunakan untuk tujuan pelaporan saja, karena tidak ada invoice yang akan dibuat.
+                                        Penerimaan Maklon tidak ditautkan ke
+                                        Purchase Order. Biaya Valuasi digunakan
+                                        untuk tujuan pelaporan saja, karena
+                                        tidak ada invoice yang akan dibuat.
                                     </div>
                                 </div>
 
@@ -296,7 +429,9 @@ export function MaklonGoodsReceiptForm({
                                     disabled={isLoading || fields.length === 0}
                                     className="w-full h-11"
                                 >
-                                    {isLoading ? "Memproses..." : (
+                                    {isLoading ? (
+                                        'Memproses...'
+                                    ) : (
                                         <>
                                             <Package className="mr-2 h-4 w-4" />
                                             Simpan Penerimaan Maklon

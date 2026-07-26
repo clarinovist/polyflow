@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  const rows = await prisma.$queryRaw`
+    const rows = await prisma.$queryRaw`
     WITH movement_groups AS (
       SELECT
         sm."productionOrderId",
@@ -39,31 +39,33 @@ async function main() {
     ORDER BY po."orderNumber", pv."skuCode", mg.base_reference
   `;
 
-  if (rows.length === 0) {
-    console.log('No duplicate production void anomalies found.');
-    return;
-  }
+    if (rows.length === 0) {
+        console.log('No duplicate production void anomalies found.');
+        return;
+    }
 
-  console.log('Duplicate production void anomalies:');
-  for (const row of rows) {
-    console.log([
-      row.orderNumber,
-      row.skuCode,
-      row.base_reference,
-      `original=${row.original_qty}`,
-      `void=${row.void_qty}`,
-      `excess=${row.excess_void_qty}`,
-      `original_count=${row.original_count}`,
-      `void_count=${row.void_count}`,
-    ].join(' | '));
-  }
+    console.log('Duplicate production void anomalies:');
+    for (const row of rows) {
+        console.log(
+            [
+                row.orderNumber,
+                row.skuCode,
+                row.base_reference,
+                `original=${row.original_qty}`,
+                `void=${row.void_qty}`,
+                `excess=${row.excess_void_qty}`,
+                `original_count=${row.original_count}`,
+                `void_count=${row.void_count}`,
+            ].join(' | '),
+        );
+    }
 }
 
 main()
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+    .catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+    })
+    .finally(async () => {
+        await prisma.$disconnect();
+    });

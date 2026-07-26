@@ -39,11 +39,13 @@ export function DepreciationDialog() {
             if (!res.success) {
                 toast.error(res.error || 'Gagal menjalankan depresiasi');
             } else {
-                toast.success(`Depresiasi untuk ${res.data?.count || 0} aset berhasil diproses.`);
+                toast.success(
+                    `Depresiasi untuk ${res.data?.count || 0} aset berhasil diproses.`,
+                );
                 setOpen(false);
             }
         } catch (_error) {
-            toast.error("Gagal menghitung depresiasi. Silakan coba lagi.")
+            toast.error('Gagal menghitung depresiasi. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -62,33 +64,54 @@ export function DepreciationDialog() {
                     <DialogHeader>
                         <DialogTitle>Monthly Depreciation</DialogTitle>
                         <DialogDescription>
-                            Generate journals for all active fixed assets for the selected period.
+                            Generate journals for all active fixed assets for
+                            the selected period.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="year" className="text-right">Year</Label>
+                            <Label htmlFor="year" className="text-right">
+                                Year
+                            </Label>
                             <Select value={year} onValueChange={setYear}>
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {[currentYear - 1, currentYear].map(y => (
-                                        <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                                    {[currentYear - 1, currentYear].map((y) => (
+                                        <SelectItem
+                                            key={y}
+                                            value={y.toString()}
+                                        >
+                                            {y}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="month" className="text-right">Month</Label>
+                            <Label htmlFor="month" className="text-right">
+                                Month
+                            </Label>
                             <Select value={month} onValueChange={setMonth}>
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                        <SelectItem key={m} value={m.toString()}>
-                                            {new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}
+                                    {Array.from(
+                                        { length: 12 },
+                                        (_, i) => i + 1,
+                                    ).map((m) => (
+                                        <SelectItem
+                                            key={m}
+                                            value={m.toString()}
+                                        >
+                                            {new Date(
+                                                2000,
+                                                m - 1,
+                                            ).toLocaleString('default', {
+                                                month: 'long',
+                                            })}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

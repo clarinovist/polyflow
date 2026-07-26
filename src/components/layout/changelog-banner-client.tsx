@@ -17,11 +17,16 @@ interface ChangelogBannerClientProps {
     notesHtml: string;
 }
 
-export function ChangelogBannerClient({ version, notesHtml }: ChangelogBannerClientProps) {
+export function ChangelogBannerClient({
+    version,
+    notesHtml,
+}: ChangelogBannerClientProps) {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        const dismissed = localStorage.getItem(`dismissed_changelog_${version}`);
+        const dismissed = localStorage.getItem(
+            `dismissed_changelog_${version}`,
+        );
         if (!dismissed) {
             setIsVisible(true);
         }
@@ -42,13 +47,26 @@ export function ChangelogBannerClient({ version, notesHtml }: ChangelogBannerCli
                         <Sparkles className="h-4 w-4" />
                         <span>What&apos;s New in {version}</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10" onClick={handleDismiss}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                        onClick={handleDismiss}
+                    >
                         <X className="h-3 w-3" />
                     </Button>
                 </div>
                 <div className="p-4 text-xs text-muted-foreground max-h-64 overflow-y-auto">
                     {/* notesHtml comes from local CHANGELOG.md parser and is sanitized before render as defense-in-depth */}
-                    <div className="space-y-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notesHtml, CHANGELOG_SANITIZE_CONFIG) }} />
+                    <div
+                        className="space-y-1"
+                        dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(
+                                notesHtml,
+                                CHANGELOG_SANITIZE_CONFIG,
+                            ),
+                        }}
+                    />
                 </div>
             </Card>
         </div>

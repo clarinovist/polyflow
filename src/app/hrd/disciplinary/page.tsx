@@ -9,8 +9,12 @@ export default function DisciplinaryPage() {
                     <Gavel className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight uppercase">Sanksi Disiplin</h1>
-                    <p className="text-sm text-muted-foreground">Riwayat SP / teguran / skorsing karyawan</p>
+                    <h1 className="text-2xl font-black tracking-tight uppercase">
+                        Sanksi Disiplin
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Riwayat SP / teguran / skorsing karyawan
+                    </p>
                 </div>
             </div>
             <DisciplinaryManager />

@@ -2,16 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { getTrialBalance } from '@/actions/finance/accounting';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
 import { RotateCw, Download } from 'lucide-react';
 import { useCallback } from 'react';
-import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
+import {
+    downloadCsv,
+    rupiahForCsv,
+    reportFilename,
+} from '@/lib/utils/csv-export';
 
 interface TrialBalanceItem {
     id: string;
@@ -27,21 +38,29 @@ export default function TrialBalancePage() {
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), 0, 1),
-        to: new Date()
+        to: new Date(),
     });
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await getTrialBalance(dateRange?.from, dateRange?.to);
+            const result = await getTrialBalance(
+                dateRange?.from,
+                dateRange?.to,
+            );
             if (result && 'success' in result && result.success) {
                 setData(result.data as unknown as TrialBalanceItem[]);
             } else {
-                console.error("Failed to load trial balance:", result && 'error' in result ? result.error : 'Unknown error');
+                console.error(
+                    'Failed to load trial balance:',
+                    result && 'error' in result
+                        ? result.error
+                        : 'Unknown error',
+                );
                 setData([]);
             }
         } catch (error) {
-            console.error("Failed to load trial balance", error);
+            console.error('Failed to load trial balance', error);
             setData([]);
         } finally {
             setLoading(false);
@@ -53,30 +72,53 @@ export default function TrialBalancePage() {
     }, [fetchData]);
 
     const totalDebit = data.reduce((sum, item) => sum + Number(item.debit), 0);
-    const totalCredit = data.reduce((sum, item) => sum + Number(item.credit), 0);
+    const totalCredit = data.reduce(
+        (sum, item) => sum + Number(item.credit),
+        0,
+    );
 
     const handleDownload = () => {
         if (data.length === 0) return;
-        const headers = ['Kode Akun', 'Nama Akun', 'Debit', 'Kredit', 'Saldo Bersih'];
-        const rows: (string | number)[][] = data.map(item => [
+        const headers = [
+            'Kode Akun',
+            'Nama Akun',
+            'Debit',
+            'Kredit',
+            'Saldo Bersih',
+        ];
+        const rows: (string | number)[][] = data.map((item) => [
             item.code,
             item.name,
             rupiahForCsv(Number(item.debit)),
             rupiahForCsv(Number(item.credit)),
             rupiahForCsv(item.netBalance),
         ]);
-        rows.push(['', 'TOTAL', rupiahForCsv(totalDebit), rupiahForCsv(totalCredit), rupiahForCsv(totalDebit - totalCredit)]);
+        rows.push([
+            '',
+            'TOTAL',
+            rupiahForCsv(totalDebit),
+            rupiahForCsv(totalCredit),
+            rupiahForCsv(totalDebit - totalCredit),
+        ]);
 
-        const fromStr = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '';
+        const fromStr = dateRange?.from
+            ? format(dateRange.from, 'yyyy-MM-dd')
+            : '';
         const toStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '';
-        downloadCsv(reportFilename('Neraca_Saldo', `${fromStr}_${toStr}`), headers, rows);
+        downloadCsv(
+            reportFilename('Neraca_Saldo', `${fromStr}_${toStr}`),
+            headers,
+            rows,
+        );
     };
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Neraca Saldo</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Neraca Saldo
+                    </h1>
                     <p className="text-muted-foreground">
                         Saldo akun untuk periode yang dipilih.
                     </p>
@@ -89,7 +131,12 @@ export default function TrialBalancePage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={data.length === 0}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleDownload}
+                        disabled={data.length === 0}
+                    >
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
@@ -106,21 +153,33 @@ export default function TrialBalancePage() {
                                 <TableRow>
                                     <TableHead>Kode Akun</TableHead>
                                     <TableHead>Nama Akun</TableHead>
-                                    <TableHead className="text-right">Debit</TableHead>
-                                    <TableHead className="text-right">Kredit</TableHead>
-                                    <TableHead className="text-right">Saldo Bersih</TableHead>
+                                    <TableHead className="text-right">
+                                        Debit
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Kredit
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Saldo Bersih
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell
+                                            colSpan={5}
+                                            className="h-24 text-center"
+                                        >
                                             Memuat...
                                         </TableCell>
                                     </TableRow>
                                 ) : data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell
+                                            colSpan={5}
+                                            className="h-24 text-center"
+                                        >
                                             Tidak ada data
                                         </TableCell>
                                     </TableRow>
@@ -128,23 +187,55 @@ export default function TrialBalancePage() {
                                     <>
                                         {data.map((item) => (
                                             <TableRow key={item.id}>
-                                                <TableCell className="font-mono">{item.code}</TableCell>
-                                                <TableCell>{item.name}</TableCell>
-                                                <TableCell className="text-right">{item.debit > 0 ? formatRupiah(item.debit) : '-'}</TableCell>
-                                                <TableCell className="text-right">{item.credit > 0 ? formatRupiah(item.credit) : '-'}</TableCell>
-                                                <TableCell className={`text-right font-medium`}>
-                                                    {formatRupiah(item.netBalance)}
+                                                <TableCell className="font-mono">
+                                                    {item.code}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.name}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {item.debit > 0
+                                                        ? formatRupiah(
+                                                              item.debit,
+                                                          )
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {item.credit > 0
+                                                        ? formatRupiah(
+                                                              item.credit,
+                                                          )
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={`text-right font-medium`}
+                                                >
+                                                    {formatRupiah(
+                                                        item.netBalance,
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                         <TableRow className="bg-muted/50 font-bold border-t-2">
-                                            <TableCell colSpan={2}>Total</TableCell>
-                                            <TableCell className="text-right text-green-600">{formatRupiah(totalDebit)}</TableCell>
-                                            <TableCell className="text-right text-green-600">{formatRupiah(totalCredit)}</TableCell>
+                                            <TableCell colSpan={2}>
+                                                Total
+                                            </TableCell>
+                                            <TableCell className="text-right text-green-600">
+                                                {formatRupiah(totalDebit)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-green-600">
+                                                {formatRupiah(totalCredit)}
+                                            </TableCell>
                                             <TableCell className="text-right">
-                                                {formatRupiah(totalDebit - totalCredit)}
-                                                {Math.abs(totalDebit - totalCredit) > 0.01 && (
-                                                    <span className="ml-2 text-xs text-red-500 bg-red-100 px-1 rounded">TIDAK SEIMBANG</span>
+                                                {formatRupiah(
+                                                    totalDebit - totalCredit,
+                                                )}
+                                                {Math.abs(
+                                                    totalDebit - totalCredit,
+                                                ) > 0.01 && (
+                                                    <span className="ml-2 text-xs text-red-500 bg-red-100 px-1 rounded">
+                                                        TIDAK SEIMBANG
+                                                    </span>
                                                 )}
                                             </TableCell>
                                         </TableRow>

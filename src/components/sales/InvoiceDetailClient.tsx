@@ -16,7 +16,12 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatRupiah, cn } from '@/lib/utils/utils';
-import { getStatusLabel, salesLabels, formLabels, actionLabels } from '@/lib/labels';
+import {
+    getStatusLabel,
+    salesLabels,
+    formLabels,
+    actionLabels,
+} from '@/lib/labels';
 import { InvoiceStatus } from '@prisma/client';
 import { Printer, CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
 import { updateInvoiceStatus } from '@/actions/finance/invoice';
@@ -85,24 +90,40 @@ interface InvoiceDetailClientProps {
     paymentBanks?: TenantPaymentBanks;
 }
 
-export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetailClientProps) {
+export function InvoiceDetailClient({
+    invoice,
+    paymentBanks = {},
+}: InvoiceDetailClientProps) {
     const router = useRouter();
     const [isUpdating, setIsUpdating] = useState(false);
-    const [paymentAmount, setPaymentAmount] = useState<number>(Number(invoice.totalAmount) - Number(invoice.paidAmount));
+    const [paymentAmount, setPaymentAmount] = useState<number>(
+        Number(invoice.totalAmount) - Number(invoice.paidAmount),
+    );
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+        DEFAULT_PAYMENT_METHOD,
+    );
     const [referenceNumber, setReferenceNumber] = useState('');
-    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>('');
+    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>(
+        '',
+    );
 
     const getStatusColor = (status: InvoiceStatus) => {
         switch (status) {
-            case 'PAID': return 'bg-green-100 text-green-800 hover:bg-green-200';
-            case 'PARTIAL': return 'bg-amber-100 text-amber-800 hover:bg-amber-200';
-            case 'UNPAID': return 'bg-slate-100 text-slate-800 hover:bg-slate-200';
-            case 'DRAFT': return 'bg-sky-50 text-sky-700 border-sky-100';
-            case 'OVERDUE' as InvoiceStatus: return 'bg-red-100 text-red-800 hover:bg-red-200';
-            case 'CANCELLED': return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
-            default: return 'bg-gray-100 text-gray-800';
+            case 'PAID':
+                return 'bg-green-100 text-green-800 hover:bg-green-200';
+            case 'PARTIAL':
+                return 'bg-amber-100 text-amber-800 hover:bg-amber-200';
+            case 'UNPAID':
+                return 'bg-slate-100 text-slate-800 hover:bg-slate-200';
+            case 'DRAFT':
+                return 'bg-sky-50 text-sky-700 border-sky-100';
+            case 'OVERDUE' as InvoiceStatus:
+                return 'bg-red-100 text-red-800 hover:bg-red-200';
+            case 'CANCELLED':
+                return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+            default:
+                return 'bg-gray-100 text-gray-800';
         }
     };
 
@@ -126,19 +147,28 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
                 paymentDate: new Date(),
                 method: paymentMethod,
                 notes: 'Recorded from sales invoice detail',
-                referenceNumber: paymentMethod === 'Check' ? referenceNumber.trim() : undefined,
-                destinationBank: paymentMethod === 'Check' ? destinationBank : undefined,
+                referenceNumber:
+                    paymentMethod === 'Check'
+                        ? referenceNumber.trim()
+                        : undefined,
+                destinationBank:
+                    paymentMethod === 'Check' ? destinationBank : undefined,
             });
 
             if (result.success) {
-                toast.success(`Pembayaran ${formatRupiah(paymentAmount)} berhasil dicatat.`);
+                toast.success(
+                    `Pembayaran ${formatRupiah(paymentAmount)} berhasil dicatat.`,
+                );
                 setIsPaymentDialogOpen(false);
                 setPaymentMethod(DEFAULT_PAYMENT_METHOD);
                 setReferenceNumber('');
                 setDestinationBank('');
                 router.refresh();
             } else {
-                toast.error(result.error || 'Gagal memperbarui invoice. Silakan coba lagi.');
+                toast.error(
+                    result.error ||
+                        'Gagal memperbarui invoice. Silakan coba lagi.',
+                );
             }
         } catch (_error) {
             toast.error('Gagal memproses invoice. Silakan coba lagi.');
@@ -147,20 +177,28 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
         }
     };
 
-    const remainingAmount = Number(invoice.totalAmount) - Number(invoice.paidAmount);
+    const remainingAmount =
+        Number(invoice.totalAmount) - Number(invoice.paidAmount);
 
     return (
         <div className="space-y-6">
             {/* Header / Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" onClick={() => router.back()}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => router.back()}
+                    >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">{invoice.invoiceNumber}</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            {invoice.invoiceNumber}
+                        </h1>
                         <p className="text-muted-foreground">
-                            {formLabels.createdOn} {format(new Date(invoice.createdAt), 'PPP')}
+                            {formLabels.createdOn}{' '}
+                            {format(new Date(invoice.createdAt), 'PPP')}
                         </p>
                     </div>
                 </div>
@@ -173,16 +211,23 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
                                 try {
                                     const result = await updateInvoiceStatus({
                                         id: invoice.id,
-                                        status: 'UNPAID'
+                                        status: 'UNPAID',
                                     });
                                     if (result.success) {
-                                        toast.success(`Invoice ${invoice.invoiceNumber} dikonfirmasi. Siap ditagih.`);
+                                        toast.success(
+                                            `Invoice ${invoice.invoiceNumber} dikonfirmasi. Siap ditagih.`,
+                                        );
                                         router.refresh();
                                     } else {
-                                        toast.error(result.error || 'Gagal mengonfirmasi invoice. Silakan coba lagi.');
+                                        toast.error(
+                                            result.error ||
+                                                'Gagal mengonfirmasi invoice. Silakan coba lagi.',
+                                        );
                                     }
                                 } catch (_error) {
-                                    toast.error('Gagal memproses invoice. Silakan coba lagi.');
+                                    toast.error(
+                                        'Gagal memproses invoice. Silakan coba lagi.',
+                                    );
                                 } finally {
                                     setIsUpdating(false);
                                 }
@@ -199,64 +244,101 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
                         Cetak
                     </Button>
 
-                    {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && (
-                        <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <CreditCard className="mr-2 h-4 w-4" />
-                                    Catat Pembayaran
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Catat Pembayaran</DialogTitle>
-                                    <DialogDescription>
-                                        Masukkan jumlah pembayaran yang diterima untuk invoice ini.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="amount" className="text-right">
-                                            Jumlah
-                                        </Label>
-                                        <Input
-                                            id="amount"
-                                            type="number"
-                                            value={paymentAmount}
-                                            onChange={(e) => {
-                                                    const normalized = e.target.value.replace(',', '.');
-                                                    const num = Number(normalized);
-                                                    setPaymentAmount(isNaN(num) ? 0 : num);
+                    {invoice.status !== 'PAID' &&
+                        invoice.status !== 'CANCELLED' && (
+                            <Dialog
+                                open={isPaymentDialogOpen}
+                                onOpenChange={setIsPaymentDialogOpen}
+                            >
+                                <DialogTrigger asChild>
+                                    <Button>
+                                        <CreditCard className="mr-2 h-4 w-4" />
+                                        Catat Pembayaran
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>
+                                            Catat Pembayaran
+                                        </DialogTitle>
+                                        <DialogDescription>
+                                            Masukkan jumlah pembayaran yang
+                                            diterima untuk invoice ini.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label
+                                                htmlFor="amount"
+                                                className="text-right"
+                                            >
+                                                Jumlah
+                                            </Label>
+                                            <Input
+                                                id="amount"
+                                                type="number"
+                                                value={paymentAmount}
+                                                onChange={(e) => {
+                                                    const normalized =
+                                                        e.target.value.replace(
+                                                            ',',
+                                                            '.',
+                                                        );
+                                                    const num =
+                                                        Number(normalized);
+                                                    setPaymentAmount(
+                                                        isNaN(num) ? 0 : num,
+                                                    );
                                                 }}
-                                            className="col-span-3"
+                                                className="col-span-3"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label className="text-right">
+                                                {salesLabels.remainingAmount}
+                                            </Label>
+                                            <div className="col-span-3 font-medium">
+                                                {formatRupiah(remainingAmount)}
+                                            </div>
+                                        </div>
+                                        <PaymentMethodFields
+                                            method={paymentMethod}
+                                            onMethodChange={setPaymentMethod}
+                                            referenceNumber={referenceNumber}
+                                            onReferenceNumberChange={
+                                                setReferenceNumber
+                                            }
+                                            destinationBank={destinationBank}
+                                            onDestinationBankChange={
+                                                setDestinationBank
+                                            }
+                                            paymentBanks={paymentBanks}
+                                            methodId="sales-invoice-method"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label className="text-right">{salesLabels.remainingAmount}</Label>
-                                        <div className="col-span-3 font-medium">
-                                            {formatRupiah(remainingAmount)}
-                                        </div>
-                                    </div>
-                                    <PaymentMethodFields
-                                        method={paymentMethod}
-                                        onMethodChange={setPaymentMethod}
-                                        referenceNumber={referenceNumber}
-                                        onReferenceNumberChange={setReferenceNumber}
-                                        destinationBank={destinationBank}
-                                        onDestinationBankChange={setDestinationBank}
-                                        paymentBanks={paymentBanks}
-                                        methodId="sales-invoice-method"
-                                    />
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>{actionLabels.cancel}</Button>
-                                    <Button onClick={handlePayment} disabled={isUpdating || paymentAmount <= 0}>
-                                        {isUpdating ? 'Menyimpan...' : 'Konfirmasi Pembayaran'}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    )}
+                                    <DialogFooter>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() =>
+                                                setIsPaymentDialogOpen(false)
+                                            }
+                                        >
+                                            {actionLabels.cancel}
+                                        </Button>
+                                        <Button
+                                            onClick={handlePayment}
+                                            disabled={
+                                                isUpdating || paymentAmount <= 0
+                                            }
+                                        >
+                                            {isUpdating
+                                                ? 'Menyimpan...'
+                                                : 'Konfirmasi Pembayaran'}
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
                 </div>
             </div>
 
@@ -271,42 +353,88 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>{formLabels.product}</TableHead>
-                                        <TableHead className="text-right">{formLabels.qty}</TableHead>
-                                        <TableHead className="text-right">{formLabels.unitPrice}</TableHead>
-                                        <TableHead className="text-right">{formLabels.subtotal}</TableHead>
+                                        <TableHead>
+                                            {formLabels.product}
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            {formLabels.qty}
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            {formLabels.unitPrice}
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            {formLabels.subtotal}
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {invoice.salesOrder.items.map((item) => (
                                         <TableRow key={item.id}>
                                             <TableCell>
-                                                <div className="font-medium">{item.productVariant.product.name}</div>
-                                                <div className="text-sm text-muted-foreground">{item.productVariant.name}</div>
+                                                <div className="font-medium">
+                                                    {
+                                                        item.productVariant
+                                                            .product.name
+                                                    }
+                                                </div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    {item.productVariant.name}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {Number(item.quantity)} {item.productVariant.salesUnit}
+                                                {Number(item.quantity)}{' '}
+                                                {item.productVariant.salesUnit}
                                             </TableCell>
-                                            <TableCell className="text-right">{formatRupiah(Number(item.unitPrice))}</TableCell>
-                                            <TableCell className="text-right">{formatRupiah(Number(item.subtotal))}</TableCell>
+                                            <TableCell className="text-right">
+                                                {formatRupiah(
+                                                    Number(item.unitPrice),
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {formatRupiah(
+                                                    Number(item.subtotal),
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-right font-bold">Total</TableCell>
+                                        <TableCell
+                                            colSpan={3}
+                                            className="text-right font-bold"
+                                        >
+                                            Total
+                                        </TableCell>
                                         <TableCell className="text-right font-bold text-lg">
-                                            {formatRupiah(Number(invoice.totalAmount))}
+                                            {formatRupiah(
+                                                Number(invoice.totalAmount),
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-right font-medium text-muted-foreground">{salesLabels.paidAmount}</TableCell>
+                                        <TableCell
+                                            colSpan={3}
+                                            className="text-right font-medium text-muted-foreground"
+                                        >
+                                            {salesLabels.paidAmount}
+                                        </TableCell>
                                         <TableCell className="text-right font-medium">
-                                            {formatRupiah(Number(invoice.paidAmount))}
+                                            {formatRupiah(
+                                                Number(invoice.paidAmount),
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-right font-bold text-red-600">{salesLabels.remainingAmount}</TableCell>
+                                        <TableCell
+                                            colSpan={3}
+                                            className="text-right font-bold text-red-600"
+                                        >
+                                            {salesLabels.remainingAmount}
+                                        </TableCell>
                                         <TableCell className="text-right font-bold text-red-600">
-                                            {formatRupiah(Number(invoice.totalAmount) - Number(invoice.paidAmount))}
+                                            {formatRupiah(
+                                                Number(invoice.totalAmount) -
+                                                    Number(invoice.paidAmount),
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 </TableBody>
@@ -324,20 +452,46 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
                         <CardContent>
                             <div className="flex flex-col gap-4">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium">Status Pembayaran</span>
-                                    <Badge className={cn("capitalize", getStatusColor(invoice.status))}>
-                                        {getStatusLabel(invoice.status, 'finance')}
+                                    <span className="text-sm font-medium">
+                                        Status Pembayaran
+                                    </span>
+                                    <Badge
+                                        className={cn(
+                                            'capitalize',
+                                            getStatusColor(invoice.status),
+                                        )}
+                                    >
+                                        {getStatusLabel(
+                                            invoice.status,
+                                            'finance',
+                                        )}
                                     </Badge>
                                 </div>
                                 <Separator />
                                 <div className="grid gap-2 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">{salesLabels.invoiceDate}</span>
-                                        <span>{format(new Date(invoice.invoiceDate), 'MMM dd, yyyy')}</span>
+                                        <span className="text-muted-foreground">
+                                            {salesLabels.invoiceDate}
+                                        </span>
+                                        <span>
+                                            {format(
+                                                new Date(invoice.invoiceDate),
+                                                'MMM dd, yyyy',
+                                            )}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">{salesLabels.dueDate}</span>
-                                        <span>{invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM dd, yyyy') : '-'}</span>
+                                        <span className="text-muted-foreground">
+                                            {salesLabels.dueDate}
+                                        </span>
+                                        <span>
+                                            {invoice.dueDate
+                                                ? format(
+                                                      new Date(invoice.dueDate),
+                                                      'MMM dd, yyyy',
+                                                  )
+                                                : '-'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -351,28 +505,54 @@ export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetai
                         <CardContent>
                             <div className="space-y-4">
                                 <div>
-                                    <div className="text-sm font-medium text-muted-foreground">{salesLabels.customer}</div>
-                                    <div className="text-lg font-semibold">{invoice.salesOrder.customer?.name || 'Legacy Internal Stock Build'}</div>
-                                    <div className="text-sm font-medium text-muted-foreground mt-2">Sales Order</div>
+                                    <div className="text-sm font-medium text-muted-foreground">
+                                        {salesLabels.customer}
+                                    </div>
+                                    <div className="text-lg font-semibold">
+                                        {invoice.salesOrder.customer?.name ||
+                                            'Legacy Internal Stock Build'}
+                                    </div>
+                                    <div className="text-sm font-medium text-muted-foreground mt-2">
+                                        Sales Order
+                                    </div>
                                     <div className="font-medium underline decoration-dotted">
                                         {invoice.salesOrder.orderNumber}
                                     </div>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">{salesLabels.customer}</h3>
-                                    <p className="font-medium">{invoice.salesOrder.customer?.name || 'Legacy Internal Stock Build'}</p>
-                                    <p className="text-sm text-muted-foreground">{invoice.salesOrder.customer?.email || ''}</p>
-                                    <p className="text-sm text-muted-foreground">{invoice.salesOrder.customer?.phone || ''}</p>
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Alamat Penagihan</h3>
+                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">
+                                        {salesLabels.customer}
+                                    </h3>
+                                    <p className="font-medium">
+                                        {invoice.salesOrder.customer?.name ||
+                                            'Legacy Internal Stock Build'}
+                                    </p>
                                     <p className="text-sm text-muted-foreground">
-                                        {invoice.salesOrder.customer?.billingAddress || 'N/A'}
+                                        {invoice.salesOrder.customer?.email ||
+                                            ''}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {invoice.salesOrder.customer?.phone ||
+                                            ''}
                                     </p>
                                 </div>
                                 <div>
-                                    <div className="text-sm font-medium text-muted-foreground">Alamat Pengiriman</div>
-                                    <div className="text-sm whitespace-pre-wrap">{invoice.salesOrder.customer?.shippingAddress || 'N/A'}</div>
+                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">
+                                        Alamat Penagihan
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {invoice.salesOrder.customer
+                                            ?.billingAddress || 'N/A'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <div className="text-sm font-medium text-muted-foreground">
+                                        Alamat Pengiriman
+                                    </div>
+                                    <div className="text-sm whitespace-pre-wrap">
+                                        {invoice.salesOrder.customer
+                                            ?.shippingAddress || 'N/A'}
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>

@@ -9,18 +9,20 @@ async function sync() {
     // 1. Sync Sales Invoices
     console.log('\n[SALES] Syncing Sales Invoices...');
     const invoices = await prisma.invoice.findMany({
-        select: { id: true, invoiceNumber: true }
+        select: { id: true, invoiceNumber: true },
     });
 
-    let sCreated = 0, sSkipped = 0, sError = 0;
+    let sCreated = 0,
+        sSkipped = 0,
+        sError = 0;
 
     for (const inv of invoices) {
         try {
             const existingJE = await prisma.journalEntry.findFirst({
                 where: {
                     referenceType: ReferenceType.SALES_INVOICE,
-                    referenceId: inv.id
-                }
+                    referenceId: inv.id,
+                },
             });
 
             if (existingJE) {
@@ -28,7 +30,9 @@ async function sync() {
                 continue;
             }
 
-            console.log(`[SYNC] Sales Invoice ${inv.invoiceNumber} missing journal. Creating...`);
+            console.log(
+                `[SYNC] Sales Invoice ${inv.invoiceNumber} missing journal. Creating...`,
+            );
             await AutoJournalService.handleSalesInvoiceCreated(inv.id);
             sCreated++;
         } catch (error) {
@@ -40,18 +44,20 @@ async function sync() {
     // 2. Sync Purchase Invoices
     console.log('\n[PURCHASE] Syncing Purchase Invoices...');
     const pInvoices = await prisma.purchaseInvoice.findMany({
-        select: { id: true, invoiceNumber: true }
+        select: { id: true, invoiceNumber: true },
     });
 
-    let pCreated = 0, pSkipped = 0, pError = 0;
+    let pCreated = 0,
+        pSkipped = 0,
+        pError = 0;
 
     for (const inv of pInvoices) {
         try {
             const existingJE = await prisma.journalEntry.findFirst({
                 where: {
                     referenceType: ReferenceType.PURCHASE_INVOICE,
-                    referenceId: inv.id
-                }
+                    referenceId: inv.id,
+                },
             });
 
             if (existingJE) {
@@ -59,7 +65,9 @@ async function sync() {
                 continue;
             }
 
-            console.log(`[SYNC] Purchase Invoice ${inv.invoiceNumber} missing journal. Creating...`);
+            console.log(
+                `[SYNC] Purchase Invoice ${inv.invoiceNumber} missing journal. Creating...`,
+            );
             await AutoJournalService.handlePurchaseInvoiceCreated(inv.id);
             pCreated++;
         } catch (error) {
@@ -69,8 +77,12 @@ async function sync() {
     }
 
     console.log('\n--- Sync Results ---');
-    console.log(`Sales    - Created: ${sCreated}, Skipped: ${sSkipped}, Errors: ${sError}`);
-    console.log(`Purchase - Created: ${pCreated}, Skipped: ${pSkipped}, Errors: ${pError}`);
+    console.log(
+        `Sales    - Created: ${sCreated}, Skipped: ${sSkipped}, Errors: ${sError}`,
+    );
+    console.log(
+        `Purchase - Created: ${pCreated}, Skipped: ${pSkipped}, Errors: ${pError}`,
+    );
 
     await prisma.$disconnect();
 }

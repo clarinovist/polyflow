@@ -1,6 +1,6 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { InventoryMovementService } from '@/services/inventory/movement-service';
@@ -15,31 +15,30 @@ export interface ValidatedStockItem {
 }
 
 export const getStockImportLookups = withTenant(
-async function getStockImportLookups() {
-    return safeAction(async () => {
-        await requireAuth();
+    async function getStockImportLookups() {
+        return safeAction(async () => {
+            await requireAuth();
 
-        const [products, locations] = await Promise.all([
-            prisma.productVariant.findMany({
-                select: { id: true, skuCode: true }
-            }),
-            prisma.location.findMany({
-                select: { id: true, name: true }
-            })
-        ]);
+            const [products, locations] = await Promise.all([
+                prisma.productVariant.findMany({
+                    select: { id: true, skuCode: true },
+                }),
+                prisma.location.findMany({
+                    select: { id: true, name: true },
+                }),
+            ]);
 
-        return {
-            products: products.map(p => ({ id: p.id, sku: p.skuCode })),
-            locations: locations.map(l => ({ id: l.id, name: l.name }))
-        };
-    });
-}
+            return {
+                products: products.map((p) => ({ id: p.id, sku: p.skuCode })),
+                locations: locations.map((l) => ({ id: l.id, name: l.name })),
+            };
+        });
+    },
 );
 
-export const importInitialStock = withTenant(
-async function importInitialStock(
+export const importInitialStock = withTenant(async function importInitialStock(
     items: ValidatedStockItem[],
-    reason: string = "Stock Import"
+    reason: string = 'Stock Import',
 ) {
     return safeAction(async () => {
         const session = await requireAuth();
@@ -63,15 +62,18 @@ async function importInitialStock(
             for (const [locationId, locationItems] of itemsByLocation) {
                 const bulkData = {
                     locationId,
-                    items: locationItems.map(item => ({
+                    items: locationItems.map((item) => ({
                         productVariantId: item.productVariantId,
                         type: 'ADJUSTMENT_IN' as const,
                         quantity: item.quantity,
-                        reason: reason
-                    }))
+                        reason: reason,
+                    })),
                 };
 
-                await InventoryMovementService.adjustStockBulk(bulkData, userId);
+                await InventoryMovementService.adjustStockBulk(
+                    bulkData,
+                    userId,
+                );
                 totalImported += locationItems.length;
             }
 
@@ -79,11 +81,16 @@ async function importInitialStock(
             revalidatePath('/warehouse/inventory/history');
 
             return { imported: totalImported };
-
         } catch (error) {
-            logger.error('Failed to import stock', { error, module: 'StockImportActions' });
-            throw new BusinessRuleError(error instanceof Error ? error.message : "Internal server error");
+            logger.error('Failed to import stock', {
+                error,
+                module: 'StockImportActions',
+            });
+            throw new BusinessRuleError(
+                error instanceof Error
+                    ? error.message
+                    : 'Internal server error',
+            );
         }
     });
-}
-);
+});

@@ -1,17 +1,39 @@
 'use client';
 
-import { SalesQuotation, SalesQuotationItem, ProductVariant, Product, Customer, User, SalesOrder } from '@prisma/client';
+import {
+    SalesQuotation,
+    SalesQuotationItem,
+    ProductVariant,
+    Product,
+    Customer,
+    User,
+    SalesOrder,
+} from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, FileText, User as UserIcon, CheckCircle2, ArrowRight, Printer, Pencil } from 'lucide-react';
+import {
+    ArrowLeft,
+    Calendar,
+    FileText,
+    User as UserIcon,
+    CheckCircle2,
+    ArrowRight,
+    Printer,
+    Pencil,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { convertToOrder } from '@/actions/sales/quotations'; // We need updateQuotation to change status?
 import { toast } from 'sonner';
 import { useState } from 'react';
-import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
+import {
+    salesLabels,
+    formLabels,
+    actionLabels,
+    getStatusLabel,
+} from '@/lib/labels';
 import {
     Dialog,
     DialogContent,
@@ -20,16 +42,19 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from '@/lib/utils/production-units';
+import {
+    getEnteredQuantityDisplay,
+    getEnteredUnitPriceDisplay,
+} from '@/lib/utils/production-units';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { SalesQuotationPrint } from './SalesQuotationPrint';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
@@ -54,7 +79,10 @@ interface SalesQuotationDetailClientProps {
     locations: { id: string; name: string; slug: string }[]; // Needed for conversion to choose source location
 }
 
-export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotationDetailClientProps) {
+export function SalesQuotationDetailClient({
+    quotation,
+    locations,
+}: SalesQuotationDetailClientProps) {
     const router = useRouter();
     const [isConverting, setIsConverting] = useState(false);
     const [selectedLocationId, setSelectedLocationId] = useState<string>('');
@@ -66,23 +94,33 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
 
     const handleConvert = async () => {
         if (!selectedLocationId) {
-            toast.error("Silakan pilih lokasi gudang sumber untuk pesanan.");
+            toast.error('Silakan pilih lokasi gudang sumber untuk pesanan.');
             return;
         }
 
         setIsConverting(true);
         try {
-            const result = await convertToOrder(quotation.id, selectedLocationId);
+            const result = await convertToOrder(
+                quotation.id,
+                selectedLocationId,
+            );
             if (!result.success) {
-                toast.error(result.error || "Gagal mengonversi quotation. Silakan coba lagi.");
+                toast.error(
+                    result.error ||
+                        'Gagal mengonversi quotation. Silakan coba lagi.',
+                );
                 return;
             }
             if (result.data) {
-                toast.success('Quotation berhasil dikonversi menjadi Sales Order!');
-                router.push(`/sales/orders/${(result.data as { id: string }).id}`);
+                toast.success(
+                    'Quotation berhasil dikonversi menjadi Sales Order!',
+                );
+                router.push(
+                    `/sales/orders/${(result.data as { id: string }).id}`,
+                );
             }
         } catch {
-            toast.error("Gagal mengonversi quotation. Silakan coba lagi.");
+            toast.error('Gagal mengonversi quotation. Silakan coba lagi.');
         } finally {
             setIsConverting(false);
             setIsConvertDialogOpen(false);
@@ -91,72 +129,134 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'DRAFT': return 'bg-slate-100 text-slate-800 border-slate-200';
-            case 'SENT': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'ACCEPTED': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-            case 'REJECTED': return 'bg-red-100 text-red-800 border-red-200';
-            case 'EXPIRED': return 'bg-amber-100 text-amber-800 border-amber-200';
-            case 'CONVERTED': return 'bg-purple-100 text-purple-800 border-purple-200';
-            default: return 'bg-slate-100 text-slate-800';
+            case 'DRAFT':
+                return 'bg-slate-100 text-slate-800 border-slate-200';
+            case 'SENT':
+                return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'ACCEPTED':
+                return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            case 'REJECTED':
+                return 'bg-red-100 text-red-800 border-red-200';
+            case 'EXPIRED':
+                return 'bg-amber-100 text-amber-800 border-amber-200';
+            case 'CONVERTED':
+                return 'bg-purple-100 text-purple-800 border-purple-200';
+            default:
+                return 'bg-slate-100 text-slate-800';
         }
     };
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <Button variant="ghost" className="gap-2" onClick={() => router.back()}>
+                <Button
+                    variant="ghost"
+                    className="gap-2"
+                    onClick={() => router.back()}
+                >
                     <ArrowLeft className="h-4 w-4" /> Kembali ke Penawaran
                 </Button>
                 <div className="flex items-center gap-2">
-                    {quotation.status !== 'CONVERTED' && quotation.status !== 'EXPIRED' && quotation.status !== 'REJECTED' && (
-                        <Button variant="outline" className="gap-2" onClick={() => router.push(`/sales/quotations/${quotation.id}/edit`)}>
-                            <Pencil className="h-4 w-4" /> Edit
-                        </Button>
-                    )}
-                    <Button variant="outline" className="gap-2" onClick={() => setIsPrintModalOpen(true)}>
+                    {quotation.status !== 'CONVERTED' &&
+                        quotation.status !== 'EXPIRED' &&
+                        quotation.status !== 'REJECTED' && (
+                            <Button
+                                variant="outline"
+                                className="gap-2"
+                                onClick={() =>
+                                    router.push(
+                                        `/sales/quotations/${quotation.id}/edit`,
+                                    )
+                                }
+                            >
+                                <Pencil className="h-4 w-4" /> Edit
+                            </Button>
+                        )}
+                    <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setIsPrintModalOpen(true)}
+                    >
                         <Printer className="h-4 w-4" /> Cetak / PDF
                     </Button>
-                    {quotation.status !== 'CONVERTED' && quotation.status !== 'REJECTED' && quotation.status !== 'EXPIRED' && (
-                        <Dialog open={isConvertDialogOpen} onOpenChange={setIsConvertDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button className="gap-2">
-                                    <ArrowRight className="h-4 w-4" /> Konversi ke Sales Order
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Konversi ke Sales Order</DialogTitle>
-                                    <DialogDescription>
-                                        Aksi ini akan membuat Sales Order baru dari penawaran ini. Silakan pilih gudang sumber.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="location">{salesLabels.sourceWarehouse}</Label>
-                                        <Select onValueChange={setSelectedLocationId} value={selectedLocationId}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pilih gudang" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {validLocations.map((loc) => (
-                                                    <SelectItem key={loc.id} value={loc.id}>
-                                                        {loc.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsConvertDialogOpen(false)}>{actionLabels.cancel}</Button>
-                                    <Button onClick={handleConvert} disabled={isConverting || !selectedLocationId}>
-                                        {isConverting && <CheckCircle2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Konfirmasi Konversi
+                    {quotation.status !== 'CONVERTED' &&
+                        quotation.status !== 'REJECTED' &&
+                        quotation.status !== 'EXPIRED' && (
+                            <Dialog
+                                open={isConvertDialogOpen}
+                                onOpenChange={setIsConvertDialogOpen}
+                            >
+                                <DialogTrigger asChild>
+                                    <Button className="gap-2">
+                                        <ArrowRight className="h-4 w-4" />{' '}
+                                        Konversi ke Sales Order
                                     </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    )}
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>
+                                            Konversi ke Sales Order
+                                        </DialogTitle>
+                                        <DialogDescription>
+                                            Aksi ini akan membuat Sales Order
+                                            baru dari penawaran ini. Silakan
+                                            pilih gudang sumber.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="location">
+                                                {salesLabels.sourceWarehouse}
+                                            </Label>
+                                            <Select
+                                                onValueChange={
+                                                    setSelectedLocationId
+                                                }
+                                                value={selectedLocationId}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Pilih gudang" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {validLocations.map(
+                                                        (loc) => (
+                                                            <SelectItem
+                                                                key={loc.id}
+                                                                value={loc.id}
+                                                            >
+                                                                {loc.name}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() =>
+                                                setIsConvertDialogOpen(false)
+                                            }
+                                        >
+                                            {actionLabels.cancel}
+                                        </Button>
+                                        <Button
+                                            onClick={handleConvert}
+                                            disabled={
+                                                isConverting ||
+                                                !selectedLocationId
+                                            }
+                                        >
+                                            {isConverting && (
+                                                <CheckCircle2 className="mr-2 h-4 w-4 animate-spin" />
+                                            )}
+                                            Konfirmasi Konversi
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
                 </div>
             </div>
 
@@ -168,7 +268,10 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                 <FileText className="h-5 w-5 text-muted-foreground" />
                                 {quotation.quotationNumber}
                             </CardTitle>
-                            <Badge variant="secondary" className={getStatusColor(quotation.status)}>
+                            <Badge
+                                variant="secondary"
+                                className={getStatusColor(quotation.status)}
+                            >
                                 {getStatusLabel(quotation.status, 'sales')}
                             </Badge>
                         </div>
@@ -177,20 +280,34 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                         {/* Order Details Grid */}
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p className="text-muted-foreground">{salesLabels.quotationDate}</p>
+                                <p className="text-muted-foreground">
+                                    {salesLabels.quotationDate}
+                                </p>
                                 <p className="font-medium flex items-center gap-2">
                                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                                    {format(new Date(quotation.quotationDate), 'PPP')}
+                                    {format(
+                                        new Date(quotation.quotationDate),
+                                        'PPP',
+                                    )}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-muted-foreground">{salesLabels.validUntil}</p>
+                                <p className="text-muted-foreground">
+                                    {salesLabels.validUntil}
+                                </p>
                                 <p className="font-medium">
-                                    {quotation.validUntil ? format(new Date(quotation.validUntil), 'PPP') : '-'}
+                                    {quotation.validUntil
+                                        ? format(
+                                              new Date(quotation.validUntil),
+                                              'PPP',
+                                          )
+                                        : '-'}
                                 </p>
                             </div>
                             <div className="col-span-2">
-                                <p className="text-muted-foreground">{formLabels.notes}</p>
+                                <p className="text-muted-foreground">
+                                    {formLabels.notes}
+                                </p>
                                 <p className="mt-1">{quotation.notes || '-'}</p>
                             </div>
                         </div>
@@ -200,65 +317,149 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                             <table className="w-full text-sm">
                                 <thead className="bg-muted/50">
                                     <tr className="border-b">
-                                        <th className="h-10 px-4 text-left font-medium">{formLabels.product}</th>
-                                        <th className="h-10 px-4 text-right font-medium">{formLabels.qty}</th>
-                                        <th className="h-10 px-4 text-right font-medium">{formLabels.unitPrice}</th>
-                                        <th className="h-10 px-4 text-right font-medium">Diskon</th>
-                                        <th className="h-10 px-4 text-right font-medium">Pajak</th>
-                                        <th className="h-10 px-4 text-right font-medium">{formLabels.total}</th>
+                                        <th className="h-10 px-4 text-left font-medium">
+                                            {formLabels.product}
+                                        </th>
+                                        <th className="h-10 px-4 text-right font-medium">
+                                            {formLabels.qty}
+                                        </th>
+                                        <th className="h-10 px-4 text-right font-medium">
+                                            {formLabels.unitPrice}
+                                        </th>
+                                        <th className="h-10 px-4 text-right font-medium">
+                                            Diskon
+                                        </th>
+                                        <th className="h-10 px-4 text-right font-medium">
+                                            Pajak
+                                        </th>
+                                        <th className="h-10 px-4 text-right font-medium">
+                                            {formLabels.total}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {quotation.items.map((item) => (
-                                        <tr key={item.id} className="border-b last:border-0">
+                                        <tr
+                                            key={item.id}
+                                            className="border-b last:border-0"
+                                        >
                                             <td className="p-4">
-                                                <div className="font-medium">{item.productVariant.product.name}</div>
-                                                <div className="text-muted-foreground text-xs">{item.productVariant.name} ({item.productVariant.skuCode})</div>
+                                                <div className="font-medium">
+                                                    {
+                                                        item.productVariant
+                                                            .product.name
+                                                    }
+                                                </div>
+                                                <div className="text-muted-foreground text-xs">
+                                                    {item.productVariant.name} (
+                                                    {
+                                                        item.productVariant
+                                                            .skuCode
+                                                    }
+                                                    )
+                                                </div>
                                             </td>
                                             <td className="p-4 text-right">
-                                                {getEnteredQuantityDisplay({ ...item, ...item.productVariant })}
+                                                {getEnteredQuantityDisplay({
+                                                    ...item,
+                                                    ...item.productVariant,
+                                                })}
                                             </td>
                                             <td className="p-4 text-right">
                                                 {(() => {
-                                                    const price = getEnteredUnitPriceDisplay({ ...item, ...item.productVariant });
+                                                    const price =
+                                                        getEnteredUnitPriceDisplay(
+                                                            {
+                                                                ...item,
+                                                                ...item.productVariant,
+                                                            },
+                                                        );
                                                     return `${formatRupiah(price.price)}/${price.unit}`;
                                                 })()}
                                             </td>
                                             <td className="p-4 text-right text-red-600">
-                                                {Number(item.discountPercent) > 0 ? `-${Number(item.discountPercent)}%` : '-'}
+                                                {Number(item.discountPercent) >
+                                                0
+                                                    ? `-${Number(item.discountPercent)}%`
+                                                    : '-'}
                                             </td>
                                             <td className="p-4 text-right">
-                                                {Number(item.taxPercent) > 0 ? `${Number(item.taxPercent)}%` : '-'}
+                                                {Number(item.taxPercent) > 0
+                                                    ? `${Number(item.taxPercent)}%`
+                                                    : '-'}
                                             </td>
-                                            <td className="p-4 text-right font-medium">{formatRupiah(Number(item.subtotal))}</td>
+                                            <td className="p-4 text-right font-medium">
+                                                {formatRupiah(
+                                                    Number(item.subtotal),
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot className="bg-muted/50 font-medium">
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">{formLabels.subtotal}</td>
+                                        <td
+                                            colSpan={5}
+                                            className="px-4 py-2 text-right text-muted-foreground"
+                                        >
+                                            {formLabels.subtotal}
+                                        </td>
                                         <td className="px-4 py-2 text-right">
                                             {formatRupiah(
-                                                (Number(quotation.totalAmount) || 0) + (Number(quotation.discountAmount) || 0) - (Number(quotation.taxAmount) || 0)
+                                                (Number(
+                                                    quotation.totalAmount,
+                                                ) || 0) +
+                                                    (Number(
+                                                        quotation.discountAmount,
+                                                    ) || 0) -
+                                                    (Number(
+                                                        quotation.taxAmount,
+                                                    ) || 0),
                                             )}
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Diskon</td>
+                                        <td
+                                            colSpan={5}
+                                            className="px-4 py-2 text-right text-muted-foreground"
+                                        >
+                                            Diskon
+                                        </td>
                                         <td className="px-4 py-2 text-right text-red-600">
-                                            -{formatRupiah(Number(quotation.discountAmount) || 0)}
+                                            -
+                                            {formatRupiah(
+                                                Number(
+                                                    quotation.discountAmount,
+                                                ) || 0,
+                                            )}
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Pajak</td>
+                                        <td
+                                            colSpan={5}
+                                            className="px-4 py-2 text-right text-muted-foreground"
+                                        >
+                                            Pajak
+                                        </td>
                                         <td className="px-4 py-2 text-right">
-                                            {formatRupiah(Number(quotation.taxAmount) || 0)}
+                                            {formatRupiah(
+                                                Number(quotation.taxAmount) ||
+                                                    0,
+                                            )}
                                         </td>
                                     </tr>
                                     <tr className="border-t border-muted-foreground/20 text-base">
-                                        <td colSpan={5} className="px-4 py-3 text-right">Total Keseluruhan</td>
+                                        <td
+                                            colSpan={5}
+                                            className="px-4 py-3 text-right"
+                                        >
+                                            Total Keseluruhan
+                                        </td>
                                         <td className="px-4 py-3 text-right font-bold">
-                                            {formatRupiah(Number(quotation.totalAmount) || 0)}
+                                            {formatRupiah(
+                                                Number(quotation.totalAmount) ||
+                                                    0,
+                                            )}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -268,7 +469,10 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                 </Card>
 
                 <div className="space-y-6">
-                    <EntityStatusTimeline entityType="SalesQuotation" entityId={quotation.id} />
+                    <EntityStatusTimeline
+                        entityType="SalesQuotation"
+                        entityId={quotation.id}
+                    />
 
                     <Card>
                         <CardHeader>
@@ -281,15 +485,25 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                         <UserIcon className="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <div className="font-medium">{quotation.customer?.name || 'Prospek Customer'}</div>
-                                        <div className="text-sm text-muted-foreground">{quotation.customer?.email || '-'}</div>
+                                        <div className="font-medium">
+                                            {quotation.customer?.name ||
+                                                'Prospek Customer'}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                            {quotation.customer?.email || '-'}
+                                        </div>
                                     </div>
                                 </div>
                                 {quotation.customer && (
                                     <>
                                         <div className="text-sm">
-                                            <p className="text-muted-foreground mb-1">Alamat Pengiriman</p>
-                                            <p>{quotation.customer.shippingAddress || '-'}</p>
+                                            <p className="text-muted-foreground mb-1">
+                                                Alamat Pengiriman
+                                            </p>
+                                            <p>
+                                                {quotation.customer
+                                                    .shippingAddress || '-'}
+                                            </p>
                                         </div>
                                     </>
                                 )}
@@ -307,9 +521,14 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                     <UserIcon className="h-4 w-4 text-muted-foreground" />
                                 </div>
                                 <div className="text-sm">
-                                    <p className="font-medium">{quotation.createdBy?.name || 'Sistem'}</p>
+                                    <p className="font-medium">
+                                        {quotation.createdBy?.name || 'Sistem'}
+                                    </p>
                                     <p className="text-muted-foreground text-xs">
-                                        {format(new Date(quotation.createdAt), 'PP p')}
+                                        {format(
+                                            new Date(quotation.createdAt),
+                                            'PP p',
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -323,10 +542,25 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-2">
-                                    {quotation.salesOrders.map(order => (
-                                        <div key={order.id} className="flex items-center justify-between border p-2 rounded text-sm hover:bg-muted/50 cursor-pointer" onClick={() => router.push(`/sales/orders/${order.id}`)}>
-                                            <div className="font-medium">{order.orderNumber}</div>
-                                            <Badge variant="outline" className="text-xs">{order.status}</Badge>
+                                    {quotation.salesOrders.map((order) => (
+                                        <div
+                                            key={order.id}
+                                            className="flex items-center justify-between border p-2 rounded text-sm hover:bg-muted/50 cursor-pointer"
+                                            onClick={() =>
+                                                router.push(
+                                                    `/sales/orders/${order.id}`,
+                                                )
+                                            }
+                                        >
+                                            <div className="font-medium">
+                                                {order.orderNumber}
+                                            </div>
+                                            <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                            >
+                                                {order.status}
+                                            </Badge>
                                         </div>
                                     ))}
                                 </div>
@@ -342,7 +576,11 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                 onOpenChange={setIsPrintModalOpen}
                 title={`Cetak Penawaran Penjualan - ${quotation.quotationNumber}`}
             >
-                <SalesQuotationPrint quotation={quotation as unknown as import('./SalesQuotationPrint').QuotationPrintData} />
+                <SalesQuotationPrint
+                    quotation={
+                        quotation as unknown as import('./SalesQuotationPrint').QuotationPrintData
+                    }
+                />
             </PrintPreviewModal>
         </div>
     );

@@ -22,7 +22,7 @@ interface BenchmarkAccumulator {
  */
 export async function getHppBenchmarkByBomId(
     bomId: string,
-    windowDays = 90
+    windowDays = 90,
 ): Promise<HppBenchmark> {
     const since = new Date();
     since.setDate(since.getDate() - windowDays);
@@ -47,14 +47,23 @@ export async function getHppBenchmarkByBomId(
                         select: { costPerHour: true },
                     },
                     operator: {
-                        select: { dailyRate: true, standardDayHours: true, payType: true },
+                        select: {
+                            dailyRate: true,
+                            standardDayHours: true,
+                            payType: true,
+                        },
                     },
                 },
             },
         },
     });
 
-    const acc: BenchmarkAccumulator = { totalLabor: 0, totalMachine: 0, totalQuantity: 0, orderCount: 0 };
+    const acc: BenchmarkAccumulator = {
+        totalLabor: 0,
+        totalMachine: 0,
+        totalQuantity: 0,
+        orderCount: 0,
+    };
 
     for (const order of orders) {
         const quantity = Number(order.actualQuantity ?? 0);
@@ -67,17 +76,25 @@ export async function getHppBenchmarkByBomId(
             const endTime = exec.endTime ? new Date(exec.endTime) : new Date();
             const startTime = new Date(exec.startTime);
             const durationMs = endTime.getTime() - startTime.getTime();
-            const durationHours = durationMs > 0 ? durationMs / (1000 * 60 * 60) : 0;
+            const durationHours =
+                durationMs > 0 ? durationMs / (1000 * 60 * 60) : 0;
 
             if (exec.machine) {
-                orderMachine += durationHours * Number(exec.machine.costPerHour ?? 0);
+                orderMachine +=
+                    durationHours * Number(exec.machine.costPerHour ?? 0);
             }
             if (exec.operator) {
                 const dailyRate = Number(exec.operator.dailyRate ?? 0);
-                const standardDayHours = Number(exec.operator.standardDayHours ?? 8);
-                const dayEquivalent = standardDayHours > 0 ? durationHours / standardDayHours : 0;
+                const standardDayHours = Number(
+                    exec.operator.standardDayHours ?? 8,
+                );
+                const dayEquivalent =
+                    standardDayHours > 0 ? durationHours / standardDayHours : 0;
                 // PIECE: use snapshot pieceEarnings (qty × rate) instead of time-based formula
-                if (exec.operator.payType === 'PIECE' && exec.pieceEarnings != null) {
+                if (
+                    exec.operator.payType === 'PIECE' &&
+                    exec.pieceEarnings != null
+                ) {
                     orderLabor += Number(exec.pieceEarnings);
                 } else {
                     orderLabor += dayEquivalent * dailyRate;
@@ -92,7 +109,12 @@ export async function getHppBenchmarkByBomId(
     }
 
     if (acc.totalQuantity <= 0) {
-        return { bomId, avgLaborPerUnit: 0, avgMachinePerUnit: 0, orderCount: 0 };
+        return {
+            bomId,
+            avgLaborPerUnit: 0,
+            avgMachinePerUnit: 0,
+            orderCount: 0,
+        };
     }
 
     return {
@@ -108,10 +130,10 @@ export async function getHppBenchmarkByBomId(
  */
 export async function getHppBenchmarks(
     bomIds: string[],
-    windowDays = 90
+    windowDays = 90,
 ): Promise<Map<string, HppBenchmark>> {
     const results = await Promise.all(
-        bomIds.map((id) => getHppBenchmarkByBomId(id, windowDays))
+        bomIds.map((id) => getHppBenchmarkByBomId(id, windowDays)),
     );
 
     const benchmarkMap = new Map<string, HppBenchmark>();

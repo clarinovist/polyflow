@@ -11,8 +11,16 @@ export type VariantCostLike = {
     inventories?: InventoryCostLike[];
 };
 
-export type CostSource = 'explicit_current_cost' | 'inventory_average' | 'standard_cost' | 'buy_price' | 'price' | 'zero';
-export type CostAnomalyFlag = 'inventory_standard_gap' | 'low_stock_cost_outlier';
+export type CostSource =
+    | 'explicit_current_cost'
+    | 'inventory_average'
+    | 'standard_cost'
+    | 'buy_price'
+    | 'price'
+    | 'zero';
+export type CostAnomalyFlag =
+    | 'inventory_standard_gap'
+    | 'low_stock_cost_outlier';
 
 export type CurrentCostBreakdown = {
     currentCost: number;
@@ -34,16 +42,28 @@ export function asNumber(value: unknown): number {
     if (value === null || value === undefined) return 0;
     if (typeof value === 'number') return value;
     if (typeof value === 'string') return Number(value);
-    if (typeof value === 'object' && value !== null && 'toNumber' in value && typeof value.toNumber === 'function') {
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        'toNumber' in value &&
+        typeof value.toNumber === 'function'
+    ) {
         return value.toNumber();
     }
-    if (typeof value === 'object' && value !== null && 'valueOf' in value && typeof value.valueOf === 'function') {
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        'valueOf' in value &&
+        typeof value.valueOf === 'function'
+    ) {
         return Number(value.valueOf());
     }
     return Number(value);
 }
 
-export function getCurrentCostBreakdown(variant?: VariantCostLike | null): CurrentCostBreakdown {
+export function getCurrentCostBreakdown(
+    variant?: VariantCostLike | null,
+): CurrentCostBreakdown {
     if (!variant) {
         return {
             currentCost: 0,
@@ -62,9 +82,14 @@ export function getCurrentCostBreakdown(variant?: VariantCostLike | null): Curre
     const price = asNumber(variant.price);
     const inventories = variant.inventories || [];
     const stockValue = inventories.reduce((sum, inventory) => {
-        return sum + (asNumber(inventory.quantity) * asNumber(inventory.averageCost));
+        return (
+            sum + asNumber(inventory.quantity) * asNumber(inventory.averageCost)
+        );
     }, 0);
-    const stockQty = inventories.reduce((sum, inventory) => sum + asNumber(inventory.quantity), 0);
+    const stockQty = inventories.reduce(
+        (sum, inventory) => sum + asNumber(inventory.quantity),
+        0,
+    );
 
     if (explicitCurrentCost > 0) {
         return {
@@ -137,12 +162,18 @@ export function getCurrentCostBreakdown(variant?: VariantCostLike | null): Curre
     };
 }
 
-export function getCostAnomalyFlags(breakdown: Pick<CurrentCostBreakdown, 'currentCost' | 'standardCost' | 'source' | 'stockQty' | 'stockValue'>): CostAnomalyFlag[] {
+export function getCostAnomalyFlags(
+    breakdown: Pick<
+        CurrentCostBreakdown,
+        'currentCost' | 'standardCost' | 'source' | 'stockQty' | 'stockValue'
+    >,
+): CostAnomalyFlag[] {
     const flags = new Set<CostAnomalyFlag>();
 
     const hasMeaningfulStandard = breakdown.standardCost > 0;
     const gapRatio = hasMeaningfulStandard
-        ? Math.abs(breakdown.currentCost - breakdown.standardCost) / breakdown.standardCost
+        ? Math.abs(breakdown.currentCost - breakdown.standardCost) /
+          breakdown.standardCost
         : 0;
 
     if (hasMeaningfulStandard && gapRatio >= 0.2) {
@@ -163,12 +194,17 @@ export function getCostAnomalyFlags(breakdown: Pick<CurrentCostBreakdown, 'curre
     return Array.from(flags);
 }
 
-export function getVariantCostDiagnostics(variant?: VariantCostLike | null): VariantCostDiagnostics {
+export function getVariantCostDiagnostics(
+    variant?: VariantCostLike | null,
+): VariantCostDiagnostics {
     const breakdown = getCurrentCostBreakdown(variant);
     const flags = getCostAnomalyFlags(breakdown);
-    const gapPercent = breakdown.standardCost > 0
-        ? ((breakdown.currentCost - breakdown.standardCost) / breakdown.standardCost) * 100
-        : null;
+    const gapPercent =
+        breakdown.standardCost > 0
+            ? ((breakdown.currentCost - breakdown.standardCost) /
+                  breakdown.standardCost) *
+              100
+            : null;
 
     return {
         breakdown,
@@ -188,7 +224,7 @@ export function calculateBomItemCost(item: {
 }): number {
     const unitCost = getCurrentUnitCost(item.productVariant);
     const quantity = asNumber(item.quantity);
-    const scrapMultiplier = 1 + (asNumber(item.scrapPercentage) / 100);
+    const scrapMultiplier = 1 + asNumber(item.scrapPercentage) / 100;
 
     return unitCost * quantity * scrapMultiplier;
 }

@@ -2,48 +2,65 @@
 
 import { useEffect } from 'react';
 
-const MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MONTH_NAMES = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+];
 
 function formatIdr(n: number) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(n);
 }
 
 interface Payslip {
-  id: string;
-  status: string;
-  notes: string | null;
-  baseSalary: number;
-  allowanceTotal: number;
-  thrAmount: number;
-  prorationDeduction: number;
-  grossPay: number;
-  bpjsDeduction: number;
-  loanDeduction: number;
-  otherDeductions: number;
-  deductionTotal: number;
-  netPay: number;
-  employee: { code: string; name: string };
-  allowances: Array<{ name: string; amount: number }>;
-  loanPayments: Array<{ amount: number; loan: { loanNumber: string } }>;
+    id: string;
+    status: string;
+    notes: string | null;
+    baseSalary: number;
+    allowanceTotal: number;
+    thrAmount: number;
+    prorationDeduction: number;
+    grossPay: number;
+    bpjsDeduction: number;
+    loanDeduction: number;
+    otherDeductions: number;
+    deductionTotal: number;
+    netPay: number;
+    employee: { code: string; name: string };
+    allowances: Array<{ name: string; amount: number }>;
+    loanPayments: Array<{ amount: number; loan: { loanNumber: string } }>;
 }
 
 interface Props {
-  period: { year: number; month: number; status: string };
-  payslips: Payslip[];
+    period: { year: number; month: number; status: string };
+    payslips: Payslip[];
 }
 
 export function PayslipPrintView({ period, payslips }: Props) {
-  useEffect(() => {
-    // Auto-trigger print dialog after render
-    const timer = setTimeout(() => window.print(), 300);
-    return () => clearTimeout(timer);
-  }, []);
+    useEffect(() => {
+        // Auto-trigger print dialog after render
+        const timer = setTimeout(() => window.print(), 300);
+        return () => clearTimeout(timer);
+    }, []);
 
-  const monthName = MONTH_NAMES[period.month - 1];
+    const monthName = MONTH_NAMES[period.month - 1];
 
-  return (
-    <>
-      <style>{`
+    return (
+        <>
+            <style>{`
         @media print {
           body * { visibility: hidden; }
           .print-area, .print-area * { visibility: visible; }
@@ -71,105 +88,131 @@ export function PayslipPrintView({ period, payslips }: Props) {
         .payslip-card .footer { font-size: 10px; color: #9ca3af; text-align: center; margin-top: 20px; }
       `}</style>
 
-      <div className="no-print fixed top-4 right-4 z-50">
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 shadow-lg"
-        >
-          🖨️ Cetak
-        </button>
-      </div>
-
-      <div className="print-area">
-        {payslips.map((p) => (
-          <div key={p.id} className="payslip-card">
-            <h2>
-              Slip Gaji Bulanan
-              {p.status !== 'FINALIZED' && p.status !== 'PAID' && (
-                <span className="draft-badge">DRAFT — BELUM FINAL</span>
-              )}
-            </h2>
-            <p className="subtitle">Periode: {monthName} {period.year}</p>
-
-            <div className="info-row">
-              <span className="label">Kode Karyawan</span>
-              <span>{p.employee.code}</span>
-            </div>
-            <div className="info-row">
-              <span className="label">Nama</span>
-              <span>{p.employee.name}</span>
+            <div className="no-print fixed top-4 right-4 z-50">
+                <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 shadow-lg"
+                >
+                    🖨️ Cetak
+                </button>
             </div>
 
-            <div className="section-title">Pendapatan</div>
-            <div className="line">
-              <span>Gaji Pokok</span>
-              <span>{formatIdr(p.baseSalary)}</span>
-            </div>
-            {p.allowances.map((a, i) => (
-              <div key={i} className="line indent">
-                <span>{a.name}</span>
-                <span>{formatIdr(a.amount)}</span>
-              </div>
-            ))}
-            {p.thrAmount > 0 && (
-              <div className="line">
-                <span>THR</span>
-                <span>{formatIdr(p.thrAmount)}</span>
-              </div>
-            )}
-            <div className="line total">
-              <span>Gross Pay</span>
-              <span>{formatIdr(p.grossPay)}</span>
-            </div>
+            <div className="print-area">
+                {payslips.map((p) => (
+                    <div key={p.id} className="payslip-card">
+                        <h2>
+                            Slip Gaji Bulanan
+                            {p.status !== 'FINALIZED' &&
+                                p.status !== 'PAID' && (
+                                    <span className="draft-badge">
+                                        DRAFT — BELUM FINAL
+                                    </span>
+                                )}
+                        </h2>
+                        <p className="subtitle">
+                            Periode: {monthName} {period.year}
+                        </p>
 
-            <div className="section-title">Potongan</div>
-            {p.bpjsDeduction > 0 && (
-              <div className="line deduction">
-                <span>BPJS</span>
-                <span className="amount">-{formatIdr(p.bpjsDeduction)}</span>
-              </div>
-            )}
-            {p.loanPayments.map((lp, i) => (
-              <div key={i} className="line deduction">
-                <span>Kasbon ({lp.loan.loanNumber})</span>
-                <span className="amount">-{formatIdr(lp.amount)}</span>
-              </div>
-            ))}
-            {p.prorationDeduction > 0 && (
-              <div className="line deduction">
-                <span>Prorata (ABSENT)</span>
-                <span className="amount">-{formatIdr(p.prorationDeduction)}</span>
-              </div>
-            )}
-            {p.otherDeductions > 0 && (
-              <div className="line deduction">
-                <span>Potongan Lain</span>
-                <span className="amount">-{formatIdr(p.otherDeductions)}</span>
-              </div>
-            )}
-            <div className="line total deduction">
-              <span>Total Potongan</span>
-              <span className="amount">-{formatIdr(p.deductionTotal)}</span>
-            </div>
+                        <div className="info-row">
+                            <span className="label">Kode Karyawan</span>
+                            <span>{p.employee.code}</span>
+                        </div>
+                        <div className="info-row">
+                            <span className="label">Nama</span>
+                            <span>{p.employee.name}</span>
+                        </div>
 
-            <div className="net-pay">
-              <span>Net Pay: </span>
-              <span>{formatIdr(p.netPay)}</span>
-            </div>
+                        <div className="section-title">Pendapatan</div>
+                        <div className="line">
+                            <span>Gaji Pokok</span>
+                            <span>{formatIdr(p.baseSalary)}</span>
+                        </div>
+                        {p.allowances.map((a, i) => (
+                            <div key={i} className="line indent">
+                                <span>{a.name}</span>
+                                <span>{formatIdr(a.amount)}</span>
+                            </div>
+                        ))}
+                        {p.thrAmount > 0 && (
+                            <div className="line">
+                                <span>THR</span>
+                                <span>{formatIdr(p.thrAmount)}</span>
+                            </div>
+                        )}
+                        <div className="line total">
+                            <span>Gross Pay</span>
+                            <span>{formatIdr(p.grossPay)}</span>
+                        </div>
 
-            {p.notes && (
-              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 12 }}>
-                <strong>Catatan:</strong> {p.notes}
-              </div>
-            )}
+                        <div className="section-title">Potongan</div>
+                        {p.bpjsDeduction > 0 && (
+                            <div className="line deduction">
+                                <span>BPJS</span>
+                                <span className="amount">
+                                    -{formatIdr(p.bpjsDeduction)}
+                                </span>
+                            </div>
+                        )}
+                        {p.loanPayments.map((lp, i) => (
+                            <div key={i} className="line deduction">
+                                <span>Kasbon ({lp.loan.loanNumber})</span>
+                                <span className="amount">
+                                    -{formatIdr(lp.amount)}
+                                </span>
+                            </div>
+                        ))}
+                        {p.prorationDeduction > 0 && (
+                            <div className="line deduction">
+                                <span>Prorata (ABSENT)</span>
+                                <span className="amount">
+                                    -{formatIdr(p.prorationDeduction)}
+                                </span>
+                            </div>
+                        )}
+                        {p.otherDeductions > 0 && (
+                            <div className="line deduction">
+                                <span>Potongan Lain</span>
+                                <span className="amount">
+                                    -{formatIdr(p.otherDeductions)}
+                                </span>
+                            </div>
+                        )}
+                        <div className="line total deduction">
+                            <span>Total Potongan</span>
+                            <span className="amount">
+                                -{formatIdr(p.deductionTotal)}
+                            </span>
+                        </div>
 
-            <div className="footer">
-              Dicetak {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })} — dokumen internal
+                        <div className="net-pay">
+                            <span>Net Pay: </span>
+                            <span>{formatIdr(p.netPay)}</span>
+                        </div>
+
+                        {p.notes && (
+                            <div
+                                style={{
+                                    fontSize: 12,
+                                    color: '#6b7280',
+                                    marginTop: 12,
+                                }}
+                            >
+                                <strong>Catatan:</strong> {p.notes}
+                            </div>
+                        )}
+
+                        <div className="footer">
+                            Dicetak{' '}
+                            {new Date().toLocaleString('id-ID', {
+                                dateStyle: 'long',
+                                timeStyle: 'short',
+                            })}{' '}
+                            — dokumen internal
+                        </div>
+                    </div>
+                ))}
             </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
+        </>
+    );
 }

@@ -1,67 +1,67 @@
-import { getUserRoles } from "@/lib/auth/roles";
+import { getUserRoles } from '@/lib/auth/roles';
 
 export type WorkspaceKey =
-  | "admin"
-  | "dashboard"
-  | "warehouse"
-  | "production"
-  | "finance"
-  | "sales"
-  | "purchasing"
-  | "hrd"
-  | "maklon";
+    | 'admin'
+    | 'dashboard'
+    | 'warehouse'
+    | 'production'
+    | 'finance'
+    | 'sales'
+    | 'purchasing'
+    | 'hrd'
+    | 'maklon';
 
 /**
  * Defines the roles permitted to access each workspace area.
  */
 export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
-  {
-    admin: ["SUPER_ADMIN"],
-    dashboard: [
-      "ADMIN",
-      "FINANCE",
-      "SALES",
-      "PLANNING",
-      "PROCUREMENT",
-      "WAREHOUSE",
-      "PRODUCTION",
-      "HRD",
-    ],
-    warehouse: ["ADMIN", "WAREHOUSE", "PRODUCTION", "PLANNING"],
-    production: ["ADMIN", "PRODUCTION", "PLANNING", "PROCUREMENT"],
-    finance: ["ADMIN", "FINANCE"],
-    sales: ["ADMIN", "SALES", "MARKETING"],
-    // planning merged into production
-    purchasing: ["ADMIN", "PROCUREMENT", "PLANNING"],
-    // HRD: admin + finance + hrd role
-    hrd: ["ADMIN", "FINANCE", "HRD"],
-    // Maklon portal: admin + procurement/planning; warehouse keeps /warehouse/maklon aliases
-    maklon: ["ADMIN", "PROCUREMENT", "PLANNING"],
-  } as const;
+    {
+        admin: ['SUPER_ADMIN'],
+        dashboard: [
+            'ADMIN',
+            'FINANCE',
+            'SALES',
+            'PLANNING',
+            'PROCUREMENT',
+            'WAREHOUSE',
+            'PRODUCTION',
+            'HRD',
+        ],
+        warehouse: ['ADMIN', 'WAREHOUSE', 'PRODUCTION', 'PLANNING'],
+        production: ['ADMIN', 'PRODUCTION', 'PLANNING', 'PROCUREMENT'],
+        finance: ['ADMIN', 'FINANCE'],
+        sales: ['ADMIN', 'SALES', 'MARKETING'],
+        // planning merged into production
+        purchasing: ['ADMIN', 'PROCUREMENT', 'PLANNING'],
+        // HRD: admin + finance + hrd role
+        hrd: ['ADMIN', 'FINANCE', 'HRD'],
+        // Maklon portal: admin + procurement/planning; warehouse keeps /warehouse/maklon aliases
+        maklon: ['ADMIN', 'PROCUREMENT', 'PLANNING'],
+    } as const;
 
 /**
  * Extracts the workspace key from a URL pathname.
  */
 export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
-  const parts = pathname.split("/");
-  const workspaceCandidate = parts[1];
-  if (
-    workspaceCandidate &&
-    [
-      "admin",
-      "dashboard",
-      "warehouse",
-      "production",
-      "finance",
-      "sales",
-      "purchasing",
-      "hrd",
-      "maklon",
-    ].includes(workspaceCandidate)
-  ) {
-    return workspaceCandidate as WorkspaceKey;
-  }
-  return null;
+    const parts = pathname.split('/');
+    const workspaceCandidate = parts[1];
+    if (
+        workspaceCandidate &&
+        [
+            'admin',
+            'dashboard',
+            'warehouse',
+            'production',
+            'finance',
+            'sales',
+            'purchasing',
+            'hrd',
+            'maklon',
+        ].includes(workspaceCandidate)
+    ) {
+        return workspaceCandidate as WorkspaceKey;
+    }
+    return null;
 }
 
 /**
@@ -69,13 +69,13 @@ export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
  * (e.g. `/warehouse` or `/warehouse/inventory`).
  */
 export function hasWorkspaceResourceAccess(
-  resources: string[] | "ALL" | null | undefined,
-  workspace: WorkspaceKey | string,
+    resources: string[] | 'ALL' | null | undefined,
+    workspace: WorkspaceKey | string,
 ): boolean {
-  if (resources === "ALL") return true;
-  if (!resources?.length) return false;
-  const root = workspace.startsWith("/") ? workspace : `/${workspace}`;
-  return resources.some((res) => res === root || res.startsWith(`${root}/`));
+    if (resources === 'ALL') return true;
+    if (!resources?.length) return false;
+    const root = workspace.startsWith('/') ? workspace : `/${workspace}`;
+    return resources.some((res) => res === root || res.startsWith(`${root}/`));
 }
 
 /**
@@ -86,21 +86,21 @@ export function hasWorkspaceResourceAccess(
  *   (`/warehouse/inventory` → may enter `/warehouse` for landing redirect)
  */
 export function isPathAllowedByResources(
-  pathname: string,
-  resources: string[] | "ALL" | null | undefined,
+    pathname: string,
+    resources: string[] | 'ALL' | null | undefined,
 ): boolean {
-  if (resources === "ALL") return true;
-  if (!resources?.length) return false;
+    if (resources === 'ALL') return true;
+    if (!resources?.length) return false;
 
-  const segments = pathname.split("/").filter(Boolean);
-  const isWorkspaceRoot = segments.length === 1;
+    const segments = pathname.split('/').filter(Boolean);
+    const isWorkspaceRoot = segments.length === 1;
 
-  return resources.some((res) => {
-    if (pathname === res || pathname.startsWith(`${res}/`)) return true;
-    // Nested permission grants entry at workspace root (layout/landing only)
-    if (isWorkspaceRoot && res.startsWith(`${pathname}/`)) return true;
-    return false;
-  });
+    return resources.some((res) => {
+        if (pathname === res || pathname.startsWith(`${res}/`)) return true;
+        // Nested permission grants entry at workspace root (layout/landing only)
+        if (isWorkspaceRoot && res.startsWith(`${pathname}/`)) return true;
+        return false;
+    });
 }
 
 /**
@@ -108,26 +108,28 @@ export function isPathAllowedByResources(
  * Used when user may open the workspace root but only has nested perms.
  */
 export function getPreferredWorkspaceLanding(
-  workspace: WorkspaceKey,
-  resources: string[] | "ALL",
+    workspace: WorkspaceKey,
+    resources: string[] | 'ALL',
 ): string {
-  const root = `/${workspace}`;
-  if (resources === "ALL" || resources.includes(root)) return root;
+    const root = `/${workspace}`;
+    if (resources === 'ALL' || resources.includes(root)) return root;
 
-  if (workspace === "warehouse") {
-    if (
-      resources.some(
-        (r) => r === "/warehouse/inventory" || r.startsWith("/warehouse/inventory/"),
-      )
-    ) {
-      return "/warehouse/inventory";
+    if (workspace === 'warehouse') {
+        if (
+            resources.some(
+                (r) =>
+                    r === '/warehouse/inventory' ||
+                    r.startsWith('/warehouse/inventory/'),
+            )
+        ) {
+            return '/warehouse/inventory';
+        }
     }
-  }
 
-  const nested = resources
-    .filter((r) => r.startsWith(`${root}/`))
-    .sort((a, b) => a.length - b.length);
-  return nested[0] ?? root;
+    const nested = resources
+        .filter((r) => r.startsWith(`${root}/`))
+        .sort((a, b) => a.length - b.length);
+    return nested[0] ?? root;
 }
 
 /**
@@ -138,85 +140,91 @@ export function getPreferredWorkspaceLanding(
  * (e.g. SALES + `/warehouse` for stok).
  */
 export function canAccessWorkspace(
-  user: {
-    role?: string;
-    roles?: string[];
-    isSuperAdmin?: boolean;
-    allowedResources?: string[];
-  } | null | undefined,
-  workspace: WorkspaceKey,
-  pathname?: string,
+    user:
+        | {
+              role?: string;
+              roles?: string[];
+              isSuperAdmin?: boolean;
+              allowedResources?: string[];
+          }
+        | null
+        | undefined,
+    workspace: WorkspaceKey,
+    pathname?: string,
 ): boolean {
-  if (!user) return false;
+    if (!user) return false;
 
-  const allRoles = getUserRoles(user);
-  const isSuperAdmin = !!user.isSuperAdmin;
-  const resources = user.allowedResources;
+    const allRoles = getUserRoles(user);
+    const isSuperAdmin = !!user.isSuperAdmin;
+    const resources = user.allowedResources;
 
-  // 1. Super Admin is strictly isolated to admin workspace
-  if (isSuperAdmin) {
-    return workspace === "admin";
-  }
+    // 1. Super Admin is strictly isolated to admin workspace
+    if (isSuperAdmin) {
+        return workspace === 'admin';
+    }
 
-  // 2. Tenant users cannot access admin workspace
-  if (workspace === "admin") {
-    return false;
-  }
+    // 2. Tenant users cannot access admin workspace
+    if (workspace === 'admin') {
+        return false;
+    }
 
-  // 3. Tenant Admin can access all tenant workspaces
-  if (allRoles.includes("ADMIN")) {
-    return true;
-  }
+    // 3. Tenant Admin can access all tenant workspaces
+    if (allRoles.includes('ADMIN')) {
+        return true;
+    }
 
-  const resourceAllowsWorkspace = (): boolean => {
-    if (!hasWorkspaceResourceAccess(resources, workspace)) return false;
-    if (!pathname) return true;
-    return isPathAllowedByResources(pathname, resources);
-  };
+    const resourceAllowsWorkspace = (): boolean => {
+        if (!hasWorkspaceResourceAccess(resources, workspace)) return false;
+        if (!pathname) return true;
+        return isPathAllowedByResources(pathname, resources);
+    };
 
-  // Strictly isolate WAREHOUSE and PRODUCTION if they are the only assigned roles
-  const nonIsolatedRoles = allRoles.filter(
-    (r) => r !== "WAREHOUSE" && r !== "PRODUCTION",
-  );
-  if (nonIsolatedRoles.length === 0) {
-    if (workspace === "warehouse" && allRoles.includes("WAREHOUSE")) return true;
-    if (workspace === "production" && allRoles.includes("PRODUCTION")) return true;
-    // Cross-workspace only via explicit resource grants (e.g. products master)
-    if (pathname && isPathAllowedByResources(pathname, resources)) return true;
-    if (!pathname && resourceAllowsWorkspace()) return true;
-    return false;
-  }
+    // Strictly isolate WAREHOUSE and PRODUCTION if they are the only assigned roles
+    const nonIsolatedRoles = allRoles.filter(
+        (r) => r !== 'WAREHOUSE' && r !== 'PRODUCTION',
+    );
+    if (nonIsolatedRoles.length === 0) {
+        if (workspace === 'warehouse' && allRoles.includes('WAREHOUSE'))
+            return true;
+        if (workspace === 'production' && allRoles.includes('PRODUCTION'))
+            return true;
+        // Cross-workspace only via explicit resource grants (e.g. products master)
+        if (pathname && isPathAllowedByResources(pathname, resources))
+            return true;
+        if (!pathname && resourceAllowsWorkspace()) return true;
+        return false;
+    }
 
-  // 4. Role policy for this workspace
-  const policyRoles = WORKSPACE_ACCESS_POLICY[workspace];
-  if (policyRoles?.some((r) => allRoles.includes(r))) {
-    return true;
-  }
+    // 4. Role policy for this workspace
+    const policyRoles = WORKSPACE_ACCESS_POLICY[workspace];
+    if (policyRoles?.some((r) => allRoles.includes(r))) {
+        return true;
+    }
 
-  // 5. Access Control matrix: module/resource grant (SALES → stok, etc.)
-  return resourceAllowsWorkspace();
+    // 5. Access Control matrix: module/resource grant (SALES → stok, etc.)
+    return resourceAllowsWorkspace();
 }
 
 /**
  * Resolves the default/home workspace landing page for a user.
  */
 export function getDefaultRedirectForUser(user: {
-  role?: string;
-  roles?: string[];
-  isSuperAdmin?: boolean;
+    role?: string;
+    roles?: string[];
+    isSuperAdmin?: boolean;
 }): string {
-  const activeRole = user.role?.toUpperCase();
-  const isSuperAdmin = !!user.isSuperAdmin;
+    const activeRole = user.role?.toUpperCase();
+    const isSuperAdmin = !!user.isSuperAdmin;
 
-  // Short URL alias: admin.polyflow.uk/super-admin is rewritten (internally, by
-  // proxy.ts) to /admin/super-admin. Redirecting here keeps the address bar short.
-  if (isSuperAdmin) return "/super-admin";
-  // Active role drives post-login landing (selected at login)
-  if (activeRole === "WAREHOUSE") return "/warehouse";
-  if (activeRole === "PRODUCTION") return "/production";
-  if (activeRole === "HRD") return "/hrd";
-  if (activeRole === "PROCUREMENT") return "/purchasing";
-  if (activeRole === "PLANNING") return "/production";
-  if (activeRole === "MARKETING") return "/sales";
-  return "/dashboard";
+    // Short URL alias: admin.polyflow.uk/super-admin is rewritten (internally, by
+    // proxy.ts) to /admin/super-admin. Redirecting here keeps the address bar short.
+    if (isSuperAdmin) return '/super-admin';
+    // Active role drives post-login landing (selected at login)
+    if (activeRole === 'WAREHOUSE') return '/warehouse';
+    if (activeRole === 'PRODUCTION') return '/production';
+    if (activeRole === 'HRD') return '/hrd';
+    if (activeRole === 'PROCUREMENT') return '/purchasing';
+    if (activeRole === 'PLANNING') return '/production';
+    if (activeRole === 'MARKETING') return '/sales';
+    return '/dashboard';
 }

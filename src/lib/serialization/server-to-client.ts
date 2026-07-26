@@ -15,8 +15,15 @@ export function serializeData<T>(obj: T): Serialized<T> {
     }
 
     // Handle Date objects
-    if (obj instanceof Date || (typeof obj === 'object' && 'toISOString' in obj && typeof (obj as { toISOString: unknown }).toISOString === 'function')) {
-        return (obj as { toISOString: () => string }).toISOString() as Serialized<T>;
+    if (
+        obj instanceof Date ||
+        (typeof obj === 'object' &&
+            'toISOString' in obj &&
+            typeof (obj as { toISOString: unknown }).toISOString === 'function')
+    ) {
+        return (
+            obj as { toISOString: () => string }
+        ).toISOString() as Serialized<T>;
     }
 
     // Handle Prisma Decimal objects or other custom decimal/bignumber classes safely.
@@ -41,10 +48,15 @@ export function serializeData<T>(obj: T): Serialized<T> {
     }
 
     // Fallback: has toString() plus Prisma Decimal internal markers (_hex or digit array d)
-    if (typeof potentialDecimal.toString === 'function' &&
-        (Array.isArray(potentialDecimal.d) || potentialDecimal._hex !== undefined)) {
+    if (
+        typeof potentialDecimal.toString === 'function' &&
+        (Array.isArray(potentialDecimal.d) ||
+            potentialDecimal._hex !== undefined)
+    ) {
         const val = parseFloat(potentialDecimal.toString());
-        return (isNaN(val) ? potentialDecimal.toString() : val) as Serialized<T>;
+        return (
+            isNaN(val) ? potentialDecimal.toString() : val
+        ) as Serialized<T>;
     }
 
     // Handle arrays recursively

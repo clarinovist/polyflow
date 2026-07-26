@@ -4,22 +4,32 @@ import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 
 import { resolveMaterialLocation } from './execution-material-location';
-import type { MaterialLike, OutputBackflushContext, ProductionExecutionOrder } from './execution-types';
+import type {
+    MaterialLike,
+    OutputBackflushContext,
+    ProductionExecutionOrder,
+} from './execution-types';
 
 async function resolveSourceUnitCost(
     tx: Prisma.TransactionClient,
     locationId: string,
     productVariantId: string,
-    isMaklon: boolean
+    isMaklon: boolean,
 ) {
     const sourceInventory = await tx.inventory.findUnique({
-        where: { locationId_productVariantId: { locationId, productVariantId } },
-        select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
+        where: {
+            locationId_productVariantId: { locationId, productVariantId },
+        },
+        select: {
+            averageCost: true,
+            productVariant: { select: { standardCost: true, buyPrice: true } },
+        },
     });
 
     let sourceUnitCost = Number(sourceInventory?.averageCost ?? 0);
     if (sourceUnitCost === 0 && !isMaklon) {
-        sourceUnitCost = Number(sourceInventory?.productVariant?.standardCost ?? 0) ||
+        sourceUnitCost =
+            Number(sourceInventory?.productVariant?.standardCost ?? 0) ||
             Number(sourceInventory?.productVariant?.buyPrice ?? 0);
     }
 
@@ -27,10 +37,13 @@ async function resolveSourceUnitCost(
 }
 
 function hasFloorEnteredBalRule(attributes: unknown): boolean {
-    return !!attributes &&
+    return (
+        !!attributes &&
         typeof attributes === 'object' &&
         !Array.isArray(attributes) &&
-        (attributes as Record<string, unknown>).consumptionRule === 'FLOOR_ENTERED_BAL';
+        (attributes as Record<string, unknown>).consumptionRule ===
+            'FLOOR_ENTERED_BAL'
+    );
 }
 
 export function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
@@ -39,16 +52,21 @@ export function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
     const attributes = item.productVariant?.attributes;
     const materialName = item.productVariant?.name?.toLowerCase() || '';
     const skuCode = item.productVariant?.skuCode?.toLowerCase() || '';
-    const isKarungLike = materialName.includes('karung') || skuCode.includes('kar');
+    const isKarungLike =
+        materialName.includes('karung') || skuCode.includes('kar');
 
     if (hasFloorEnteredBalRule(attributes)) {
         return true;
     }
 
     // Piece-count materials (etiket, karung, etc.) use PCS
-    return primaryUnit === 'PCS' &&
+    return (
+        primaryUnit === 'PCS' &&
         isKarungLike &&
-        (productType === 'PACKAGING' || productType === 'RAW_MATERIAL' || !productType);
+        (productType === 'PACKAGING' ||
+            productType === 'RAW_MATERIAL' ||
+            !productType)
+    );
 }
 
 export function resolveBackflushQuantity(params: {
@@ -58,7 +76,8 @@ export function resolveBackflushQuantity(params: {
     isUsingPlanned: boolean;
     outputContext?: OutputBackflushContext;
 }) {
-    const { item, order, totalConsumed, isUsingPlanned, outputContext } = params;
+    const { item, order, totalConsumed, isUsingPlanned, outputContext } =
+        params;
 
     const ratio = isUsingPlanned
         ? Number(item.quantity) / Number(order.plannedQuantity)
@@ -88,12 +107,23 @@ export async function backflushMaterials(params: {
     userId?: string;
     outputContext?: OutputBackflushContext;
 }) {
-    const { tx, order, productionOrderId, totalConsumed, reference, userId, outputContext } = params;
+    const {
+        tx,
+        order,
+        productionOrderId,
+        totalConsumed,
+        reference,
+        userId,
+        outputContext,
+    } = params;
     if (totalConsumed <= 0) {
         return;
     }
 
-    const itemsToBackflush = order.plannedMaterials.length > 0 ? order.plannedMaterials : (order.bom?.items || []);
+    const itemsToBackflush =
+        order.plannedMaterials.length > 0
+            ? order.plannedMaterials
+            : order.bom?.items || [];
     const isUsingPlanned = order.plannedMaterials.length > 0;
 
     if (itemsToBackflush.length === 0) {
@@ -101,7 +131,11 @@ export async function backflushMaterials(params: {
     }
 
     for (const item of itemsToBackflush as MaterialLike[]) {
-        const consumptionLocationId = await resolveMaterialLocation(tx, order, item.productVariantId);
+        const consumptionLocationId = await resolveMaterialLocation(
+            tx,
+            order,
+            item.productVariantId,
+        );
 
         // Check if this material has already been manually issued by the warehouse team (Fase C guard)
         const manualIssueMovement = await tx.stockMovement.findFirst({
@@ -127,7 +161,9 @@ export async function backflushMaterials(params: {
         });
 
         if (manualIssueMovement || consolIssueMovement) {
-            console.log(`Guard: Skipping backflush for ${item.productVariantId} on PO ${productionOrderId} because it was manually issued.`);
+            console.log(
+                `Guard: Skipping backflush for ${item.productVariantId} on PO ${productionOrderId} because it was manually issued.`,
+            );
             continue;
         }
 
@@ -143,10 +179,25 @@ export async function backflushMaterials(params: {
             continue;
         }
 
-        await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-        await InventoryCoreService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+        await InventoryCoreService.validateAndLockStock(
+            tx,
+            consumptionLocationId,
+            item.productVariantId,
+            qtyToDeduct,
+        );
+        await InventoryCoreService.deductStock(
+            tx,
+            consumptionLocationId,
+            item.productVariantId,
+            qtyToDeduct,
+        );
 
-        const sourceUnitCost = await resolveSourceUnitCost(tx, consumptionLocationId, item.productVariantId, order.isMaklon);
+        const sourceUnitCost = await resolveSourceUnitCost(
+            tx,
+            consumptionLocationId,
+            item.productVariantId,
+            order.isMaklon,
+        );
 
         const movement = await tx.stockMovement.create({
             data: {
@@ -156,8 +207,8 @@ export async function backflushMaterials(params: {
                 quantity: qtyToDeduct,
                 cost: sourceUnitCost > 0 ? sourceUnitCost : undefined,
                 reference,
-                productionOrderId
-            }
+                productionOrderId,
+            },
         });
         await AccountingService.recordInventoryMovement(movement, tx);
 

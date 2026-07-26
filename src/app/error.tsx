@@ -13,8 +13,8 @@ export default function Error({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
-    const isVersionMismatch = 
-        error.message.includes('Failed to find Server Action') || 
+    const isVersionMismatch =
+        error.message.includes('Failed to find Server Action') ||
         error.message.includes('NEXT_REDIRECT'); // Sometimes happens during action redirects in old builds
 
     useEffect(() => {
@@ -22,9 +22,10 @@ export default function Error({
         console.error('[ErrorBoundary]', error);
     }, [error]);
 
-    const uiMessage = isVersionMismatch 
+    const uiMessage = isVersionMismatch
         ? getUserFriendlyError('DEPLOYMENT_VERSION_MISMATCH')
-        : getUserFriendlyError(error.message) || getUserFriendlyError('UNKNOWN_ERROR');
+        : getUserFriendlyError(error.message) ||
+          getUserFriendlyError('UNKNOWN_ERROR');
 
     const handleReload = () => {
         window.location.reload();

@@ -3,7 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
     Select,
@@ -60,7 +66,7 @@ const STATUS_COLORS: Record<string, string> = {
 function formatRole(role: string): string {
     return role
         .split('-')
-        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ');
 }
 
@@ -83,7 +89,9 @@ export function RoleMappingClient() {
                 setMappings(mappingsRes.data as RoleMapping[]);
             }
             if (accountsRes.success && accountsRes.data) {
-                setAccounts(accountsRes.data.filter((a: Account) => a.isActive));
+                setAccounts(
+                    accountsRes.data.filter((a: Account) => a.isActive),
+                );
             }
         } catch {
             toast.error('Failed to load role mappings');
@@ -92,7 +100,9 @@ export function RoleMappingClient() {
         }
     }, []);
 
-    useEffect(() => { loadData(); }, [loadData]);
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     async function handleUpdate(role: string, accountId: string) {
         setSaving(role);
@@ -117,7 +127,9 @@ export function RoleMappingClient() {
             const result = await seedMissingMappings();
             if (result.success && result.data) {
                 const data = result.data;
-                toast.success(`Created ${data.created} mappings, skipped ${data.skipped}`);
+                toast.success(
+                    `Created ${data.created} mappings, skipped ${data.skipped}`,
+                );
                 await loadData();
             }
         } catch {
@@ -134,7 +146,9 @@ export function RoleMappingClient() {
             const result = await resetAllMappings();
             if (result.success && result.data) {
                 const data = result.data;
-                toast.success(`Reset: ${data.updated} updated, ${data.created} created`);
+                toast.success(
+                    `Reset: ${data.updated} updated, ${data.created} created`,
+                );
                 await loadData();
             }
         } catch {
@@ -154,8 +168,8 @@ export function RoleMappingClient() {
         );
     }
 
-    const missingCount = mappings.filter(m => m.status === 'MISSING').length;
-    const orphanCount = mappings.filter(m => m.status === 'ORPHAN').length;
+    const missingCount = mappings.filter((m) => m.status === 'MISSING').length;
+    const orphanCount = mappings.filter((m) => m.status === 'ORPHAN').length;
 
     return (
         <div className="space-y-4">
@@ -167,7 +181,11 @@ export function RoleMappingClient() {
                     onClick={handleSeedMissing}
                     disabled={seeding || missingCount === 0}
                 >
-                    {seeding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    {seeding ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
                     Seed Missing ({missingCount})
                 </Button>
                 <Button
@@ -180,7 +198,9 @@ export function RoleMappingClient() {
                     Reset All to Defaults
                 </Button>
                 {orphanCount > 0 && (
-                    <Badge variant="destructive">{orphanCount} orphan mapping{orphanCount > 1 ? 's' : ''}</Badge>
+                    <Badge variant="destructive">
+                        {orphanCount} orphan mapping{orphanCount > 1 ? 's' : ''}
+                    </Badge>
                 )}
             </div>
 
@@ -189,7 +209,8 @@ export function RoleMappingClient() {
                 <CardHeader>
                     <CardTitle>Role Mappings</CardTitle>
                     <CardDescription>
-                        {mappings.length} roles configured. Green = mapped, Red = orphan (account deleted), Gray = missing.
+                        {mappings.length} roles configured. Green = mapped, Red
+                        = orphan (account deleted), Gray = missing.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -207,7 +228,8 @@ export function RoleMappingClient() {
                                     <Select
                                         value={m.accountId ?? '__none__'}
                                         onValueChange={(val) => {
-                                            if (val !== '__none__') handleUpdate(m.role, val);
+                                            if (val !== '__none__')
+                                                handleUpdate(m.role, val);
                                         }}
                                         disabled={saving === m.role}
                                     >
@@ -215,8 +237,14 @@ export function RoleMappingClient() {
                                             <SelectValue placeholder="Select account..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {filterAccountsForRole(m.role, accounts).map((acc) => (
-                                                <SelectItem key={acc.id} value={acc.id}>
+                                            {filterAccountsForRole(
+                                                m.role,
+                                                accounts,
+                                            ).map((acc) => (
+                                                <SelectItem
+                                                    key={acc.id}
+                                                    value={acc.id}
+                                                >
                                                     {acc.code} — {acc.name}
                                                 </SelectItem>
                                             ))}
@@ -238,13 +266,17 @@ export function RoleMappingClient() {
             </Card>
 
             {/* Reset confirmation dialog */}
-            <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+            <AlertDialog
+                open={resetDialogOpen}
+                onOpenChange={setResetDialogOpen}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Reset All Mappings?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will overwrite all existing role mappings with pattern-resolved defaults.
-                            Manual remaps will be lost.
+                            This will overwrite all existing role mappings with
+                            pattern-resolved defaults. Manual remaps will be
+                            lost.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

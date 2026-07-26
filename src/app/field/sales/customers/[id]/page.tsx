@@ -1,68 +1,77 @@
-import { getFieldCustomerById, getMyFieldSalesOrders } from "@/actions/sales/field-actions";
-import { getOutstandingInvoicesByCustomerId } from "@/actions/finance/invoice";
-import { notFound } from "next/navigation";
-import { CustomerDetailClient } from "./CustomerDetailClient";
+import {
+    getFieldCustomerById,
+    getMyFieldSalesOrders,
+} from '@/actions/sales/field-actions';
+import { getOutstandingInvoicesByCustomerId } from '@/actions/finance/invoice';
+import { notFound } from 'next/navigation';
+import { CustomerDetailClient } from './CustomerDetailClient';
 
 export default async function SalesMobileCustomerDetailPage(props: {
-  params: Promise<{ id: string }>;
+    params: Promise<{ id: string }>;
 }) {
-  const { id } = await props.params;
-  const [customerRes, ordersRes, invoicesRes] = await Promise.all([
-    getFieldCustomerById(id),
-    getMyFieldSalesOrders(),
-    getOutstandingInvoicesByCustomerId(id),
-  ]);
+    const { id } = await props.params;
+    const [customerRes, ordersRes, invoicesRes] = await Promise.all([
+        getFieldCustomerById(id),
+        getMyFieldSalesOrders(),
+        getOutstandingInvoicesByCustomerId(id),
+    ]);
 
-  const customer =
-    customerRes?.success && customerRes.data ? customerRes.data : null;
-  const allOrders = ordersRes?.success && ordersRes.data ? ordersRes.data : [];
-  const invoices = invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
+    const customer =
+        customerRes?.success && customerRes.data ? customerRes.data : null;
+    const allOrders =
+        ordersRes?.success && ordersRes.data ? ordersRes.data : [];
+    const invoices =
+        invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
 
-  if (!customer) {
-    notFound();
-  }
+    if (!customer) {
+        notFound();
+    }
 
-  const orders = allOrders.filter((o) => o.customerId === id);
+    const orders = allOrders.filter((o) => o.customerId === id);
 
-  return (
-    <CustomerDetailClient
-      customer={{
-        id: customer.id,
-        name: customer.name,
-        code: customer.code,
-        phone: customer.phone,
-        email: customer.email,
-        billingAddress: customer.billingAddress,
-        shippingAddress: customer.shippingAddress,
-        creditLimit: customer.creditLimit ? Number(customer.creditLimit) : null,
-        paymentTermDays: customer.paymentTermDays,
-        latitude: customer.latitude ? Number(customer.latitude) : null,
-        longitude: customer.longitude ? Number(customer.longitude) : null,
-        photoUrl: customer.photoUrl,
-        province: customer.province,
-        city: customer.city,
-        district: customer.district,
-        village: customer.village,
-        isActive: customer.isActive,
-        lifecycleStatus: customer.lifecycleStatus,
-      }}
-      recentOrders={orders.slice(0, 5).map((o) => ({
-        id: o.id,
-        orderNumber: o.orderNumber,
-        totalAmount: o.totalAmount ? Number(o.totalAmount) : null,
-        status: o.status,
-        orderDate: o.orderDate,
-      }))}
-      outstandingInvoices={invoices.map((inv) => ({
-        id: inv.id,
-        invoiceNumber: inv.invoiceNumber,
-        invoiceDate: inv.invoiceDate,
-        dueDate: inv.dueDate,
-        totalAmount: Number(inv.totalAmount),
-        paidAmount: Number(inv.paidAmount),
-        status: inv.status,
-        orderNumber: inv.salesOrder?.orderNumber || "",
-      }))}
-    />
-  );
+    return (
+        <CustomerDetailClient
+            customer={{
+                id: customer.id,
+                name: customer.name,
+                code: customer.code,
+                phone: customer.phone,
+                email: customer.email,
+                billingAddress: customer.billingAddress,
+                shippingAddress: customer.shippingAddress,
+                creditLimit: customer.creditLimit
+                    ? Number(customer.creditLimit)
+                    : null,
+                paymentTermDays: customer.paymentTermDays,
+                latitude: customer.latitude ? Number(customer.latitude) : null,
+                longitude: customer.longitude
+                    ? Number(customer.longitude)
+                    : null,
+                photoUrl: customer.photoUrl,
+                province: customer.province,
+                city: customer.city,
+                district: customer.district,
+                village: customer.village,
+                isActive: customer.isActive,
+                lifecycleStatus: customer.lifecycleStatus,
+            }}
+            recentOrders={orders.slice(0, 5).map((o) => ({
+                id: o.id,
+                orderNumber: o.orderNumber,
+                totalAmount: o.totalAmount ? Number(o.totalAmount) : null,
+                status: o.status,
+                orderDate: o.orderDate,
+            }))}
+            outstandingInvoices={invoices.map((inv) => ({
+                id: inv.id,
+                invoiceNumber: inv.invoiceNumber,
+                invoiceDate: inv.invoiceDate,
+                dueDate: inv.dueDate,
+                totalAmount: Number(inv.totalAmount),
+                paidAmount: Number(inv.paidAmount),
+                status: inv.status,
+                orderNumber: inv.salesOrder?.orderNumber || '',
+            }))}
+        />
+    );
 }

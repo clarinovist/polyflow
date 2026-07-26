@@ -54,8 +54,9 @@ export default async function FromNotaPage() {
                     </h1>
                 </div>
                 <p className="text-muted-foreground">
-                    Catat penerimaan barang dari nota/surat jalan. PO akan dibuat
-                    otomatis — stok langsung bertambah tanpa menunggu finance.
+                    Catat penerimaan barang dari nota/surat jalan. PO akan
+                    dibuat otomatis — stok langsung bertambah tanpa menunggu
+                    finance.
                 </p>
             </div>
             <WalkInReceiptForm

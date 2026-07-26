@@ -42,7 +42,9 @@ type AssertNoDependentsOptions = {
  * Throws BusinessRuleError with details if dependents exist.
  * Does NOT log — business reject is a UI message, not an error.
  */
-export async function assertNoDependents(options: AssertNoDependentsOptions): Promise<void> {
+export async function assertNoDependents(
+    options: AssertNoDependentsOptions,
+): Promise<void> {
     const { id, entityName, blockers } = options;
 
     for (const blocker of blockers) {
@@ -85,7 +87,7 @@ export async function safeDeleteEntity(
         if (
             error instanceof Error &&
             (error.message.toLowerCase().includes('foreign key constraint') ||
-             (error as unknown as Record<string, unknown>).code === 'P2003')
+                (error as unknown as Record<string, unknown>).code === 'P2003')
         ) {
             logger.warn('Entity delete race condition (FK after pre-check)', {
                 entityName,

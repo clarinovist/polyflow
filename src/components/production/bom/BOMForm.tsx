@@ -87,7 +87,11 @@ interface CostDiagnosticsView {
     inventoryCount?: number;
 }
 
-function resolveCostDiagnostics(variant?: ({ costDiagnostics?: CostDiagnosticsView } & VariantCostLike) | null): CostDiagnosticsView | null {
+function resolveCostDiagnostics(
+    variant?:
+        | ({ costDiagnostics?: CostDiagnosticsView } & VariantCostLike)
+        | null,
+): CostDiagnosticsView | null {
     if (!variant) return null;
     return variant.costDiagnostics || getVariantCostDiagnostics(variant);
 }
@@ -102,11 +106,7 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-export function BOMForm({
-    bom,
-    productVariants,
-    showPrices
-}: BOMFormProps) {
+export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const basePath = useBomBasePath();
@@ -119,39 +119,52 @@ export function BOMForm({
             outputQuantity: 1,
             isDefault: false,
             category: 'STANDARD',
-            items: [{ productVariantId: '', quantity: 1, scrapPercentage: 0 }]
-        }
+            items: [{ productVariantId: '', quantity: 1, scrapPercentage: 0 }],
+        },
     });
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
-        name: 'items'
+        name: 'items',
     });
     const watchedItems = form.watch('items');
-    const selectedOutputVariant = productVariants.find((variant) => variant.id === form.watch('productVariantId'));
+    const selectedOutputVariant = productVariants.find(
+        (variant) => variant.id === form.watch('productVariantId'),
+    );
     const outputDiagnostics = resolveCostDiagnostics(selectedOutputVariant);
     const outputGapLabel = outputDiagnostics
-        ? formatCostGapLabel(outputDiagnostics.breakdown.currentCost, outputDiagnostics.breakdown.standardCost)
+        ? formatCostGapLabel(
+              outputDiagnostics.breakdown.currentCost,
+              outputDiagnostics.breakdown.standardCost,
+          )
         : null;
     const formulaTotalInvestment = watchedItems.reduce((acc, item) => {
-        const variant = productVariants.find(v => v.id === item.productVariantId);
+        const variant = productVariants.find(
+            (v) => v.id === item.productVariantId,
+        );
         if (!variant) return acc;
         const cost = getCurrentUnitCost(variant);
         const quantity = Number(item.quantity ?? 0);
-        const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
-        return acc + (cost * quantity * scrap);
+        const scrap = 1 + Number(item.scrapPercentage ?? 0) / 100;
+        return acc + cost * quantity * scrap;
     }, 0);
     const formulaWarnings = watchedItems.flatMap((item) => {
-        const variant = productVariants.find(v => v.id === item.productVariantId);
+        const variant = productVariants.find(
+            (v) => v.id === item.productVariantId,
+        );
         const diagnostics = resolveCostDiagnostics(variant);
-        if (!variant || !diagnostics || diagnostics.flags.length === 0) return [];
+        if (!variant || !diagnostics || diagnostics.flags.length === 0)
+            return [];
 
         return diagnostics.flags.map((flag: CostAnomalyFlag) => ({
             variantId: variant.id,
             variantName: variant.name,
             flag,
             message: getCostAlertMessage(flag),
-            gapLabel: formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost),
+            gapLabel: formatCostGapLabel(
+                diagnostics.breakdown.currentCost,
+                diagnostics.breakdown.standardCost,
+            ),
         }));
     });
 
@@ -167,8 +180,8 @@ export function BOMForm({
                 items: bom.items.map((item) => ({
                     productVariantId: item.productVariantId,
                     quantity: Number(item.quantity),
-                    scrapPercentage: Number(item.scrapPercentage || 0)
-                }))
+                    scrapPercentage: Number(item.scrapPercentage || 0),
+                })),
             });
         }
     }, [bom, form]);
@@ -176,17 +189,20 @@ export function BOMForm({
     async function onSubmit(values: CreateBomValues) {
         // Validation 1: Check for Physical Impossibility (Output > Total Input)
         // It is impossible to create more mass than input (Conservation of Mass)
-        const totalInput = values.items.reduce((acc, item) => acc + Number(item.quantity), 0);
+        const totalInput = values.items.reduce(
+            (acc, item) => acc + Number(item.quantity),
+            0,
+        );
         const output = Number(values.outputQuantity);
 
         if (output > totalInput) {
             const confirmed = window.confirm(
                 `⚠️ OUTPUT TIDAK MUNGKIN SECARA FISIK ⚠️\n\n` +
-                `Total Input Material: ${totalInput.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n` +
-                `Target Output: ${output.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n\n` +
-                `DILARANG: Output tidak boleh lebih besar dari input material karena akan menyebabkan COGS negatif.\n` +
-                `Kemungkinan error: Basis Output terlalu tinggi.\n\n` +
-                `Yakin ingin melanjutkan?`
+                    `Total Input Material: ${totalInput.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n` +
+                    `Target Output: ${output.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n\n` +
+                    `DILARANG: Output tidak boleh lebih besar dari input material karena akan menyebabkan COGS negatif.\n` +
+                    `Kemungkinan error: Basis Output terlalu tinggi.\n\n` +
+                    `Yakin ingin melanjutkan?`,
             );
             if (!confirmed) return;
         }
@@ -196,13 +212,13 @@ export function BOMForm({
         if (totalInput > output * 1.2) {
             const confirmed = window.confirm(
                 `⚠️ HIGH SHRINKAGE / POTENTIAL UNIT ERROR ⚠️\n\n` +
-                `Total Material Input: ${totalInput.toLocaleString()}\n` +
-                `Target Output: ${output.toLocaleString()}\n` +
-                `Implied Shrinkage: ${((totalInput - output) / totalInput * 100).toFixed(1)}%\n\n` +
-                `This is unusually high. Did you mean to use '1 Sack' instead of 'Mass in KG'?\n` +
-                `POLYFLOW STANDARD: Use KG for both Input and Output.\n\n` +
-                `Click OK to save if this is intentional (e.g. high evaporation).\n` +
-                `Click Cancel to fix quantities.`
+                    `Total Material Input: ${totalInput.toLocaleString()}\n` +
+                    `Target Output: ${output.toLocaleString()}\n` +
+                    `Implied Shrinkage: ${(((totalInput - output) / totalInput) * 100).toFixed(1)}%\n\n` +
+                    `This is unusually high. Did you mean to use '1 Sack' instead of 'Mass in KG'?\n` +
+                    `POLYFLOW STANDARD: Use KG for both Input and Output.\n\n` +
+                    `Click OK to save if this is intentional (e.g. high evaporation).\n` +
+                    `Click Cancel to fix quantities.`,
             );
             if (!confirmed) return;
         }
@@ -214,7 +230,9 @@ export function BOMForm({
                 : await createBom(values);
 
             if (res.success) {
-                toast.success(bom ? 'BOM berhasil diperbarui.' : 'BOM berhasil dibuat.');
+                toast.success(
+                    bom ? 'BOM berhasil diperbarui.' : 'BOM berhasil dibuat.',
+                );
                 router.push(basePath);
                 router.refresh();
             } else {
@@ -243,7 +261,9 @@ export function BOMForm({
                         {bom ? 'Edit Recipe' : 'Design New Recipe'}
                     </h1>
                     <p className="text-muted-foreground text-sm">
-                        {bom ? `Refining ${bom.name}` : 'Construct a new Bill of Materials architecture.'}
+                        {bom
+                            ? `Refining ${bom.name}`
+                            : 'Construct a new Bill of Materials architecture.'}
                     </p>
                 </div>
             </div>
@@ -253,17 +273,21 @@ export function BOMForm({
                 <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950/20">
                     <Info className="h-4 w-4 text-amber-600" />
                     <AlertTitle className="text-amber-700 dark:text-amber-400 font-semibold">
-                        Resep sudah dipakai di {bom._count.ProductionOrder} Work Order
+                        Resep sudah dipakai di {bom._count.ProductionOrder} Work
+                        Order
                     </AlertTitle>
                     <AlertDescription className="text-amber-600/80 dark:text-amber-400/70 text-sm">
-                        Edit di sini akan mengubah formula yang sudah dipakai di produksi.
-                        Untuk formula baru, gunakan Duplikat.
+                        Edit di sini akan mengubah formula yang sudah dipakai di
+                        produksi. Untuk formula baru, gunakan Duplikat.
                     </AlertDescription>
                 </Alert>
             )}
 
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="space-y-8"
+                >
                     {/* Header Section: General Info & Summary */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <Card className="lg:col-span-2">
@@ -275,7 +299,12 @@ export function BOMForm({
                                         <FormItem>
                                             <FormLabel>Recipe Name</FormLabel>
                                             <FormControl>
-                                            <Input placeholder={productionComponentLabels.bomRecipe} {...field} />
+                                                <Input
+                                                    placeholder={
+                                                        productionComponentLabels.bomRecipe
+                                                    }
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -287,14 +316,20 @@ export function BOMForm({
                                     name="productVariantId"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>Output Product</FormLabel>
+                                            <FormLabel>
+                                                Output Product
+                                            </FormLabel>
                                             <FormControl>
                                                 <ProductCombobox
                                                     products={productVariants}
                                                     value={field.value}
-                                                    onValueChange={field.onChange}
+                                                    onValueChange={
+                                                        field.onChange
+                                                    }
                                                     disabled={!!bom}
-                                                    placeholder={productionComponentLabels.selectProductToProduce}
+                                                    placeholder={
+                                                        productionComponentLabels.selectProductToProduce
+                                                    }
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -307,19 +342,41 @@ export function BOMForm({
                                     name="category"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Production Stage (Category)</FormLabel>
-                                            <Select key={field.value} onValueChange={field.onChange} value={field.value}>
+                                            <FormLabel>
+                                                Production Stage (Category)
+                                            </FormLabel>
+                                            <Select
+                                                key={field.value}
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                            >
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder={productionComponentLabels.selectStage} />
+                                                        <SelectValue
+                                                            placeholder={
+                                                                productionComponentLabels.selectStage
+                                                            }
+                                                        />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="STANDARD">Standard (General)</SelectItem>
-                                                    <SelectItem value="MIXING">Mixing (Adonan)</SelectItem>
-                                                    <SelectItem value="EXTRUSION">Extrusion (Bahan Setengah Jadi)</SelectItem>
-                                                    <SelectItem value="PACKING">Packing (Finishing)</SelectItem>
-                                                    <SelectItem value="REWORK">Rework / Reject (Seset Affal)</SelectItem>
+                                                    <SelectItem value="STANDARD">
+                                                        Standard (General)
+                                                    </SelectItem>
+                                                    <SelectItem value="MIXING">
+                                                        Mixing (Adonan)
+                                                    </SelectItem>
+                                                    <SelectItem value="EXTRUSION">
+                                                        Extrusion (Bahan
+                                                        Setengah Jadi)
+                                                    </SelectItem>
+                                                    <SelectItem value="PACKING">
+                                                        Packing (Finishing)
+                                                    </SelectItem>
+                                                    <SelectItem value="REWORK">
+                                                        Rework / Reject (Seset
+                                                        Affal)
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -332,9 +389,15 @@ export function BOMForm({
                                     name="outputQuantity"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Basis Output Quantity</FormLabel>
+                                            <FormLabel>
+                                                Basis Output Quantity
+                                            </FormLabel>
                                             <FormControl>
-                                                <Input type="number" step="0.0001" {...field} />
+                                                <Input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -349,11 +412,16 @@ export function BOMForm({
                                             <FormControl>
                                                 <Checkbox
                                                     checked={field.value}
-                                                    onCheckedChange={field.onChange}
+                                                    onCheckedChange={
+                                                        field.onChange
+                                                    }
                                                 />
                                             </FormControl>
                                             <div className="leading-none">
-                                                <FormLabel className="cursor-pointer">Set as Primary Default Recipe</FormLabel>
+                                                <FormLabel className="cursor-pointer">
+                                                    Set as Primary Default
+                                                    Recipe
+                                                </FormLabel>
                                             </div>
                                         </FormItem>
                                     )}
@@ -365,21 +433,48 @@ export function BOMForm({
                         {showPrices && (
                             <Card className="flex flex-col justify-center">
                                 <CardContent className="pt-6">
-                                    <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Total Formula Investment</div>
+                                    <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                                        Total Formula Investment
+                                    </div>
                                     <div className="text-4xl font-bold tracking-tight">
                                         {formatCurrency(formulaTotalInvestment)}
                                     </div>
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                                        <Badge variant={formulaWarnings.length > 0 ? 'destructive' : 'secondary'}>
-                                            {formulaWarnings.length > 0 ? `${formulaWarnings.length} ingredient warning` : 'All ingredients within range'}
+                                        <Badge
+                                            variant={
+                                                formulaWarnings.length > 0
+                                                    ? 'destructive'
+                                                    : 'secondary'
+                                            }
+                                        >
+                                            {formulaWarnings.length > 0
+                                                ? `${formulaWarnings.length} ingredient warning`
+                                                : 'All ingredients within range'}
                                         </Badge>
                                         {outputDiagnostics && (
                                             <>
-                                                <Badge variant={getCostSourceTone(outputDiagnostics.breakdown.source)}>
-                                                    Output basis: {getCostSourceLabel(outputDiagnostics.breakdown.source)}
+                                                <Badge
+                                                    variant={getCostSourceTone(
+                                                        outputDiagnostics
+                                                            .breakdown.source,
+                                                    )}
+                                                >
+                                                    Output basis:{' '}
+                                                    {getCostSourceLabel(
+                                                        outputDiagnostics
+                                                            .breakdown.source,
+                                                    )}
                                                 </Badge>
                                                 {outputGapLabel && (
-                                                    <Badge variant={outputDiagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                                    <Badge
+                                                        variant={
+                                                            outputDiagnostics
+                                                                .flags.length >
+                                                            0
+                                                                ? 'destructive'
+                                                                : 'outline'
+                                                        }
+                                                    >
                                                         {outputGapLabel}
                                                     </Badge>
                                                 )}
@@ -390,7 +485,11 @@ export function BOMForm({
                                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                                             <div className="h-full bg-primary w-[60%]" />
                                         </div>
-                                        <p className="text-[11px] text-muted-foreground italic">Calculated from current weighted stock cost, with standard cost as fallback.</p>
+                                        <p className="text-[11px] text-muted-foreground italic">
+                                            Calculated from current weighted
+                                            stock cost, with standard cost as
+                                            fallback.
+                                        </p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -403,13 +502,28 @@ export function BOMForm({
                             <AlertTitle>Ingredient cost warning</AlertTitle>
                             <AlertDescription className="space-y-2">
                                 {formulaWarnings.map((warning, index) => (
-                                    <div key={`${warning.variantId}-${warning.flag}-${index}`} className="rounded-md border border-amber-200/60 bg-background/70 p-3">
+                                    <div
+                                        key={`${warning.variantId}-${warning.flag}-${index}`}
+                                        className="rounded-md border border-amber-200/60 bg-background/70 p-3"
+                                    >
                                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                                            <Badge variant="outline">{warning.variantName}</Badge>
-                                            <Badge variant="destructive">{getCostAlertShortLabel(warning.flag)}</Badge>
-                                            {warning.gapLabel && <Badge variant="outline">{warning.gapLabel}</Badge>}
+                                            <Badge variant="outline">
+                                                {warning.variantName}
+                                            </Badge>
+                                            <Badge variant="destructive">
+                                                {getCostAlertShortLabel(
+                                                    warning.flag,
+                                                )}
+                                            </Badge>
+                                            {warning.gapLabel && (
+                                                <Badge variant="outline">
+                                                    {warning.gapLabel}
+                                                </Badge>
+                                            )}
                                         </div>
-                                        <p className="text-sm text-muted-foreground">{warning.message}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {warning.message}
+                                        </p>
                                     </div>
                                 ))}
                             </AlertDescription>
@@ -420,16 +534,27 @@ export function BOMForm({
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <div className="flex items-center gap-3">
-                                <CardTitle className="text-lg font-bold">Formula Configuration</CardTitle>
-                                <Badge variant="secondary" className="ml-2">{fields.length} Components</Badge>
+                                <CardTitle className="text-lg font-bold">
+                                    Formula Configuration
+                                </CardTitle>
+                                <Badge variant="secondary" className="ml-2">
+                                    {fields.length} Components
+                                </Badge>
                             </div>
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => append({ productVariantId: '', quantity: 1, scrapPercentage: 0 })}
+                                onClick={() =>
+                                    append({
+                                        productVariantId: '',
+                                        quantity: 1,
+                                        scrapPercentage: 0,
+                                    })
+                                }
                                 size="sm"
                             >
-                                <Plus className="h-4 w-4 mr-2" /> {productionComponentLabels.addMaterial}
+                                <Plus className="h-4 w-4 mr-2" />{' '}
+                                {productionComponentLabels.addMaterial}
                             </Button>
                         </CardHeader>
 
@@ -438,84 +563,212 @@ export function BOMForm({
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[400px]">Ingredient Material & SKU</TableHead>
-                                            <TableHead className="text-center w-[150px]">Quantity</TableHead>
-                                            <TableHead className="text-center w-[120px]">Scrap %</TableHead>
-                                            {showPrices && <TableHead className="text-right w-[180px]">Line Investment</TableHead>}
+                                            <TableHead className="w-[400px]">
+                                                Ingredient Material & SKU
+                                            </TableHead>
+                                            <TableHead className="text-center w-[150px]">
+                                                Quantity
+                                            </TableHead>
+                                            <TableHead className="text-center w-[120px]">
+                                                Scrap %
+                                            </TableHead>
+                                            {showPrices && (
+                                                <TableHead className="text-right w-[180px]">
+                                                    Line Investment
+                                                </TableHead>
+                                            )}
                                             <TableHead className="text-right w-[100px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {fields.map((field, index) => {
-                                            const materialId = form.watch(`items.${index}.productVariantId`);
-                                            const quantity = form.watch(`items.${index}.quantity`);
-                                            const scrapPct = form.watch(`items.${index}.scrapPercentage`) || 0;
-                                            const variant = productVariants.find(v => v.id === materialId);
-                                            const diagnostics = resolveCostDiagnostics(variant);
+                                            const materialId = form.watch(
+                                                `items.${index}.productVariantId`,
+                                            );
+                                            const quantity = form.watch(
+                                                `items.${index}.quantity`,
+                                            );
+                                            const scrapPct =
+                                                form.watch(
+                                                    `items.${index}.scrapPercentage`,
+                                                ) || 0;
+                                            const variant =
+                                                productVariants.find(
+                                                    (v) => v.id === materialId,
+                                                );
+                                            const diagnostics =
+                                                resolveCostDiagnostics(variant);
                                             const gapLabel = diagnostics
-                                                ? formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost)
+                                                ? formatCostGapLabel(
+                                                      diagnostics.breakdown
+                                                          .currentCost,
+                                                      diagnostics.breakdown
+                                                          .standardCost,
+                                                  )
                                                 : null;
 
                                             // Effective quantity considering scrap
-                                            const effectiveQty = Number(quantity ?? 0) * (1 + (Number(scrapPct) / 100));
-                                            const unitCost = variant ? getCurrentUnitCost(variant) : 0;
-                                            const lineCost = unitCost * effectiveQty;
+                                            const effectiveQty =
+                                                Number(quantity ?? 0) *
+                                                (1 + Number(scrapPct) / 100);
+                                            const unitCost = variant
+                                                ? getCurrentUnitCost(variant)
+                                                : 0;
+                                            const lineCost =
+                                                unitCost * effectiveQty;
 
                                             // Smart Suggestion Logic
-                                            const currentCategory = form.watch('category');
-                                            const displayVariants = productVariants.map(v => {
-                                                let isSuggested = false;
-                                                if (currentCategory === 'EXTRUSION') {
-                                                    // Prioritize Adonan/WIP-MIX
-                                                    isSuggested = v.name.toLowerCase().includes('adon') ||
-                                                        v.skuCode.toLowerCase().includes('mix') ||
-                                                        v.skuCode.toLowerCase().includes('wip');
-                                                } else if (currentCategory === 'PACKING') {
-                                                    // Prioritize Roll/Packaging
-                                                    isSuggested = v.name.toLowerCase().includes('roll') ||
-                                                        v.name.toLowerCase().includes('pack') ||
-                                                        v.name.toLowerCase().includes('kemas') ||
-                                                        v.skuCode.toLowerCase().includes('ext') ||
-                                                        v.skuCode.toLowerCase().includes('pkg');
-                                                }
-                                                return { ...v, isSuggested };
-                                            });
+                                            const currentCategory =
+                                                form.watch('category');
+                                            const displayVariants =
+                                                productVariants.map((v) => {
+                                                    let isSuggested = false;
+                                                    if (
+                                                        currentCategory ===
+                                                        'EXTRUSION'
+                                                    ) {
+                                                        // Prioritize Adonan/WIP-MIX
+                                                        isSuggested =
+                                                            v.name
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'adon',
+                                                                ) ||
+                                                            v.skuCode
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'mix',
+                                                                ) ||
+                                                            v.skuCode
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'wip',
+                                                                );
+                                                    } else if (
+                                                        currentCategory ===
+                                                        'PACKING'
+                                                    ) {
+                                                        // Prioritize Roll/Packaging
+                                                        isSuggested =
+                                                            v.name
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'roll',
+                                                                ) ||
+                                                            v.name
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'pack',
+                                                                ) ||
+                                                            v.name
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'kemas',
+                                                                ) ||
+                                                            v.skuCode
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'ext',
+                                                                ) ||
+                                                            v.skuCode
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    'pkg',
+                                                                );
+                                                    }
+                                                    return {
+                                                        ...v,
+                                                        isSuggested,
+                                                    };
+                                                });
 
-                                            const hasSuggestions = displayVariants.some(v => v.isSuggested);
+                                            const hasSuggestions =
+                                                displayVariants.some(
+                                                    (v) => v.isSuggested,
+                                                );
 
                                             return (
-                                                <TableRow key={field.id} className="group">
+                                                <TableRow
+                                                    key={field.id}
+                                                    className="group"
+                                                >
                                                     <TableCell className="py-4">
                                                         <FormField
-                                                            control={form.control}
+                                                            control={
+                                                                form.control
+                                                            }
                                                             name={`items.${index}.productVariantId`}
-                                                            render={({ field }) => (
+                                                            render={({
+                                                                field,
+                                                            }) => (
                                                                 <FormItem className="flex flex-col gap-2">
                                                                     <FormControl>
                                                                         <ProductCombobox
-                                                                            products={displayVariants}
-                                                                            value={field.value}
-                                                                            onValueChange={field.onChange}
-                                                                            placeholder={hasSuggestions ? productionComponentLabels.suggestedMaterials : productionComponentLabels.searchMaterial}
+                                                                            products={
+                                                                                displayVariants
+                                                                            }
+                                                                            value={
+                                                                                field.value
+                                                                            }
+                                                                            onValueChange={
+                                                                                field.onChange
+                                                                            }
+                                                                            placeholder={
+                                                                                hasSuggestions
+                                                                                    ? productionComponentLabels.suggestedMaterials
+                                                                                    : productionComponentLabels.searchMaterial
+                                                                            }
                                                                         />
                                                                     </FormControl>
-                                                                    {variant && showPrices && diagnostics && (
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            <Badge variant={getCostSourceTone(diagnostics.breakdown.source)}>
-                                                                                {getCostSourceLabel(diagnostics.breakdown.source)}
-                                                                            </Badge>
-                                                                            {gapLabel && (
-                                                                                <Badge variant={diagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
-                                                                                    {gapLabel}
+                                                                    {variant &&
+                                                                        showPrices &&
+                                                                        diagnostics && (
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                <Badge
+                                                                                    variant={getCostSourceTone(
+                                                                                        diagnostics
+                                                                                            .breakdown
+                                                                                            .source,
+                                                                                    )}
+                                                                                >
+                                                                                    {getCostSourceLabel(
+                                                                                        diagnostics
+                                                                                            .breakdown
+                                                                                            .source,
+                                                                                    )}
                                                                                 </Badge>
-                                                                            )}
-                                                                            {diagnostics.flags.map((flag: CostAnomalyFlag) => (
-                                                                                <Badge key={`${variant.id}-${flag}`} variant="outline">
-                                                                                    {getCostAlertShortLabel(flag)}
-                                                                                </Badge>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
+                                                                                {gapLabel && (
+                                                                                    <Badge
+                                                                                        variant={
+                                                                                            diagnostics
+                                                                                                .flags
+                                                                                                .length >
+                                                                                            0
+                                                                                                ? 'destructive'
+                                                                                                : 'outline'
+                                                                                        }
+                                                                                    >
+                                                                                        {
+                                                                                            gapLabel
+                                                                                        }
+                                                                                    </Badge>
+                                                                                )}
+                                                                                {diagnostics.flags.map(
+                                                                                    (
+                                                                                        flag: CostAnomalyFlag,
+                                                                                    ) => (
+                                                                                        <Badge
+                                                                                            key={`${variant.id}-${flag}`}
+                                                                                            variant="outline"
+                                                                                        >
+                                                                                            {getCostAlertShortLabel(
+                                                                                                flag,
+                                                                                            )}
+                                                                                        </Badge>
+                                                                                    ),
+                                                                                )}
+                                                                            </div>
+                                                                        )}
                                                                     <FormMessage />
                                                                 </FormItem>
                                                             )}
@@ -523,12 +776,21 @@ export function BOMForm({
                                                     </TableCell>
                                                     <TableCell className="py-4">
                                                         <FormField
-                                                            control={form.control}
+                                                            control={
+                                                                form.control
+                                                            }
                                                             name={`items.${index}.quantity`}
-                                                            render={({ field }) => (
+                                                            render={({
+                                                                field,
+                                                            }) => (
                                                                 <FormItem>
                                                                     <FormControl>
-                                                                        <Input type="number" step="0.0001" {...field} className="text-center" />
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.0001"
+                                                                            {...field}
+                                                                            className="text-center"
+                                                                        />
                                                                     </FormControl>
                                                                     <FormMessage />
                                                                 </FormItem>
@@ -537,14 +799,25 @@ export function BOMForm({
                                                     </TableCell>
                                                     <TableCell className="py-4">
                                                         <FormField
-                                                            control={form.control}
+                                                            control={
+                                                                form.control
+                                                            }
                                                             name={`items.${index}.scrapPercentage`}
-                                                            render={({ field }) => (
+                                                            render={({
+                                                                field,
+                                                            }) => (
                                                                 <FormItem>
                                                                     <FormControl>
                                                                         <div className="relative">
-                                                                            <Input type="number" step="0.1" {...field} className="text-center pr-6" />
-                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                                                                            <Input
+                                                                                type="number"
+                                                                                step="0.1"
+                                                                                {...field}
+                                                                                className="text-center pr-6"
+                                                                            />
+                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                                                                %
+                                                                            </span>
                                                                         </div>
                                                                     </FormControl>
                                                                     <FormMessage />
@@ -556,10 +829,14 @@ export function BOMForm({
                                                         <TableCell className="py-4 text-right">
                                                             <div className="flex flex-col items-end">
                                                                 <span className="font-medium text-sm">
-                                                                    {formatCurrency(lineCost)}
+                                                                    {formatCurrency(
+                                                                        lineCost,
+                                                                    )}
                                                                 </span>
                                                                 <span className="text-[10px] text-muted-foreground">
-                                                                    {variant ? `@ ${formatCurrency(unitCost)}` : 'Rate Unavailable'}
+                                                                    {variant
+                                                                        ? `@ ${formatCurrency(unitCost)}`
+                                                                        : 'Rate Unavailable'}
                                                                 </span>
                                                             </div>
                                                         </TableCell>
@@ -569,8 +846,13 @@ export function BOMForm({
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            onClick={() => remove(index)}
-                                                            disabled={fields.length === 1}
+                                                            onClick={() =>
+                                                                remove(index)
+                                                            }
+                                                            disabled={
+                                                                fields.length ===
+                                                                1
+                                                            }
                                                             className="text-muted-foreground hover:text-red-500 h-8 w-8"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
@@ -607,7 +889,9 @@ export function BOMForm({
                             ) : (
                                 <>
                                     <Save className="mr-2 h-4 w-4" />
-                                    {bom ? 'Finalize Updates' : 'Architect Recipe'}
+                                    {bom
+                                        ? 'Finalize Updates'
+                                        : 'Architect Recipe'}
                                 </>
                             )}
                         </Button>

@@ -1,6 +1,6 @@
 'use server';
 
-import { withTenant } from "@/lib/core/tenant";
+import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
@@ -10,9 +10,13 @@ import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 
 const linkSupplierSchema = z.object({
-    supplierId: z.string().min(1, "Supplier is required"),
-    productVariantId: z.string().min(1, "Product variant is required"),
-    unitPrice: z.coerce.number().nonnegative("Unit price must be non-negative").optional().nullable(),
+    supplierId: z.string().min(1, 'Supplier is required'),
+    productVariantId: z.string().min(1, 'Product variant is required'),
+    unitPrice: z.coerce
+        .number()
+        .nonnegative('Unit price must be non-negative')
+        .optional()
+        .nullable(),
     leadTimeDays: z.coerce.number().int().nonnegative().optional().nullable(),
     minOrderQty: z.coerce.number().nonnegative().optional().nullable(),
     isPreferred: z.boolean().default(false),
@@ -22,189 +26,220 @@ const linkSupplierSchema = z.object({
 export type LinkSupplierValues = z.infer<typeof linkSupplierSchema>;
 
 export const linkSupplierToProduct = withTenant(
-async function linkSupplierToProduct(data: LinkSupplierValues) {
-    return safeAction(async () => {
-        const result = linkSupplierSchema.safeParse(data);
+    async function linkSupplierToProduct(data: LinkSupplierValues) {
+        return safeAction(async () => {
+            const result = linkSupplierSchema.safeParse(data);
 
-        if (!result.success) {
-            throw new BusinessRuleError(result.error.issues[0].message);
-        }
+            if (!result.success) {
+                throw new BusinessRuleError(result.error.issues[0].message);
+            }
 
-        const { supplierId, productVariantId, ...rest } = result.data;
+            const { supplierId, productVariantId, ...rest } = result.data;
 
-        try {
-            await prisma.$transaction(async (tx) => {
-                if (rest.isPreferred) {
-                    await tx.supplierProduct.updateMany({
-                        where: { productVariantId },
-                        data: { isPreferred: false },
-                    });
-                }
+            try {
+                await prisma.$transaction(async (tx) => {
+                    if (rest.isPreferred) {
+                        await tx.supplierProduct.updateMany({
+                            where: { productVariantId },
+                            data: { isPreferred: false },
+                        });
+                    }
 
-                await tx.supplierProduct.upsert({
-                    where: {
-                        supplierId_productVariantId: {
+                    await tx.supplierProduct.upsert({
+                        where: {
+                            supplierId_productVariantId: {
+                                supplierId,
+                                productVariantId,
+                            },
+                        },
+                        update: {
+                            ...rest,
+                            unitPrice: rest.unitPrice
+                                ? new Prisma.Decimal(rest.unitPrice)
+                                : null,
+                            minOrderQty: rest.minOrderQty
+                                ? new Prisma.Decimal(rest.minOrderQty)
+                                : null,
+                        },
+                        create: {
                             supplierId,
                             productVariantId,
+                            ...rest,
+                            unitPrice: rest.unitPrice
+                                ? new Prisma.Decimal(rest.unitPrice)
+                                : null,
+                            minOrderQty: rest.minOrderQty
+                                ? new Prisma.Decimal(rest.minOrderQty)
+                                : null,
                         },
-                    },
-                    update: {
-                        ...rest,
-                        unitPrice: rest.unitPrice ? new Prisma.Decimal(rest.unitPrice) : null,
-                        minOrderQty: rest.minOrderQty ? new Prisma.Decimal(rest.minOrderQty) : null,
-                    },
-                    create: {
-                        supplierId,
-                        productVariantId,
-                        ...rest,
-                        unitPrice: rest.unitPrice ? new Prisma.Decimal(rest.unitPrice) : null,
-                        minOrderQty: rest.minOrderQty ? new Prisma.Decimal(rest.minOrderQty) : null,
-                    },
+                    });
+
+                    if (rest.isPreferred) {
+                        await tx.productVariant.update({
+                            where: { id: productVariantId },
+                            data: { preferredSupplierId: supplierId },
+                        });
+                    }
                 });
 
-                if (rest.isPreferred) {
-                    await tx.productVariant.update({
-                        where: { id: productVariantId },
-                        data: { preferredSupplierId: supplierId },
-                    });
-                }
-            });
-
-            revalidatePath(`/purchasing/suppliers/${supplierId}`);
-            revalidatePath(`/dashboard/products`);
-            return null;
-        } catch (error) {
-            logger.error('Failed to link supplier', { error, supplierId, productVariantId, module: 'SupplierProductActions' });
-            throw new BusinessRuleError('Failed to link supplier to product');
-        }
-    });
-}
+                revalidatePath(`/purchasing/suppliers/${supplierId}`);
+                revalidatePath(`/dashboard/products`);
+                return null;
+            } catch (error) {
+                logger.error('Failed to link supplier', {
+                    error,
+                    supplierId,
+                    productVariantId,
+                    module: 'SupplierProductActions',
+                });
+                throw new BusinessRuleError(
+                    'Failed to link supplier to product',
+                );
+            }
+        });
+    },
 );
 
 export const unlinkSupplierFromProduct = withTenant(
-async function unlinkSupplierFromProduct(id: string) {
-    return safeAction(async () => {
-        try {
-            const item = await prisma.supplierProduct.findUnique({
-                where: { id },
-            });
-
-            if (!item) {
-                throw new BusinessRuleError('Link not found');
-            }
-
-            await prisma.$transaction(async (tx) => {
-                await tx.supplierProduct.delete({
+    async function unlinkSupplierFromProduct(id: string) {
+        return safeAction(async () => {
+            try {
+                const item = await prisma.supplierProduct.findUnique({
                     where: { id },
                 });
 
-                if (item.isPreferred) {
-                    await tx.productVariant.update({
-                        where: { id: item.productVariantId },
-                        data: { preferredSupplierId: null },
-                    });
+                if (!item) {
+                    throw new BusinessRuleError('Link not found');
                 }
-            });
 
-            revalidatePath(`/purchasing/suppliers/${item.supplierId}`);
-            revalidatePath(`/dashboard/products`);
-            return null;
-        } catch (error) {
-            if (error instanceof BusinessRuleError) throw error;
-            logger.error('Failed to unlink supplier', { error, linkId: id, module: 'SupplierProductActions' });
-            throw new BusinessRuleError('Failed to unlink supplier');
-        }
-    });
-}
+                await prisma.$transaction(async (tx) => {
+                    await tx.supplierProduct.delete({
+                        where: { id },
+                    });
+
+                    if (item.isPreferred) {
+                        await tx.productVariant.update({
+                            where: { id: item.productVariantId },
+                            data: { preferredSupplierId: null },
+                        });
+                    }
+                });
+
+                revalidatePath(`/purchasing/suppliers/${item.supplierId}`);
+                revalidatePath(`/dashboard/products`);
+                return null;
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                logger.error('Failed to unlink supplier', {
+                    error,
+                    linkId: id,
+                    module: 'SupplierProductActions',
+                });
+                throw new BusinessRuleError('Failed to unlink supplier');
+            }
+        });
+    },
 );
 
 export const getSupplierProducts = withTenant(
-async function getSupplierProducts(supplierId: string) {
-    return safeAction(async () => {
-        try {
-            const products = await prisma.supplierProduct.findMany({
-                where: { supplierId },
-                include: {
-                    productVariant: {
-                        include: {
-                            product: true,
+    async function getSupplierProducts(supplierId: string) {
+        return safeAction(async () => {
+            try {
+                const products = await prisma.supplierProduct.findMany({
+                    where: { supplierId },
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: true,
+                            },
                         },
                     },
-                },
-                orderBy: {
-                    productVariant: {
-                        name: 'asc',
+                    orderBy: {
+                        productVariant: {
+                            name: 'asc',
+                        },
                     },
-                },
-            });
-            return serializeData(products);
-        } catch (error) {
-            logger.error('Failed to get supplier products', { error, supplierId, module: 'SupplierProductActions' });
-            return [];
-        }
-    });
-}
+                });
+                return serializeData(products);
+            } catch (error) {
+                logger.error('Failed to get supplier products', {
+                    error,
+                    supplierId,
+                    module: 'SupplierProductActions',
+                });
+                return [];
+            }
+        });
+    },
 );
 
 export const getProductSuppliers = withTenant(
-async function getProductSuppliers(productVariantId: string) {
-    return safeAction(async () => {
-        try {
-            const suppliers = await prisma.supplierProduct.findMany({
-                where: { productVariantId },
-                include: {
-                    supplier: true,
-                },
-                orderBy: {
-                    isPreferred: 'desc',
-                },
-            });
-            return serializeData(suppliers);
-        } catch (error) {
-            logger.error('Failed to get product suppliers', { error, productVariantId, module: 'SupplierProductActions' });
-            return [];
-        }
-    });
-}
+    async function getProductSuppliers(productVariantId: string) {
+        return safeAction(async () => {
+            try {
+                const suppliers = await prisma.supplierProduct.findMany({
+                    where: { productVariantId },
+                    include: {
+                        supplier: true,
+                    },
+                    orderBy: {
+                        isPreferred: 'desc',
+                    },
+                });
+                return serializeData(suppliers);
+            } catch (error) {
+                logger.error('Failed to get product suppliers', {
+                    error,
+                    productVariantId,
+                    module: 'SupplierProductActions',
+                });
+                return [];
+            }
+        });
+    },
 );
 
 export const setPreferredSupplier = withTenant(
-async function setPreferredSupplier(id: string) {
-    return safeAction(async () => {
-        try {
-            const item = await prisma.supplierProduct.findUnique({
-                where: { id },
-            });
-
-            if (!item) {
-                throw new BusinessRuleError('Link not found');
-            }
-
-            await prisma.$transaction(async (tx) => {
-                await tx.supplierProduct.updateMany({
-                    where: { productVariantId: item.productVariantId },
-                    data: { isPreferred: false },
-                });
-
-                await tx.supplierProduct.update({
+    async function setPreferredSupplier(id: string) {
+        return safeAction(async () => {
+            try {
+                const item = await prisma.supplierProduct.findUnique({
                     where: { id },
-                    data: { isPreferred: true },
                 });
 
-                await tx.productVariant.update({
-                    where: { id: item.productVariantId },
-                    data: { preferredSupplierId: item.supplierId },
-                });
-            });
+                if (!item) {
+                    throw new BusinessRuleError('Link not found');
+                }
 
-            revalidatePath(`/purchasing/suppliers/${item.supplierId}`);
-            revalidatePath(`/dashboard/products`);
-            return null;
-        } catch (error) {
-            if (error instanceof BusinessRuleError) throw error;
-            logger.error('Failed to set preferred supplier', { error, linkId: id, module: 'SupplierProductActions' });
-            throw new BusinessRuleError('Failed to set preferred supplier');
-        }
-    });
-}
+                await prisma.$transaction(async (tx) => {
+                    await tx.supplierProduct.updateMany({
+                        where: { productVariantId: item.productVariantId },
+                        data: { isPreferred: false },
+                    });
+
+                    await tx.supplierProduct.update({
+                        where: { id },
+                        data: { isPreferred: true },
+                    });
+
+                    await tx.productVariant.update({
+                        where: { id: item.productVariantId },
+                        data: { preferredSupplierId: item.supplierId },
+                    });
+                });
+
+                revalidatePath(`/purchasing/suppliers/${item.supplierId}`);
+                revalidatePath(`/dashboard/products`);
+                return null;
+            } catch (error) {
+                if (error instanceof BusinessRuleError) throw error;
+                logger.error('Failed to set preferred supplier', {
+                    error,
+                    linkId: id,
+                    module: 'SupplierProductActions',
+                });
+                throw new BusinessRuleError('Failed to set preferred supplier');
+            }
+        });
+    },
 );

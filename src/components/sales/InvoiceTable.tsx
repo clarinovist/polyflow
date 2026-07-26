@@ -1,470 +1,542 @@
-"use client";
+'use client';
 
-import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { type ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { formatRupiah } from "@/lib/utils/utils";
-import { format } from "date-fns";
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { formatRupiah } from '@/lib/utils/utils';
+import { format } from 'date-fns';
 import {
-  ArrowRight,
-  Trash2,
-  Loader2,
-  Receipt,
-  ChevronRight,
-  Search,
-} from "lucide-react";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
-import { InvoiceStatus } from "@prisma/client";
-import { deleteInvoice } from "@/actions/finance/invoices";
-import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
+    ArrowRight,
+    Trash2,
+    Loader2,
+    Receipt,
+    ChevronRight,
+    Search,
+} from 'lucide-react';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { salesLabels, formLabels, getStatusLabel } from '@/lib/labels';
+import { InvoiceStatus } from '@prisma/client';
+import { deleteInvoice } from '@/actions/finance/invoices';
+import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { isInvoiceOverdue } from "@/lib/finance/payment-terms";
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { isInvoiceOverdue } from '@/lib/finance/payment-terms';
 
 interface InvoiceData {
-  id: string;
-  invoiceNumber: string;
-  invoiceDate: Date | string;
-  dueDate?: Date | string | null;
-  totalAmount: number;
-  paidAmount: number;
-  status: InvoiceStatus;
-  salesOrderId?: string | null;
-  purchaseOrderId?: string | null;
-  salesOrder?: {
-    orderNumber: string;
-    customer: { name: string } | null;
-  } | null;
-  purchaseOrder?: {
-    orderNumber: string;
-    supplier: { name: string } | null;
-  } | null;
+    id: string;
+    invoiceNumber: string;
+    invoiceDate: Date | string;
+    dueDate?: Date | string | null;
+    totalAmount: number;
+    paidAmount: number;
+    status: InvoiceStatus;
+    salesOrderId?: string | null;
+    purchaseOrderId?: string | null;
+    salesOrder?: {
+        orderNumber: string;
+        customer: { name: string } | null;
+    } | null;
+    purchaseOrder?: {
+        orderNumber: string;
+        supplier: { name: string } | null;
+    } | null;
 }
 
 interface InvoiceTableProps {
-  invoices: InvoiceData[];
-  basePath?: string;
-  initialStatus?: string;
-  overdueMode?: boolean;
+    invoices: InvoiceData[];
+    basePath?: string;
+    initialStatus?: string;
+    overdueMode?: boolean;
 }
 
 export function InvoiceTable({
-  invoices,
-  basePath = "/sales/orders",
-  initialStatus,
-  overdueMode,
+    invoices,
+    basePath = '/sales/orders',
+    initialStatus,
+    overdueMode,
 }: InvoiceTableProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const urlStatus = searchParams.get('status');
-  const urlOverdue = searchParams.get('overdue') === 'true';
-  const isOverdueMode = overdueMode || urlOverdue;
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>(initialStatus || urlStatus || "ALL");
-
-  useEffect(() => {
-    const s = initialStatus || urlStatus;
-    if (s) setStatusFilter(s);
-  }, [initialStatus, urlStatus]);
-
-  const filteredInvoices = useMemo(() => {
-    const now = new Date();
-    return invoices.filter((inv) => {
-      // 1. Overdue mode: match board definition (dueDate < now + remaining > 0 + UNPAID/PARTIAL/OVERDUE)
-      if (isOverdueMode) {
-        const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
-        const remaining = (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0);
-        const overdueStatuses: string[] = ['UNPAID', 'PARTIAL', 'OVERDUE'];
-        if (!dueDate || dueDate >= now || remaining <= 0 || !overdueStatuses.includes(inv.status)) {
-          return false;
-        }
-        // fall through to search filter
-      } else if (statusFilter !== "ALL" && inv.status !== statusFilter) {
-        return false;
-      }
-
-      // 2. Filter by search term
-      const lowerSearch = searchTerm.toLowerCase();
-      const entityName = (
-        inv.salesOrder?.customer?.name ||
-        inv.purchaseOrder?.supplier?.name ||
-        "Legacy Internal Stock Build"
-      ).toLowerCase();
-      const invoiceNum = inv.invoiceNumber.toLowerCase();
-      const orderRef = (
-        inv.salesOrder?.orderNumber ||
-        inv.purchaseOrder?.orderNumber ||
-        ""
-      ).toLowerCase();
-
-      return (
-        invoiceNum.includes(lowerSearch) ||
-        entityName.includes(lowerSearch) ||
-        orderRef.includes(lowerSearch)
-      );
-    });
-  }, [invoices, searchTerm, statusFilter, isOverdueMode]);
-
-  const handleDelete = async (id: string, type: "AR" | "AP") => {
-    setIsDeleting(id);
-    try {
-      const result = await deleteInvoice(id, type);
-      if (result.success) {
-        toast.success("Invoice berhasil dihapus");
-      } else {
-        toast.error(
-          result.error || "Gagal menghapus invoice. Silakan coba lagi.",
-        );
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Gagal memproses invoice. Silakan coba lagi.");
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  const getStatusBadge = (status: InvoiceStatus) => {
-    const styles: Record<string, string> = {
-      UNPAID: "bg-slate-100 text-slate-800",
-      PAID: "bg-emerald-100 text-emerald-800",
-      PARTIAL: "bg-amber-100 text-amber-800",
-      OVERDUE: "bg-red-100 text-red-800 border-red-200",
-      CANCELLED: "bg-red-50 text-red-500",
-    };
-    return (
-      <Badge variant="secondary" className={styles[status] || styles.UNPAID}>
-        {getStatusLabel(status, "finance")}
-      </Badge>
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const urlStatus = searchParams.get('status');
+    const urlOverdue = searchParams.get('overdue') === 'true';
+    const isOverdueMode = overdueMode || urlOverdue;
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>(
+        initialStatus || urlStatus || 'ALL',
     );
-  };
 
-  const columns: ColumnDef<InvoiceData, unknown>[] = useMemo(
-    () => [
-      {
-        id: "invoiceNumber",
-        header: `No. ${salesLabels.invoice}`,
-        size: 160,
-        accessorFn: (row) => row.invoiceNumber,
-        sortingFn: (a, b) =>
-          new Date(a.original.invoiceDate).getTime() -
-          new Date(b.original.invoiceDate).getTime(),
-        cell: ({ row }) => {
-          const inv = row.original;
-          const isOverdue = isInvoiceOverdue(inv.dueDate, inv.status);
-          const orderNumber =
-            inv.salesOrder?.orderNumber || inv.purchaseOrder?.orderNumber;
-          const linkId = basePath.includes("finance")
-            ? inv.id
-            : inv.salesOrderId || inv.purchaseOrderId || inv.id;
-          return (
-            <div>
-              <span className="font-mono font-medium">{inv.invoiceNumber}</span>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                {format(new Date(inv.invoiceDate), "dd MMM yyyy")}
-              </div>
-              {inv.dueDate && (
-                <div
-                  className={`text-[11px] mt-0.5 ${
-                    isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"
-                  }`}
-                >
-                  Jt tempo: {format(new Date(inv.dueDate), "dd MMM yyyy")}
-                  {isOverdue && (
-                    <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700 font-normal">
-                      Terlambat
-                    </span>
-                  )}
-                </div>
-              )}
-              {orderNumber && (
-                <div className="mt-0.5">
-                  <Link
-                    href={`${basePath}/${linkId}`}
-                    className="text-[11px] text-blue-600 hover:underline font-mono"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Ref: {orderNumber}
-                  </Link>
-                </div>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        id: "entity",
-        header: "Entitas",
-        size: 200,
-        accessorFn: (row) =>
-          row.salesOrder?.customer?.name ||
-          row.purchaseOrder?.supplier?.name ||
-          "",
-        cell: ({ row }) => {
-          const name =
-            row.original.salesOrder?.customer?.name ||
-            row.original.purchaseOrder?.supplier?.name ||
-            "Legacy Internal Stock Build";
-          return (
-            <div className="min-w-0 font-medium truncate" title={name}>
-              {name}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "status",
-        header: formLabels.status,
-        size: 130,
-        cell: ({ row }) => getStatusBadge(row.original.status),
-      },
-      {
-        accessorKey: "totalAmount",
-        header: () => <div className="text-right">{formLabels.total}</div>,
-        size: 150,
-        cell: ({ row }) => {
-          const inv = row.original;
-          const remaining =
-            (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0);
-          return (
-            <div className="text-right">
-              <div className="font-medium">
-                {formatRupiah(Number(inv.totalAmount))}
-              </div>
-              {inv.paidAmount > 0 && (
-                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
-                  Dibayar: {formatRupiah(Number(inv.paidAmount))}
-                </div>
-              )}
-              {remaining > 0 && inv.paidAmount > 0 && (
-                <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
-                  Sisa: {formatRupiah(remaining)}
-                </div>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        id: "actions",
-        header: () => <div className="text-right">Aksi</div>,
-        size: 100,
-        enableSorting: false,
-        cell: ({ row }) => {
-          const invoice = row.original;
-          const isAR = !!invoice.salesOrder;
-          const linkId = basePath.includes("finance")
-            ? invoice.id
-            : invoice.salesOrderId || invoice.purchaseOrderId || invoice.id;
-          return (
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" asChild title="Lihat Detail">
-                <Link href={`${basePath}/${linkId}`}>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    disabled={isDeleting === invoice.id}
-                    title="Delete/Void"
-                  >
-                    {isDeleting === invoice.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Apakah Anda benar-benar yakin?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tindakan ini akan menghapus invoice secara permanen{" "}
-                      <strong>{invoice.invoiceNumber}</strong> beserta jurnal
-                      akuntansinya dari buku besar. Tindakan ini tidak dapat
-                      dibatalkan.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() =>
-                        handleDelete(invoice.id, isAR ? "AR" : "AP")
-                      }
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Hapus Invoice & Jurnal
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          );
-        },
-      },
-    ],
-    [basePath, isDeleting],
-  );
+    useEffect(() => {
+        const s = initialStatus || urlStatus;
+        if (s) setStatusFilter(s);
+    }, [initialStatus, urlStatus]);
 
-  const getStatusBadgeStyle = (status: InvoiceStatus) => {
-    const styles: Record<string, string> = {
-      UNPAID: "bg-slate-100 text-slate-800",
-      PAID: "bg-emerald-100 text-emerald-800",
-      PARTIAL: "bg-amber-100 text-amber-800",
-      OVERDUE: "bg-red-100 text-red-800 border-red-200",
-      CANCELLED: "bg-red-50 text-red-500",
+    const filteredInvoices = useMemo(() => {
+        const now = new Date();
+        return invoices.filter((inv) => {
+            // 1. Overdue mode: match board definition (dueDate < now + remaining > 0 + UNPAID/PARTIAL/OVERDUE)
+            if (isOverdueMode) {
+                const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+                const remaining =
+                    (Number(inv.totalAmount) || 0) -
+                    (Number(inv.paidAmount) || 0);
+                const overdueStatuses: string[] = [
+                    'UNPAID',
+                    'PARTIAL',
+                    'OVERDUE',
+                ];
+                if (
+                    !dueDate ||
+                    dueDate >= now ||
+                    remaining <= 0 ||
+                    !overdueStatuses.includes(inv.status)
+                ) {
+                    return false;
+                }
+                // fall through to search filter
+            } else if (statusFilter !== 'ALL' && inv.status !== statusFilter) {
+                return false;
+            }
+
+            // 2. Filter by search term
+            const lowerSearch = searchTerm.toLowerCase();
+            const entityName = (
+                inv.salesOrder?.customer?.name ||
+                inv.purchaseOrder?.supplier?.name ||
+                'Legacy Internal Stock Build'
+            ).toLowerCase();
+            const invoiceNum = inv.invoiceNumber.toLowerCase();
+            const orderRef = (
+                inv.salesOrder?.orderNumber ||
+                inv.purchaseOrder?.orderNumber ||
+                ''
+            ).toLowerCase();
+
+            return (
+                invoiceNum.includes(lowerSearch) ||
+                entityName.includes(lowerSearch) ||
+                orderRef.includes(lowerSearch)
+            );
+        });
+    }, [invoices, searchTerm, statusFilter, isOverdueMode]);
+
+    const handleDelete = async (id: string, type: 'AR' | 'AP') => {
+        setIsDeleting(id);
+        try {
+            const result = await deleteInvoice(id, type);
+            if (result.success) {
+                toast.success('Invoice berhasil dihapus');
+            } else {
+                toast.error(
+                    result.error ||
+                        'Gagal menghapus invoice. Silakan coba lagi.',
+                );
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Gagal memproses invoice. Silakan coba lagi.');
+        } finally {
+            setIsDeleting(null);
+        }
     };
-    return styles[status] || styles.UNPAID;
-  };
 
-  const getEntityName = (invoice: InvoiceData) =>
-    invoice.salesOrder?.customer?.name ||
-    invoice.purchaseOrder?.supplier?.name ||
-    "Legacy Internal Stock Build";
-
-  const renderMobileView = (data: InvoiceData[]) => (
-    <>
-      {data.length === 0 ? (
-        <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-          {salesLabels.emptyInvoices}
-        </div>
-      ) : (
-        data.map((invoice) => {
-          const linkId = basePath.includes("finance")
-            ? invoice.id
-            : invoice.salesOrderId || invoice.purchaseOrderId || invoice.id;
-          return (
-            <Card
-              key={invoice.id}
-              className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-              onClick={() => router.push(`${basePath}/${linkId}`)}
+    const getStatusBadge = (status: InvoiceStatus) => {
+        const styles: Record<string, string> = {
+            UNPAID: 'bg-slate-100 text-slate-800',
+            PAID: 'bg-emerald-100 text-emerald-800',
+            PARTIAL: 'bg-amber-100 text-amber-800',
+            OVERDUE: 'bg-red-100 text-red-800 border-red-200',
+            CANCELLED: 'bg-red-50 text-red-500',
+        };
+        return (
+            <Badge
+                variant="secondary"
+                className={styles[status] || styles.UNPAID}
             >
-              <CardHeader className="p-4 pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-primary/10 p-1.5 rounded-full">
-                      <Receipt className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">
-                        {invoice.invoiceNumber}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(invoice.invoiceDate), "MMM d, yyyy")}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className={`text-[10px] px-1.5 h-5 ${getStatusBadgeStyle(invoice.status)}`}
-                  >
-                    {getStatusLabel(invoice.status, "finance")}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-1">
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Entitas
-                      </p>
-                      <p className="font-medium truncate">
-                        {getEntityName(invoice)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        {formLabels.total}
-                      </p>
-                      <p className="font-semibold text-primary">
-                        {formatRupiah(Number(invoice.totalAmount))}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      Jatuh tempo:{" "}
-                      {invoice.dueDate
-                        ? format(new Date(invoice.dueDate), "MMM d, yyyy")
-                        : "-"}
-                    </span>
-                    <div className="flex items-center text-primary font-medium">
-                      Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })
-      )}
-    </>
-  );
+                {getStatusLabel(status, 'finance')}
+            </Badge>
+        );
+    };
 
-  return (
-    <DataTable
-      columns={columns}
-      data={filteredInvoices}
-      emptyMessage={salesLabels.emptyInvoices}
-      minWidth={780}
-      renderMobileView={renderMobileView}
-    >
-      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-        <div className="relative max-w-sm flex-1 sm:w-80">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Cari invoice, order, atau entitas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 w-full"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Semua Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Semua Status</SelectItem>
-            <SelectItem value="DRAFT">Draft</SelectItem>
-            <SelectItem value="UNPAID">Belum Dibayar</SelectItem>
-            <SelectItem value="PARTIAL">Dibayar Sebagian</SelectItem>
-            <SelectItem value="PAID">Lunas</SelectItem>
-            <SelectItem value="OVERDUE">Lewat Jatuh Tempo</SelectItem>
-            <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </DataTable>
-  );
+    const columns: ColumnDef<InvoiceData, unknown>[] = useMemo(
+        () => [
+            {
+                id: 'invoiceNumber',
+                header: `No. ${salesLabels.invoice}`,
+                size: 160,
+                accessorFn: (row) => row.invoiceNumber,
+                sortingFn: (a, b) =>
+                    new Date(a.original.invoiceDate).getTime() -
+                    new Date(b.original.invoiceDate).getTime(),
+                cell: ({ row }) => {
+                    const inv = row.original;
+                    const isOverdue = isInvoiceOverdue(inv.dueDate, inv.status);
+                    const orderNumber =
+                        inv.salesOrder?.orderNumber ||
+                        inv.purchaseOrder?.orderNumber;
+                    const linkId = basePath.includes('finance')
+                        ? inv.id
+                        : inv.salesOrderId || inv.purchaseOrderId || inv.id;
+                    return (
+                        <div>
+                            <span className="font-mono font-medium">
+                                {inv.invoiceNumber}
+                            </span>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                                {format(
+                                    new Date(inv.invoiceDate),
+                                    'dd MMM yyyy',
+                                )}
+                            </div>
+                            {inv.dueDate && (
+                                <div
+                                    className={`text-[11px] mt-0.5 ${
+                                        isOverdue
+                                            ? 'text-red-600 font-semibold'
+                                            : 'text-muted-foreground'
+                                    }`}
+                                >
+                                    Jt tempo:{' '}
+                                    {format(
+                                        new Date(inv.dueDate),
+                                        'dd MMM yyyy',
+                                    )}
+                                    {isOverdue && (
+                                        <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700 font-normal">
+                                            Terlambat
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            {orderNumber && (
+                                <div className="mt-0.5">
+                                    <Link
+                                        href={`${basePath}/${linkId}`}
+                                        className="text-[11px] text-blue-600 hover:underline font-mono"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        Ref: {orderNumber}
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
+                id: 'entity',
+                header: 'Entitas',
+                size: 200,
+                accessorFn: (row) =>
+                    row.salesOrder?.customer?.name ||
+                    row.purchaseOrder?.supplier?.name ||
+                    '',
+                cell: ({ row }) => {
+                    const name =
+                        row.original.salesOrder?.customer?.name ||
+                        row.original.purchaseOrder?.supplier?.name ||
+                        'Legacy Internal Stock Build';
+                    return (
+                        <div
+                            className="min-w-0 font-medium truncate"
+                            title={name}
+                        >
+                            {name}
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: 'status',
+                header: formLabels.status,
+                size: 130,
+                cell: ({ row }) => getStatusBadge(row.original.status),
+            },
+            {
+                accessorKey: 'totalAmount',
+                header: () => (
+                    <div className="text-right">{formLabels.total}</div>
+                ),
+                size: 150,
+                cell: ({ row }) => {
+                    const inv = row.original;
+                    const remaining =
+                        (Number(inv.totalAmount) || 0) -
+                        (Number(inv.paidAmount) || 0);
+                    return (
+                        <div className="text-right">
+                            <div className="font-medium">
+                                {formatRupiah(Number(inv.totalAmount))}
+                            </div>
+                            {inv.paidAmount > 0 && (
+                                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                    Dibayar:{' '}
+                                    {formatRupiah(Number(inv.paidAmount))}
+                                </div>
+                            )}
+                            {remaining > 0 && inv.paidAmount > 0 && (
+                                <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                                    Sisa: {formatRupiah(remaining)}
+                                </div>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
+                id: 'actions',
+                header: () => <div className="text-right">Aksi</div>,
+                size: 100,
+                enableSorting: false,
+                cell: ({ row }) => {
+                    const invoice = row.original;
+                    const isAR = !!invoice.salesOrder;
+                    const linkId = basePath.includes('finance')
+                        ? invoice.id
+                        : invoice.salesOrderId ||
+                          invoice.purchaseOrderId ||
+                          invoice.id;
+                    return (
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                                title="Lihat Detail"
+                            >
+                                <Link href={`${basePath}/${linkId}`}>
+                                    <ArrowRight className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        disabled={isDeleting === invoice.id}
+                                        title="Delete/Void"
+                                    >
+                                        {isDeleting === invoice.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Trash2 className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Apakah Anda benar-benar yakin?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Tindakan ini akan menghapus invoice
+                                            secara permanen{' '}
+                                            <strong>
+                                                {invoice.invoiceNumber}
+                                            </strong>{' '}
+                                            beserta jurnal akuntansinya dari
+                                            buku besar. Tindakan ini tidak dapat
+                                            dibatalkan.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Batal
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                handleDelete(
+                                                    invoice.id,
+                                                    isAR ? 'AR' : 'AP',
+                                                )
+                                            }
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        >
+                                            Hapus Invoice & Jurnal
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    );
+                },
+            },
+        ],
+        [basePath, isDeleting],
+    );
+
+    const getStatusBadgeStyle = (status: InvoiceStatus) => {
+        const styles: Record<string, string> = {
+            UNPAID: 'bg-slate-100 text-slate-800',
+            PAID: 'bg-emerald-100 text-emerald-800',
+            PARTIAL: 'bg-amber-100 text-amber-800',
+            OVERDUE: 'bg-red-100 text-red-800 border-red-200',
+            CANCELLED: 'bg-red-50 text-red-500',
+        };
+        return styles[status] || styles.UNPAID;
+    };
+
+    const getEntityName = (invoice: InvoiceData) =>
+        invoice.salesOrder?.customer?.name ||
+        invoice.purchaseOrder?.supplier?.name ||
+        'Legacy Internal Stock Build';
+
+    const renderMobileView = (data: InvoiceData[]) => (
+        <>
+            {data.length === 0 ? (
+                <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
+                    {salesLabels.emptyInvoices}
+                </div>
+            ) : (
+                data.map((invoice) => {
+                    const linkId = basePath.includes('finance')
+                        ? invoice.id
+                        : invoice.salesOrderId ||
+                          invoice.purchaseOrderId ||
+                          invoice.id;
+                    return (
+                        <Card
+                            key={invoice.id}
+                            className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+                            onClick={() => router.push(`${basePath}/${linkId}`)}
+                        >
+                            <CardHeader className="p-4 pb-2">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-2">
+                                        <div className="bg-primary/10 p-1.5 rounded-full">
+                                            <Receipt className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-sm">
+                                                {invoice.invoiceNumber}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                {format(
+                                                    new Date(
+                                                        invoice.invoiceDate,
+                                                    ),
+                                                    'MMM d, yyyy',
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Badge
+                                        variant="secondary"
+                                        className={`text-[10px] px-1.5 h-5 ${getStatusBadgeStyle(invoice.status)}`}
+                                    >
+                                        {getStatusLabel(
+                                            invoice.status,
+                                            'finance',
+                                        )}
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-1">
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                                Entitas
+                                            </p>
+                                            <p className="font-medium truncate">
+                                                {getEntityName(invoice)}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                                {formLabels.total}
+                                            </p>
+                                            <p className="font-semibold text-primary">
+                                                {formatRupiah(
+                                                    Number(invoice.totalAmount),
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>
+                                            Jatuh tempo:{' '}
+                                            {invoice.dueDate
+                                                ? format(
+                                                      new Date(invoice.dueDate),
+                                                      'MMM d, yyyy',
+                                                  )
+                                                : '-'}
+                                        </span>
+                                        <div className="flex items-center text-primary font-medium">
+                                            Lihat Detail{' '}
+                                            <ChevronRight className="h-3 w-3 ml-0.5" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })
+            )}
+        </>
+    );
+
+    return (
+        <DataTable
+            columns={columns}
+            data={filteredInvoices}
+            emptyMessage={salesLabels.emptyInvoices}
+            minWidth={780}
+            renderMobileView={renderMobileView}
+        >
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div className="relative max-w-sm flex-1 sm:w-80">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari invoice, order, atau entitas..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 w-full"
+                    />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Semua Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ALL">Semua Status</SelectItem>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="UNPAID">Belum Dibayar</SelectItem>
+                        <SelectItem value="PARTIAL">
+                            Dibayar Sebagian
+                        </SelectItem>
+                        <SelectItem value="PAID">Lunas</SelectItem>
+                        <SelectItem value="OVERDUE">
+                            Lewat Jatuh Tempo
+                        </SelectItem>
+                        <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+        </DataTable>
+    );
 }

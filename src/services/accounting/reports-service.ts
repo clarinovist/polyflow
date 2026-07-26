@@ -3,11 +3,16 @@ import { Prisma } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
 import { resolveAccount } from './account-resolver';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
-import { toBusinessDateString, getWibDayBounds, businessDateToEntryDate, wibRangeBounds } from '@/lib/utils/timezone';
+import {
+    toBusinessDateString,
+    getWibDayBounds,
+    businessDateToEntryDate,
+    wibRangeBounds,
+} from '@/lib/utils/timezone';
 
 export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     const accounts = await prisma.account.findMany({
-        orderBy: { code: 'asc' }
+        orderBy: { code: 'asc' },
     });
 
     const entryDate: Prisma.DateTimeFilter = wibRangeBounds(startDate, endDate);
@@ -15,21 +20,21 @@ export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     const where: Prisma.JournalLineWhereInput = {
         journalEntry: {
             status: 'POSTED',
-            ...(Object.keys(entryDate).length ? { entryDate } : {})
-        }
+            ...(Object.keys(entryDate).length ? { entryDate } : {}),
+        },
     };
 
     const balances = await prisma.journalLine.groupBy({
         by: ['accountId'],
         _sum: {
             debit: true,
-            credit: true
+            credit: true,
         },
-        where
+        where,
     });
 
-    const result = accounts.map(acc => {
-        const agg = balances.find(b => b.accountId === acc.id);
+    const result = accounts.map((acc) => {
+        const agg = balances.find((b) => b.accountId === acc.id);
         const debit = Number(agg?._sum.debit || 0);
         const credit = Number(agg?._sum.credit || 0);
 
@@ -44,7 +49,7 @@ export async function getTrialBalance(startDate?: Date, endDate?: Date) {
             ...acc,
             debit,
             credit,
-            netBalance
+            netBalance,
         };
     });
 
@@ -55,7 +60,7 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
     const entryDate = wibRangeBounds(startDate, endDate);
     const accounts = await prisma.account.findMany({
         where: {
-            type: { in: ['REVENUE', 'EXPENSE'] }
+            type: { in: ['REVENUE', 'EXPENSE'] },
         },
         orderBy: { code: 'asc' },
         include: {
@@ -65,15 +70,15 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
                         entryDate,
                         status: 'POSTED',
                         NOT: {
-                            reference: { startsWith: 'CLOSING-' }
-                        }
-                    }
-                }
-            }
-        }
+                            reference: { startsWith: 'CLOSING-' },
+                        },
+                    },
+                },
+            },
+        },
     });
 
-    const accountData = accounts.map(a => {
+    const accountData = accounts.map((a) => {
         const isRevenue = a.type === 'REVENUE';
         const netBalance = a.journalLines.reduce((sum, l) => {
             const val = Number(l.credit) - Number(l.debit);
@@ -84,36 +89,51 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
             code: a.code,
             name: a.name,
             type: a.type,
-            netBalance
+            netBalance,
         };
     });
 
     // Correct Account Classification
-    const revenueAccounts = accountData.filter(a =>
-        (a.type === 'REVENUE' || a.code.startsWith('4')) &&
-        !a.code.startsWith('8')
+    const revenueAccounts = accountData.filter(
+        (a) =>
+            (a.type === 'REVENUE' || a.code.startsWith('4')) &&
+            !a.code.startsWith('8'),
     );
-    const cogsAccounts = accountData.filter(a => a.code.startsWith('5'));
+    const cogsAccounts = accountData.filter((a) => a.code.startsWith('5'));
 
     // OpEx should NOT include 8xxxx (Other Rev) or 9xxxx (Other Exp)
-    const opexAccounts = accountData.filter(a =>
-        (a.code.startsWith('6') || a.code.startsWith('7')) &&
-        !a.code.startsWith('8') &&
-        !a.code.startsWith('9')
+    const opexAccounts = accountData.filter(
+        (a) =>
+            (a.code.startsWith('6') || a.code.startsWith('7')) &&
+            !a.code.startsWith('8') &&
+            !a.code.startsWith('9'),
     );
 
-    const otherRevenueAccounts = accountData.filter(a => a.code.startsWith('8')); // Other Income (8xxxx)
-    const otherExpenseAccounts = accountData.filter(a => a.code.startsWith('9')); // Other Expenses (9xxxx)
+    const otherRevenueAccounts = accountData.filter((a) =>
+        a.code.startsWith('8'),
+    ); // Other Income (8xxxx)
+    const otherExpenseAccounts = accountData.filter((a) =>
+        a.code.startsWith('9'),
+    ); // Other Expenses (9xxxx)
 
-    const totalRevenue = revenueAccounts.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalRevenue = revenueAccounts.reduce(
+        (sum, a) => sum + a.netBalance,
+        0,
+    );
     const totalCOGS = cogsAccounts.reduce((sum, a) => sum + a.netBalance, 0);
     const grossProfit = totalRevenue - totalCOGS;
 
     const totalOpEx = opexAccounts.reduce((sum, a) => sum + a.netBalance, 0);
     const operatingIncome = grossProfit - totalOpEx;
 
-    const totalOtherRevenue = otherRevenueAccounts.reduce((sum, a) => sum + a.netBalance, 0);
-    const totalOtherExpense = otherExpenseAccounts.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalOtherRevenue = otherRevenueAccounts.reduce(
+        (sum, a) => sum + a.netBalance,
+        0,
+    );
+    const totalOtherExpense = otherExpenseAccounts.reduce(
+        (sum, a) => sum + a.netBalance,
+        0,
+    );
 
     // Net Other Income/Expense
     // Revenue accounts (8xxxx) are Credit normal (positive netBalance in our logic if Credit > Debit)
@@ -121,7 +141,7 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
     // But our reduce logic above:
     // const netBalance = a.journalLines.reduce((sum, l) => {
     //    const val = Number(l.credit) - Number(l.debit);
-    //    return sum + (isRevenue ? val : -val); 
+    //    return sum + (isRevenue ? val : -val);
     // }, 0);
 
     // Check if 8xxxx and 9xxxx are marked as REVENUE or EXPENSE in DB.
@@ -145,7 +165,7 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
         totalOpEx,
         operatingIncome,
         totalOther,
-        netIncome
+        netIncome,
     };
 }
 
@@ -178,7 +198,7 @@ export interface BalanceSheetGroup {
  */
 function groupAccountsByParent(
     accounts: BalanceSheetItem[],
-    expandCodes: Set<string> = new Set()
+    expandCodes: Set<string> = new Set(),
 ): (BalanceSheetGroup | BalanceSheetItem)[] {
     const childMap = new Map<string, BalanceSheetItem[]>();
     const codeMap = new Map<string, string>(); // code → id
@@ -204,7 +224,7 @@ function groupAccountsByParent(
      */
     function sumDescendants(id: string): number {
         let total = 0;
-        const acc = accounts.find(a => a.id === id);
+        const acc = accounts.find((a) => a.id === id);
         if (acc) total += acc.netBalance;
         const children = childMap.get(id);
         if (children) {
@@ -215,7 +235,9 @@ function groupAccountsByParent(
         return total;
     }
 
-    function resolveAccount(acc: BalanceSheetItem): (BalanceSheetGroup | BalanceSheetItem)[] {
+    function resolveAccount(
+        acc: BalanceSheetItem,
+    ): (BalanceSheetGroup | BalanceSheetItem)[] {
         const children = childMap.get(acc.id);
         if (!children || children.length === 0) {
             return [acc]; // Leaf
@@ -232,18 +254,22 @@ function groupAccountsByParent(
             // Default: group (collapse into total)
             // Use recursive sum to include ALL descendants, not just direct children
             const totalBalance = sumDescendants(acc.id);
-            return [{
-                id: acc.id,
-                code: acc.code,
-                name: acc.name,
-                totalBalance,
-                children
-            }];
+            return [
+                {
+                    id: acc.id,
+                    code: acc.code,
+                    name: acc.name,
+                    totalBalance,
+                    children,
+                },
+            ];
         }
     }
 
-    const accountIds = new Set(accounts.map(a => a.id));
-    const topLevel = accounts.filter(a => !a.parentId || !accountIds.has(a.parentId));
+    const accountIds = new Set(accounts.map((a) => a.id));
+    const topLevel = accounts.filter(
+        (a) => !a.parentId || !accountIds.has(a.parentId),
+    );
 
     const result: (BalanceSheetGroup | BalanceSheetItem)[] = [];
     for (const acc of topLevel) {
@@ -258,7 +284,7 @@ export async function getBalanceSheet(asOfDate: Date) {
 
     const accounts = await prisma.account.findMany({
         where: {
-            type: { in: ['ASSET', 'LIABILITY', 'EQUITY'] }
+            type: { in: ['ASSET', 'LIABILITY', 'EQUITY'] },
         },
         orderBy: { code: 'asc' },
         include: {
@@ -266,26 +292,29 @@ export async function getBalanceSheet(asOfDate: Date) {
                 where: {
                     journalEntry: {
                         entryDate: { lte: endOfDay },
-                        status: 'POSTED'
-                    }
-                }
-            }
-        }
+                        status: 'POSTED',
+                    },
+                },
+            },
+        },
     });
 
     const calcBalance = (type: string, sign: 'debit' | 'credit') => {
-        return accounts.filter(a => a.type === type).map(a => ({
-            id: a.id,
-            code: a.code,
-            name: a.name,
-            parentId: a.parentId,
-            netBalance: a.journalLines.reduce((sum, l) => {
-                const val = sign === 'debit'
-                    ? Number(l.debit) - Number(l.credit)
-                    : Number(l.credit) - Number(l.debit);
-                return sum + val;
-            }, 0)
-        }));
+        return accounts
+            .filter((a) => a.type === type)
+            .map((a) => ({
+                id: a.id,
+                code: a.code,
+                name: a.name,
+                parentId: a.parentId,
+                netBalance: a.journalLines.reduce((sum, l) => {
+                    const val =
+                        sign === 'debit'
+                            ? Number(l.debit) - Number(l.credit)
+                            : Number(l.credit) - Number(l.debit);
+                    return sum + val;
+                }, 0),
+            }));
     };
 
     const assetAccounts = calcBalance('ASSET', 'debit');
@@ -293,8 +322,14 @@ export async function getBalanceSheet(asOfDate: Date) {
     const equityAccounts = calcBalance('EQUITY', 'credit');
 
     const totalAsset = assetAccounts.reduce((sum, a) => sum + a.netBalance, 0);
-    const totalLiability = liabilityAccounts.reduce((sum, a) => sum + a.netBalance, 0);
-    const totalEquity = equityAccounts.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalLiability = liabilityAccounts.reduce(
+        (sum, a) => sum + a.netBalance,
+        0,
+    );
+    const totalEquity = equityAccounts.reduce(
+        (sum, a) => sum + a.netBalance,
+        0,
+    );
 
     // Unposted earnings = income that hasn't been closed to 33000 yet
     const unpostedEarnings = totalAsset - (totalLiability + totalEquity);
@@ -305,15 +340,25 @@ export async function getBalanceSheet(asOfDate: Date) {
         liabilities: liabilityAccounts,
         equity: equityAccounts,
         // Grouped (summary view) — expand key groups to show individual accounts
-        assetGroups: groupAccountsByParent(assetAccounts, new Set(['11000', '11100'])) as (BalanceSheetGroup | BalanceSheetItem)[],
-        liabilityGroups: groupAccountsByParent(liabilityAccounts, new Set(['21000', '22000'])) as (BalanceSheetGroup | BalanceSheetItem)[],
-        equityGroups: groupAccountsByParent(equityAccounts) as (BalanceSheetGroup | BalanceSheetItem)[],
+        assetGroups: groupAccountsByParent(
+            assetAccounts,
+            new Set(['11000', '11100']),
+        ) as (BalanceSheetGroup | BalanceSheetItem)[],
+        liabilityGroups: groupAccountsByParent(
+            liabilityAccounts,
+            new Set(['21000', '22000']),
+        ) as (BalanceSheetGroup | BalanceSheetItem)[],
+        equityGroups: groupAccountsByParent(equityAccounts) as (
+            | BalanceSheetGroup
+            | BalanceSheetItem
+        )[],
         // Totals
         totalAssets: totalAsset,
         totalLiabilities: totalLiability,
         totalEquity,
         unpostedEarnings,
-        totalLiabilitiesAndEquity: totalLiability + totalEquity + unpostedEarnings
+        totalLiabilitiesAndEquity:
+            totalLiability + totalEquity + unpostedEarnings,
     };
 }
 
@@ -330,10 +375,17 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
 
     // Check if closing entry already exists
     const existing = await prisma.journalEntry.findFirst({
-        where: { reference: periodRef, status: { not: 'VOIDED' } }
+        where: { reference: periodRef, status: { not: 'VOIDED' } },
     });
     if (existing) {
-        throw new BusinessRuleError(`Entri closing sudah ada untuk ${periodRef} (JE: ${existing.entryNumber}). Void terlebih dahulu jika ingin close ulang.`, { periodRef, existingEntryNumber: existing.entryNumber, existingId: existing.id });
+        throw new BusinessRuleError(
+            `Entri closing sudah ada untuk ${periodRef} (JE: ${existing.entryNumber}). Void terlebih dahulu jika ingin close ulang.`,
+            {
+                periodRef,
+                existingEntryNumber: existing.entryNumber,
+                existingId: existing.id,
+            },
+        );
     }
 
     // Period: WIB start-of-month to end of the WIB business day of periodEndDate.
@@ -352,14 +404,19 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
                     journalEntry: {
                         entryDate: { gte: startDate, lte: endOfDay },
                         status: 'POSTED',
-                        NOT: { reference: { startsWith: 'CLOSING-' } }
-                    }
-                }
-            }
-        }
+                        NOT: { reference: { startsWith: 'CLOSING-' } },
+                    },
+                },
+            },
+        },
     });
 
-    const closingLines: { accountId: string; debit: number; credit: number; description: string }[] = [];
+    const closingLines: {
+        accountId: string;
+        debit: number;
+        credit: number;
+        description: string;
+    }[] = [];
     let totalRevenue = 0;
     let totalExpense = 0;
 
@@ -378,7 +435,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
                 accountId: account.id,
                 debit: netBalance,
                 credit: 0,
-                description: `Closing: ${account.name}`
+                description: `Closing: ${account.name}`,
             });
             totalRevenue += netBalance;
         } else {
@@ -387,22 +444,30 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
                 accountId: account.id,
                 debit: 0,
                 credit: netBalance,
-                description: `Closing: ${account.name}`
+                description: `Closing: ${account.name}`,
             });
             totalExpense += netBalance;
         }
     }
 
     if (closingLines.length === 0) {
-        throw new BusinessRuleError(`Tidak ditemukan saldo pendapatan atau biaya untuk periode ${periodRef}. Tidak ada yang perlu di-close.`, { periodRef });
+        throw new BusinessRuleError(
+            `Tidak ditemukan saldo pendapatan atau biaya untuk periode ${periodRef}. Tidak ada yang perlu di-close.`,
+            { periodRef },
+        );
     }
 
     // Net income → Laba Berjalan (resolved by role, tenant-aware)
     const netIncome = totalRevenue - totalExpense;
     const earningsResolved = await resolveAccount('current-year-earnings');
-    const earningsAccount = await prisma.account.findUnique({ where: { id: earningsResolved.id } });
+    const earningsAccount = await prisma.account.findUnique({
+        where: { id: earningsResolved.id },
+    });
     if (!earningsAccount) {
-        throw new NotFoundError("Account for role 'current-year-earnings'", earningsResolved.id);
+        throw new NotFoundError(
+            "Account for role 'current-year-earnings'",
+            earningsResolved.id,
+        );
     }
 
     if (netIncome >= 0) {
@@ -411,7 +476,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
             accountId: earningsAccount.id,
             debit: 0,
             credit: netIncome,
-            description: `Closing: Laba Bersih ${periodRef}`
+            description: `Closing: Laba Bersih ${periodRef}`,
         });
     } else {
         // Loss: debit Laba Berjalan
@@ -419,7 +484,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
             accountId: earningsAccount.id,
             debit: Math.abs(netIncome),
             credit: 0,
-            description: `Closing: Rugi Bersih ${periodRef}`
+            description: `Closing: Rugi Bersih ${periodRef}`,
         });
     }
 
@@ -432,7 +497,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
         status: 'POSTED',
         isAutoGenerated: true,
         createdById: userId,
-        lines: closingLines
+        lines: closingLines,
     });
 
     return {
@@ -441,28 +506,34 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
         totalRevenue,
         totalExpense,
         netIncome,
-        lineCount: closingLines.length
+        lineCount: closingLines.length,
     };
 }
 
-export async function getAccountBalance(accountId: string, startDate?: Date, endDate?: Date) {
+export async function getAccountBalance(
+    accountId: string,
+    startDate?: Date,
+    endDate?: Date,
+) {
     const entryDate: Prisma.DateTimeFilter = wibRangeBounds(startDate, endDate);
 
     const where: Prisma.JournalLineWhereInput = {
         accountId,
         journalEntry: {
             status: 'POSTED',
-            ...(Object.keys(entryDate).length ? { entryDate } : {})
-        }
+            ...(Object.keys(entryDate).length ? { entryDate } : {}),
+        },
     };
 
     const lines = await prisma.journalLine.findMany({
         where,
-        include: { journalEntry: true }
+        include: { journalEntry: true },
     });
 
-    const account = await prisma.account.findUnique({ where: { id: accountId } });
-    if (!account) throw new NotFoundError("Account", accountId);
+    const account = await prisma.account.findUnique({
+        where: { id: accountId },
+    });
+    if (!account) throw new NotFoundError('Account', accountId);
 
     const isDebitNormal = ['ASSET', 'EXPENSE'].includes(account.type);
 
@@ -478,7 +549,7 @@ export async function getClosingBalances(startDate: Date, endDate: Date) {
     const entryDate = wibRangeBounds(startDate, endDate);
     const accounts = await prisma.account.findMany({
         where: {
-            type: { in: ['REVENUE', 'EXPENSE'] }
+            type: { in: ['REVENUE', 'EXPENSE'] },
         },
         include: {
             journalLines: {
@@ -487,34 +558,36 @@ export async function getClosingBalances(startDate: Date, endDate: Date) {
                         entryDate,
                         status: 'POSTED',
                         NOT: {
-                            reference: { startsWith: 'CLOSING-' }
-                        }
-                    }
-                }
-            }
-        }
+                            reference: { startsWith: 'CLOSING-' },
+                        },
+                    },
+                },
+            },
+        },
     });
 
-    return accounts.map(a => {
-        const isRevenue = a.type === 'REVENUE';
-        const netBalance = a.journalLines.reduce((sum, l) => {
-            const val = Number(l.credit) - Number(l.debit);
-            return sum + (isRevenue ? val : -val);
-        }, 0);
+    return accounts
+        .map((a) => {
+            const isRevenue = a.type === 'REVENUE';
+            const netBalance = a.journalLines.reduce((sum, l) => {
+                const val = Number(l.credit) - Number(l.debit);
+                return sum + (isRevenue ? val : -val);
+            }, 0);
 
-        return {
-            id: a.id,
-            type: a.type,
-            netBalance
-        };
-    }).filter(a => Math.abs(a.netBalance) > 0.01);
+            return {
+                id: a.id,
+                type: a.type,
+                netBalance,
+            };
+        })
+        .filter((a) => Math.abs(a.netBalance) > 0.01);
 }
 
 export async function getCashFlowStatement(startDate: Date, endDate: Date) {
     const cashAccounts = await prisma.account.findMany({
-        where: { isCashAccount: true }
+        where: { isCashAccount: true },
     });
-    
+
     if (cashAccounts.length === 0) {
         return {
             operatingActivities: [],
@@ -525,11 +598,11 @@ export async function getCashFlowStatement(startDate: Date, endDate: Date) {
             netFinancing: 0,
             netCashFlow: 0,
             beginningBalance: 0,
-            endingBalance: 0
+            endingBalance: 0,
         };
     }
-    
-    const cashAccountIds = cashAccounts.map(a => a.id);
+
+    const cashAccountIds = cashAccounts.map((a) => a.id);
 
     // Interpret the range as WIB business days for consistent period boundaries.
     const period = wibRangeBounds(startDate, endDate);
@@ -540,16 +613,18 @@ export async function getCashFlowStatement(startDate: Date, endDate: Date) {
             accountId: { in: cashAccountIds },
             journalEntry: {
                 status: 'POSTED',
-                entryDate: { lt: period.gte }
-            }
+                entryDate: { lt: period.gte },
+            },
         },
         _sum: {
             debit: true,
-            credit: true
-        }
+            credit: true,
+        },
     });
 
-    const beginningBalance = Number(beginningBalanceRaw._sum.debit || 0) - Number(beginningBalanceRaw._sum.credit || 0);
+    const beginningBalance =
+        Number(beginningBalanceRaw._sum.debit || 0) -
+        Number(beginningBalanceRaw._sum.credit || 0);
 
     // Get all posted journal entries within the period that involve a cash account
     const entries = await prisma.journalEntry.findMany({
@@ -558,29 +633,40 @@ export async function getCashFlowStatement(startDate: Date, endDate: Date) {
             entryDate: period,
             lines: {
                 some: {
-                    accountId: { in: cashAccountIds }
-                }
-            }
+                    accountId: { in: cashAccountIds },
+                },
+            },
         },
         include: {
             lines: {
                 include: {
-                    account: true
-                }
-            }
-        }
+                    account: true,
+                },
+            },
+        },
     });
 
-    const operatingActivities: Map<string, { accountName: string, amount: number }> = new Map();
-    const investingActivities: Map<string, { accountName: string, amount: number }> = new Map();
-    const financingActivities: Map<string, { accountName: string, amount: number }> = new Map();
+    const operatingActivities: Map<
+        string,
+        { accountName: string; amount: number }
+    > = new Map();
+    const investingActivities: Map<
+        string,
+        { accountName: string; amount: number }
+    > = new Map();
+    const financingActivities: Map<
+        string,
+        { accountName: string; amount: number }
+    > = new Map();
 
-    entries.forEach(entry => {
-        const nonCashLines = entry.lines.filter(line => !line.account.isCashAccount);
+    entries.forEach((entry) => {
+        const nonCashLines = entry.lines.filter(
+            (line) => !line.account.isCashAccount,
+        );
 
         for (const line of nonCashLines) {
             const cashImpact = Number(line.credit) - Number(line.debit);
-            
+
             if (cashImpact === 0) continue;
 
             let targetGroup;
@@ -600,25 +686,39 @@ export async function getCashFlowStatement(startDate: Date, endDate: Date) {
                     break;
             }
 
-            const existing = targetGroup.get(line.account.id) || { accountName: line.account.name, amount: 0 };
+            const existing = targetGroup.get(line.account.id) || {
+                accountName: line.account.name,
+                amount: 0,
+            };
             existing.amount += cashImpact;
             targetGroup.set(line.account.id, existing);
         }
     });
 
-    const mapToArray = (map: Map<string, { accountName: string, amount: number }>) => 
+    const mapToArray = (
+        map: Map<string, { accountName: string; amount: number }>,
+    ) =>
         Array.from(map.values())
-            .filter(v => Math.abs(v.amount) > 0.01)
-            .map(v => ({ name: v.accountName, amount: v.amount }))
+            .filter((v) => Math.abs(v.amount) > 0.01)
+            .map((v) => ({ name: v.accountName, amount: v.amount }))
             .sort((a, b) => b.amount - a.amount);
 
     const operatingParams = mapToArray(operatingActivities);
     const investingParams = mapToArray(investingActivities);
     const financingParams = mapToArray(financingActivities);
 
-    const netOperating = operatingParams.reduce((sum, item) => sum + item.amount, 0);
-    const netInvesting = investingParams.reduce((sum, item) => sum + item.amount, 0);
-    const netFinancing = financingParams.reduce((sum, item) => sum + item.amount, 0);
+    const netOperating = operatingParams.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+    );
+    const netInvesting = investingParams.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+    );
+    const netFinancing = financingParams.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+    );
 
     const netCashFlow = netOperating + netInvesting + netFinancing;
     const endingBalance = beginningBalance + netCashFlow;
@@ -632,6 +732,6 @@ export async function getCashFlowStatement(startDate: Date, endDate: Date) {
         netFinancing,
         netCashFlow,
         beginningBalance,
-        endingBalance
+        endingBalance,
     };
 }

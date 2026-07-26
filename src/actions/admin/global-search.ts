@@ -1,8 +1,8 @@
-"use server";
+'use server';
 
-import { prisma, getTenantDb } from "@/lib/core/prisma";
-import { auth } from "@/auth";
-import { AuthorizationError } from "@/lib/errors/errors";
+import { prisma, getTenantDb } from '@/lib/core/prisma';
+import { auth } from '@/auth';
+import { AuthorizationError } from '@/lib/errors/errors';
 
 export interface GlobalUserResult {
     id: string;
@@ -12,7 +12,7 @@ export interface GlobalUserResult {
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
-    source: "main" | "tenant";
+    source: 'main' | 'tenant';
     tenantId?: string;
     tenantName?: string;
     tenantSubdomain?: string;
@@ -28,10 +28,12 @@ export interface GlobalUserResult {
  * Read-only. A tenant DB that's unreachable is skipped (allSettled) so one
  * bad tenant doesn't fail the whole search.
  */
-export async function globalUserSearch(query: string): Promise<GlobalUserResult[]> {
+export async function globalUserSearch(
+    query: string,
+): Promise<GlobalUserResult[]> {
     const session = await auth();
     if (!session?.user || !session.user.isSuperAdmin) {
-        throw new AuthorizationError("Super Admin access required.");
+        throw new AuthorizationError('Super Admin access required.');
     }
 
     const trimmed = query.trim();
@@ -43,8 +45,8 @@ export async function globalUserSearch(query: string): Promise<GlobalUserResult[
     // Using OR so a single query matches either field.
     const where = {
         OR: [
-            { email: { contains: trimmed, mode: "insensitive" as const } },
-            { name: { contains: trimmed, mode: "insensitive" as const } },
+            { email: { contains: trimmed, mode: 'insensitive' as const } },
+            { name: { contains: trimmed, mode: 'insensitive' as const } },
         ],
     };
 
@@ -93,20 +95,20 @@ export async function globalUserSearch(query: string): Promise<GlobalUserResult[
             });
             return users.map((u) => ({
                 ...u,
-                source: src.tenantId ? ("tenant" as const) : ("main" as const),
+                source: src.tenantId ? ('tenant' as const) : ('main' as const),
                 tenantId: src.tenantId ?? undefined,
                 tenantName: src.tenantName ?? undefined,
                 tenantSubdomain: src.tenantSubdomain ?? undefined,
             }));
-        })
+        }),
     );
 
     // 4. Merge
     const merged: GlobalUserResult[] = [];
     for (const r of results) {
-        if (r.status === "fulfilled") merged.push(...r.value);
+        if (r.status === 'fulfilled') merged.push(...r.value);
         else {
-            console.error("[globalUserSearch] source failed:", r.reason);
+            console.error('[globalUserSearch] source failed:', r.reason);
         }
     }
 

@@ -1,29 +1,34 @@
 import {
-  commonStatusLabels,
-  productionStatusLabels,
-  productionPriorityLabels,
-  warehouseStatusLabels,
-  salesStatusLabels,
-  financeStatusLabels,
-  purchasingStatusLabels,
+    commonStatusLabels,
+    productionStatusLabels,
+    productionPriorityLabels,
+    warehouseStatusLabels,
+    salesStatusLabels,
+    financeStatusLabels,
+    purchasingStatusLabels,
 } from './status';
 
 /** Fallback helper: returns mapped label or raw value if not found */
 export function getLabel<T extends Record<string, string>>(
-  map: T,
-  key: string
+    map: T,
+    key: string,
 ): string {
-  return (map as Record<string, string>)[key] ?? key;
+    return (map as Record<string, string>)[key] ?? key;
 }
 
-export type StatusDomain = 'production' | 'warehouse' | 'sales' | 'finance' | 'purchasing';
+export type StatusDomain =
+    | 'production'
+    | 'warehouse'
+    | 'sales'
+    | 'finance'
+    | 'purchasing';
 
 const domainMap: Record<StatusDomain, Record<string, string>> = {
-  production: productionStatusLabels as Record<string, string>,
-  warehouse: warehouseStatusLabels as Record<string, string>,
-  sales: salesStatusLabels as Record<string, string>,
-  finance: financeStatusLabels as Record<string, string>,
-  purchasing: purchasingStatusLabels as Record<string, string>,
+    production: productionStatusLabels as Record<string, string>,
+    warehouse: warehouseStatusLabels as Record<string, string>,
+    sales: salesStatusLabels as Record<string, string>,
+    finance: financeStatusLabels as Record<string, string>,
+    purchasing: purchasingStatusLabels as Record<string, string>,
 };
 
 /**
@@ -31,14 +36,15 @@ const domainMap: Record<StatusDomain, Record<string, string>> = {
  * Domain-specific labels take priority; falls back to commonStatusLabels.
  */
 export function getStatusLabel(status: string, domain?: StatusDomain): string {
-  if (domain && status in domainMap[domain]) {
-    return domainMap[domain][status];
-  }
-  return (commonStatusLabels as Record<string, string>)[status] ?? status;
+    if (domain && status in domainMap[domain]) {
+        return domainMap[domain][status];
+    }
+    return (commonStatusLabels as Record<string, string>)[status] ?? status;
 }
 
 export function getPriorityLabel(priority: string): string {
-  return (
-    (productionPriorityLabels as Record<string, string>)[priority] ?? priority
-  );
+    return (
+        (productionPriorityLabels as Record<string, string>)[priority] ??
+        priority
+    );
 }

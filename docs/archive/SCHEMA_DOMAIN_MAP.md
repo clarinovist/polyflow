@@ -20,6 +20,7 @@ Purpose:
 Core identity, user roles, auditability, and human actors used across modules.
 
 Models:
+
 - `User`
 - `Employee`
 - `ProductionShift`
@@ -29,10 +30,12 @@ Models:
 - `AuditLog`
 
 Primary app/service ownership:
+
 - Auth and shared access logic in `src/actions/auth*`, `src/lib/tools/auth-checks`, and portal-level authorization
 - Production execution features for `Employee` and `ProductionShift`
 
 Notes:
+
 - `User` is a platform-level actor and should not accumulate domain-specific workflow logic.
 - `Employee` is operational, not authentication-focused, even though both represent people.
 
@@ -42,14 +45,17 @@ Purpose:
 Reusable business entities referenced by many workflows.
 
 Models:
+
 - `Supplier`
 - `Customer`
 - `Location`
 
 Primary app/service ownership:
+
 - Sales, purchasing, warehouse, and finance modules all read these models
 
 Notes:
+
 - `Location` is especially high-fanout and acts as a cross-domain anchor for warehouse, returns, maklon, and fixed assets.
 - Changes to `Location` should be treated as architecture-level changes.
 
@@ -59,6 +65,7 @@ Purpose:
 Product structure, stock state, manufacturing plans, execution, and cost-sensitive inventory movement.
 
 Models:
+
 - `Product`
 - `ProductVariant`
 - `CostHistory`
@@ -84,11 +91,13 @@ Models:
 - `MaklonCostItem`
 
 Primary app/service ownership:
+
 - `src/services/inventory/*`
 - `src/services/production/*`
 - `src/services/accounting/*` for valuation-sensitive movement posting
 
 Risk notes:
+
 - `StockMovement`, `Inventory`, and `ProductionOrder` are finance-sensitive models because they influence valuation, HPP, WIP, and journal behavior.
 - `ProductVariant` is the densest integration point in the schema and should be considered a shared kernel, not a simple catalog table.
 
@@ -98,6 +107,7 @@ Purpose:
 Commercial demand, procurement, physical fulfillment, billing documents, and supplier/customer transaction flow.
 
 Models:
+
 - `SalesOrder`
 - `SalesQuotation`
 - `SalesQuotationItem`
@@ -115,12 +125,14 @@ Models:
 - `PurchaseRequestItem`
 
 Primary app/service ownership:
+
 - `src/services/sales/*`
 - `src/services/purchasing/*`
 - `src/actions/sales/*`
 - `src/actions/purchasing/*`
 
 Risk notes:
+
 - `Invoice`, `PurchaseInvoice`, and `GoodsReceipt` are commercial documents with accounting impact.
 - `Payment` is now the canonical runtime payment record for both AR and AP flows. `PurchasePayment` should be treated as legacy schema surface pending data audit and removal planning.
 
@@ -130,6 +142,7 @@ Purpose:
 Double-entry accounting, fiscal control, fixed assets, budgeting, and journalized finance state.
 
 Models:
+
 - `Account`
 - `JournalEntry`
 - `JournalLine`
@@ -138,11 +151,13 @@ Models:
 - `Budget`
 
 Primary app/service ownership:
+
 - `src/services/finance/*`
 - `src/services/accounting/*`
 - `src/actions/finance/*`
 
 Risk notes:
+
 - These models should remain highly stable because many transactional modules post into them indirectly.
 - `JournalEntry.referenceType` and `referenceId` are critical interoperability contracts across the whole app.
 
@@ -152,6 +167,7 @@ Purpose:
 Cross-domain primitives reused by finance, sales, purchasing, and warehouse flows.
 
 Models:
+
 - `SystemSequence`
 - `Payment`
 - `SalesReturn`
@@ -160,9 +176,11 @@ Models:
 - `PurchaseReturnItem`
 
 Primary app/service ownership:
+
 - Shared between finance, sales, purchasing, and warehouse services
 
 Risk notes:
+
 - `Payment` now acts as the canonical payment record for journal references and cleanup logic.
 - Returns are operationally commercial documents but materially affect stock and finance, so they sit at a domain seam.
 
@@ -172,6 +190,7 @@ Purpose:
 Cross-cutting platform features outside the core operational ERP flow.
 
 Models:
+
 - `Tenant`
 - `Notification`
 - `PettyCashTransaction`
@@ -179,12 +198,14 @@ Models:
 - `MaklonMaterialReturnItem`
 
 Primary app/service ownership:
+
 - Tenant provisioning and environment setup
 - Notification delivery logic
 - Finance petty cash flow
 - Maklon-specific operational flow
 
 Notes:
+
 - `PettyCashTransaction` belongs financially, but its workflow is specialized enough to justify separate treatment.
 - `MaklonMaterialReturn` is operationally close to warehouse and sales, but contextually specific enough to be treated as an extension boundary.
 
@@ -211,19 +232,19 @@ Changes here need extra review because they can ripple through services, dashboa
 These are the most sensitive cross-domain boundaries in the schema:
 
 1. Inventory to finance:
-`Inventory`, `StockMovement`, `CostHistory`, `JournalEntry`
+   `Inventory`, `StockMovement`, `CostHistory`, `JournalEntry`
 
 2. Production to finance:
-`ProductionOrder`, `MaterialIssue`, `ProductionExecution`, `ScrapRecord`
+   `ProductionOrder`, `MaterialIssue`, `ProductionExecution`, `ScrapRecord`
 
 3. Purchasing to finance:
-`GoodsReceipt`, `PurchaseInvoice`, `Payment`, `PurchasePayment`
+   `GoodsReceipt`, `PurchaseInvoice`, `Payment`, `PurchasePayment`
 
 4. Sales to finance:
-`SalesOrder`, `Invoice`, `Payment`, `SalesReturn`
+   `SalesOrder`, `Invoice`, `Payment`, `SalesReturn`
 
 5. Maklon to inventory and sales:
-`ProductionOrder.isMaklon`, `GoodsReceipt.isMaklon`, `MaklonMaterialReturn`
+   `ProductionOrder.isMaklon`, `GoodsReceipt.isMaklon`, `MaklonMaterialReturn`
 
 ## Ownership Guidance For Future Changes
 

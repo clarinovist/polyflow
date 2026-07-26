@@ -38,9 +38,7 @@ const FIELD_LABELS: Record<string, string> = {
  * Normalize Prisma meta.target to a string array.
  * Prisma sometimes returns a single string, sometimes an array.
  */
-function normalizeTarget(
-    target: unknown
-): string[] {
+function normalizeTarget(target: unknown): string[] {
     if (Array.isArray(target)) {
         return target.filter((t): t is string => typeof t === 'string');
     }
@@ -54,9 +52,7 @@ function normalizeTarget(
  * Map a known Prisma error code to an ApplicationError.
  * Returns null for unknown codes — caller should fall through to generic handling.
  */
-export function mapPrismaError(
-    error: unknown
-): ApplicationError | null {
+export function mapPrismaError(error: unknown): ApplicationError | null {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
         return null;
     }
@@ -65,20 +61,22 @@ export function mapPrismaError(
         case 'P2002': {
             // Unique constraint violation
             const target = normalizeTarget(error.meta?.target);
-            const labels = target
-                .map((t) => FIELD_LABELS[t] ?? t)
-                .join(', ');
+            const labels = target.map((t) => FIELD_LABELS[t] ?? t).join(', ');
             return new ConflictError(
                 labels
                     ? `Data dengan ${labels} yang sama sudah ada. Gunakan nilai lain.`
                     : ErrorCatalog.DUPLICATE_ENTRY,
-                { prismaCode: 'P2002', target }
+                { prismaCode: 'P2002', target },
             );
         }
 
         case 'P2025': {
             // Record required not found (update/delete race)
-            return new ApplicationError(ErrorCatalog.NOT_FOUND, 'NOT_FOUND', 404);
+            return new ApplicationError(
+                ErrorCatalog.NOT_FOUND,
+                'NOT_FOUND',
+                404,
+            );
         }
 
         case 'P2000': {
@@ -88,20 +86,20 @@ export function mapPrismaError(
                 typeof column === 'string' && column.length > 0
                     ? `Teks terlalu panjang pada field "${column}". Perpendek input lalu coba lagi.`
                     : ErrorCatalog.VALUE_TOO_LONG,
-                { prismaCode: 'P2000', column: typeof column === 'string' ? column : undefined }
+                {
+                    prismaCode: 'P2000',
+                    column: typeof column === 'string' ? column : undefined,
+                },
             );
         }
 
         case 'P2011': {
             // Null constraint violation
             const constraint = error.meta?.constraint;
-            return new ValidationError(
-                ErrorCatalog.NULL_CONSTRAINT,
-                {
-                    prismaCode: 'P2011',
-                    constraint: constraint as string | undefined,
-                }
-            );
+            return new ValidationError(ErrorCatalog.NULL_CONSTRAINT, {
+                prismaCode: 'P2011',
+                constraint: constraint as string | undefined,
+            });
         }
 
         case 'P2024': {
@@ -109,20 +107,17 @@ export function mapPrismaError(
             return new ExternalServiceError(
                 ErrorCatalog.DB_TIMEOUT,
                 'database',
-                { prismaCode: 'P2024' }
+                { prismaCode: 'P2024' },
             );
         }
 
         case 'P2003': {
             // Foreign key constraint
             const field = error.meta?.field_name;
-            return new BusinessRuleError(
-                ErrorCatalog.FOREIGN_KEY,
-                {
-                    prismaCode: 'P2003',
-                    field: field as string | undefined,
-                }
-            );
+            return new BusinessRuleError(ErrorCatalog.FOREIGN_KEY, {
+                prismaCode: 'P2003',
+                field: field as string | undefined,
+            });
         }
 
         default:

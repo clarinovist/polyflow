@@ -3,7 +3,10 @@
  * Maps semantic AccountPickerFilterKind to actual account properties.
  * NEVER uses code.startsWith (Kiyowo-only).
  */
-import type { AccountPickerFilter, AccountPickerFilterKind } from './transaction-types';
+import type {
+    AccountPickerFilter,
+    AccountPickerFilterKind,
+} from './transaction-types';
 
 interface FilterableAccount {
     id: string;
@@ -19,10 +22,13 @@ export function filterAccountsByKind(
     filter?: AccountPickerFilter,
 ): FilterableAccount[] {
     if (!filter) return accounts;
-    return accounts.filter(acc => matchesFilterKind(acc, filter.kind));
+    return accounts.filter((acc) => matchesFilterKind(acc, filter.kind));
 }
 
-function matchesFilterKind(acc: FilterableAccount, kind: AccountPickerFilterKind): boolean {
+function matchesFilterKind(
+    acc: FilterableAccount,
+    kind: AccountPickerFilterKind,
+): boolean {
     switch (kind) {
         case 'cash-bank':
             return acc.isCashAccount === true;
@@ -37,8 +43,10 @@ function matchesFilterKind(acc: FilterableAccount, kind: AccountPickerFilterKind
             return acc.type === 'LIABILITY' || acc.isCashAccount === true;
 
         case 'expense-or-asset':
-            return acc.type === 'EXPENSE' ||
-                (acc.type === 'ASSET' && acc.category !== 'CURRENT_ASSET');
+            return (
+                acc.type === 'EXPENSE' ||
+                (acc.type === 'ASSET' && acc.category !== 'CURRENT_ASSET')
+            );
 
         default:
             return true;
@@ -50,7 +58,12 @@ function matchesFilterKind(acc: FilterableAccount, kind: AccountPickerFilterKind
  * Prefers accounts matching the role's typical type; if none match, returns all active.
  */
 export function filterAccountsForRole<
-    T extends { type?: string; category?: string; isCashAccount?: boolean; isActive?: boolean },
+    T extends {
+        type?: string;
+        category?: string;
+        isCashAccount?: boolean;
+        isActive?: boolean;
+    },
 >(role: string, accounts: T[]): T[] {
     const active = accounts.filter((a) => a.isActive !== false);
     const kind = rolePickerKind(role);
@@ -72,7 +85,13 @@ type RolePickerKind =
     | 'liability';
 
 function rolePickerKind(role: string): RolePickerKind | null {
-    if (role === 'petty-cash' || role.startsWith('bank-') && role !== 'bank-charges' && role !== 'bank-loans') return 'cash-bank';
+    if (
+        role === 'petty-cash' ||
+        (role.startsWith('bank-') &&
+            role !== 'bank-charges' &&
+            role !== 'bank-loans')
+    )
+        return 'cash-bank';
     if (role === 'accounts-receivable') return 'ar';
     if (role === 'accounts-payable') return 'ap';
     if (
@@ -88,7 +107,8 @@ function rolePickerKind(role: string): RolePickerKind | null {
     ) {
         return 'expense';
     }
-    if (role === 'interest-income' || role === 'adjustment-gain') return 'revenue';
+    if (role === 'interest-income' || role === 'adjustment-gain')
+        return 'revenue';
     if (
         role === 'current-year-earnings' ||
         role === 'retained-earnings' ||

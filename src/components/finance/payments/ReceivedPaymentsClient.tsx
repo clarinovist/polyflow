@@ -40,7 +40,12 @@ interface ReceivedPaymentsClientProps {
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
-export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType, paymentBanks = {} }: ReceivedPaymentsClientProps) {
+export function ReceivedPaymentsClient({
+    payments,
+    unpaidInvoices,
+    demandType,
+    paymentBanks = {},
+}: ReceivedPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const canRecordPayment = unpaidInvoices.length > 0;
 
@@ -48,7 +53,9 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType, p
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Pembayaran Pelanggan</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Pembayaran Pelanggan
+                    </h1>
                     <p className="text-muted-foreground">
                         {demandType === 'customer'
                             ? 'Lacak dan kelola pembayaran yang diterima dari pelanggan.'
@@ -56,7 +63,10 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType, p
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
+                    <UrlTransactionDateFilter
+                        defaultPreset="this_month"
+                        align="end"
+                    />
                     {canRecordPayment && (
                         <Button onClick={() => setDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />

@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
         const file = formData.get('file') as File | null;
         const entityId = formData.get('entityId') as string | null;
-        const categoryRaw = (formData.get('category') as string | null) ?? 'disciplinary';
+        const categoryRaw =
+            (formData.get('category') as string | null) ?? 'disciplinary';
         const category: 'disciplinary' | 'leave' | 'loan' | 'employee' =
             categoryRaw === 'leave'
                 ? 'leave'
@@ -25,13 +26,22 @@ export async function POST(req: NextRequest) {
                     : 'disciplinary';
 
         if (!file || !entityId) {
-            return NextResponse.json({ error: 'file and entityId are required' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'file and entityId are required' },
+                { status: 400 },
+            );
         }
         if (!ALLOWED_TYPES.includes(file.type)) {
-            return NextResponse.json({ error: 'Only PDF, JPEG, PNG, WebP allowed' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'Only PDF, JPEG, PNG, WebP allowed' },
+                { status: 400 },
+            );
         }
         if (file.size > MAX_BYTES) {
-            return NextResponse.json({ error: 'File size must be under 2MB' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'File size must be under 2MB' },
+                { status: 400 },
+            );
         }
 
         const tenant = await getTenantPrefix();
@@ -42,6 +52,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, publicUrl, key });
     } catch (error) {
         console.error('Failed to upload HRD document:', error);
-        return NextResponse.json({ error: 'Failed to upload document' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Failed to upload document' },
+            { status: 500 },
+        );
     }
 }

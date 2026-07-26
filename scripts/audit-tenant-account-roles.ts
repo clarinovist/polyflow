@@ -41,12 +41,16 @@ function isNameTooSpecific(name: string): boolean {
 }
 
 async function main() {
-    const tenantFilter = process.argv.find((a) => a.startsWith('--tenant='))?.split('=')[1];
+    const tenantFilter = process.argv
+        .find((a) => a.startsWith('--tenant='))
+        ?.split('=')[1];
 
     console.log('=== TenantAccountRole Audit ===\n');
 
     const tenants = await mainPrisma.tenant.findMany({
-        where: tenantFilter ? { subdomain: tenantFilter } : { status: 'ACTIVE' },
+        where: tenantFilter
+            ? { subdomain: tenantFilter }
+            : { status: 'ACTIVE' },
         select: { id: true, name: true, subdomain: true, dbUrl: true },
     });
 
@@ -88,8 +92,10 @@ async function main() {
                 } else {
                     liveCode = live.code;
                     if (live.isActive === false) flags.push('ACCOUNT_INACTIVE');
-                    if (snapCode && live.code !== snapCode) flags.push('SNAPSHOT_MISMATCH');
-                    if (isMelindo && isKiyowoCode(live.code)) flags.push('LIVE_CODE_KIYOWO_ON_MELINDO');
+                    if (snapCode && live.code !== snapCode)
+                        flags.push('SNAPSHOT_MISMATCH');
+                    if (isMelindo && isKiyowoCode(live.code))
+                        flags.push('LIVE_CODE_KIYOWO_ON_MELINDO');
                 }
             }
 
@@ -134,7 +140,9 @@ async function main() {
 
     if (highSeverity > 0) {
         console.log(`\n⚠️  ${highSeverity} high-severity flag(s).`);
-        console.log(`   Dry-run: npx tsx scripts/apply-tenant-account-role-fixes.ts --tenant=melindo --dry-run`);
+        console.log(
+            `   Dry-run: npx tsx scripts/apply-tenant-account-role-fixes.ts --tenant=melindo --dry-run`,
+        );
     }
 
     await mainPrisma.$disconnect();

@@ -1,864 +1,982 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
-  UploadCloud,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  FileSpreadsheet,
-  Plus,
-  History,
-  Eye,
-  ArrowLeft,
-} from "lucide-react";
+    UploadCloud,
+    CheckCircle,
+    AlertCircle,
+    Loader2,
+    FileSpreadsheet,
+    Plus,
+    History,
+    Eye,
+    ArrowLeft,
+} from 'lucide-react';
 import {
-  autoMatchReconciliation,
-  confirmReconciliation,
-  listReconciliations,
-  createReconciliation,
-} from "@/actions/finance/reconciliation-actions";
-import { getChartOfAccounts } from "@/actions/finance/accounting";
-import { formatRupiah } from "@/lib/utils/utils";
-import { toast } from "sonner";
+    autoMatchReconciliation,
+    confirmReconciliation,
+    listReconciliations,
+    createReconciliation,
+} from '@/actions/finance/reconciliation-actions';
+import { getChartOfAccounts } from '@/actions/finance/accounting';
+import { formatRupiah } from '@/lib/utils/utils';
+import { toast } from 'sonner';
 
 // ── Types ──
 
 interface BankStatementRow {
-  id: string;
-  date: Date;
-  description: string;
-  amount: number;
+    id: string;
+    date: Date;
+    description: string;
+    amount: number;
 }
 
 interface MatchResult {
-  statementRow: BankStatementRow;
-  matchedJournalLineId?: string;
-  confidence: number;
-  candidates: Record<string, unknown>[];
+    statementRow: BankStatementRow;
+    matchedJournalLineId?: string;
+    confidence: number;
+    candidates: Record<string, unknown>[];
 }
 
 interface BankAccount {
-  id: string;
-  code: string;
-  name: string;
-  isCashAccount?: boolean;
-  category?: string;
+    id: string;
+    code: string;
+    name: string;
+    isCashAccount?: boolean;
+    category?: string;
 }
 
 interface ReconciliationRecord {
-  id: string;
-  accountId: string;
-  periodStart: string;
-  periodEnd: string;
-  bankBalance: number;
-  bookBalance: number;
-  status: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
-  createdAt: string;
-  account: { code: string; name: string };
-  createdBy: { name: string };
-  _count: { items: number; adjustments: number };
+    id: string;
+    accountId: string;
+    periodStart: string;
+    periodEnd: string;
+    bankBalance: number;
+    bookBalance: number;
+    status: 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    createdAt: string;
+    account: { code: string; name: string };
+    createdBy: { name: string };
+    _count: { items: number; adjustments: number };
 }
 
 // ── CSV Parser (Auto-detect: BCA Corporate / Mandiri / generic) ──
 
 /** Detect CSV format from header line */
-type BankFormat = "mandiri" | "bca" | "generic";
+type BankFormat = 'mandiri' | 'bca' | 'generic';
 
 function detectBankFormat(headerLine: string): BankFormat {
-  const h = headerLine.toLowerCase();
-  if (h.includes("postdate") && h.includes("credit amount")) return "mandiri";
-  if (h.includes("tanggal") && h.includes("keterangan")) return "bca";
-  return "generic";
+    const h = headerLine.toLowerCase();
+    if (h.includes('postdate') && h.includes('credit amount')) return 'mandiri';
+    if (h.includes('tanggal') && h.includes('keterangan')) return 'bca';
+    return 'generic';
 }
 
 /** Parse Mandiri date: "03 July 2026 06:15:33" → Date */
 function parseMandiriDate(str: string): Date | null {
-  // Map English month names to month numbers
-  const months: Record<string, string> = {
-    january: "01", february: "02", march: "03", april: "04",
-    may: "05", june: "06", july: "07", august: "08",
-    september: "09", october: "10", november: "11", december: "12",
-  };
-  // Pattern: "DD Month YYYY HH:MM:SS"
-  const match = str.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-  if (!match) return null;
-  const [, day, monthName, year] = match;
-  const month = months[monthName.toLowerCase()];
-  if (!month) return null;
-  const d = new Date(`${year}-${month}-${day.padStart(2, "0")}`);
-  return isNaN(d.getTime()) ? null : d;
+    // Map English month names to month numbers
+    const months: Record<string, string> = {
+        january: '01',
+        february: '02',
+        march: '03',
+        april: '04',
+        may: '05',
+        june: '06',
+        july: '07',
+        august: '08',
+        september: '09',
+        october: '10',
+        november: '11',
+        december: '12',
+    };
+    // Pattern: "DD Month YYYY HH:MM:SS"
+    const match = str.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+    if (!match) return null;
+    const [, day, monthName, year] = match;
+    const month = months[monthName.toLowerCase()];
+    if (!month) return null;
+    const d = new Date(`${year}-${month}-${day.padStart(2, '0')}`);
+    return isNaN(d.getTime()) ? null : d;
 }
 
 function parseBankStatementCsv(text: string): BankStatementRow[] {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
 
-  // ── 1. Find header line and detect format ──
-  let headerIdx = -1;
-  let format: BankFormat = "generic";
-  let separator = ",";
+    // ── 1. Find header line and detect format ──
+    let headerIdx = -1;
+    let format: BankFormat = 'generic';
+    let separator = ',';
 
-  for (let i = 0; i < Math.min(lines.length, 10); i++) {
-    const line = lines[i];
-    const detected = detectBankFormat(line);
-    if (detected !== "generic") {
-      headerIdx = i;
-      format = detected;
-      separator = detected === "mandiri" ? ";" : line.includes(";") ? ";" : ",";
-      break;
-    }
-  }
-
-  // Fallback: detect separator from first line
-  if (headerIdx === -1) {
-    headerIdx = 0;
-    separator = lines[0].includes(";") ? ";" : ",";
-  }
-
-  // ── 2. Parse header columns ──
-  const headerLine = lines[headerIdx].replace(/^"|"$/g, "");
-  const headers = headerLine
-    .split(separator)
-    .map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
-
-  // Column index resolution
-  const dateIdx = headers.findIndex(
-    (h) =>
-      h.includes("tanggal") ||
-      h === "date" ||
-      h === "tgl" ||
-      h === "postdate",
-  );
-  const descIdx = headers.findIndex(
-    (h) =>
-      h.includes("keterangan") ||
-      h.includes("description") ||
-      h.includes("deskripsi") ||
-      h === "narasi" ||
-      h === "memo" ||
-      h === "remarks",
-  );
-  const debitIdx = headers.findIndex(
-    (h) => h.includes("debit") || h.includes("db") || h === "debet",
-  );
-  const creditIdx = headers.findIndex(
-    (h) => h.includes("credit") || h.includes("cr") || h === "kredit",
-  );
-  const amountIdx = headers.findIndex(
-    (h) =>
-      h === "amount" ||
-      h === "jumlah" ||
-      h.includes("jumlah") ||
-      h === "nominal",
-  );
-  const dbCrIdx = headers.findIndex(
-    (h) =>
-      h.includes("db/cr") ||
-      h.includes("dbcr") ||
-      h.includes("d/c") ||
-      h === "type",
-  );
-
-  // Positional fallback for BCA Corporate: Tanggal(0), Keterangan(1), Cabang(2), Jumlah(3), Saldo(4)
-  const resolvedDateIdx = dateIdx >= 0 ? dateIdx : 0;
-  const resolvedDescIdx = descIdx >= 0 ? descIdx : 1;
-  const resolvedAmountIdx = amountIdx >= 0 ? amountIdx : 3;
-  const resolvedDbCrIdx = dbCrIdx >= 0 ? dbCrIdx : -1;
-
-  // ── 3. Parse data rows ──
-  const rows: BankStatementRow[] = [];
-  for (let i = headerIdx + 1; i < lines.length; i++) {
-    let line = lines[i].trim();
-    if (!line) continue;
-
-    // Skip summary/total lines
-    const lower = line.toLowerCase();
-    if (
-      lower.startsWith("saldo") ||
-      lower.startsWith("mutasi") ||
-      lower.startsWith("total") ||
-      lower.startsWith("closing balance")
-    )
-      continue;
-
-    // Remove outer quotes if present (BCA format: "field1,field2,field3")
-    if (line.startsWith('"') && line.endsWith('"')) {
-      line = line.slice(1, -1);
-    }
-
-    const cols = line
-      .split(separator)
-      .map((c) => c.trim().replace(/['"]/g, ""));
-    if (cols.length < 2) continue;
-
-    const dateStr = cols[resolvedDateIdx];
-    if (!dateStr) continue;
-
-    // ── Date parsing ──
-    let date: Date | null = null;
-
-    if (format === "mandiri") {
-      // Mandiri: "03 July 2026 06:15:33"
-      date = parseMandiriDate(dateStr);
-    } else {
-      // BCA / generic: DD/MM/YYYY or DD/MM/YY or YYYY-MM-DD
-      if (dateStr.includes("/")) {
-        const parts = dateStr.split("/");
-        if (parts[0].length === 4) {
-          date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
-        } else if (parts[2]?.length === 4) {
-          date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-        } else if (parts[2]?.length === 2) {
-          date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+        const line = lines[i];
+        const detected = detectBankFormat(line);
+        if (detected !== 'generic') {
+            headerIdx = i;
+            format = detected;
+            separator =
+                detected === 'mandiri' ? ';' : line.includes(';') ? ';' : ',';
+            break;
         }
-      } else if (dateStr.includes("-")) {
-        date = new Date(dateStr);
-      }
     }
 
-    if (!date || isNaN(date.getTime())) continue;
+    // Fallback: detect separator from first line
+    if (headerIdx === -1) {
+        headerIdx = 0;
+        separator = lines[0].includes(';') ? ';' : ',';
+    }
 
-    // ── Description ──
-    const description =
-      cols[resolvedDescIdx] || `Transaksi baris ${i}`;
+    // ── 2. Parse header columns ──
+    const headerLine = lines[headerIdx].replace(/^"|"$/g, '');
+    const headers = headerLine
+        .split(separator)
+        .map((h) => h.trim().toLowerCase().replace(/['"]/g, ''));
 
-    // ── Amount parsing ──
-    let amount = 0;
+    // Column index resolution
+    const dateIdx = headers.findIndex(
+        (h) =>
+            h.includes('tanggal') ||
+            h === 'date' ||
+            h === 'tgl' ||
+            h === 'postdate',
+    );
+    const descIdx = headers.findIndex(
+        (h) =>
+            h.includes('keterangan') ||
+            h.includes('description') ||
+            h.includes('deskripsi') ||
+            h === 'narasi' ||
+            h === 'memo' ||
+            h === 'remarks',
+    );
+    const debitIdx = headers.findIndex(
+        (h) => h.includes('debit') || h.includes('db') || h === 'debet',
+    );
+    const creditIdx = headers.findIndex(
+        (h) => h.includes('credit') || h.includes('cr') || h === 'kredit',
+    );
+    const amountIdx = headers.findIndex(
+        (h) =>
+            h === 'amount' ||
+            h === 'jumlah' ||
+            h.includes('jumlah') ||
+            h === 'nominal',
+    );
+    const dbCrIdx = headers.findIndex(
+        (h) =>
+            h.includes('db/cr') ||
+            h.includes('dbcr') ||
+            h.includes('d/c') ||
+            h === 'type',
+    );
 
-    if (format === "mandiri") {
-      // Mandiri: separate Credit Amount and Debit Amount columns
-      const creditVal = parseIndonesianNumber(cols[creditIdx] || "0");
-      const debitVal = parseIndonesianNumber(cols[debitIdx] || "0");
-      amount = creditVal - debitVal; // credit = positive (money in), debit = negative (money out)
-    } else if (debitIdx >= 0 && creditIdx >= 0 && format !== "bca") {
-      // Generic format with separate debit/credit columns
-      const debit = parseIndonesianNumber(cols[debitIdx]);
-      const credit = parseIndonesianNumber(cols[creditIdx]);
-      amount = credit - debit;
-    } else if (resolvedAmountIdx >= 0) {
-      // BCA / generic: single "Jumlah" column with DB/CR suffix
-      const rawValue = cols[resolvedAmountIdx] || "";
-      const parts = rawValue.trim().split(/\s+/);
-      const amountStr = parts[0] || "0";
-      const direction = (parts[1] || "").toUpperCase();
+    // Positional fallback for BCA Corporate: Tanggal(0), Keterangan(1), Cabang(2), Jumlah(3), Saldo(4)
+    const resolvedDateIdx = dateIdx >= 0 ? dateIdx : 0;
+    const resolvedDescIdx = descIdx >= 0 ? descIdx : 1;
+    const resolvedAmountIdx = amountIdx >= 0 ? amountIdx : 3;
+    const resolvedDbCrIdx = dbCrIdx >= 0 ? dbCrIdx : -1;
 
-      const parsedAmount = parseIndonesianNumber(amountStr);
+    // ── 3. Parse data rows ──
+    const rows: BankStatementRow[] = [];
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
 
-      if (
-        direction === "DB" ||
-        direction === "DEBET" ||
-        direction === "D" ||
-        direction === "DEBIT"
-      ) {
-        amount = -Math.abs(parsedAmount);
-      } else if (
-        direction === "CR" ||
-        direction === "CREDIT" ||
-        direction === "C" ||
-        direction === "KREDIT"
-      ) {
-        amount = Math.abs(parsedAmount);
-      } else {
-        // Check dedicated DB/CR column
-        const dbCr =
-          resolvedDbCrIdx >= 0 ? (cols[resolvedDbCrIdx] || "").toUpperCase() : "";
-        if (dbCr === "DB" || dbCr === "DEBET" || dbCr === "D") {
-          amount = -Math.abs(parsedAmount);
-        } else if (dbCr === "CR" || dbCr === "CREDIT" || dbCr === "C") {
-          amount = Math.abs(parsedAmount);
+        // Skip summary/total lines
+        const lower = line.toLowerCase();
+        if (
+            lower.startsWith('saldo') ||
+            lower.startsWith('mutasi') ||
+            lower.startsWith('total') ||
+            lower.startsWith('closing balance')
+        )
+            continue;
+
+        // Remove outer quotes if present (BCA format: "field1,field2,field3")
+        if (line.startsWith('"') && line.endsWith('"')) {
+            line = line.slice(1, -1);
+        }
+
+        const cols = line
+            .split(separator)
+            .map((c) => c.trim().replace(/['"]/g, ''));
+        if (cols.length < 2) continue;
+
+        const dateStr = cols[resolvedDateIdx];
+        if (!dateStr) continue;
+
+        // ── Date parsing ──
+        let date: Date | null = null;
+
+        if (format === 'mandiri') {
+            // Mandiri: "03 July 2026 06:15:33"
+            date = parseMandiriDate(dateStr);
         } else {
-          amount = parsedAmount;
+            // BCA / generic: DD/MM/YYYY or DD/MM/YY or YYYY-MM-DD
+            if (dateStr.includes('/')) {
+                const parts = dateStr.split('/');
+                if (parts[0].length === 4) {
+                    date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+                } else if (parts[2]?.length === 4) {
+                    date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                } else if (parts[2]?.length === 2) {
+                    date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
+                }
+            } else if (dateStr.includes('-')) {
+                date = new Date(dateStr);
+            }
         }
-      }
+
+        if (!date || isNaN(date.getTime())) continue;
+
+        // ── Description ──
+        const description = cols[resolvedDescIdx] || `Transaksi baris ${i}`;
+
+        // ── Amount parsing ──
+        let amount = 0;
+
+        if (format === 'mandiri') {
+            // Mandiri: separate Credit Amount and Debit Amount columns
+            const creditVal = parseIndonesianNumber(cols[creditIdx] || '0');
+            const debitVal = parseIndonesianNumber(cols[debitIdx] || '0');
+            amount = creditVal - debitVal; // credit = positive (money in), debit = negative (money out)
+        } else if (debitIdx >= 0 && creditIdx >= 0 && format !== 'bca') {
+            // Generic format with separate debit/credit columns
+            const debit = parseIndonesianNumber(cols[debitIdx]);
+            const credit = parseIndonesianNumber(cols[creditIdx]);
+            amount = credit - debit;
+        } else if (resolvedAmountIdx >= 0) {
+            // BCA / generic: single "Jumlah" column with DB/CR suffix
+            const rawValue = cols[resolvedAmountIdx] || '';
+            const parts = rawValue.trim().split(/\s+/);
+            const amountStr = parts[0] || '0';
+            const direction = (parts[1] || '').toUpperCase();
+
+            const parsedAmount = parseIndonesianNumber(amountStr);
+
+            if (
+                direction === 'DB' ||
+                direction === 'DEBET' ||
+                direction === 'D' ||
+                direction === 'DEBIT'
+            ) {
+                amount = -Math.abs(parsedAmount);
+            } else if (
+                direction === 'CR' ||
+                direction === 'CREDIT' ||
+                direction === 'C' ||
+                direction === 'KREDIT'
+            ) {
+                amount = Math.abs(parsedAmount);
+            } else {
+                // Check dedicated DB/CR column
+                const dbCr =
+                    resolvedDbCrIdx >= 0
+                        ? (cols[resolvedDbCrIdx] || '').toUpperCase()
+                        : '';
+                if (dbCr === 'DB' || dbCr === 'DEBET' || dbCr === 'D') {
+                    amount = -Math.abs(parsedAmount);
+                } else if (dbCr === 'CR' || dbCr === 'CREDIT' || dbCr === 'C') {
+                    amount = Math.abs(parsedAmount);
+                } else {
+                    amount = parsedAmount;
+                }
+            }
+        }
+
+        if (amount === 0) continue;
+
+        rows.push({ id: `S${i}`, date, description, amount });
     }
 
-    if (amount === 0) continue;
-
-    rows.push({ id: `S${i}`, date, description, amount });
-  }
-
-  return rows;
+    return rows;
 }
 
 /** Parse Indonesian number format: "30,000.00" → 30000, "5.550.000,00" → 5550000 */
 function parseIndonesianNumber(str: string): number {
-  if (!str) return 0;
-  // Remove non-numeric chars except . and ,
-  const cleaned = str.replace(/[^0-9.,-]/g, "");
-  if (!cleaned) return 0;
+    if (!str) return 0;
+    // Remove non-numeric chars except . and ,
+    const cleaned = str.replace(/[^0-9.,-]/g, '');
+    if (!cleaned) return 0;
 
-  // Detect format: if comma is followed by 3 digits, it's thousand separator
-  // "30,000.00" → comma is thousand separator → remove commas
-  // "5.550.000,00" → dot is thousand separator → swap dot and comma
-  if (/,\d{3}/.test(cleaned)) {
-    // Comma is thousand separator: "30,000.00" → remove commas
-    return parseFloat(cleaned.replace(/,/g, "")) || 0;
-  } else if (/\.\d{3}/.test(cleaned)) {
-    // Dot is thousand separator: "5.550.000,00" → swap
-    return parseFloat(cleaned.replace(/\./g, "").replace(",", ".")) || 0;
-  } else {
-    // Standard: "30000.00" or "30000,00"
-    return parseFloat(cleaned.replace(",", ".")) || 0;
-  }
+    // Detect format: if comma is followed by 3 digits, it's thousand separator
+    // "30,000.00" → comma is thousand separator → remove commas
+    // "5.550.000,00" → dot is thousand separator → swap dot and comma
+    if (/,\d{3}/.test(cleaned)) {
+        // Comma is thousand separator: "30,000.00" → remove commas
+        return parseFloat(cleaned.replace(/,/g, '')) || 0;
+    } else if (/\.\d{3}/.test(cleaned)) {
+        // Dot is thousand separator: "5.550.000,00" → swap
+        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+    } else {
+        // Standard: "30000.00" or "30000,00"
+        return parseFloat(cleaned.replace(',', '.')) || 0;
+    }
 }
 
 // ── Status Badge ──
 
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-700 border-gray-200",
-    IN_PROGRESS: "bg-yellow-50 text-yellow-700 border-yellow-200",
-    COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    CANCELLED: "bg-red-50 text-red-700 border-red-200",
-  };
-  const labels: Record<string, string> = {
-    DRAFT: "Draft",
-    IN_PROGRESS: "In Progress",
-    COMPLETED: "Selesai",
-    CANCELLED: "Dibatalkan",
-  };
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${styles[status] ?? styles.DRAFT}`}
-    >
-      {labels[status] ?? status}
-    </span>
-  );
+    const styles: Record<string, string> = {
+        DRAFT: 'bg-gray-100 text-gray-700 border-gray-200',
+        IN_PROGRESS: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        CANCELLED: 'bg-red-50 text-red-700 border-red-200',
+    };
+    const labels: Record<string, string> = {
+        DRAFT: 'Draft',
+        IN_PROGRESS: 'In Progress',
+        COMPLETED: 'Selesai',
+        CANCELLED: 'Dibatalkan',
+    };
+    return (
+        <span
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${styles[status] ?? styles.DRAFT}`}
+        >
+            {labels[status] ?? status}
+        </span>
+    );
 }
 
 // ── Main Component ──
 
 export default function BankReconciliationPage() {
-  const router = useRouter();
+    const router = useRouter();
 
-  // History
-  const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
+    // History
+    const [reconciliations, setReconciliations] = useState<
+        ReconciliationRecord[]
+    >([]);
+    const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // Create flow
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [results, setResults] = useState<MatchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [parsedRows, setParsedRows] = useState<BankStatementRow[]>([]);
+    // Create flow
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [accounts, setAccounts] = useState<BankAccount[]>([]);
+    const [selectedAccount, setSelectedAccount] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [results, setResults] = useState<MatchResult[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [confirming, setConfirming] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [parsedRows, setParsedRows] = useState<BankStatementRow[]>([]);
 
-  // Load history
-  useEffect(() => {
-    setLoadingHistory(true);
-    listReconciliations()
-      .then((res: Record<string, unknown>) => {
-        if (res.success) {
-          setReconciliations(res.data as unknown as ReconciliationRecord[]);
-        }
-      })
-      .finally(() => setLoadingHistory(false));
-  }, []);
-
-  // Load accounts
-  useEffect(() => {
-    getChartOfAccounts().then((res: Record<string, unknown>) => {
-      if (res.success) {
-        const accData = res.data as BankAccount[];
-        setAccounts(
-          accData.filter((a) => a.isCashAccount || a.category === "CASH"),
-        );
-      }
-    });
-  }, []);
-
-  const handleFileUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        const rows = parseBankStatementCsv(text);
-        if (rows.length === 0) {
-          toast.error(
-            "Tidak dapat membaca file CSV. Pastikan kolom: tanggal, keterangan, jumlah/debit+credit",
-          );
-          setParsedRows([]);
-        } else {
-          setParsedRows(rows);
-          toast.success(`${rows.length} baris transaksi ditemukan`);
-        }
-      };
-      reader.readAsText(file);
-    },
-    [],
-  );
-
-  const handleAutoMatch = async () => {
-    if (!selectedAccount || !startDate || !endDate) {
-      toast.error("Pilih akun bank dan periode terlebih dahulu");
-      return;
-    }
-    if (parsedRows.length === 0) {
-      toast.error("Upload file bank statement terlebih dahulu");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await autoMatchReconciliation(
-        selectedAccount,
-        new Date(startDate),
-        new Date(endDate),
-        parsedRows,
-      );
-      if (res && "success" in res && res.success) {
-        setResults(res.data as unknown as MatchResult[]);
-        const matched = (res.data as unknown as MatchResult[]).filter(
-          (r) => r.confidence === 100,
-        ).length;
-        toast.success(
-          `${matched} dari ${(res.data as unknown as MatchResult[]).length} baris cocok otomatis`,
-        );
-      } else {
-        toast.error(
-          res && "error" in res
-            ? (res.error as string)
-            : "Gagal menjalankan auto match",
-        );
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Gagal memproses rekonsiliasi. Silakan coba lagi.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveAndContinue = async () => {
-    if (!selectedAccount || !startDate || !endDate) {
-      toast.error("Pilih akun bank dan periode terlebih dahulu");
-      return;
-    }
-    if (parsedRows.length === 0) {
-      toast.error("Upload file bank statement terlebih dahulu");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const res = await createReconciliation(
-        selectedAccount,
-        new Date(startDate),
-        new Date(endDate),
-        parsedRows,
-      );
-      if (res && "success" in res && res.success) {
-        const data = res.data as { id: string };
-        toast.success("Rekonsiliasi berhasil dibuat");
-        router.push(`/finance/bank-reconciliation/${data.id}`);
-      } else {
-        toast.error(
-          res && "error" in res
-            ? (res.error as string)
-            : "Gagal menyimpan rekonsiliasi",
-        );
-      }
-    } catch {
-      toast.error("Gagal menyimpan rekonsiliasi. Silakan coba lagi.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleConfirm = async () => {
-    const matchedIds = results
-      .filter((r) => r.confidence === 100 && r.matchedJournalLineId)
-      .map((r) => r.matchedJournalLineId as string);
-
-    if (matchedIds.length === 0) {
-      toast.error("Tidak ada baris yang cocok untuk dikonfirmasi");
-      return;
-    }
-
-    setConfirming(true);
-    try {
-      const res = await confirmReconciliation(matchedIds);
-      if (res && "success" in res && res.success) {
-        const data = res.data as { message: string };
-        toast.success(data.message);
-        setResults([]);
-        setParsedRows([]);
-        setShowCreateForm(false);
-        // Refresh history
+    // Load history
+    useEffect(() => {
         setLoadingHistory(true);
-        listReconciliations().then((r: Record<string, unknown>) => {
-          if (r.success) setReconciliations(r.data as unknown as ReconciliationRecord[]);
-        }).finally(() => setLoadingHistory(false));
-      } else {
-        toast.error(
-          res && "error" in res
-            ? (res.error as string)
-            : "Gagal mengkonfirmasi",
-        );
-      }
-    } catch {
-      toast.error("Gagal memproses rekonsiliasi. Silakan coba lagi.");
-    } finally {
-      setConfirming(false);
-    }
-  };
+        listReconciliations()
+            .then((res: Record<string, unknown>) => {
+                if (res.success) {
+                    setReconciliations(
+                        res.data as unknown as ReconciliationRecord[],
+                    );
+                }
+            })
+            .finally(() => setLoadingHistory(false));
+    }, []);
 
-  const matchedCount = results.filter((r) => r.confidence === 100).length;
-  const unmatchedCount = results.filter((r) => r.confidence < 100).length;
+    // Load accounts
+    useEffect(() => {
+        getChartOfAccounts().then((res: Record<string, unknown>) => {
+            if (res.success) {
+                const accData = res.data as BankAccount[];
+                setAccounts(
+                    accData.filter(
+                        (a) => a.isCashAccount || a.category === 'CASH',
+                    ),
+                );
+            }
+        });
+    }, []);
 
-  return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Rekonsiliasi Bank</h1>
-          <p className="text-muted-foreground">
-            Cocokkan mutasi bank dengan jurnal umum
-          </p>
-        </div>
-        <Button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="gap-2"
-        >
-          {showCreateForm ? (
-            <>
-              <ArrowLeft className="h-4 w-4" />
-              Kembali
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4" />
-              Rekonsiliasi Baru
-            </>
-          )}
-        </Button>
-      </div>
+    const handleFileUpload = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
 
-      {/* ── Create Form (hidden when showing history) ── */}
-      {showCreateForm ? (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Parameter Rekonsiliasi</CardTitle>
-              <CardDescription>
-                Pilih akun bank, periode, dan upload file mutasi bank (CSV)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Akun Bank</Label>
-                  <Select
-                    value={selectedAccount}
-                    onValueChange={setSelectedAccount}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih Akun" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((acc) => (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          {acc.code} - {acc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const text = event.target?.result as string;
+                const rows = parseBankStatementCsv(text);
+                if (rows.length === 0) {
+                    toast.error(
+                        'Tidak dapat membaca file CSV. Pastikan kolom: tanggal, keterangan, jumlah/debit+credit',
+                    );
+                    setParsedRows([]);
+                } else {
+                    setParsedRows(rows);
+                    toast.success(`${rows.length} baris transaksi ditemukan`);
+                }
+            };
+            reader.readAsText(file);
+        },
+        [],
+    );
+
+    const handleAutoMatch = async () => {
+        if (!selectedAccount || !startDate || !endDate) {
+            toast.error('Pilih akun bank dan periode terlebih dahulu');
+            return;
+        }
+        if (parsedRows.length === 0) {
+            toast.error('Upload file bank statement terlebih dahulu');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const res = await autoMatchReconciliation(
+                selectedAccount,
+                new Date(startDate),
+                new Date(endDate),
+                parsedRows,
+            );
+            if (res && 'success' in res && res.success) {
+                setResults(res.data as unknown as MatchResult[]);
+                const matched = (res.data as unknown as MatchResult[]).filter(
+                    (r) => r.confidence === 100,
+                ).length;
+                toast.success(
+                    `${matched} dari ${(res.data as unknown as MatchResult[]).length} baris cocok otomatis`,
+                );
+            } else {
+                toast.error(
+                    res && 'error' in res
+                        ? (res.error as string)
+                        : 'Gagal menjalankan auto match',
+                );
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Gagal memproses rekonsiliasi. Silakan coba lagi.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveAndContinue = async () => {
+        if (!selectedAccount || !startDate || !endDate) {
+            toast.error('Pilih akun bank dan periode terlebih dahulu');
+            return;
+        }
+        if (parsedRows.length === 0) {
+            toast.error('Upload file bank statement terlebih dahulu');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const res = await createReconciliation(
+                selectedAccount,
+                new Date(startDate),
+                new Date(endDate),
+                parsedRows,
+            );
+            if (res && 'success' in res && res.success) {
+                const data = res.data as { id: string };
+                toast.success('Rekonsiliasi berhasil dibuat');
+                router.push(`/finance/bank-reconciliation/${data.id}`);
+            } else {
+                toast.error(
+                    res && 'error' in res
+                        ? (res.error as string)
+                        : 'Gagal menyimpan rekonsiliasi',
+                );
+            }
+        } catch {
+            toast.error('Gagal menyimpan rekonsiliasi. Silakan coba lagi.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleConfirm = async () => {
+        const matchedIds = results
+            .filter((r) => r.confidence === 100 && r.matchedJournalLineId)
+            .map((r) => r.matchedJournalLineId as string);
+
+        if (matchedIds.length === 0) {
+            toast.error('Tidak ada baris yang cocok untuk dikonfirmasi');
+            return;
+        }
+
+        setConfirming(true);
+        try {
+            const res = await confirmReconciliation(matchedIds);
+            if (res && 'success' in res && res.success) {
+                const data = res.data as { message: string };
+                toast.success(data.message);
+                setResults([]);
+                setParsedRows([]);
+                setShowCreateForm(false);
+                // Refresh history
+                setLoadingHistory(true);
+                listReconciliations()
+                    .then((r: Record<string, unknown>) => {
+                        if (r.success)
+                            setReconciliations(
+                                r.data as unknown as ReconciliationRecord[],
+                            );
+                    })
+                    .finally(() => setLoadingHistory(false));
+            } else {
+                toast.error(
+                    res && 'error' in res
+                        ? (res.error as string)
+                        : 'Gagal mengkonfirmasi',
+                );
+            }
+        } catch {
+            toast.error('Gagal memproses rekonsiliasi. Silakan coba lagi.');
+        } finally {
+            setConfirming(false);
+        }
+    };
+
+    const matchedCount = results.filter((r) => r.confidence === 100).length;
+    const unmatchedCount = results.filter((r) => r.confidence < 100).length;
+
+    return (
+        <div className="space-y-6 max-w-7xl mx-auto pb-10">
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Rekonsiliasi Bank
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Cocokkan mutasi bank dengan jurnal umum
+                    </p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Tanggal Mulai</Label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tanggal Akhir</Label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>File Mutasi Bank (CSV)</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="file"
-                    accept=".csv,.txt"
-                    onChange={handleFileUpload}
-                    className="flex-1"
-                  />
-                  {parsedRows.length > 0 && (
-                    <span className="text-sm text-emerald-600 flex items-center gap-1">
-                      <FileSpreadsheet className="h-4 w-4" />
-                      {parsedRows.length} baris
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Format CSV: kolom tanggal, keterangan, jumlah (atau debit + credit terpisah)
-                </p>
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3">
                 <Button
-                  variant="outline"
-                  onClick={() => setShowCreateForm(false)}
-                >
-                  Batal
-                </Button>
-                {parsedRows.length > 0 && (
-                  <Button
-                    onClick={handleAutoMatch}
-                    disabled={loading || !selectedAccount || !startDate || !endDate}
-                    variant="outline"
+                    onClick={() => setShowCreateForm(!showCreateForm)}
                     className="gap-2"
-                  >
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <UploadCloud className="h-4 w-4" />
-                    )}
-                    Auto Match
-                  </Button>
-                )}
-                <Button
-                  onClick={handleSaveAndContinue}
-                  disabled={saving || !selectedAccount || !startDate || !endDate}
-                  className="gap-2"
                 >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4" />
-                  )}
-                  Simpan & Lanjutkan
+                    {showCreateForm ? (
+                        <>
+                            <ArrowLeft className="h-4 w-4" />
+                            Kembali
+                        </>
+                    ) : (
+                        <>
+                            <Plus className="h-4 w-4" />
+                            Rekonsiliasi Baru
+                        </>
+                    )}
                 </Button>
-                {parsedRows.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    💡 Upload CSV opsional — bisa input mutasi bank manual di halaman detail
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* ── Match Results (inline preview) ── */}
-          {results.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle>Hasil Pencocokan Sementara</CardTitle>
-                    <CardDescription>
-                      Review hasil auto match sebelum menyimpan
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-3 text-sm">
-                    <span className="flex items-center gap-1 text-emerald-600">
-                      <CheckCircle className="h-4 w-4" /> {matchedCount} cocok
-                    </span>
-                    <span className="flex items-center gap-1 text-amber-600">
-                      <AlertCircle className="h-4 w-4" /> {unmatchedCount} belum
-                      cocok
-                    </span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/20 text-muted-foreground">
-                        <th className="h-10 px-4 text-left font-medium">Tanggal</th>
-                        <th className="h-10 px-4 text-left font-medium">Keterangan</th>
-                        <th className="h-10 px-4 text-right font-medium">Jumlah</th>
-                        <th className="h-10 px-4 text-left font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.map((r, i) => (
-                        <tr key={i} className="border-b hover:bg-muted/50">
-                          <td className="p-4 whitespace-nowrap">
-                            {new Date(r.statementRow.date).toLocaleDateString("id-ID")}
-                          </td>
-                          <td className="p-4">{r.statementRow.description}</td>
-                          <td className="p-4 text-right font-mono">
-                            {formatRupiah(r.statementRow.amount)}
-                          </td>
-                          <td className="p-4">
-                            {r.confidence === 100 ? (
-                              <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded text-xs">
-                                <CheckCircle className="h-3.5 w-3.5" /> Cocok
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded text-xs">
-                                <AlertCircle className="h-3.5 w-3.5" /> Belum Cocok
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {matchedCount > 0 && (
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      onClick={handleConfirm}
-                      disabled={confirming}
-                      className="gap-2"
-                    >
-                      {confirming ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4" />
-                      )}
-                      Konfirmasi ({matchedCount} baris)
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </>
-      ) : (
-        /* ── History List ── */
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Riwayat Rekonsiliasi
-            </CardTitle>
-            <CardDescription>
-              Daftar rekonsiliasi bank yang telah dibuat
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingHistory ? (
-              <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Memuat data...
-              </div>
-            ) : reconciliations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <History className="h-12 w-12 mb-3 opacity-30" />
-                <p className="font-medium">Belum ada rekonsiliasi</p>
-                <p className="text-sm">Klik &quot;Rekonsiliasi Baru&quot; untuk memulai</p>
-              </div>
+            {/* ── Create Form (hidden when showing history) ── */}
+            {showCreateForm ? (
+                <>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Parameter Rekonsiliasi</CardTitle>
+                            <CardDescription>
+                                Pilih akun bank, periode, dan upload file mutasi
+                                bank (CSV)
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Akun Bank</Label>
+                                    <Select
+                                        value={selectedAccount}
+                                        onValueChange={setSelectedAccount}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih Akun" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {accounts.map((acc) => (
+                                                <SelectItem
+                                                    key={acc.id}
+                                                    value={acc.id}
+                                                >
+                                                    {acc.code} - {acc.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Tanggal Mulai</Label>
+                                    <Input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) =>
+                                            setStartDate(e.target.value)
+                                        }
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Tanggal Akhir</Label>
+                                    <Input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) =>
+                                            setEndDate(e.target.value)
+                                        }
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>File Mutasi Bank (CSV)</Label>
+                                <div className="flex items-center gap-3">
+                                    <Input
+                                        type="file"
+                                        accept=".csv,.txt"
+                                        onChange={handleFileUpload}
+                                        className="flex-1"
+                                    />
+                                    {parsedRows.length > 0 && (
+                                        <span className="text-sm text-emerald-600 flex items-center gap-1">
+                                            <FileSpreadsheet className="h-4 w-4" />
+                                            {parsedRows.length} baris
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Format CSV: kolom tanggal, keterangan,
+                                    jumlah (atau debit + credit terpisah)
+                                </p>
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-3">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowCreateForm(false)}
+                                >
+                                    Batal
+                                </Button>
+                                {parsedRows.length > 0 && (
+                                    <Button
+                                        onClick={handleAutoMatch}
+                                        disabled={
+                                            loading ||
+                                            !selectedAccount ||
+                                            !startDate ||
+                                            !endDate
+                                        }
+                                        variant="outline"
+                                        className="gap-2"
+                                    >
+                                        {loading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <UploadCloud className="h-4 w-4" />
+                                        )}
+                                        Auto Match
+                                    </Button>
+                                )}
+                                <Button
+                                    onClick={handleSaveAndContinue}
+                                    disabled={
+                                        saving ||
+                                        !selectedAccount ||
+                                        !startDate ||
+                                        !endDate
+                                    }
+                                    className="gap-2"
+                                >
+                                    {saving ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <CheckCircle className="h-4 w-4" />
+                                    )}
+                                    Simpan & Lanjutkan
+                                </Button>
+                                {parsedRows.length === 0 && (
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        💡 Upload CSV opsional — bisa input
+                                        mutasi bank manual di halaman detail
+                                    </p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* ── Match Results (inline preview) ── */}
+                    {results.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle>
+                                            Hasil Pencocokan Sementara
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Review hasil auto match sebelum
+                                            menyimpan
+                                        </CardDescription>
+                                    </div>
+                                    <div className="flex gap-3 text-sm">
+                                        <span className="flex items-center gap-1 text-emerald-600">
+                                            <CheckCircle className="h-4 w-4" />{' '}
+                                            {matchedCount} cocok
+                                        </span>
+                                        <span className="flex items-center gap-1 text-amber-600">
+                                            <AlertCircle className="h-4 w-4" />{' '}
+                                            {unmatchedCount} belum cocok
+                                        </span>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-md border">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-muted/20 text-muted-foreground">
+                                                <th className="h-10 px-4 text-left font-medium">
+                                                    Tanggal
+                                                </th>
+                                                <th className="h-10 px-4 text-left font-medium">
+                                                    Keterangan
+                                                </th>
+                                                <th className="h-10 px-4 text-right font-medium">
+                                                    Jumlah
+                                                </th>
+                                                <th className="h-10 px-4 text-left font-medium">
+                                                    Status
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {results.map((r, i) => (
+                                                <tr
+                                                    key={i}
+                                                    className="border-b hover:bg-muted/50"
+                                                >
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        {new Date(
+                                                            r.statementRow.date,
+                                                        ).toLocaleDateString(
+                                                            'id-ID',
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {
+                                                            r.statementRow
+                                                                .description
+                                                        }
+                                                    </td>
+                                                    <td className="p-4 text-right font-mono">
+                                                        {formatRupiah(
+                                                            r.statementRow
+                                                                .amount,
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {r.confidence ===
+                                                        100 ? (
+                                                            <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded text-xs">
+                                                                <CheckCircle className="h-3.5 w-3.5" />{' '}
+                                                                Cocok
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1.5 text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded text-xs">
+                                                                <AlertCircle className="h-3.5 w-3.5" />{' '}
+                                                                Belum Cocok
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {matchedCount > 0 && (
+                                    <div className="mt-4 flex justify-end">
+                                        <Button
+                                            onClick={handleConfirm}
+                                            disabled={confirming}
+                                            className="gap-2"
+                                        >
+                                            {confirming ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <CheckCircle className="h-4 w-4" />
+                                            )}
+                                            Konfirmasi ({matchedCount} baris)
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+                </>
             ) : (
-              <div className="rounded-md border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/20 text-muted-foreground">
-                      <th className="h-10 px-4 text-left font-medium">Periode</th>
-                      <th className="h-10 px-4 text-left font-medium">Akun</th>
-                      <th className="h-10 px-4 text-right font-medium">Saldo Bank</th>
-                      <th className="h-10 px-4 text-right font-medium">Saldo Buku</th>
-                      <th className="h-10 px-4 text-center font-medium">Status</th>
-                      <th className="h-10 px-4 text-left font-medium">Dibuat</th>
-                      <th className="h-10 px-4 text-right font-medium">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reconciliations.map((r) => (
-                      <tr
-                        key={r.id}
-                        className="border-b hover:bg-muted/50 cursor-pointer"
-                        onClick={() =>
-                          router.push(`/finance/bank-reconciliation/${r.id}`)
-                        }
-                      >
-                        <td className="p-4 whitespace-nowrap">
-                          {new Date(r.periodStart).toLocaleDateString("id-ID", {
-                            day: "2-digit",
-                            month: "short",
-                          })}{" "}
-                          –{" "}
-                          {new Date(r.periodEnd).toLocaleDateString("id-ID", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </td>
-                        <td className="p-4">
-                          <div className="font-medium">
-                            {r.account.code}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {r.account.name}
-                          </div>
-                        </td>
-                        <td className="p-4 text-right font-mono">
-                          {formatRupiah(r.bankBalance)}
-                        </td>
-                        <td className="p-4 text-right font-mono">
-                          {formatRupiah(r.bookBalance)}
-                        </td>
-                        <td className="p-4 text-center">
-                          <StatusBadge status={r.status} />
-                        </td>
-                        <td className="p-4 text-muted-foreground text-xs">
-                          {new Date(r.createdAt).toLocaleDateString("id-ID", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                          <br />
-                          {r.createdBy.name}
-                        </td>
-                        <td className="p-4 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/finance/bank-reconciliation/${r.id}`);
-                            }}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Detail
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                /* ── History List ── */
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <History className="h-5 w-5" />
+                            Riwayat Rekonsiliasi
+                        </CardTitle>
+                        <CardDescription>
+                            Daftar rekonsiliasi bank yang telah dibuat
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {loadingHistory ? (
+                            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Memuat data...
+                            </div>
+                        ) : reconciliations.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                                <History className="h-12 w-12 mb-3 opacity-30" />
+                                <p className="font-medium">
+                                    Belum ada rekonsiliasi
+                                </p>
+                                <p className="text-sm">
+                                    Klik &quot;Rekonsiliasi Baru&quot; untuk
+                                    memulai
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="rounded-md border">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b bg-muted/20 text-muted-foreground">
+                                            <th className="h-10 px-4 text-left font-medium">
+                                                Periode
+                                            </th>
+                                            <th className="h-10 px-4 text-left font-medium">
+                                                Akun
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                Saldo Bank
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                Saldo Buku
+                                            </th>
+                                            <th className="h-10 px-4 text-center font-medium">
+                                                Status
+                                            </th>
+                                            <th className="h-10 px-4 text-left font-medium">
+                                                Dibuat
+                                            </th>
+                                            <th className="h-10 px-4 text-right font-medium">
+                                                Aksi
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {reconciliations.map((r) => (
+                                            <tr
+                                                key={r.id}
+                                                className="border-b hover:bg-muted/50 cursor-pointer"
+                                                onClick={() =>
+                                                    router.push(
+                                                        `/finance/bank-reconciliation/${r.id}`,
+                                                    )
+                                                }
+                                            >
+                                                <td className="p-4 whitespace-nowrap">
+                                                    {new Date(
+                                                        r.periodStart,
+                                                    ).toLocaleDateString(
+                                                        'id-ID',
+                                                        {
+                                                            day: '2-digit',
+                                                            month: 'short',
+                                                        },
+                                                    )}{' '}
+                                                    –{' '}
+                                                    {new Date(
+                                                        r.periodEnd,
+                                                    ).toLocaleDateString(
+                                                        'id-ID',
+                                                        {
+                                                            day: '2-digit',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                        },
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="font-medium">
+                                                        {r.account.code}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {r.account.name}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-right font-mono">
+                                                    {formatRupiah(
+                                                        r.bankBalance,
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-right font-mono">
+                                                    {formatRupiah(
+                                                        r.bookBalance,
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <StatusBadge
+                                                        status={r.status}
+                                                    />
+                                                </td>
+                                                <td className="p-4 text-muted-foreground text-xs">
+                                                    {new Date(
+                                                        r.createdAt,
+                                                    ).toLocaleDateString(
+                                                        'id-ID',
+                                                        {
+                                                            day: '2-digit',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                        },
+                                                    )}
+                                                    <br />
+                                                    {r.createdBy.name}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="gap-1"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            router.push(
+                                                                `/finance/bank-reconciliation/${r.id}`,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Eye className="h-3.5 w-3.5" />
+                                                        Detail
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+        </div>
+    );
 }

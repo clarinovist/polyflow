@@ -1,424 +1,490 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import { columns, JournalEntryWithDetails } from "./JournalColumns";
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { columns, JournalEntryWithDetails } from './JournalColumns';
 import {
-  getJournalEntries,
-  batchPostJournals,
-} from "@/actions/finance/journal-actions";
-import { JournalStatus } from "@prisma/client";
-import { TransactionDateFilter } from "@/components/common/transaction-date-filter";
-import { DateRange } from "react-day-picker";
-import { toast } from "sonner";
+    getJournalEntries,
+    batchPostJournals,
+} from '@/actions/finance/journal-actions';
+import { JournalStatus } from '@prisma/client';
+import { TransactionDateFilter } from '@/components/common/transaction-date-filter';
+import { DateRange } from 'react-day-picker';
+import { toast } from 'sonner';
 // import { DataTable } from '@/components/ui/data-table';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
-  Loader2,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from "lucide-react";
-import { useDebounce } from "@/hooks/use-debounce";
-import { DataTableSortIcon } from "@/components/ui/data-table-sort-icon";
-import { cn } from "@/lib/utils/utils";
-import Link from "next/link";
+    Loader2,
+    Plus,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+} from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
+import { DataTableSortIcon } from '@/components/ui/data-table-sort-icon';
+import { cn } from '@/lib/utils/utils';
+import Link from 'next/link';
 
 // Fallback Simple Table if generic DataTable doesn't exist or is complex to integrate blindly
 // Actually, let's implement a simple table using flex/grid or just import Table from ui/table
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
-} from "@tanstack/react-table";
+    flexRender,
+    getCoreRowModel,
+    getSortedRowModel,
+    useReactTable,
+    type SortingState,
+} from '@tanstack/react-table';
 
 export function JournalListClient() {
-  const urlSearchParams = useSearchParams();
-  const urlStatus = urlSearchParams.get('status')?.toUpperCase();
-  // State — init from ?status=DRAFT if present
-  const [data, setData] = useState<JournalEntryWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<JournalStatus | "ALL">(() => {
-    if (urlStatus && ['DRAFT','POSTED','VOIDED'].includes(urlStatus)) return urlStatus as JournalStatus;
-    return "ALL";
-  });
+    const urlSearchParams = useSearchParams();
+    const urlStatus = urlSearchParams.get('status')?.toUpperCase();
+    // State — init from ?status=DRAFT if present
+    const [data, setData] = useState<JournalEntryWithDetails[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [status, setStatus] = useState<JournalStatus | 'ALL'>(() => {
+        if (urlStatus && ['DRAFT', 'POSTED', 'VOIDED'].includes(urlStatus))
+            return urlStatus as JournalStatus;
+        return 'ALL';
+    });
 
-  useEffect(() => {
-    if (urlStatus && ['DRAFT','POSTED','VOIDED'].includes(urlStatus)) {
-      setStatus(urlStatus as JournalStatus);
-    }
-  }, [urlStatus]);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [rowSelection, setRowSelection] = useState({});
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [batchLoading, setBatchLoading] = useState(false);
+    useEffect(() => {
+        if (urlStatus && ['DRAFT', 'POSTED', 'VOIDED'].includes(urlStatus)) {
+            setStatus(urlStatus as JournalStatus);
+        }
+    }, [urlStatus]);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(
+        undefined,
+    );
+    const [rowSelection, setRowSelection] = useState({});
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [batchLoading, setBatchLoading] = useState(false);
 
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
-  const [total, setTotal] = useState(0);
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
+    const [total, setTotal] = useState(0);
 
-  const debouncedSearch = useDebounce(search, 500);
+    const debouncedSearch = useDebounce(search, 500);
 
-  // Reset pagination when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, status, dateRange]);
+    // Reset pagination when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, status, dateRange]);
 
-  // Fetch Data
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getJournalEntries({
-        search: debouncedSearch,
-        status: status !== "ALL" ? (status as JournalStatus) : undefined,
-        startDate: dateRange?.from ?? undefined,
-        endDate: dateRange?.to ?? undefined,
-        page,
-        limit,
-      });
-      if (res.success && res.data) {
-        setData(res.data.data as JournalEntryWithDetails[]);
-        setTotal(res.data.meta.total);
-      } else if (!res.success) {
-        toast.error(res.error || "Gagal mengambil jurnal");
-      }
-    } catch (error) {
-      console.error("Failed to fetch journals", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, status, dateRange, page, limit]);
+    // Fetch Data
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await getJournalEntries({
+                search: debouncedSearch,
+                status:
+                    status !== 'ALL' ? (status as JournalStatus) : undefined,
+                startDate: dateRange?.from ?? undefined,
+                endDate: dateRange?.to ?? undefined,
+                page,
+                limit,
+            });
+            if (res.success && res.data) {
+                setData(res.data.data as JournalEntryWithDetails[]);
+                setTotal(res.data.meta.total);
+            } else if (!res.success) {
+                toast.error(res.error || 'Gagal mengambil jurnal');
+            }
+        } catch (error) {
+            console.error('Failed to fetch journals', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [debouncedSearch, status, dateRange, page, limit]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Reset page on filter change
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, status, dateRange]);
-
-  const cols = useMemo(() => columns, []);
-
-  // Table Instance
-  const table = useReactTable({
-    data,
-    columns: cols,
-    state: {
-      rowSelection,
-      sorting,
-    },
-    enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: (row) => row.id,
-  });
-
-  const selectedRows = table.getFilteredSelectedRowModel().rows;
-  const canBatchPost =
-    selectedRows.length > 0 &&
-    selectedRows.every((r) => r.original.status === "DRAFT");
-
-  const handleBatchPost = async () => {
-    if (!canBatchPost) return;
-    setBatchLoading(true);
-    try {
-      const ids = selectedRows.map((r) => r.original.id);
-      const res = await batchPostJournals(ids);
-      if (res.success) {
-        toast.success(`${ids.length} jurnal berhasil diposting. Saldo buku besar telah diperbarui.`);
-        setRowSelection({});
+    useEffect(() => {
         fetchData();
-      } else {
-        toast.error(res.error || "Gagal memposting jurnal");
-      }
-    } catch (error) {
-      console.error("Batch post error", error);
-      toast.error('Gagal memproses. Silakan coba lagi.');
-    } finally {
-      setBatchLoading(false);
-    }
-  };
+    }, [fetchData]);
 
-  // Date Shortcuts removed as they are no longer relevant for daily view
+    // Reset page on filter change
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, status, dateRange]);
 
-  return (
-    <div className="space-y-6 max-w-full overflow-hidden">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Jurnal</h2>
-          <p className="text-muted-foreground text-sm">
-            Kelola dan posting transaksi buku besar dari semua modul.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {selectedRows.length > 0 && (
-            <Button
-              variant="default"
-              className="bg-primary hover:bg-primary/90"
-              onClick={handleBatchPost}
-              disabled={!canBatchPost || batchLoading}
-            >
-              {batchLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Post Terpilih ({selectedRows.length})
-            </Button>
-          )}
-          <Link href="/finance/journals/create">
-            <Button variant="outline">
-              <Plus className="mr-2 h-4 w-4" /> Jurnal Manual Baru
-            </Button>
-          </Link>
-        </div>
-      </div>
+    const cols = useMemo(() => columns, []);
 
-      {/* Filter Card */}
-      <Card className="py-3 gap-3 shadow-sm">
-        <CardHeader className="px-4 pb-0">
-          <CardTitle className="text-sm font-medium">
-            Filter Transaksi
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Search */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  Search:
-              </span>
-              <Input
-                placeholder="Nomor, ref..."
-                className="h-9 w-[180px] bg-background"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+    // Table Instance
+    const table = useReactTable({
+        data,
+        columns: cols,
+        state: {
+            rowSelection,
+            sorting,
+        },
+        enableRowSelection: true,
+        onRowSelectionChange: setRowSelection,
+        onSortingChange: setSorting,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getRowId: (row) => row.id,
+    });
 
-            {/* Status */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                Status:
-              </span>
-              <Select
-                value={status}
-                onValueChange={(val) => setStatus(val as JournalStatus | "ALL")}
-              >
-                <SelectTrigger className="h-9 w-[140px] bg-background">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Semua Transaksi</SelectItem>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="POSTED">Sudah Posting</SelectItem>
-                  <SelectItem value="VOIDED">Dibatalkan</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    const canBatchPost =
+        selectedRows.length > 0 &&
+        selectedRows.every((r) => r.original.status === 'DRAFT');
 
-            {/* Date Navigation */}
-            <div className="flex items-center gap-2 ml-auto">
-              <TransactionDateFilter
-                date={dateRange}
-                onDateChange={setDateRange}
-                defaultPreset="all"
-                align="end"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    const handleBatchPost = async () => {
+        if (!canBatchPost) return;
+        setBatchLoading(true);
+        try {
+            const ids = selectedRows.map((r) => r.original.id);
+            const res = await batchPostJournals(ids);
+            if (res.success) {
+                toast.success(
+                    `${ids.length} jurnal berhasil diposting. Saldo buku besar telah diperbarui.`,
+                );
+                setRowSelection({});
+                fetchData();
+            } else {
+                toast.error(res.error || 'Gagal memposting jurnal');
+            }
+        } catch (error) {
+            console.error('Batch post error', error);
+            toast.error('Gagal memproses. Silakan coba lagi.');
+        } finally {
+            setBatchLoading(false);
+        }
+    };
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Riwayat Transaksi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className={cn(
-                          "h-10 text-xs font-bold uppercase tracking-wider",
-                          header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:bg-muted/50",
-                        )}
-                        style={{ width: header.column.columnDef.size }}
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {header.isPlaceholder ? null : (
-                          <div className="flex items-center gap-2">
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                            {header.column.getCanSort() && (
-                              <DataTableSortIcon
-                                direction={header.column.getIsSorted()}
-                              />
-                            )}
-                          </div>
-                        )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-32 text-center"
-                    >
-                      <div className="flex flex-col justify-center items-center gap-2 text-muted-foreground">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
-                        <span className="text-sm font-medium">
-                          Mengambil transaksi...
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                      className="hover:bg-muted/50 transition-colors"
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className="py-3 px-4 truncate"
-                          style={{ width: cell.column.columnDef.size }}
+    // Date Shortcuts removed as they are no longer relevant for daily view
+
+    return (
+        <div className="space-y-6 max-w-full overflow-hidden">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">
+                        Jurnal
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                        Kelola dan posting transaksi buku besar dari semua
+                        modul.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    {selectedRows.length > 0 && (
+                        <Button
+                            variant="default"
+                            className="bg-primary hover:bg-primary/90"
+                            onClick={handleBatchPost}
+                            disabled={!canBatchPost || batchLoading}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-32 text-center text-muted-foreground"
-                    >
-                      Tidak ada transaksi yang ditemukan untuk kriteria
-                      terpilih.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                            {batchLoading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
+                            Post Terpilih ({selectedRows.length})
+                        </Button>
+                    )}
+                    <Link href="/finance/journals/create">
+                        <Button variant="outline">
+                            <Plus className="mr-2 h-4 w-4" /> Jurnal Manual Baru
+                        </Button>
+                    </Link>
+                </div>
+            </div>
 
-          {/* Pagination Footer */}
-          <div className="flex items-center justify-between px-2 pt-4">
-            <div className="flex-1 text-sm text-muted-foreground">
-              Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to{" "}
-              {Math.min(page * limit, total)} of {total} entries
-            </div>
-            <div className="flex items-center space-x-6 lg:space-x-8">
-              <div className="flex items-center space-x-2">
-                <p className="text-sm font-medium">Rows per page</p>
-                <Select
-                  value={limit.toString()}
-                  onValueChange={(val) => {
-                    setLimit(Number(val));
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue placeholder={limit} />
-                  </SelectTrigger>
-                  <SelectContent side="top">
-                    {[10, 20, 50, 100].map((pageSize) => (
-                      <SelectItem key={pageSize} value={pageSize.toString()}>
-                        {pageSize}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                Page {page} of {Math.max(1, Math.ceil(total / limit))}
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  className="hidden h-8 w-8 p-0 lg:flex"
-                  onClick={() => setPage(1)}
-                  disabled={page === 1}
-                >
-                  <span className="sr-only">Go to first page</span>
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  <span className="sr-only">Go to previous page</span>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                  onClick={() =>
-                    setPage((p) => Math.min(Math.ceil(total / limit), p + 1))
-                  }
-                  disabled={page >= Math.ceil(total / limit) || total === 0}
-                >
-                  <span className="sr-only">Go to next page</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="hidden h-8 w-8 p-0 lg:flex"
-                  onClick={() => setPage(Math.max(1, Math.ceil(total / limit)))}
-                  disabled={page >= Math.ceil(total / limit) || total === 0}
-                >
-                  <span className="sr-only">Go to last page</span>
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+            {/* Filter Card */}
+            <Card className="py-3 gap-3 shadow-sm">
+                <CardHeader className="px-4 pb-0">
+                    <CardTitle className="text-sm font-medium">
+                        Filter Transaksi
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Search */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                Search:
+                            </span>
+                            <Input
+                                placeholder="Nomor, ref..."
+                                className="h-9 w-[180px] bg-background"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                Status:
+                            </span>
+                            <Select
+                                value={status}
+                                onValueChange={(val) =>
+                                    setStatus(val as JournalStatus | 'ALL')
+                                }
+                            >
+                                <SelectTrigger className="h-9 w-[140px] bg-background">
+                                    <SelectValue placeholder="All" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">
+                                        Semua Transaksi
+                                    </SelectItem>
+                                    <SelectItem value="DRAFT">Draft</SelectItem>
+                                    <SelectItem value="POSTED">
+                                        Sudah Posting
+                                    </SelectItem>
+                                    <SelectItem value="VOIDED">
+                                        Dibatalkan
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Date Navigation */}
+                        <div className="flex items-center gap-2 ml-auto">
+                            <TransactionDateFilter
+                                date={dateRange}
+                                onDateChange={setDateRange}
+                                defaultPreset="all"
+                                align="end"
+                            />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Riwayat Transaksi</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                {table.getHeaderGroups().map((headerGroup) => (
+                                    <TableRow key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <TableHead
+                                                key={header.id}
+                                                className={cn(
+                                                    'h-10 text-xs font-bold uppercase tracking-wider',
+                                                    header.column.getCanSort() &&
+                                                        'cursor-pointer select-none hover:bg-muted/50',
+                                                )}
+                                                style={{
+                                                    width: header.column
+                                                        .columnDef.size,
+                                                }}
+                                                onClick={header.column.getToggleSortingHandler()}
+                                            >
+                                                {header.isPlaceholder ? null : (
+                                                    <div className="flex items-center gap-2">
+                                                        {flexRender(
+                                                            header.column
+                                                                .columnDef
+                                                                .header,
+                                                            header.getContext(),
+                                                        )}
+                                                        {header.column.getCanSort() && (
+                                                            <DataTableSortIcon
+                                                                direction={header.column.getIsSorted()}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </TableHead>
+                                        ))}
+                                    </TableRow>
+                                ))}
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={columns.length}
+                                            className="h-32 text-center"
+                                        >
+                                            <div className="flex flex-col justify-center items-center gap-2 text-muted-foreground">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
+                                                <span className="text-sm font-medium">
+                                                    Mengambil transaksi...
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : table.getRowModel().rows?.length ? (
+                                    table.getRowModel().rows.map((row) => (
+                                        <TableRow
+                                            key={row.id}
+                                            data-state={
+                                                row.getIsSelected() &&
+                                                'selected'
+                                            }
+                                            className="hover:bg-muted/50 transition-colors"
+                                        >
+                                            {row
+                                                .getVisibleCells()
+                                                .map((cell) => (
+                                                    <TableCell
+                                                        key={cell.id}
+                                                        className="py-3 px-4 truncate"
+                                                        style={{
+                                                            width: cell.column
+                                                                .columnDef.size,
+                                                        }}
+                                                    >
+                                                        {flexRender(
+                                                            cell.column
+                                                                .columnDef.cell,
+                                                            cell.getContext(),
+                                                        )}
+                                                    </TableCell>
+                                                ))}
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={columns.length}
+                                            className="h-32 text-center text-muted-foreground"
+                                        >
+                                            Tidak ada transaksi yang ditemukan
+                                            untuk kriteria terpilih.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Pagination Footer */}
+                    <div className="flex items-center justify-between px-2 pt-4">
+                        <div className="flex-1 text-sm text-muted-foreground">
+                            Showing{' '}
+                            {data.length > 0 ? (page - 1) * limit + 1 : 0} to{' '}
+                            {Math.min(page * limit, total)} of {total} entries
+                        </div>
+                        <div className="flex items-center space-x-6 lg:space-x-8">
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium">
+                                    Rows per page
+                                </p>
+                                <Select
+                                    value={limit.toString()}
+                                    onValueChange={(val) => {
+                                        setLimit(Number(val));
+                                        setPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={limit} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[10, 20, 50, 100].map((pageSize) => (
+                                            <SelectItem
+                                                key={pageSize}
+                                                value={pageSize.toString()}
+                                            >
+                                                {pageSize}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                Page {page} of{' '}
+                                {Math.max(1, Math.ceil(total / limit))}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    variant="outline"
+                                    className="hidden h-8 w-8 p-0 lg:flex"
+                                    onClick={() => setPage(1)}
+                                    disabled={page === 1}
+                                >
+                                    <span className="sr-only">
+                                        Go to first page
+                                    </span>
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() =>
+                                        setPage((p) => Math.max(1, p - 1))
+                                    }
+                                    disabled={page === 1}
+                                >
+                                    <span className="sr-only">
+                                        Go to previous page
+                                    </span>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() =>
+                                        setPage((p) =>
+                                            Math.min(
+                                                Math.ceil(total / limit),
+                                                p + 1,
+                                            ),
+                                        )
+                                    }
+                                    disabled={
+                                        page >= Math.ceil(total / limit) ||
+                                        total === 0
+                                    }
+                                >
+                                    <span className="sr-only">
+                                        Go to next page
+                                    </span>
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="hidden h-8 w-8 p-0 lg:flex"
+                                    onClick={() =>
+                                        setPage(
+                                            Math.max(
+                                                1,
+                                                Math.ceil(total / limit),
+                                            ),
+                                        )
+                                    }
+                                    disabled={
+                                        page >= Math.ceil(total / limit) ||
+                                        total === 0
+                                    }
+                                >
+                                    <span className="sr-only">
+                                        Go to last page
+                                    </span>
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
 }

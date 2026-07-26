@@ -8,7 +8,14 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2, Banknote, FileText, User } from 'lucide-react';
+import {
+    MoreHorizontal,
+    Pencil,
+    Trash2,
+    Banknote,
+    FileText,
+    User,
+} from 'lucide-react';
 import Link from 'next/link';
 import { deleteEmployee } from '@/actions/admin/employees';
 import { toast } from 'sonner';
@@ -38,11 +45,13 @@ export function EmployeeActions({ id, name, payType }: EmployeeActionsProps) {
         const result = await deleteEmployee(id);
         if (result.success) {
             toast.success('Karyawan berhasil dihapus.', {
-                description: `${name} telah dihapus dari direktori.`
+                description: `${name} telah dihapus dari direktori.`,
             });
         } else {
             toast.error('Gagal menghapus', {
-                description: result.error || 'Tidak dapat menghapus data karyawan. Pastikan data tersebut tidak terhubung ke order produksi aktif.'
+                description:
+                    result.error ||
+                    'Tidak dapat menghapus data karyawan. Pastikan data tersebut tidak terhubung ke order produksi aktif.',
             });
         }
     }
@@ -95,18 +104,25 @@ export function EmployeeActions({ id, name, payType }: EmployeeActionsProps) {
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialog
+                open={showDeleteDialog}
+                onOpenChange={setShowDeleteDialog}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Hapus karyawan?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Ini akan menghapus permanen data karyawan <strong>{name}</strong>.
-                            Tindakan ini tidak dapat dibatalkan.
+                            Ini akan menghapus permanen data karyawan{' '}
+                            <strong>{name}</strong>. Tindakan ini tidak dapat
+                            dibatalkan.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
                             Hapus
                         </AlertDialogAction>
                     </AlertDialogFooter>

@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Wallet, Search, PlusCircle, MinusCircle, User } from 'lucide-react';
@@ -25,7 +31,7 @@ export default function CreditsManagementPage() {
     // Mock search function
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // Simulating an API Search Activity
         if (emailSearch.includes('@')) {
             setSelectedUser({
@@ -33,7 +39,7 @@ export default function CreditsManagementPage() {
                 name: 'John Doe',
                 email: emailSearch,
                 currentBalance: 12500,
-                lastTopup: new Date().toISOString()
+                lastTopup: new Date().toISOString(),
             });
             toast.success(`Data akun untuk ${emailSearch} berhasil ditemukan.`);
         } else {
@@ -46,18 +52,22 @@ export default function CreditsManagementPage() {
 
         // Optimistic UI updates (will align with action `adjustCredits(userId, amount, type)`)
         const adjustment = type === 'add' ? Number(amount) : -Number(amount);
-        
+
         if (type === 'deduct' && selectedUser.currentBalance < Number(amount)) {
-            return toast.error('Nominal pengurangan melebihi saldo pengguna saat ini.');
+            return toast.error(
+                'Nominal pengurangan melebihi saldo pengguna saat ini.',
+            );
         }
 
         setSelectedUser({
             ...selectedUser,
-            currentBalance: selectedUser.currentBalance + adjustment
+            currentBalance: selectedUser.currentBalance + adjustment,
         });
-        
-        toast.success(`${amount} kredit API berhasil ${type === 'add' ? 'ditambahkan' : 'dikurangi'}.`);
-        
+
+        toast.success(
+            `${amount} kredit API berhasil ${type === 'add' ? 'ditambahkan' : 'dikurangi'}.`,
+        );
+
         setAmount('');
     };
 
@@ -65,8 +75,12 @@ export default function CreditsManagementPage() {
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between space-y-2 mb-6">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Credit Operations</h2>
-                    <p className="text-sm text-muted-foreground">Manage organizational and personal API usage credits.</p>
+                    <h2 className="text-3xl font-bold tracking-tight">
+                        Credit Operations
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Manage organizational and personal API usage credits.
+                    </p>
                 </div>
             </div>
 
@@ -76,10 +90,16 @@ export default function CreditsManagementPage() {
                         <CardTitle className="flex items-center gap-2">
                             <Search className="w-5 h-5" /> Locate Target
                         </CardTitle>
-                        <CardDescription>Search for an tenant account by their active email assignment.</CardDescription>
+                        <CardDescription>
+                            Search for an tenant account by their active email
+                            assignment.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleSearch} className="flex flex-col space-y-4">
+                        <form
+                            onSubmit={handleSearch}
+                            className="flex flex-col space-y-4"
+                        >
                             <Input
                                 type="email"
                                 placeholder="E.g., finance@tenant.com"
@@ -87,7 +107,9 @@ export default function CreditsManagementPage() {
                                 onChange={(e) => setEmailSearch(e.target.value)}
                                 required
                             />
-                            <Button type="submit" className="w-full">Lookup Credentials</Button>
+                            <Button type="submit" className="w-full">
+                                Lookup Credentials
+                            </Button>
                         </form>
                     </CardContent>
                 </Card>
@@ -101,10 +123,14 @@ export default function CreditsManagementPage() {
                                         <User className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                                         {selectedUser.name}
                                     </CardTitle>
-                                    <CardDescription className="mt-1 font-mono text-xs">{selectedUser.email}</CardDescription>
+                                    <CardDescription className="mt-1 font-mono text-xs">
+                                        {selectedUser.email}
+                                    </CardDescription>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Current Wallet Balance</div>
+                                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
+                                        Current Wallet Balance
+                                    </div>
                                     <div className="text-3xl font-bold font-mono tracking-tight text-emerald-600 dark:text-emerald-400 flex items-center gap-2 justify-end">
                                         <Wallet className="w-6 h-6 opacity-50" />
                                         {selectedUser.currentBalance.toLocaleString()}
@@ -113,32 +139,38 @@ export default function CreditsManagementPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-300">Submit Adjustments</h4>
+                            <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-300">
+                                Submit Adjustments
+                            </h4>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Input
                                     type="number"
                                     min="1"
                                     placeholder="Enter amount (e.g. 5000)"
                                     value={amount}
-                                    onChange={(e) => setAmount(Number(e.target.value))}
+                                    onChange={(e) =>
+                                        setAmount(Number(e.target.value))
+                                    }
                                     className="sm:max-w-[200px]"
                                 />
                                 <div className="flex gap-2 w-full sm:w-auto">
-                                    <Button 
-                                        variant="default" 
+                                    <Button
+                                        variant="default"
                                         className="gap-2 sm:flex-1 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
                                         onClick={() => handleAdjust('add')}
                                         disabled={!amount || amount <= 0}
                                     >
-                                        <PlusCircle className="w-4 h-4" /> Issue Credits
+                                        <PlusCircle className="w-4 h-4" /> Issue
+                                        Credits
                                     </Button>
-                                    <Button 
-                                        variant="outline" 
+                                    <Button
+                                        variant="outline"
                                         className="gap-2 sm:flex-1 border-rose-200 dark:border-rose-800/50 hover:bg-rose-50 hover:dark:bg-rose-900/30 hover:text-rose-700 dark:hover:text-rose-400 text-rose-600 dark:text-rose-400 focus:bg-rose-50 dark:focus:bg-rose-900/30"
                                         onClick={() => handleAdjust('deduct')}
                                         disabled={!amount || amount <= 0}
                                     >
-                                        <MinusCircle className="w-4 h-4" /> Revoke
+                                        <MinusCircle className="w-4 h-4" />{' '}
+                                        Revoke
                                     </Button>
                                 </div>
                             </div>
@@ -146,7 +178,8 @@ export default function CreditsManagementPage() {
                     </Card>
                 ) : (
                     <div className="col-span-full md:col-span-2 border-2 border-dashed rounded-xl flex items-center justify-center p-12 text-muted-foreground">
-                        Search and select a user to configure their payment wallet constraints.
+                        Search and select a user to configure their payment
+                        wallet constraints.
                     </div>
                 )}
             </div>

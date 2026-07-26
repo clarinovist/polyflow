@@ -2,14 +2,37 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getCashFlowStatement } from '@/actions/finance/accounting';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardContent,
+    CardDescription,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
-import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
-import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
+import {
+    downloadCsv,
+    rupiahForCsv,
+    reportFilename,
+} from '@/lib/utils/csv-export';
+import {
+    startOfMonth,
+    endOfMonth,
+    addMonths,
+    subMonths,
+    format,
+} from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, RotateCw, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, RotateCw, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface CashFlowItem {
     name: string;
@@ -44,14 +67,14 @@ export default function CashFlowStatementPage() {
                 setData(report.data as unknown as CashFlowData);
             }
         } catch (error) {
-            console.error("Failed to load cash flow statement", error);
+            console.error('Failed to load cash flow statement', error);
         } finally {
             setLoading(false);
         }
     }, [date]);
 
-    const handlePrevMonth = () => setDate(prev => subMonths(prev, 1));
-    const handleNextMonth = () => setDate(prev => addMonths(prev, 1));
+    const handlePrevMonth = () => setDate((prev) => subMonths(prev, 1));
+    const handleNextMonth = () => setDate((prev) => addMonths(prev, 1));
     const handleCurrentMonth = () => setDate(new Date());
 
     const handleDownload = () => {
@@ -59,7 +82,10 @@ export default function CashFlowStatementPage() {
         const headers = ['Keterangan', 'Jumlah (IDR)'];
         const rows: (string | number)[][] = [];
 
-        rows.push(['Saldo Kas Awal (Beginning Balance)', rupiahForCsv(data.beginningBalance)]);
+        rows.push([
+            'Saldo Kas Awal (Beginning Balance)',
+            rupiahForCsv(data.beginningBalance),
+        ]);
         rows.push(['', '']);
 
         // Operating
@@ -67,7 +93,10 @@ export default function CashFlowStatementPage() {
         for (const item of data.operatingActivities) {
             rows.push([`  ${item.name}`, rupiahForCsv(item.amount)]);
         }
-        rows.push(['  Kas Bersih dari Aktivitas Operasional', rupiahForCsv(data.netOperating)]);
+        rows.push([
+            '  Kas Bersih dari Aktivitas Operasional',
+            rupiahForCsv(data.netOperating),
+        ]);
         rows.push(['', '']);
 
         // Investing
@@ -75,7 +104,10 @@ export default function CashFlowStatementPage() {
         for (const item of data.investingActivities) {
             rows.push([`  ${item.name}`, rupiahForCsv(item.amount)]);
         }
-        rows.push(['  Kas Bersih dari Aktivitas Investasi', rupiahForCsv(data.netInvesting)]);
+        rows.push([
+            '  Kas Bersih dari Aktivitas Investasi',
+            rupiahForCsv(data.netInvesting),
+        ]);
         rows.push(['', '']);
 
         // Financing
@@ -83,11 +115,20 @@ export default function CashFlowStatementPage() {
         for (const item of data.financingActivities) {
             rows.push([`  ${item.name}`, rupiahForCsv(item.amount)]);
         }
-        rows.push(['  Kas Bersih dari Aktivitas Pendanaan', rupiahForCsv(data.netFinancing)]);
+        rows.push([
+            '  Kas Bersih dari Aktivitas Pendanaan',
+            rupiahForCsv(data.netFinancing),
+        ]);
         rows.push(['', '']);
 
-        rows.push(['Kenaikan / (Penurunan) Kas Bersih', rupiahForCsv(data.netCashFlow)]);
-        rows.push(['SALDO KAS AKHIR (Ending Balance)', rupiahForCsv(data.endingBalance)]);
+        rows.push([
+            'Kenaikan / (Penurunan) Kas Bersih',
+            rupiahForCsv(data.netCashFlow),
+        ]);
+        rows.push([
+            'SALDO KAS AKHIR (Ending Balance)',
+            rupiahForCsv(data.endingBalance),
+        ]);
 
         const dateStr = format(date, 'yyyy-MM');
         downloadCsv(reportFilename('Arus_Kas', dateStr), headers, rows);
@@ -101,20 +142,31 @@ export default function CashFlowStatementPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Laporan Arus Kas</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Laporan Arus Kas
+                    </h1>
                     <p className="text-muted-foreground">
-                        Analisis pergerakan kas masuk dan keluar untuk periode yang dipilih.
+                        Analisis pergerakan kas masuk dan keluar untuk periode
+                        yang dipilih.
                     </p>
                 </div>
                 <div className="flex gap-2 items-center">
                     <div className="flex items-center border rounded-md bg-background">
-                        <Button variant="ghost" size="icon" onClick={handlePrevMonth}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handlePrevMonth}
+                        >
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <div className="w-40 text-center font-medium">
-                            {format(date, "MMMM yyyy", { locale: id })}
+                            {format(date, 'MMMM yyyy', { locale: id })}
                         </div>
-                        <Button variant="ghost" size="icon" onClick={handleNextMonth}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleNextMonth}
+                        >
                             <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
@@ -122,9 +174,16 @@ export default function CashFlowStatementPage() {
                         Bulan Ini
                     </Button>
                     <Button variant="outline" size="icon" onClick={fetchData}>
-                        <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RotateCw
+                            className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                        />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={!data}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleDownload}
+                        disabled={!data}
+                    >
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
@@ -134,36 +193,52 @@ export default function CashFlowStatementPage() {
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Arus Kas Operasional</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Arus Kas Operasional
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className={`text-2xl font-bold ${data && data.netOperating < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                        <div
+                            className={`text-2xl font-bold ${data && data.netOperating < 0 ? 'text-destructive' : 'text-emerald-600'}`}
+                        >
                             {data ? formatRupiah(data.netOperating) : '-'}
                         </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Arus Kas Investasi</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Arus Kas Investasi
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data ? formatRupiah(data.netInvesting) : '-'}</div>
+                        <div className="text-2xl font-bold">
+                            {data ? formatRupiah(data.netInvesting) : '-'}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Arus Kas Pendanaan</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Arus Kas Pendanaan
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data ? formatRupiah(data.netFinancing) : '-'}</div>
+                        <div className="text-2xl font-bold">
+                            {data ? formatRupiah(data.netFinancing) : '-'}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card className="bg-primary/5 border-primary/20">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Saldo Kas Akhir</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            Saldo Kas Akhir
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{data ? formatRupiah(data.endingBalance) : '-'}</div>
+                        <div className="text-2xl font-bold text-primary">
+                            {data ? formatRupiah(data.endingBalance) : '-'}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -172,30 +247,44 @@ export default function CashFlowStatementPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Laporan Arus Kas</CardTitle>
-                    <CardDescription>Laporan arus kas berdasarkan entri jurnal umum.</CardDescription>
+                    <CardDescription>
+                        Laporan arus kas berdasarkan entri jurnal umum.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[60%]">Keterangan</TableHead>
-                                    <TableHead className="text-right w-[40%]">Jumlah (Rp)</TableHead>
+                                    <TableHead className="w-[60%]">
+                                        Keterangan
+                                    </TableHead>
+                                    <TableHead className="text-right w-[40%]">
+                                        Jumlah (Rp)
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={2} className="h-48 text-center">
+                                        <TableCell
+                                            colSpan={2}
+                                            className="h-48 text-center"
+                                        >
                                             <div className="flex flex-col items-center justify-center space-y-2">
                                                 <RotateCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                                                <span className="text-sm text-muted-foreground">Memuat data...</span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    Memuat data...
+                                                </span>
                                             </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : !data ? (
                                     <TableRow>
-                                        <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                                        <TableCell
+                                            colSpan={2}
+                                            className="h-24 text-center text-muted-foreground"
+                                        >
                                             Tidak ada data untuk periode ini
                                         </TableCell>
                                     </TableRow>
@@ -203,95 +292,189 @@ export default function CashFlowStatementPage() {
                                     <>
                                         {/* Beginning Balance */}
                                         <TableRow className="bg-muted/10 font-medium">
-                                            <TableCell>Saldo Kas Awal (Beginning Balance)</TableCell>
-                                            <TableCell className="text-right font-mono">{formatRupiah(data.beginningBalance)}</TableCell>
+                                            <TableCell>
+                                                Saldo Kas Awal (Beginning
+                                                Balance)
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(
+                                                    data.beginningBalance,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* 1. OPERATING ACTIVITIES */}
                                         <TableRow className="bg-muted/30 hover:bg-muted/30 mt-4">
-                                            <TableCell colSpan={2} className="font-semibold text-primary">
-                                                I. ARUS KAS DARI AKTIVITAS OPERASIONAL
+                                            <TableCell
+                                                colSpan={2}
+                                                className="font-semibold text-primary"
+                                            >
+                                                I. ARUS KAS DARI AKTIVITAS
+                                                OPERASIONAL
                                             </TableCell>
                                         </TableRow>
-                                        {data.operatingActivities.length === 0 ? (
+                                        {data.operatingActivities.length ===
+                                        0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={2} className="text-center text-muted-foreground italic text-sm py-4">
-                                                    Tidak ada arus kas operasional
+                                                <TableCell
+                                                    colSpan={2}
+                                                    className="text-center text-muted-foreground italic text-sm py-4"
+                                                >
+                                                    Tidak ada arus kas
+                                                    operasional
                                                 </TableCell>
                                             </TableRow>
-                                        ) : data.operatingActivities.map((item, i) => (
-                                            <TableRow key={`op-${i}`}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {item.amount < 0 ? `(${formatRupiah(Math.abs(item.amount))})` : formatRupiah(item.amount)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        ) : (
+                                            data.operatingActivities.map(
+                                                (item, i) => (
+                                                    <TableRow key={`op-${i}`}>
+                                                        <TableCell className="pl-8">
+                                                            {item.name}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {item.amount < 0
+                                                                ? `(${formatRupiah(Math.abs(item.amount))})`
+                                                                : formatRupiah(
+                                                                      item.amount,
+                                                                  )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )
+                                        )}
                                         <TableRow className="font-semibold border-t">
-                                            <TableCell className="pl-8 text-muted-foreground">Kas Bersih dari Aktivitas Operasional</TableCell>
-                                            <TableCell className="text-right font-mono text-emerald-600">{formatRupiah(data.netOperating)}</TableCell>
+                                            <TableCell className="pl-8 text-muted-foreground">
+                                                Kas Bersih dari Aktivitas
+                                                Operasional
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-emerald-600">
+                                                {formatRupiah(
+                                                    data.netOperating,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* 2. INVESTING ACTIVITIES */}
                                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                            <TableCell colSpan={2} className="font-semibold text-primary">
-                                                II. ARUS KAS DARI AKTIVITAS INVESTASI
+                                            <TableCell
+                                                colSpan={2}
+                                                className="font-semibold text-primary"
+                                            >
+                                                II. ARUS KAS DARI AKTIVITAS
+                                                INVESTASI
                                             </TableCell>
                                         </TableRow>
-                                        {data.investingActivities.length === 0 ? (
+                                        {data.investingActivities.length ===
+                                        0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={2} className="text-center text-muted-foreground italic text-sm py-4">
+                                                <TableCell
+                                                    colSpan={2}
+                                                    className="text-center text-muted-foreground italic text-sm py-4"
+                                                >
                                                     Tidak ada arus kas investasi
                                                 </TableCell>
                                             </TableRow>
-                                        ) : data.investingActivities.map((item, i) => (
-                                            <TableRow key={`inv-${i}`}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {item.amount < 0 ? `(${formatRupiah(Math.abs(item.amount))})` : formatRupiah(item.amount)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        ) : (
+                                            data.investingActivities.map(
+                                                (item, i) => (
+                                                    <TableRow key={`inv-${i}`}>
+                                                        <TableCell className="pl-8">
+                                                            {item.name}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {item.amount < 0
+                                                                ? `(${formatRupiah(Math.abs(item.amount))})`
+                                                                : formatRupiah(
+                                                                      item.amount,
+                                                                  )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )
+                                        )}
                                         <TableRow className="font-semibold border-t">
-                                            <TableCell className="pl-8 text-muted-foreground">Kas Bersih dari Aktivitas Investasi</TableCell>
-                                            <TableCell className="text-right font-mono">{formatRupiah(data.netInvesting)}</TableCell>
+                                            <TableCell className="pl-8 text-muted-foreground">
+                                                Kas Bersih dari Aktivitas
+                                                Investasi
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(
+                                                    data.netInvesting,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* 3. FINANCING ACTIVITIES */}
                                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                            <TableCell colSpan={2} className="font-semibold text-primary">
-                                                III. ARUS KAS DARI AKTIVITAS PENDANAAN
+                                            <TableCell
+                                                colSpan={2}
+                                                className="font-semibold text-primary"
+                                            >
+                                                III. ARUS KAS DARI AKTIVITAS
+                                                PENDANAAN
                                             </TableCell>
                                         </TableRow>
-                                        {data.financingActivities.length === 0 ? (
+                                        {data.financingActivities.length ===
+                                        0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={2} className="text-center text-muted-foreground italic text-sm py-4">
+                                                <TableCell
+                                                    colSpan={2}
+                                                    className="text-center text-muted-foreground italic text-sm py-4"
+                                                >
                                                     Tidak ada arus kas pendanaan
                                                 </TableCell>
                                             </TableRow>
-                                        ) : data.financingActivities.map((item, i) => (
-                                            <TableRow key={`fin-${i}`}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {item.amount < 0 ? `(${formatRupiah(Math.abs(item.amount))})` : formatRupiah(item.amount)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        ) : (
+                                            data.financingActivities.map(
+                                                (item, i) => (
+                                                    <TableRow key={`fin-${i}`}>
+                                                        <TableCell className="pl-8">
+                                                            {item.name}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {item.amount < 0
+                                                                ? `(${formatRupiah(Math.abs(item.amount))})`
+                                                                : formatRupiah(
+                                                                      item.amount,
+                                                                  )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )
+                                        )}
                                         <TableRow className="font-semibold border-t">
-                                            <TableCell className="pl-8 text-muted-foreground">Kas Bersih dari Aktivitas Pendanaan</TableCell>
-                                            <TableCell className="text-right font-mono">{formatRupiah(data.netFinancing)}</TableCell>
+                                            <TableCell className="pl-8 text-muted-foreground">
+                                                Kas Bersih dari Aktivitas
+                                                Pendanaan
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(
+                                                    data.netFinancing,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* NET INCREASE/DECREASE */}
                                         <TableRow className="font-bold border-y-2 bg-muted/10">
-                                            <TableCell>Kenaikan / (Penurunan) Kas Bersih</TableCell>
-                                            <TableCell className="text-right font-mono text-lg">{formatRupiah(data.netCashFlow)}</TableCell>
+                                            <TableCell>
+                                                Kenaikan / (Penurunan) Kas
+                                                Bersih
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-lg">
+                                                {formatRupiah(data.netCashFlow)}
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* ENDING BALANCE */}
                                         <TableRow className="bg-primary/10 font-bold border-b-2">
-                                            <TableCell className="text-lg">SALDO KAS AKHIR (Ending Balance)</TableCell>
-                                            <TableCell className="text-right font-mono text-xl text-primary">{formatRupiah(data.endingBalance)}</TableCell>
+                                            <TableCell className="text-lg">
+                                                SALDO KAS AKHIR (Ending Balance)
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-xl text-primary">
+                                                {formatRupiah(
+                                                    data.endingBalance,
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     </>
                                 )}

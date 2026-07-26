@@ -1,6 +1,13 @@
 'use client';
 
-import { Warehouse, Factory, TrendingUp, Receipt, BarChart3, Truck } from 'lucide-react';
+import {
+    Warehouse,
+    Factory,
+    TrendingUp,
+    Receipt,
+    BarChart3,
+    Truck,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { featureLabels as L } from '@/lib/labels/home';
 
@@ -59,13 +66,17 @@ const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
-        transition: { staggerChildren: 0.1 }
-    }
+        transition: { staggerChildren: 0.1 },
+    },
 };
 
 const itemVariants = {
     hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } }
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.5, ease: 'easeOut' as const },
+    },
 };
 
 export default function FeaturesSection() {
@@ -86,8 +97,12 @@ export default function FeaturesSection() {
                     transition={{ duration: 0.6 }}
                     className="text-center mb-16"
                 >
-                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block">{L.sectionTitle}</span>
-                    <h2 className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-5">{L.sectionHeading}</h2>
+                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block">
+                        {L.sectionTitle}
+                    </span>
+                    <h2 className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-5">
+                        {L.sectionHeading}
+                    </h2>
                     <p className="text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto text-lg">
                         {L.sectionDescription}
                     </p>
@@ -107,13 +122,21 @@ export default function FeaturesSection() {
                             className={`group relative p-7 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-zinc-900/20 ${feature.borderColor} hover:bg-zinc-100 dark:hover:bg-zinc-900/40 transition-all duration-500 cursor-default`}
                         >
                             {/* Gradient glow on hover */}
-                            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-b ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                            <div
+                                className={`absolute inset-0 rounded-2xl bg-gradient-to-b ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+                            />
 
                             <div className="relative z-10">
-                                <div className={`w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-800 flex items-center justify-center mb-5 transition-colors duration-300`}>
-                                    <feature.icon className={`h-5 w-5 ${feature.iconColor}`} />
+                                <div
+                                    className={`w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-800 flex items-center justify-center mb-5 transition-colors duration-300`}
+                                >
+                                    <feature.icon
+                                        className={`h-5 w-5 ${feature.iconColor}`}
+                                    />
                                 </div>
-                                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">{feature.title}</h3>
+                                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+                                    {feature.title}
+                                </h3>
                                 <p className="text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 leading-relaxed text-sm transition-colors duration-300">
                                     {feature.description}
                                 </p>

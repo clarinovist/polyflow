@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -39,14 +45,24 @@ interface LoadVerifyPanelProps {
     canEdit: boolean;
 }
 
-export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }: LoadVerifyPanelProps) {
-    const [verifyDraft, setVerifyDraft] = useState<Record<string, string>>(() => {
-        const draft: Record<string, string> = {};
-        for (const item of items) {
-            draft[item.id] = item.verifiedQuantity != null ? String(item.verifiedQuantity) : '';
-        }
-        return draft;
-    });
+export function LoadVerifyPanel({
+    deliveryOrderId,
+    items,
+    isVerified,
+    canEdit,
+}: LoadVerifyPanelProps) {
+    const [verifyDraft, setVerifyDraft] = useState<Record<string, string>>(
+        () => {
+            const draft: Record<string, string> = {};
+            for (const item of items) {
+                draft[item.id] =
+                    item.verifiedQuantity != null
+                        ? String(item.verifiedQuantity)
+                        : '';
+            }
+            return draft;
+        },
+    );
     const [saving, setSaving] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const [correcting, setCorrecting] = useState(false);
@@ -157,7 +173,9 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
             // Now correct DO qty to match verified and lock
             const result = await correctDeliveryQtyToVerified(deliveryOrderId);
             if (result.success) {
-                toast.success('DO dikoreksi ke qty fisik & verifikasi terkunci. Siap Tandai Dikirim.');
+                toast.success(
+                    'DO dikoreksi ke qty fisik & verifikasi terkunci. Siap Tandai Dikirim.',
+                );
                 router.refresh();
             } else {
                 toast.error(result.error || 'Gagal mengoreksi qty');
@@ -200,7 +218,10 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                         </CardDescription>
                     </div>
                     {isVerified && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
+                        <Badge
+                            variant="secondary"
+                            className="bg-green-100 text-green-800"
+                        >
                             <Check className="h-3 w-3 mr-1" /> Terverifikasi
                         </Badge>
                     )}
@@ -211,19 +232,35 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 border-b">
                             <tr>
-                                <th className="h-10 px-4 text-left font-medium">Produk</th>
-                                <th className="h-10 px-4 text-right font-medium">Perintah (qty)</th>
-                                <th className="h-10 px-4 text-right font-medium">Dihitung / Dimuat</th>
-                                <th className="h-10 px-4 text-center font-medium">Status</th>
+                                <th className="h-10 px-4 text-left font-medium">
+                                    Produk
+                                </th>
+                                <th className="h-10 px-4 text-right font-medium">
+                                    Perintah (qty)
+                                </th>
+                                <th className="h-10 px-4 text-right font-medium">
+                                    Dihitung / Dimuat
+                                </th>
+                                <th className="h-10 px-4 text-center font-medium">
+                                    Status
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
                             {items.map((item) => {
                                 const status = getItemStatus(item);
                                 return (
-                                    <tr key={item.id} className="hover:bg-muted/50">
+                                    <tr
+                                        key={item.id}
+                                        className="hover:bg-muted/50"
+                                    >
                                         <td className="p-4">
-                                            <div className="font-medium">{item.productVariant?.product?.name}</div>
+                                            <div className="font-medium">
+                                                {
+                                                    item.productVariant?.product
+                                                        ?.name
+                                                }
+                                            </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {item.productVariant?.name}
                                             </div>
@@ -232,7 +269,9 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                                             {getEnteredQuantityDisplay({
                                                 quantity: item.quantity,
                                                 enteredUnit: item.enteredUnit,
-                                                primaryUnit: item.productVariant?.primaryUnit,
+                                                primaryUnit:
+                                                    item.productVariant
+                                                        ?.primaryUnit,
                                             } as EnteredQuantitySnapshot)}
                                         </td>
                                         <td className="p-4 text-right">
@@ -243,46 +282,74 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                                                         step="0.01"
                                                         min="0"
                                                         className="h-8 w-28 text-right"
-                                                        value={verifyDraft[item.id] ?? ''}
+                                                        value={
+                                                            verifyDraft[
+                                                                item.id
+                                                            ] ?? ''
+                                                        }
                                                         onChange={(e) =>
-                                                            setVerifyDraft((prev) => ({
-                                                                ...prev,
-                                                                [item.id]: e.target.value,
-                                                            }))
+                                                            setVerifyDraft(
+                                                                (prev) => ({
+                                                                    ...prev,
+                                                                    [item.id]:
+                                                                        e.target
+                                                                            .value,
+                                                                }),
+                                                            )
                                                         }
                                                         placeholder="0"
                                                     />
                                                     <span className="text-xs text-muted-foreground">
                                                         {item.enteredUnit ||
-                                                            item.productVariant?.primaryUnit ||
+                                                            item.productVariant
+                                                                ?.primaryUnit ||
                                                             ''}
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <span className="font-medium">
-                                                    {item.verifiedQuantity != null
-                                                        ? getEnteredQuantityDisplay({
-                                                              quantity: item.verifiedQuantity,
-                                                              enteredUnit: item.enteredUnit,
-                                                              primaryUnit: item.productVariant?.primaryUnit,
-                                                          } as EnteredQuantitySnapshot)
+                                                    {item.verifiedQuantity !=
+                                                    null
+                                                        ? getEnteredQuantityDisplay(
+                                                              {
+                                                                  quantity:
+                                                                      item.verifiedQuantity,
+                                                                  enteredUnit:
+                                                                      item.enteredUnit,
+                                                                  primaryUnit:
+                                                                      item
+                                                                          .productVariant
+                                                                          ?.primaryUnit,
+                                                              } as EnteredQuantitySnapshot,
+                                                          )
                                                         : '-'}
                                                 </span>
                                             )}
                                         </td>
                                         <td className="p-4 text-center">
                                             {status === 'match' && (
-                                                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                                    <Check className="h-3 w-3 mr-1" /> Sesuai
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="bg-green-100 text-green-800"
+                                                >
+                                                    <Check className="h-3 w-3 mr-1" />{' '}
+                                                    Sesuai
                                                 </Badge>
                                             )}
                                             {status === 'mismatch' && (
-                                                <Badge variant="secondary" className="bg-amber-100 text-amber-800">
-                                                    <AlertTriangle className="h-3 w-3 mr-1" /> Selisih
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="bg-amber-100 text-amber-800"
+                                                >
+                                                    <AlertTriangle className="h-3 w-3 mr-1" />{' '}
+                                                    Selisih
                                                 </Badge>
                                             )}
                                             {status === 'pending' && (
-                                                <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="bg-gray-100 text-gray-600"
+                                                >
                                                     Belum dicek
                                                 </Badge>
                                             )}
@@ -313,11 +380,19 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                                 variant="outline"
                                 className="border-amber-300 text-amber-700 hover:bg-amber-50"
                                 onClick={handleCorrectToPhysical}
-                                disabled={correcting || saving || isVerified || !allItemsVerified || allItemsMatch}
+                                disabled={
+                                    correcting ||
+                                    saving ||
+                                    isVerified ||
+                                    !allItemsVerified ||
+                                    allItemsMatch
+                                }
                                 title="Koreksi qty perintah muat ke qty fisik yang dihitung"
                             >
                                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-                                {correcting ? 'Mengoreksi...' : 'Koreksi Perintah ke Qty Fisik'}
+                                {correcting
+                                    ? 'Mengoreksi...'
+                                    : 'Koreksi Perintah ke Qty Fisik'}
                             </Button>
                         </div>
                         <div className="flex items-center gap-2">
@@ -334,11 +409,15 @@ export function LoadVerifyPanel({ deliveryOrderId, items, isVerified, canEdit }:
                                 type="button"
                                 size="sm"
                                 className="bg-green-600 hover:bg-green-700 text-white"
-                                disabled={confirming || !allItemsMatch || isVerified}
+                                disabled={
+                                    confirming || !allItemsMatch || isVerified
+                                }
                                 onClick={handleConfirm}
                             >
                                 <Lock className="h-3.5 w-3.5 mr-1" />
-                                {confirming ? 'Mengunci...' : 'Kunci Verifikasi'}
+                                {confirming
+                                    ? 'Mengunci...'
+                                    : 'Kunci Verifikasi'}
                             </Button>
                         </div>
                     </div>

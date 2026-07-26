@@ -1,4 +1,8 @@
-const { PrismaClient, JournalStatus, ReferenceType } = require('@prisma/client');
+const {
+    PrismaClient,
+    JournalStatus,
+    ReferenceType,
+} = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function getAccountByCode(code) {
@@ -14,7 +18,7 @@ async function generateEntryNumber(date) {
     try {
         const sequence = await prisma.systemSequence.update({
             where: { key },
-            data: { value: { increment: 1n } }
+            data: { value: { increment: 1n } },
         });
         const currentVal = Number(sequence.value) - 1;
         return `JE - ${year} -${currentVal.toString().padStart(5, '0')}`;
@@ -24,10 +28,10 @@ async function generateEntryNumber(date) {
                 where: {
                     entryDate: {
                         gte: new Date(year, 0, 1),
-                        lt: new Date(year + 1, 0, 1)
-                    }
+                        lt: new Date(year + 1, 0, 1),
+                    },
                 },
-                orderBy: { entryNumber: 'desc' }
+                orderBy: { entryNumber: 'desc' },
             });
 
             let startValue = 1;
@@ -43,7 +47,7 @@ async function generateEntryNumber(date) {
             const sequence = await prisma.systemSequence.upsert({
                 where: { key },
                 update: { value: { increment: 1n } },
-                create: { key, value: BigInt(startValue + 1) }
+                create: { key, value: BigInt(startValue + 1) },
             });
             const currentVal = Number(sequence.value) - 1;
             return `JE - ${year} -${currentVal.toString().padStart(5, '0')}`;
@@ -55,7 +59,7 @@ async function generateEntryNumber(date) {
 async function handleSalesInvoiceCreated(invoiceId) {
     const invoice = await prisma.invoice.findUnique({
         where: { id: invoiceId },
-        include: { salesOrder: true }
+        include: { salesOrder: true },
     });
 
     if (!invoice) throw new Error(`Invoice ${invoiceId} not found`);
@@ -94,12 +98,27 @@ async function handleSalesInvoiceCreated(invoiceId) {
             status: 'POSTED', // Auto-post for sync
             lines: {
                 create: [
-                    { accountId: arAccount.id, debit: totalAmount, credit: 0, description: `AR for ${invoice.invoiceNumber}` },
-                    { accountId: revenueAccount.id, debit: 0, credit: subtotal, description: `Revenue for ${invoice.invoiceNumber}` },
-                    { accountId: vatAccount.id, debit: 0, credit: taxAmount, description: `VAT Output for ${invoice.invoiceNumber}` }
-                ]
-            }
-        }
+                    {
+                        accountId: arAccount.id,
+                        debit: totalAmount,
+                        credit: 0,
+                        description: `AR for ${invoice.invoiceNumber}`,
+                    },
+                    {
+                        accountId: revenueAccount.id,
+                        debit: 0,
+                        credit: subtotal,
+                        description: `Revenue for ${invoice.invoiceNumber}`,
+                    },
+                    {
+                        accountId: vatAccount.id,
+                        debit: 0,
+                        credit: taxAmount,
+                        description: `VAT Output for ${invoice.invoiceNumber}`,
+                    },
+                ],
+            },
+        },
     });
 
     console.log(`[SYNC] Created journal for Invoice ${invoice.invoiceNumber}`);
@@ -108,7 +127,9 @@ async function handleSalesInvoiceCreated(invoiceId) {
 async function run() {
     const invoices = await prisma.invoice.findMany();
     for (const inv of invoices) {
-        const je = await prisma.journalEntry.findFirst({ where: { referenceId: inv.id } });
+        const je = await prisma.journalEntry.findFirst({
+            where: { referenceId: inv.id },
+        });
         if (!je) {
             console.log(`[SYNC] Processing ${inv.invoiceNumber}...`);
             await handleSalesInvoiceCreated(inv.id);
@@ -117,4 +138,6 @@ async function run() {
     console.log('[SYNC] Done.');
 }
 
-run().catch(console.error).finally(() => prisma.$disconnect());
+run()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());

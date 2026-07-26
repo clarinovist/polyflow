@@ -20,7 +20,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
     Search,
     Download,
@@ -28,7 +28,7 @@ import {
     Calendar as CalendarIcon,
     ChevronLeft,
     ChevronRight,
-    Layers
+    Layers,
 } from 'lucide-react';
 import { ProductType } from '@prisma/client';
 import { BulkTransferDialog } from './BulkTransferDialog';
@@ -36,7 +36,12 @@ import { warehouseLabels } from '@/lib/labels';
 import { BulkAdjustDialog } from './BulkAdjustDialog';
 import { InventoryDesktopTable } from './InventoryDesktopTable';
 import { InventoryMobileCards } from './InventoryMobileCards';
-import type { InventoryItem, InventoryTableProps, SortField, SortOrder } from './inventory-table-types';
+import type {
+    InventoryItem,
+    InventoryTableProps,
+    SortField,
+    SortOrder,
+} from './inventory-table-types';
 
 export function InventoryTable({
     inventory,
@@ -52,7 +57,6 @@ export function InventoryTable({
     customerOwnedValue,
     topBadges,
 }: InventoryTableProps) {
-
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');
@@ -68,14 +72,21 @@ export function InventoryTable({
     const isLocationSpecific = !!locationIdFilter;
 
     // Check if any filters are active
-    const hasFilters = !!(searchTerm || productTypeFilter !== 'all' || searchParams.get('lowStock') === 'true');
+    const hasFilters = !!(
+        searchTerm ||
+        productTypeFilter !== 'all' ||
+        searchParams.get('lowStock') === 'true'
+    );
 
     // Helper function to check if variant is low stock
-    const isGlobalLowStock = useCallback((item: InventoryItem) => {
-        const threshold = item.productVariant.minStockAlert;
-        if (!threshold) return false;
-        return variantTotals[item.productVariantId] < threshold;
-    }, [variantTotals]);
+    const isGlobalLowStock = useCallback(
+        (item: InventoryItem) => {
+            const threshold = item.productVariant.minStockAlert;
+            if (!threshold) return false;
+            return variantTotals[item.productVariantId] < threshold;
+        },
+        [variantTotals],
+    );
 
     // Filter and sort inventory
     const processedInventory = useMemo(() => {
@@ -84,17 +95,22 @@ export function InventoryTable({
         // Apply search filter
         if (searchTerm) {
             const search = searchTerm.toLowerCase();
-            filtered = filtered.filter(item =>
-                item.productVariant.name.toLowerCase().includes(search) ||
-                item.productVariant.skuCode.toLowerCase().includes(search) ||
-                item.location.name.toLowerCase().includes(search)
+            filtered = filtered.filter(
+                (item) =>
+                    item.productVariant.name.toLowerCase().includes(search) ||
+                    item.productVariant.skuCode
+                        .toLowerCase()
+                        .includes(search) ||
+                    item.location.name.toLowerCase().includes(search),
             );
         }
 
         // Apply product type filter
         if (productTypeFilter !== 'all') {
-            filtered = filtered.filter(item =>
-                item.productVariant.product.productType === productTypeFilter
+            filtered = filtered.filter(
+                (item) =>
+                    item.productVariant.product.productType ===
+                    productTypeFilter,
             );
         }
 
@@ -138,7 +154,14 @@ export function InventoryTable({
         });
 
         return filtered;
-    }, [inventory, searchTerm, productTypeFilter, sortField, sortOrder, isGlobalLowStock]);
+    }, [
+        inventory,
+        searchTerm,
+        productTypeFilter,
+        sortField,
+        sortOrder,
+        isGlobalLowStock,
+    ]);
 
     // Reset pagination when filters change
     React.useEffect(() => {
@@ -147,14 +170,17 @@ export function InventoryTable({
 
     const totalPages = Math.ceil(processedInventory.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const paginatedInventory = processedInventory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const paginatedInventory = processedInventory.slice(
+        startIndex,
+        startIndex + ITEMS_PER_PAGE,
+    );
 
     // Selection Logic
     const toggleSelectAll = () => {
         if (selectedItems.size === processedInventory.length) {
             setSelectedItems(new Set());
         } else {
-            setSelectedItems(new Set(processedInventory.map(i => i.id)));
+            setSelectedItems(new Set(processedInventory.map((i) => i.id)));
         }
     };
 
@@ -168,20 +194,25 @@ export function InventoryTable({
         setSelectedItems(newSelected);
     };
 
-    const isAllSelected = processedInventory.length > 0 && selectedItems.size === processedInventory.length;
-    const isSomeSelected = selectedItems.size > 0 && selectedItems.size < processedInventory.length;
+    const isAllSelected =
+        processedInventory.length > 0 &&
+        selectedItems.size === processedInventory.length;
+    const isSomeSelected =
+        selectedItems.size > 0 &&
+        selectedItems.size < processedInventory.length;
 
     const [showBulkTransfer, setShowBulkTransfer] = useState(false);
     const [showBulkAdjust, setShowBulkAdjust] = useState(false);
 
-    const selectedInventoryList = React.useMemo(() =>
-        processedInventory.filter(i => selectedItems.has(i.id)),
-        [processedInventory, selectedItems]);
+    const selectedInventoryList = React.useMemo(
+        () => processedInventory.filter((i) => selectedItems.has(i.id)),
+        [processedInventory, selectedItems],
+    );
 
     const isSameLocation = React.useMemo(() => {
         if (selectedInventoryList.length === 0) return true;
         const locId = selectedInventoryList[0].locationId;
-        return selectedInventoryList.every(i => i.locationId === locId);
+        return selectedInventoryList.every((i) => i.locationId === locId);
     }, [selectedInventoryList]);
 
     // Handle column header click for sorting
@@ -198,12 +229,22 @@ export function InventoryTable({
 
     // Export to CSV
     const handleExport = () => {
-        const itemsToExport = selectedItems.size > 0
-            ? processedInventory.filter(i => selectedItems.has(i.id))
-            : processedInventory;
+        const itemsToExport =
+            selectedItems.size > 0
+                ? processedInventory.filter((i) => selectedItems.has(i.id))
+                : processedInventory;
 
-        const headers = ['Nama Produk', 'SKU', 'Tipe Produk', 'Lokasi', warehouseLabels.stock, 'Unit', 'Stok Min', 'Status'];
-        const rows = itemsToExport.map(item => {
+        const headers = [
+            'Nama Produk',
+            'SKU',
+            'Tipe Produk',
+            'Lokasi',
+            warehouseLabels.stock,
+            'Unit',
+            'Stok Min',
+            'Status',
+        ];
+        const rows = itemsToExport.map((item) => {
             const isLowStock = isGlobalLowStock(item);
             const totalStock = variantTotals[item.productVariantId];
             const threshold = item.productVariant.minStockAlert || 0;
@@ -216,21 +257,28 @@ export function InventoryTable({
                 item.quantity,
                 item.productVariant.primaryUnit,
                 threshold,
-                isLowStock ? `Stok Menipis (${totalStock}/${threshold})` : 'Tersedia'
+                isLowStock
+                    ? `Stok Menipis (${totalStock}/${threshold})`
+                    : 'Tersedia',
             ];
         });
 
         // Create CSV content
         const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+            ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
         ].join('\n');
 
         // Download CSV
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvContent], {
+            type: 'text/csv;charset=utf-8;',
+        });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const timestamp = new Date()
+            .toISOString()
+            .replace(/[:.]/g, '-')
+            .slice(0, -5);
         link.setAttribute('href', url);
         link.setAttribute('download', `inventory_export_${timestamp}.csv`);
         link.style.visibility = 'hidden';
@@ -254,12 +302,16 @@ export function InventoryTable({
                     {/* Date Filter */}
                     <div className="flex items-center gap-2 bg-muted/50 border rounded-md px-2 py-1">
                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Stok per tanggal</span>
+                        <span className="text-xs text-muted-foreground">
+                            Stok per tanggal
+                        </span>
                         <input
                             type="date"
                             value={initialDate || ''}
                             onChange={(e) => {
-                                const params = new URLSearchParams(searchParams.toString());
+                                const params = new URLSearchParams(
+                                    searchParams.toString(),
+                                );
                                 if (e.target.value) {
                                     params.set('asOf', e.target.value);
                                 } else {
@@ -274,7 +326,9 @@ export function InventoryTable({
                             <X
                                 className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-red-500"
                                 onClick={() => {
-                                    const params = new URLSearchParams(searchParams.toString());
+                                    const params = new URLSearchParams(
+                                        searchParams.toString(),
+                                    );
                                     params.delete('asOf');
                                     params.delete('compareWith');
                                     router.push(`?${params.toString()}`);
@@ -295,28 +349,44 @@ export function InventoryTable({
                     {selectedItems.size > 0 && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
                                     <Layers className="mr-2 h-4 w-4" />
                                     {selectedItems.size} dipilih
-                                    {isAllSelected && processedInventory.length > ITEMS_PER_PAGE && (
-                                        <span className="ml-1 opacity-70">(semua hasil filter)</span>
-                                    )}
+                                    {isAllSelected &&
+                                        processedInventory.length >
+                                            ITEMS_PER_PAGE && (
+                                            <span className="ml-1 opacity-70">
+                                                (semua hasil filter)
+                                            </span>
+                                        )}
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
                                 <DropdownMenuLabel>Pilih</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={toggleSelectAll}>
-                                    {isAllSelected ? 'Batal pilih semua' : 'Semua hasil filter'}
+                                    {isAllSelected
+                                        ? 'Batal pilih semua'
+                                        : 'Semua hasil filter'}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => {
-                                    const pageIds = new Set(paginatedInventory.map(i => i.id));
-                                    setSelectedItems(pageIds);
-                                }}>
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        const pageIds = new Set(
+                                            paginatedInventory.map((i) => i.id),
+                                        );
+                                        setSelectedItems(pageIds);
+                                    }}
+                                >
                                     Halaman ini saja
                                 </DropdownMenuItem>
 
                                 <DropdownMenuSeparator />
-                                <DropdownMenuLabel>Aksi massal</DropdownMenuLabel>
+                                <DropdownMenuLabel>
+                                    Aksi massal
+                                </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={handleExport}>
                                     Export yang dipilih
@@ -327,14 +397,22 @@ export function InventoryTable({
                                     onClick={() => setShowBulkTransfer(true)}
                                 >
                                     Transfer Massal
-                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Campur Lokasi)</span>}
+                                    {!isSameLocation && (
+                                        <span className="ml-2 text-xs text-muted-foreground">
+                                            (Campur Lokasi)
+                                        </span>
+                                    )}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     disabled={!isSameLocation}
                                     onClick={() => setShowBulkAdjust(true)}
                                 >
                                     Penyesuaian Massal
-                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Campur Lokasi)</span>}
+                                    {!isSameLocation && (
+                                        <span className="ml-2 text-xs text-muted-foreground">
+                                            (Campur Lokasi)
+                                        </span>
+                                    )}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -358,23 +436,43 @@ export function InventoryTable({
                     </div>
 
                     {/* Product Type Filter (Slim) */}
-                    <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
+                    <Select
+                        value={productTypeFilter}
+                        onValueChange={setProductTypeFilter}
+                    >
                         <SelectTrigger className="w-full sm:w-[130px] h-8 text-[13px] border-border bg-background">
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Semua Tipe</SelectItem>
-                            <SelectItem value={ProductType.RAW_MATERIAL}>Bahan Baku</SelectItem>
-                            <SelectItem value={ProductType.INTERMEDIATE}>Intermediate / WIP</SelectItem>
-                            <SelectItem value={ProductType.PACKAGING}>Packaging</SelectItem>
+                            <SelectItem value={ProductType.RAW_MATERIAL}>
+                                Bahan Baku
+                            </SelectItem>
+                            <SelectItem value={ProductType.INTERMEDIATE}>
+                                Intermediate / WIP
+                            </SelectItem>
+                            <SelectItem value={ProductType.PACKAGING}>
+                                Packaging
+                            </SelectItem>
                             <SelectItem value={ProductType.WIP}>WIP</SelectItem>
-                            <SelectItem value={ProductType.FINISHED_GOOD}>Barang Jadi</SelectItem>
-                            <SelectItem value={ProductType.SCRAP}>Scrap / Reject</SelectItem>
+                            <SelectItem value={ProductType.FINISHED_GOOD}>
+                                Barang Jadi
+                            </SelectItem>
+                            <SelectItem value={ProductType.SCRAP}>
+                                Scrap / Reject
+                            </SelectItem>
                         </SelectContent>
                     </Select>
 
                     {/* Export Button */}
-                    <Button variant="outline" size="sm" onClick={handleExport} className="px-3" title="Export semua/dipilih" aria-label="Export CSV">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExport}
+                        className="px-3"
+                        title="Export semua/dipilih"
+                        aria-label="Export CSV"
+                    >
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
@@ -382,22 +480,35 @@ export function InventoryTable({
                 <div className="flex items-center gap-4 ml-auto text-sm px-2">
                     {totalStock !== undefined && (
                         <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
-                            <span className="font-bold text-foreground">{formatQuantity(totalStock)}</span>
-                            <span className="text-[11px] uppercase tracking-wider opacity-70">total stok</span>
+                            <span className="font-bold text-foreground">
+                                {formatQuantity(totalStock)}
+                            </span>
+                            <span className="text-[11px] uppercase tracking-wider opacity-70">
+                                total stok
+                            </span>
                         </div>
                     )}
                     {totalValue !== undefined && (
                         <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap border-l border-border pl-4">
-                            <span className="font-bold text-foreground text-blue-600 dark:text-blue-400">{formatRupiah(totalValue)}</span>
-                            <span className="text-[11px] uppercase tracking-wider opacity-70">nilai internal</span>
+                            <span className="font-bold text-foreground text-blue-600 dark:text-blue-400">
+                                {formatRupiah(totalValue)}
+                            </span>
+                            <span className="text-[11px] uppercase tracking-wider opacity-70">
+                                nilai internal
+                            </span>
                         </div>
                     )}
-                    {customerOwnedValue !== undefined && customerOwnedValue > 0 && (
-                        <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-md px-2 py-1 text-xs">
-                            <span className="font-bold">{formatRupiah(customerOwnedValue)}</span>
-                            <span className="opacity-70">milik customer</span>
-                        </div>
-                    )}
+                    {customerOwnedValue !== undefined &&
+                        customerOwnedValue > 0 && (
+                            <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-md px-2 py-1 text-xs">
+                                <span className="font-bold">
+                                    {formatRupiah(customerOwnedValue)}
+                                </span>
+                                <span className="opacity-70">
+                                    milik customer
+                                </span>
+                            </div>
+                        )}
                 </div>
             </div>
 
@@ -444,14 +555,22 @@ export function InventoryTable({
                             {selectedItems.size} dipilih ·{' '}
                         </span>
                     )}
-                    Menampilkan {processedInventory.length > 0 ? startIndex + 1 : 0} sampai {Math.min(startIndex + ITEMS_PER_PAGE, processedInventory.length)} dari {processedInventory.length} item
+                    Menampilkan{' '}
+                    {processedInventory.length > 0 ? startIndex + 1 : 0} sampai{' '}
+                    {Math.min(
+                        startIndex + ITEMS_PER_PAGE,
+                        processedInventory.length,
+                    )}{' '}
+                    dari {processedInventory.length} item
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
                         variant="outline"
                         size="sm"
                         className="h-8 w-8 p-0"
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        onClick={() =>
+                            setCurrentPage((prev) => Math.max(prev - 1, 1))
+                        }
                         disabled={currentPage === 1}
                         aria-label="Halaman sebelumnya"
                     >
@@ -464,8 +583,14 @@ export function InventoryTable({
                         variant="outline"
                         size="sm"
                         className="h-8 w-8 p-0"
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages || totalPages === 0}
+                        onClick={() =>
+                            setCurrentPage((prev) =>
+                                Math.min(prev + 1, totalPages),
+                            )
+                        }
+                        disabled={
+                            currentPage === totalPages || totalPages === 0
+                        }
                         aria-label="Halaman berikutnya"
                     >
                         <ChevronRight className="h-4 w-4" />
@@ -476,14 +601,14 @@ export function InventoryTable({
                 open={showBulkTransfer}
                 onOpenChange={setShowBulkTransfer}
                 items={selectedInventoryList}
-            // userId={user?.id}
+                // userId={user?.id}
             />
 
             <BulkAdjustDialog
                 open={showBulkAdjust}
                 onOpenChange={setShowBulkAdjust}
                 items={selectedInventoryList}
-            // userId={user?.id}
+                // userId={user?.id}
             />
         </div>
     );

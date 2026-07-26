@@ -5,7 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
-    User, MapPin, Calendar, PackageSearch, ClipboardList, Hash, Box
+    User,
+    MapPin,
+    Calendar,
+    PackageSearch,
+    ClipboardList,
+    Hash,
+    Box,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -52,21 +58,26 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit"
             >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="text-sm font-medium">Kembali ke Penerimaan Maklon</span>
+                <span className="text-sm font-medium">
+                    Kembali ke Penerimaan Maklon
+                </span>
             </Link>
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <h1 className="text-2xl font-bold tracking-tight">{receipt.receiptNumber}</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            {receipt.receiptNumber}
+                        </h1>
                         <Badge variant="secondary">
                             <PackageSearch className="w-3 h-3 mr-1" />
                             Maklon Receipt
                         </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                        Customer Material Intake — goods received on behalf of customer for Maklon Jasa processing
+                        Customer Material Intake — goods received on behalf of
+                        customer for Maklon Jasa processing
                     </p>
                 </div>
                 <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -86,8 +97,12 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                                 <User className="w-4 h-4 text-muted-foreground" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Customer</p>
-                                <p className="font-semibold text-sm mt-0.5">{receipt.customer?.name ?? '—'}</p>
+                                <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">
+                                    Customer
+                                </p>
+                                <p className="font-semibold text-sm mt-0.5">
+                                    {receipt.customer?.name ?? '—'}
+                                </p>
                             </div>
                         </div>
                     </CardContent>
@@ -100,8 +115,12 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                                 <MapPin className="w-4 h-4 text-muted-foreground" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Storage Location</p>
-                                <p className="font-semibold text-sm mt-0.5">{receipt.location.name}</p>
+                                <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">
+                                    Storage Location
+                                </p>
+                                <p className="font-semibold text-sm mt-0.5">
+                                    {receipt.location.name}
+                                </p>
                             </div>
                         </div>
                     </CardContent>
@@ -114,9 +133,14 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                                 <Calendar className="w-4 h-4 text-muted-foreground" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Received Date</p>
+                                <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">
+                                    Received Date
+                                </p>
                                 <p className="font-semibold text-sm mt-0.5">
-                                    {format(new Date(receipt.receivedDate), 'dd MMM yyyy')}
+                                    {format(
+                                        new Date(receipt.receivedDate),
+                                        'dd MMM yyyy',
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -141,10 +165,14 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                             <thead>
                                 <tr className="bg-muted/40 border-b">
                                     <th className="px-4 py-3 text-left font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                                        <span className="flex items-center gap-1"><Box className="w-3 h-3" /> Material</span>
+                                        <span className="flex items-center gap-1">
+                                            <Box className="w-3 h-3" /> Material
+                                        </span>
                                     </th>
                                     <th className="px-4 py-3 text-left font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                                        <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> SKU</span>
+                                        <span className="flex items-center gap-1">
+                                            <Hash className="w-3 h-3" /> SKU
+                                        </span>
                                     </th>
                                     <th className="px-4 py-3 text-right font-semibold text-muted-foreground text-xs uppercase tracking-wider">
                                         Qty Received
@@ -159,8 +187,15 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                                     >
                                         <td className="px-4 py-3">
                                             <div>
-                                                <p className="font-medium">{item.productVariant.name}</p>
-                                                <p className="text-xs text-muted-foreground">{item.productVariant.product.name}</p>
+                                                <p className="font-medium">
+                                                    {item.productVariant.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {
+                                                        item.productVariant
+                                                            .product.name
+                                                    }
+                                                </p>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3">
@@ -169,9 +204,14 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                                             </code>
                                         </td>
                                         <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                                            {Number(item.receivedQty).toFixed(2)}{' '}
+                                            {Number(item.receivedQty).toFixed(
+                                                2,
+                                            )}{' '}
                                             <span className="text-xs font-normal text-muted-foreground">
-                                                {item.productVariant.primaryUnit}
+                                                {
+                                                    item.productVariant
+                                                        .primaryUnit
+                                                }
                                             </span>
                                         </td>
                                     </tr>
@@ -188,16 +228,27 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                     <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
                         <div className="flex items-center gap-2">
                             <User className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="text-muted-foreground">Received by:</span>
-                            <span className="font-medium">{receipt.createdBy?.name ?? '—'}</span>
+                            <span className="text-muted-foreground">
+                                Received by:
+                            </span>
+                            <span className="font-medium">
+                                {receipt.createdBy?.name ?? '—'}
+                            </span>
                         </div>
                         {receipt.notes && (
                             <>
-                                <Separator orientation="vertical" className="h-4 hidden sm:block" />
+                                <Separator
+                                    orientation="vertical"
+                                    className="h-4 hidden sm:block"
+                                />
                                 <div className="flex items-center gap-2">
                                     <ClipboardList className="w-3.5 h-3.5 text-muted-foreground" />
-                                    <span className="text-muted-foreground">Notes:</span>
-                                    <span className="font-medium">{receipt.notes}</span>
+                                    <span className="text-muted-foreground">
+                                        Notes:
+                                    </span>
+                                    <span className="font-medium">
+                                        {receipt.notes}
+                                    </span>
                                 </div>
                             </>
                         )}

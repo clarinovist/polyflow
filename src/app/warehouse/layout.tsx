@@ -37,7 +37,8 @@ export default async function WarehouseLayout({
     // Prefer fresh DB permissions for layout gates; fall back to JWT snapshot.
     const permissionsRes = await getMyPermissions();
     const sessionAllowed =
-        (session.user as { allowedResources?: string[] })?.allowedResources || [];
+        (session.user as { allowedResources?: string[] })?.allowedResources ||
+        [];
     const permissions: string[] | 'ALL' =
         permissionsRes.success && permissionsRes.data
             ? permissionsRes.data
@@ -89,7 +90,9 @@ export default async function WarehouseLayout({
                 <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
                     <div>
                         <h1 className="text-md font-bold">Portal Gudang</h1>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Operasional Stok & Material</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                            Operasional Stok & Material
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-4">

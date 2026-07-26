@@ -2,18 +2,33 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-    CheckCircle2, AlertTriangle, Calculator, ArrowLeft,
-    Plus, Loader2, Search
+    CheckCircle2,
+    AlertTriangle,
+    Calculator,
+    ArrowLeft,
+    Plus,
+    Loader2,
+    Search,
 } from 'lucide-react';
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
-import { completeOpname, deleteOpnameSession, addItemToOpname } from '@/actions/inventory/opname';
+import {
+    completeOpname,
+    deleteOpnameSession,
+    addItemToOpname,
+} from '@/actions/inventory/opname';
 import { getProductVariants } from '@/actions/production/boms';
 import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
@@ -27,7 +42,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { warehouseComponentLabels } from '@/lib/labels';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
-
 
 export interface OpnameItem {
     id: string;
@@ -60,7 +74,11 @@ interface OpnameDetailClientProps {
     basePath?: string;
 }
 
-export function OpnameDetailClient({ session, currentUserId, basePath = '/warehouse/opname' }: OpnameDetailClientProps) {
+export function OpnameDetailClient({
+    session,
+    currentUserId,
+    basePath = '/warehouse/opname',
+}: OpnameDetailClientProps) {
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const router = useRouter();
@@ -68,22 +86,26 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
     // Add Item dialog
     const [addDialogOpen, setAddDialogOpen] = useState(false);
     const [productSearch, setProductSearch] = useState('');
-    const [allVariants, setAllVariants] = useState<Array<{
-        id: string;
-        name: string;
-        skuCode: string;
-        primaryUnit: string;
-        product: { name: string };
-    }>>([]);
+    const [allVariants, setAllVariants] = useState<
+        Array<{
+            id: string;
+            name: string;
+            skuCode: string;
+            primaryUnit: string;
+            product: { name: string };
+        }>
+    >([]);
     const [isAddingItem, setIsAddingItem] = useState(false);
 
     // Fetch all variants when dialog opens
     useEffect(() => {
         if (addDialogOpen && allVariants.length === 0) {
             getProductVariants()
-                .then(result => {
+                .then((result) => {
                     if (result.success && result.data) {
-                        setAllVariants(result.data as unknown as typeof allVariants);
+                        setAllVariants(
+                            result.data as unknown as typeof allVariants,
+                        );
                     } else {
                         toast.error('Gagal memuat varian produk');
                     }
@@ -113,15 +135,17 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
         }
     };
 
-    const filteredVariants = allVariants.filter(v => {
-        if (!productSearch) return true;
-        const q = productSearch.toLowerCase();
-        return (
-            v.name.toLowerCase().includes(q) ||
-            v.skuCode.toLowerCase().includes(q) ||
-            v.product.name.toLowerCase().includes(q)
-        );
-    }).slice(0, 30);
+    const filteredVariants = allVariants
+        .filter((v) => {
+            if (!productSearch) return true;
+            const q = productSearch.toLowerCase();
+            return (
+                v.name.toLowerCase().includes(q) ||
+                v.skuCode.toLowerCase().includes(q) ||
+                v.product.name.toLowerCase().includes(q)
+            );
+        })
+        .slice(0, 30);
 
     const handleFinalize = async () => {
         if (!currentUserId) {
@@ -129,7 +153,11 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
             return;
         }
 
-        if (!confirm('Yakin ingin menyelesaikan sesi ini? Tindakan ini akan membuat penyesuaian stok untuk semua selisih.')) {
+        if (
+            !confirm(
+                'Yakin ingin menyelesaikan sesi ini? Tindakan ini akan membuat penyesuaian stok untuk semua selisih.',
+            )
+        ) {
             return;
         }
 
@@ -137,7 +165,9 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
         try {
             const result = await completeOpname(session.id);
             if (result.success) {
-                toast.success("Sesi berhasil diselesaikan dan inventaris diperbarui");
+                toast.success(
+                    'Sesi berhasil diselesaikan dan inventaris diperbarui',
+                );
                 router.refresh();
             } else {
                 toast.error(`Gagal: ${result.error}`);
@@ -154,32 +184,41 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
     return (
         <div className="space-y-6 pt-2 pb-8">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-                <Link href={basePath} className="hover:text-foreground transition-colors flex items-center gap-1">
+                <Link
+                    href={basePath}
+                    className="hover:text-foreground transition-colors flex items-center gap-1"
+                >
                     <ArrowLeft className="h-4 w-4" />
                     Kembali ke Daftar Opname
                 </Link>
                 <span>/</span>
-                <span className="text-foreground font-medium">{session.opnameNumber || 'New Session'}</span>
+                <span className="text-foreground font-medium">
+                    {session.opnameNumber || 'New Session'}
+                </span>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-4 mb-2">
                         <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                            {session.opnameNumber ? `${session.opnameNumber} - ` : ''}{session.location?.name || 'Unknown Location'}
+                            {session.opnameNumber
+                                ? `${session.opnameNumber} - `
+                                : ''}
+                            {session.location?.name || 'Unknown Location'}
                         </h2>
                         <Badge
-                            variant={isOpen ? "secondary" : "outline"}
-                            className={isOpen
-                                ? "bg-primary/10 text-primary border-transparent"
-                                : "border-emerald-500/30 text-emerald-600 bg-emerald-500/5"
+                            variant={isOpen ? 'secondary' : 'outline'}
+                            className={
+                                isOpen
+                                    ? 'bg-primary/10 text-primary border-transparent'
+                                    : 'border-emerald-500/30 text-emerald-600 bg-emerald-500/5'
                             }
                         >
                             {session.status}
                         </Badge>
                     </div>
                     <p className="text-muted-foreground flex items-center gap-2">
-                        {session.remarks || "No Remarks"}
+                        {session.remarks || 'No Remarks'}
                         <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
                         Created by {session.createdBy?.name || 'System'}
                     </p>
@@ -199,10 +238,16 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                             variant="destructive"
                             size="icon"
                             onClick={async () => {
-                                if (confirm('Yakin ingin menghapus sesi ini? Tindakan ini tidak dapat dibatalkan.')) {
-                                    const result = await deleteOpnameSession(session.id);
+                                if (
+                                    confirm(
+                                        'Yakin ingin menghapus sesi ini? Tindakan ini tidak dapat dibatalkan.',
+                                    )
+                                ) {
+                                    const result = await deleteOpnameSession(
+                                        session.id,
+                                    );
                                     if (result.success) {
-                                        toast.success("Sesi berhasil dihapus");
+                                        toast.success('Sesi berhasil dihapus');
                                         router.push(basePath);
                                     } else {
                                         toast.error(result.error);
@@ -229,7 +274,11 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                 )}
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="w-full"
+            >
                 <TabsList className="grid w-full md:w-[400px] grid-cols-2">
                     <TabsTrigger value="count">
                         <Calculator className="mr-2 h-4 w-4" />
@@ -246,11 +295,15 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                         <CardHeader>
                             <CardTitle>Physical Count</CardTitle>
                             <CardDescription>
-                                Enter the actual quantities found in the warehouse.
+                                Enter the actual quantities found in the
+                                warehouse.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 sm:p-6">
-                            <OpnameCounter session={session} isReadOnly={!isOpen} />
+                            <OpnameCounter
+                                session={session}
+                                isReadOnly={!isOpen}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -260,7 +313,8 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                         <CardHeader>
                             <CardTitle>Variance Analysis</CardTitle>
                             <CardDescription>
-                                Review discrepancies between system record and physical count.
+                                Review discrepancies between system record and
+                                physical count.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -270,7 +324,10 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                 </TabsContent>
             </Tabs>
 
-            <EntityStatusTimeline entityType="StockOpname" entityId={session.id} />
+            <EntityStatusTimeline
+                entityType="StockOpname"
+                entityId={session.id}
+            />
 
             {/* Add Item Dialog */}
             <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -281,8 +338,9 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                             Add Item to Opname
                         </DialogTitle>
                         <DialogDescription>
-                            Search and add items found physically but not yet in the inventory system for this location.
-                            The item will be added with a system quantity of 0.
+                            Search and add items found physically but not yet in
+                            the inventory system for this location. The item
+                            will be added with a system quantity of 0.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 mt-4">
@@ -292,7 +350,9 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                                 placeholder="Search by name, SKU, or product..."
                                 className="pl-9"
                                 value={productSearch}
-                                onChange={(e) => setProductSearch(e.target.value)}
+                                onChange={(e) =>
+                                    setProductSearch(e.target.value)
+                                }
                                 autoFocus
                             />
                         </div>
@@ -313,16 +373,24 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                                     <div
                                         key={variant.id}
                                         className="p-3 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors"
-                                        onClick={() => handleAddItem(variant.id)}
+                                        onClick={() =>
+                                            handleAddItem(variant.id)
+                                        }
                                     >
                                         <div className="flex flex-col min-w-0">
-                                            <span className="font-medium text-sm truncate">{variant.name}</span>
+                                            <span className="font-medium text-sm truncate">
+                                                {variant.name}
+                                            </span>
                                             <span className="text-xs text-muted-foreground">
-                                                {variant.product.name} · SKU: {variant.skuCode}
+                                                {variant.product.name} · SKU:{' '}
+                                                {variant.skuCode}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0 ml-4">
-                                            <Badge variant="outline" className="text-xs">
+                                            <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                            >
                                                 {variant.primaryUnit}
                                             </Badge>
                                             {isAddingItem ? (
@@ -338,6 +406,6 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                     </div>
                 </DialogContent>
             </Dialog>
-        </div >
+        </div>
     );
 }

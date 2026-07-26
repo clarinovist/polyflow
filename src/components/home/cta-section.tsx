@@ -34,13 +34,20 @@ export default function CtaSection() {
                                 </span>
                             </h2>
                             <p className="text-zinc-400 text-lg mb-10 max-w-2xl mx-auto">
-                                Contact us today to schedule a demo and see how PolyFlow can be tailored for your specific manufacturing needs.
+                                Contact us today to schedule a demo and see how
+                                PolyFlow can be tailored for your specific
+                                manufacturing needs.
                             </p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                                 <Button className="h-14 px-10 bg-white hover:bg-zinc-100 text-zinc-950 text-lg font-semibold rounded-full shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-105 transition-all duration-300">
-                                    Contact Sales <ArrowRight className="ml-2 h-5 w-5" />
+                                    Contact Sales{' '}
+                                    <ArrowRight className="ml-2 h-5 w-5" />
                                 </Button>
-                                <Button variant="ghost" className="h-14 px-8 text-zinc-400 hover:text-white text-lg font-medium rounded-full hover:bg-white/5 transition-all duration-300" asChild>
+                                <Button
+                                    variant="ghost"
+                                    className="h-14 px-8 text-zinc-400 hover:text-white text-lg font-medium rounded-full hover:bg-white/5 transition-all duration-300"
+                                    asChild
+                                >
                                     <a href="/register">Create Workspace</a>
                                 </Button>
                             </div>

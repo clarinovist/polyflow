@@ -5,9 +5,21 @@ import { Control, useWatch, useFormContext } from 'react-hook-form';
 import { CreateProductValues } from '@/lib/schemas/product';
 import { Unit, ProductType } from '@prisma/client';
 import { formatUnitLabel } from '@/lib/utils/unit-label';
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2, Loader2 } from 'lucide-react';
 import { deleteVariant, getNextSKU } from '@/actions/product';
@@ -24,18 +36,38 @@ interface VariantFieldsProps {
     productName: string;
 }
 
-export function VariantFields({ control, index, onRemove, canRemove, units, productName }: VariantFieldsProps) {
+export function VariantFields({
+    control,
+    index,
+    onRemove,
+    canRemove,
+    units,
+    productName,
+}: VariantFieldsProps) {
     // Watch product type and variant name for auto-SKU generation
     const productType = useWatch({ control, name: 'productType' });
     const _variantName = useWatch({ control, name: `variants.${index}.name` });
-    const primaryUnit = useWatch({ control, name: `variants.${index}.primaryUnit` });
-    const salesUnit = useWatch({ control, name: `variants.${index}.salesUnit` });
-    const conversionFactor = useWatch({ control, name: `variants.${index}.conversionFactor` });
-    const variantId = useWatch({ control, name: `variants.${index}.id` }) as string | undefined;
+    const primaryUnit = useWatch({
+        control,
+        name: `variants.${index}.primaryUnit`,
+    });
+    const salesUnit = useWatch({
+        control,
+        name: `variants.${index}.salesUnit`,
+    });
+    const conversionFactor = useWatch({
+        control,
+        name: `variants.${index}.conversionFactor`,
+    });
+    const variantId = useWatch({ control, name: `variants.${index}.id` }) as
+        | string
+        | undefined;
 
     const router = useRouter();
 
-    const isSimpleUnitMode = productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL;
+    const isSimpleUnitMode =
+        productType === ProductType.SCRAP ||
+        productType === ProductType.RAW_MATERIAL;
 
     const [isGeneratingSKU, setIsGeneratingSKU] = useState(false);
     const { setValue, getValues } = useFormContext<CreateProductValues>();
@@ -50,11 +82,20 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
         try {
             // Get all current SKUs in the form
             const formValues = getValues();
-            const currentSkus = formValues.variants?.map(v => v.skuCode).filter(Boolean) as string[] || [];
+            const currentSkus =
+                (formValues.variants
+                    ?.map((v) => v.skuCode)
+                    .filter(Boolean) as string[]) || [];
 
-            const nextSKUResult = await getNextSKU(productType as ProductType, productName, currentSkus);
+            const nextSKUResult = await getNextSKU(
+                productType as ProductType,
+                productName,
+                currentSkus,
+            );
             if (nextSKUResult.success && nextSKUResult.data) {
-                setValue(`variants.${index}.skuCode`, nextSKUResult.data, { shouldValidate: true });
+                setValue(`variants.${index}.skuCode`, nextSKUResult.data, {
+                    shouldValidate: true,
+                });
                 toast.success('SKU berhasil digenerate.');
             } else {
                 toast.error(nextSKUResult.error || 'Gagal membuat SKU');
@@ -78,7 +119,9 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
     return (
         <div className="border rounded-lg p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900">
             <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm text-zinc-700 dark:text-zinc-300">{variantFieldLabels.variantLabel(index)}</h4>
+                <h4 className="font-medium text-sm text-zinc-700 dark:text-zinc-300">
+                    {variantFieldLabels.variantLabel(index)}
+                </h4>
                 {canRemove && (
                     <div className="flex items-center gap-2">
                         {variantId && (
@@ -89,15 +132,26 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                 onClick={async () => {
                                     if (!variantId) return;
                                     // confirm
-                                    if (!confirm('Hapus varian ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) return;
+                                    if (
+                                        !confirm(
+                                            'Hapus varian ini secara permanen? Tindakan ini tidak dapat dibatalkan.',
+                                        )
+                                    )
+                                        return;
                                     try {
-                                        const res = await deleteVariant(variantId);
+                                        const res =
+                                            await deleteVariant(variantId);
                                         if (res.success) {
-                                            toast.success('Variant berhasil dihapus.');
+                                            toast.success(
+                                                'Variant berhasil dihapus.',
+                                            );
                                             router.push('/dashboard/products');
                                             router.refresh();
                                         } else {
-                                            toast.error(res.error || 'Gagal menghapus varian');
+                                            toast.error(
+                                                res.error ||
+                                                    'Gagal menghapus varian',
+                                            );
                                         }
                                     } catch {
                                         toast.error('Gagal menghapus varian');
@@ -127,9 +181,16 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                     name={`variants.${index}.name`}
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>{variantFieldLabels.variantName}</FormLabel>
+                            <FormLabel>
+                                {variantFieldLabels.variantName}
+                            </FormLabel>
                             <FormControl>
-                                <Input placeholder={variantFieldLabels.variantNamePlaceholder} {...field} />
+                                <Input
+                                    placeholder={
+                                        variantFieldLabels.variantNamePlaceholder
+                                    }
+                                    {...field}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -145,7 +206,10 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                             <FormLabel>SKU Code</FormLabel>
                             <div className="flex gap-2">
                                 <FormControl>
-                                    <Input placeholder="e.g., RMPPK001" {...field} />
+                                    <Input
+                                        placeholder="e.g., RMPPK001"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <Button
                                     type="button"
@@ -173,7 +237,10 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Primary Unit</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <Select
+                                onValueChange={field.onChange}
+                                value={field.value || ''}
+                            >
                                 <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select primary unit" />
@@ -237,7 +304,11 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                         step="0.0001"
                                         placeholder="1"
                                         {...field}
-                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 1)}
+                                        onChange={(e) =>
+                                            field.onChange(
+                                                parseFloat(e.target.value) || 1,
+                                            )
+                                        }
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -253,20 +324,31 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Consumption Rule</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || 'PROPORTIONAL'}>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value || 'PROPORTIONAL'}
+                                >
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Default proportional" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="PROPORTIONAL">Default proportional</SelectItem>
-                                        <SelectItem value="FLOOR_ENTERED_BAL">Floor entered BAL</SelectItem>
-                                        <SelectItem value="CEIL_ENTERED_BAL">Ceil entered BAL</SelectItem>
+                                        <SelectItem value="PROPORTIONAL">
+                                            Default proportional
+                                        </SelectItem>
+                                        <SelectItem value="FLOOR_ENTERED_BAL">
+                                            Floor entered BAL
+                                        </SelectItem>
+                                        <SelectItem value="CEIL_ENTERED_BAL">
+                                            Ceil entered BAL
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    Pakai khusus material packing yang konsumsinya mengikuti output BAL, mis. karung.
+                                    Pakai khusus material packing yang
+                                    konsumsinya mengikuti output BAL, mis.
+                                    karung.
                                 </p>
                                 <FormMessage />
                             </FormItem>
@@ -287,7 +369,13 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                     min="0"
                                     placeholder="0"
                                     value={field.value || ''}
-                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                                    onChange={(e) =>
+                                        field.onChange(
+                                            e.target.value
+                                                ? parseFloat(e.target.value)
+                                                : null,
+                                        )
+                                    }
                                 />
                             </FormControl>
                             <FormMessage />
@@ -308,7 +396,13 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                     step="0.01"
                                     placeholder="0"
                                     value={field.value || ''}
-                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                                    onChange={(e) =>
+                                        field.onChange(
+                                            e.target.value
+                                                ? parseFloat(e.target.value)
+                                                : null,
+                                        )
+                                    }
                                 />
                             </FormControl>
                             <FormMessage />

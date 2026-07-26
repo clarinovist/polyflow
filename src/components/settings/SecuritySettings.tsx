@@ -1,7 +1,13 @@
 'use client';
 
 import { useTransition } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     AlertDialog,
@@ -26,7 +32,9 @@ export function SecuritySettings() {
         startTransition(async () => {
             const res = await logoutAllDevices();
             if (res.success) {
-                toast.success('Berhasil keluar dari semua perangkat. Anda akan diarahkan ke halaman login.');
+                toast.success(
+                    'Berhasil keluar dari semua perangkat. Anda akan diarahkan ke halaman login.',
+                );
                 await signOut({ callbackUrl: '/login' });
             } else {
                 toast.error(res.error || 'Gagal keluar dari semua perangkat.');
@@ -39,8 +47,9 @@ export function SecuritySettings() {
             <CardHeader>
                 <CardTitle>Sesi & Perangkat</CardTitle>
                 <CardDescription>
-                    Keluar paksa dari semua perangkat yang pernah login, termasuk sesi ini.
-                    Berguna jika perangkat Anda hilang atau password bocor.
+                    Keluar paksa dari semua perangkat yang pernah login,
+                    termasuk sesi ini. Berguna jika perangkat Anda hilang atau
+                    password bocor.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -57,10 +66,13 @@ export function SecuritySettings() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Keluar dari semua perangkat?</AlertDialogTitle>
+                            <AlertDialogTitle>
+                                Keluar dari semua perangkat?
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
-                                Semua sesi login Anda — di perangkat manapun, termasuk sesi ini —
-                                akan langsung tidak valid. Anda perlu login ulang.
+                                Semua sesi login Anda — di perangkat manapun,
+                                termasuk sesi ini — akan langsung tidak valid.
+                                Anda perlu login ulang.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

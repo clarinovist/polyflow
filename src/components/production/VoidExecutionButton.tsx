@@ -15,7 +15,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 
 interface VoidExecutionButtonProps {
     executionId: string;
@@ -23,15 +23,24 @@ interface VoidExecutionButtonProps {
     orderNumber: string;
 }
 
-export function VoidExecutionButton({ executionId, productionOrderId, orderNumber }: VoidExecutionButtonProps) {
+export function VoidExecutionButton({
+    executionId,
+    productionOrderId,
+    orderNumber,
+}: VoidExecutionButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleVoid = async () => {
         try {
             setIsLoading(true);
-            const result = await voidProductionOutput(executionId, productionOrderId);
+            const result = await voidProductionOutput(
+                executionId,
+                productionOrderId,
+            );
             if (result.success) {
-                toast.success(`Realisasi produksi untuk ${orderNumber} berhasil dibatalkan.`);
+                toast.success(
+                    `Realisasi produksi untuk ${orderNumber} berhasil dibatalkan.`,
+                );
             } else {
                 toast.error(result.error || 'Gagal membatalkan eksekusi');
             }
@@ -45,17 +54,27 @@ export function VoidExecutionButton({ executionId, productionOrderId, orderNumbe
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" disabled={isLoading}>
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    disabled={isLoading}
+                >
+                    {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <RotateCcw className="h-4 w-4" />
+                    )}
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Void Output Produksi</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Yakin ingin mem-void output produksi untuk <strong>{orderNumber}</strong>?
-                        Ini akan membalik mutasi stok dan memperbarui total order produksi.
-                        Tindakan ini bersifat permanen.
+                        Yakin ingin mem-void output produksi untuk{' '}
+                        <strong>{orderNumber}</strong>? Ini akan membalik mutasi
+                        stok dan memperbarui total order produksi. Tindakan ini
+                        bersifat permanen.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

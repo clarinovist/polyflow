@@ -1,11 +1,11 @@
-"use server";
+'use server';
 
-import { prisma, getTenantDb } from "@/lib/core/prisma";
-import { auth, signIn } from "@/auth";
-import { AuthorizationError, BusinessRuleError } from "@/lib/errors/errors";
-import { Role } from "@prisma/client";
-import { logActivity } from "@/lib/tools/audit";
-import { redirect } from "next/navigation";
+import { prisma, getTenantDb } from '@/lib/core/prisma';
+import { auth, signIn } from '@/auth';
+import { AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
+import { Role } from '@prisma/client';
+import { logActivity } from '@/lib/tools/audit';
+import { redirect } from 'next/navigation';
 
 const IMPERSONATION_TTL_SECONDS = 30 * 60; // 30 minutes hard expiry
 
@@ -59,49 +59,62 @@ const IMPERSONATION_TTL_SECONDS = 30 * 60; // 30 minutes hard expiry
 export async function impersonateTenant(tenantId: string) {
     const session = await auth();
     if (!session?.user || !session.user.isSuperAdmin) {
-        throw new AuthorizationError("Super Admin access required.");
+        throw new AuthorizationError('Super Admin access required.');
     }
     const superAdminId = session.user.id!;
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant || !tenant.dbUrl) {
-        throw new BusinessRuleError("Tenant tidak ditemukan atau tidak ada DB URL.");
+        throw new BusinessRuleError(
+            'Tenant tidak ditemukan atau tidak ada DB URL.',
+        );
     }
-    if (tenant.status === "SUSPENDED") {
-        throw new BusinessRuleError("Tidak dapat impersonate ke tenant yang di-suspend. Reaktivasi dulu.");
+    if (tenant.status === 'SUSPENDED') {
+        throw new BusinessRuleError(
+            'Tidak dapat impersonate ke tenant yang di-suspend. Reaktivasi dulu.',
+        );
     }
 
     // Look up primary admin (oldest ADMIN user) in the tenant DB.
     const tenantDb = getTenantDb(tenant.dbUrl);
     const adminUser = await tenantDb.user.findFirst({
         where: { role: Role.ADMIN },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: 'asc' },
     });
     if (!adminUser) {
-        throw new BusinessRuleError("Tidak ada user admin di tenant ini untuk di-impersonate.");
+        throw new BusinessRuleError(
+            'Tidak ada user admin di tenant ini untuk di-impersonate.',
+        );
     }
     if (adminUser.isActive === false) {
-        throw new BusinessRuleError("User admin tidak aktif di tenant ini. Aktifkan melalui manajemen user.");
+        throw new BusinessRuleError(
+            'User admin tidak aktif di tenant ini. Aktifkan melalui manajemen user.',
+        );
     }
 
     const expiresAt = Math.floor(Date.now() / 1000) + IMPERSONATION_TTL_SECONDS;
 
     await logActivity({
         userId: superAdminId,
-        action: "IMPERSONATION_STARTED",
-        entityType: "Tenant",
+        action: 'IMPERSONATION_STARTED',
+        entityType: 'Tenant',
         entityId: tenantId,
         details: `Started impersonating tenant "${tenant.name}" as user ${adminUser.email} (expiry in ${IMPERSONATION_TTL_SECONDS / 60} min).`,
-        changes: { tenantId, targetUserId: adminUser.id, targetEmail: adminUser.email, expiresAt },
+        changes: {
+            tenantId,
+            targetUserId: adminUser.id,
+            targetEmail: adminUser.email,
+            expiresAt,
+        },
     });
 
     // Do NOT use signIn's redirect — we control the redirect ourselves.
     // The dummy password is required by authorize()'s Zod schema (.min(6)) but
     // is ignored when impersonationBy is present.
-    await signIn("credentials", {
+    await signIn('credentials', {
         email: adminUser.email,
-        password: "impersonation-dummy-not-real",
-        role: "ADMIN",
+        password: 'impersonation-dummy-not-real',
+        role: 'ADMIN',
         subdomain: tenant.subdomain,
         impersonationBy: superAdminId,
         impersonationExpiresAt: expiresAt,

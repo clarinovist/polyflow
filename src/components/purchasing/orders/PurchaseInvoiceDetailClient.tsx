@@ -2,19 +2,40 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { ArrowLeft, FileText, Calendar, Building2, CreditCard, CheckCircle, AlertCircle, History, User } from 'lucide-react';
+import {
+    ArrowLeft,
+    FileText,
+    Calendar,
+    Building2,
+    CreditCard,
+    CheckCircle,
+    AlertCircle,
+    History,
+    User,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { recordPurchasePayment } from '@/actions/purchasing/purchasing';
-import { getStatusLabel, purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
+import {
+    getStatusLabel,
+    purchasingLabels,
+    formLabels,
+    actionLabels,
+} from '@/lib/labels';
 import { isInvoiceOverdue } from '@/lib/purchasing/payment-terms';
 import {
     DEFAULT_PAYMENT_METHOD,
@@ -59,25 +80,39 @@ export function PurchaseInvoiceDetailClient({
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState('');
-    const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
+    const [paymentDate, setPaymentDate] = useState(
+        new Date().toISOString().split('T')[0],
+    );
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+        DEFAULT_PAYMENT_METHOD,
+    );
     const [referenceNumber, setReferenceNumber] = useState('');
-    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>('');
+    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>(
+        '',
+    );
     const [paymentNotes, setPaymentNotes] = useState('');
 
     const remainingAmount = invoice.totalAmount - invoice.paidAmount;
     const isOverdue = isInvoiceOverdue(invoice.dueDate, invoice.status);
-    const progressPercent = invoice.totalAmount > 0 ? (invoice.paidAmount / invoice.totalAmount) * 100 : 0;
+    const progressPercent =
+        invoice.totalAmount > 0
+            ? (invoice.paidAmount / invoice.totalAmount) * 100
+            : 0;
 
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             UNPAID: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50',
-            PARTIAL: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50',
+            PARTIAL:
+                'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50',
             PAID: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/50',
-            OVERDUE: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50',
+            OVERDUE:
+                'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50',
         };
         return (
-            <Badge variant="outline" className={styles[status] || styles.UNPAID}>
+            <Badge
+                variant="outline"
+                className={styles[status] || styles.UNPAID}
+            >
                 {getStatusLabel(status, 'purchasing')}
             </Badge>
         );
@@ -109,8 +144,10 @@ export function PurchaseInvoiceDetailClient({
         paymentDate,
         method: paymentMethod,
         notes: paymentNotes.trim() || undefined,
-        referenceNumber: paymentMethod === 'Check' ? referenceNumber.trim() : undefined,
-        destinationBank: paymentMethod === 'Check' ? destinationBank : undefined,
+        referenceNumber:
+            paymentMethod === 'Check' ? referenceNumber.trim() : undefined,
+        destinationBank:
+            paymentMethod === 'Check' ? destinationBank : undefined,
     });
 
     const handlePayment = async () => {
@@ -121,7 +158,9 @@ export function PurchaseInvoiceDetailClient({
         }
 
         if (amount > remainingAmount) {
-            toast.error(`Jumlah pembayaran tidak boleh melebihi sisa tagihan (${formatRupiah(remainingAmount)})`);
+            toast.error(
+                `Jumlah pembayaran tidak boleh melebihi sisa tagihan (${formatRupiah(remainingAmount)})`,
+            );
             return;
         }
 
@@ -129,14 +168,23 @@ export function PurchaseInvoiceDetailClient({
 
         setIsLoading(true);
         try {
-            const result = await recordPurchasePayment(invoice.id, amount, paymentOptions());
+            const result = await recordPurchasePayment(
+                invoice.id,
+                amount,
+                paymentOptions(),
+            );
 
             if (!result.success) {
-                toast.error(result.error || 'Gagal mencatat pembayaran. Silakan coba lagi.');
+                toast.error(
+                    result.error ||
+                        'Gagal mencatat pembayaran. Silakan coba lagi.',
+                );
                 return;
             }
 
-            toast.success(`Pembayaran sebesar ${formatRupiah(amount)} berhasil dicatat`);
+            toast.success(
+                `Pembayaran sebesar ${formatRupiah(amount)} berhasil dicatat`,
+            );
             resetPaymentForm();
             router.refresh();
         } catch (_error) {
@@ -151,14 +199,23 @@ export function PurchaseInvoiceDetailClient({
 
         setIsLoading(true);
         try {
-            const result = await recordPurchasePayment(invoice.id, remainingAmount, paymentOptions());
+            const result = await recordPurchasePayment(
+                invoice.id,
+                remainingAmount,
+                paymentOptions(),
+            );
 
             if (!result.success) {
-                toast.error(result.error || 'Gagal mencatat pembayaran. Silakan coba lagi.');
+                toast.error(
+                    result.error ||
+                        'Gagal mencatat pembayaran. Silakan coba lagi.',
+                );
                 return;
             }
 
-            toast.success(`Pembayaran lunas sebesar ${formatRupiah(remainingAmount)} berhasil dicatat`);
+            toast.success(
+                `Pembayaran lunas sebesar ${formatRupiah(remainingAmount)} berhasil dicatat`,
+            );
             resetPaymentForm();
             router.refresh();
         } catch (_error) {
@@ -174,7 +231,8 @@ export function PurchaseInvoiceDetailClient({
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/finance/invoices/purchase">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
+                            <ArrowLeft className="mr-2 h-4 w-4" />{' '}
+                            {actionLabels.back}
                         </Link>
                     </Button>
                     <div>
@@ -184,7 +242,8 @@ export function PurchaseInvoiceDetailClient({
                             {getStatusBadge(invoice.status)}
                         </h1>
                         <p className="text-muted-foreground text-sm">
-                            {purchasingLabels.invoiceDate}: {format(new Date(invoice.invoiceDate), 'PPP')}
+                            {purchasingLabels.invoiceDate}:{' '}
+                            {format(new Date(invoice.invoiceDate), 'PPP')}
                         </p>
                     </div>
                 </div>
@@ -196,14 +255,20 @@ export function PurchaseInvoiceDetailClient({
                     <Card>
                         <CardHeader>
                             <CardTitle>Ringkasan Pembayaran</CardTitle>
-                            <CardDescription>Pantau pembayaran untuk invoice ini</CardDescription>
+                            <CardDescription>
+                                Pantau pembayaran untuk invoice ini
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             {/* Progress Bar */}
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Kemajuan Pembayaran</span>
-                                    <span className="font-medium">{progressPercent.toFixed(0)}%</span>
+                                    <span className="text-muted-foreground">
+                                        Kemajuan Pembayaran
+                                    </span>
+                                    <span className="font-medium">
+                                        {progressPercent.toFixed(0)}%
+                                    </span>
                                 </div>
                                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                                     <div
@@ -216,16 +281,34 @@ export function PurchaseInvoiceDetailClient({
                             {/* Amount Breakdown */}
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="p-4 bg-muted/50 rounded-lg text-center">
-                                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Tagihan</p>
-                                    <p className="text-xl font-bold">{formatRupiah(invoice.totalAmount)}</p>
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                                        Total Tagihan
+                                    </p>
+                                    <p className="text-xl font-bold">
+                                        {formatRupiah(invoice.totalAmount)}
+                                    </p>
                                 </div>
                                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg text-center">
-                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Dibayar</p>
-                                    <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(invoice.paidAmount)}</p>
+                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                                        Dibayar
+                                    </p>
+                                    <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                                        {formatRupiah(invoice.paidAmount)}
+                                    </p>
                                 </div>
-                                <div className={`p-4 rounded-lg text-center ${isOverdue ? 'bg-red-50 dark:bg-red-950/20' : 'bg-amber-50 dark:bg-amber-950/20'}`}>
-                                    <p className={`text-xs uppercase tracking-wider mb-1 ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>Sisa Tagihan</p>
-                                    <p className={`text-xl font-bold ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatRupiah(remainingAmount)}</p>
+                                <div
+                                    className={`p-4 rounded-lg text-center ${isOverdue ? 'bg-red-50 dark:bg-red-950/20' : 'bg-amber-50 dark:bg-amber-950/20'}`}
+                                >
+                                    <p
+                                        className={`text-xs uppercase tracking-wider mb-1 ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}
+                                    >
+                                        Sisa Tagihan
+                                    </p>
+                                    <p
+                                        className={`text-xl font-bold ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}
+                                    >
+                                        {formatRupiah(remainingAmount)}
+                                    </p>
                                 </div>
                             </div>
 
@@ -234,7 +317,15 @@ export function PurchaseInvoiceDetailClient({
                                 <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
                                     <AlertCircle className="h-5 w-5 shrink-0" />
                                     <div className="text-sm">
-                                        <span className="font-semibold">Lewat Jatuh Tempo!</span> Jatuh tempo invoice ini adalah pada {format(new Date(invoice.dueDate), 'PPP')}.
+                                        <span className="font-semibold">
+                                            Lewat Jatuh Tempo!
+                                        </span>{' '}
+                                        Jatuh tempo invoice ini adalah pada{' '}
+                                        {format(
+                                            new Date(invoice.dueDate),
+                                            'PPP',
+                                        )}
+                                        .
                                     </div>
                                 </div>
                             )}
@@ -248,45 +339,73 @@ export function PurchaseInvoiceDetailClient({
                                     </h3>
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="purchase-payment-amount">Jumlah Pembayaran</Label>
+                                            <Label htmlFor="purchase-payment-amount">
+                                                Jumlah Pembayaran
+                                            </Label>
                                             <Input
                                                 id="purchase-payment-amount"
                                                 type="number"
                                                 placeholder="Masukkan jumlah pembayaran"
                                                 value={paymentAmount}
-                                                onChange={(e) => setPaymentAmount(e.target.value)}
+                                                onChange={(e) =>
+                                                    setPaymentAmount(
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 className="h-11"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="purchase-payment-date">Tanggal Pembayaran</Label>
+                                            <Label htmlFor="purchase-payment-date">
+                                                Tanggal Pembayaran
+                                            </Label>
                                             <Input
                                                 id="purchase-payment-date"
                                                 type="date"
                                                 value={paymentDate}
-                                                onChange={(e) => setPaymentDate(e.target.value)}
+                                                onChange={(e) =>
+                                                    setPaymentDate(
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 className="h-11"
                                             />
                                         </div>
                                         <div className="space-y-2 md:col-span-2">
                                             <PaymentMethodFields
                                                 method={paymentMethod}
-                                                onMethodChange={setPaymentMethod}
-                                                referenceNumber={referenceNumber}
-                                                onReferenceNumberChange={setReferenceNumber}
-                                                destinationBank={destinationBank}
-                                                onDestinationBankChange={setDestinationBank}
+                                                onMethodChange={
+                                                    setPaymentMethod
+                                                }
+                                                referenceNumber={
+                                                    referenceNumber
+                                                }
+                                                onReferenceNumberChange={
+                                                    setReferenceNumber
+                                                }
+                                                destinationBank={
+                                                    destinationBank
+                                                }
+                                                onDestinationBankChange={
+                                                    setDestinationBank
+                                                }
                                                 paymentBanks={paymentBanks}
                                                 methodId="purchase-payment-method"
                                             />
                                         </div>
                                         <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="purchase-payment-notes">Catatan</Label>
+                                            <Label htmlFor="purchase-payment-notes">
+                                                Catatan
+                                            </Label>
                                             <Textarea
                                                 id="purchase-payment-notes"
                                                 placeholder="Catatan pembayaran opsional"
                                                 value={paymentNotes}
-                                                onChange={(e) => setPaymentNotes(e.target.value)}
+                                                onChange={(e) =>
+                                                    setPaymentNotes(
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 rows={3}
                                             />
                                         </div>
@@ -294,14 +413,20 @@ export function PurchaseInvoiceDetailClient({
                                     <div className="flex gap-3">
                                         <Button
                                             onClick={handlePayment}
-                                            disabled={isLoading || !paymentAmount}
+                                            disabled={
+                                                isLoading || !paymentAmount
+                                            }
                                             className="h-11 flex-1"
                                         >
                                             Catat Pembayaran
                                         </Button>
                                         <Button
                                             variant="outline"
-                                            onClick={() => setPaymentAmount(remainingAmount.toString())}
+                                            onClick={() =>
+                                                setPaymentAmount(
+                                                    remainingAmount.toString(),
+                                                )
+                                            }
                                             disabled={isLoading}
                                             className="h-11"
                                         >
@@ -315,7 +440,8 @@ export function PurchaseInvoiceDetailClient({
                                         className="w-full text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 hover:dark:bg-emerald-900/30"
                                     >
                                         <CheckCircle className="mr-2 h-4 w-4" />
-                                        Bayar Lunas ({formatRupiah(remainingAmount)})
+                                        Bayar Lunas (
+                                        {formatRupiah(remainingAmount)})
                                     </Button>
                                 </div>
                             )}
@@ -323,7 +449,9 @@ export function PurchaseInvoiceDetailClient({
                             {invoice.status === 'PAID' && (
                                 <div className="flex items-center justify-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg">
                                     <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Lunas</span>
+                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                        Lunas
+                                    </span>
                                 </div>
                             )}
                         </CardContent>
@@ -338,7 +466,8 @@ export function PurchaseInvoiceDetailClient({
                                     Riwayat Pembayaran
                                 </CardTitle>
                                 <CardDescription>
-                                    {invoice.payments.length} pembayaran tercatat
+                                    {invoice.payments.length} pembayaran
+                                    tercatat
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -350,17 +479,31 @@ export function PurchaseInvoiceDetailClient({
                                         >
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-medium">
-                                                    {format(new Date(payment.paymentDate), 'PPP')}
+                                                    {format(
+                                                        new Date(
+                                                            payment.paymentDate,
+                                                        ),
+                                                        'PPP',
+                                                    )}
                                                 </span>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                     <User className="h-3 w-3" />
                                                     <span>
-                                                        {getPaymentMethodLabel(payment.method || '')}
-                                                        {payment.referenceNumber ? ` · No: ${payment.referenceNumber}` : ''}
-                                                        {payment.destinationBank ? ` · ${payment.destinationBank}` : ''}
+                                                        {getPaymentMethodLabel(
+                                                            payment.method ||
+                                                                '',
+                                                        )}
+                                                        {payment.referenceNumber
+                                                            ? ` · No: ${payment.referenceNumber}`
+                                                            : ''}
+                                                        {payment.destinationBank
+                                                            ? ` · ${payment.destinationBank}`
+                                                            : ''}
                                                     </span>
                                                     {payment.notes && (
-                                                        <span className="truncate max-w-[220px]">• {payment.notes}</span>
+                                                        <span className="truncate max-w-[220px]">
+                                                            • {payment.notes}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </div>
@@ -379,13 +522,17 @@ export function PurchaseInvoiceDetailClient({
                     {/* Invoice Details */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Detail Invoice</CardTitle>
+                            <CardTitle className="text-base">
+                                Detail Invoice
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="flex items-start gap-3">
                                 <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
+                                    <h3 className="text-xs font-medium text-muted-foreground">
+                                        Purchase Order
+                                    </h3>
                                     <Link
                                         href={`/purchasing/orders/${invoice.purchaseOrder.id}`}
                                         className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
@@ -398,11 +545,18 @@ export function PurchaseInvoiceDetailClient({
                             <div className="flex items-start gap-3">
                                 <Building2 className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.supplier}</h3>
-                                    <p className="font-medium">{invoice.purchaseOrder.supplier.name}</p>
+                                    <h3 className="text-xs font-medium text-muted-foreground">
+                                        {purchasingLabels.supplier}
+                                    </h3>
+                                    <p className="font-medium">
+                                        {invoice.purchaseOrder.supplier.name}
+                                    </p>
                                     {invoice.purchaseOrder.supplier.code && (
                                         <p className="text-xs text-muted-foreground font-mono">
-                                            {invoice.purchaseOrder.supplier.code}
+                                            {
+                                                invoice.purchaseOrder.supplier
+                                                    .code
+                                            }
                                         </p>
                                     )}
                                 </div>
@@ -411,17 +565,35 @@ export function PurchaseInvoiceDetailClient({
                             <div className="flex items-start gap-3">
                                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.invoiceDate}</h3>
-                                    <p className="font-medium">{format(new Date(invoice.invoiceDate), 'PPP')}</p>
+                                    <h3 className="text-xs font-medium text-muted-foreground">
+                                        {purchasingLabels.invoiceDate}
+                                    </h3>
+                                    <p className="font-medium">
+                                        {format(
+                                            new Date(invoice.invoiceDate),
+                                            'PPP',
+                                        )}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="flex items-start gap-3">
-                                <Calendar className={`h-4 w-4 mt-0.5 ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`} />
+                                <Calendar
+                                    className={`h-4 w-4 mt-0.5 ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`}
+                                />
                                 <div>
-                                    <h3 className={`text-xs font-medium ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`}>{formLabels.dueDate}</h3>
-                                    <p className={`font-medium ${isOverdue ? 'text-red-600 dark:text-red-400' : ''}`}>
-                                        {format(new Date(invoice.dueDate), 'PPP')}
+                                    <h3
+                                        className={`text-xs font-medium ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`}
+                                    >
+                                        {formLabels.dueDate}
+                                    </h3>
+                                    <p
+                                        className={`font-medium ${isOverdue ? 'text-red-600 dark:text-red-400' : ''}`}
+                                    >
+                                        {format(
+                                            new Date(invoice.dueDate),
+                                            'PPP',
+                                        )}
                                     </p>
                                 </div>
                             </div>

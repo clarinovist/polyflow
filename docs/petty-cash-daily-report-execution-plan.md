@@ -39,23 +39,23 @@ Menambahkan fitur **Daily Petty Cash Report** agar finance dapat:
 - Halaman laporan petty cash harian.
 - Filter tanggal laporan.
 - Ringkasan saldo:
-  - Saldo awal
-  - Total replenishment / cash in
-  - Total expense / cash out
-  - Saldo akhir
+    - Saldo awal
+    - Total replenishment / cash in
+    - Total expense / cash out
+    - Saldo akhir
 - Tabel transaksi harian:
-  - Tanggal
-  - Nomor voucher
-  - Jenis transaksi
-  - Deskripsi
-  - Akun biaya
-  - Nilai masuk
-  - Nilai keluar
-  - Status
+    - Tanggal
+    - Nomor voucher
+    - Jenis transaksi
+    - Deskripsi
+    - Akun biaya
+    - Nilai masuk
+    - Nilai keluar
+    - Status
 - Area tanda tangan:
-  - Dibuat oleh Finance
-  - Disetujui Direktur
-  - Mengetahui Komisaris
+    - Dibuat oleh Finance
+    - Disetujui Direktur
+    - Mengetahui Komisaris
 - Mode print-friendly.
 - Export/print via browser print sebagai MVP.
 - Dokumentasi UAT/test case.
@@ -79,14 +79,14 @@ Tujuan: memenuhi kebutuhan operasional paling cepat tanpa risiko besar ke data f
 ### Fitur
 
 - Tambah halaman:
-  - `/finance/petty-cash/reports/daily`
+    - `/finance/petty-cash/reports/daily`
 - Tambah menu/sidebar finance:
-  - `Petty Cash Daily Report`
+    - `Petty Cash Daily Report`
 - Tambah action/service read-only:
-  - mengambil transaksi petty cash per tanggal
-  - menghitung saldo awal sebelum tanggal laporan
-  - menghitung total masuk/keluar tanggal laporan
-  - menghitung saldo akhir
+    - mengambil transaksi petty cash per tanggal
+    - menghitung saldo awal sebelum tanggal laporan
+    - menghitung total masuk/keluar tanggal laporan
+    - menghitung saldo akhir
 - Tambah UI report dengan layout print-friendly.
 - Tambah tombol `Print`.
 - Signature box kosong untuk tanda tangan manual.
@@ -114,22 +114,22 @@ Tujuan: mulai membentuk kontrol internal dan audit trail tanpa memaksa Direktur/
 - Tambah model baru: `PettyCashDailyReport`.
 - Simpan laporan harian per tanggal.
 - Status laporan:
-  - `DRAFT`
-  - `READY_TO_PRINT`
-  - `SIGNED_PHYSICAL`
-  - `FINALIZED`
-  - `VOIDED`
+    - `DRAFT`
+    - `READY_TO_PRINT`
+    - `SIGNED_PHYSICAL`
+    - `FINALIZED`
+    - `VOIDED`
 - Simpan user dan timestamp untuk kontrol finance:
-  - siapa membuat laporan
-  - siapa menandai siap cetak
-  - siapa mengonfirmasi tanda tangan basah sudah lengkap
-  - siapa finalisasi arsip
+    - siapa membuat laporan
+    - siapa menandai siap cetak
+    - siapa mengonfirmasi tanda tangan basah sudah lengkap
+    - siapa finalisasi arsip
 - Tambah tombol:
-  - `Create Report`
-  - `Mark Ready to Print`
-  - `Confirm Physical Signature`
-  - `Finalize Archive`
-  - `Void`
+    - `Create Report`
+    - `Mark Ready to Print`
+    - `Confirm Physical Signature`
+    - `Finalize Archive`
+    - `Void`
 
 ### Catatan Role dan Tanda Tangan
 
@@ -262,24 +262,24 @@ Actions phase 2:
 ### 7.2 Struktur Tampilan
 
 1. Header laporan:
-   - Nama perusahaan/tenant
-   - Judul: `Laporan Kas Kecil Harian`
-   - Tanggal laporan
-   - Nomor laporan jika phase 2
+    - Nama perusahaan/tenant
+    - Judul: `Laporan Kas Kecil Harian`
+    - Tanggal laporan
+    - Nomor laporan jika phase 2
 
 2. Summary cards:
-   - Saldo awal
-   - Total kas masuk
-   - Total kas keluar
-   - Saldo akhir
+    - Saldo awal
+    - Total kas masuk
+    - Total kas keluar
+    - Saldo akhir
 
 3. Tabel transaksi:
-   - Voucher
-   - Deskripsi
-   - Akun
-   - Masuk
-   - Keluar
-   - Status
+    - Voucher
+    - Deskripsi
+    - Akun
+    - Masuk
+    - Keluar
+    - Status
 
 4. Signature section:
 
@@ -293,19 +293,19 @@ Tanggal: ____            Tanggal: ____                 Tanggal: ____
 ```
 
 5. Tombol aksi:
-   - Refresh
-   - Print
-   - Create/Submit/Approve jika phase 2
+    - Refresh
+    - Print
+    - Create/Submit/Approve jika phase 2
 
 ## 8. Risiko dan Mitigasi
 
-| Risiko | Dampak | Mitigasi |
-|---|---|---|
-| Perhitungan saldo tidak sama dengan ledger | Laporan salah | Gunakan jurnal posted sebagai basis saldo; validasi dengan balance petty cash existing |
-| Status petty cash existing belum konsisten | Approval/report membingungkan | Rapikan status sebelum phase 2 |
-| Role Direktur/Komisaris belum ada | Approval tidak presisi | MVP pakai signature box manual; role baru masuk phase lanjutan |
-| Locking transaksi mengganggu operasional | User tidak bisa koreksi | Terapkan locking hanya setelah approval final dan sediakan adjustment |
-| Migration finance berisiko | Data production sensitif | Phase 1 tanpa migration; phase 2 wajib backup dan migration review |
+| Risiko                                     | Dampak                        | Mitigasi                                                                               |
+| ------------------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------- |
+| Perhitungan saldo tidak sama dengan ledger | Laporan salah                 | Gunakan jurnal posted sebagai basis saldo; validasi dengan balance petty cash existing |
+| Status petty cash existing belum konsisten | Approval/report membingungkan | Rapikan status sebelum phase 2                                                         |
+| Role Direktur/Komisaris belum ada          | Approval tidak presisi        | MVP pakai signature box manual; role baru masuk phase lanjutan                         |
+| Locking transaksi mengganggu operasional   | User tidak bisa koreksi       | Terapkan locking hanya setelah approval final dan sediakan adjustment                  |
+| Migration finance berisiko                 | Data production sensitif      | Phase 1 tanpa migration; phase 2 wajib backup dan migration review                     |
 
 ## 9. UAT Checklist
 

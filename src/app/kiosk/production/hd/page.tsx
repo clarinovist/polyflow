@@ -3,23 +3,25 @@ import { redirect } from 'next/navigation';
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getMachines } from '@/actions/production/machines';
 import { getEmployees } from '@/actions/admin/employees';
-import { ProductionStatus } from "@prisma/client";
-import { serializeData } from "@/lib/utils/utils";
+import { ProductionStatus } from '@prisma/client';
+import { serializeData } from '@/lib/utils/utils';
 import { extractSubdomain } from '@/lib/core/subdomain';
 import { tenantHasProsesKhusus } from '@/lib/kiosk/tenant-features';
-import HdProductionForm from "./HdProductionForm";
+import HdProductionForm from './HdProductionForm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
-    title: "Mesin HD - Polyflow Kiosk",
+    title: 'Mesin HD - Polyflow Kiosk',
 };
 
 export default async function HdKioskPage() {
     const h = await headers();
     const subdomain =
-        h.get('x-tenant-subdomain') || extractSubdomain(h.get('host') || '') || null;
+        h.get('x-tenant-subdomain') ||
+        extractSubdomain(h.get('host') || '') ||
+        null;
     if (!tenantHasProsesKhusus(subdomain)) {
         redirect('/kiosk');
     }
@@ -27,14 +29,21 @@ export default async function HdKioskPage() {
     const ordersRes = await getProductionOrders();
     const allOrders = ordersRes;
     const orders = allOrders.filter((o) =>
-      ([ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] as ProductionStatus[]).includes(o.status)
+        (
+            [
+                ProductionStatus.RELEASED,
+                ProductionStatus.IN_PROGRESS,
+            ] as ProductionStatus[]
+        ).includes(o.status),
     );
 
     const machinesRes = await getMachines();
-    const machines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
+    const machines =
+        machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
     const employeesRes = await getEmployees();
-    const allEmployees = employeesRes.success && employeesRes.data ? employeesRes.data : [];
+    const allEmployees =
+        employeesRes.success && employeesRes.data ? employeesRes.data : [];
     const employees = allEmployees.filter((e) => e.status === 'ACTIVE');
 
     const serializedOrders = serializeData(orders);
@@ -44,7 +53,12 @@ export default async function HdKioskPage() {
     return (
         <div className="min-h-screen bg-background p-4 md:p-6 max-w-7xl mx-auto space-y-4">
             <Link href="/kiosk">
-                <Button variant="ghost" size="icon" className="h-10 w-10" title="Kembali ke Hub">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10"
+                    title="Kembali ke Hub"
+                >
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
             </Link>

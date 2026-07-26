@@ -1,5 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
 import { analyticsLabels } from '@/lib/labels';
@@ -10,17 +23,22 @@ interface ARAgingCardProps {
 }
 
 export function ARAgingCard({ data }: ARAgingCardProps) {
-    if (!data.length) return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{analyticsLabels.arAging}</CardTitle>
-                <CardDescription>{analyticsLabels.arAgingDesc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground py-8 text-center">{analyticsLabels.noData}</p>
-            </CardContent>
-        </Card>
-    );
+    if (!data.length)
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>{analyticsLabels.arAging}</CardTitle>
+                    <CardDescription>
+                        {analyticsLabels.arAgingDesc}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground py-8 text-center">
+                        {analyticsLabels.noData}
+                    </p>
+                </CardContent>
+            </Card>
+        );
 
     return (
         <Card>
@@ -41,7 +59,15 @@ export function ARAgingCard({ data }: ARAgingCardProps) {
                         {data.map((item) => (
                             <TableRow key={item.range}>
                                 <TableCell className="font-medium">
-                                    <Badge variant={(item.range === 'Current' || item.range === '1-30 Days') ? 'outline' : 'destructive'} className="whitespace-nowrap">
+                                    <Badge
+                                        variant={
+                                            item.range === 'Current' ||
+                                            item.range === '1-30 Days'
+                                                ? 'outline'
+                                                : 'destructive'
+                                        }
+                                        className="whitespace-nowrap"
+                                    >
                                         {item.range}
                                     </Badge>
                                 </TableCell>

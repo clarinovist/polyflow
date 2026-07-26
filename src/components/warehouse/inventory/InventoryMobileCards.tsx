@@ -18,7 +18,11 @@ import { ArrowDown, ArrowUp, Search } from 'lucide-react';
 import { ThresholdDialog } from './ThresholdDialog';
 import { cn, formatQuantity } from '@/lib/utils/utils';
 import { warehouseComponentLabels } from '@/lib/labels';
-import type { InventoryItem, SortField, SortOrder } from './inventory-table-types';
+import type {
+    InventoryItem,
+    SortField,
+    SortOrder,
+} from './inventory-table-types';
 
 interface InventoryMobileCardsProps {
     paginatedInventory: InventoryItem[];
@@ -52,8 +56,15 @@ export function InventoryMobileCards({
             {/* Sort dropdown for mobile */}
             {handleSort && paginatedInventory.length > 0 && (
                 <div className="flex items-center gap-2 pb-2">
-                    <span className="text-xs text-muted-foreground">Urutkan:</span>
-                    <Select value={sortField} onValueChange={(value) => handleSort(value as SortField)}>
+                    <span className="text-xs text-muted-foreground">
+                        Urutkan:
+                    </span>
+                    <Select
+                        value={sortField}
+                        onValueChange={(value) =>
+                            handleSort(value as SortField)
+                        }
+                    >
                         <SelectTrigger className="w-[140px] h-8 text-xs">
                             <SelectValue />
                         </SelectTrigger>
@@ -67,7 +78,11 @@ export function InventoryMobileCards({
                     <button
                         onClick={() => handleSort(sortField)}
                         className="h-8 w-8 flex items-center justify-center rounded border hover:bg-muted transition-colors"
-                        aria-label={sortOrder === 'asc' ? 'Urutkan menurun' : 'Urutkan menaik'}
+                        aria-label={
+                            sortOrder === 'asc'
+                                ? 'Urutkan menurun'
+                                : 'Urutkan menaik'
+                        }
                     >
                         {sortOrder === 'asc' ? (
                             <ArrowUp className="h-4 w-4 text-blue-600" />
@@ -84,21 +99,30 @@ export function InventoryMobileCards({
                     {isLocationSpecific ? (
                         <>
                             <p>Tidak ada stok di lokasi ini.</p>
-                            <Link href="/warehouse/inventory" className="text-xs text-primary hover:underline mt-1">
+                            <Link
+                                href="/warehouse/inventory"
+                                className="text-xs text-primary hover:underline mt-1"
+                            >
                                 Lihat semua lokasi
                             </Link>
                         </>
                     ) : hasFilters ? (
                         <>
                             <p>Tidak ada item yang cocok.</p>
-                            <Link href="/warehouse/inventory" className="text-xs text-primary hover:underline mt-1">
+                            <Link
+                                href="/warehouse/inventory"
+                                className="text-xs text-primary hover:underline mt-1"
+                            >
                                 Hapus filter
                             </Link>
                         </>
                     ) : (
                         <>
                             <p>Belum ada stok tercatat.</p>
-                            <Link href="/warehouse/incoming" className="text-xs text-primary hover:underline mt-1">
+                            <Link
+                                href="/warehouse/incoming"
+                                className="text-xs text-primary hover:underline mt-1"
+                            >
                                 Catat penerimaan barang
                             </Link>
                         </>
@@ -107,46 +131,94 @@ export function InventoryMobileCards({
             ) : (
                 paginatedInventory.map((item) => {
                     const isLowStock = isGlobalLowStock(item);
-                    const totalStockValue = variantTotals[item.productVariantId];
-                    const thresholdValue = item.productVariant.minStockAlert || 0;
+                    const totalStockValue =
+                        variantTotals[item.productVariantId];
+                    const thresholdValue =
+                        item.productVariant.minStockAlert || 0;
                     const isSelected = selectedItems.has(item.id);
 
                     return (
-                        <Card key={item.id} className={cn('overflow-hidden', isSelected && 'border-primary')}>
+                        <Card
+                            key={item.id}
+                            className={cn(
+                                'overflow-hidden',
+                                isSelected && 'border-primary',
+                            )}
+                        >
                             <CardHeader className="p-3 pb-2 bg-muted/40">
                                 <div className="flex justify-between items-start gap-2">
                                     <div className="flex items-center gap-3">
                                         <Checkbox
                                             checked={isSelected}
-                                            onCheckedChange={() => toggleSelectItem(item.id)}
+                                            onCheckedChange={() =>
+                                                toggleSelectItem(item.id)
+                                            }
                                             className="h-5 w-5 min-w-[20px]"
                                         />
                                         <div>
-                                            <Link href={`/warehouse/inventory/${item.productVariantId}`}>
-                                                <h3 className="font-semibold text-sm leading-tight hover:text-primary transition-colors">{item.productVariant.name}</h3>
+                                            <Link
+                                                href={`/warehouse/inventory/${item.productVariantId}`}
+                                            >
+                                                <h3 className="font-semibold text-sm leading-tight hover:text-primary transition-colors">
+                                                    {item.productVariant.name}
+                                                </h3>
                                             </Link>
                                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                <code className="text-[10px] bg-background px-1 rounded border">{item.productVariant.skuCode}</code>
-                                                <span className="text-[10px] text-muted-foreground">{item.location?.name}</span>
-                                                {abcMap && abcMap[item.productVariantId] && (
-                                                    <Badge variant="outline" className={cn(
-                                                        'h-4 px-1 text-[10px] font-bold',
-                                                        abcMap[item.productVariantId] === 'A' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
-                                                            abcMap[item.productVariantId] === 'B' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
-                                                                'bg-muted text-muted-foreground border-border'
-                                                    )}>
-                                                        {abcMap[item.productVariantId]}
-                                                    </Badge>
-                                                )}
+                                                <code className="text-[10px] bg-background px-1 rounded border">
+                                                    {
+                                                        item.productVariant
+                                                            .skuCode
+                                                    }
+                                                </code>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {item.location?.name}
+                                                </span>
+                                                {abcMap &&
+                                                    abcMap[
+                                                        item.productVariantId
+                                                    ] && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                'h-4 px-1 text-[10px] font-bold',
+                                                                abcMap[
+                                                                    item
+                                                                        .productVariantId
+                                                                ] === 'A'
+                                                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                                                    : abcMap[
+                                                                            item
+                                                                                .productVariantId
+                                                                        ] ===
+                                                                        'B'
+                                                                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                                                                      : 'bg-muted text-muted-foreground border-border',
+                                                            )}
+                                                        >
+                                                            {
+                                                                abcMap[
+                                                                    item
+                                                                        .productVariantId
+                                                                ]
+                                                            }
+                                                        </Badge>
+                                                    )}
                                             </div>
                                         </div>
                                     </div>
                                     {isLowStock ? (
-                                        <Badge variant="destructive" className="text-[10px] h-5 px-1.5 whitespace-nowrap">
-                                            {warehouseComponentLabels.lowStock} ({totalStockValue}/{thresholdValue})
+                                        <Badge
+                                            variant="destructive"
+                                            className="text-[10px] h-5 px-1.5 whitespace-nowrap"
+                                        >
+                                            {warehouseComponentLabels.lowStock}{' '}
+                                            ({totalStockValue}/{thresholdValue})
                                         </Badge>
                                     ) : (
-                                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                                        <Badge
+                                            variant="outline"
+                                            className="text-[10px] h-5 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                        >
                                             Tersedia
                                         </Badge>
                                     )}
@@ -155,22 +227,38 @@ export function InventoryMobileCards({
                             <CardContent className="p-3 pt-3">
                                 <div className="grid grid-cols-3 gap-2 text-center">
                                     <div className="bg-background rounded p-2 border">
-                                        <p className="text-[10px] text-muted-foreground uppercase">Stok</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase">
+                                            Stok
+                                        </p>
                                         <p className="font-semibold text-sm">
                                             {formatQuantity(item.quantity)}
-                                            <span className="text-[10px] font-normal text-muted-foreground ml-0.5">{item.productVariant.primaryUnit}</span>
+                                            <span className="text-[10px] font-normal text-muted-foreground ml-0.5">
+                                                {
+                                                    item.productVariant
+                                                        .primaryUnit
+                                                }
+                                            </span>
                                         </p>
                                     </div>
                                     <div className="bg-amber-500/5 rounded p-2 border border-amber-500/10">
-                                        <p className="text-[10px] text-amber-600/80 uppercase">Terpesan</p>
+                                        <p className="text-[10px] text-amber-600/80 uppercase">
+                                            Terpesan
+                                        </p>
                                         <p className="font-semibold text-sm text-amber-700 dark:text-amber-500">
-                                            {formatQuantity(item.reservedQuantity || 0)}
+                                            {formatQuantity(
+                                                item.reservedQuantity || 0,
+                                            )}
                                         </p>
                                     </div>
                                     <div className="bg-emerald-500/5 rounded p-2 border border-emerald-500/10">
-                                        <p className="text-[10px] text-emerald-600/80 uppercase">Tersedia</p>
+                                        <p className="text-[10px] text-emerald-600/80 uppercase">
+                                            Tersedia
+                                        </p>
                                         <p className="font-semibold text-sm text-emerald-700 dark:text-emerald-500">
-                                            {formatQuantity(item.availableQuantity || item.quantity)}
+                                            {formatQuantity(
+                                                item.availableQuantity ||
+                                                    item.quantity,
+                                            )}
                                         </p>
                                     </div>
                                 </div>

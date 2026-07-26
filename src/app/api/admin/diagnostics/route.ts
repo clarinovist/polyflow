@@ -8,7 +8,10 @@ export async function GET() {
     try {
         const session = await auth();
         if (!session || !isTenantAdmin(session.user)) {
-            return new NextResponse('Unauthorized. Only ADMIN can access diagnostics.', { status: 401 });
+            return new NextResponse(
+                'Unauthorized. Only ADMIN can access diagnostics.',
+                { status: 401 },
+            );
         }
 
         const startTime = Date.now();
@@ -24,9 +27,9 @@ export async function GET() {
             dbError = e instanceof Error ? e.message : 'Unknown database error';
         }
 
-        // Redis is not actively pinged here assuming it is handled via Next.js cache 
+        // Redis is not actively pinged here assuming it is handled via Next.js cache
         // OR we can leave it pending actual implementation.
-        
+
         // Environment Completeness Check.
         // NOTE: We intentionally do NOT check NEXTAUTH_URL — this app is
         // multi-tenant and pins host trust via AUTH_TRUST_HOST instead
@@ -38,10 +41,10 @@ export async function GET() {
             'NEXTAUTH_SECRET',
             'AUTH_TRUST_HOST',
         ];
-        
-        const envCompleteness = envKeys.map(key => ({
+
+        const envCompleteness = envKeys.map((key) => ({
             key,
-            isSet: !!process.env[key]
+            isSet: !!process.env[key],
         }));
 
         const diskTotal = 'N/A in Edge/Serverless'; // Node API doesn't have native disk space OS module yet
@@ -49,39 +52,44 @@ export async function GET() {
 
         const memoryUsage = process.memoryUsage();
 
-        return NextResponse.json({
-            timestamp: new Date().toISOString(),
-            status: dbStatus === 'connected' ? 'OK' : 'DEGRADED',
-            db: {
-                status: dbStatus,
-                latencyMs: dbLatency,
-                error: dbError
+        return NextResponse.json(
+            {
+                timestamp: new Date().toISOString(),
+                status: dbStatus === 'connected' ? 'OK' : 'DEGRADED',
+                db: {
+                    status: dbStatus,
+                    latencyMs: dbLatency,
+                    error: dbError,
+                },
+                system: {
+                    uptimeSeconds: process.uptime(),
+                    osUptimeSeconds: os.uptime(),
+                    platform: os.platform(),
+                    arch: os.arch(),
+                    cpus: os.cpus().length,
+                },
+                memory: {
+                    rssBytes: memoryUsage.rss,
+                    heapTotalBytes: memoryUsage.heapTotal,
+                    heapUsedBytes: memoryUsage.heapUsed,
+                    osTotalBytes: os.totalmem(),
+                    osFreeBytes: os.freemem(),
+                },
+                storage: {
+                    diskTotal,
+                    diskFree,
+                },
+                environment: envCompleteness,
             },
-            system: {
-                uptimeSeconds: process.uptime(),
-                osUptimeSeconds: os.uptime(),
-                platform: os.platform(),
-                arch: os.arch(),
-                cpus: os.cpus().length,
-            },
-            memory: {
-                rssBytes: memoryUsage.rss,
-                heapTotalBytes: memoryUsage.heapTotal,
-                heapUsedBytes: memoryUsage.heapUsed,
-                osTotalBytes: os.totalmem(),
-                osFreeBytes: os.freemem(),
-            },
-            storage: {
-                diskTotal,
-                diskFree
-            },
-            environment: envCompleteness
-        }, { status: 200 });
-        
+            { status: 200 },
+        );
     } catch {
-        return NextResponse.json({
-            status: 'ERROR',
-            error: 'Gagal menjalankan diagnostics'
-        }, { status: 500 });
+        return NextResponse.json(
+            {
+                status: 'ERROR',
+                error: 'Gagal menjalankan diagnostics',
+            },
+            { status: 500 },
+        );
     }
 }

@@ -1,163 +1,179 @@
-import { prisma } from "@/lib/core/prisma";
+import { prisma } from '@/lib/core/prisma';
 import {
-  MovementType,
-  Prisma,
-  BatchStatus,
-  ReservationStatus,
-} from "@prisma/client";
-import { logActivity } from "@/lib/tools/audit";
+    MovementType,
+    Prisma,
+    BatchStatus,
+    ReservationStatus,
+} from '@prisma/client';
+import { logActivity } from '@/lib/tools/audit';
 import {
-  TransferStockValues,
-  BulkTransferStockValues,
-  AdjustStockWithBatchValues,
-  BulkAdjustStockValues,
-} from "@/lib/schemas/inventory";
-import { AccountingService } from "@/services/accounting/accounting-service";
-import { InventoryCoreService } from "./core-service";
-import {
-  InsufficientStockError,
-} from "@/lib/errors/errors";
+    TransferStockValues,
+    BulkTransferStockValues,
+    AdjustStockWithBatchValues,
+    BulkAdjustStockValues,
+} from '@/lib/schemas/inventory';
+import { AccountingService } from '@/services/accounting/accounting-service';
+import { InventoryCoreService } from './core-service';
+import { InsufficientStockError } from '@/lib/errors/errors';
 
 export class InventoryMovementService {
-  static async transferStock(data: TransferStockValues, userId: string) {
-    const {
-      sourceLocationId,
-      destinationLocationId,
-      productVariantId,
-      quantity,
-      notes,
-      date,
-    } = data;
+    static async transferStock(data: TransferStockValues, userId: string) {
+        const {
+            sourceLocationId,
+            destinationLocationId,
+            productVariantId,
+            quantity,
+            notes,
+            date,
+        } = data;
 
-    await prisma.$transaction(async (tx) => {
-      const sourceStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+        await prisma.$transaction(async (tx) => {
+            const sourceStockRow = await tx.$queryRaw<
+                Array<{ quantity: string }>
+            >`
                 SELECT "quantity"::text as quantity
                 FROM "Inventory"
                 WHERE "locationId" = ${sourceLocationId} AND "productVariantId" = ${productVariantId}
                 FOR UPDATE
             `;
-      const sourceStockQty = sourceStockRow[0]
-        ? Number(sourceStockRow[0].quantity)
-        : null;
+            const sourceStockQty = sourceStockRow[0]
+                ? Number(sourceStockRow[0].quantity)
+                : null;
 
-      if (sourceStockQty === null || sourceStockQty < quantity) {
-        throw new InsufficientStockError(
-          `Stok tidak mencukupi di lokasi sumber. Tersedia: ${sourceStockQty || 0}, Diperlukan: ${quantity}`,
-          { sourceLocationId, productVariantId, available: sourceStockQty || 0, requested: quantity },
-        );
-      }
+            if (sourceStockQty === null || sourceStockQty < quantity) {
+                throw new InsufficientStockError(
+                    `Stok tidak mencukupi di lokasi sumber. Tersedia: ${sourceStockQty || 0}, Diperlukan: ${quantity}`,
+                    {
+                        sourceLocationId,
+                        productVariantId,
+                        available: sourceStockQty || 0,
+                        requested: quantity,
+                    },
+                );
+            }
 
-      const activeReservations = await tx.stockReservation.aggregate({
-        where: {
-          locationId: sourceLocationId,
-          productVariantId: productVariantId,
-          status: ReservationStatus.ACTIVE,
-        },
-        _sum: { quantity: true },
-      });
+            const activeReservations = await tx.stockReservation.aggregate({
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: productVariantId,
+                    status: ReservationStatus.ACTIVE,
+                },
+                _sum: { quantity: true },
+            });
 
-      const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
-      const availableQty = (sourceStockQty || 0) - reservedQty;
+            const reservedQty =
+                activeReservations._sum.quantity?.toNumber() || 0;
+            const availableQty = (sourceStockQty || 0) - reservedQty;
 
-      if (availableQty < quantity) {
-        throw new InsufficientStockError(
-          `Tidak dapat mentransfer. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
-          { sourceLocationId, productVariantId, available: availableQty, requested: quantity },
-        );
-      }
+            if (availableQty < quantity) {
+                throw new InsufficientStockError(
+                    `Tidak dapat mentransfer. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
+                    {
+                        sourceLocationId,
+                        productVariantId,
+                        available: availableQty,
+                        requested: quantity,
+                    },
+                );
+            }
 
-      await tx.inventory.update({
-        where: {
-          locationId_productVariantId: {
-            locationId: sourceLocationId,
-            productVariantId: productVariantId,
-          },
-        },
-        data: { quantity: { decrement: quantity } },
-      });
+            await tx.inventory.update({
+                where: {
+                    locationId_productVariantId: {
+                        locationId: sourceLocationId,
+                        productVariantId: productVariantId,
+                    },
+                },
+                data: { quantity: { decrement: quantity } },
+            });
 
-      const sourceInventory = await tx.inventory.findUnique({
-        where: {
-          locationId_productVariantId: {
-            locationId: sourceLocationId,
-            productVariantId: productVariantId,
-          },
-        },
-        select: {
-          averageCost: true,
-          productVariant: {
-            select: {
-              standardCost: true,
-              buyPrice: true,
-            },
-          },
-        },
-      });
+            const sourceInventory = await tx.inventory.findUnique({
+                where: {
+                    locationId_productVariantId: {
+                        locationId: sourceLocationId,
+                        productVariantId: productVariantId,
+                    },
+                },
+                select: {
+                    averageCost: true,
+                    productVariant: {
+                        select: {
+                            standardCost: true,
+                            buyPrice: true,
+                        },
+                    },
+                },
+            });
 
-      const unitCost =
-        Number(sourceInventory?.averageCost ?? 0) ||
-        Number(sourceInventory?.productVariant?.standardCost ?? 0) ||
-        Number(sourceInventory?.productVariant?.buyPrice ?? 0);
+            const unitCost =
+                Number(sourceInventory?.averageCost ?? 0) ||
+                Number(sourceInventory?.productVariant?.standardCost ?? 0) ||
+                Number(sourceInventory?.productVariant?.buyPrice ?? 0);
 
-      if (unitCost > 0) {
-        await InventoryCoreService.incrementStockWithCost(
-          tx,
-          destinationLocationId,
-          productVariantId,
-          quantity,
-          unitCost,
-        );
-        } else {
-          await InventoryCoreService.incrementStock(tx, destinationLocationId, productVariantId, quantity);
-        }
+            if (unitCost > 0) {
+                await InventoryCoreService.incrementStockWithCost(
+                    tx,
+                    destinationLocationId,
+                    productVariantId,
+                    quantity,
+                    unitCost,
+                );
+            } else {
+                await InventoryCoreService.incrementStock(
+                    tx,
+                    destinationLocationId,
+                    productVariantId,
+                    quantity,
+                );
+            }
 
-      await tx.stockMovement.create({
-        data: {
-          type: MovementType.TRANSFER,
-          productVariantId,
-          fromLocationId: sourceLocationId,
-          toLocationId: destinationLocationId,
-          quantity,
-          cost: unitCost > 0 ? unitCost : undefined,
-          reference: notes,
-          createdAt: date,
-          createdById: userId,
-        },
-      });
+            await tx.stockMovement.create({
+                data: {
+                    type: MovementType.TRANSFER,
+                    productVariantId,
+                    fromLocationId: sourceLocationId,
+                    toLocationId: destinationLocationId,
+                    quantity,
+                    cost: unitCost > 0 ? unitCost : undefined,
+                    reference: notes,
+                    createdAt: date,
+                    createdById: userId,
+                },
+            });
 
-      await logActivity({
-        userId: userId,
-        action: "TRANSFER_STOCK",
-        entityType: "ProductVariant",
-        entityId: productVariantId,
-        details: `Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
-        tx,
-      });
-    });
-  }
+            await logActivity({
+                userId: userId,
+                action: 'TRANSFER_STOCK',
+                entityType: 'ProductVariant',
+                entityId: productVariantId,
+                details: `Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                tx,
+            });
+        });
+    }
 
-  static async transferStockBulk(
-    data: BulkTransferStockValues,
-    userId: string,
-  ) {
-    const {
-      sourceLocationId,
-      destinationLocationId,
-      items,
-      notes,
-      date,
-      productionOrderId,
-    } = data;
+    static async transferStockBulk(
+        data: BulkTransferStockValues,
+        userId: string,
+    ) {
+        const {
+            sourceLocationId,
+            destinationLocationId,
+            items,
+            notes,
+            date,
+            productionOrderId,
+        } = data;
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Fetch and Lock all Source Inventory
-      const productVariantIds = items.map((i) => i.productVariantId);
+        await prisma.$transaction(async (tx) => {
+            // 1. Fetch and Lock all Source Inventory
+            const productVariantIds = items.map((i) => i.productVariantId);
 
-      if (productVariantIds.length === 0) return;
+            if (productVariantIds.length === 0) return;
 
-      const sourceStockRows = await tx.$queryRaw<
-        Array<{ productVariantId: string; quantity: string }>
-      >`
+            const sourceStockRows = await tx.$queryRaw<
+                Array<{ productVariantId: string; quantity: string }>
+            >`
                 SELECT "productVariantId", "quantity"::text as quantity
                 FROM "Inventory"
                 WHERE "locationId" = ${sourceLocationId}
@@ -165,429 +181,495 @@ export class InventoryMovementService {
                 FOR UPDATE
             `;
 
-      const stockMap = new Map<string, number>();
-      sourceStockRows.forEach((row) => {
-        stockMap.set(row.productVariantId, Number(row.quantity));
-      });
+            const stockMap = new Map<string, number>();
+            sourceStockRows.forEach((row) => {
+                stockMap.set(row.productVariantId, Number(row.quantity));
+            });
 
-      // 2. Fetch Reservations
-      const activeReservations = await tx.stockReservation.groupBy({
-        by: ["productVariantId"],
-        where: {
-          locationId: sourceLocationId,
-          productVariantId: { in: productVariantIds },
-          status: ReservationStatus.ACTIVE,
-        },
-        _sum: { quantity: true },
-      });
+            // 2. Fetch Reservations
+            const activeReservations = await tx.stockReservation.groupBy({
+                by: ['productVariantId'],
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: { in: productVariantIds },
+                    status: ReservationStatus.ACTIVE,
+                },
+                _sum: { quantity: true },
+            });
 
-      const reservationMap = new Map<string, number>();
-      activeReservations.forEach((r) => {
-        reservationMap.set(
-          r.productVariantId,
-          r._sum.quantity?.toNumber() || 0,
-        );
-      });
+            const reservationMap = new Map<string, number>();
+            activeReservations.forEach((r) => {
+                reservationMap.set(
+                    r.productVariantId,
+                    r._sum.quantity?.toNumber() || 0,
+                );
+            });
 
-      // 2.5. Fetch costs for transfer items to preserve cost at destination
-      const sourceInventories = await tx.inventory.findMany({
-        where: {
-          locationId: sourceLocationId,
-          productVariantId: { in: productVariantIds },
-        },
-        select: {
-          productVariantId: true,
-          averageCost: true,
-          productVariant: {
-            select: {
-              standardCost: true,
-              buyPrice: true,
-            },
-          },
-        },
-      });
+            // 2.5. Fetch costs for transfer items to preserve cost at destination
+            const sourceInventories = await tx.inventory.findMany({
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: { in: productVariantIds },
+                },
+                select: {
+                    productVariantId: true,
+                    averageCost: true,
+                    productVariant: {
+                        select: {
+                            standardCost: true,
+                            buyPrice: true,
+                        },
+                    },
+                },
+            });
 
-      const costMap = new Map<string, number>();
-      sourceInventories.forEach((inv) => {
-        const cost =
-          Number(inv.averageCost ?? 0) ||
-          Number(inv.productVariant?.standardCost ?? 0) ||
-          Number(inv.productVariant?.buyPrice ?? 0);
-        costMap.set(inv.productVariantId, cost);
-      });
+            const costMap = new Map<string, number>();
+            sourceInventories.forEach((inv) => {
+                const cost =
+                    Number(inv.averageCost ?? 0) ||
+                    Number(inv.productVariant?.standardCost ?? 0) ||
+                    Number(inv.productVariant?.buyPrice ?? 0);
+                costMap.set(inv.productVariantId, cost);
+            });
 
-      // 3. Process Transfers
-      for (const item of items) {
-        const { productVariantId, quantity } = item;
+            // 3. Process Transfers
+            for (const item of items) {
+                const { productVariantId, quantity } = item;
 
-        const sourceStockQty = stockMap.get(productVariantId);
+                const sourceStockQty = stockMap.get(productVariantId);
 
-        if (sourceStockQty === undefined || sourceStockQty < quantity) {
-          throw new InsufficientStockError(
-            `Stok tidak mencukupi untuk produk di lokasi sumber. Tersedia: ${sourceStockQty || 0}, Diperlukan: ${quantity}`,
-            { productVariantId, sourceLocationId, available: sourceStockQty || 0, requested: quantity },
-          );
-        }
+                if (sourceStockQty === undefined || sourceStockQty < quantity) {
+                    throw new InsufficientStockError(
+                        `Stok tidak mencukupi untuk produk di lokasi sumber. Tersedia: ${sourceStockQty || 0}, Diperlukan: ${quantity}`,
+                        {
+                            productVariantId,
+                            sourceLocationId,
+                            available: sourceStockQty || 0,
+                            requested: quantity,
+                        },
+                    );
+                }
 
-        const reservedQty = reservationMap.get(productVariantId) || 0;
-        const availableQty = sourceStockQty - reservedQty;
+                const reservedQty = reservationMap.get(productVariantId) || 0;
+                const availableQty = sourceStockQty - reservedQty;
 
-        if (availableQty < quantity) {
-          throw new InsufficientStockError(
-            `Tidak dapat mentransfer produk. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
-            { productVariantId, sourceLocationId, available: availableQty, requested: quantity },
-          );
-        }
+                if (availableQty < quantity) {
+                    throw new InsufficientStockError(
+                        `Tidak dapat mentransfer produk. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
+                        {
+                            productVariantId,
+                            sourceLocationId,
+                            available: availableQty,
+                            requested: quantity,
+                        },
+                    );
+                }
 
-        // Update local map to reflect deduction for subsequent iterations
-        stockMap.set(productVariantId, sourceStockQty - quantity);
+                // Update local map to reflect deduction for subsequent iterations
+                stockMap.set(productVariantId, sourceStockQty - quantity);
 
-        await tx.inventory.update({
-          where: {
-            locationId_productVariantId: {
-              locationId: sourceLocationId,
-              productVariantId: productVariantId,
-            },
-          },
-          data: { quantity: { decrement: quantity } },
+                await tx.inventory.update({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: sourceLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    data: { quantity: { decrement: quantity } },
+                });
+
+                const unitCost = costMap.get(productVariantId) || 0;
+
+                if (unitCost > 0) {
+                    await InventoryCoreService.incrementStockWithCost(
+                        tx,
+                        destinationLocationId,
+                        productVariantId,
+                        quantity,
+                        unitCost,
+                    );
+                } else {
+                    await InventoryCoreService.incrementStock(
+                        tx,
+                        destinationLocationId,
+                        productVariantId,
+                        quantity,
+                    );
+                }
+
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.TRANSFER,
+                        productVariantId,
+                        fromLocationId: sourceLocationId,
+                        toLocationId: destinationLocationId,
+                        quantity,
+                        cost: unitCost > 0 ? unitCost : undefined,
+                        reference: notes,
+                        createdAt: date,
+                        createdById: userId,
+                        productionOrderId: productionOrderId || undefined,
+                    },
+                });
+
+                await logActivity({
+                    userId: userId,
+                    action: 'TRANSFER_STOCK_BULK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `Bulk Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                    tx,
+                });
+            }
         });
+    }
 
-        const unitCost = costMap.get(productVariantId) || 0;
-
-        if (unitCost > 0) {
-          await InventoryCoreService.incrementStockWithCost(
-            tx,
-            destinationLocationId,
+    static async adjustStock(data: AdjustStockWithBatchValues, userId: string) {
+        const {
+            locationId,
             productVariantId,
+            type,
             quantity,
+            reason,
+            batchData,
             unitCost,
-          );
-        } else {
-          await InventoryCoreService.incrementStock(tx, destinationLocationId, productVariantId, quantity);
-        }
+        } = data;
 
-        await tx.stockMovement.create({
-          data: {
-            type: MovementType.TRANSFER,
-            productVariantId,
-            fromLocationId: sourceLocationId,
-            toLocationId: destinationLocationId,
-            quantity,
-            cost: unitCost > 0 ? unitCost : undefined,
-            reference: notes,
-            createdAt: date,
-            createdById: userId,
-            productionOrderId: productionOrderId || undefined,
-          },
-        });
+        await prisma.$transaction(async (tx) => {
+            const isIncrement = type === 'ADJUSTMENT_IN';
 
-        await logActivity({
-          userId: userId,
-          action: "TRANSFER_STOCK_BULK",
-          entityType: "ProductVariant",
-          entityId: productVariantId,
-          details: `Bulk Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
-          tx,
-        });
-      }
-    });
-  }
-
-  static async adjustStock(data: AdjustStockWithBatchValues, userId: string) {
-    const {
-      locationId,
-      productVariantId,
-      type,
-      quantity,
-      reason,
-      batchData,
-      unitCost,
-    } = data;
-
-    await prisma.$transaction(async (tx) => {
-      const isIncrement = type === "ADJUSTMENT_IN";
-
-      if (!isIncrement) {
-        const currentStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+            if (!isIncrement) {
+                const currentStockRow = await tx.$queryRaw<
+                    Array<{ quantity: string }>
+                >`
                     SELECT "quantity"::text as quantity
                     FROM "Inventory"
                     WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
                     FOR UPDATE
                 `;
-        const currentStockQty = currentStockRow[0]
-          ? Number(currentStockRow[0].quantity)
-          : null;
-        if (currentStockQty === null || currentStockQty < quantity) {
-          throw new InsufficientStockError(
-            `Stok tidak mencukupi untuk penyesuaian keluar. Tersedia: ${currentStockQty || 0}, Diperlukan: ${quantity}`,
-            { locationId, productVariantId, available: currentStockQty || 0, requested: quantity },
-          );
-        }
+                const currentStockQty = currentStockRow[0]
+                    ? Number(currentStockRow[0].quantity)
+                    : null;
+                if (currentStockQty === null || currentStockQty < quantity) {
+                    throw new InsufficientStockError(
+                        `Stok tidak mencukupi untuk penyesuaian keluar. Tersedia: ${currentStockQty || 0}, Diperlukan: ${quantity}`,
+                        {
+                            locationId,
+                            productVariantId,
+                            available: currentStockQty || 0,
+                            requested: quantity,
+                        },
+                    );
+                }
 
-        const activeReservations = await tx.stockReservation.aggregate({
-          where: {
-            locationId,
-            productVariantId,
-            status: ReservationStatus.ACTIVE,
-          },
-          _sum: { quantity: true },
+                const activeReservations = await tx.stockReservation.aggregate({
+                    where: {
+                        locationId,
+                        productVariantId,
+                        status: ReservationStatus.ACTIVE,
+                    },
+                    _sum: { quantity: true },
+                });
+
+                const reservedQty =
+                    activeReservations._sum.quantity?.toNumber() || 0;
+                const availableQty = currentStockQty - reservedQty;
+
+                if (availableQty < quantity) {
+                    throw new InsufficientStockError(
+                        `Tidak dapat melakukan penyesuaian keluar. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
+                        {
+                            locationId,
+                            productVariantId,
+                            available: availableQty,
+                            requested: quantity,
+                        },
+                    );
+                }
+            } else {
+                if (batchData) {
+                    await tx.batch.create({
+                        data: {
+                            batchNumber: batchData.batchNumber,
+                            productVariantId,
+                            locationId,
+                            quantity,
+                            manufacturingDate: batchData.manufacturingDate,
+                            expiryDate: batchData.expiryDate,
+                            status: BatchStatus.ACTIVE,
+                        },
+                    });
+                }
+            }
+
+            // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
+            let movementCost = unitCost;
+
+            if (isIncrement) {
+                let cost = unitCost;
+                if (!cost) {
+                    const variant = await tx.productVariant.findUnique({
+                        where: { id: productVariantId },
+                        select: { buyPrice: true },
+                    });
+                    cost = variant?.buyPrice?.toNumber() || 0;
+                }
+
+                const newAvgCost = await InventoryCoreService.calculateWAC(
+                    productVariantId,
+                    locationId,
+                    quantity,
+                    cost,
+                    tx,
+                );
+
+                await tx.inventory.upsert({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId,
+                            productVariantId,
+                        },
+                    },
+                    update: {
+                        quantity: { increment: quantity },
+                        averageCost: newAvgCost,
+                    },
+                    create: {
+                        locationId,
+                        productVariantId,
+                        quantity,
+                        averageCost: cost,
+                    },
+                });
+            } else {
+                // For ADJUSTMENT_OUT, resolve cost from current averageCost if not provided
+                let outCost = unitCost;
+                if (!outCost) {
+                    const inv = await tx.inventory.findUnique({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId,
+                                productVariantId,
+                            },
+                        },
+                        select: { averageCost: true },
+                    });
+                    outCost = inv?.averageCost?.toNumber() || 0;
+                }
+
+                await tx.inventory.update({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId,
+                            productVariantId,
+                        },
+                    },
+                    data: { quantity: { decrement: quantity } },
+                });
+
+                // Use resolved cost for the movement record
+                movementCost = outCost;
+            }
+
+            let batchId: string | null = null;
+            if (isIncrement && batchData) {
+                const newBatch = await tx.batch.findUnique({
+                    where: { batchNumber: batchData.batchNumber },
+                });
+                batchId = newBatch?.id || null;
+            }
+
+            const movement = await tx.stockMovement.create({
+                data: {
+                    type: MovementType.ADJUSTMENT,
+                    productVariantId,
+                    fromLocationId: isIncrement ? null : locationId,
+                    toLocationId: isIncrement ? locationId : null,
+                    quantity,
+                    cost: movementCost
+                        ? new Prisma.Decimal(movementCost)
+                        : undefined,
+                    reference: reason,
+                    batchId,
+                    createdById: userId,
+                },
+            });
+
+            await logActivity({
+                userId: userId,
+                action: 'ADJUST_STOCK',
+                entityType: 'ProductVariant',
+                entityId: productVariantId,
+                details: `${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                tx,
+            });
+
+            await AccountingService.recordInventoryMovement(movement, tx);
+
+            return movement;
         });
+    }
 
-        const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
-        const availableQty = currentStockQty - reservedQty;
+    static async adjustStockBulk(data: BulkAdjustStockValues, userId: string) {
+        const { locationId, items } = data;
 
-        if (availableQty < quantity) {
-          throw new InsufficientStockError(
-            `Tidak dapat melakukan penyesuaian keluar. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
-            { locationId, productVariantId, available: availableQty, requested: quantity },
-          );
-        }
-      } else {
-        if (batchData) {
-          await tx.batch.create({
-            data: {
-              batchNumber: batchData.batchNumber,
-              productVariantId,
-              locationId,
-              quantity,
-              manufacturingDate: batchData.manufacturingDate,
-              expiryDate: batchData.expiryDate,
-              status: BatchStatus.ACTIVE,
-            },
-          });
-        }
-      }
+        await prisma.$transaction(async (tx) => {
+            const movements = [];
+            for (const item of items) {
+                const { productVariantId, type, quantity, reason, unitCost } =
+                    item;
+                const isIncrement = type === 'ADJUSTMENT_IN';
 
-      // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
-      let movementCost = unitCost;
-
-      if (isIncrement) {
-        let cost = unitCost;
-        if (!cost) {
-          const variant = await tx.productVariant.findUnique({
-            where: { id: productVariantId },
-            select: { buyPrice: true },
-          });
-          cost = variant?.buyPrice?.toNumber() || 0;
-        }
-
-        const newAvgCost = await InventoryCoreService.calculateWAC(
-          productVariantId,
-          locationId,
-          quantity,
-          cost,
-          tx,
-        );
-
-        await tx.inventory.upsert({
-          where: {
-            locationId_productVariantId: { locationId, productVariantId },
-          },
-          update: {
-            quantity: { increment: quantity },
-            averageCost: newAvgCost,
-          },
-          create: {
-            locationId,
-            productVariantId,
-            quantity,
-            averageCost: cost,
-          },
-        });
-      } else {
-        // For ADJUSTMENT_OUT, resolve cost from current averageCost if not provided
-        let outCost = unitCost;
-        if (!outCost) {
-          const inv = await tx.inventory.findUnique({
-            where: {
-              locationId_productVariantId: { locationId, productVariantId },
-            },
-            select: { averageCost: true },
-          });
-          outCost = inv?.averageCost?.toNumber() || 0;
-        }
-
-        await tx.inventory.update({
-          where: {
-            locationId_productVariantId: { locationId, productVariantId },
-          },
-          data: { quantity: { decrement: quantity } },
-        });
-
-        // Use resolved cost for the movement record
-        movementCost = outCost;
-      }
-
-      let batchId: string | null = null;
-      if (isIncrement && batchData) {
-        const newBatch = await tx.batch.findUnique({
-          where: { batchNumber: batchData.batchNumber },
-        });
-        batchId = newBatch?.id || null;
-      }
-
-      const movement = await tx.stockMovement.create({
-        data: {
-          type: MovementType.ADJUSTMENT,
-          productVariantId,
-          fromLocationId: isIncrement ? null : locationId,
-          toLocationId: isIncrement ? locationId : null,
-          quantity,
-          cost: movementCost ? new Prisma.Decimal(movementCost) : undefined,
-          reference: reason,
-          batchId,
-          createdById: userId,
-        },
-      });
-
-      await logActivity({
-        userId: userId,
-        action: "ADJUST_STOCK",
-        entityType: "ProductVariant",
-        entityId: productVariantId,
-        details: `${type} ${quantity} at ${locationId}. Reason: ${reason}`,
-        tx,
-      });
-
-      await AccountingService.recordInventoryMovement(movement, tx);
-
-      return movement;
-    });
-  }
-
-  static async adjustStockBulk(data: BulkAdjustStockValues, userId: string) {
-    const { locationId, items } = data;
-
-    await prisma.$transaction(async (tx) => {
-      const movements = [];
-      for (const item of items) {
-        const { productVariantId, type, quantity, reason, unitCost } = item;
-        const isIncrement = type === "ADJUSTMENT_IN";
-
-        if (!isIncrement) {
-          const currentStockRow = await tx.$queryRaw<
-            Array<{ quantity: string }>
-          >`
+                if (!isIncrement) {
+                    const currentStockRow = await tx.$queryRaw<
+                        Array<{ quantity: string }>
+                    >`
                         SELECT "quantity"::text as quantity
                         FROM "Inventory"
                         WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
                         FOR UPDATE
                     `;
-          const currentStockQty = currentStockRow[0]
-            ? Number(currentStockRow[0].quantity)
-            : null;
-          if (currentStockQty === null || currentStockQty < quantity) {
-            throw new InsufficientStockError(
-              `Stok tidak mencukupi untuk penyesuaian keluar produk. Tersedia: ${currentStockQty || 0}, Diperlukan: ${quantity}`,
-              { productVariantId, locationId, available: currentStockQty || 0, requested: quantity },
-            );
-          }
+                    const currentStockQty = currentStockRow[0]
+                        ? Number(currentStockRow[0].quantity)
+                        : null;
+                    if (
+                        currentStockQty === null ||
+                        currentStockQty < quantity
+                    ) {
+                        throw new InsufficientStockError(
+                            `Stok tidak mencukupi untuk penyesuaian keluar produk. Tersedia: ${currentStockQty || 0}, Diperlukan: ${quantity}`,
+                            {
+                                productVariantId,
+                                locationId,
+                                available: currentStockQty || 0,
+                                requested: quantity,
+                            },
+                        );
+                    }
 
-          // Check active reservations to prevent consuming reserved stock
-          const activeReservations = await tx.stockReservation.aggregate({
-            where: {
-              locationId,
-              productVariantId,
-              status: ReservationStatus.ACTIVE,
-            },
-            _sum: { quantity: true },
-          });
-          const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
-          const availableQty = currentStockQty - reservedQty;
-          if (availableQty < quantity) {
-            throw new InsufficientStockError(
-              `Tidak dapat melakukan penyesuaian keluar untuk produk. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
-              { productVariantId, locationId, available: availableQty, requested: quantity },
-            );
-          }
-        }
+                    // Check active reservations to prevent consuming reserved stock
+                    const activeReservations =
+                        await tx.stockReservation.aggregate({
+                            where: {
+                                locationId,
+                                productVariantId,
+                                status: ReservationStatus.ACTIVE,
+                            },
+                            _sum: { quantity: true },
+                        });
+                    const reservedQty =
+                        activeReservations._sum.quantity?.toNumber() || 0;
+                    const availableQty = currentStockQty - reservedQty;
+                    if (availableQty < quantity) {
+                        throw new InsufficientStockError(
+                            `Tidak dapat melakukan penyesuaian keluar untuk produk. Stok sedang dipesan. Tersedia: ${availableQty}, Diperlukan: ${quantity}`,
+                            {
+                                productVariantId,
+                                locationId,
+                                available: availableQty,
+                                requested: quantity,
+                            },
+                        );
+                    }
+                }
 
-        // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
-        let movementCost = unitCost;
+                // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
+                let movementCost = unitCost;
 
-        if (isIncrement) {
-          let cost = unitCost;
-          if (!cost) {
-            const variant = await tx.productVariant.findUnique({
-              where: { id: productVariantId },
-              select: { buyPrice: true },
-            });
-            cost = variant?.buyPrice?.toNumber() || 0;
-          }
+                if (isIncrement) {
+                    let cost = unitCost;
+                    if (!cost) {
+                        const variant = await tx.productVariant.findUnique({
+                            where: { id: productVariantId },
+                            select: { buyPrice: true },
+                        });
+                        cost = variant?.buyPrice?.toNumber() || 0;
+                    }
 
-          const newAvgCost = await InventoryCoreService.calculateWAC(
-            productVariantId,
-            locationId,
-            quantity,
-            cost,
-            tx,
-          );
+                    const newAvgCost = await InventoryCoreService.calculateWAC(
+                        productVariantId,
+                        locationId,
+                        quantity,
+                        cost,
+                        tx,
+                    );
 
-          await tx.inventory.upsert({
-            where: {
-              locationId_productVariantId: { locationId, productVariantId },
-            },
-            update: {
-              quantity: { increment: quantity },
-              averageCost: newAvgCost,
-            },
-            create: {
-              locationId,
-              productVariantId,
-              quantity,
-              averageCost: cost,
-            },
-          });
-        } else {
-          // For ADJUSTMENT_OUT, resolve cost from current averageCost if not provided
-          let outCost = unitCost;
-          if (!outCost) {
-            const inv = await tx.inventory.findUnique({
-              where: {
-                locationId_productVariantId: { locationId, productVariantId },
-              },
-              select: { averageCost: true },
-            });
-            outCost = inv?.averageCost?.toNumber() || 0;
-          }
+                    await tx.inventory.upsert({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId,
+                                productVariantId,
+                            },
+                        },
+                        update: {
+                            quantity: { increment: quantity },
+                            averageCost: newAvgCost,
+                        },
+                        create: {
+                            locationId,
+                            productVariantId,
+                            quantity,
+                            averageCost: cost,
+                        },
+                    });
+                } else {
+                    // For ADJUSTMENT_OUT, resolve cost from current averageCost if not provided
+                    let outCost = unitCost;
+                    if (!outCost) {
+                        const inv = await tx.inventory.findUnique({
+                            where: {
+                                locationId_productVariantId: {
+                                    locationId,
+                                    productVariantId,
+                                },
+                            },
+                            select: { averageCost: true },
+                        });
+                        outCost = inv?.averageCost?.toNumber() || 0;
+                    }
 
-          await tx.inventory.update({
-            where: {
-              locationId_productVariantId: { locationId, productVariantId },
-            },
-            data: { quantity: { decrement: quantity } },
-          });
+                    await tx.inventory.update({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId,
+                                productVariantId,
+                            },
+                        },
+                        data: { quantity: { decrement: quantity } },
+                    });
 
-          // Use resolved cost for the movement record
-          movementCost = outCost;
-        }
+                    // Use resolved cost for the movement record
+                    movementCost = outCost;
+                }
 
-        const movement = await tx.stockMovement.create({
-          data: {
-            type: MovementType.ADJUSTMENT,
-            productVariantId,
-            fromLocationId: isIncrement ? null : locationId,
-            toLocationId: isIncrement ? locationId : null,
-            quantity,
-            cost: movementCost ? new Prisma.Decimal(movementCost) : undefined,
-            reference: reason,
-            createdById: userId,
-          },
+                const movement = await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.ADJUSTMENT,
+                        productVariantId,
+                        fromLocationId: isIncrement ? null : locationId,
+                        toLocationId: isIncrement ? locationId : null,
+                        quantity,
+                        cost: movementCost
+                            ? new Prisma.Decimal(movementCost)
+                            : undefined,
+                        reference: reason,
+                        createdById: userId,
+                    },
+                });
+
+                await logActivity({
+                    userId: userId,
+                    action: 'ADJUST_STOCK_BULK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `Bulk Adjusted ${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                    tx,
+                });
+
+                await AccountingService.recordInventoryMovement(movement, tx);
+                movements.push(movement);
+            }
+            return movements;
         });
-
-        await logActivity({
-          userId: userId,
-          action: "ADJUST_STOCK_BULK",
-          entityType: "ProductVariant",
-          entityId: productVariantId,
-          details: `Bulk Adjusted ${type} ${quantity} at ${locationId}. Reason: ${reason}`,
-          tx,
-        });
-
-        await AccountingService.recordInventoryMovement(movement, tx);
-        movements.push(movement);
-      }
-      return movements;
-    });
-  }
+    }
 }

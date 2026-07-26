@@ -1,24 +1,29 @@
-import { PrismaClient, HelpArticleStatus, HelpArticleSource } from '@prisma/client';
+import {
+    PrismaClient,
+    HelpArticleStatus,
+    HelpArticleSource,
+} from '@prisma/client';
 
 const mainDb = new PrismaClient();
 
 interface SeedArticle {
-  slug: string;
-  title: string;
-  summary: string;
-  bodyMd: string;
-  modules: string[];
-  tags: string[];
-  errorCodes: string[];
-  source: HelpArticleSource;
+    slug: string;
+    title: string;
+    summary: string;
+    bodyMd: string;
+    modules: string[];
+    tags: string[];
+    errorCodes: string[];
+    source: HelpArticleSource;
 }
 
 const seedArticles: SeedArticle[] = [
-  {
-    slug: 'cara-buat-sales-order',
-    title: 'Cara Buat Sales Order (SO)',
-    summary: 'Panduan membuat Sales Order (SO) baru di Polyflow, memilih jenis pesanan (Stok, Produksi, atau Maklon), menentukan gudang sumber, serta mengecek limit kredit customer.',
-    bodyMd: `## Langkah-Langkah Membuat Sales Order
+    {
+        slug: 'cara-buat-sales-order',
+        title: 'Cara Buat Sales Order (SO)',
+        summary:
+            'Panduan membuat Sales Order (SO) baru di Polyflow, memilih jenis pesanan (Stok, Produksi, atau Maklon), menentukan gudang sumber, serta mengecek limit kredit customer.',
+        bodyMd: `## Langkah-Langkah Membuat Sales Order
 
 1. Buka menu **Penjualan → Sales Order**. Klik tombol **Pesanan Baru** di pojok kanan atas.
 2. Pilih jenis pesanan:
@@ -56,16 +61,17 @@ Setelah tersimpan sebagai **Draft**, Anda dapat melakukan tindakan berikut dari 
 - **Produk tidak muncul di pencarian**: Pastikan varian produk dalam status aktif pada menu Katalog Produk.
 - **Invoice tidak bisa dibuat**: Pastikan Sales Order sudah berstatus **Dikirim** (Shipped/Delivered) dan terhubung dengan customer yang valid.
 `,
-    modules: ['sales'],
-    tags: ['sales-order', 'so', 'pesanan-baru'],
-    errorCodes: ['CREDIT_LIMIT_EXCEEDED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-confirm-so-stok-kurang',
-    title: 'Cara Konfirmasi SO Saat Stok Tidak Mencukupi',
-    summary: 'Panduan mengonfirmasi Sales Order ketika stok gudang kurang. Sistem akan mereservasi stok yang ada dan otomatis memasukkan kekurangan ke antrean produksi.',
-    bodyMd: `## Mekanisme Konfirmasi SO Saat Stok Kurang
+        modules: ['sales'],
+        tags: ['sales-order', 'so', 'pesanan-baru'],
+        errorCodes: ['CREDIT_LIMIT_EXCEEDED'],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-confirm-so-stok-kurang',
+        title: 'Cara Konfirmasi SO Saat Stok Tidak Mencukupi',
+        summary:
+            'Panduan mengonfirmasi Sales Order ketika stok gudang kurang. Sistem akan mereservasi stok yang ada dan otomatis memasukkan kekurangan ke antrean produksi.',
+        bodyMd: `## Mekanisme Konfirmasi SO Saat Stok Kurang
 
 Saat Anda mengonfirmasi Sales Order (SO) dan stok di gudang sumber tidak mencukupi, sistem Polyflow tidak akan memblokir transaksi secara keras, melainkan menjalankan mekanisme otomatis:
 
@@ -97,16 +103,22 @@ Saat Anda mengonfirmasi Sales Order (SO) dan stok di gudang sumber tidak mencuku
 - **Error MISSING_DEFAULT_BOM**: Produk kekurangan stok tetapi belum memiliki resep (BOM) default. Buat resep produk terlebih dahulu di menu Katalog Produk / BOM.
 - **Error CREDIT_LIMIT_EXCEEDED**: Batas kredit customer terlampaui. Naikkan limit kredit di data customer atau kurangi kuantitas SO.
 `,
-    modules: ['sales', 'warehouse', 'production'],
-    tags: ['stok-kurang', 'confirm-so', 'reservasi', 'permintaan-fg'],
-    errorCodes: ['CREDIT_LIMIT_EXCEEDED', 'MISSING_DEFAULT_BOM', 'FG_DEMAND_QUEUED', 'WO_CREATE_FAILED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-jadwal-kirim-dan-surat-jalan',
-    title: 'Cara Atur Jadwal Kirim & Buat Surat Jalan',
-    summary: 'Panduan membuat jadwal pengiriman mingguan armada serta alur penerbitan dan eksekusi Surat Jalan (Delivery Order) dari Penjualan hingga Gudang.',
-    bodyMd: `## Menghubungkan Penjualan dan Gudang
+        modules: ['sales', 'warehouse', 'production'],
+        tags: ['stok-kurang', 'confirm-so', 'reservasi', 'permintaan-fg'],
+        errorCodes: [
+            'CREDIT_LIMIT_EXCEEDED',
+            'MISSING_DEFAULT_BOM',
+            'FG_DEMAND_QUEUED',
+            'WO_CREATE_FAILED',
+        ],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-jadwal-kirim-dan-surat-jalan',
+        title: 'Cara Atur Jadwal Kirim & Buat Surat Jalan',
+        summary:
+            'Panduan membuat jadwal pengiriman mingguan armada serta alur penerbitan dan eksekusi Surat Jalan (Delivery Order) dari Penjualan hingga Gudang.',
+        bodyMd: `## Menghubungkan Penjualan dan Gudang
 
 Pengiriman barang di Polyflow terbagi menjadi dua tahap utama:
 - **Penjualan (Sales)**: Menentukan jadwal pengiriman dan menerbitkan dokumen Surat Jalan (Delivery Order).
@@ -151,16 +163,17 @@ Pengiriman barang di Polyflow terbagi menjadi dua tahap utama:
 - **Sebelum Dikirim (Status Menunggu / Sedang Dimuat)**: Klik tombol **Batalkan** di halaman detail Surat Jalan untuk membatalkan proses muat. Stok tidak terpotong.
 - **Setelah Dikirim (Status Dikirim / Dalam Perjalanan)**: Dokumen Surat Jalan tidak dapat diubah lagi. Jika terjadi penolakan barang di lapangan, gunakan menu **Penjualan → Retur Penjualan**.
 `,
-    modules: ['sales', 'warehouse'],
-    tags: ['surat-jalan', 'jadwal-kirim', 'delivery-order', 'antrian-muat'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-terima-barang-gudang',
-    title: 'Cara Terima Barang di Gudang (Incoming)',
-    summary: 'Panduan mencatat penerimaan barang masuk di gudang dari Purchase Order (PO) supplier maupun penerimaan langsung dari nota/walk-in.',
-    bodyMd: `## Alur Penerimaan Barang Gudang
+        modules: ['sales', 'warehouse'],
+        tags: ['surat-jalan', 'jadwal-kirim', 'delivery-order', 'antrian-muat'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-terima-barang-gudang',
+        title: 'Cara Terima Barang di Gudang (Incoming)',
+        summary:
+            'Panduan mencatat penerimaan barang masuk di gudang dari Purchase Order (PO) supplier maupun penerimaan langsung dari nota/walk-in.',
+        bodyMd: `## Alur Penerimaan Barang Gudang
 
 Penerimaan barang masuk (Incoming) bertugas mencatat fisik barang yang tiba di pabrik/gudang, memperbarui jumlah stok ketersediaan, serta menghitung kembali HPP/biaya rata-rata (Weighted Average Cost / WAC).
 
@@ -196,16 +209,17 @@ Penerimaan barang masuk (Incoming) bertugas mencatat fisik barang yang tiba di p
 - **Nilai Inventaris (WAC)**: Nilai HPP rata-rata produk diperbarui berdasarkan harga satuan aktual barang masuk.
 - **Status PO**: Status Purchase Order berubah otomatis menjadi **Diterima Sebagian** (Partial) atau **Selesai Diterima** (Received).
 `,
-    modules: ['warehouse', 'purchasing'],
-    tags: ['incoming', 'penerimaan', 'po', 'barang-masuk'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-cek-stok-per-lokasi',
-    title: 'Cara Cek Stok Per Lokasi Gudang',
-    summary: 'Panduan memantau tingkat stok barang fisik, stok terpesan (reservasi), stok tersedia, lokasi penyimpanan, serta riwayat mutasi barang.',
-    bodyMd: `## Memahami Indikator Stok di Polyflow
+        modules: ['warehouse', 'purchasing'],
+        tags: ['incoming', 'penerimaan', 'po', 'barang-masuk'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-cek-stok-per-lokasi',
+        title: 'Cara Cek Stok Per Lokasi Gudang',
+        summary:
+            'Panduan memantau tingkat stok barang fisik, stok terpesan (reservasi), stok tersedia, lokasi penyimpanan, serta riwayat mutasi barang.',
+        bodyMd: `## Memahami Indikator Stok di Polyflow
 
 Buka menu **Stok → Stok** untuk melihat seluruh saldo persediaan barang di pabrik. Kolom utama yang perlu diperhatikan:
 
@@ -240,16 +254,17 @@ Buka menu **Stok → Stok** untuk melihat seluruh saldo persediaan barang di pab
    - Grafis tren pergerakan stok.
    - **Riwayat Mutasi**: Catatan lengkap barang masuk (penerimaan), barang keluar (pengiriman/pemakaian SPK), penyesuaian (*adjustment*), dan transfer antar gudang.
 `,
-    modules: ['warehouse'],
-    tags: ['stok', 'inventory', 'lokasi', 'stok-menipis'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-outgoing-muat-kirim',
-    title: 'Cara Proses Outgoing & Muat Kirim Gudang',
-    summary: 'Panduan operasional tim gudang dalam mengelola antrean perintah muat (Surat Jalan), verifikasi kuantitas muat fisik, serta pemotongan stok otomatis.',
-    bodyMd: `## Peran Gudang dalam Pengiriman Outgoing
+        modules: ['warehouse'],
+        tags: ['stok', 'inventory', 'lokasi', 'stok-menipis'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-outgoing-muat-kirim',
+        title: 'Cara Proses Outgoing & Muat Kirim Gudang',
+        summary:
+            'Panduan operasional tim gudang dalam mengelola antrean perintah muat (Surat Jalan), verifikasi kuantitas muat fisik, serta pemotongan stok otomatis.',
+        bodyMd: `## Peran Gudang dalam Pengiriman Outgoing
 
 Semua instruksi pengiriman barang yang dibuat oleh Sales berupa Surat Jalan (Delivery Order) akan masuk ke antrean kerja gudang. Tim gudang bertugas memastikan fisik barang yang dimuat sesuai dengan dokumen resmi sebelum armada berangkat.
 
@@ -277,16 +292,17 @@ Jika saat verifikasi muat stok fisik ternyata tidak cukup:
 - Periksa apakah ada barang jadi hasil produksi yang belum dicatatkan di SPK.
 - Jika barang memang belum ada, sesuaikan kuantitas muat Surat Jalan ke kuantitas yang benar-benar siap dikirim. Sisa pesanan SO yang belum terkirim dapat dibuatkan Surat Jalan susulan pada pengiriman berikutnya.
 `,
-    modules: ['warehouse', 'sales'],
-    tags: ['outgoing', 'antrian-muat', 'verifikasi-muat', 'surat-jalan'],
-    errorCodes: ['STOCK_INSUFFICIENT'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-spk-batch-harian',
-    title: 'Cara Buat Perintah Kerja (SPK) Batch Produksi',
-    summary: 'Panduan membuat Surat Perintah Kerja (SPK) batch produksi harian, memilih resep BOM, menentukan lokasi hasil, serta mengelola alur status SPK.',
-    bodyMd: `## Alur Status Perintah Kerja (SPK)
+        modules: ['warehouse', 'sales'],
+        tags: ['outgoing', 'antrian-muat', 'verifikasi-muat', 'surat-jalan'],
+        errorCodes: ['STOCK_INSUFFICIENT'],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-spk-batch-harian',
+        title: 'Cara Buat Perintah Kerja (SPK) Batch Produksi',
+        summary:
+            'Panduan membuat Surat Perintah Kerja (SPK) batch produksi harian, memilih resep BOM, menentukan lokasi hasil, serta mengelola alur status SPK.',
+        bodyMd: `## Alur Status Perintah Kerja (SPK)
 
 Perintah Kerja Produksi (SPK) di Polyflow melewati alur status berikut:
 - **Draft**: Draf SPK baru dibuat, belum dirilis ke lantai produksi.
@@ -323,16 +339,17 @@ Perintah Kerja Produksi (SPK) di Polyflow melewati alur status berikut:
 3. **Catat Hasil Produksi**: Isi kuantitas barang bagus (*good output*) dan scrap/affal jika ada (dapat dilakukan dari web admin atau terminal Kiosk operator).
 4. **Selesaikan SPK**: Klik **Selesai SPK** setelah seluruh target produksi selesai diproses.
 `,
-    modules: ['production'],
-    tags: ['spk', 'work-order', 'batch', 'produksi', 'bom'],
-    errorCodes: ['MATERIAL_INSUFFICIENT', 'BACKFLUSH_FAILED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-input-hasil-kiosk',
-    title: 'Cara Input Hasil Produksi via Terminal Kiosk',
-    summary: 'Panduan bagi operator pabrik dalam menggunakan terminal Kiosk layar sentuh untuk memilih SPK, memulai pekerjaan, dan mencatat hasil output produksi.',
-    bodyMd: `## Mengenal Terminal Kiosk Operator
+        modules: ['production'],
+        tags: ['spk', 'work-order', 'batch', 'produksi', 'bom'],
+        errorCodes: ['MATERIAL_INSUFFICIENT', 'BACKFLUSH_FAILED'],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-input-hasil-kiosk',
+        title: 'Cara Input Hasil Produksi via Terminal Kiosk',
+        summary:
+            'Panduan bagi operator pabrik dalam menggunakan terminal Kiosk layar sentuh untuk memilih SPK, memulai pekerjaan, dan mencatat hasil output produksi.',
+        bodyMd: `## Mengenal Terminal Kiosk Operator
 
 Terminal Kiosk (\`/kiosk\`) adalah antarmuka khusus yang dirancang untuk perangkat tablet atau layar sentuh di area pabrik. Operator dapat mencatat aktivitas produksi harian secara cepat tanpa perlu membuka menu admin yang kompleks.
 
@@ -366,16 +383,17 @@ Terminal Kiosk (\`/kiosk\`) adalah antarmuka khusus yang dirancang untuk perangk
 - **SPK tidak muncul di daftar Kiosk**: Pastikan SPK di bagian kantor perencanaan sudah dipindahkan dari status *Draft* menjadi **Siap Produksi** (*Released*), dan penugasan mesin SPK sesuai dengan mesin tempat operator login.
 - **Sesi tertukar**: Jika berganti gilir kerja (shift), tekan tombol **Keluar Sesi** di pojok atas lalu pilih nama operator yang baru.
 `,
-    modules: ['production'],
-    tags: ['kiosk', 'operator', 'catat-hasil', 'spk'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'error-backflush-atau-stok-bahan',
-    title: 'Penyebab & Solusi Error Backflush / Stok Bahan Kurang',
-    summary: 'Panduan penanganan saat pencatatan hasil produksi gagal akibat stok bahan baku kurang di lokasi sumber, serta langkah pemulihannya.',
-    bodyMd: `## Pengertian Metode Backflush
+        modules: ['production'],
+        tags: ['kiosk', 'operator', 'catat-hasil', 'spk'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'error-backflush-atau-stok-bahan',
+        title: 'Penyebab & Solusi Error Backflush / Stok Bahan Kurang',
+        summary:
+            'Panduan penanganan saat pencatatan hasil produksi gagal akibat stok bahan baku kurang di lokasi sumber, serta langkah pemulihannya.',
+        bodyMd: `## Pengertian Metode Backflush
 
 Di Polyflow, konsumsi bahan baku dapat dikonfigurasi untuk terhitung secara otomatis (*Backflush*) sewaktu operator mencatatkan hasil output produksi. Sistem mengalokasikan pemakaian bahan secara proporsional sesuai rasio resep BOM.
 
@@ -408,16 +426,17 @@ Jika stok bahan di seluruh pabrik memang habis:
 
 Setelah stok bahan baku diisi kembali, buka kembali formulir pencatatan hasil produksi di SPK atau Kiosk, lalu simpan ulang. Sistem otomatis memproses pencatatan hasil dan konsumsi bahan baku secara sukses.
 `,
-    modules: ['production', 'warehouse'],
-    tags: ['backflush', 'stok-kurang', 'bom', 'pemakaian-bahan'],
-    errorCodes: ['MATERIAL_INSUFFICIENT', 'BACKFLUSH_FAILED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-lihat-invoice-belum-lunas',
-    title: 'Cara Melihat & Memantau Invoice Belum Lunas',
-    summary: 'Panduan memantau tagihan piutang penjualan (AR) dan utang pembelian (AP), menyaring status invoice belum dibayar atau lewat jatuh tempo.',
-    bodyMd: `## Memantau Tagihan dan Piutang Penjualan
+        modules: ['production', 'warehouse'],
+        tags: ['backflush', 'stok-kurang', 'bom', 'pemakaian-bahan'],
+        errorCodes: ['MATERIAL_INSUFFICIENT', 'BACKFLUSH_FAILED'],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-lihat-invoice-belum-lunas',
+        title: 'Cara Melihat & Memantau Invoice Belum Lunas',
+        summary:
+            'Panduan memantau tagihan piutang penjualan (AR) dan utang pembelian (AP), menyaring status invoice belum dibayar atau lewat jatuh tempo.',
+        bodyMd: `## Memantau Tagihan dan Piutang Penjualan
 
 Untuk memantau seluruh invoice penjualan kepada customer yang belum lunas atau sudah melewati tenggat waktu pembayaran:
 
@@ -448,16 +467,17 @@ Untuk memantau seluruh invoice penjualan kepada customer yang belum lunas atau s
 - Jika terdapat kesalahan input invoice, Anda dapat menghapus invoice selama belum ada transaksi pembayaran yang terkunci.
 - Menghapus invoice secara otomatis membatalkan dan menghapus entri jurnal akuntansi yang terkait dari Buku Besar.
 `,
-    modules: ['finance', 'sales'],
-    tags: ['invoice', 'piutang', 'utang', 'overdue', 'pembayaran'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'error-period-locked-finance',
-    title: 'Penyebab & Solusi Error Period Locked di Finance',
-    summary: 'Penjelasan error akibat memasukkan transaksi keuangan pada periode akuntansi yang sudah ditutup, serta langkah pembukaannya oleh admin.',
-    bodyMd: `## Mengapa Error Period Locked Terjadi?
+        modules: ['finance', 'sales'],
+        tags: ['invoice', 'piutang', 'utang', 'overdue', 'pembayaran'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'error-period-locked-finance',
+        title: 'Penyebab & Solusi Error Period Locked di Finance',
+        summary:
+            'Penjelasan error akibat memasukkan transaksi keuangan pada periode akuntansi yang sudah ditutup, serta langkah pembukaannya oleh admin.',
+        bodyMd: `## Mengapa Error Period Locked Terjadi?
 
 Error \`PERIOD_LOCKED\` atau \`POSTING_PERIOD_CLOSED\` terjadi apabila Anda mencoba membuat, mengubah, atau memposting transaksi keuangan (seperti Invoice Penjualan, Penerimaan Pembayaran, Pembayaran Supplier, atau Jurnal Umum) pada tanggal transaksi yang berada di dalam periode akuntansi yang sudah berstatus **Ditutup** (Closed / Locked).
 
@@ -483,16 +503,17 @@ Jika transaksi memang harus dibukukan pada tanggal periode lalu:
 
 Saat Admin menutup periode fiskal di menu **Finance → Periode Fiskal**, sistem akan secara otomatis membuat jurnal penutupan (*closing entry*) yang memindahkan saldo pendapatan dan beban ke akun **Laba Tahun Berjalan**.
 `,
-    modules: ['finance'],
-    tags: ['period-locked', 'periode-fiskal', 'tutup-buku', 'keuangan'],
-    errorCodes: ['PERIOD_LOCKED', 'POSTING_PERIOD_CLOSED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-atur-role-permission-user',
-    title: 'Cara Atur Role & Hak Akses (Permission) User',
-    summary: 'Panduan bagi Admin dalam mengelola hak akses peran (role), mencentang modul pada pohon hak akses, dan menetapkan role kepada pengguna.',
-    bodyMd: `## Konsep Kontrol Akses di Polyflow
+        modules: ['finance'],
+        tags: ['period-locked', 'periode-fiskal', 'tutup-buku', 'keuangan'],
+        errorCodes: ['PERIOD_LOCKED', 'POSTING_PERIOD_CLOSED'],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-atur-role-permission-user',
+        title: 'Cara Atur Role & Hak Akses (Permission) User',
+        summary:
+            'Panduan bagi Admin dalam mengelola hak akses peran (role), mencentang modul pada pohon hak akses, dan menetapkan role kepada pengguna.',
+        bodyMd: `## Konsep Kontrol Akses di Polyflow
 
 Setiap pengguna di Polyflow dihubungkan dengan satu atau beberapa **Role (Peran)**. Hak akses terhadap fitur dan menu sistem diatur secara fleksibel melalui matriks modul pada pohon hak akses.
 
@@ -523,16 +544,17 @@ Setiap pengguna di Polyflow dihubungkan dengan satu atau beberapa **Role (Peran)
 
 Pengguna yang sedang aktif menggunakan aplikasi mungkin memerlukan proses **Logout dan Login Ulang** agar perubahan hak akses dan menu baru ter-refresh sepenuhnya pada sesi mereka.
 `,
-    modules: ['access'],
-    tags: ['role', 'permission', 'pengaturan', 'hak-akses'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'menu-tidak-muncul-permission',
-    title: 'Penyebab Menu Tidak Muncul & Cara Mengatasinya',
-    summary: 'Panduan mengatasi masalah menu atau tombol yang hilang akibat batasan hak akses role, sesi login yang belum diperbarui, atau perbedaan tampilan mobile.',
-    bodyMd: `## Mengapa Menu atau Tombol Tidak Muncul?
+        modules: ['access'],
+        tags: ['role', 'permission', 'pengaturan', 'hak-akses'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'menu-tidak-muncul-permission',
+        title: 'Penyebab Menu Tidak Muncul & Cara Mengatasinya',
+        summary:
+            'Panduan mengatasi masalah menu atau tombol yang hilang akibat batasan hak akses role, sesi login yang belum diperbarui, atau perbedaan tampilan mobile.',
+        bodyMd: `## Mengapa Menu atau Tombol Tidak Muncul?
 
 Jika Anda atau staf Anda tidak dapat menemukan menu tertentu di sidebar atau tombol aksi pada halaman transaksi, hal ini umumnya disebabkan oleh salah satu dari 3 hal berikut:
 
@@ -555,16 +577,17 @@ Jika Anda atau staf Anda tidak dapat menemukan menu tertentu di sidebar atau tom
 4. Pastikan kotak centang modul dalam kondisi tercentang aktif.
 5. Mintalah pengguna untuk Login Ulang.
 `,
-    modules: ['access'],
-    tags: ['menu-tidak-muncul', 'permission', 'troubleshoot', 'hak-akses'],
-    errorCodes: ['PERMISSION_DENIED', 'ACCESS_DENIED'],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'apa-yang-bisa-virtual-cs',
-    title: 'Apa yang Bisa & Tidak Bisa Dilakukan Virtual CS?',
-    summary: 'Penjelasan mengenai kapabilitas asisten kecerdasan buatan Virtual CS Polyflow dalam menjawab pertanyaan operasional dan batasan perlindungan data.',
-    bodyMd: `## Mengenal Virtual CS Polyflow
+        modules: ['access'],
+        tags: ['menu-tidak-muncul', 'permission', 'troubleshoot', 'hak-akses'],
+        errorCodes: ['PERMISSION_DENIED', 'ACCESS_DENIED'],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'apa-yang-bisa-virtual-cs',
+        title: 'Apa yang Bisa & Tidak Bisa Dilakukan Virtual CS?',
+        summary:
+            'Penjelasan mengenai kapabilitas asisten kecerdasan buatan Virtual CS Polyflow dalam menjawab pertanyaan operasional dan batasan perlindungan data.',
+        bodyMd: `## Mengenal Virtual CS Polyflow
 
 Virtual CS adalah asisten pintar berbasis AI yang siap membantu Anda 24/7 di menu **Bantuan → Tanya Virtual CS** (atau langsung di \`/support/cs\`). Virtual CS dirancang khusus untuk memandu penggunaan sistem dan memberikan jawaban cepat terkait data operasional pabrik Anda.
 
@@ -593,16 +616,17 @@ Virtual CS adalah asisten pintar berbasis AI yang siap membantu Anda 24/7 di men
 - Sebutkan nama produk atau nomor dokumen secara spesifik (contoh: *"Status pengiriman untuk SO-2026-0012"*).
 - Gunakan tombol rekomendasi pertanyaan di bawah kolom chat untuk topik-topik populer.
 `,
-    modules: ['global'],
-    tags: ['virtual-cs', 'bantuan', 'chat', 'panduan'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
-  {
-    slug: 'cara-beri-feedback-dan-eskalasi',
-    title: 'Cara Beri Feedback & Eskalasi Kendala Support',
-    summary: 'Panduan memberikan penilaian terhadap jawaban Virtual CS serta tata cara melakukan eskalasi kendala teknis kepada tim Admin atau Support.',
-    bodyMd: `## Berkontribusi Lewat Ulasan Feedback
+        modules: ['global'],
+        tags: ['virtual-cs', 'bantuan', 'chat', 'panduan'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'cara-beri-feedback-dan-eskalasi',
+        title: 'Cara Beri Feedback & Eskalasi Kendala Support',
+        summary:
+            'Panduan memberikan penilaian terhadap jawaban Virtual CS serta tata cara melakukan eskalasi kendala teknis kepada tim Admin atau Support.',
+        bodyMd: `## Berkontribusi Lewat Ulasan Feedback
 
 Setiap kali Anda berinteraksi dengan Virtual CS di menu **Bantuan → Tanya Virtual CS**, Anda dapat memberikan umpan balik (feedback) pada setiap jawaban yang diberikan:
 
@@ -637,50 +661,52 @@ Saat melaporkan masalah kepada Admin atau Tim Support, sertakan informasi rinci 
 - Versi Aplikasi: Lihat di menu Pengaturan → Sistem
 \`\`\`
 `,
-    modules: ['global'],
-    tags: ['feedback', 'eskalasi', 'bantuan', 'template'],
-    errorCodes: [],
-    source: 'SEED' as HelpArticleSource,
-  },
+        modules: ['global'],
+        tags: ['feedback', 'eskalasi', 'bantuan', 'template'],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
 ];
 
 async function seedHelpArticles() {
-  console.log('Seeding help articles (v3 cleaned & user-friendly)...');
-  for (const article of seedArticles) {
-    const existing = await mainDb.helpArticle.findUnique({ where: { slug: article.slug } });
-    if (existing) {
-      await mainDb.helpArticle.update({
-        where: { slug: article.slug },
-        data: {
-          title: article.title,
-          summary: article.summary,
-          bodyMd: article.bodyMd,
-          modules: article.modules,
-          tags: article.tags,
-          errorCodes: article.errorCodes,
-          source: article.source,
-        },
-      });
-      console.log(`  [UPD] ${article.slug}`);
-      continue;
+    console.log('Seeding help articles (v3 cleaned & user-friendly)...');
+    for (const article of seedArticles) {
+        const existing = await mainDb.helpArticle.findUnique({
+            where: { slug: article.slug },
+        });
+        if (existing) {
+            await mainDb.helpArticle.update({
+                where: { slug: article.slug },
+                data: {
+                    title: article.title,
+                    summary: article.summary,
+                    bodyMd: article.bodyMd,
+                    modules: article.modules,
+                    tags: article.tags,
+                    errorCodes: article.errorCodes,
+                    source: article.source,
+                },
+            });
+            console.log(`  [UPD] ${article.slug}`);
+            continue;
+        }
+        await mainDb.helpArticle.create({
+            data: {
+                ...article,
+                status: HelpArticleStatus.PUBLISHED,
+                publishedAt: new Date(),
+                version: 1,
+            },
+        });
+        console.log(`  [OK] ${article.slug}`);
     }
-    await mainDb.helpArticle.create({
-      data: {
-        ...article,
-        status: HelpArticleStatus.PUBLISHED,
-        publishedAt: new Date(),
-        version: 1,
-      },
-    });
-    console.log(`  [OK] ${article.slug}`);
-  }
-  const total = await mainDb.helpArticle.count();
-  console.log(`\nDone total ${total}`);
+    const total = await mainDb.helpArticle.count();
+    console.log(`\nDone total ${total}`);
 }
 
 seedHelpArticles()
-  .catch((e) => {
-    console.error('Seed failed', e);
-    process.exit(1);
-  })
-  .finally(() => mainDb.$disconnect());
+    .catch((e) => {
+        console.error('Seed failed', e);
+        process.exit(1);
+    })
+    .finally(() => mainDb.$disconnect());

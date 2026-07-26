@@ -1,327 +1,362 @@
-import { prisma } from "@/lib/core/prisma";
-import { Prisma, ReservationStatus, NotificationType } from "@prisma/client";
-import { WAREHOUSE_SLUGS } from "@/lib/constants/locations";
-import { InsufficientStockError } from "@/lib/errors/errors";
+import { prisma } from '@/lib/core/prisma';
+import { Prisma, ReservationStatus, NotificationType } from '@prisma/client';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { InsufficientStockError } from '@/lib/errors/errors';
 
 export class InventoryCoreService {
-  /**
-   * Validate and Lock Stock (Atomic Check)
-   * Must be called within a transaction.
-   */
-  static async validateAndLockStock(
-    tx: Prisma.TransactionClient,
-    locationId: string,
-    productVariantId: string,
-    quantity: number,
-  ) {
-    // 1. Lock Row
-    const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+    /**
+     * Validate and Lock Stock (Atomic Check)
+     * Must be called within a transaction.
+     */
+    static async validateAndLockStock(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number,
+    ) {
+        // 1. Lock Row
+        const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
             SELECT "quantity"::text as quantity
             FROM "Inventory"
             WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
             FOR UPDATE
         `;
-    const currentQty = stockRow[0] ? Number(stockRow[0].quantity) : 0;
+        const currentQty = stockRow[0] ? Number(stockRow[0].quantity) : 0;
 
-    // 2. Check Physical Stock
-    if (currentQty < quantity) {
-      // Fetch details for better error
-      const [variant, location] = await Promise.all([
-        tx.productVariant.findUnique({
-          where: { id: productVariantId },
-          select: { name: true, primaryUnit: true },
-        }),
-        tx.location.findUnique({
-          where: { id: locationId },
-          select: { name: true },
-        }),
-      ]);
+        // 2. Check Physical Stock
+        if (currentQty < quantity) {
+            // Fetch details for better error
+            const [variant, location] = await Promise.all([
+                tx.productVariant.findUnique({
+                    where: { id: productVariantId },
+                    select: { name: true, primaryUnit: true },
+                }),
+                tx.location.findUnique({
+                    where: { id: locationId },
+                    select: { name: true },
+                }),
+            ]);
 
-      throw new InsufficientStockError(
-        `Stok fisik tidak mencukupi di lokasi "${location?.name || locationId}".\n` +
-          `Produk: ${variant?.name || "Item tidak diketahui"}\n` +
-          `Diperlukan: ${quantity} ${variant?.primaryUnit || ""}\n` +
-          `Tersedia: ${currentQty} ${variant?.primaryUnit || ""}\n` +
-          `Tips: Periksa apakah stok ada di lokasi lain (misal Gudang Utama vs Bahan Baku) atau lakukan Penyesuaian Stok.`,
-      );
+            throw new InsufficientStockError(
+                `Stok fisik tidak mencukupi di lokasi "${location?.name || locationId}".\n` +
+                    `Produk: ${variant?.name || 'Item tidak diketahui'}\n` +
+                    `Diperlukan: ${quantity} ${variant?.primaryUnit || ''}\n` +
+                    `Tersedia: ${currentQty} ${variant?.primaryUnit || ''}\n` +
+                    `Tips: Periksa apakah stok ada di lokasi lain (misal Gudang Utama vs Bahan Baku) atau lakukan Penyesuaian Stok.`,
+            );
+        }
+
+        // 3. Check Reservations
+        const resAgg = await tx.stockReservation.aggregate({
+            where: {
+                locationId,
+                productVariantId,
+                status: ReservationStatus.ACTIVE,
+            },
+            _sum: { quantity: true },
+        });
+
+        const reservedQty = resAgg._sum.quantity?.toNumber() || 0;
+        const availableQty = currentQty - reservedQty;
+
+        if (availableQty < quantity) {
+            const [variant, location] = await Promise.all([
+                tx.productVariant.findUnique({
+                    where: { id: productVariantId },
+                    select: { name: true, primaryUnit: true },
+                }),
+                tx.location.findUnique({
+                    where: { id: locationId },
+                    select: { name: true },
+                }),
+            ]);
+
+            throw new InsufficientStockError(
+                `Stok terpesan di lokasi "${location?.name || locationId}".\n` +
+                    `Produk: ${variant?.name || 'Item tidak diketahui'}\n` +
+                    `Stok Fisik: ${currentQty}\n` +
+                    `Terpesan: ${reservedQty}\n` +
+                    `Stok Bersih: ${availableQty} ${variant?.primaryUnit || ''}\n` +
+                    `Diperlukan: ${quantity} ${variant?.primaryUnit || ''}`,
+            );
+        }
+
+        return currentQty;
     }
 
-    // 3. Check Reservations
-    const resAgg = await tx.stockReservation.aggregate({
-      where: {
-        locationId,
-        productVariantId,
-        status: ReservationStatus.ACTIVE,
-      },
-      _sum: { quantity: true },
-    });
-
-    const reservedQty = resAgg._sum.quantity?.toNumber() || 0;
-    const availableQty = currentQty - reservedQty;
-
-    if (availableQty < quantity) {
-      const [variant, location] = await Promise.all([
-        tx.productVariant.findUnique({
-          where: { id: productVariantId },
-          select: { name: true, primaryUnit: true },
-        }),
-        tx.location.findUnique({
-          where: { id: locationId },
-          select: { name: true },
-        }),
-      ]);
-
-      throw new InsufficientStockError(
-        `Stok terpesan di lokasi "${location?.name || locationId}".\n` +
-          `Produk: ${variant?.name || "Item tidak diketahui"}\n` +
-          `Stok Fisik: ${currentQty}\n` +
-          `Terpesan: ${reservedQty}\n` +
-          `Stok Bersih: ${availableQty} ${variant?.primaryUnit || ""}\n` +
-          `Diperlukan: ${quantity} ${variant?.primaryUnit || ""}`,
-      );
+    /**
+     * Deduct Stock (Atomic)
+     * Does NOT check stock (assumes validateAndLockStock was called or check was done)
+     * However, Prisma update will fail if record missing.
+     */
+    static async deductStock(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number,
+    ) {
+        await tx.inventory.update({
+            where: {
+                locationId_productVariantId: { locationId, productVariantId },
+            },
+            data: { quantity: { decrement: quantity } },
+        });
     }
 
-    return currentQty;
-  }
-
-  /**
-   * Deduct Stock (Atomic)
-   * Does NOT check stock (assumes validateAndLockStock was called or check was done)
-   * However, Prisma update will fail if record missing.
-   */
-  static async deductStock(
-    tx: Prisma.TransactionClient,
-    locationId: string,
-    productVariantId: string,
-    quantity: number,
-  ) {
-    await tx.inventory.update({
-      where: {
-        locationId_productVariantId: { locationId, productVariantId },
-      },
-      data: { quantity: { decrement: quantity } },
-    });
-  }
-
-  /**
-    * Increment Stock (Atomic Upsert with duplicate race guard)
-    */
-  static async incrementStock(
-    tx: Prisma.TransactionClient,
-    locationId: string,
-    productVariantId: string,
-    quantity: number,
-  ) {
-    try {
-      await tx.inventory.upsert({
-        where: {
-          locationId_productVariantId: { locationId, productVariantId },
-        },
-        update: { quantity: { increment: quantity } },
-        create: { locationId, productVariantId, quantity },
-      });
-    } catch (e: unknown) {
-      const prismaError = e as { code?: string; message?: string };
-      const isDuplicate =
-        prismaError.code === "P2002" ||
-        (typeof prismaError.message === "string" &&
-          prismaError.message.includes("Inventory_locationId_productVariantId_key"));
-      if (!isDuplicate) throw e;
-      await tx.inventory.update({
-        where: { locationId_productVariantId: { locationId, productVariantId } },
-        data: { quantity: { increment: quantity } },
-      });
+    /**
+     * Increment Stock (Atomic Upsert with duplicate race guard)
+     */
+    static async incrementStock(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number,
+    ) {
+        try {
+            await tx.inventory.upsert({
+                where: {
+                    locationId_productVariantId: {
+                        locationId,
+                        productVariantId,
+                    },
+                },
+                update: { quantity: { increment: quantity } },
+                create: { locationId, productVariantId, quantity },
+            });
+        } catch (e: unknown) {
+            const prismaError = e as { code?: string; message?: string };
+            const isDuplicate =
+                prismaError.code === 'P2002' ||
+                (typeof prismaError.message === 'string' &&
+                    prismaError.message.includes(
+                        'Inventory_locationId_productVariantId_key',
+                    ));
+            if (!isDuplicate) throw e;
+            await tx.inventory.update({
+                where: {
+                    locationId_productVariantId: {
+                        locationId,
+                        productVariantId,
+                    },
+                },
+                data: { quantity: { increment: quantity } },
+            });
+        }
     }
-  }
 
-  static async incrementStockWithCost(
-    tx: Prisma.TransactionClient,
-    locationId: string,
-    productVariantId: string,
-    quantity: number,
-    unitCost: number,
-  ) {
-    // Lock the destination inventory row to prevent concurrent WAC corruption
-    // Note: FOR UPDATE on missing row acquires no lock (gap not locked), so concurrent
-    // creation can cause duplicate key on upsert. Handled via retry below.
-    const inventoryRow = await tx.$queryRaw<
-      Array<{ quantity: string; averageCost: string | null }>
-    >`
+    static async incrementStockWithCost(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number,
+        unitCost: number,
+    ) {
+        // Lock the destination inventory row to prevent concurrent WAC corruption
+        // Note: FOR UPDATE on missing row acquires no lock (gap not locked), so concurrent
+        // creation can cause duplicate key on upsert. Handled via retry below.
+        const inventoryRow = await tx.$queryRaw<
+            Array<{ quantity: string; averageCost: string | null }>
+        >`
             SELECT "quantity"::text as quantity, "averageCost"::text as "averageCost"
             FROM "Inventory"
             WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
             FOR UPDATE
         `;
 
-    const currentQty = inventoryRow[0] ? Number(inventoryRow[0].quantity) : 0;
-    const currentAvgCost = inventoryRow[0]?.averageCost
-      ? Number(inventoryRow[0].averageCost)
-      : 0;
-    const totalQty = currentQty + quantity;
-    const newAvgCost =
-      totalQty > 0
-        ? (currentQty * currentAvgCost + quantity * unitCost) / totalQty
-        : unitCost;
+        const currentQty = inventoryRow[0]
+            ? Number(inventoryRow[0].quantity)
+            : 0;
+        const currentAvgCost = inventoryRow[0]?.averageCost
+            ? Number(inventoryRow[0].averageCost)
+            : 0;
+        const totalQty = currentQty + quantity;
+        const newAvgCost =
+            totalQty > 0
+                ? (currentQty * currentAvgCost + quantity * unitCost) / totalQty
+                : unitCost;
 
-    try {
-      await tx.inventory.upsert({
-        where: {
-          locationId_productVariantId: { locationId, productVariantId },
-        },
-        update: {
-          quantity: { increment: quantity },
-          averageCost: newAvgCost,
-        },
-        create: {
-          locationId,
-          productVariantId,
-          quantity,
-          averageCost: unitCost,
-        },
-      });
-    } catch (e: unknown) {
-      // Handle race where another tx created the row after our SELECT (gap race)
-      // P2002 = unique constraint violation
-      const prismaError = e as { code?: string; message?: string };
-      const isDuplicate =
-        prismaError.code === "P2002" ||
-        (typeof prismaError.message === "string" &&
-          prismaError.message.includes("Inventory_locationId_productVariantId_key"));
-      if (!isDuplicate) throw e;
+        try {
+            await tx.inventory.upsert({
+                where: {
+                    locationId_productVariantId: {
+                        locationId,
+                        productVariantId,
+                    },
+                },
+                update: {
+                    quantity: { increment: quantity },
+                    averageCost: newAvgCost,
+                },
+                create: {
+                    locationId,
+                    productVariantId,
+                    quantity,
+                    averageCost: unitCost,
+                },
+            });
+        } catch (e: unknown) {
+            // Handle race where another tx created the row after our SELECT (gap race)
+            // P2002 = unique constraint violation
+            const prismaError = e as { code?: string; message?: string };
+            const isDuplicate =
+                prismaError.code === 'P2002' ||
+                (typeof prismaError.message === 'string' &&
+                    prismaError.message.includes(
+                        'Inventory_locationId_productVariantId_key',
+                    ));
+            if (!isDuplicate) throw e;
 
-      // Retry: re-read with lock and apply increment
-      const retryRow = await tx.$queryRaw<
-        Array<{ quantity: string; averageCost: string | null }>
-      >`
+            // Retry: re-read with lock and apply increment
+            const retryRow = await tx.$queryRaw<
+                Array<{ quantity: string; averageCost: string | null }>
+            >`
                 SELECT "quantity"::text as quantity, "averageCost"::text as "averageCost"
                 FROM "Inventory"
                 WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
                 FOR UPDATE
             `;
-      const retryQty = retryRow[0] ? Number(retryRow[0].quantity) : 0;
-      const retryAvgCost = retryRow[0]?.averageCost ? Number(retryRow[0].averageCost) : 0;
-      const retryTotal = retryQty + quantity;
-      const retryNewAvg =
-        retryTotal > 0
-          ? (retryQty * retryAvgCost + quantity * unitCost) / retryTotal
-          : unitCost;
+            const retryQty = retryRow[0] ? Number(retryRow[0].quantity) : 0;
+            const retryAvgCost = retryRow[0]?.averageCost
+                ? Number(retryRow[0].averageCost)
+                : 0;
+            const retryTotal = retryQty + quantity;
+            const retryNewAvg =
+                retryTotal > 0
+                    ? (retryQty * retryAvgCost + quantity * unitCost) /
+                      retryTotal
+                    : unitCost;
 
-      await tx.inventory.update({
-        where: { locationId_productVariantId: { locationId, productVariantId } },
-        data: { quantity: { increment: quantity }, averageCost: retryNewAvg },
-      });
+            await tx.inventory.update({
+                where: {
+                    locationId_productVariantId: {
+                        locationId,
+                        productVariantId,
+                    },
+                },
+                data: {
+                    quantity: { increment: quantity },
+                    averageCost: retryNewAvg,
+                },
+            });
+        }
     }
-  }
 
-  static async calculateWAC(
-    productVariantId: string,
-    locationId: string,
-    incomingQty: number,
-    incomingCost: number,
-    tx?: Prisma.TransactionClient,
-  ): Promise<number> {
-    let currentQty = 0;
-    let currentAvgCost = 0;
+    static async calculateWAC(
+        productVariantId: string,
+        locationId: string,
+        incomingQty: number,
+        incomingCost: number,
+        tx?: Prisma.TransactionClient,
+    ): Promise<number> {
+        let currentQty = 0;
+        let currentAvgCost = 0;
 
-    if (tx) {
-      // Use FOR UPDATE locking when inside a transaction to prevent race conditions
-      const inventoryRow = await tx.$queryRaw<
-        Array<{ quantity: string; averageCost: string | null }>
-      >`
+        if (tx) {
+            // Use FOR UPDATE locking when inside a transaction to prevent race conditions
+            const inventoryRow = await tx.$queryRaw<
+                Array<{ quantity: string; averageCost: string | null }>
+            >`
         SELECT "quantity"::text as quantity, "averageCost"::text as "averageCost"
         FROM "Inventory"
         WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
         FOR UPDATE
       `;
-      currentQty = inventoryRow[0] ? Number(inventoryRow[0].quantity) : 0;
-      currentAvgCost = inventoryRow[0]?.averageCost
-        ? Number(inventoryRow[0].averageCost)
-        : 0;
-    } else {
-      const inventory = await prisma.inventory.findUnique({
-        where: {
-          locationId_productVariantId: { locationId, productVariantId },
-        },
-      });
-      currentQty = inventory?.quantity.toNumber() || 0;
-      currentAvgCost = inventory?.averageCost?.toNumber() || 0;
+            currentQty = inventoryRow[0] ? Number(inventoryRow[0].quantity) : 0;
+            currentAvgCost = inventoryRow[0]?.averageCost
+                ? Number(inventoryRow[0].averageCost)
+                : 0;
+        } else {
+            const inventory = await prisma.inventory.findUnique({
+                where: {
+                    locationId_productVariantId: {
+                        locationId,
+                        productVariantId,
+                    },
+                },
+            });
+            currentQty = inventory?.quantity.toNumber() || 0;
+            currentAvgCost = inventory?.averageCost?.toNumber() || 0;
+        }
+
+        // WAC Formula: ((Existing Qty * Existing Cost) + (New Qty * New Cost)) / Total Qty
+        const totalQty = currentQty + incomingQty;
+        if (totalQty === 0) return 0;
+
+        return (
+            (currentQty * currentAvgCost + incomingQty * incomingCost) /
+            totalQty
+        );
     }
 
-    // WAC Formula: ((Existing Qty * Existing Cost) + (New Qty * New Cost)) / Total Qty
-    const totalQty = currentQty + incomingQty;
-    if (totalQty === 0) return 0;
+    static async updateThreshold(
+        productVariantId: string,
+        minStockAlert: number,
+    ) {
+        await prisma.productVariant.update({
+            where: { id: productVariantId },
+            data: { minStockAlert: new Prisma.Decimal(minStockAlert) },
+        });
+    }
 
-    return (
-      (currentQty * currentAvgCost + incomingQty * incomingCost) / totalQty
-    );
-  }
-
-  static async updateThreshold(
-    productVariantId: string,
-    minStockAlert: number,
-  ) {
-    await prisma.productVariant.update({
-      where: { id: productVariantId },
-      data: { minStockAlert: new Prisma.Decimal(minStockAlert) },
-    });
-  }
-
-  /**
-   * Verify thresholds and trigger notifications for LOW STOCK.
-   * Can be hooked into daily maintenance schedules.
-   */
-  static async checkLowStockTriggers() {
-    const { NotificationService } =
-      await import("@/services/core/notification-service");
-    const lowStockVariants = await prisma.productVariant.findMany({
-      where: { minStockAlert: { not: null } },
-      select: {
-        id: true,
-        minStockAlert: true,
-        name: true,
-        inventories: {
-          include: {
-            location: { select: { slug: true } },
-          },
-        },
-      },
-    });
-
-    // Only consider Raw Material and Finished Goods
-    const allowedLocationSlugs = new Set<string>([
-      WAREHOUSE_SLUGS.RAW_MATERIAL,
-      WAREHOUSE_SLUGS.FINISHING,
-    ]);
-
-    for (const variant of lowStockVariants) {
-      let totalForAlert = 0;
-      for (const inv of variant.inventories) {
-        if (inv.location?.slug && allowedLocationSlugs.has(inv.location.slug)) {
-          totalForAlert += inv.quantity.toNumber();
-        }
-      }
-
-      const threshold = variant.minStockAlert?.toNumber() || 0;
-      if (totalForAlert > 0 && totalForAlert < threshold) {
-        // Find users that should be notified about inventory
-        const targetUsers = await prisma.user.findMany({
-          where: { role: "ADMIN" },
-          select: { id: true },
+    /**
+     * Verify thresholds and trigger notifications for LOW STOCK.
+     * Can be hooked into daily maintenance schedules.
+     */
+    static async checkLowStockTriggers() {
+        const { NotificationService } =
+            await import('@/services/core/notification-service');
+        const lowStockVariants = await prisma.productVariant.findMany({
+            where: { minStockAlert: { not: null } },
+            select: {
+                id: true,
+                minStockAlert: true,
+                name: true,
+                inventories: {
+                    include: {
+                        location: { select: { slug: true } },
+                    },
+                },
+            },
         });
 
-        if (targetUsers.length > 0) {
-          const inputs = targetUsers.map((u) => ({
-            userId: u.id,
-            type: "LOW_STOCK" as NotificationType,
-            title: "Low Stock Alert",
-            message: `Product "${variant.name}" has fallen below threshold (${threshold}). Current stock: ${totalForAlert}.`,
-            link: `/admin/inventory?variantId=${variant.id}`,
-            entityType: "ProductVariant",
-            entityId: variant.id,
-          }));
-          await NotificationService.createBulkNotifications(inputs);
+        // Only consider Raw Material and Finished Goods
+        const allowedLocationSlugs = new Set<string>([
+            WAREHOUSE_SLUGS.RAW_MATERIAL,
+            WAREHOUSE_SLUGS.FINISHING,
+        ]);
+
+        for (const variant of lowStockVariants) {
+            let totalForAlert = 0;
+            for (const inv of variant.inventories) {
+                if (
+                    inv.location?.slug &&
+                    allowedLocationSlugs.has(inv.location.slug)
+                ) {
+                    totalForAlert += inv.quantity.toNumber();
+                }
+            }
+
+            const threshold = variant.minStockAlert?.toNumber() || 0;
+            if (totalForAlert > 0 && totalForAlert < threshold) {
+                // Find users that should be notified about inventory
+                const targetUsers = await prisma.user.findMany({
+                    where: { role: 'ADMIN' },
+                    select: { id: true },
+                });
+
+                if (targetUsers.length > 0) {
+                    const inputs = targetUsers.map((u) => ({
+                        userId: u.id,
+                        type: 'LOW_STOCK' as NotificationType,
+                        title: 'Low Stock Alert',
+                        message: `Product "${variant.name}" has fallen below threshold (${threshold}). Current stock: ${totalForAlert}.`,
+                        link: `/admin/inventory?variantId=${variant.id}`,
+                        entityType: 'ProductVariant',
+                        entityId: variant.id,
+                    }));
+                    await NotificationService.createBulkNotifications(inputs);
+                }
+            }
         }
-      }
     }
-  }
 }

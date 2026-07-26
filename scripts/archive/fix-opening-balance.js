@@ -1,11 +1,11 @@
 /**
  * Fix Opening Balance — Koreksi Neraca Januari 2026
- * 
+ *
  * Script ini membuat jurnal koreksi "OB-CORRECTION" tanggal 31 Jan 2026
  * untuk menyesuaikan saldo akun dengan neraca CPN Januari 2026.
- * 
+ *
  * Aman dijalankan ulang: jika OB-CORRECTION sudah ada, akan dihapus dan dibuat ulang.
- * 
+ *
  * Usage: node scripts/fix-opening-balance.js
  */
 const { PrismaClient } = require('@prisma/client');
@@ -19,20 +19,29 @@ async function main() {
 
     // 1. Resolve all accounts by code
     const codes = [
-        '11310', '12310', '12400', '12500',   // Persediaan (11310 = Raw Materials)
-        '21110', '21111',                       // Hutang reklasifikasi
-        '31111', '31112', '32000', '30000'     // Modal koreksi
+        '11310',
+        '12310',
+        '12400',
+        '12500', // Persediaan (11310 = Raw Materials)
+        '21110',
+        '21111', // Hutang reklasifikasi
+        '31111',
+        '31112',
+        '32000',
+        '30000', // Modal koreksi
     ];
 
     const accounts = await prisma.account.findMany({
-        where: { code: { in: codes } }
+        where: { code: { in: codes } },
     });
 
     const byCode = {};
-    accounts.forEach(a => { byCode[a.code] = a; });
+    accounts.forEach((a) => {
+        byCode[a.code] = a;
+    });
 
     // Verify all accounts exist
-    const missing = codes.filter(c => !byCode[c]);
+    const missing = codes.filter((c) => !byCode[c]);
     if (missing.length > 0) {
         console.error('ERROR: Akun tidak ditemukan:', missing.join(', '));
         process.exit(1);
@@ -42,17 +51,62 @@ async function main() {
     // 2. Define correction lines (debit positive, credit negative)
     const lines = [
         // ASET — tambah persediaan yang belum ada
-        { code: '11310', debit: 121633987, credit: 0, note: 'Persediaan BB (Raw Materials)' },
-        { code: '12310', debit: 12107900, credit: 0, note: 'Persediaan BB Affal (Regrind)' },
-        { code: '12400', debit: 9573115, credit: 0, note: 'Persediaan BSJ (WIP)' },
-        { code: '12500', debit: 96018016, credit: 0, note: 'Persediaan BJ (Barang Jadi)' },
+        {
+            code: '11310',
+            debit: 121633987,
+            credit: 0,
+            note: 'Persediaan BB (Raw Materials)',
+        },
+        {
+            code: '12310',
+            debit: 12107900,
+            credit: 0,
+            note: 'Persediaan BB Affal (Regrind)',
+        },
+        {
+            code: '12400',
+            debit: 9573115,
+            credit: 0,
+            note: 'Persediaan BSJ (WIP)',
+        },
+        {
+            code: '12500',
+            debit: 96018016,
+            credit: 0,
+            note: 'Persediaan BJ (Barang Jadi)',
+        },
         // HUTANG — reklasifikasi maklun dari 21110 ke 21111
-        { code: '21110', debit: 8773200, credit: 0, note: 'Reklasifikasi ke Hutang Maklun' },
-        { code: '21111', debit: 0, credit: 8773200, note: 'Hutang Maklun dari neraca' },
+        {
+            code: '21110',
+            debit: 8773200,
+            credit: 0,
+            note: 'Reklasifikasi ke Hutang Maklun',
+        },
+        {
+            code: '21111',
+            debit: 0,
+            credit: 8773200,
+            note: 'Hutang Maklun dari neraca',
+        },
         // MODAL — pecah Retained Earnings ke Laba Ditahan + Laba Berjalan
-        { code: '32000', debit: 89095785, credit: 0, note: 'Koreksi: seharusnya 0' },
-        { code: '31111', debit: 0, credit: 50325445, note: 'Laba/Rugi Ditahan dari neraca' },
-        { code: '31112', debit: 0, credit: 38770340, note: 'Laba/Rugi Berjalan dari neraca' },
+        {
+            code: '32000',
+            debit: 89095785,
+            credit: 0,
+            note: 'Koreksi: seharusnya 0',
+        },
+        {
+            code: '31111',
+            debit: 0,
+            credit: 50325445,
+            note: 'Laba/Rugi Ditahan dari neraca',
+        },
+        {
+            code: '31112',
+            debit: 0,
+            credit: 38770340,
+            note: 'Laba/Rugi Berjalan dari neraca',
+        },
         // Opening Balance Equity — zero out saldo negatif
         { code: '30000', debit: 0, credit: 239333018, note: 'Zero out OBE' },
     ];
@@ -73,10 +127,12 @@ async function main() {
     await prisma.$transaction(async (tx) => {
         // Delete existing correction if re-running
         const existing = await tx.journalEntry.findFirst({
-            where: { reference: REFERENCE }
+            where: { reference: REFERENCE },
         });
         if (existing) {
-            await tx.journalLine.deleteMany({ where: { journalEntryId: existing.id } });
+            await tx.journalLine.deleteMany({
+                where: { journalEntryId: existing.id },
+            });
             await tx.journalEntry.delete({ where: { id: existing.id } });
             console.log('Deleted existing OB-CORRECTION entry. ✓');
         }
@@ -84,9 +140,11 @@ async function main() {
         // Generate next entry number
         const lastEntry = await tx.journalEntry.findFirst({
             orderBy: { entryNumber: 'desc' },
-            select: { entryNumber: true }
+            select: { entryNumber: true },
         });
-        const lastNum = lastEntry ? parseInt(lastEntry.entryNumber.replace(/\D/g, '')) : 0;
+        const lastNum = lastEntry
+            ? parseInt(lastEntry.entryNumber.replace(/\D/g, ''))
+            : 0;
         const entryNumber = 'JE-2026-' + String(lastNum + 1).padStart(5, '0');
 
         // Create the correction journal entry
@@ -95,17 +153,18 @@ async function main() {
                 entryDate: ENTRY_DATE,
                 entryNumber,
                 reference: REFERENCE,
-                description: 'Koreksi Opening Balance — Neraca CPN Januari 2026',
+                description:
+                    'Koreksi Opening Balance — Neraca CPN Januari 2026',
                 status: 'POSTED',
                 lines: {
-                    create: lines.map(l => ({
+                    create: lines.map((l) => ({
                         accountId: byCode[l.code].id,
                         debit: l.debit,
                         credit: l.credit,
                         description: l.note,
-                    }))
-                }
-            }
+                    })),
+                },
+            },
         });
 
         console.log('Created OB-CORRECTION: ' + entry.id + ' ✓');
@@ -115,13 +174,15 @@ async function main() {
     });
 
     console.log('\n=== DONE ===');
-    console.log('Opening balance berhasil dikoreksi sesuai neraca Januari 2026.');
+    console.log(
+        'Opening balance berhasil dikoreksi sesuai neraca Januari 2026.',
+    );
     console.log('Jalankan "node scripts/check-ob.js" untuk verifikasi.');
 
     process.exit(0);
 }
 
-main().catch(e => {
+main().catch((e) => {
     console.error('FATAL:', e);
     process.exit(1);
 });

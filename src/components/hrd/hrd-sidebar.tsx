@@ -1,128 +1,132 @@
-"use client";
+'use client';
 
 import {
-  LayoutDashboard,
-  Clock,
-  Wallet,
-  Scale,
-  CalendarRange,
-  HandCoins,
-  CalendarDays,
-  Gavel,
-  AlertTriangle,
-  Users,
-  Shield,
-} from "lucide-react";
-import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
-import { PortalNavGroup } from "@/components/layout/portal-nav-item";
-import { AdminBackButton } from "@/components/layout/admin-back-button";
-import { hrdSidebarLabels } from "@/lib/labels";
-import { filterNavGroups } from "@/lib/auth/permission-match";
+    LayoutDashboard,
+    Clock,
+    Wallet,
+    Scale,
+    CalendarRange,
+    HandCoins,
+    CalendarDays,
+    Gavel,
+    AlertTriangle,
+    Users,
+    Shield,
+} from 'lucide-react';
+import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
+import { PortalNavGroup } from '@/components/layout/portal-nav-item';
+import { AdminBackButton } from '@/components/layout/admin-back-button';
+import { hrdSidebarLabels } from '@/lib/labels';
+import { filterNavGroups } from '@/lib/auth/permission-match';
 
 interface HrdSidebarProps {
-  user: {
-    name?: string | null;
-    email?: string | null;
-    role?: string | null;
-    image?: string | null;
-  };
-  permissions?: string[] | "ALL";
+    user: {
+        name?: string | null;
+        email?: string | null;
+        role?: string | null;
+        image?: string | null;
+    };
+    permissions?: string[] | 'ALL';
 }
 
 const hrdLinks = [
-  {
-    heading: "Hari Ini",
-    items: [
-      {
-        href: "/hrd",
-        icon: LayoutDashboard,
-        label: hrdSidebarLabels.homeBoard,
-        exact: true,
-      },
-    ],
-  },
-  {
-    heading: "Kehadiran",
-    items: [
-      {
-        href: "/hrd/attendance",
-        icon: Clock,
-        label: hrdSidebarLabels.attendance,
-      },
-      {
-        href: "/hrd/alerts",
-        icon: AlertTriangle,
-        label: hrdSidebarLabels.alerts,
-      },
-    ],
-  },
-  {
-    heading: "Penggajian",
-    items: [
-      {
-        href: "/hrd/payroll",
-        icon: Wallet,
-        label: hrdSidebarLabels.payrollWeekly,
-      },
-      {
-        href: "/hrd/payroll-monthly",
-        icon: CalendarRange,
-        label: hrdSidebarLabels.payrollMonthly,
-      },
-      {
-        href: "/hrd/bpjs",
-        icon: Shield,
-        label: hrdSidebarLabels.bpjs,
-      },
-      {
-        href: "/hrd/piece-rates",
-        icon: Scale,
-        label: hrdSidebarLabels.pieceRates,
-      },
-      {
-        href: "/hrd/loans",
-        icon: HandCoins,
-        label: hrdSidebarLabels.loans,
-      },
-    ],
-  },
-  {
-    heading: "Kepegawaian",
-    items: [
-      {
-        href: "/hrd/employees",
-        icon: Users,
-        label: hrdSidebarLabels.employees,
-      },
-      {
-        href: "/hrd/leave",
-        icon: CalendarDays,
-        label: hrdSidebarLabels.leave,
-      },
-      {
-        href: "/hrd/disciplinary",
-        icon: Gavel,
-        label: hrdSidebarLabels.disciplinary,
-      },
-    ],
-  },
+    {
+        heading: 'Hari Ini',
+        items: [
+            {
+                href: '/hrd',
+                icon: LayoutDashboard,
+                label: hrdSidebarLabels.homeBoard,
+                exact: true,
+            },
+        ],
+    },
+    {
+        heading: 'Kehadiran',
+        items: [
+            {
+                href: '/hrd/attendance',
+                icon: Clock,
+                label: hrdSidebarLabels.attendance,
+            },
+            {
+                href: '/hrd/alerts',
+                icon: AlertTriangle,
+                label: hrdSidebarLabels.alerts,
+            },
+        ],
+    },
+    {
+        heading: 'Penggajian',
+        items: [
+            {
+                href: '/hrd/payroll',
+                icon: Wallet,
+                label: hrdSidebarLabels.payrollWeekly,
+            },
+            {
+                href: '/hrd/payroll-monthly',
+                icon: CalendarRange,
+                label: hrdSidebarLabels.payrollMonthly,
+            },
+            {
+                href: '/hrd/bpjs',
+                icon: Shield,
+                label: hrdSidebarLabels.bpjs,
+            },
+            {
+                href: '/hrd/piece-rates',
+                icon: Scale,
+                label: hrdSidebarLabels.pieceRates,
+            },
+            {
+                href: '/hrd/loans',
+                icon: HandCoins,
+                label: hrdSidebarLabels.loans,
+            },
+        ],
+    },
+    {
+        heading: 'Kepegawaian',
+        items: [
+            {
+                href: '/hrd/employees',
+                icon: Users,
+                label: hrdSidebarLabels.employees,
+            },
+            {
+                href: '/hrd/leave',
+                icon: CalendarDays,
+                label: hrdSidebarLabels.leave,
+            },
+            {
+                href: '/hrd/disciplinary',
+                icon: Gavel,
+                label: hrdSidebarLabels.disciplinary,
+            },
+        ],
+    },
 ];
 
 export function HrdSidebar({ user, permissions }: HrdSidebarProps) {
-  const filteredGroups = filterNavGroups(hrdLinks, permissions);
-  return (
-    <PortalSidebarBase user={user} portalName="Portal HRD" accentColor="rose">
-      <div className="px-3 mb-2">
-        <AdminBackButton />
-      </div>
-      {filteredGroups.map((group) => (
-        <PortalNavGroup
-          key={group.heading}
-          heading={group.heading}
-          items={group.items}
-          accentColor="rose"
-        />
-      ))}
-    </PortalSidebarBase>
-  );
+    const filteredGroups = filterNavGroups(hrdLinks, permissions);
+    return (
+        <PortalSidebarBase
+            user={user}
+            portalName="Portal HRD"
+            accentColor="rose"
+        >
+            <div className="px-3 mb-2">
+                <AdminBackButton />
+            </div>
+            {filteredGroups.map((group) => (
+                <PortalNavGroup
+                    key={group.heading}
+                    heading={group.heading}
+                    items={group.items}
+                    accentColor="rose"
+                />
+            ))}
+        </PortalSidebarBase>
+    );
 }

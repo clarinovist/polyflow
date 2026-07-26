@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { Package, Truck, ClipboardList, AlertTriangle, ShoppingCart, ArrowRight, TrendingDown, CheckCircle2 } from 'lucide-react';
+import {
+    Package,
+    Truck,
+    ClipboardList,
+    AlertTriangle,
+    ShoppingCart,
+    ArrowRight,
+    TrendingDown,
+    CheckCircle2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import type { WarehouseShiftBoard } from '@/actions/dashboard/warehouse-dashboard';
 
@@ -32,13 +41,17 @@ function StatCard({
             <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full">
                 <CardContent className="p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <div className={cn("p-2 rounded-lg", colorClass)}>
+                        <div className={cn('p-2 rounded-lg', colorClass)}>
                             <Icon className="h-5 w-5" />
                         </div>
-                        <span className="text-2xl font-bold tabular-nums">{count}</span>
+                        <span className="text-2xl font-bold tabular-nums">
+                            {count}
+                        </span>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+                        <p className="text-sm font-medium text-muted-foreground">
+                            {label}
+                        </p>
                         <p className="text-xs text-primary font-semibold flex items-center gap-1 mt-1 group-hover:underline">
                             {ctaLabel} <ArrowRight className="h-3 w-3" />
                         </p>
@@ -67,11 +80,16 @@ function AttentionSection({
                 {title}
             </h3>
             {items.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-2">{emptyMessage}</p>
+                <p className="text-xs text-muted-foreground italic py-2">
+                    {emptyMessage}
+                </p>
             ) : (
                 <div className="space-y-1">
-                    {items.map(item => (
-                        <div key={String(item.id)} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors min-h-[44px]">
+                    {items.map((item) => (
+                        <div
+                            key={String(item.id)}
+                            className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors min-h-[44px]"
+                        >
                             {renderItem(item)}
                         </div>
                     ))}
@@ -81,14 +99,18 @@ function AttentionSection({
     );
 }
 
-export function WarehouseShiftBoardComponent({ data }: WarehouseShiftBoardProps) {
+export function WarehouseShiftBoardComponent({
+    data,
+}: WarehouseShiftBoardProps) {
     const { counts, today, attention } = data;
 
     return (
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Hari Ini</h1>
-                <p className="text-muted-foreground">Ringkasan pekerjaan shift + antrean prioritas.</p>
+                <p className="text-muted-foreground">
+                    Ringkasan pekerjaan shift + antrean prioritas.
+                </p>
             </div>
 
             {/* Stat Cards */}
@@ -138,20 +160,35 @@ export function WarehouseShiftBoardComponent({ data }: WarehouseShiftBoardProps)
             {/* Attention Section */}
             <Card>
                 <CardContent className="p-4 space-y-4">
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">Butuh Perhatian</h2>
+                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                        Butuh Perhatian
+                    </h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <AttentionSection
                             title="SJ Loading belum diverifikasi"
-                            items={attention.loadingUnverified.map(d => ({ id: d.id, number: d.number, customerName: d.customerName ?? '' }))}
+                            items={attention.loadingUnverified.map((d) => ({
+                                id: d.id,
+                                number: d.number,
+                                customerName: d.customerName ?? '',
+                            }))}
                             emptyMessage="Tidak ada SJ pending verifikasi"
                             renderItem={(item) => (
-                                <Link href={`/warehouse/outgoing/${String(item.id)}`} className="flex-1 flex items-center justify-between group/link">
+                                <Link
+                                    href={`/warehouse/outgoing/${String(item.id)}`}
+                                    className="flex-1 flex items-center justify-between group/link"
+                                >
                                     <div>
-                                        <span className="text-sm font-mono font-bold">{String(item.number)}</span>
-                                        {typeof item.customerName === 'string' && item.customerName.length > 0 && (
-                                            <span className="text-xs text-muted-foreground ml-2">{item.customerName}</span>
-                                        )}
+                                        <span className="text-sm font-mono font-bold">
+                                            {String(item.number)}
+                                        </span>
+                                        {typeof item.customerName ===
+                                            'string' &&
+                                            item.customerName.length > 0 && (
+                                                <span className="text-xs text-muted-foreground ml-2">
+                                                    {item.customerName}
+                                                </span>
+                                            )}
                                     </div>
                                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
                                 </Link>
@@ -160,13 +197,24 @@ export function WarehouseShiftBoardComponent({ data }: WarehouseShiftBoardProps)
 
                         <AttentionSection
                             title="PO partial menunggu sisa"
-                            items={attention.partialPOs.map(p => ({ id: p.id, orderNumber: p.orderNumber, supplierName: p.supplierName }))}
+                            items={attention.partialPOs.map((p) => ({
+                                id: p.id,
+                                orderNumber: p.orderNumber,
+                                supplierName: p.supplierName,
+                            }))}
                             emptyMessage="Tidak ada PO partial"
                             renderItem={(item) => (
-                                <Link href={`/warehouse/incoming/orders/${String(item.id)}`} className="flex-1 flex items-center justify-between group/link">
+                                <Link
+                                    href={`/warehouse/incoming/orders/${String(item.id)}`}
+                                    className="flex-1 flex items-center justify-between group/link"
+                                >
                                     <div>
-                                        <span className="text-sm font-mono font-bold">{String(item.orderNumber)}</span>
-                                        <span className="text-xs text-muted-foreground ml-2">{String(item.supplierName)}</span>
+                                        <span className="text-sm font-mono font-bold">
+                                            {String(item.orderNumber)}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground ml-2">
+                                            {String(item.supplierName)}
+                                        </span>
                                     </div>
                                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
                                 </Link>
@@ -175,11 +223,19 @@ export function WarehouseShiftBoardComponent({ data }: WarehouseShiftBoardProps)
 
                         <AttentionSection
                             title="SPK menunggu bahan"
-                            items={attention.waitingMaterial.map(p => ({ id: p.id, orderNumber: p.orderNumber }))}
+                            items={attention.waitingMaterial.map((p) => ({
+                                id: p.id,
+                                orderNumber: p.orderNumber,
+                            }))}
                             emptyMessage="Tidak ada SPK waiting material"
                             renderItem={(item) => (
-                                <Link href={`/warehouse/materials`} className="flex-1 flex items-center justify-between group/link">
-                                    <span className="text-sm font-mono font-bold">{String(item.orderNumber)}</span>
+                                <Link
+                                    href={`/warehouse/materials`}
+                                    className="flex-1 flex items-center justify-between group/link"
+                                >
+                                    <span className="text-sm font-mono font-bold">
+                                        {String(item.orderNumber)}
+                                    </span>
                                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
                                 </Link>
                             )}
@@ -191,22 +247,36 @@ export function WarehouseShiftBoardComponent({ data }: WarehouseShiftBoardProps)
             {/* Today Ops KPI */}
             <Card>
                 <CardContent className="p-4">
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-3">Aktivitas Hari Ini</h2>
+                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-3">
+                        Aktivitas Hari Ini
+                    </h2>
                     <div className="flex flex-wrap gap-4 text-sm">
                         <div className="flex items-center gap-2">
                             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                            <span className="text-muted-foreground">Diterima:</span>
-                            <span className="font-bold">{today.goodsReceipts} GR</span>
+                            <span className="text-muted-foreground">
+                                Diterima:
+                            </span>
+                            <span className="font-bold">
+                                {today.goodsReceipts} GR
+                            </span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Truck className="h-4 w-4 text-blue-500" />
-                            <span className="text-muted-foreground">Dikirim:</span>
-                            <span className="font-bold">{today.deliveriesShipped} SJ</span>
+                            <span className="text-muted-foreground">
+                                Dikirim:
+                            </span>
+                            <span className="font-bold">
+                                {today.deliveriesShipped} SJ
+                            </span>
                         </div>
                         <div className="flex items-center gap-2">
                             <ClipboardList className="h-4 w-4 text-amber-500" />
-                            <span className="text-muted-foreground">Issue bahan:</span>
-                            <span className="font-bold">{today.materialIssues}</span>
+                            <span className="text-muted-foreground">
+                                Issue bahan:
+                            </span>
+                            <span className="font-bold">
+                                {today.materialIssues}
+                            </span>
                         </div>
                     </div>
                 </CardContent>

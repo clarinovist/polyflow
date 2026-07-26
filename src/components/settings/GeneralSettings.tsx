@@ -1,6 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
@@ -26,13 +32,16 @@ export function GeneralSettings({
                 <CardHeader>
                     <CardTitle>Organisasi / Tenant Aktif</CardTitle>
                     <CardDescription>
-                        Ini menunjukkan database yang sedang terhubung ke sesi Anda saat ini.
+                        Ini menunjukkan database yang sedang terhubung ke sesi
+                        Anda saat ini.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
                         <div className="space-y-0.5">
-                            <h3 className="text-base font-semibold text-primary">{tenantName || 'Database Utama'}</h3>
+                            <h3 className="text-base font-semibold text-primary">
+                                {tenantName || 'Database Utama'}
+                            </h3>
                             <p className="text-sm text-muted-foreground">
                                 Data sepenuhnya terisolasi untuk tenant ini.
                             </p>

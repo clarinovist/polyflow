@@ -1,6 +1,6 @@
-import { Prisma } from "@prisma/client";
-import { ZodError } from "zod";
-import { serializeData } from "../utils/utils";
+import { Prisma } from '@prisma/client';
+import { ZodError } from 'zod';
+import { serializeData } from '../utils/utils';
 
 export type ActionResponse<T = unknown> = {
     success: boolean;
@@ -18,15 +18,18 @@ import { mapPrismaError } from './prisma-error-map';
  * Normalizes various error types into a consistent ActionResponse format.
  */
 export function handleError(error: unknown): ActionResponse {
-    console.error("Action Error:", error);
+    console.error('Action Error:', error);
 
     // Zod Validation Errors
     if (error instanceof ZodError) {
         return {
             success: false,
-            error: "Validation failed",
-            fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-            code: "VALIDATION_ERROR",
+            error: 'Validation failed',
+            fieldErrors: error.flatten().fieldErrors as Record<
+                string,
+                string[]
+            >,
+            code: 'VALIDATION_ERROR',
         };
     }
 
@@ -52,8 +55,8 @@ export function handleError(error: unknown): ActionResponse {
         });
         return {
             success: false,
-            error: "Terjadi kesalahan database. Silakan coba lagi.",
-            code: "INTERNAL_ERROR",
+            error: 'Terjadi kesalahan database. Silakan coba lagi.',
+            code: 'INTERNAL_ERROR',
         };
     }
 
@@ -80,15 +83,15 @@ export function handleError(error: unknown): ActionResponse {
         return {
             success: false,
             error: error.message,
-            code: "INTERNAL_ERROR",
+            code: 'INTERNAL_ERROR',
         };
     }
 
     // Unknown Errors
     return {
         success: false,
-        error: "Terjadi kesalahan tidak terduga. Silakan coba lagi.",
-        code: "UNKNOWN_ERROR",
+        error: 'Terjadi kesalahan tidak terduga. Silakan coba lagi.',
+        code: 'UNKNOWN_ERROR',
     };
 }
 
@@ -96,15 +99,19 @@ export function handleError(error: unknown): ActionResponse {
  * Wrapper for Server Actions to automatically handle errors and serialize data.
  */
 export async function catchError<T>(
-    action: () => Promise<T>
+    action: () => Promise<T>,
 ): Promise<ActionResponse<T>> {
     try {
         const data = await action();
         return { success: true, data: serializeData(data) as T };
     } catch (error: unknown) {
         if (error && typeof error === 'object' && 'message' in error) {
-            const err = error as { message: string, digest?: string };
-            if (err.message === 'NEXT_REDIRECT' || err.message === 'NEXT_NOT_FOUND' || err.digest?.startsWith('NEXT_REDIRECT')) {
+            const err = error as { message: string; digest?: string };
+            if (
+                err.message === 'NEXT_REDIRECT' ||
+                err.message === 'NEXT_NOT_FOUND' ||
+                err.digest?.startsWith('NEXT_REDIRECT')
+            ) {
                 throw error;
             }
         }

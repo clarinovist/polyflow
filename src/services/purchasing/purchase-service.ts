@@ -4,7 +4,7 @@ import {
     UpdatePurchaseOrderValues,
     CreateGoodsReceiptValues,
     CreatePurchaseInvoiceValues,
-    CreatePurchaseRequestValues
+    CreatePurchaseRequestValues,
 } from '@/lib/schemas/purchasing';
 import {
     createOrder,
@@ -12,9 +12,13 @@ import {
     updateOrderStatus,
     deleteOrder,
     getPurchaseOrders,
-    getPurchaseOrderById
+    getPurchaseOrderById,
 } from './orders-service';
-import { createGoodsReceipt, getGoodsReceiptById, getGoodsReceipts } from './receipts-service';
+import {
+    createGoodsReceipt,
+    getGoodsReceiptById,
+    getGoodsReceipts,
+} from './receipts-service';
 import {
     createInvoice,
     recordPayment,
@@ -25,7 +29,11 @@ import {
     createDraftBillFromPo,
     updatePurchaseInvoiceDueDate,
 } from './invoices-service';
-import { createPurchaseRequest, convertRequestToOrder, consolidateRequestsToOrder } from './requests-service';
+import {
+    createPurchaseRequest,
+    convertRequestToOrder,
+    consolidateRequestsToOrder,
+} from './requests-service';
 import { getPurchaseStats } from './stats-service';
 import {
     listReceivablePurchaseOrders,
@@ -35,7 +43,6 @@ import {
 import type { CreateWalkInReceiptValues } from '@/lib/schemas/purchasing';
 
 export class PurchaseService {
-
     static async createOrder(data: CreatePurchaseOrderValues, userId: string) {
         return createOrder(data, userId);
     }
@@ -44,7 +51,11 @@ export class PurchaseService {
         return updateOrder(data);
     }
 
-    static async updateOrderStatus(id: string, status: PurchaseOrderStatus, userId: string) {
+    static async updateOrderStatus(
+        id: string,
+        status: PurchaseOrderStatus,
+        userId: string,
+    ) {
         return updateOrderStatus(id, status, userId);
     }
 
@@ -52,7 +63,10 @@ export class PurchaseService {
         return deleteOrder(id, userId);
     }
 
-    static async createGoodsReceipt(data: CreateGoodsReceiptValues, userId: string) {
+    static async createGoodsReceipt(
+        data: CreateGoodsReceiptValues,
+        userId: string,
+    ) {
         return createGoodsReceipt(data, userId);
     }
 
@@ -64,7 +78,10 @@ export class PurchaseService {
         return getGoodsReceiptsForDay(day);
     }
 
-    static async createWalkInReceipt(data: CreateWalkInReceiptValues, userId: string) {
+    static async createWalkInReceipt(
+        data: CreateWalkInReceiptValues,
+        userId: string,
+    ) {
         return createWalkInReceipt(data, userId);
     }
 
@@ -87,7 +104,10 @@ export class PurchaseService {
         return recordPayment(id, amount, userId, options);
     }
 
-    static async getPurchaseOrders(filters?: { supplierId?: string, status?: PurchaseOrderStatus }) {
+    static async getPurchaseOrders(filters?: {
+        supplierId?: string;
+        status?: PurchaseOrderStatus;
+    }) {
         return getPurchaseOrders(filters);
     }
 
@@ -99,7 +119,11 @@ export class PurchaseService {
         return getGoodsReceiptById(id);
     }
 
-    static async getGoodsReceipts(filter?: { startDate?: Date, endDate?: Date, isMaklon?: boolean }) {
+    static async getGoodsReceipts(filter?: {
+        startDate?: Date;
+        endDate?: Date;
+        isMaklon?: boolean;
+    }) {
         return getGoodsReceipts(filter);
     }
 
@@ -107,7 +131,10 @@ export class PurchaseService {
         return getPurchaseInvoiceById(id);
     }
 
-    static async getPurchaseInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+    static async getPurchaseInvoices(dateRange?: {
+        startDate?: Date;
+        endDate?: Date;
+    }) {
         return getPurchaseInvoices(dateRange);
     }
 
@@ -119,13 +146,20 @@ export class PurchaseService {
         return generateBillNumber();
     }
 
-    static async createDraftBillFromPo(purchaseOrderId: string, userId: string) {
+    static async createDraftBillFromPo(
+        purchaseOrderId: string,
+        userId: string,
+    ) {
         return createDraftBillFromPo(purchaseOrderId, userId);
     }
 
     static async updatePurchaseInvoiceDueDate(
         id: string,
-        data: { dueDate?: Date; termOfPaymentDays?: number; invoiceDate?: Date },
+        data: {
+            dueDate?: Date;
+            termOfPaymentDays?: number;
+            invoiceDate?: Date;
+        },
         userId: string,
     ) {
         return updatePurchaseInvoiceDueDate(id, data, userId);
@@ -135,15 +169,27 @@ export class PurchaseService {
         return getPurchaseStats();
     }
 
-    static async createPurchaseRequest(data: CreatePurchaseRequestValues, userId: string, tx?: Prisma.TransactionClient) {
+    static async createPurchaseRequest(
+        data: CreatePurchaseRequestValues,
+        userId: string,
+        tx?: Prisma.TransactionClient,
+    ) {
         return createPurchaseRequest(data, userId, tx);
     }
 
-    static async convertRequestToOrder(requestId: string, supplierId: string, userId: string) {
+    static async convertRequestToOrder(
+        requestId: string,
+        supplierId: string,
+        userId: string,
+    ) {
         return convertRequestToOrder(requestId, supplierId, userId);
     }
 
-    static async consolidateRequestsToOrder(requestIds: string[], supplierId: string, userId: string) {
+    static async consolidateRequestsToOrder(
+        requestIds: string[],
+        supplierId: string,
+        userId: string,
+    ) {
         return consolidateRequestsToOrder(requestIds, supplierId, userId);
     }
 }

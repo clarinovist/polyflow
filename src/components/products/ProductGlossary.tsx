@@ -1,6 +1,13 @@
 'use client';
 
-import { HelpCircle, Info, Package, DollarSign, Scale, Tag } from 'lucide-react';
+import {
+    HelpCircle,
+    Info,
+    Package,
+    DollarSign,
+    Scale,
+    Tag,
+} from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -91,7 +98,9 @@ export function ProductGlossary() {
                         <GlossarySection
                             icon={Scale}
                             title={productGlossaryLabels.unitsOfMeasurement}
-                            description={productGlossaryLabels.unitsOfMeasurementDesc}
+                            description={
+                                productGlossaryLabels.unitsOfMeasurementDesc
+                            }
                         >
                             <GlossaryItem
                                 term="KG"
@@ -119,7 +128,9 @@ export function ProductGlossary() {
                         <GlossarySection
                             icon={Tag}
                             title={productGlossaryLabels.skuCodeFormat}
-                            description={productGlossaryLabels.skuCodeFormatDesc}
+                            description={
+                                productGlossaryLabels.skuCodeFormatDesc
+                            }
                         >
                             <div className="bg-muted/30 p-4 rounded-lg border">
                                 <div className="font-mono text-lg font-bold text-center mb-3 tracking-wider">
@@ -127,20 +138,36 @@ export function ProductGlossary() {
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 text-sm">
                                     <div className="text-center">
-                                        <div className="font-semibold text-foreground">{productGlossaryLabels.typeLabel}</div>
-                                        <div className="text-xs text-muted-foreground">RM, IN, WP, FG, SC</div>
+                                        <div className="font-semibold text-foreground">
+                                            {productGlossaryLabels.typeLabel}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            RM, IN, WP, FG, SC
+                                        </div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="font-semibold text-foreground">{productGlossaryLabels.categoryLabel}</div>
-                                        <div className="text-xs text-muted-foreground">PPG, CLR, MIX, RAF</div>
+                                        <div className="font-semibold text-foreground">
+                                            {
+                                                productGlossaryLabels.categoryLabel
+                                            }
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            PPG, CLR, MIX, RAF
+                                        </div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="font-semibold text-foreground">{productGlossaryLabels.seqLabel}</div>
-                                        <div className="text-xs text-muted-foreground">001-999</div>
+                                        <div className="font-semibold text-foreground">
+                                            {productGlossaryLabels.seqLabel}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            001-999
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="mt-3 p-3 bg-card rounded border font-mono text-sm flex flex-col items-center">
-                                    <span className="text-xs text-muted-foreground mb-1 uppercase tracking-wide">{productGlossaryLabels.exampleLabel}</span>
+                                    <span className="text-xs text-muted-foreground mb-1 uppercase tracking-wide">
+                                        {productGlossaryLabels.exampleLabel}
+                                    </span>
                                     <span className="font-bold">RMPPG001</span>
                                     <span className="text-xs text-muted-foreground mt-1 text-center">
                                         {productGlossaryLabels.skuExamplePath}
@@ -153,28 +180,43 @@ export function ProductGlossary() {
                         <GlossarySection
                             icon={Scale}
                             title={productGlossaryLabels.dualUnitSystem}
-                            description={productGlossaryLabels.dualUnitSystemDesc}
+                            description={
+                                productGlossaryLabels.dualUnitSystemDesc
+                            }
                         >
                             <GlossaryItem
                                 term={productGlossaryLabels.primaryUnit}
-                                description={productGlossaryLabels.primaryUnitDesc}
-                                example={productGlossaryLabels.primaryUnitExample}
+                                description={
+                                    productGlossaryLabels.primaryUnitDesc
+                                }
+                                example={
+                                    productGlossaryLabels.primaryUnitExample
+                                }
                             />
                             <GlossaryItem
                                 term={productGlossaryLabels.salesUnit}
-                                description={productGlossaryLabels.salesUnitDesc}
+                                description={
+                                    productGlossaryLabels.salesUnitDesc
+                                }
                                 example={productGlossaryLabels.salesUnitExample}
                             />
                             <GlossaryItem
                                 term={productGlossaryLabels.conversionFactor}
-                                description={productGlossaryLabels.conversionFactorDesc}
-                                example={productGlossaryLabels.conversionFactorExample}
+                                description={
+                                    productGlossaryLabels.conversionFactorDesc
+                                }
+                                example={
+                                    productGlossaryLabels.conversionFactorExample
+                                }
                             />
                             <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-muted-foreground">
-                                        <span className="font-semibold text-foreground">Tip:</span> {productGlossaryLabels.dualUnitTip}
+                                        <span className="font-semibold text-foreground">
+                                            Tip:
+                                        </span>{' '}
+                                        {productGlossaryLabels.dualUnitTip}
                                     </div>
                                 </div>
                             </div>
@@ -198,15 +240,19 @@ export function ProductGlossary() {
                             />
                             <GlossaryItem
                                 term={productGlossaryLabels.sellPrice}
-                                description={productGlossaryLabels.sellPriceDesc}
+                                description={
+                                    productGlossaryLabels.sellPriceDesc
+                                }
                                 example={productGlossaryLabels.sellPriceExample}
                             />
                             <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-muted-foreground">
-                                        <span className="font-semibold text-foreground">{productGlossaryLabels.marginCalc}</span>
-                                        {' '}{productGlossaryLabels.marginFormula}
+                                        <span className="font-semibold text-foreground">
+                                            {productGlossaryLabels.marginCalc}
+                                        </span>{' '}
+                                        {productGlossaryLabels.marginFormula}
                                     </div>
                                 </div>
                             </div>
@@ -216,18 +262,29 @@ export function ProductGlossary() {
                         <GlossarySection
                             icon={Package}
                             title={productGlossaryLabels.inventoryControls}
-                            description={productGlossaryLabels.inventoryControlsDesc}
+                            description={
+                                productGlossaryLabels.inventoryControlsDesc
+                            }
                         >
                             <GlossaryItem
                                 term={productGlossaryLabels.minStockAlert}
-                                description={productGlossaryLabels.minStockAlertDesc}
-                                example={productGlossaryLabels.minStockAlertExample}
+                                description={
+                                    productGlossaryLabels.minStockAlertDesc
+                                }
+                                example={
+                                    productGlossaryLabels.minStockAlertExample
+                                }
                             />
                             <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-muted-foreground">
-                                        <span className="font-semibold text-foreground">{productGlossaryLabels.bestPractice}</span> {productGlossaryLabels.bestPracticeFormula}
+                                        <span className="font-semibold text-foreground">
+                                            {productGlossaryLabels.bestPractice}
+                                        </span>{' '}
+                                        {
+                                            productGlossaryLabels.bestPracticeFormula
+                                        }
                                     </div>
                                 </div>
                             </div>
@@ -237,13 +294,17 @@ export function ProductGlossary() {
                         <GlossarySection
                             icon={Tag}
                             title={productGlossaryLabels.productAttributes}
-                            description={productGlossaryLabels.productAttributesDesc}
+                            description={
+                                productGlossaryLabels.productAttributesDesc
+                            }
                         >
                             <div className="text-sm text-slate-600 mb-3">
                                 {productGlossaryLabels.productAttributesDetail}
                             </div>
                             <div className="bg-muted/30 p-3 rounded-lg border font-mono text-xs">
-                                <div className="text-muted-foreground mb-1">{productGlossaryLabels.exampleJson}</div>
+                                <div className="text-muted-foreground mb-1">
+                                    {productGlossaryLabels.exampleJson}
+                                </div>
                                 <pre className="text-foreground">{`{
   "color": "Red",
   "thickness": "Standard",
@@ -266,17 +327,22 @@ interface GlossarySectionProps {
     children: React.ReactNode;
 }
 
-function GlossarySection({ icon: Icon, title, description, children }: GlossarySectionProps) {
+function GlossarySection({
+    icon: Icon,
+    title,
+    description,
+    children,
+}: GlossarySectionProps) {
     return (
         <div className="border-l-4 border-slate-300 pl-4 py-2">
             <div className="flex items-center gap-2 mb-2">
                 <Icon className="h-5 w-5 text-muted-foreground" />
-                <h3 className="font-semibold text-lg text-foreground">{title}</h3>
+                <h3 className="font-semibold text-lg text-foreground">
+                    {title}
+                </h3>
             </div>
             <p className="text-sm text-muted-foreground mb-4">{description}</p>
-            <div className="space-y-4">
-                {children}
-            </div>
+            <div className="space-y-4">{children}</div>
         </div>
     );
 }
@@ -286,16 +352,25 @@ interface GlossaryItemProps {
     description: string;
     example?: string;
     badge?: string;
-    badgeVariant?: "default" | "secondary" | "destructive" | "outline";
+    badgeVariant?: 'default' | 'secondary' | 'destructive' | 'outline';
 }
 
-function GlossaryItem({ term, description, example, badge, badgeVariant }: GlossaryItemProps) {
+function GlossaryItem({
+    term,
+    description,
+    example,
+    badge,
+    badgeVariant,
+}: GlossaryItemProps) {
     return (
         <div className="bg-card p-3 rounded-lg border border-border">
             <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-slate-900">{term}</span>
                 {badge && (
-                    <Badge variant={badgeVariant || 'secondary'} className="text-xs">
+                    <Badge
+                        variant={badgeVariant || 'secondary'}
+                        className="text-xs"
+                    >
                         {badge}
                     </Badge>
                 )}

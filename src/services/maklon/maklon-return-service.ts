@@ -3,19 +3,22 @@ import { prisma } from '@/lib/core/prisma';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 
 export class MaklonReturnService {
-    static async createReturn(data: {
-        returnNumber: string;
-        customerId: string;
-        sourceLocationId: string;
-        reason?: string;
-        notes?: string;
-        createdById?: string;
-        items: {
-            productVariantId: string;
-            quantity: number;
+    static async createReturn(
+        data: {
+            returnNumber: string;
+            customerId: string;
+            sourceLocationId: string;
+            reason?: string;
             notes?: string;
-        }[];
-    }, tx?: Prisma.TransactionClient) {
+            createdById?: string;
+            items: {
+                productVariantId: string;
+                quantity: number;
+                notes?: string;
+            }[];
+        },
+        tx?: Prisma.TransactionClient,
+    ) {
         const execute = async (t: Prisma.TransactionClient) => {
             // 1. Create Return Record
             const ret = await t.maklonMaterialReturn.create({
@@ -31,11 +34,11 @@ export class MaklonReturnService {
                         create: data.items.map((item) => ({
                             productVariantId: item.productVariantId,
                             quantity: item.quantity,
-                            notes: item.notes
-                        }))
-                    }
+                            notes: item.notes,
+                        })),
+                    },
                 },
-                include: { items: true }
+                include: { items: true },
             });
 
             // 2. Adjust Inventory & Create Movements
@@ -44,14 +47,14 @@ export class MaklonReturnService {
                     t,
                     data.sourceLocationId,
                     item.productVariantId,
-                    item.quantity
+                    item.quantity,
                 );
 
                 await InventoryCoreService.deductStock(
                     t,
                     data.sourceLocationId,
                     item.productVariantId,
-                    item.quantity
+                    item.quantity,
                 );
 
                 await t.stockMovement.create({
@@ -62,8 +65,8 @@ export class MaklonReturnService {
                         quantity: item.quantity,
                         cost: 0, // Cost is 0 because it's maklon material
                         reference: `MRT-${ret.returnNumber}${ret.notes ? ` - ${ret.notes}` : ''}`,
-                        createdById: data.createdById
-                    }
+                        createdById: data.createdById,
+                    },
                 });
             }
 
@@ -84,8 +87,17 @@ export class MaklonReturnService {
 
         if (params?.search) {
             where.OR = [
-                { returnNumber: { contains: params.search, mode: 'insensitive' } },
-                { customer: { name: { contains: params.search, mode: 'insensitive' } } }
+                {
+                    returnNumber: {
+                        contains: params.search,
+                        mode: 'insensitive',
+                    },
+                },
+                {
+                    customer: {
+                        name: { contains: params.search, mode: 'insensitive' },
+                    },
+                },
             ];
         }
 
@@ -96,7 +108,7 @@ export class MaklonReturnService {
         if (params?.startDate && params?.endDate) {
             where.returnDate = {
                 gte: params.startDate,
-                lte: params.endDate
+                lte: params.endDate,
             };
         }
 
@@ -109,13 +121,13 @@ export class MaklonReturnService {
                     include: {
                         productVariant: {
                             include: {
-                                product: true
-                            }
-                        }
-                    }
-                }
+                                product: true,
+                            },
+                        },
+                    },
+                },
             },
-            orderBy: { returnDate: 'desc' }
+            orderBy: { returnDate: 'desc' },
         });
     }
 
@@ -126,18 +138,18 @@ export class MaklonReturnService {
                 customer: true,
                 sourceLocation: true,
                 createdBy: {
-                    select: { name: true }
+                    select: { name: true },
                 },
                 items: {
                     include: {
                         productVariant: {
                             include: {
-                                product: true
-                            }
-                        }
-                    }
-                }
-            }
+                                product: true,
+                            },
+                        },
+                    },
+                },
+            },
         });
     }
 }

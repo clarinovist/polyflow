@@ -23,7 +23,7 @@ export async function getAuditLogs({
     entityType,
     action,
     dateFrom,
-    dateTo
+    dateTo,
 }: GetAuditLogsParams) {
     const session = await auth();
     if (!session || !isTenantAdmin(session.user)) {
@@ -34,7 +34,7 @@ export async function getAuditLogs({
     if (userId) where.userId = userId;
     if (entityType) where.entityType = entityType;
     if (action) where.action = action;
-    
+
     if (dateFrom || dateTo) {
         where.createdAt = {};
         if (dateFrom) where.createdAt.gte = dateFrom;
@@ -48,14 +48,14 @@ export async function getAuditLogs({
             where,
             include: {
                 user: {
-                    select: { name: true, email: true }
-                }
+                    select: { name: true, email: true },
+                },
             },
             orderBy: { createdAt: 'desc' },
             skip,
             take: limit,
         }),
-        prisma.auditLog.count({ where })
+        prisma.auditLog.count({ where }),
     ]);
 
     return {
@@ -64,8 +64,8 @@ export async function getAuditLogs({
             total,
             page,
             limit,
-            totalPages: Math.ceil(total / limit)
-        }
+            totalPages: Math.ceil(total / limit),
+        },
     };
 }
 
@@ -79,9 +79,9 @@ export async function getAuditLogDetail(id: string) {
         where: { id },
         include: {
             user: {
-                select: { name: true, email: true }
-            }
-        }
+                select: { name: true, email: true },
+            },
+        },
     });
 
     if (!log) return null;
@@ -99,16 +99,22 @@ export async function getAuditLogStats() {
     const [actionStats, entityStats] = await Promise.all([
         prisma.auditLog.groupBy({
             by: ['action'],
-            _count: { action: true }
+            _count: { action: true },
         }),
         prisma.auditLog.groupBy({
             by: ['entityType'],
-            _count: { entityType: true }
-        })
+            _count: { entityType: true },
+        }),
     ]);
 
     return {
-        actions: actionStats.map(s => ({ action: s.action, count: s._count.action })),
-        entities: entityStats.map(s => ({ entityType: s.entityType, count: s._count.entityType }))
+        actions: actionStats.map((s) => ({
+            action: s.action,
+            count: s._count.action,
+        })),
+        entities: entityStats.map((s) => ({
+            entityType: s.entityType,
+            count: s._count.entityType,
+        })),
     };
 }

@@ -28,17 +28,17 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
 
 - **Lint**: `npm run lint` — wajib lolos. Jika gagal, fix dulu.
 - **Test Scope**: `npm run test` atau scoped test sesuai area yang diubah (contoh: `npm run test -- packing`, `vitest run src/modules/foo`).
-  - Pilih scope paling relevan dengan perubahan, jangan asal full test kalau scope kecil — tapi minimal scope tersebut harus lolos.
-  - Jika ada test terkait di `docs/plan`, jalankan itu.
+    - Pilih scope paling relevan dengan perubahan, jangan asal full test kalau scope kecil — tapi minimal scope tersebut harus lolos.
+    - Jika ada test terkait di `docs/plan`, jalankan itu.
 - Jika lint/test gagal: balik ke step 2 (FIX), update residual gap.
 
 ### 5. BUILD — terakhir, dengan koordinasi terminal
 
 - **Build**: `npm run build` — ini step paling terakhir setelah lint + test scope lolos + gap 0.
 - **Aturan build + terminal lain**:
-  - Jika ada aktivitas di terminal lain yang masih jalan (dev server, test watcher, migration, e2e, dsb), **JANGAN** langsung build.
-  - Tunggu sampai terminal lain idle / selesai, ATAU tunggu perintah eksplisit user ("build", "gas build", "ship", "push").
-  - Alasan: build berat (Next.js standalone), bisa konflik port / lock file / OOM kalau barengan.
+    - Jika ada aktivitas di terminal lain yang masih jalan (dev server, test watcher, migration, e2e, dsb), **JANGAN** langsung build.
+    - Tunggu sampai terminal lain idle / selesai, ATAU tunggu perintah eksplisit user ("build", "gas build", "ship", "push").
+    - Alasan: build berat (Next.js standalone), bisa konflik port / lock file / OOM kalau barengan.
 - Jika build gagal: fix → ulang lint + test scope → build lagi.
 
 ## Commit & Push
@@ -75,9 +75,9 @@ Container polyflow (Next.js) berjalan di VPS ini.
 
 - Seed script TS (`scripts/seed-help-articles.ts`) **tidak ke-bundle** image standalone (`.next/standalone`). `node_modules/.prisma` missing di `/app`.
 - Seed prod via SQL langsung (paling aman):
-  ```bash
-  docker exec polyflow-db psql -U polyflow -d polyflow -c "INSERT INTO \"HelpArticle\" (...) VALUES (gen_random_uuid()::text, ...) ON CONFLICT (slug) DO NOTHING;"
-  ```
+    ```bash
+    docker exec polyflow-db psql -U polyflow -d polyflow -c "INSERT INTO \"HelpArticle\" (...) VALUES (gen_random_uuid()::text, ...) ON CONFLICT (slug) DO NOTHING;"
+    ```
 - Alternatif: compile TS ke CJS, copy ke container, `cd /app && node /tmp/seed-help.cjs` (harus dari `/app` biar resolve `@prisma/client`).
 - HelpArticle seed di main DB only — 15 artikel PUBLISHED target. Tenant DB seed tidak perlu.
 
@@ -122,6 +122,7 @@ This project has a knowledge graph at graphify-out/ with god nodes, community st
 When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
 
 Rules:
+
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.

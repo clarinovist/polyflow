@@ -2,7 +2,7 @@
 
 /**
  * PolyFlow Application Error Hierarchy
- * 
+ *
  * Centralized error classes following the error-handling-patterns skill.
  * Use these instead of generic `throw new Error(...)` in services.
  */
@@ -17,7 +17,7 @@ export class ApplicationError extends Error {
         message: string,
         code: string,
         statusCode: number = 500,
-        details?: Record<string, unknown>
+        details?: Record<string, unknown>,
     ) {
         super(message);
         this.name = this.constructor.name;
@@ -69,24 +69,24 @@ export class AuthorizationError extends ApplicationError {
 
 /** Map English resource names to Indonesian labels for user-facing messages */
 export const RESOURCE_LABELS: Record<string, string> = {
-    'Account': 'Akun',
+    Account: 'Akun',
     'Account for role': 'Akun untuk peran',
-    'AppSettings': 'Pengaturan Aplikasi',
-    'BankReconciliation': 'Rekonsiliasi Bank',
-    'Customer': 'Pelanggan',
+    AppSettings: 'Pengaturan Aplikasi',
+    BankReconciliation: 'Rekonsiliasi Bank',
+    Customer: 'Pelanggan',
     'Delivery Order': 'Surat Jalan',
     'Fiscal Period': 'Periode Fiskal',
-    'GoodsReceipt': 'Penerimaan Barang',
-    'Invoice': 'Invoice',
-    'Journal': 'Jurnal',
-    'JournalLine': 'Baris Jurnal',
-    'Location': 'Lokasi',
-    'MaterialIssue': 'Pengeluaran Material',
-    'Payment': 'Pembayaran',
-    'Product': 'Produk',
+    GoodsReceipt: 'Penerimaan Barang',
+    Invoice: 'Invoice',
+    Journal: 'Jurnal',
+    JournalLine: 'Baris Jurnal',
+    Location: 'Lokasi',
+    MaterialIssue: 'Pengeluaran Material',
+    Payment: 'Pembayaran',
+    Product: 'Produk',
     'Product Variant': 'Varian Produk',
     'Production Order': 'Order Produksi',
-    'ProductionExecution': 'Eksekusi Produksi',
+    ProductionExecution: 'Eksekusi Produksi',
     'Purchase Invoice': 'Faktur Pembelian',
     'Purchase Order': 'Purchase Order',
     'Purchase Request': 'Permintaan Pembelian',
@@ -95,10 +95,10 @@ export const RESOURCE_LABELS: Record<string, string> = {
     'Sales Order Item': 'Item Sales Order',
     'Sales Quotation': 'Penawaran Penjualan',
     'Sales Return': 'Retur Penjualan',
-    'ScrapRecord': 'Catatan Scrap',
+    ScrapRecord: 'Catatan Scrap',
     'Stock Reservation': 'Reservasi Stok',
-    'StockOpname': 'Stok Opname',
-    'User': 'Pengguna',
+    StockOpname: 'Stok Opname',
+    User: 'Pengguna',
     // composite like "Account for role 'x'" handled via prefix match below
 };
 
@@ -119,7 +119,9 @@ export function translateResource(resource: string): string {
 export class NotFoundError extends ApplicationError {
     constructor(resource: string, id?: string) {
         const localizedResource = translateResource(resource);
-        const msg = id ? `${localizedResource} '${id}' tidak ditemukan` : `${localizedResource} tidak ditemukan`;
+        const msg = id
+            ? `${localizedResource} '${id}' tidak ditemukan`
+            : `${localizedResource} tidak ditemukan`;
         super(msg, 'NOT_FOUND', 404, { resource, id, localizedResource });
     }
 }
@@ -136,7 +138,7 @@ export class BusinessRuleError extends ApplicationError {
     constructor(
         message: string,
         details?: Record<string, unknown>,
-        code: string = 'BUSINESS_RULE_VIOLATION'
+        code: string = 'BUSINESS_RULE_VIOLATION',
     ) {
         super(message, code, 422, details);
     }
@@ -162,7 +164,11 @@ export class ProductionRuleViolationError extends BusinessRuleError {
 export class ExternalServiceError extends ApplicationError {
     public readonly service: string;
 
-    constructor(message: string, service: string, details?: Record<string, unknown>) {
+    constructor(
+        message: string,
+        service: string,
+        details?: Record<string, unknown>,
+    ) {
         super(message, 'EXTERNAL_SERVICE_ERROR', 502, { ...details, service });
         this.service = service;
     }
@@ -173,7 +179,7 @@ export class ExternalServiceError extends ApplicationError {
 /**
  * Wraps a server action with consistent error handling.
  * Returns `{ success, data, error }` instead of throwing.
- * 
+ *
  * Usage:
  * ```ts
  * export async function createOpname(data: OpnameInput) {
@@ -184,11 +190,14 @@ export class ExternalServiceError extends ApplicationError {
  * }
  * ```
  */
-export async function safeAction<T>(
-    fn: () => Promise<T>
-): Promise<
+export async function safeAction<T>(fn: () => Promise<T>): Promise<
     | { success: true; data: T }
-    | { success: false; error: string; code: string; details?: Record<string, unknown> }
+    | {
+          success: false;
+          error: string;
+          code: string;
+          details?: Record<string, unknown>;
+      }
 > {
     try {
         const data = await fn();
@@ -197,7 +206,11 @@ export async function safeAction<T>(
         // Re-throw Next.js internal errors (redirect, notFound) — they use thrown errors as control flow
         if (error && typeof error === 'object' && 'message' in error) {
             const err = error as { message: string; digest?: string };
-            if (err.message === 'NEXT_REDIRECT' || err.message === 'NEXT_NOT_FOUND' || err.digest?.startsWith('NEXT_REDIRECT')) {
+            if (
+                err.message === 'NEXT_REDIRECT' ||
+                err.message === 'NEXT_NOT_FOUND' ||
+                err.digest?.startsWith('NEXT_REDIRECT')
+            ) {
                 throw error;
             }
         }
@@ -222,12 +235,18 @@ export async function safeAction<T>(
                 success: false,
                 error: prismaMapped.message,
                 code: prismaMapped.code,
-                ...(prismaMapped.details ? { details: prismaMapped.details } : {}),
+                ...(prismaMapped.details
+                    ? { details: prismaMapped.details }
+                    : {}),
             };
         }
 
         // Unknown error — log and return generic message
         console.error('[safeAction] Unexpected error:', error);
-        return { success: false, error: 'Terjadi kesalahan yang tidak terduga', code: 'INTERNAL_ERROR' };
+        return {
+            success: false,
+            error: 'Terjadi kesalahan yang tidak terduga',
+            code: 'INTERNAL_ERROR',
+        };
     }
 }

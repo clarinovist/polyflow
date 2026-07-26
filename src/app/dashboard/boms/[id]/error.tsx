@@ -30,7 +30,11 @@ export default function Error({
 
                     <p className="text-sm text-muted-foreground mb-6">
                         Terjadi kesalahan tak terduga saat memuat detail BOM.
-                        {error.message && <span className="block mt-2 font-mono text-xs opacity-70">{error.message}</span>}
+                        {error.message && (
+                            <span className="block mt-2 font-mono text-xs opacity-70">
+                                {error.message}
+                            </span>
+                        )}
                     </p>
 
                     <Button

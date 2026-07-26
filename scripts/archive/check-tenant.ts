@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
     const tenant = await prisma.tenant.findUnique({
-        where: { subdomain: 'melindojaya' }
+        where: { subdomain: 'melindojaya' },
     });
 
     if (!tenant) {
@@ -18,7 +18,9 @@ async function main() {
     try {
         const client = new Client({ connectionString: tenant.dbUrl });
         await client.connect();
-        const res = await client.query('SELECT id, name, email, role FROM "User"');
+        const res = await client.query(
+            'SELECT id, name, email, role FROM "User"',
+        );
         console.log('Users in melindojaya DB:', res.rows);
         await client.end();
     } catch (e) {

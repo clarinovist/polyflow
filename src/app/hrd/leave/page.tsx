@@ -9,8 +9,12 @@ export default function LeavePage() {
                     <CalendarDays className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight uppercase">Cuti &amp; Izin</h1>
-                    <p className="text-sm text-muted-foreground">Pengajuan dan persetujuan cuti karyawan</p>
+                    <h1 className="text-2xl font-black tracking-tight uppercase">
+                        Cuti &amp; Izin
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Pengajuan dan persetujuan cuti karyawan
+                    </p>
                 </div>
             </div>
             <LeaveRequestsManager />

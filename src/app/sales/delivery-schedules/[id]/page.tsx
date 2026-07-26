@@ -1,103 +1,152 @@
-import { getDeliverySchedule } from "@/actions/sales/delivery-schedules";
-import { ScheduleDetailClient } from "@/components/sales/schedules/ScheduleDetailClient";
-import { redirect } from "next/navigation";
-import type { ComponentProps } from "react";
+import { getDeliverySchedule } from '@/actions/sales/delivery-schedules';
+import { ScheduleDetailClient } from '@/components/sales/schedules/ScheduleDetailClient';
+import { redirect } from 'next/navigation';
+import type { ComponentProps } from 'react';
 
 type Schedule = NonNullable<
-  Extract<Awaited<ReturnType<typeof getDeliverySchedule>>, { success: true }>["data"]
+    Extract<
+        Awaited<ReturnType<typeof getDeliverySchedule>>,
+        { success: true }
+    >['data']
 >;
-type Trip = Schedule["trips"][number];
-type OrderStop = Trip["orders"][number];
+type Trip = Schedule['trips'][number];
+type OrderStop = Trip['orders'][number];
 type DeliveryOrderItem = NonNullable<
-  NonNullable<OrderStop["deliveryOrder"]>["salesOrder"]
->["items"][number];
-type SalesOrderItem = NonNullable<OrderStop["salesOrder"]>["items"][number];
+    NonNullable<OrderStop['deliveryOrder']>['salesOrder']
+>['items'][number];
+type SalesOrderItem = NonNullable<OrderStop['salesOrder']>['items'][number];
 
-export default async function ScheduleDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const result = await getDeliverySchedule(id);
+export default async function ScheduleDetailPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
+    const { id } = await params;
+    const result = await getDeliverySchedule(id);
 
-  if (!result.success || !result.data) {
-    redirect("/sales/delivery-schedules");
-  }
+    if (!result.success || !result.data) {
+        redirect('/sales/delivery-schedules');
+    }
 
-  // Serialize Decimal fields for client
-  const schedule = {
-    ...result.data,
-    weekStart: result.data.weekStart.toISOString(),
-    weekEnd: result.data.weekEnd.toISOString(),
-    createdAt: result.data.createdAt.toISOString(),
-    updatedAt: result.data.updatedAt.toISOString(),
-    // Bridge: schema renamed vehicles→trips, but component still expects `vehicles`
-    vehicles: result.data.trips.map((sv: Trip) => ({
-      id: sv.id,
-      vehicleId: sv.vehicleId,
-      departureDate: sv.departureDate?.toISOString() || null,
-      routeName: sv.routeName,
-      status: sv.status,
-      sequence: sv.sequence,
-      notes: sv.notes,
-      createdAt: sv.createdAt.toISOString(),
-      vehicle: sv.vehicle,
-      orders: sv.orders.map((so: OrderStop) => ({
-        ...so,
-        createdAt: so.createdAt.toISOString(),
-        plannedWeightKg: so.plannedWeightKg ? Number(so.plannedWeightKg) : null,
-        // Legacy path: stop has deliveryOrder
-        ...(so.deliveryOrder ? {
-          deliveryOrder: {
-            ...so.deliveryOrder,
-            deliveryDate: so.deliveryOrder.deliveryDate?.toISOString() || null,
-            createdAt: so.deliveryOrder.createdAt.toISOString(),
-            updatedAt: so.deliveryOrder.updatedAt.toISOString(),
-            totalCharge: so.deliveryOrder.totalCharge ? Number(so.deliveryOrder.totalCharge) : null,
-            totalCost: so.deliveryOrder.totalCost ? Number(so.deliveryOrder.totalCost) : null,
-            salesOrder: so.deliveryOrder.salesOrder ? {
-              ...so.deliveryOrder.salesOrder,
-              orderDate: so.deliveryOrder.salesOrder.orderDate.toISOString(),
-              totalAmount: so.deliveryOrder.salesOrder.totalAmount ? Number(so.deliveryOrder.salesOrder.totalAmount) : null,
-              customer: so.deliveryOrder.salesOrder.customer,
-              items: so.deliveryOrder.salesOrder.items.map(
-                (item: DeliveryOrderItem) => ({
-                id: item.id,
-                quantity: Number(item.quantity),
-                deliveredQty: Number(item.deliveredQty),
-                enteredQuantity: item.enteredQuantity ? Number(item.enteredQuantity) : null,
-                enteredUnit: item.enteredUnit,
-                productVariant: item.productVariant,
-              })),
-            } : null,
-          },
-        } : {}),
-        // New path: stop has salesOrder directly
-        ...(so.salesOrder ? {
-          salesOrder: {
-            ...so.salesOrder,
-            orderDate: so.salesOrder.orderDate?.toISOString() || null,
-            totalAmount: so.salesOrder.totalAmount ? Number(so.salesOrder.totalAmount) : null,
-            customer: so.salesOrder.customer,
-            items: so.salesOrder.items.map((item: SalesOrderItem) => ({
-              id: item.id,
-              quantity: Number(item.quantity),
-              deliveredQty: Number(item.deliveredQty),
-              enteredQuantity: item.enteredQuantity ? Number(item.enteredQuantity) : null,
-              enteredUnit: item.enteredUnit,
-              productVariant: item.productVariant,
+    // Serialize Decimal fields for client
+    const schedule = {
+        ...result.data,
+        weekStart: result.data.weekStart.toISOString(),
+        weekEnd: result.data.weekEnd.toISOString(),
+        createdAt: result.data.createdAt.toISOString(),
+        updatedAt: result.data.updatedAt.toISOString(),
+        // Bridge: schema renamed vehicles→trips, but component still expects `vehicles`
+        vehicles: result.data.trips.map((sv: Trip) => ({
+            id: sv.id,
+            vehicleId: sv.vehicleId,
+            departureDate: sv.departureDate?.toISOString() || null,
+            routeName: sv.routeName,
+            status: sv.status,
+            sequence: sv.sequence,
+            notes: sv.notes,
+            createdAt: sv.createdAt.toISOString(),
+            vehicle: sv.vehicle,
+            orders: sv.orders.map((so: OrderStop) => ({
+                ...so,
+                createdAt: so.createdAt.toISOString(),
+                plannedWeightKg: so.plannedWeightKg
+                    ? Number(so.plannedWeightKg)
+                    : null,
+                // Legacy path: stop has deliveryOrder
+                ...(so.deliveryOrder
+                    ? {
+                          deliveryOrder: {
+                              ...so.deliveryOrder,
+                              deliveryDate:
+                                  so.deliveryOrder.deliveryDate?.toISOString() ||
+                                  null,
+                              createdAt:
+                                  so.deliveryOrder.createdAt.toISOString(),
+                              updatedAt:
+                                  so.deliveryOrder.updatedAt.toISOString(),
+                              totalCharge: so.deliveryOrder.totalCharge
+                                  ? Number(so.deliveryOrder.totalCharge)
+                                  : null,
+                              totalCost: so.deliveryOrder.totalCost
+                                  ? Number(so.deliveryOrder.totalCost)
+                                  : null,
+                              salesOrder: so.deliveryOrder.salesOrder
+                                  ? {
+                                        ...so.deliveryOrder.salesOrder,
+                                        orderDate:
+                                            so.deliveryOrder.salesOrder.orderDate.toISOString(),
+                                        totalAmount: so.deliveryOrder.salesOrder
+                                            .totalAmount
+                                            ? Number(
+                                                  so.deliveryOrder.salesOrder
+                                                      .totalAmount,
+                                              )
+                                            : null,
+                                        customer:
+                                            so.deliveryOrder.salesOrder
+                                                .customer,
+                                        items: so.deliveryOrder.salesOrder.items.map(
+                                            (item: DeliveryOrderItem) => ({
+                                                id: item.id,
+                                                quantity: Number(item.quantity),
+                                                deliveredQty: Number(
+                                                    item.deliveredQty,
+                                                ),
+                                                enteredQuantity:
+                                                    item.enteredQuantity
+                                                        ? Number(
+                                                              item.enteredQuantity,
+                                                          )
+                                                        : null,
+                                                enteredUnit: item.enteredUnit,
+                                                productVariant:
+                                                    item.productVariant,
+                                            }),
+                                        ),
+                                    }
+                                  : null,
+                          },
+                      }
+                    : {}),
+                // New path: stop has salesOrder directly
+                ...(so.salesOrder
+                    ? {
+                          salesOrder: {
+                              ...so.salesOrder,
+                              orderDate:
+                                  so.salesOrder.orderDate?.toISOString() ||
+                                  null,
+                              totalAmount: so.salesOrder.totalAmount
+                                  ? Number(so.salesOrder.totalAmount)
+                                  : null,
+                              customer: so.salesOrder.customer,
+                              items: so.salesOrder.items.map(
+                                  (item: SalesOrderItem) => ({
+                                      id: item.id,
+                                      quantity: Number(item.quantity),
+                                      deliveredQty: Number(item.deliveredQty),
+                                      enteredQuantity: item.enteredQuantity
+                                          ? Number(item.enteredQuantity)
+                                          : null,
+                                      enteredUnit: item.enteredUnit,
+                                      productVariant: item.productVariant,
+                                  }),
+                              ),
+                          },
+                      }
+                    : {}),
             })),
-          },
-        } : {}),
-      })),
-    })),
-    createdBy: result.data.createdBy,
-  };
+        })),
+        createdBy: result.data.createdBy,
+    };
 
-  return (
-    <ScheduleDetailClient
-      schedule={
-        schedule as unknown as ComponentProps<
-          typeof ScheduleDetailClient
-        >["schedule"]
-      }
-    />
-  );
+    return (
+        <ScheduleDetailClient
+            schedule={
+                schedule as unknown as ComponentProps<
+                    typeof ScheduleDetailClient
+                >['schedule']
+            }
+        />
+    );
 }

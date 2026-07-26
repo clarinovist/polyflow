@@ -1,8 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
+import {
+    ChevronLeft,
+    ChevronRight,
+    Calendar as CalendarIcon,
+} from 'lucide-react';
+import {
+    format,
+    addMonths,
+    subMonths,
+    startOfMonth,
+    endOfMonth,
+    isSameMonth,
+} from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/utils';
@@ -13,12 +24,16 @@ interface MonthPickerProps {
     className?: string;
 }
 
-export function MonthPicker({ currentDate, onDateChange, className }: MonthPickerProps) {
+export function MonthPicker({
+    currentDate,
+    onDateChange,
+    className,
+}: MonthPickerProps) {
     const handlePrevMonth = () => {
         const prevMonth = subMonths(currentDate, 1);
         onDateChange({
             from: startOfMonth(prevMonth),
-            to: endOfMonth(prevMonth)
+            to: endOfMonth(prevMonth),
         });
     };
 
@@ -26,7 +41,7 @@ export function MonthPicker({ currentDate, onDateChange, className }: MonthPicke
         const nextMonth = addMonths(currentDate, 1);
         onDateChange({
             from: startOfMonth(nextMonth),
-            to: endOfMonth(nextMonth)
+            to: endOfMonth(nextMonth),
         });
     };
 
@@ -34,14 +49,14 @@ export function MonthPicker({ currentDate, onDateChange, className }: MonthPicke
         const now = new Date();
         onDateChange({
             from: startOfMonth(now),
-            to: endOfMonth(now)
+            to: endOfMonth(now),
         });
     };
 
     const isCurrentMonth = isSameMonth(currentDate, new Date());
 
     return (
-        <div className={cn("flex items-center gap-2", className)}>
+        <div className={cn('flex items-center gap-2', className)}>
             <div className="flex items-center border rounded-md bg-background overflow-hidden">
                 <Button
                     variant="ghost"
@@ -73,8 +88,9 @@ export function MonthPicker({ currentDate, onDateChange, className }: MonthPicke
                 variant="outline"
                 size="sm"
                 className={cn(
-                    "text-xs h-9 px-3",
-                    isCurrentMonth && "bg-muted text-muted-foreground cursor-default hover:bg-muted"
+                    'text-xs h-9 px-3',
+                    isCurrentMonth &&
+                        'bg-muted text-muted-foreground cursor-default hover:bg-muted',
                 )}
                 onClick={handleThisMonth}
                 disabled={isCurrentMonth}

@@ -8,13 +8,13 @@ const DEFAULT_SHIFT_HOURS = 8;
 
 /** Parse "HH:MM" string to minutes since midnight. */
 function parseTime(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + m;
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
 }
 
 /** Check if a shift crosses midnight (e.g. 22:00 → 06:00). */
 export function isOvernightShift(startTime: string, endTime: string): boolean {
-  return parseTime(startTime) > parseTime(endTime);
+    return parseTime(startTime) > parseTime(endTime);
 }
 
 /**
@@ -22,16 +22,17 @@ export function isOvernightShift(startTime: string, endTime: string): boolean {
  * Handles overnight shifts correctly.
  * Returns null if times are invalid.
  */
-export function calcPlannedHours(startTime: string, endTime: string): number | null {
-  const start = parseTime(startTime);
-  const end = parseTime(endTime);
-  if (isNaN(start) || isNaN(end)) return null;
+export function calcPlannedHours(
+    startTime: string,
+    endTime: string,
+): number | null {
+    const start = parseTime(startTime);
+    const end = parseTime(endTime);
+    if (isNaN(start) || isNaN(end)) return null;
 
-  const minutes = end > start
-    ? end - start
-    : (MINUTES_PER_DAY - start) + end; // overnight
+    const minutes = end > start ? end - start : MINUTES_PER_DAY - start + end; // overnight
 
-  return Math.round((minutes / 60) * 100) / 100; // 2 decimal places
+    return Math.round((minutes / 60) * 100) / 100; // 2 decimal places
 }
 
 /**
@@ -40,37 +41,44 @@ export function calcPlannedHours(startTime: string, endTime: string): number | n
  * For overnight shifts: clock-in before shift start → workDate = previous day.
  * Normal: workDate = calendar date of clock-in in WIB.
  */
-export function resolveWorkDate(clockInAt: Date, shiftStartTime: string, shiftEndTime: string): Date {
-  const wib = new Date(clockInAt.getTime() + 7 * 60 * 60 * 1000);
-  const wibMinutes = wib.getUTCHours() * 60 + wib.getUTCMinutes();
-  const startMinutes = parseTime(shiftStartTime);
+export function resolveWorkDate(
+    clockInAt: Date,
+    shiftStartTime: string,
+    shiftEndTime: string,
+): Date {
+    const wib = new Date(clockInAt.getTime() + 7 * 60 * 60 * 1000);
+    const wibMinutes = wib.getUTCHours() * 60 + wib.getUTCMinutes();
+    const startMinutes = parseTime(shiftStartTime);
 
-  // Overnight shift (e.g. 22:00→06:00): clock-in before shift start means
-  // the employee arrived after midnight for a shift that started yesterday.
-  if (isOvernightShift(shiftStartTime, shiftEndTime) && wibMinutes < startMinutes) {
-    const prevDay = new Date(wib.getTime() - 24 * 60 * 60 * 1000);
-    const dateStr = prevDay.toISOString().slice(0, 10);
+    // Overnight shift (e.g. 22:00→06:00): clock-in before shift start means
+    // the employee arrived after midnight for a shift that started yesterday.
+    if (
+        isOvernightShift(shiftStartTime, shiftEndTime) &&
+        wibMinutes < startMinutes
+    ) {
+        const prevDay = new Date(wib.getTime() - 24 * 60 * 60 * 1000);
+        const dateStr = prevDay.toISOString().slice(0, 10);
+        return new Date(dateStr + 'T00:00:00.000Z');
+    }
+
+    const dateStr = wib.toISOString().slice(0, 10);
     return new Date(dateStr + 'T00:00:00.000Z');
-  }
-
-  const dateStr = wib.toISOString().slice(0, 10);
-  return new Date(dateStr + 'T00:00:00.000Z');
 }
 
 /** Get today's date string in WIB (Asia/Jakarta, UTC+7). */
 export function todayWibDateString(): string {
-  return wibDateStringFrom(new Date());
+    return wibDateStringFrom(new Date());
 }
 
 /** Date string YYYY-MM-DD in WIB for an arbitrary timestamp. */
 export function wibDateStringFrom(date: Date): string {
-  const wib = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-  return wib.toISOString().slice(0, 10);
+    const wib = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+    return wib.toISOString().slice(0, 10);
 }
 
 /** Date-only Date (UTC midnight) from a timestamp in WIB calendar. */
 export function wibDateFrom(date: Date): Date {
-  return new Date(wibDateStringFrom(date) + 'T00:00:00.000Z');
+    return new Date(wibDateStringFrom(date) + 'T00:00:00.000Z');
 }
 
 /**
@@ -78,35 +86,41 @@ export function wibDateFrom(date: Date): Date {
  * Returns hours rounded to 2 decimal places.
  */
 export function calcActualHours(clockInAt: Date, clockOutAt: Date): number {
-  const ms = clockOutAt.getTime() - clockInAt.getTime();
-  const hours = ms / (1000 * 60 * 60);
-  return Math.round(hours * 100) / 100;
+    const ms = clockOutAt.getTime() - clockInAt.getTime();
+    const hours = ms / (1000 * 60 * 60);
+    return Math.round(hours * 100) / 100;
 }
 
 /**
  * Calculate overtime hours: max(0, actual - planned).
  * Returns 0 if actual <= planned or if no clock-out yet.
  */
-export function calcOvertimeHours(actualHours: number, plannedHours: number): number {
-  const diff = actualHours - plannedHours;
-  return diff > 0 ? Math.round(diff * 100) / 100 : 0;
+export function calcOvertimeHours(
+    actualHours: number,
+    plannedHours: number,
+): number {
+    const diff = actualHours - plannedHours;
+    return diff > 0 ? Math.round(diff * 100) / 100 : 0;
 }
 
 /**
  * Calculate regular hours: min(actual, planned).
  */
-export function calcRegularHours(actualHours: number, plannedHours: number): number {
-  return Math.round(Math.min(actualHours, plannedHours) * 100) / 100;
+export function calcRegularHours(
+    actualHours: number,
+    plannedHours: number,
+): number {
+    return Math.round(Math.min(actualHours, plannedHours) * 100) / 100;
 }
 
 /**
  * Get effective planned hours: explicit override or calculated from start/end.
  */
 export function getEffectivePlannedHours(
-  plannedHours: number | null | undefined,
-  startTime: string,
-  endTime: string,
+    plannedHours: number | null | undefined,
+    startTime: string,
+    endTime: string,
 ): number {
-  if (plannedHours != null && plannedHours > 0) return plannedHours;
-  return calcPlannedHours(startTime, endTime) ?? DEFAULT_SHIFT_HOURS;
+    if (plannedHours != null && plannedHours > 0) return plannedHours;
+    return calcPlannedHours(startTime, endTime) ?? DEFAULT_SHIFT_HOURS;
 }

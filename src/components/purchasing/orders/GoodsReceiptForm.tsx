@@ -8,16 +8,38 @@ import {
     type Resolver,
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createGoodsReceiptSchema, CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
+import {
+    createGoodsReceiptSchema,
+    CreateGoodsReceiptValues,
+} from '@/lib/schemas/purchasing';
 import { createGoodsReceipt } from '@/actions/purchasing/purchasing';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Package, Download, Info, CheckCircle } from 'lucide-react';
 import { purchasingLabels, formLabels } from '@/lib/labels';
 
@@ -50,14 +72,18 @@ export function GoodsReceiptForm({
     items,
     locations,
     defaultLocationId,
-    basePath = '/purchasing/orders'
+    basePath = '/purchasing/orders',
 }: GoodsReceiptFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     // Keep raw string while typing so comma/dot decimal separators are not stripped.
     // Immediate Number() coercion turns "247," into 247 → next digits become 24762.
-    const [rawQtyInputs, setRawQtyInputs] = useState<Record<number, string>>({});
-    const [rawCostInputs, setRawCostInputs] = useState<Record<number, string>>({});
+    const [rawQtyInputs, setRawQtyInputs] = useState<Record<number, string>>(
+        {},
+    );
+    const [rawCostInputs, setRawCostInputs] = useState<Record<number, string>>(
+        {},
+    );
 
     // Allow over-receiving: PO qty treated as estimate, show all items
     const pendingItems = items;
@@ -71,24 +97,24 @@ export function GoodsReceiptForm({
             receivedDate: new Date(),
             locationId: defaultLocationId || '',
             notes: `Penerimaan untuk pesanan ${orderNumber}`,
-            items: pendingItems.map(item => ({
+            items: pendingItems.map((item) => ({
                 productVariantId: item.productVariantId,
                 receivedQty: Math.max(0, item.orderedQty - item.receivedQty),
-                unitCost: item.unitPrice
-            }))
-        }
+                unitCost: item.unitPrice,
+            })),
+        },
     });
 
     const watchedQtys = form.watch('items');
     const hasOverReceipt = watchedQtys?.some((w, idx) => {
         const orig = pendingItems[idx];
         if (!orig) return false;
-        return (orig.receivedQty + (w?.receivedQty || 0)) > orig.orderedQty;
+        return orig.receivedQty + (w?.receivedQty || 0) > orig.orderedQty;
     });
 
     const { fields } = useFieldArray({
         control: form.control,
-        name: "items"
+        name: 'items',
     });
 
     const onSubmit: SubmitHandler<CreateGoodsReceiptValues> = async (data) => {
@@ -96,7 +122,10 @@ export function GoodsReceiptForm({
         try {
             const result = await createGoodsReceipt(data);
             if (!result.success) {
-                toast.error(result.error || 'Gagal memproses penerimaan barang. Silakan coba lagi.');
+                toast.error(
+                    result.error ||
+                        'Gagal memproses penerimaan barang. Silakan coba lagi.',
+                );
                 setIsLoading(false);
                 return;
             }
@@ -109,7 +138,9 @@ export function GoodsReceiptForm({
             }
             router.refresh();
         } catch (_error) {
-            toast.error('Gagal memproses penerimaan barang. Silakan coba lagi.');
+            toast.error(
+                'Gagal memproses penerimaan barang. Silakan coba lagi.',
+            );
             setIsLoading(false);
         }
     };
@@ -125,24 +156,66 @@ export function GoodsReceiptForm({
                                     <Package className="h-5 w-5 text-blue-500" />
                                     Penerimaan Item
                                 </CardTitle>
-                                <CardDescription>Verifikasi kuantitas dan biaya untuk item yang diterima.</CardDescription>
+                                <CardDescription>
+                                    Verifikasi kuantitas dan biaya untuk item
+                                    yang diterima.
+                                </CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
                                     {fields.map((field, index) => {
-                                        const originalItem = items.find(i => i.productVariantId === field.productVariantId);
-                                        const currentQty = watchedQtys?.[index]?.receivedQty || 0;
-                                        const wouldBeTotal = (originalItem?.receivedQty || 0) + currentQty;
-                                        const isOver = originalItem ? wouldBeTotal > originalItem.orderedQty : false;
+                                        const originalItem = items.find(
+                                            (i) =>
+                                                i.productVariantId ===
+                                                field.productVariantId,
+                                        );
+                                        const currentQty =
+                                            watchedQtys?.[index]?.receivedQty ||
+                                            0;
+                                        const wouldBeTotal =
+                                            (originalItem?.receivedQty || 0) +
+                                            currentQty;
+                                        const isOver = originalItem
+                                            ? wouldBeTotal >
+                                              originalItem.orderedQty
+                                            : false;
                                         return (
-                                            <div key={field.id} className={`p-4 border rounded-lg grid grid-cols-1 md:grid-cols-4 gap-4 items-center ${isOver ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300' : 'bg-muted/30'}`}>
+                                            <div
+                                                key={field.id}
+                                                className={`p-4 border rounded-lg grid grid-cols-1 md:grid-cols-4 gap-4 items-center ${isOver ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300' : 'bg-muted/30'}`}
+                                            >
                                                 <div className="md:col-span-2">
-                                                    <p className="font-semibold text-sm">{originalItem?.productName}</p>
-                                                    <p className="text-xs text-muted-foreground font-mono">{originalItem?.skuCode}</p>
+                                                    <p className="font-semibold text-sm">
+                                                        {
+                                                            originalItem?.productName
+                                                        }
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground font-mono">
+                                                        {originalItem?.skuCode}
+                                                    </p>
                                                     <div className="mt-1 flex gap-2 flex-wrap">
-                                                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">Dipesan: {originalItem?.orderedQty}</span>
-                                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded">Diterima Sblm: {originalItem?.receivedQty}</span>
-                                                        {isOver && <span className="text-[10px] bg-amber-200 text-amber-800 px-1 rounded font-bold">Over: {wouldBeTotal} &gt; {originalItem?.orderedQty}</span>}
+                                                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">
+                                                            Dipesan:{' '}
+                                                            {
+                                                                originalItem?.orderedQty
+                                                            }
+                                                        </span>
+                                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded">
+                                                            Diterima Sblm:{' '}
+                                                            {
+                                                                originalItem?.receivedQty
+                                                            }
+                                                        </span>
+                                                        {isOver && (
+                                                            <span className="text-[10px] bg-amber-200 text-amber-800 px-1 rounded font-bold">
+                                                                Over:{' '}
+                                                                {wouldBeTotal}{' '}
+                                                                &gt;{' '}
+                                                                {
+                                                                    originalItem?.orderedQty
+                                                                }
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -151,32 +224,88 @@ export function GoodsReceiptForm({
                                                     name={`items.${index}.receivedQty`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-xs">Qty Masuk</FormLabel>
+                                                            <FormLabel className="text-xs">
+                                                                Qty Masuk
+                                                            </FormLabel>
                                                             <FormControl>
                                                                 <Input
                                                                     type="text"
                                                                     inputMode="decimal"
                                                                     value={
-                                                                        rawQtyInputs[index] !== undefined
-                                                                            ? rawQtyInputs[index]
-                                                                            : (field.value ?? '')
+                                                                        rawQtyInputs[
+                                                                            index
+                                                                        ] !==
+                                                                        undefined
+                                                                            ? rawQtyInputs[
+                                                                                  index
+                                                                              ]
+                                                                            : (field.value ??
+                                                                              '')
                                                                     }
-                                                                    onChange={e => {
-                                                                        const raw = e.target.value;
-                                                                        setRawQtyInputs(prev => ({ ...prev, [index]: raw }));
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) => {
+                                                                        const raw =
+                                                                            e
+                                                                                .target
+                                                                                .value;
+                                                                        setRawQtyInputs(
+                                                                            (
+                                                                                prev,
+                                                                            ) => ({
+                                                                                ...prev,
+                                                                                [index]:
+                                                                                    raw,
+                                                                            }),
+                                                                        );
                                                                         // Keep intermediate input like "247," / "247." visible
-                                                                        const num = Number(raw.replace(',', '.'));
-                                                                        if (!isNaN(num) && raw !== '' && raw !== ',' && raw !== '.') {
-                                                                            field.onChange(num);
+                                                                        const num =
+                                                                            Number(
+                                                                                raw.replace(
+                                                                                    ',',
+                                                                                    '.',
+                                                                                ),
+                                                                            );
+                                                                        if (
+                                                                            !isNaN(
+                                                                                num,
+                                                                            ) &&
+                                                                            raw !==
+                                                                                '' &&
+                                                                            raw !==
+                                                                                ',' &&
+                                                                            raw !==
+                                                                                '.'
+                                                                        ) {
+                                                                            field.onChange(
+                                                                                num,
+                                                                            );
                                                                         }
                                                                     }}
-                                                                    onBlur={e => {
-                                                                        field.onChange(parseDecimalInput(e.target.value));
-                                                                        setRawQtyInputs(prev => {
-                                                                            const next = { ...prev };
-                                                                            delete next[index];
-                                                                            return next;
-                                                                        });
+                                                                    onBlur={(
+                                                                        e,
+                                                                    ) => {
+                                                                        field.onChange(
+                                                                            parseDecimalInput(
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            ),
+                                                                        );
+                                                                        setRawQtyInputs(
+                                                                            (
+                                                                                prev,
+                                                                            ) => {
+                                                                                const next =
+                                                                                    {
+                                                                                        ...prev,
+                                                                                    };
+                                                                                delete next[
+                                                                                    index
+                                                                                ];
+                                                                                return next;
+                                                                            },
+                                                                        );
                                                                     }}
                                                                     className="h-9"
                                                                 />
@@ -191,31 +320,88 @@ export function GoodsReceiptForm({
                                                     name={`items.${index}.unitCost`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-xs">Biaya Satuan Aktual (Rp)</FormLabel>
+                                                            <FormLabel className="text-xs">
+                                                                Biaya Satuan
+                                                                Aktual (Rp)
+                                                            </FormLabel>
                                                             <FormControl>
                                                                 <Input
                                                                     type="text"
                                                                     inputMode="decimal"
                                                                     value={
-                                                                        rawCostInputs[index] !== undefined
-                                                                            ? rawCostInputs[index]
-                                                                            : (field.value ?? '')
+                                                                        rawCostInputs[
+                                                                            index
+                                                                        ] !==
+                                                                        undefined
+                                                                            ? rawCostInputs[
+                                                                                  index
+                                                                              ]
+                                                                            : (field.value ??
+                                                                              '')
                                                                     }
-                                                                    onChange={e => {
-                                                                        const raw = e.target.value;
-                                                                        setRawCostInputs(prev => ({ ...prev, [index]: raw }));
-                                                                        const num = Number(raw.replace(',', '.'));
-                                                                        if (!isNaN(num) && raw !== '' && raw !== ',' && raw !== '.') {
-                                                                            field.onChange(num);
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) => {
+                                                                        const raw =
+                                                                            e
+                                                                                .target
+                                                                                .value;
+                                                                        setRawCostInputs(
+                                                                            (
+                                                                                prev,
+                                                                            ) => ({
+                                                                                ...prev,
+                                                                                [index]:
+                                                                                    raw,
+                                                                            }),
+                                                                        );
+                                                                        const num =
+                                                                            Number(
+                                                                                raw.replace(
+                                                                                    ',',
+                                                                                    '.',
+                                                                                ),
+                                                                            );
+                                                                        if (
+                                                                            !isNaN(
+                                                                                num,
+                                                                            ) &&
+                                                                            raw !==
+                                                                                '' &&
+                                                                            raw !==
+                                                                                ',' &&
+                                                                            raw !==
+                                                                                '.'
+                                                                        ) {
+                                                                            field.onChange(
+                                                                                num,
+                                                                            );
                                                                         }
                                                                     }}
-                                                                    onBlur={e => {
-                                                                        field.onChange(parseDecimalInput(e.target.value));
-                                                                        setRawCostInputs(prev => {
-                                                                            const next = { ...prev };
-                                                                            delete next[index];
-                                                                            return next;
-                                                                        });
+                                                                    onBlur={(
+                                                                        e,
+                                                                    ) => {
+                                                                        field.onChange(
+                                                                            parseDecimalInput(
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            ),
+                                                                        );
+                                                                        setRawCostInputs(
+                                                                            (
+                                                                                prev,
+                                                                            ) => {
+                                                                                const next =
+                                                                                    {
+                                                                                        ...prev,
+                                                                                    };
+                                                                                delete next[
+                                                                                    index
+                                                                                ];
+                                                                                return next;
+                                                                            },
+                                                                        );
                                                                     }}
                                                                     className="h-9"
                                                                 />
@@ -230,7 +416,8 @@ export function GoodsReceiptForm({
 
                                     {fields.length === 0 && (
                                         <div className="py-8 text-center border-2 border-dashed rounded-lg text-muted-foreground">
-                                            Semua item telah diterima sepenuhnya.
+                                            Semua item telah diterima
+                                            sepenuhnya.
                                         </div>
                                     )}
                                 </div>
@@ -239,7 +426,9 @@ export function GoodsReceiptForm({
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Informasi Tambahan</CardTitle>
+                                <CardTitle className="text-sm">
+                                    Informasi Tambahan
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <FormField
@@ -247,9 +436,15 @@ export function GoodsReceiptForm({
                                     name="notes"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs">{formLabels.notes}</FormLabel>
+                                            <FormLabel className="text-xs">
+                                                {formLabels.notes}
+                                            </FormLabel>
                                             <FormControl>
-                                                <Textarea {...field} className="h-20" placeholder="Kondisi barang, deviasi, dll." />
+                                                <Textarea
+                                                    {...field}
+                                                    className="h-20"
+                                                    placeholder="Kondisi barang, deviasi, dll."
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -262,30 +457,46 @@ export function GoodsReceiptForm({
                     <div className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Header Penerimaan</CardTitle>
-                                <CardDescription>Informasi dasar untuk entri ini.</CardDescription>
+                                <CardTitle className="text-sm">
+                                    Header Penerimaan
+                                </CardTitle>
+                                <CardDescription>
+                                    Informasi dasar untuk entri ini.
+                                </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <FormField
                                     control={form.control}
                                     name="locationId"
                                     render={({ field }) => (
-                                         <FormItem>
-                                             <FormLabel className="text-xs font-bold">{purchasingLabels.destinationWarehouse}</FormLabel>
-                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                 <FormControl>
-                                                     <SelectTrigger>
-                                                         <SelectValue placeholder="Pilih lokasi" />
-                                                     </SelectTrigger>
-                                                 </FormControl>
-                                                 <SelectContent>
-                                                     {locations.map(loc => (
-                                                         <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                                                     ))}
-                                                 </SelectContent>
-                                             </Select>
-                                             <FormMessage />
-                                         </FormItem>
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-bold">
+                                                {
+                                                    purchasingLabels.destinationWarehouse
+                                                }
+                                            </FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                defaultValue={field.value}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Pilih lokasi" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {locations.map((loc) => (
+                                                        <SelectItem
+                                                            key={loc.id}
+                                                            value={loc.id}
+                                                        >
+                                                            {loc.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
 
@@ -294,11 +505,25 @@ export function GoodsReceiptForm({
                                     name="receivedDate"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel className="text-xs font-bold">Tanggal Penerimaan</FormLabel>
+                                            <FormLabel className="text-xs font-bold">
+                                                Tanggal Penerimaan
+                                            </FormLabel>
                                             <Input
                                                 type="date"
-                                                value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                                onChange={e => field.onChange(new Date(e.target.value))}
+                                                value={
+                                                    field.value
+                                                        ? new Date(field.value)
+                                                              .toISOString()
+                                                              .split('T')[0]
+                                                        : ''
+                                                }
+                                                onChange={(e) =>
+                                                    field.onChange(
+                                                        new Date(
+                                                            e.target.value,
+                                                        ),
+                                                    )
+                                                }
                                                 className="h-10"
                                             />
                                             <FormMessage />
@@ -310,14 +535,26 @@ export function GoodsReceiptForm({
                                     <div className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-md border border-amber-300 dark:border-amber-700 flex gap-3">
                                         <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                         <div className="text-[11px] text-amber-800 dark:text-amber-200">
-                                            <strong>Over receipt terdeteksi:</strong> qty diterima melebihi PO. PO diperlakukan sebagai perkiraan, penerimaan akan tetap disimpan & stok bertambah.
+                                            <strong>
+                                                Over receipt terdeteksi:
+                                            </strong>{' '}
+                                            qty diterima melebihi PO. PO
+                                            diperlakukan sebagai perkiraan,
+                                            penerimaan akan tetap disimpan &
+                                            stok bertambah.
                                         </div>
                                     </div>
                                 )}
                                 <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md border border-amber-200 dark:border-amber-800 flex gap-3">
                                     <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                     <div className="text-[11px] text-amber-800 dark:text-amber-200">
-                                         Konfirmasi penerimaan ini akan memperbarui tingkat stok secara otomatis dan menghitung kembali <strong>Weighted Average Cost (WAC)</strong> untuk setiap item.
+                                        Konfirmasi penerimaan ini akan
+                                        memperbarui tingkat stok secara otomatis
+                                        dan menghitung kembali{' '}
+                                        <strong>
+                                            Weighted Average Cost (WAC)
+                                        </strong>{' '}
+                                        untuk setiap item.
                                     </div>
                                 </div>
 
@@ -326,10 +563,12 @@ export function GoodsReceiptForm({
                                     disabled={isLoading || fields.length === 0}
                                     className="w-full bg-blue-600 hover:bg-blue-700 h-11"
                                 >
-                                    {isLoading ? "Memproses..." : (
+                                    {isLoading ? (
+                                        'Memproses...'
+                                    ) : (
                                         <>
                                             <Download className="mr-2 h-4 w-4" />
-                                             Simpan Penerimaan Barang
+                                            Simpan Penerimaan Barang
                                         </>
                                     )}
                                 </Button>
@@ -341,11 +580,19 @@ export function GoodsReceiptForm({
                                 <CardContent className="p-4">
                                     <div className="flex items-center gap-2 text-emerald-600 font-bold mb-2">
                                         <CheckCircle className="h-4 w-4" />
-                                        <span className="text-xs uppercase tracking-wider">Checklist Verifikasi</span>
+                                        <span className="text-xs uppercase tracking-wider">
+                                            Checklist Verifikasi
+                                        </span>
                                     </div>
                                     <ul className="text-xs space-y-2 text-muted-foreground">
-                                        <li>• Kuantitas sesuai dengan hitungan fisik</li>
-                                        <li>• Biaya satuan sesuai dengan invoice supplier</li>
+                                        <li>
+                                            • Kuantitas sesuai dengan hitungan
+                                            fisik
+                                        </li>
+                                        <li>
+                                            • Biaya satuan sesuai dengan invoice
+                                            supplier
+                                        </li>
                                         <li>• Kualitas batch dapat diterima</li>
                                     </ul>
                                 </CardContent>
