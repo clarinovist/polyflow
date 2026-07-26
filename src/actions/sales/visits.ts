@@ -45,7 +45,10 @@ export const syncVisitLogsAction = withTenant(
         })),
       );
 
-      return { count: results.filter((r) => r.success).length };
+      return {
+        count: results.filter((r) => r.success).length,
+        results,
+      };
     });
   }
 );

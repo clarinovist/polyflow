@@ -248,6 +248,12 @@ export default function CustomersPage() {
                             village: "",
                             defaultVehicleId: null,
                             isActive: customer.isActive,
+                            lifecycleStatus: "ACTIVE" as const,
+                            createdById: null,
+                            verifiedAt: null,
+                            verifiedById: null,
+                            mergedIntoId: null,
+                            source: null,
                             createdAt: new Date(),
                             updatedAt: new Date(),
                           }}

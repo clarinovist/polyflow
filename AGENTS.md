@@ -1,19 +1,51 @@
 # Workflow Rules
 
-## Sebelum Commit
+## Workflow Utama — WAJIB (Plan → Fix → Gap → Verify → Build)
 
-WAJIB menjalankan semua langkah berikut secara berurutan — jangan dilewati:
+Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
 
-1. **Lint** — `npm run lint`
-2. **Test** — `npm run test`
-3. **Build** — `npm run build`
+### 1. PLAN — simpan di `docs/plan/`
 
-Jika salah satu gagal, perbaiki dulu sebelum melanjutkan ke commit.
+- File: `docs/plan/YYYY-MM-DD-<slug>.md` (contoh: `docs/plan/2026-07-26-fix-packing-karung-hpp.md`)
+- Isi minimal: konteks masalah, root cause, scope file yang kena, rencana fix, residual gap checklist, test scope.
+- Template: `docs/plan/_TEMPLATE.md`
+- Jika model ada masalah: tulis dulu plan, jangan langsung edit code.
+- Plan harus ada sebelum mulai fix.
+
+### 2. FIX — jalankan sesuai plan
+
+- Implementasi fix sesuai plan.
+- Setelah edit massal 5+ file: wajib `git status --short` + `git diff --stat` (lihat Batch Edit Safety).
+
+### 3. RESIDUAL GAP CHECK — loop sampai 0
+
+- Setelah fix selesai, cek lagi apa yang masih kurang / tidak sesuai plan.
+- Buat checklist gap di plan file bagian `## Residual Gap`.
+- Fix gap → cek lagi → ulang sampai `Residual Gap: 0`.
+- Gap 0 baru boleh lanjut ke verify.
+
+### 4. VERIFY — Lint + Test Scope
+
+- **Lint**: `npm run lint` — wajib lolos. Jika gagal, fix dulu.
+- **Test Scope**: `npm run test` atau scoped test sesuai area yang diubah (contoh: `npm run test -- packing`, `vitest run src/modules/foo`).
+  - Pilih scope paling relevan dengan perubahan, jangan asal full test kalau scope kecil — tapi minimal scope tersebut harus lolos.
+  - Jika ada test terkait di `docs/plan`, jalankan itu.
+- Jika lint/test gagal: balik ke step 2 (FIX), update residual gap.
+
+### 5. BUILD — terakhir, dengan koordinasi terminal
+
+- **Build**: `npm run build` — ini step paling terakhir setelah lint + test scope lolos + gap 0.
+- **Aturan build + terminal lain**:
+  - Jika ada aktivitas di terminal lain yang masih jalan (dev server, test watcher, migration, e2e, dsb), **JANGAN** langsung build.
+  - Tunggu sampai terminal lain idle / selesai, ATAU tunggu perintah eksplisit user ("build", "gas build", "ship", "push").
+  - Alasan: build berat (Next.js standalone), bisa konflik port / lock file / OOM kalau barengan.
+- Jika build gagal: fix → ulang lint + test scope → build lagi.
 
 ## Commit & Push
 
-- **Commit** diperbolehkan setelah lint + test + build lolos.
+- **Commit** diperbolehkan setelah gap 0 + lint + test scope + build lolos.
 - **Jangan pernah push** ke remote tanpa perintah eksplisit dari user. Tunggu user bilang "push" atau "ship" atau "kirim".
+- Commit message: jelas, mention plan file kalau ada (`plan: docs/plan/...`).
 
 ## VPS — nugrohopramono
 

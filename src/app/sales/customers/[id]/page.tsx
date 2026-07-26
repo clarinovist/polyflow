@@ -56,6 +56,13 @@ export default async function CustomerDetailPage(props: {
     district: customer.district,
     village: customer.village,
     defaultVehicleId: customer.defaultVehicleId,
+    // ── New lifecycle fields from 20260726 migration ──
+    lifecycleStatus: customer.lifecycleStatus,
+    createdById: customer.createdById,
+    verifiedAt: customer.verifiedAt,
+    verifiedById: customer.verifiedById,
+    mergedIntoId: customer.mergedIntoId,
+    source: customer.source,
     createdAt: customer.createdAt,
     updatedAt: customer.updatedAt,
   } satisfies SerializedCustomer;

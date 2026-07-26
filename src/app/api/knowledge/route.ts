@@ -14,6 +14,9 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
   }
 
   const tenantId = getTenantIdFromContext();
+  if (!tenantId) {
+    return NextResponse.json({ success: false, error: "Tenant context missing" }, { status: 400 });
+  }
   const userId = (session.user as { id?: string }).id;
 
   const body = (await req.json().catch(() => null)) as {

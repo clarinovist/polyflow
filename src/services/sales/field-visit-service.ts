@@ -206,7 +206,7 @@ export async function syncVisitLogs(
           photoUrl: log.photoUrl,
           clientVisitId: log.clientVisitId,
           isExtraCall: log.isExtraCall ?? false,
-          extraReason: log.extraReason ? (log.extraReason as "TOKO_BARU" | "DEKAT_RUTE" | "PERMINTAAN_DADAKAN" | "TOKO_TUTUP_GASI") : undefined,
+          extraReason: log.extraReason ? (log.extraReason as "TOKO_BARU" | "DEKAT_RUTE" | "PERMINTAAN_DADAKAN" | "TOKO_TUTUP_GANTI") : undefined,
           routePlanItemId: log.routePlanItemId || undefined,
         },
       });

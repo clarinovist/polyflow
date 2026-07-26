@@ -19,7 +19,14 @@ export default async function FieldSalesDashboardPage() {
   const pipeline = pipelineRes?.success && pipelineRes.data ? pipelineRes.data : null;
   const invoices = invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
   const customers = customersRes?.success && customersRes.data ? customersRes.data : [];
-  const routePlan = routeRes?.success && routeRes.data ? routeRes.data : null;
+  const rawRoutePlan = routeRes?.success && routeRes.data ? routeRes.data : null;
+  // Normalize Date -> string for RouteTodaySection (expects string date)
+  const routePlan = rawRoutePlan
+    ? {
+        ...rawRoutePlan,
+        date: rawRoutePlan.date instanceof Date ? rawRoutePlan.date.toISOString().split("T")[0] : String(rawRoutePlan.date),
+      }
+    : null;
   const compliance = complianceRes?.success && complianceRes.data ? complianceRes.data : null;
 
   const totalOutstanding = invoices.reduce(

@@ -14,8 +14,13 @@ export type FieldSalesActorScope = {
 export function getFieldSalesScope(session: {
   user: { id: string; role?: string | null; roles?: (string | null)[] | null };
 }): FieldSalesActorScope {
+  // Normalize roles: filter null before passing to hasAnyRole (expects string[] not (string|null)[])
+  const normalizedUser = {
+    ...session.user,
+    roles: session.user.roles?.filter((r): r is string => r != null) ?? null,
+  };
   const isGlobalViewer =
-    hasAnyRole(session.user, ["ADMIN", "SALES_ADMIN"]);
+    hasAnyRole(normalizedUser, ["ADMIN", "SALES_ADMIN"]);
 
   return {
     actorUserId: session.user.id,

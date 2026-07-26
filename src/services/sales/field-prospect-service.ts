@@ -33,7 +33,7 @@ export async function checkCustomerDuplicate(
   latitude?: number,
   longitude?: number,
 ): Promise<DuplicateCheckResult> {
-  const conditions: { OR: object[] }[] = [];
+  const conditions: object[] = [];
 
   if (phone && phone.length >= 8) {
     conditions.push({ phone: { contains: phone } });
@@ -48,7 +48,7 @@ export async function checkCustomerDuplicate(
   }
 
   const matches = await prisma.customer.findMany({
-    where: { OR: conditions },
+    where: { OR: conditions } as never,
     select: {
       id: true,
       name: true,

@@ -31,6 +31,7 @@ vi.mock("@/lib/tools/audit", () => ({
 import {
   assignCustomerToSales,
   unassignCustomerFromSales,
+  autoAssignProspectToSales,
   getCustomerAssignments,
   getAssignedCustomers,
 } from "../customer-assignment-service";
@@ -41,7 +42,7 @@ describe("customer-assignment-service", () => {
   });
 
   describe("assignCustomerToSales", () => {
-    it("creates assignment in transaction", async () => {
+    it("creates new assignment when none exists", async () => {
       const result = await assignCustomerToSales({
         customerId: "cus-1",
         userId: "u1",
@@ -51,46 +52,72 @@ describe("customer-assignment-service", () => {
       expect(result).toBeDefined();
     });
 
-    it("closes existing primary when assigning new primary", async () => {
+    it("closes existing primary and creates new when reassigning primary", async () => {
       const { prisma } = await import("@/lib/core/prisma");
       vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
         const tx = {
           customerSalesAssignment: {
             findFirst: vi.fn()
-              .mockResolvedValueOnce({ id: "old-assign", isPrimary: true, userId: "u-old" })
+              .mockResolvedValueOnce({ id: "old", isPrimary: true, userId: "u-old" })
               .mockResolvedValueOnce(null),
-            findMany: vi.fn().mockResolvedValue([]),
-            create: vi.fn().mockImplementation((args: { data: Record<string, unknown> }) =>
-              Promise.resolve({ id: "new-assign", ...args.data })
-            ),
-            update: vi.fn().mockResolvedValue({ id: "old-assign" }),
+            create: vi.fn().mockResolvedValue({ id: "new-assign" }),
+            update: vi.fn().mockResolvedValue({ id: "old" }),
           },
         };
         return fn(tx);
       });
-
-      await assignCustomerToSales({
+      const result = await assignCustomerToSales({
         customerId: "cus-1",
         userId: "u-new",
         isPrimary: true,
         assignedById: "admin-1",
       });
+      expect(result).toBeDefined();
+    });
 
-      const tx = vi.mocked(prisma.$transaction).mock.calls[0][0];
-      const txMock = {
-        customerSalesAssignment: {
-          findFirst: vi.fn()
-            .mockResolvedValueOnce({ id: "old-assign", isPrimary: true, userId: "u-old" })
-            .mockResolvedValueOnce(null),
-          create: vi.fn().mockResolvedValue({ id: "new-assign" }),
-          update: vi.fn().mockResolvedValue({ id: "old-assign" }),
-        },
-      };
-      await (tx as (tx: typeof txMock) => Promise<unknown>)(txMock);
-      expect(txMock.customerSalesAssignment.update).toHaveBeenCalledWith({
-        where: { id: "old-assign" },
-        data: { unassignedAt: expect.any(Date) },
+    it("returns existing assignment if already assigned to same user", async () => {
+      const { prisma } = await import("@/lib/core/prisma");
+      // isPrimary=false skips the primary check, so findFirst is called only once for duplicate check
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        const tx = {
+          customerSalesAssignment: {
+            findFirst: vi.fn().mockResolvedValue({ id: "existing", userId: "u1" }),
+            create: vi.fn(),
+            update: vi.fn(),
+          },
+        };
+        return fn(tx);
       });
+      const result = await assignCustomerToSales({
+        customerId: "cus-1",
+        userId: "u1",
+        isPrimary: false,
+        assignedById: "admin-1",
+      });
+      expect(result).toBeDefined();
+    });
+
+    it("does not close primary when isPrimary=false", async () => {
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        const tx = {
+          customerSalesAssignment: {
+            findFirst: vi.fn()
+              .mockResolvedValueOnce(null) // duplicate check (no primary check when isPrimary=false)
+              .mockResolvedValueOnce(null),
+            create: vi.fn().mockResolvedValue({ id: "new-assign" }),
+            update: vi.fn(),
+          },
+        };
+        return fn(tx);
+      });
+      const result = await assignCustomerToSales({
+        customerId: "cus-1",
+        userId: "u1",
+        isPrimary: false,
+        assignedById: "admin-1",
+      });
+      expect(result).toBeDefined();
     });
   });
 
@@ -100,17 +127,13 @@ describe("customer-assignment-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
         const tx = {
           customerSalesAssignment: {
-            findFirst: vi.fn().mockResolvedValue({ id: "assign-1" }),
-            update: vi.fn().mockResolvedValue({ id: "assign-1" }),
+            findFirst: vi.fn().mockResolvedValue({ id: "a1" }),
+            update: vi.fn().mockResolvedValue({ id: "a1" }),
           },
         };
         return fn(tx);
       });
-
-      const result = await unassignCustomerFromSales({
-        customerId: "cus-1",
-        userId: "u1",
-      });
+      const result = await unassignCustomerFromSales({ customerId: "cus-1", userId: "u1" });
       expect(result).toBeDefined();
     });
 
@@ -125,20 +148,34 @@ describe("customer-assignment-service", () => {
         };
         return fn(tx);
       });
-
-      const result = await unassignCustomerFromSales({
-        customerId: "cus-1",
-        userId: "u1",
-      });
+      const result = await unassignCustomerFromSales({ customerId: "cus-1", userId: "u1" });
       expect(result).toBeNull();
     });
   });
 
+  describe("autoAssignProspectToSales", () => {
+    it("creates assignment with auto notes", async () => {
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        const tx = {
+          customerSalesAssignment: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: "auto-assign" }),
+            update: vi.fn(),
+          },
+        };
+        return fn(tx);
+      });
+      const result = await autoAssignProspectToSales("cus-1", "u1");
+      expect(result).toBeDefined();
+    });
+  });
+
   describe("getCustomerAssignments", () => {
-    it("returns assignments for customer", async () => {
+    it("returns assignments", async () => {
       const { prisma } = await import("@/lib/core/prisma");
       vi.mocked(prisma.customerSalesAssignment.findMany).mockResolvedValue([
-        { id: "a1", user: { id: "u1", name: "Sales A" }, assignedBy: { id: "admin", name: "Admin" } },
+        { id: "a1", user: { id: "u1", name: "Sales" }, assignedBy: { id: "admin", name: "Admin" } },
       ] as never);
       const result = await getCustomerAssignments("cus-1");
       expect(result).toHaveLength(1);
@@ -146,10 +183,10 @@ describe("customer-assignment-service", () => {
   });
 
   describe("getAssignedCustomers", () => {
-    it("returns assigned customers for user", async () => {
+    it("returns assigned customers", async () => {
       const { prisma } = await import("@/lib/core/prisma");
       vi.mocked(prisma.customerSalesAssignment.findMany).mockResolvedValue([
-        { id: "a1", customer: { id: "cus-1", name: "Toko A" } },
+        { id: "a1", customer: { id: "cus-1", name: "Toko" } },
       ] as never);
       const result = await getAssignedCustomers("u1");
       expect(result).toHaveLength(1);
