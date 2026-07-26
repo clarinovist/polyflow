@@ -40,7 +40,7 @@ function parseArgs(argv) {
     };
 }
 
-function n(v) {
+function asNum(v) {
     return Number(v || 0);
 }
 
@@ -104,11 +104,11 @@ async function main() {
             },
         },
     });
-    const available = n(inv?.quantity);
+    const available = asNum(inv?.quantity);
     const unitCost =
-        n(inv?.averageCost) ||
-        n(pelembab.standardCost) ||
-        n(pelembab.buyPrice) ||
+        asNum(inv?.averageCost) ||
+        asNum(pelembab.standardCost) ||
+        asNum(pelembab.buyPrice) ||
         0;
     const totalAmount = QTY * unitCost;
 
@@ -141,7 +141,7 @@ async function main() {
     );
     console.log(
         'Existing pelembab plan:',
-        existingPlan ? n(existingPlan.quantity) : '(none)',
+        existingPlan ? asNum(existingPlan.quantity) : '(none)',
     );
 
     if (dryRun) {
@@ -170,9 +170,9 @@ async function main() {
                 },
             },
         });
-        if (!locked || n(locked.quantity) + 1e-9 < QTY) {
+        if (!locked || asNum(locked.quantity) + 1e-9 < QTY) {
             throw new Error(
-                `Insufficient stock under lock: ${n(locked?.quantity)}`,
+                `Insufficient stock under lock: ${asNum(locked?.quantity)}`,
             );
         }
 
@@ -217,11 +217,11 @@ async function main() {
             },
             select: { quantity: true },
         });
-        const totalIssued = issues.reduce((s, mi) => s + n(mi.quantity), 0);
+        const totalIssued = issues.reduce((s, mi) => s + asNum(mi.quantity), 0);
 
         let planId;
         if (existingPlan) {
-            const newPlanQty = Math.max(n(existingPlan.quantity), totalIssued);
+            const newPlanQty = Math.max(asNum(existingPlan.quantity), totalIssued);
             await tx.productionMaterial.update({
                 where: { id: existingPlan.id },
                 data: { quantity: newPlanQty },
@@ -304,16 +304,16 @@ async function main() {
         include: { productVariant: { select: { name: true } } },
     });
 
-    console.log('RM pelembab after:', n(invAfter?.quantity));
+    console.log('RM pelembab after:', asNum(invAfter?.quantity));
     console.log(
         'Pelembab issues:',
-        issuesAfter.map((i) => ({ id: i.id, qty: n(i.quantity) })),
+        issuesAfter.map((i) => ({ id: i.id, qty: asNum(i.quantity) })),
     );
     console.log(
         'Plan materials:',
         planAfter.map((p) => ({
             name: p.productVariant.name,
-            qty: n(p.quantity),
+            qty: asNum(p.quantity),
         })),
     );
     console.log('DONE');
