@@ -1,8 +1,8 @@
-import { getOutstandingInvoices } from "@/actions/finance/invoice";
+import { getMyFieldReceivables } from "@/actions/sales/field-actions";
 import { ReceivablesListClient } from "./ReceivablesListClient";
 
 export default async function SalesMobileReceivablesPage() {
-  const invoicesRes = await getOutstandingInvoices();
+  const invoicesRes = await getMyFieldReceivables();
   const invoices = invoicesRes.success && invoicesRes.data ? invoicesRes.data : [];
 
   const serialized = invoices.map((inv) => ({

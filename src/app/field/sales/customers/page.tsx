@@ -1,8 +1,11 @@
-import { getCustomers } from "@/actions/sales/customer";
+import { getMyFieldCustomers } from "@/actions/sales/field-actions";
 import { CustomerListClient } from "./CustomerListClient";
 
-export default async function SalesMobileCustomersPage() {
-  const customersRes = await getCustomers();
+export default async function SalesMobileCustomersPage(props: {
+  searchParams: Promise<{ startVisit?: string }>;
+}) {
+  const params = await props.searchParams;
+  const customersRes = await getMyFieldCustomers();
   const customers =
     customersRes.success && customersRes.data ? customersRes.data : [];
 
@@ -18,5 +21,10 @@ export default async function SalesMobileCustomersPage() {
     isActive: c.isActive,
   }));
 
-  return <CustomerListClient customers={serialized} />;
+  return (
+    <CustomerListClient
+      customers={serialized}
+      showStartVisit={params.startVisit === "true"}
+    />
+  );
 }

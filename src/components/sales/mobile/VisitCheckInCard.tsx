@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { compressImageForUpload, fileToDataUrl } from "@/lib/media/compress-image";
 import Link from "next/link";
+import { startFieldVisitAction } from "@/actions/sales/field-visit";
 
 type VisitCheckInCardProps = {
   customerId: string;
@@ -13,6 +14,7 @@ type VisitCheckInCardProps = {
   targetLatitude: number | null;
   targetLongitude: number | null;
   isOutsideRoute?: boolean;
+  isProspect?: boolean;
 };
 
 type ActiveVisit = {
@@ -21,6 +23,7 @@ type ActiveVisit = {
   latitude: number;
   longitude: number;
   distance: number;
+  clientVisitId?: string;
 };
 
 type VisitLog = {
@@ -38,6 +41,7 @@ type VisitLog = {
   synced: boolean;
   isOutsideRoute?: boolean;
   extraReason?: string | null;
+  clientVisitId?: string;
 };
 
 type JourneyItem = {
@@ -51,6 +55,7 @@ export function VisitCheckInCard({
   targetLatitude,
   targetLongitude,
   isOutsideRoute = false,
+  isProspect = false,
 }: VisitCheckInCardProps) {
   // Lazily load active visit on mount to avoid set-state-in-effect warning
   const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(() => {
@@ -75,7 +80,9 @@ export function VisitCheckInCard({
   const [tempVisitData, setTempVisitData] = useState<ActiveVisit | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [compressingPhoto, setCompressingPhoto] = useState(false);
-  const [extraReason, setExtraReason] = useState<string | null>(null);
+  const [extraReason, setExtraReason] = useState<string | null>(
+    isProspect ? "TOKO_BARU" : null
+  );
 
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,12 +157,15 @@ export function VisitCheckInCard({
           distance = getDistance(latitude, longitude, targetLatitude, targetLongitude);
         }
 
-        const visitData = {
+        const clientVisitId = `v_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+
+        const visitData: ActiveVisit = {
           customerId,
           checkInTime: new Date().toISOString(),
           latitude,
           longitude,
           distance,
+          clientVisitId,
         };
 
         // If distance > 100 meters, show warning
@@ -177,16 +187,30 @@ export function VisitCheckInCard({
     );
   };
 
-  const proceedCheckIn = (visitData: ActiveVisit) => {
+  const proceedCheckIn = async (visitData: ActiveVisit) => {
+    // Save to localStorage first (offline-first)
     localStorage.setItem("active_visit", JSON.stringify(visitData));
-    
-    // Update daily call plan progress for today
     updateJourneyPlanStatus(customerId, "VISITING");
-    
+
     setActiveVisit(visitData);
     setLoading(false);
     setWarningMsg(null);
     setTempVisitData(null);
+
+    // Best-effort server call
+    try {
+      await startFieldVisitAction({
+        customerId,
+        latitude: visitData.latitude,
+        longitude: visitData.longitude,
+        distance: visitData.distance,
+        clientVisitId: visitData.clientVisitId || `v_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        isExtraCall: isOutsideRoute || false,
+        extraReason: isOutsideRoute ? (extraReason || undefined) : undefined,
+      });
+    } catch {
+      // Server call failed — will be synced later via VisitSyncBanner
+    }
   };
 
   const updateJourneyPlanStatus = (id: string, status: "PENDING" | "VISITING" | "COMPLETED") => {
@@ -217,6 +241,8 @@ export function VisitCheckInCard({
     const end = new Date(checkOutTime).getTime();
     const durationSeconds = Math.floor((end - start) / 1000);
 
+    const clientVisitId = activeVisit.clientVisitId || `v_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+
     const log: VisitLog = {
       id: Math.random().toString(36).substr(2, 9),
       customerId,
@@ -232,9 +258,10 @@ export function VisitCheckInCard({
       synced: false,
       isOutsideRoute: isOutsideRoute || false,
       extraReason: isOutsideRoute ? extraReason : undefined,
+      clientVisitId,
     };
 
-    // Save to logs
+    // Save to logs (for sync banner to pick up)
     const savedLogs = localStorage.getItem("visit_logs");
     const logs = savedLogs ? JSON.parse(savedLogs) : [];
     logs.unshift(log);
@@ -242,7 +269,7 @@ export function VisitCheckInCard({
 
     // Clear active visit
     localStorage.removeItem("active_visit");
-    
+
     // Mark journey plan as completed
     updateJourneyPlanStatus(customerId, "COMPLETED");
 

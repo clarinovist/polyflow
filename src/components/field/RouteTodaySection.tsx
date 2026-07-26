@@ -16,7 +16,23 @@ type RouteItem = CustomerSummary & {
   status: "PENDING" | "VISITING" | "COMPLETED";
 };
 
+type RoutePlanItem = {
+  id: string;
+  customerId: string;
+  sortOrder: number;
+  status: string;
+  customer: CustomerSummary;
+};
+
+type RoutePlan = {
+  id: string;
+  date: string;
+  status: string;
+  items: RoutePlanItem[];
+};
+
 type RouteTodaySectionProps = {
+  routePlan?: RoutePlan | null;
   activeCustomers: CustomerSummary[];
 };
 
@@ -28,8 +44,8 @@ function getStorageKey(): string {
   return `today_journey_plan_${yyyy}-${mm}-${dd}`;
 }
 
-export function RouteTodaySection({ activeCustomers }: RouteTodaySectionProps) {
-  const [journeyPlan, setJourneyPlan] = useState<RouteItem[]>(() => {
+export function RouteTodaySection({ routePlan, activeCustomers }: RouteTodaySectionProps) {
+  const [localPlan, setLocalPlan] = useState<RouteItem[]>(() => {
     if (typeof window !== "undefined") {
       const key = getStorageKey();
       const saved = localStorage.getItem(key);
@@ -44,7 +60,7 @@ export function RouteTodaySection({ activeCustomers }: RouteTodaySectionProps) {
       const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved) as RouteItem[];
-        setJourneyPlan((prev) => {
+        setLocalPlan((prev) => {
           if (JSON.stringify(prev) !== JSON.stringify(parsed)) {
             return parsed;
           }
@@ -62,6 +78,20 @@ export function RouteTodaySection({ activeCustomers }: RouteTodaySectionProps) {
     };
   }, []);
 
+  // Server route takes priority over local
+  const journeyPlan: RouteItem[] = useMemo(() => {
+    if (routePlan?.items && routePlan.items.length > 0) {
+      return routePlan.items.map((item) => ({
+        id: item.customerId,
+        name: item.customer.name,
+        code: item.customer.code,
+        city: item.customer.city,
+        status: item.status as RouteItem["status"],
+      }));
+    }
+    return localPlan;
+  }, [routePlan, localPlan]);
+
   const stats = useMemo(() => {
     const total = journeyPlan.length;
     const completed = journeyPlan.filter((j) => j.status === "COMPLETED").length;
@@ -71,7 +101,7 @@ export function RouteTodaySection({ activeCustomers }: RouteTodaySectionProps) {
     return { total, completed, visiting, percent };
   }, [journeyPlan]);
 
-  if (activeCustomers.length === 0) return null;
+  if (activeCustomers.length === 0 && journeyPlan.length === 0) return null;
 
   return (
     <div className="border rounded-2xl p-4 bg-card shadow-sm space-y-4">

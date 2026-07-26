@@ -1,5 +1,4 @@
-import { getCustomerById } from "@/actions/sales/customer";
-import { getSalesOrdersByCustomerId } from "@/actions/sales/sales";
+import { getFieldCustomerById, getMyFieldSalesOrders } from "@/actions/sales/field-actions";
 import { getOutstandingInvoicesByCustomerId } from "@/actions/finance/invoice";
 import { notFound } from "next/navigation";
 import { CustomerDetailClient } from "./CustomerDetailClient";
@@ -8,21 +7,22 @@ export default async function SalesMobileCustomerDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
-
   const [customerRes, ordersRes, invoicesRes] = await Promise.all([
-    getCustomerById(id),
-    getSalesOrdersByCustomerId(id),
+    getFieldCustomerById(id),
+    getMyFieldSalesOrders(),
     getOutstandingInvoicesByCustomerId(id),
   ]);
 
   const customer =
     customerRes?.success && customerRes.data ? customerRes.data : null;
-  const orders = ordersRes?.success && ordersRes.data ? ordersRes.data : [];
+  const allOrders = ordersRes?.success && ordersRes.data ? ordersRes.data : [];
   const invoices = invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
 
   if (!customer) {
     notFound();
   }
+
+  const orders = allOrders.filter((o) => o.customerId === id);
 
   return (
     <CustomerDetailClient
@@ -44,6 +44,7 @@ export default async function SalesMobileCustomerDetailPage(props: {
         district: customer.district,
         village: customer.village,
         isActive: customer.isActive,
+        lifecycleStatus: customer.lifecycleStatus,
       }}
       recentOrders={orders.slice(0, 5).map((o) => ({
         id: o.id,

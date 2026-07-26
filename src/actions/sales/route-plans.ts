@@ -648,6 +648,8 @@ export const getServerVisits = withTenant(
         notes: v.notes,
         photoUrl: v.photoUrl,
         synced: true,
+        isExtraCall: v.isExtraCall,
+        extraReason: v.extraReason,
       }));
     });
   },

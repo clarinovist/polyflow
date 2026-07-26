@@ -20,6 +20,10 @@ type VisitLog = {
   photoUrl?: string | null;
   synced?: boolean;
   retryCount?: number;
+  isOutsideRoute?: boolean;
+  extraReason?: string | null;
+  clientVisitId?: string;
+  routePlanItemId?: string | null;
 };
 
 const MAX_RETRIES = 3;
@@ -75,6 +79,7 @@ export function VisitSyncBanner() {
     setIsSyncing(true);
     try {
       const payload = logsToSync.map((log) => ({
+        clientId: log.clientVisitId || log.id,
         customerId: log.customerId,
         checkInTime: log.checkInTime,
         checkOutTime: log.checkOutTime,
@@ -84,27 +89,44 @@ export function VisitSyncBanner() {
         distance: log.distance,
         notes: log.notes,
         photoUrl: log.photoUrl || null,
+        isExtraCall: log.isOutsideRoute || false,
+        extraReason: log.extraReason || undefined,
+        routePlanItemId: log.routePlanItemId || undefined,
       }));
 
       const res = await syncVisitLogsAction(payload);
-      if (res?.success) {
+      if (res?.success && res.data?.results) {
+        // Per-item reconciliation
+        const serverResults = res.data.results as { clientVisitId: string; success: boolean; visitId?: string; error?: string }[];
+        const resultMap = new Map(serverResults.map((r) => [r.clientVisitId, r]));
+
         const saved = localStorage.getItem("visit_logs");
         if (saved) {
           const logs = JSON.parse(saved) as VisitLog[];
-          const syncedIds = new Set(logsToSync.map((l) => l.id));
           const updated = logs.map((log) => {
-            if (syncedIds.has(log.id)) {
-              return { ...log, synced: true, retryCount: 0 };
+            const clientVisitId = log.clientVisitId || log.id;
+            const serverResult = resultMap.get(clientVisitId);
+            if (serverResult) {
+              if (serverResult.success) {
+                return { ...log, synced: true, retryCount: 0 };
+              }
+              // Per-item failure — increment retry count
+              return { ...log, retryCount: (log.retryCount ?? 0) + 1 };
             }
             return log;
           });
           localStorage.setItem("visit_logs", JSON.stringify(updated));
         }
 
-        toast.success(`Berhasil sinkronisasi ${logsToSync.length} kunjungan ke server!`);
+        const syncedCount = serverResults.filter((r) => r.success).length;
+        const failedCount = serverResults.filter((r) => !r.success).length;
+        if (failedCount > 0) {
+          toast.warning(`${syncedCount} sinkron, ${failedCount} gagal`);
+        } else {
+          toast.success(`${syncedCount} kunjungan berhasil disinkronisasi!`);
+        }
         checkUnsyncedLogs();
       } else {
-        // Mark failed logs with retry count
         markFailed(logsToSync);
         toast.error((res as { error?: string })?.error || "Gagal sinkronisasi data ke server");
       }

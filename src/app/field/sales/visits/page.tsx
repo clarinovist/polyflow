@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Calendar, Clock, MapPin, FileText, Navigation, Trash2, CloudLightning, CheckCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, FileText, Navigation, Trash2, CloudLightning, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
@@ -19,6 +19,15 @@ type VisitLog = {
   notes: string;
   photoUrl?: string | null;
   synced?: boolean;
+  isExtraCall?: boolean;
+  extraReason?: string | null;
+};
+
+const EC_REASON_LABELS: Record<string, string> = {
+  TOKO_BARU: "Toko Baru",
+  DEKAT_RUTE: "Dekat Rute",
+  PERMINTAAN_DADAKAN: "Permintaan Dadakan",
+  TOKO_TUTUP_GASI: "Toko Tutup Ganti",
 };
 
 export default function SalesMobileVisitsHistoryPage() {
@@ -54,7 +63,7 @@ export default function SalesMobileVisitsHistoryPage() {
     fetchServer();
   }, []);
 
-  // Merge: server logs first (synced), then local unsynced (deduped by customerId+checkInTime)
+  // Merge: server logs first (synced), then local unsynced (deduped)
   const allLogs = useMemo(() => {
     const serverIds = new Set(serverLogs.map((l) => l.id));
     const unsyncedLocal = localLogs.filter(
@@ -81,7 +90,8 @@ export default function SalesMobileVisitsHistoryPage() {
     const total = allLogs.length;
     const unsynced = allLogs.filter((l) => l.synced === false).length;
     const synced = allLogs.filter((l) => l.synced === true).length;
-    return { total, unsynced, synced };
+    const extraCalls = allLogs.filter((l) => l.isExtraCall === true).length;
+    return { total, unsynced, synced, extraCalls };
   }, [allLogs]);
 
   return (
@@ -133,6 +143,12 @@ export default function SalesMobileVisitsHistoryPage() {
               Belum sync: {stats.unsynced}
             </span>
           )}
+          {stats.extraCalls > 0 && (
+            <span className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400">
+              <AlertTriangle className="inline h-3 w-3 mr-1" />
+              Extra Call: {stats.extraCalls}
+            </span>
+          )}
         </div>
       )}
 
@@ -154,6 +170,7 @@ export default function SalesMobileVisitsHistoryPage() {
           {allLogs.map((log) => {
             const date = new Date(log.checkInTime);
             const isSynced = log.synced === true;
+            const isEC = log.isExtraCall === true;
 
             return (
               <div
@@ -161,7 +178,7 @@ export default function SalesMobileVisitsHistoryPage() {
                 className="border rounded-2xl p-4 bg-card shadow-xs space-y-3.5 relative overflow-hidden"
               >
                 <div className={`absolute top-0 bottom-0 left-0 w-1.5 ${
-                  isSynced ? "bg-emerald-500" : "bg-amber-500"
+                  isEC ? "bg-orange-500" : isSynced ? "bg-emerald-500" : "bg-amber-500"
                 }`} />
 
                 <div className="pl-1.5 flex justify-between items-start gap-2">
@@ -172,16 +189,33 @@ export default function SalesMobileVisitsHistoryPage() {
                       {format(date, "dd MMM yyyy, HH:mm")}
                     </span>
                   </div>
-                  <Badge
-                    className={`font-bold border shrink-0 text-[10px] ${
-                      isSynced
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100"
-                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100"
-                    }`}
-                  >
-                    {isSynced ? "Server" : "Belum sync"}
-                  </Badge>
+                  <div className="flex gap-1.5 shrink-0">
+                    {isEC && (
+                      <Badge className="font-bold border shrink-0 text-[10px] bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-100">
+                        <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />
+                        EC
+                      </Badge>
+                    )}
+                    <Badge
+                      className={`font-bold border shrink-0 text-[10px] ${
+                        isSynced
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100"
+                      }`}
+                    >
+                      {isSynced ? "Server" : "Belum sync"}
+                    </Badge>
+                  </div>
                 </div>
+
+                {/* EC Reason */}
+                {isEC && log.extraReason && (
+                  <div className="pl-1.5 flex items-center gap-1.5 text-[10px] text-orange-700 dark:text-orange-400">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span className="font-semibold">Alasan:</span>
+                    <span>{EC_REASON_LABELS[log.extraReason] || log.extraReason}</span>
+                  </div>
+                )}
 
                 <div className="pl-1.5 grid grid-cols-2 gap-3 pt-2.5 border-t text-xs">
                   <div className="space-y-1">

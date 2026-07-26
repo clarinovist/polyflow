@@ -1,4 +1,4 @@
-import { getSalesOrderById } from "@/actions/sales/sales";
+import { getFieldSalesOrderById } from "@/actions/sales/field-actions";
 import { getLocations } from "@/actions/inventory/locations";
 import { notFound } from "next/navigation";
 import { OrderDetailClient } from "./OrderDetailClient";
@@ -30,7 +30,7 @@ export default async function SalesMobileOrderDetailPage(props: {
 }) {
   const { id } = await props.params;
   const [response, locationsResponse] = await Promise.all([
-    getSalesOrderById(id),
+    getFieldSalesOrderById(id),
     getLocations(),
   ]);
 

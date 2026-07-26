@@ -1,7 +1,6 @@
-import { getSalesOrderStats, getRecentPipelineOrders } from "@/actions/sales/sales";
-import { getOutstandingInvoices } from "@/actions/finance/invoice";
-import { getCustomers } from "@/actions/sales/customer";
-import { Plus, Search, ShoppingCart, Package, ReceiptText, MapPin } from "lucide-react";
+import { getMyFieldPipelineStats, getMyFieldReceivables, getMyFieldCustomers, getMyFieldComplianceStats } from "@/actions/sales/field-actions";
+import { getTodayRoutePlan } from "@/actions/sales/route-plans";
+import { Plus, Search, ShoppingCart, Package, ReceiptText, MapPin, Navigation, Store } from "lucide-react";
 import Link from "next/link";
 import { RouteTodaySection } from "@/components/field/RouteTodaySection";
 import { PipelineSummaryCard } from "@/components/field/PipelineSummaryCard";
@@ -9,21 +8,28 @@ import { VisitSyncBanner } from "@/components/sales/mobile/VisitSyncBanner";
 import { formatRupiah } from "@/lib/utils/utils";
 
 export default async function FieldSalesDashboardPage() {
-  const [statsRes, invoicesRes, customersRes, recentPipelineRes] = await Promise.all([
-    getSalesOrderStats(),
-    getOutstandingInvoices(),
-    getCustomers(),
-    getRecentPipelineOrders(),
+  const [pipelineRes, invoicesRes, customersRes, routeRes, complianceRes] = await Promise.all([
+    getMyFieldPipelineStats(),
+    getMyFieldReceivables(),
+    getMyFieldCustomers(),
+    getTodayRoutePlan(),
+    getMyFieldComplianceStats(),
   ]);
-  const stats = statsRes?.success && statsRes.data ? statsRes.data : null;
+
+  const pipeline = pipelineRes?.success && pipelineRes.data ? pipelineRes.data : null;
   const invoices = invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
   const customers = customersRes?.success && customersRes.data ? customersRes.data : [];
-  const recentPipeline = recentPipelineRes?.success && recentPipelineRes.data ? recentPipelineRes.data : [];
+  const routePlan = routeRes?.success && routeRes.data ? routeRes.data : null;
+  const compliance = complianceRes?.success && complianceRes.data ? complianceRes.data : null;
 
   const totalOutstanding = invoices.reduce(
     (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)),
     0
   );
+
+  const overdueCount = invoices.filter(
+    (inv) => inv.status === "OVERDUE"
+  ).length;
 
   const activeCustomers = customers
     .filter((c) => c.isActive)
@@ -53,7 +59,7 @@ export default async function FieldSalesDashboardPage() {
       {/* Header — Today-first greeting */}
       <div>
         <h1 className="text-xl font-bold">
-          {greeting} 👋
+          {greeting}
         </h1>
         <p className="text-sm text-muted-foreground">{dateStr}</p>
       </div>
@@ -62,16 +68,38 @@ export default async function FieldSalesDashboardPage() {
       <VisitSyncBanner />
 
       {/* Rute Hari Ini — Above fold priority */}
-      <RouteTodaySection activeCustomers={activeCustomers} />
+      <RouteTodaySection routePlan={routePlan} activeCustomers={activeCustomers} />
+
+      {/* Compliance KPI */}
+      {compliance && compliance.assigned > 0 && (
+        <div className="border rounded-xl p-3 bg-card">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Compliance Hari Ini</span>
+            <span className="text-xs font-bold">{compliance.completed}/{compliance.assigned} toko</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-1.5">
+            <div
+              className="bg-primary h-1.5 rounded-full transition-all"
+              style={{ width: `${compliance.compliance}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-muted-foreground">{compliance.compliance}% selesai</span>
+            {compliance.extraCalls > 0 && (
+              <span className="text-[10px] text-orange-600 font-semibold">+{compliance.extraCalls} EC</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Pipeline Saya — Stacked hybrid counts + next 3 */}
       <PipelineSummaryCard
-        activeCount={stats?.activeCount ?? 0}
-        pipelineAmount={stats?.pipelineAmount ?? 0}
-        openQuotationCount={stats?.openQuotationCount ?? 0}
-        openQuotationAmount={stats?.openQuotationAmount ?? 0}
+        activeCount={pipeline?.activeCount ?? 0}
+        pipelineAmount={pipeline?.pipelineAmount ?? 0}
+        openQuotationCount={pipeline?.openQuotationCount ?? 0}
+        openQuotationAmount={pipeline?.openQuotationAmount ?? 0}
         followUpCount={0}
-        topItems={recentPipeline}
+        topItems={pipeline?.recentPipeline ?? []}
       />
 
       {/* Quick Actions — Aksi cepat */}
@@ -98,7 +126,22 @@ export default async function FieldSalesDashboardPage() {
         </Link>
       </div>
 
-      {/* Summary — Field KPI, no batal/total */}
+      {/* Mulai Kunjungan — prominent CTA */}
+      <Link
+        href="/field/sales/customers?startVisit=true"
+        className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 rounded-xl active:scale-[0.98] transition-transform min-h-[52px]"
+      >
+        <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+          <Navigation className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div className="flex-1">
+          <p className="font-semibold text-sm text-emerald-800 dark:text-emerald-300">Mulai Kunjungan</p>
+          <p className="text-xs text-emerald-600/80 dark:text-emerald-400/70">Check-in di toko atau buat toko baru</p>
+        </div>
+        <Store className="h-5 w-5 text-emerald-400 shrink-0" />
+      </Link>
+
+      {/* Summary — Field KPI */}
       <div className="grid grid-cols-2 gap-3">
         <Link
           href="/field/sales/receivables"
@@ -106,7 +149,9 @@ export default async function FieldSalesDashboardPage() {
         >
           <ReceiptText className="h-5 w-5 text-rose-500 shrink-0" />
           <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground">Piutang Outstanding</p>
+            <p className="text-[10px] text-muted-foreground">
+              Piutang{overdueCount > 0 ? ` (${overdueCount} overdue)` : ""}
+            </p>
             <p className="font-bold text-sm text-rose-600 dark:text-rose-400 truncate">
               {formatRupiah(totalOutstanding)}
             </p>
@@ -116,7 +161,7 @@ export default async function FieldSalesDashboardPage() {
           <ShoppingCart className="h-5 w-5 text-blue-500 shrink-0" />
           <div className="min-w-0">
             <p className="text-[10px] text-muted-foreground">Order Aktif</p>
-            <p className="font-bold text-sm">{stats?.activeCount ?? 0}</p>
+            <p className="font-bold text-sm">{pipeline?.activeCount ?? 0}</p>
           </div>
         </div>
       </div>

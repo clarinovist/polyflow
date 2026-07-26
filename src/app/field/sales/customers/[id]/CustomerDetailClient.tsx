@@ -35,6 +35,7 @@ type Customer = {
   district: string | null;
   village: string | null;
   isActive: boolean;
+  lifecycleStatus?: string;
 };
 
 type Order = {
@@ -164,6 +165,7 @@ export function CustomerDetailClient({
         targetLatitude={customer.latitude}
         targetLongitude={customer.longitude}
         isOutsideRoute={isOutsideRoute}
+        isProspect={customer.lifecycleStatus === "PROSPECT"}
       />
 
       {/* Address */}

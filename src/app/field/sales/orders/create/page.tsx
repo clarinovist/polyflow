@@ -1,4 +1,4 @@
-import { getCustomers } from "@/actions/sales/customer";
+import { getMyFieldCustomers } from "@/actions/sales/field-actions";
 import { getLocations } from "@/actions/inventory/inventory";
 import { getProductVariants } from "@/actions/inventory/inventory";
 import { QuickOrderWizard } from "./QuickOrderWizard";
@@ -8,7 +8,7 @@ export default async function SalesMobileOrderCreatePage(props: {
 }) {
   const params = await props.searchParams;
   const [customersRes, locationsRes, productsRes] = await Promise.all([
-    getCustomers(),
+    getMyFieldCustomers(),
     getLocations(),
     getProductVariants(),
   ]);

@@ -1,8 +1,8 @@
-import { getSalesOrders } from "@/actions/sales/sales";
+import { getMyFieldSalesOrders } from "@/actions/sales/field-actions";
 import { OrderListClient } from "./OrderListClient";
 
 export default async function SalesMobileOrdersPage() {
-  const ordersRes = await getSalesOrders(false);
+  const ordersRes = await getMyFieldSalesOrders();
   const orders = ordersRes?.success && ordersRes.data ? ordersRes.data : [];
 
   const serialized = orders.map((o) => ({
