@@ -83,6 +83,12 @@ rafra-spreadsheet-mapping.md
 .codegraph/
 graphify-out/
 
+# Vendored agent-skill docs installed by `graphify install --platform opencode`.
+# Third-party docs, re-created by the installer, and they pollute the graph corpus
+# (they get re-extracted as "changed documents" on every sync). opencode.json and
+# plugins/ stay tracked on purpose so collaborators get the same setup.
+/.opencode/skills/
+
 # local planning/working docs — kept out of this public repo on purpose.
 # Plans routinely carry internal detail (host addresses, account emails, tenant
 # names), so docs/plan/ stays local-only. AGENTS.md still requires a plan file
