@@ -61,7 +61,8 @@ prisma/*.db-wal
 # openclaw & Agent data
 .openclaw
 .openclaw/
-AGENTS.md
+# NOTE: AGENTS.md is intentionally NOT ignored — the repo tracks module-level
+# AGENTS.md docs (root, .agents/, src/**/) enforced by scripts/check-agents-consistency.sh.
 BOOTSTRAP.md
 HEARTBEAT.md
 IDENTITY.md
