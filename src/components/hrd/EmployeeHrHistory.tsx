@@ -20,6 +20,7 @@ import {
     EMPLOYEE_DOCUMENT_CATEGORIES,
     employeeDocumentCategoryLabels,
 } from '@/lib/labels/hrd-employees';
+import { toDecimalNumber } from '@/lib/utils/utils';
 
 type Tab = 'disciplinary' | 'leave' | 'loans' | 'salary' | 'documents';
 
@@ -120,7 +121,7 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
         load();
     }, [employeeId, loadDocs]);
 
-    const toN = (v: number | { toNumber(): number }) => (typeof v === 'number' ? v : v.toNumber());
+    const toN = (v: unknown) => toDecimalNumber(v);
     const fmt = (d: string | Date) => format(new Date(d), 'dd MMM yyyy', { locale: id });
 
     const handleUploadDocument = async (e: React.FormEvent) => {

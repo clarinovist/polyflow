@@ -5,25 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { HandCoins } from 'lucide-react';
 import { listLoans } from '@/actions/hrd/payroll-monthly';
+import { toDecimalNumber } from '@/lib/utils/utils';
 
 type Loan = {
   id: string;
   loanNumber: string;
   date: string | Date;
-  principalAmount: { toNumber(): number } | number;
-  remainingBalance: { toNumber(): number } | number;
-  installmentAmount: { toNumber(): number } | number | null;
+  principalAmount: unknown;
+  remainingBalance: unknown;
+  installmentAmount: unknown;
   repaymentType: string;
   status: string;
   reason: string | null;
 };
 
-function toN(v: unknown): number {
-  if (v == null) return 0;
-  if (typeof v === 'number') return v;
-  if (typeof v === 'object' && 'toNumber' in (v as object)) return (v as { toNumber(): number }).toNumber();
-  return Number(v);
-}
+const toN = (v: unknown): number => toDecimalNumber(v);
 
 function fmtDate(d: string | Date): string {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d));

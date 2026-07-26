@@ -1,5 +1,6 @@
 'use client';
 
+import type { ComponentType, ReactNode } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -24,12 +25,38 @@ interface HrdShiftBoardProps {
   data: BoardData;
 }
 
+/** Full IDR for tooltips / title attributes. */
 function formatIdr(n: number) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+/**
+ * Compact IDR for narrow KPI cards so "Rp 1.500.000" does not overflow.
+ * e.g. 1_500_000 → "Rp 1,5 jt", 12_000 → "Rp 12 rb"
+ */
+function formatIdrCompact(n: number) {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1_000_000_000) {
+    const v = abs / 1_000_000_000;
+    const s = v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, '');
+    return `${sign}Rp ${s.replace('.', ',')} M`;
+  }
+  if (abs >= 1_000_000) {
+    const v = abs / 1_000_000;
+    const s = v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, '');
+    return `${sign}Rp ${s.replace('.', ',')} jt`;
+  }
+  if (abs >= 1_000) {
+    const v = abs / 1_000;
+    const s = v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, '');
+    return `${sign}Rp ${s.replace('.', ',')} rb`;
+  }
+  return formatIdr(n);
 }
 
 function StatCard({
@@ -40,32 +67,42 @@ function StatCard({
   ctaLabel,
   colorClass,
   subtitle,
+  valueTitle,
 }: {
   label: string;
   count: string | number;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   href: string;
   ctaLabel: string;
   colorClass: string;
   subtitle?: string;
+  /** Full value for native tooltip when count is compacted */
+  valueTitle?: string;
 }) {
   return (
-    <Link href={href} className="contents">
-      <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full">
-        <CardContent className="p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className={cn('p-2 rounded-lg', colorClass)}>
-              <Icon className="h-5 w-5" />
-            </div>
-            <span className="text-2xl font-bold tabular-nums">{count}</span>
+    <Link href={href} className="block h-full min-w-0">
+      <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full min-w-0 overflow-hidden">
+        <CardContent className="p-3 sm:p-4 flex flex-col gap-2.5 sm:gap-3 min-w-0 h-full">
+          <div className={cn('p-2 rounded-lg w-fit shrink-0', colorClass)}>
+            <Icon className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div className="min-w-0 flex-1 flex flex-col">
+            <p
+              className="text-lg sm:text-xl font-bold tabular-nums leading-tight tracking-tight break-words"
+              title={valueTitle ?? (typeof count === 'string' || typeof count === 'number' ? String(count) : undefined)}
+            >
+              {count}
+            </p>
+            <p className="text-sm font-medium text-muted-foreground mt-1.5 leading-snug">
+              {label}
+            </p>
             {subtitle && (
-              <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate" title={subtitle}>
+                {subtitle}
+              </p>
             )}
-            <p className="text-xs text-primary font-semibold flex items-center gap-1 mt-1 group-hover:underline">
-              {ctaLabel} <ArrowRight className="h-3 w-3" />
+            <p className="text-xs text-primary font-semibold inline-flex items-center gap-1 mt-auto pt-2 group-hover:underline">
+              {ctaLabel} <ArrowRight className="h-3 w-3 shrink-0" />
             </p>
           </div>
         </CardContent>
@@ -82,10 +119,10 @@ function AttentionSection({
   renderItem,
 }: {
   title: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   items: Array<Record<string, unknown>>;
   emptyMessage: string;
-  renderItem: (item: Record<string, unknown>) => React.ReactNode;
+  renderItem: (item: Record<string, unknown>) => ReactNode;
 }) {
   return (
     <div className="space-y-2">
@@ -123,7 +160,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
         </p>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — min-w-0 so long values (kasbon IDR) do not overflow columns */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatCard
           label="Hadir hari ini"
@@ -144,7 +181,8 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
         />
         <StatCard
           label="Kasbon outstanding"
-          count={formatIdr(counts.loanOutstanding)}
+          count={formatIdrCompact(counts.loanOutstanding)}
+          valueTitle={formatIdr(counts.loanOutstanding)}
           icon={HandCoins}
           href="/hrd/loans"
           ctaLabel="Lihat"

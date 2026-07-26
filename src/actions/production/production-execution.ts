@@ -650,26 +650,35 @@ export const getOperatorTodaySummary = withTenant(
       const todayStr = toBusinessDateString(new Date());
       const { startOfDay, endOfDay } = getWibDayBounds(todayStr);
 
-      const executions = await prisma.productionExecution.findMany({
-        where: {
-          operatorId,
-          status: { not: "VOIDED" },
-          createdAt: { gte: startOfDay, lte: endOfDay },
-        },
-        select: {
-          id: true,
-          productionOrderId: true,
-          quantityProduced: true,
-          scrapQuantity: true,
-          endTime: true,
-        },
-      });
+      const [executions, activeJobsCount] = await Promise.all([
+        prisma.productionExecution.findMany({
+          where: {
+            operatorId,
+            status: { not: "VOIDED" },
+            createdAt: { gte: startOfDay, lte: endOfDay },
+          },
+          select: {
+            id: true,
+            productionOrderId: true,
+            quantityProduced: true,
+            scrapQuantity: true,
+            endTime: true,
+          },
+        }),
+        // Running jobs for this operator (any start date) — hub badge must not be tenant-wide
+        prisma.productionExecution.count({
+          where: {
+            operatorId,
+            endTime: null,
+            status: { not: "VOIDED" },
+          },
+        }),
+      ]);
 
       const uniqueOrders = new Set(executions.map((e) => e.productionOrderId));
       const jobCount = uniqueOrders.size;
       const goodQty = executions.reduce((sum, e) => sum + Number(e.quantityProduced || 0), 0);
       const scrapQty = executions.reduce((sum, e) => sum + Number(e.scrapQuantity || 0), 0);
-      const activeJobsCount = executions.filter((e) => !e.endTime).length;
 
       return serializeData({
         jobCount,

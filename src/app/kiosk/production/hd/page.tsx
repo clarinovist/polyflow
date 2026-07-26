@@ -1,8 +1,12 @@
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getMachines } from '@/actions/production/machines';
 import { getEmployees } from '@/actions/admin/employees';
 import { ProductionStatus } from "@prisma/client";
 import { serializeData } from "@/lib/utils/utils";
+import { extractSubdomain } from '@/lib/core/subdomain';
+import { tenantHasProsesKhusus } from '@/lib/kiosk/tenant-features';
 import HdProductionForm from "./HdProductionForm";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -13,6 +17,13 @@ export const metadata = {
 };
 
 export default async function HdKioskPage() {
+    const h = await headers();
+    const subdomain =
+        h.get('x-tenant-subdomain') || extractSubdomain(h.get('host') || '') || null;
+    if (!tenantHasProsesKhusus(subdomain)) {
+        redirect('/kiosk');
+    }
+
     const ordersRes = await getProductionOrders();
     const allOrders = ordersRes;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

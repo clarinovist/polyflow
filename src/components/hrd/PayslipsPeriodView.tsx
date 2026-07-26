@@ -13,31 +13,29 @@ import {
 } from '@/actions/hrd/payroll-monthly';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { toDecimalNumber } from '@/lib/utils/utils';
 
 type Payslip = {
     id: string;
     employeeId: string;
-    baseSalary: number | { toNumber(): number };
-    allowanceTotal: number | { toNumber(): number };
-    thrAmount: number | { toNumber(): number };
-    prorationDeduction: number | { toNumber(): number };
-    grossPay: number | { toNumber(): number };
-    bpjsDeduction: number | { toNumber(): number };
-    loanDeduction: number | { toNumber(): number };
-    otherDeductions: number | { toNumber(): number };
-    deductionTotal: number | { toNumber(): number };
-    netPay: number | { toNumber(): number };
+    baseSalary: unknown;
+    allowanceTotal: unknown;
+    thrAmount: unknown;
+    prorationDeduction: unknown;
+    grossPay: unknown;
+    bpjsDeduction: unknown;
+    loanDeduction: unknown;
+    otherDeductions: unknown;
+    deductionTotal: unknown;
+    netPay: unknown;
     status: 'DRAFT' | 'FINALIZED' | 'PAID';
     notes: string | null;
     employee: { code: string; name: string };
-    allowances: Array<{ id: string; name: string; amount: number | { toNumber(): number } }>;
-    loanPayments: Array<{ id: string; amount: number | { toNumber(): number }; loan: { loanNumber: string } }>;
+    allowances: Array<{ id: string; name: string; amount: unknown }>;
+    loanPayments: Array<{ id: string; amount: unknown; loan: { loanNumber: string } }>;
 };
 
-const toN = (v: number | { toNumber(): number } | null | undefined): number => {
-    if (v == null) return 0;
-    return typeof v === 'number' ? v : v.toNumber();
-};
+const toN = (v: unknown): number => toDecimalNumber(v);
 
 function formatIdr(n: number) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);

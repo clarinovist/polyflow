@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatRupiah } from './utils';
+import { formatRupiah, toDecimalNumber } from './utils';
 
 describe('formatRupiah', () => {
     it('returns dash for null and undefined', () => {
@@ -37,5 +37,29 @@ describe('formatRupiah', () => {
     it('formats large negative value with parentheses', () => {
         const result = formatRupiah(-128196020);
         expect(result).toMatch(/^\(Rp\u00a0128\.196\.020\)$/);
+    });
+});
+
+describe('toDecimalNumber', () => {
+    it('handles null, undefined, and number', () => {
+        expect(toDecimalNumber(null)).toBe(0);
+        expect(toDecimalNumber(undefined)).toBe(0);
+        expect(toDecimalNumber(1500000)).toBe(1500000);
+    });
+
+    it('parses serialized Decimal strings (Server Action flight path)', () => {
+        // Prisma Decimal.toJSON() → string; client must not call .toNumber()
+        expect(toDecimalNumber('1500000')).toBe(1500000);
+        expect(toDecimalNumber('1.5')).toBe(1.5);
+        expect(toDecimalNumber('')).toBe(0);
+    });
+
+    it('duck-types Prisma Decimal objects', () => {
+        expect(toDecimalNumber({ toNumber: () => 42 })).toBe(42);
+    });
+
+    it('does not throw when value has no toNumber (regression for loans page)', () => {
+        expect(() => toDecimalNumber({ foo: 1 })).not.toThrow();
+        expect(toDecimalNumber({ foo: 1 })).toBe(0);
     });
 });

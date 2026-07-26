@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, CreditCard, Phone } from 'lucide-react';
 import type { Employee } from '@prisma/client';
+import { toDecimalNumber } from '@/lib/utils/utils';
 
 const GENDER_LABELS: Record<string, string> = { MALE: 'Laki-laki', FEMALE: 'Perempuan' };
 const MARITAL_LABELS: Record<string, string> = { SINGLE: 'Belum kawin', MARRIED: 'Kawin', DIVORCED: 'Cerai', WIDOWED: 'Janda/Duda' };
@@ -12,9 +13,9 @@ function fmt(d: Date | string | null | undefined): string {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d));
 }
 
-function fmtIdr(n: number | { toNumber(): number } | null | undefined): string {
+function fmtIdr(n: unknown): string {
   if (n == null) return '-';
-  const num = typeof n === 'number' ? n : n.toNumber();
+  const num = toDecimalNumber(n);
   if (num === 0) return '-';
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
 }
@@ -52,12 +53,7 @@ export function Employee360Overview({ employee }: Props) {
     emergencyContactRelation?: string | null;
   };
 
-  const toN = (v: unknown): number => {
-    if (v == null) return 0;
-    if (typeof v === 'number') return v;
-    if (typeof v === 'object' && 'toNumber' in (v as object)) return (v as { toNumber(): number }).toNumber();
-    return Number(v);
-  };
+  const toN = (v: unknown): number => toDecimalNumber(v);
 
   return (
     <div className="grid gap-4 md:grid-cols-2">

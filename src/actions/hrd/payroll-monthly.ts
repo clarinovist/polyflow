@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { safeAction } from '@/lib/errors/errors';
 import { requireHrdApprover, requireHrdFinance } from '@/lib/auth/hrd-access';
 import { logActivity } from '@/lib/tools/audit';
+import { serializeData } from '@/lib/utils/utils';
 import {
     EmployeeAllowanceService,
     EmployeeLoanService,
@@ -30,7 +31,8 @@ export const listLoans = withTenant(
     async function listLoans(filters?: { employeeId?: string; status?: 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED' }) {
         return safeAction(async () => {
             await requireHrdFinance();
-            return EmployeeLoanService.list(prisma, filters);
+            // Serialize Decimal → number so client never calls .toNumber() on a string
+            return serializeData(await EmployeeLoanService.list(prisma, filters));
         });
     },
 );
@@ -48,7 +50,7 @@ export const createLoan = withTenant(
                 entityId: loan.id,
                 details: `Created kasbon ${loan.loanNumber} for ${loan.employee.code} — ${loan.employee.name}: ${loan.principalAmount} (${loan.repaymentType})`,
             });
-            return loan;
+            return serializeData(loan);
         });
     },
 );
@@ -65,7 +67,7 @@ export const markLoanDefaulted = withTenant(
                 entityId: id,
                 details: `Loan ${loan.loanNumber} marked DEFAULTED`,
             });
-            return loan;
+            return serializeData(loan);
         });
     },
 );

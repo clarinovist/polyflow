@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Download } from 'lucide-react';
+import { toDecimalNumber } from '@/lib/utils/utils';
 
 type LoanStatus = 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED';
 const STATUS_BADGE: Record<LoanStatus, string> = {
@@ -24,10 +25,8 @@ function formatIdr(n: number) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 }
 
-const toN = (v: number | { toNumber(): number } | null | undefined): number => {
-    if (v == null) return 0;
-    return typeof v === 'number' ? v : v.toNumber();
-};
+/** Decimal may arrive as number, string, or Prisma Decimal after Server Action serialization. */
+const toN = (v: unknown): number => toDecimalNumber(v);
 
 async function uploadLoanDoc(file: File, entityId: string): Promise<string | null> {
     const fd = new FormData();
@@ -47,18 +46,18 @@ export function LoansManager() {
             id: string;
             loanNumber: string;
             date: string | Date;
-            principalAmount: number | { toNumber(): number };
-            remainingBalance: number | { toNumber(): number };
+            principalAmount: unknown;
+            remainingBalance: unknown;
             repaymentType: 'INSTALLMENT' | 'FULL_NEXT_MONTH';
             status: LoanStatus;
-            installmentAmount: number | { toNumber(): number } | null;
+            installmentAmount: unknown;
             reason: string | null;
             collateralDescription: string | null;
             collateralPhotoUrl: string | null;
             employee: { code: string; name: string };
             payments: Array<{
                 id: string;
-                amount: number | { toNumber(): number };
+                amount: unknown;
                 date: string | Date;
                 notes: string | null;
             }>;

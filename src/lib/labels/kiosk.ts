@@ -5,6 +5,7 @@ export const kioskLabels = {
   hubSubtitle: 'Mulai dari sini',
   tileProduksi: 'Produksi / SPK',
   tileProduksiDesc: 'Daftar SPK, mulai & catat hasil',
+  tileProduksiActive: 'aktif',
   tileAbsensi: 'Absensi',
   tileAbsensiDesc: 'Masuk / pulang shift',
   tileProsesKhusus: 'Proses Khusus',
