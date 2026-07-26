@@ -157,11 +157,14 @@ export function ReassignOutputLocationButton({
                   <SelectValue placeholder="Pilih lokasi" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeLocations.map((loc) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </SelectItem>
-                  ))}
+                  {activeLocations.map((loc) => {
+                    const isRisky = isRiskyOutputLocation(loc);
+                    return (
+                      <SelectItem key={loc.id} value={loc.id} disabled={isRisky}>
+                        {loc.name} {isRisky ? "(Terlarang)" : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -185,7 +188,8 @@ export function ReassignOutputLocationButton({
               disabled={
                 isPending ||
                 !selectedLocationId ||
-                selectedLocationId === currentLocationId
+                selectedLocationId === currentLocationId ||
+                risky
               }
             >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

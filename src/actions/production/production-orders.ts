@@ -114,6 +114,7 @@ export const quickCreateProductionOrder = withTenant(
           resolveOutputLocationId,
           stageFromBomCategory,
           isInactiveLocation,
+          isRiskyOutputLocation,
         } = await import("@/lib/locations/resolve-location");
 
         const bom = await prisma.bom.findUnique({
@@ -133,10 +134,13 @@ export const quickCreateProductionOrder = withTenant(
         const stage = stageFromBomCategory(bom?.category);
         let locationId = resolveOutputLocationId(allLocations, stage, false);
 
-        // Last resort: first active location (never prefer inactive)
-        if (!locationId) {
-          const active = allLocations.find((l) => !isInactiveLocation(l));
-          locationId = active?.id || allLocations[0]?.id || "";
+        const targetLoc = allLocations.find((l) => l.id === locationId);
+        // Last resort: first active & non-risky location (never prefer inactive / supplies / RM)
+        if (!locationId || isRiskyOutputLocation(targetLoc)) {
+          const activeNonRisky = allLocations.find(
+            (l) => !isInactiveLocation(l) && !isRiskyOutputLocation(l),
+          );
+          locationId = activeNonRisky?.id || "";
         }
 
         if (!locationId) {

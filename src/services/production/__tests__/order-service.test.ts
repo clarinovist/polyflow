@@ -914,6 +914,12 @@ describe("ProductionOrderService", () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-1",
+        name: "Packing Area",
+        slug: "packing_area",
+        locationPurpose: "PACKING",
+      } as any);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
       );
@@ -924,6 +930,44 @@ describe("ProductionOrderService", () => {
         plannedConversionFactorSnapshot: 2.5,
       });
       expect(mod.createProductionOrderWithGeneratedNumber).toHaveBeenCalled();
+    });
+
+    it("should reject creation when output location is risky (packaging supplies or RM)", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-supplies",
+        name: "Gudang Packaging",
+        slug: "gudang-packaging",
+        locationPurpose: "PACKING",
+      } as any);
+
+      await expect(
+        ProductionOrderService.createOrder({
+          ...base,
+          locationId: "loc-supplies",
+        }),
+      ).rejects.toThrow("Lokasi output tidak valid untuk SPK");
+    });
+
+    it("should allow creation when output location is FG or packing floor", async () => {
+      const mod = await import("../order-number-service");
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-fg",
+        name: "Gudang Barang Jadi",
+        slug: "gudang-barang-jadi",
+        locationPurpose: "FINISHED_GOOD",
+      } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
+        { id: "po-1" } as any,
+      );
+
+      const res = await ProductionOrderService.createOrder({
+        ...base,
+        locationId: "loc-fg",
+      });
+      expect(res).toBeDefined();
     });
   });
 
@@ -1317,6 +1361,27 @@ describe("ProductionOrderService", () => {
           plannedStartDate: p,
         }),
       });
+    });
+
+    it("should reject updating location when target location is risky", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({
+        id: "po-1",
+        status: "DRAFT",
+        locationId: "loc-fg",
+      } as any);
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-rm",
+        name: "Gudang Bahan Baku",
+        slug: "gudang-bahan-baku",
+        locationPurpose: "RAW_MATERIAL",
+      } as any);
+
+      await expect(
+        ProductionOrderService.updateOrder({
+          id: "po-1",
+          locationId: "loc-rm",
+        }),
+      ).rejects.toThrow("Lokasi output tidak valid untuk SPK");
     });
   });
 

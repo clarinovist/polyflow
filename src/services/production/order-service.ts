@@ -20,7 +20,12 @@ import {
 } from "@/lib/errors/errors";
 import { Ok, Err, Result } from "@/lib/utils/result";
 import { createProductionOrderWithGeneratedNumber } from "./order-number-service";
-import { resolveSourceLocationId, stageFromBomCategory } from "@/lib/locations/resolve-location";
+import {
+  isInactiveLocation,
+  isRiskyOutputLocation,
+  resolveSourceLocationId,
+  stageFromBomCategory,
+} from "@/lib/locations/resolve-location";
 
 export class ProductionOrderService {
   /**
@@ -236,6 +241,31 @@ export class ProductionOrderService {
           { bomId },
           "BOM_INACTIVE",
         );
+      }
+
+      // Validate output locationId
+      if (locationId) {
+        const targetLoc = await transaction.location.findUnique({
+          where: { id: locationId },
+          select: { id: true, name: true, slug: true, locationPurpose: true },
+        });
+        if (!targetLoc) {
+          throw new NotFoundError("Location", locationId);
+        }
+        if (isInactiveLocation(targetLoc)) {
+          throw new BusinessRuleError(
+            "Tidak bisa memakai lokasi nonaktif sebagai output SPK.",
+            { locationId, slug: targetLoc.slug },
+            "INVALID_LOCATION",
+          );
+        }
+        if (isRiskyOutputLocation(targetLoc)) {
+          throw new BusinessRuleError(
+            "Lokasi output tidak valid untuk SPK (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan pilih Gudang Barang Jadi atau Area Proses.",
+            { locationId, locationName: targetLoc.name },
+            "RISKY_OUTPUT_LOCATION",
+          );
+        }
       }
 
       // 1. Validate Machine Type against BOM Category if machineId is provided
@@ -696,17 +726,19 @@ export class ProductionOrderService {
         throw new NotFoundError("Location", locationId);
       }
 
-      const slug = (location.slug || "").toLowerCase();
-      const name = (location.name || "").toLowerCase();
-      if (
-        slug.startsWith("inactive-") ||
-        slug.includes("nonaktif") ||
-        name.includes("[nonaktif]")
-      ) {
+      if (isInactiveLocation(location)) {
         throw new BusinessRuleError(
           "Tidak bisa memakai lokasi nonaktif sebagai output SPK.",
           { locationId, slug: location.slug },
           "INVALID_LOCATION",
+        );
+      }
+
+      if (isRiskyOutputLocation(location)) {
+        throw new BusinessRuleError(
+          "Lokasi output tidak valid untuk SPK (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan pilih Gudang Barang Jadi atau Area Proses.",
+          { locationId, locationName: location.name },
+          "RISKY_OUTPUT_LOCATION",
         );
       }
     }

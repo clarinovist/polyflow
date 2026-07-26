@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Loader2, Factory } from "lucide-react";
 import { createSpkFromDemand } from "@/actions/production/production";
+import { isRiskyOutputLocation } from "@/lib/locations/resolve-location";
 
 type Machine = {
   id: string;
@@ -36,7 +37,7 @@ type Location = {
   id: string;
   name: string;
   slug?: string;
-  locationPurpose?: string;
+  locationPurpose?: string | null;
 };
 
 interface CreateSpkFromDemandDialogProps {
@@ -205,17 +206,23 @@ export function CreateSpkFromDemandDialog({
                 <SelectValue placeholder="Pilih lokasi..." />
               </SelectTrigger>
               <SelectContent>
-                {fgLocations.map((loc) => (
-                  <SelectItem key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </SelectItem>
-                ))}
-                {fgLocations.length === 0 &&
-                  locations.map((loc) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name}
+                {fgLocations.map((loc) => {
+                  const risky = isRiskyOutputLocation({ ...loc, slug: loc.slug || "" });
+                  return (
+                    <SelectItem key={loc.id} value={loc.id} disabled={risky}>
+                      {loc.name} {risky ? "(Terlarang)" : ""}
                     </SelectItem>
-                  ))}
+                  );
+                })}
+                {fgLocations.length === 0 &&
+                  locations.map((loc) => {
+                    const risky = isRiskyOutputLocation({ ...loc, slug: loc.slug || "" });
+                    return (
+                      <SelectItem key={loc.id} value={loc.id} disabled={risky}>
+                        {loc.name} {risky ? "(Terlarang)" : ""}
+                      </SelectItem>
+                    );
+                  })}
               </SelectContent>
             </Select>
           </div>

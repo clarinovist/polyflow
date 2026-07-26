@@ -141,6 +141,12 @@ describe('Packing and Costing Resolution Logic', () => {
                     productionOrder: {
                         id: 'po-1',
                         orderNumber: 'WO-PACK-001',
+                        location: {
+                            id: 'loc-1',
+                            name: 'Packing Area',
+                            slug: 'packing_area',
+                            locationPurpose: 'PACKING'
+                        },
                         bom: {
                             category: 'PACKING',
                             productVariant: {
@@ -175,6 +181,86 @@ describe('Packing and Costing Resolution Logic', () => {
                 averageHpp: 16650,
                 totalCost: 1665000
             });
+        });
+
+        it('excludes executions associated with packaging supplies warehouses (e.g. gudang-packaging)', async () => {
+            const mockExecutions: any[] = [
+                {
+                    id: 'exec-supplies',
+                    productionOrderId: 'po-supplies',
+                    quantityProduced: 50,
+                    endTime: new Date('2026-06-12T10:00:00Z'),
+                    productionOrder: {
+                        id: 'po-supplies',
+                        orderNumber: 'WO-SUPPLIES-001',
+                        location: {
+                            id: 'loc-supplies',
+                            name: 'Gudang Packaging / Supplies',
+                            slug: 'gudang-packaging',
+                            locationPurpose: 'PACKING'
+                        },
+                        bom: {
+                            category: 'PACKING',
+                            productVariant: {
+                                id: 'pv-supplies',
+                                name: 'Etiket / Supplies Item',
+                                skuCode: 'SUP-001',
+                                primaryUnit: 'PCS',
+                                standardCost: 500,
+                                product: { name: 'Supplies Item' }
+                            }
+                        },
+                        stockMovements: []
+                    }
+                }
+            ];
+
+            vi.mocked(prisma.productionExecution.findMany).mockResolvedValue(mockExecutions as any);
+
+            const result = await PackingReportService.getMonthlyPackingReport('2026-06');
+            expect(result).toHaveLength(0);
+        });
+
+        it('includes executions associated with Melindo FG warehouse (gudang-barang-jadi)', async () => {
+            const mockExecutions: any[] = [
+                {
+                    id: 'exec-melindo-fg',
+                    productionOrderId: 'po-melindo-fg',
+                    quantityProduced: 200,
+                    endTime: new Date('2026-06-15T10:00:00Z'),
+                    productionOrder: {
+                        id: 'po-melindo-fg',
+                        orderNumber: 'WO-MEL-001',
+                        location: {
+                            id: 'loc-melindo-fg',
+                            name: 'Gudang Barang Jadi',
+                            slug: 'gudang-barang-jadi',
+                            locationPurpose: 'FINISHED_GOOD'
+                        },
+                        bom: {
+                            category: 'PACKING',
+                            productVariant: {
+                                id: 'pv-bal',
+                                name: 'Rafia Hitam KW 1 (10)',
+                                skuCode: 'RHK0110',
+                                primaryUnit: 'BAL',
+                                standardCost: 45000,
+                                product: { name: 'Rafia Hitam Product' }
+                            }
+                        },
+                        stockMovements: [
+                            { productVariantId: 'pv-bal', type: 'IN', quantity: 200, cost: 45000 }
+                        ]
+                    }
+                }
+            ];
+
+            vi.mocked(prisma.productionExecution.findMany).mockResolvedValue(mockExecutions as any);
+
+            const result = await PackingReportService.getMonthlyPackingReport('2026-06');
+            expect(result).toHaveLength(1);
+            expect(result[0].skuCode).toBe('RHK0110');
+            expect(result[0].totalQuantity).toBe(200);
         });
     });
 

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { isPackagingSuppliesWarehouse } from '@/lib/locations/resolve-location';
 
 export interface PackingReportItem {
     productVariantId: string;
@@ -48,12 +49,23 @@ export class PackingReportService {
                     },
                     // Kiyowo: packing_area. Melindo: packing product output → FG (not supplies).
                     location: {
-                        OR: [
-                            { slug: 'packing_area' },
-                            { slug: 'fg_warehouse' },
-                            { slug: 'gudang-barang-jadi' },
-                            { locationPurpose: 'PACKING' },
-                            { locationPurpose: 'FINISHED_GOOD' },
+                        AND: [
+                            {
+                                OR: [
+                                    { slug: 'packing_area' },
+                                    { slug: 'fg_warehouse' },
+                                    { slug: 'gudang-barang-jadi' },
+                                    { locationPurpose: 'PACKING' },
+                                    { locationPurpose: 'FINISHED_GOOD' },
+                                ],
+                            },
+                            {
+                                NOT: [
+                                    { slug: 'gudang-packaging' },
+                                    { slug: { contains: 'pengemas' } },
+                                    { slug: { contains: 'bahan-pembantu' } },
+                                ],
+                            },
                         ],
                     },
                 }
@@ -61,6 +73,7 @@ export class PackingReportService {
             include: {
                 productionOrder: {
                     include: {
+                        location: true,
                         bom: {
                             include: {
                                 productVariant: {
@@ -86,6 +99,13 @@ export class PackingReportService {
             }
         });
 
+        // Filter out executions where location is a packaging supplies warehouse (e.g. gudang-packaging in Melindo)
+        const validExecutions = executions.filter((exec) => {
+            const loc = exec.productionOrder.location;
+            if (!loc) return false;
+            return !isPackagingSuppliesWarehouse(loc);
+        });
+
         const aggregate = new Map<string, {
             productName: string;
             skuCode: string;
@@ -98,7 +118,7 @@ export class PackingReportService {
             countedKarungMovementKeys: Set<string>;
         }>();
 
-        for (const exec of executions) {
+        for (const exec of validExecutions) {
             const variant = exec.productionOrder.bom.productVariant;
             const variantId = variant.id;
             const qtyProduced = Number(exec.quantityProduced);

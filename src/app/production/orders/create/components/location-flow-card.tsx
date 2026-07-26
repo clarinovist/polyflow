@@ -12,7 +12,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { ArrowRightLeft, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
-import { stageLabelId, type ProductionStage, type LocationLike } from "@/lib/locations/resolve-location";
+import { stageLabelId, isRiskyOutputLocation, type ProductionStage, type LocationLike } from "@/lib/locations/resolve-location";
 
 interface LocationFlowCardProps {
   stage: ProductionStage;
@@ -95,12 +95,16 @@ export function LocationFlowCard({
               <SelectValue placeholder="Pilih lokasi output" />
             </SelectTrigger>
             <SelectContent>
-              {activeLocations.map((l) => (
-                <SelectItem key={l.id} value={l.id}>
-                  {l.name}
-                  {l.id === recommendedOutputId ? " · disarankan" : ""}
-                </SelectItem>
-              ))}
+              {activeLocations.map((l) => {
+                const isRisky = isRiskyOutputLocation(l);
+                return (
+                  <SelectItem key={l.id} value={l.id} disabled={isRisky}>
+                    {l.name}
+                    {l.id === recommendedOutputId ? " · disarankan" : ""}
+                    {isRisky ? " (Terlarang / Supplies / RM)" : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           <p className="text-[10px] text-muted-foreground">

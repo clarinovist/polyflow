@@ -8,6 +8,7 @@ import { requirePlanningRole } from "@/lib/tools/auth-checks";
 import { serializeData } from "@/lib/utils/utils";
 import { revalidatePath } from "next/cache";
 import { createProductionOrderWithGeneratedNumber } from "@/services/production/order-number-service";
+import { isRiskyOutputLocation } from "@/lib/locations/resolve-location";
 
 export const createChildProductionOrder = withTenant(
   async function createChildProductionOrder(
@@ -22,10 +23,18 @@ export const createChildProductionOrder = withTenant(
         const result = await prisma.$transaction(async (tx) => {
           const parentOrder = await tx.productionOrder.findUnique({
             where: { id: parentOrderId },
-            select: { salesOrderId: true, locationId: true, status: true },
+            select: { salesOrderId: true, locationId: true, status: true, location: true },
           });
 
           if (!parentOrder) throw new NotFoundError("Production Order", parentOrderId);
+
+          if (isRiskyOutputLocation(parentOrder.location)) {
+            throw new BusinessRuleError(
+              "Lokasi parent SPK tidak valid untuk SPK baru (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan perbaiki lokasi parent SPK terlebih dahulu.",
+              { parentOrderId, locationId: parentOrder.locationId },
+              "RISKY_OUTPUT_LOCATION",
+            );
+          }
 
           const bom = await tx.bom.findFirst({
             where: { productVariantId, isDefault: true },
