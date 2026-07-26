@@ -102,3 +102,15 @@ graphify-out/
 
 # throwaway HTML UI sketches (local only)
 /sketches/
+
+# Melindo data-migration working set — real customer and supplier records.
+# 146 customer names with phone numbers, addresses and NPWP; 53 suppliers with
+# 23 bank account numbers; AR/AP balances per counterparty. This is Melindo's
+# data, not ours, and it is personal data under UU PDP 27/2022 — it must not sit
+# in a public repo. Kept locally because the import narrative is still useful.
+# NOTE: ignoring only stops future exposure. These files are still in git history
+# (added 2026-07-03, c9f383b2) and in existing forks; removing them from history
+# needs a rewrite + force push and cannot reach the forks.
+/docs/data-import/archive/melindo-initial/
+/melindo_sales_import.sql
+/melindo_catalog_review.csv
