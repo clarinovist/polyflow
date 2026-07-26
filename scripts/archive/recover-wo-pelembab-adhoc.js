@@ -7,9 +7,13 @@
  * - Never issued to the WO / never hit HPP.
  * - Stock now sits in Raw Material Warehouse — issue from RM (not FG).
  *
+ * ARCHIVED: superseded. The dual-path ownership feature this patched around
+ * shipped in the same commit (c1cb1d43); nothing references this script and it
+ * targets one hardcoded work order. Kept for audit trail only — do not re-run.
+ *
  * Usage (on VPS inside polyflow-app):
- *   node scripts/repair/recover-wo-pelembab-adhoc.js --dry-run
- *   node scripts/repair/recover-wo-pelembab-adhoc.js --execute --yes
+ *   node scripts/archive/recover-wo-pelembab-adhoc.js --dry-run
+ *   node scripts/archive/recover-wo-pelembab-adhoc.js --execute --yes
  */
 const {
     PrismaClient,

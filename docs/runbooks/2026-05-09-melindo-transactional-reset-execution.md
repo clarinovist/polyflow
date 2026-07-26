@@ -65,6 +65,10 @@ Master data sebelum reset:
 Reset dijalankan lewat:
 `./scripts/tenant-psql-write.sh melindo ./scripts/melindo-reset-transactional.sql`
 
+> Catatan: SQL tersebut kini ada di `scripts/archive/melindo-reset-transactional.sql`
+> (dipindah setelah eksekusi). Perintah di atas dibiarkan apa adanya sebagai catatan
+> historis atas apa yang benar-benar dijalankan pada 2026-05-09.
+
 Delete counts utama yang terkonfirmasi oleh PostgreSQL:
 
 - `SalesOrderItem` -> 1244
@@ -107,9 +111,13 @@ Master data tetap utuh:
 
 ## 6. Files created for this execution
 
-- `/Users/nugroho/Documents/polyflow/scripts/melindo-reset-preflight.sql`
-- `/Users/nugroho/Documents/polyflow/scripts/melindo-reset-transactional.sql`
-- `/Users/nugroho/Documents/polyflow/docs/plans/2026-05-09-melindo-transactional-reset-plan.md`
+Lokasi saat ini (dipindah ke arsip setelah eksekusi):
+
+- `scripts/archive/melindo-reset-preflight.sql`
+- `scripts/archive/melindo-reset-transactional.sql`
+- ~~`docs/plans/2026-05-09-melindo-transactional-reset-plan.md`~~ — dihapus di commit
+  `c069a758` (_chore(docs): remove stale plan docs_); ambil dari git history bila
+  masih dibutuhkan.
 
 ## 7. Operational state after reset
 
