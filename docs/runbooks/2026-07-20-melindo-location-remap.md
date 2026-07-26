@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20  
 **Host:** VPS `nugrohopramono` / DB `melindo_rafia`  
-**Related plan:** `docs/plans/2026-07-20-batch-transfer-source-destination-ux.md` (TAHAP 2 data ops)
+**Related plan:** `docs/plan/2026-07-20-batch-transfer-source-destination-ux.md` (TAHAP 2 data ops)
 
 ## Why
 

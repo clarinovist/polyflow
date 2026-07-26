@@ -4,7 +4,7 @@
  * Defines templates for detail-input journals (BTKL, Piutang Karyawan, BPJS Kes/TK).
  * Each template controls: default accounts, direction, labels, and toggle behavior.
  *
- * @see docs/plans/2026-07-14-detail-journal-templates-piutang-bpjs.md
+ * @see docs/plan/archive/2026-07-14-detail-journal-templates-piutang-bpjs.md
  */
 
 export type DetailJournalDirection = 'OUTFLOW' | 'INFLOW';

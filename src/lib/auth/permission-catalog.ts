@@ -2,7 +2,7 @@
  * Single source of truth for the Access Control matrix (Settings) and,
  * eventually, per-portal nav filtering.
  *
- * See docs/plans/2026-07-20-granular-access-control.md section 4.
+ * See docs/plan/2026-07-20-granular-access-control.md section 4.
  * Resource keys are stored verbatim in RolePermission.resource — plain
  * URL paths (or `feature:*` flags), no separate enum.
  */

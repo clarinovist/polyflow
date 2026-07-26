@@ -83,8 +83,14 @@ rafra-spreadsheet-mapping.md
 .codegraph/
 graphify-out/
 
-# local planning/working docs
-/docs/plans/
+# local planning/working docs — kept out of this public repo on purpose.
+# Plans routinely carry internal detail (host addresses, account emails, tenant
+# names), so docs/plan/ stays local-only. AGENTS.md still requires a plan file
+# per change; it just is not committed.
+# Pattern is /docs/plan/* (not /docs/plan/) so the negation below can re-include
+# one entry — git cannot re-include a file whose parent directory is excluded.
+/docs/plan/*
+!/docs/plan/_TEMPLATE.md
 /docs/marketing/
 .gstack/
 

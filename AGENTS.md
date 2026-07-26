@@ -8,9 +8,12 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
 
 - File: `docs/plan/YYYY-MM-DD-<slug>.md` (contoh: `docs/plan/2026-07-26-fix-packing-karung-hpp.md`)
 - Isi minimal: konteks masalah, root cause, scope file yang kena, rencana fix, residual gap checklist, test scope.
-- Template: `docs/plan/_TEMPLATE.md`
+- Template: `docs/plan/_TEMPLATE.md` (satu-satunya file di folder ini yang di-commit)
 - Jika model ada masalah: tulis dulu plan, jangan langsung edit code.
 - Plan harus ada sebelum mulai fix.
+- **`docs/plan/` di-gitignore** — repo ini publik, dan plan rutin memuat detail
+  internal (alamat host, email akun, nama tenant). Jadi plan tetap lokal: jangan
+  coba `git add` isinya, dan jangan berasumsi plan lama ada di clone baru.
 
 ### 2. FIX — jalankan sesuai plan
 

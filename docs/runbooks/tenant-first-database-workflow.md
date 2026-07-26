@@ -187,4 +187,4 @@ Jika ragu, selalu lakukan urutan ini:
 ## Related Documents
 
 - `docs/runbooks/tenant-topology-and-db-targeting.md`
-- `docs/plans/2026-05-09-tenant-first-guardrails.md`
+- `docs/plan/2026-05-09-tenant-first-guardrails.md` — dihapus di commit `c069a758`; ambil dari git history bila dibutuhkan.

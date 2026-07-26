@@ -1546,7 +1546,7 @@ Perubahan berikut butuh review ekstra:
 Untuk perubahan arsitektur besar, buat ADR:
 
 ```txt
-docs/plans/YYYY-MM-DD-adr-<topic>.md
+docs/plan/YYYY-MM-DD-adr-<topic>.md
 ```
 
 Format:
@@ -1601,7 +1601,7 @@ Dokumen existing yang menjadi konteks:
 - `docs/ARCHITECTURAL_HEALTH_CHECK.md`
 - `docs/SCHEMA_DOMAIN_MAP.md`
 - `docs/RUNBOOK.md`
-- `docs/plans/2026-05-09-tenant-first-guardrails.md`
+- `docs/plan/2026-05-09-tenant-first-guardrails.md` — dihapus di commit `c069a758`; ambil dari git history bila dibutuhkan.
 - `docs/AUTO_JOURNAL_COVERAGE.md`
 - `docs/PAYMENT_MODEL_AUDIT.md`
 - `docs/production-logic.md`

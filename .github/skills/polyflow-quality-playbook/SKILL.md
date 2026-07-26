@@ -24,7 +24,7 @@ Use this skill when the request involves:
     - Read `docs/FEATURES.md`
     - Read `docs/ARCHITECTURE.md`
     - Read `docs/ARCHITECTURAL_HEALTH_CHECK.md`
-    - Read `docs/plans/HIGH_PRIORITY_IMPROVEMENTS_PLAN.md`
+    - Read `docs/plan/archive/HIGH_PRIORITY_IMPROVEMENTS_PLAN.md`
     - Check `package.json` for available scripts and test tooling
 2. Focus on the most failure-prone flows first.
     - Inventory stock movement and stock opname
@@ -60,4 +60,4 @@ Use this skill when the request involves:
 - `docs/FEATURES.md`
 - `docs/MAKLON_SALES_FLOW.md`
 - `docs/SOP_MAKLON_SALES_OPERASIONAL.md`
-- `docs/plans/HIGH_PRIORITY_IMPROVEMENTS_PLAN.md`
+- `docs/plan/archive/HIGH_PRIORITY_IMPROVEMENTS_PLAN.md` (local-only, not in a fresh clone — skip if absent)

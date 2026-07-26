@@ -2,7 +2,7 @@
 
 **Status:** Official documentation hub for the PolyFlow v2 architecture and implementation track.
 
-Folder ini menjadi pusat dokumen untuk pengembangan PolyFlow v2 supaya roadmap, phase plan, module guide, risk review, dan implementation notes tidak tercecer di root `docs/` atau `docs/plans/`.
+Folder ini menjadi pusat dokumen untuk pengembangan PolyFlow v2 supaya roadmap, phase plan, module guide, risk review, dan implementation notes tidak tercecer di root `docs/` atau `docs/plan/`.
 
 ---
 
@@ -32,7 +32,7 @@ ai-assistant-guardrails.md
 adr-<topic>.md
 ```
 
-Gunakan `docs/plans/` hanya untuk local/temporary planning notes. Folder itu di-ignore oleh git, jadi bukan tempat ideal untuk dokumen resmi.
+Gunakan `docs/plan/` hanya untuk local/temporary planning notes. Folder itu di-ignore oleh git, jadi bukan tempat ideal untuk dokumen resmi.
 
 ---
 
