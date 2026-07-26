@@ -29,6 +29,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # ─────────────────────────────────────────────
+  # 1b. AGENTS.md docs consistency (parallel, non-blocking)
+  #     Fails the run (red X) if module AGENTS.md drift, but does
+  #     NOT gate deploy — nothing `needs` this job.
+  # ─────────────────────────────────────────────
+  agents-consistency:
+    name: AGENTS.md Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run AGENTS.md consistency check
+        run: bash scripts/check-agents-consistency.sh
+
+  # ─────────────────────────────────────────────
   # 2. Tests
   # ─────────────────────────────────────────────
   test:
