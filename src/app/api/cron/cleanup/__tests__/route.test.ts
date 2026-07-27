@@ -33,6 +33,9 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         notification: {
             deleteMany: vi.fn().mockResolvedValue({ count: 10 })
+        },
+        usageEvent: {
+            deleteMany: vi.fn().mockResolvedValue({ count: 15 })
         }
     }
 }));

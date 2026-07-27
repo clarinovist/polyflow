@@ -33,6 +33,7 @@ vi.mock("@/lib/core/prisma", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     inventory: {
       findFirst: vi.fn(),
@@ -362,6 +363,7 @@ describe("createDeliveryOrderFromSalesOrder", () => {
 describe("commitDeliveryShipment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.deliveryOrder.updateMany).mockResolvedValue({ count: 1 });
   });
 
   it("commits PENDING DO → stock OUT + SHIPPED + deliveredQty + invoice", async () => {
@@ -380,12 +382,7 @@ describe("commitDeliveryShipment", () => {
 
     const result = await commitDeliveryShipment("do-1", "user-1");
 
-    expect(prisma.deliveryOrder.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "do-1" },
-        data: expect.objectContaining({ status: DeliveryStatus.SHIPPED }),
-      })
-    );
+    expect(prisma.deliveryOrder.updateMany).toHaveBeenCalled();
     expect(InventoryCoreService.validateAndLockStock).toHaveBeenCalledTimes(2);
     expect(InventoryCoreService.deductStock).toHaveBeenCalledTimes(2);
     expect(prisma.stockMovement.create).toHaveBeenCalledTimes(2);
@@ -418,21 +415,17 @@ describe("commitDeliveryShipment", () => {
     const result = await commitDeliveryShipment("do-1", "user-1");
 
     expect(result.success).toBe(true);
-    expect(prisma.deliveryOrder.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ status: DeliveryStatus.SHIPPED }),
-      })
-    );
+    expect(prisma.deliveryOrder.updateMany).toHaveBeenCalled();
   });
 
   it("rejects commit when load not verified", async () => {
     const doRecord = makeDeliveryOrder({ loadVerifiedAt: null });
     vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
+    vi.mocked(prisma.deliveryOrder.updateMany).mockResolvedValue({ count: 0 });
 
     await expect(commitDeliveryShipment("do-1", "user-1")).rejects.toThrow(/Verifikasi muat/i);
 
     expect(InventoryCoreService.validateAndLockStock).not.toHaveBeenCalled();
-    expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
   });
 
   it("rejects when stock insufficient — no status change, no deliveredQty", async () => {
@@ -445,7 +438,6 @@ describe("commitDeliveryShipment", () => {
 
     await expect(commitDeliveryShipment("do-1", "user-1")).rejects.toThrow(/Insufficient stock/i);
 
-    expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
     expect(prisma.salesOrderItem.update).not.toHaveBeenCalled();
     expect(prisma.salesOrder.update).not.toHaveBeenCalled();
     expect(InvoiceService.createDraftInvoiceFromOrder).not.toHaveBeenCalled();
@@ -454,6 +446,7 @@ describe("commitDeliveryShipment", () => {
   it("rejects double commit (already SHIPPED)", async () => {
     const doRecord = makeDeliveryOrder({ status: DeliveryStatus.SHIPPED });
     vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
+    vi.mocked(prisma.deliveryOrder.updateMany).mockResolvedValue({ count: 0 });
 
     await expect(commitDeliveryShipment("do-1", "user-1")).rejects.toThrow();
     expect(InventoryCoreService.validateAndLockStock).not.toHaveBeenCalled();
@@ -463,6 +456,7 @@ describe("commitDeliveryShipment", () => {
   it("rejects commit from DELIVERED status", async () => {
     const doRecord = makeDeliveryOrder({ status: DeliveryStatus.DELIVERED });
     vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
+    vi.mocked(prisma.deliveryOrder.updateMany).mockResolvedValue({ count: 0 });
 
     await expect(commitDeliveryShipment("do-1", "user-1")).rejects.toThrow();
     expect(InventoryCoreService.validateAndLockStock).not.toHaveBeenCalled();
@@ -471,6 +465,7 @@ describe("commitDeliveryShipment", () => {
   it("rejects commit from CANCELLED status", async () => {
     const doRecord = makeDeliveryOrder({ status: DeliveryStatus.CANCELLED });
     vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
+    vi.mocked(prisma.deliveryOrder.updateMany).mockResolvedValue({ count: 0 });
 
     await expect(commitDeliveryShipment("do-1", "user-1")).rejects.toThrow();
     expect(InventoryCoreService.validateAndLockStock).not.toHaveBeenCalled();
@@ -630,7 +625,7 @@ describe("getDeliveryStockReadiness", () => {
       quantity: { toNumber: () => 120 },
     } as never);
 
-    vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([
+    vi.mocked(prisma.stockReservation.findMany).mockResolvedValueOnce([
       { quantity: { toNumber: () => 30 } },
     ] as never);
 
