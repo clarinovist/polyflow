@@ -263,7 +263,43 @@ export async function commitDeliveryShipment(
     opts?: { trackingNumber?: string; carrier?: string },
 ) {
     return prisma.$transaction(async (tx) => {
-        // 1. Load DO + items + SO
+        // 1. Atomic claim: ensure DO is committable and loadVerifiedAt is set, preventing concurrent double-shipment
+        const claim = await tx.deliveryOrder.updateMany({
+            where: {
+                id: deliveryOrderId,
+                status: { in: COMMITTABLE_DO_STATUSES },
+                loadVerifiedAt: { not: null },
+            },
+            data: {
+                updatedAt: new Date(),
+            },
+        });
+
+        if (claim.count === 0) {
+            const check = await tx.deliveryOrder.findUnique({
+                where: { id: deliveryOrderId },
+                select: { status: true, loadVerifiedAt: true },
+            });
+            if (!check)
+                throw new NotFoundError('Delivery Order', deliveryOrderId);
+            if (
+                !COMMITTABLE_DO_STATUSES.includes(check.status as DeliveryStatus)
+            ) {
+                throw new BusinessRuleError(
+                    `Tidak bisa commit DO status ${check.status}. ` +
+                        `Hanya DO PENDING atau LOADING yang bisa di-commit ke SHIPPED.`,
+                );
+            }
+            if (!check.loadVerifiedAt) {
+                throw new BusinessRuleError(
+                    'Verifikasi muat belum dikunci. Cek qty fisik vs perintah, lalu Kunci Verifikasi sebelum Tandai Dikirim.',
+                    { deliveryOrderId },
+                );
+            }
+            throw new BusinessRuleError('Delivery Order sedang diproses oleh transaksi lain.');
+        }
+
+        // 1b. Load DO + items + SO
         const doRecord = await tx.deliveryOrder.findUnique({
             where: { id: deliveryOrderId },
             include: {
@@ -282,25 +318,6 @@ export async function commitDeliveryShipment(
 
         if (!doRecord)
             throw new NotFoundError('Delivery Order', deliveryOrderId);
-
-        // 2. Guard DO status — only PENDING or LOADING can be committed
-        if (
-            !COMMITTABLE_DO_STATUSES.includes(doRecord.status as DeliveryStatus)
-        ) {
-            throw new BusinessRuleError(
-                `Tidak bisa commit DO status ${doRecord.status}. ` +
-                    `Hanya DO PENDING atau LOADING yang bisa di-commit ke SHIPPED.`,
-            );
-        }
-
-        // 2b. Require load verification before stock commit
-        if (!doRecord.loadVerifiedAt) {
-            throw new BusinessRuleError(
-                'Verifikasi muat belum dikunci. Cek qty fisik vs perintah, lalu Kunci Verifikasi sebelum Tandai Dikirim.',
-                { deliveryOrderId },
-                'LOAD_NOT_VERIFIED',
-            );
-        }
 
         // 3. Guard SO status — not CANCELLED
         if (doRecord.salesOrder.status === SalesOrderStatus.CANCELLED) {
@@ -443,9 +460,12 @@ export async function commitDeliveryShipment(
             await AccountingService.recordInventoryMovement(movement, tx);
         }
 
-        // 6. Update DO → SHIPPED
-        await tx.deliveryOrder.update({
-            where: { id: deliveryOrderId },
+        // 6. Update DO → SHIPPED (conditional to ensure single execution)
+        const updated = await tx.deliveryOrder.updateMany({
+            where: {
+                id: deliveryOrderId,
+                status: { in: COMMITTABLE_DO_STATUSES },
+            },
             data: {
                 status: DeliveryStatus.SHIPPED,
                 stockCommittedAt: new Date(),
@@ -456,6 +476,9 @@ export async function commitDeliveryShipment(
                 ...(opts?.carrier && { carrier: opts.carrier }),
             },
         });
+        if (updated.count === 0) {
+            throw new BusinessRuleError('Delivery Order telah diubah oleh transaksi lain.');
+        }
 
         // 7. Increment deliveredQty for physical items
         for (const { doItem, soItem } of stockLines) {

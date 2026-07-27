@@ -25,6 +25,7 @@ interface PageProps {
 
 /** Fields consumed from a serialized purchase-order item when building the receipt form. */
 type ReceiptOrderItem = {
+    id: string;
     productVariantId: string;
     quantity: number;
     receivedQty?: number | null;
@@ -83,6 +84,7 @@ export default async function WarehouseCreateReceiptPage({
         purchaseOrderId: order.id,
         orderNumber: order.orderNumber,
         items: (order.items || []).map((item: ReceiptOrderItem) => ({
+            purchaseOrderItemId: item.id,
             productVariantId: item.productVariantId,
             productName:
                 item.productVariant?.product?.name ||

@@ -23,6 +23,7 @@ export default async function WarehouseMobileOutgoingDetailPage({
         status: string;
         deliveryDate: string;
         notes?: string;
+        loadVerifiedAt?: string | null;
         sourceLocation?: { name: string };
         salesOrder?: {
             orderNumber: string;

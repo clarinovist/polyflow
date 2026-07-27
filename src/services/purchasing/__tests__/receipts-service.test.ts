@@ -395,7 +395,22 @@ describe("receipts-service", () => {
       locationId,
       notes: "Test receipt",
       isMaklon: false,
-      items: [{ productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 }],
+      items: [{ purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 }],
+    };
+
+    const defaultMockPO = {
+      id: "po-1",
+      status: "SENT",
+      orderNumber: "PO-001",
+      items: [
+        {
+          id: "poi-1",
+          productVariantId: "pv-1",
+          quantity: 10,
+          receivedQty: 0,
+          unitPrice: 5000,
+        },
+      ],
     };
 
     it("should create receipt with sequential number when no previous receipts exist", async () => {
@@ -429,11 +444,7 @@ describe("receipts-service", () => {
             ]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue({
-              id: "po-1",
-              status: "SENT",
-              orderNumber: "PO-001",
-            }),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -486,7 +497,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -524,7 +535,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -650,11 +661,7 @@ describe("receipts-service", () => {
             ]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue({
-              id: "po-1",
-              status: "SENT",
-              orderNumber: "PO-001",
-            }),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -700,11 +707,7 @@ describe("receipts-service", () => {
             ]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue({
-              id: "po-1",
-              status: "SENT",
-              orderNumber: "PO-001",
-            }),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -721,11 +724,10 @@ describe("receipts-service", () => {
       });
     });
 
-    it("should skip PO item update when poItem is not found", async () => {
+    it("should reject receipt when purchaseOrderItemId is not found in PO", async () => {
       // Arrange
       const data = { ...baseData, purchaseOrderId: "po-1" };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
-      const mockPoItemUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
@@ -740,22 +742,24 @@ describe("receipts-service", () => {
           stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
           purchaseOrderItem: {
             findFirst: vi.fn().mockResolvedValue(null),
-            update: mockPoItemUpdate,
+            update: vi.fn(),
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue({
+              id: "po-1",
+              status: "SENT",
+              orderNumber: "PO-001",
+              items: [],
+            }),
             update: vi.fn(),
           },
         };
         return cb(tx);
       });
 
-      // Act
-      await createGoodsReceipt(data, userId);
-
-      // Assert
-      expect(mockPoItemUpdate).not.toHaveBeenCalled();
+      // Act & Assert
+      await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/tidak ditemukan di PO/i);
     });
 
     it("should set status to RECEIVED when all items are fully received", async () => {
@@ -786,11 +790,7 @@ describe("receipts-service", () => {
             ]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue({
-              id: "po-1",
-              status: "SENT",
-              orderNumber: "PO-001",
-            }),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: mockPoUpdate,
           },
         };
@@ -835,11 +835,7 @@ describe("receipts-service", () => {
             ]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue({
-              id: "po-1",
-              status: "SENT",
-              orderNumber: "PO-001",
-            }),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: mockPoUpdate,
           },
         };
@@ -856,7 +852,7 @@ describe("receipts-service", () => {
       });
     });
 
-    it("should set status to SENT when PO was DRAFT and no items received yet", async () => {
+    it("should reject receipt for DRAFT PO with INVALID_PO_STATUS", async () => {
       // Arrange
       const data = { ...baseData, purchaseOrderId: "po-1" };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
@@ -895,14 +891,8 @@ describe("receipts-service", () => {
         return cb(tx);
       });
 
-      // Act
-      await createGoodsReceipt(data, userId);
-
-      // Assert
-      expect(mockPoUpdate).toHaveBeenCalledWith({
-        where: { id: "po-1" },
-        data: { status: PurchaseOrderStatus.SENT },
-      });
+      // Act & Assert
+      await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/tidak dapat diterima/i);
     });
 
     it("should keep existing PO status when no items received and PO is not DRAFT", async () => {
@@ -933,11 +923,7 @@ describe("receipts-service", () => {
             ]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue({
-              id: "po-1",
-              status: "PARTIAL_RECEIVED",
-              orderNumber: "PO-001",
-            }),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: mockPoUpdate,
           },
         };
@@ -950,11 +936,11 @@ describe("receipts-service", () => {
       // Assert
       expect(mockPoUpdate).toHaveBeenCalledWith({
         where: { id: "po-1" },
-        data: { status: "PARTIAL_RECEIVED" },
+        data: { status: PurchaseOrderStatus.SENT },
       });
     });
 
-    it("should not update PO when po is null", async () => {
+    it("should reject receipt when PO is null", async () => {
       // Arrange
       const data = { ...baseData, purchaseOrderId: "po-1" };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
@@ -989,11 +975,8 @@ describe("receipts-service", () => {
         return cb(tx);
       });
 
-      // Act
-      await createGoodsReceipt(data, userId);
-
-      // Assert
-      expect(mockPoUpdate).not.toHaveBeenCalled();
+      // Act & Assert
+      await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/Purchase Order tidak ditemukan/i);
     });
 
     it("should not update PO when updatedItems is empty", async () => {
@@ -1019,11 +1002,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue({
-              id: "po-1",
-              status: "SENT",
-              orderNumber: "PO-001",
-            }),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: mockPoUpdate,
           },
         };
@@ -1064,7 +1043,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -1150,7 +1129,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -1217,8 +1196,8 @@ describe("receipts-service", () => {
         ...baseData,
         purchaseOrderId: "po-1",
         items: [
-          { productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 },
-          { productVariantId: "pv-2", receivedQty: 20, unitCost: 3000 },
+          { purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 },
+          { purchaseOrderItemId: "poi-2", productVariantId: "pv-2", receivedQty: 20, unitCost: 3000 },
         ],
       };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
@@ -1228,6 +1207,7 @@ describe("receipts-service", () => {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
               receiptNumber: "GR-2026-0001",
@@ -1246,7 +1226,15 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue({
+              id: "po-1",
+              status: "SENT",
+              orderNumber: "PO-001",
+              items: [
+                { id: "poi-1", productVariantId: "pv-1", quantity: 10, receivedQty: 0, unitPrice: 5000 },
+                { id: "poi-2", productVariantId: "pv-2", quantity: 20, receivedQty: 0, unitPrice: 3000 },
+              ],
+            }),
             update: vi.fn(),
           },
         };
@@ -1298,7 +1286,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -1327,6 +1315,7 @@ describe("receipts-service", () => {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
               return { id: "gr-1", receiptNumber: "GR-2026-0001", items: [] };
@@ -1360,6 +1349,7 @@ describe("receipts-service", () => {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
               return { id: "gr-1", receiptNumber: "GR-2026-0001", items: [] };
@@ -1372,7 +1362,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -1395,6 +1385,7 @@ describe("receipts-service", () => {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockResolvedValue({
               id: "gr-5",
               receiptNumber: "GR-2026-0001",
@@ -1421,6 +1412,7 @@ describe("receipts-service", () => {
               id: "po-5",
               status: "SENT",
               orderNumber: "PO-005",
+              items: defaultMockPO.items,
             }),
             update: vi.fn(),
           },
@@ -1449,6 +1441,7 @@ describe("receipts-service", () => {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
               receiptNumber: "GR-2026-0001",
@@ -1467,7 +1460,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -1491,6 +1484,7 @@ describe("receipts-service", () => {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
               receiptNumber: "GR-2026-0001",
@@ -1509,7 +1503,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
             update: vi.fn(),
           },
         };
@@ -1531,8 +1525,8 @@ describe("receipts-service", () => {
         ...baseData,
         purchaseOrderId: "po-1",
         items: [
-          { productVariantId: "pv-1", receivedQty: 5, unitCost: 10000 },
-          { productVariantId: "pv-2", receivedQty: 15, unitCost: 2500 },
+          { purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 5, unitCost: 10000 },
+          { purchaseOrderItemId: "poi-2", productVariantId: "pv-2", receivedQty: 15, unitCost: 2500 },
         ],
       };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
@@ -1541,6 +1535,7 @@ describe("receipts-service", () => {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
               receiptNumber: "GR-2026-0001",
@@ -1554,7 +1549,15 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
           purchaseOrder: {
-            findUnique: vi.fn().mockResolvedValue(null),
+            findUnique: vi.fn().mockResolvedValue({
+              id: "po-1",
+              status: "SENT",
+              orderNumber: "PO-001",
+              items: [
+                { id: "poi-1", productVariantId: "pv-1", quantity: 10, receivedQty: 0, unitPrice: 10000 },
+                { id: "poi-2", productVariantId: "pv-2", quantity: 20, receivedQty: 0, unitPrice: 2500 },
+              ],
+            }),
             update: vi.fn(),
           },
         };
@@ -1583,7 +1586,7 @@ describe("receipts-service", () => {
       const mockTx = {
         productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL" } }) },
         inventory: { findUnique: vi.fn().mockResolvedValue(null) },
-        goodsReceipt: { create: mockCreate },
+        goodsReceipt: { findMany: vi.fn().mockResolvedValue([]), create: mockCreate },
         stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
         purchaseOrderItem: {
           findFirst: vi.fn().mockResolvedValue({
@@ -1595,7 +1598,7 @@ describe("receipts-service", () => {
           findMany: vi.fn().mockResolvedValue([]),
         },
         purchaseOrder: {
-          findUnique: vi.fn().mockResolvedValue(null),
+          findUnique: vi.fn().mockResolvedValue(defaultMockPO),
           update: vi.fn(),
         },
       };
@@ -1611,7 +1614,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findMany).mockResolvedValue([{
         receiptNumber: "GR-2026-0001",
         createdAt: new Date(),
-        items: [{ productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 }],
+        items: [{ purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 }],
       }] as any);
 
       await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/sudah dibuat|input ganda/i);

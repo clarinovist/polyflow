@@ -129,7 +129,9 @@ describe('getWarehouseShiftBoard', () => {
 
   it('queries open load orders as PENDING + LOADING', async () => {
     await getWarehouseShiftBoard();
-    const openLoadCall = mockPrisma.deliveryOrder.count.mock.calls[0]?.[0] as {
+    const openLoadCall = mockPrisma.deliveryOrder.count.mock.calls.find(
+      (call: any) => call[0]?.where?.status?.in,
+    )?.[0] as {
       where?: { status?: { in?: string[] } };
     };
     expect(openLoadCall?.where?.status?.in).toEqual(

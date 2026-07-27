@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
     Package,
@@ -7,7 +9,11 @@ import {
     CheckCircle,
     Building2,
     Calendar,
+    Search,
+    RefreshCw,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 type ReceivablePO = {
     id: string;
@@ -47,18 +53,96 @@ export function WarehouseIncomingMobileClient({
     receivablePOs: ReceivablePO[];
     todayReceipts: TodayGR[];
 }) {
+    const router = useRouter();
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'ALL' | 'PARTIAL' | 'SENT'>('ALL');
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        router.refresh();
+        setTimeout(() => setIsRefreshing(false), 600);
+    };
+
+    const filteredPOs = receivablePOs.filter((po) => {
+        if (statusFilter === 'PARTIAL' && po.status !== 'PARTIAL_RECEIVED') return false;
+        if (statusFilter === 'SENT' && po.status !== 'SENT') return false;
+
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (
+            po.orderNumber.toLowerCase().includes(q) ||
+            po.supplier.name.toLowerCase().includes(q) ||
+            po.items.some(
+                (item) =>
+                    item.productVariant.name.toLowerCase().includes(q) ||
+                    item.productVariant.skuCode.toLowerCase().includes(q),
+            )
+        );
+    });
+
     return (
-        <div className="p-4 space-y-6">
+        <div className="p-4 space-y-4">
             {/* Header */}
-            <div>
-                <h1 className="text-xl font-bold">Penerimaan Barang</h1>
-                <p className="text-sm text-muted-foreground">
-                    {receivablePOs.length} PO menunggu diterima
-                </p>
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <h1 className="text-xl font-bold">Penerimaan Barang</h1>
+                    <p className="text-sm text-muted-foreground">
+                        {receivablePOs.length} PO menunggu diterima
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+            </div>
+
+            {/* Search & Filters */}
+            <div className="space-y-2">
+                <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari no. PO, supplier, SKU, barang..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9 h-10 text-sm"
+                    />
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    <Button
+                        variant={statusFilter === 'ALL' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs px-2.5"
+                        onClick={() => setStatusFilter('ALL')}
+                    >
+                        Semua ({receivablePOs.length})
+                    </Button>
+                    <Button
+                        variant={statusFilter === 'SENT' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs px-2.5"
+                        onClick={() => setStatusFilter('SENT')}
+                    >
+                        Menunggu ({receivablePOs.filter((p) => p.status === 'SENT').length})
+                    </Button>
+                    <Button
+                        variant={statusFilter === 'PARTIAL' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs px-2.5"
+                        onClick={() => setStatusFilter('PARTIAL')}
+                    >
+                        Parsial ({receivablePOs.filter((p) => p.status === 'PARTIAL_RECEIVED').length})
+                    </Button>
+                </div>
             </div>
 
             {/* Today Receipts */}
-            {todayReceipts.length > 0 && (
+            {todayReceipts.length > 0 && !search && (
                 <div className="space-y-2">
                     <h2 className="text-sm font-semibold">Diterima Hari Ini</h2>
                     <div className="space-y-2">
@@ -86,18 +170,18 @@ export function WarehouseIncomingMobileClient({
             {/* Receivable POs */}
             <div className="space-y-2">
                 <h2 className="text-sm font-semibold">
-                    Perlu Diterima ({receivablePOs.length})
+                    Perlu Diterima ({filteredPOs.length})
                 </h2>
-                {receivablePOs.length === 0 ? (
+                {filteredPOs.length === 0 ? (
                     <div className="text-center py-12">
                         <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
                         <p className="text-sm text-muted-foreground">
-                            Tidak ada PO yang perlu diterima
+                            {search ? 'Tidak ada PO yang cocok dengan pencarian' : 'Tidak ada PO yang perlu diterima'}
                         </p>
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {receivablePOs.map((po) => {
+                        {filteredPOs.map((po) => {
                             const totalItems = po.items.length;
                             const receivedItems = po.items.filter(
                                 (i) => i.receivedQty >= i.quantity,

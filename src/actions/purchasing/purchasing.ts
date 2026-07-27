@@ -10,7 +10,7 @@ import {
     createWalkInReceiptSchema,
 } from '@/lib/schemas/purchasing';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireAuth, requireWarehouseResourcePermission } from '@/lib/tools/auth-checks';
 import { revalidatePath } from 'next/cache';
 import {
     CreatePurchaseOrderValues,
@@ -100,7 +100,9 @@ export const createGoodsReceipt = withTenant(async function createGoodsReceipt(
     formData: CreateGoodsReceiptValues,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireWarehouseResourcePermission(
+            '/warehouse/incoming',
+        );
         const validated = createGoodsReceiptSchema.parse(formData);
 
         const receipt = await PurchaseService.createGoodsReceipt(
@@ -123,7 +125,9 @@ export const createWalkInGoodsReceipt = withTenant(
         formData: CreateWalkInReceiptValues,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/incoming',
+            );
             const validated = createWalkInReceiptSchema.parse(formData);
 
             const result = await PurchaseService.createWalkInReceipt(

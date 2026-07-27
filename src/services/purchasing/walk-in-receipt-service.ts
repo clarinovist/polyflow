@@ -218,6 +218,11 @@ export async function createWalkInReceipt(
     // Force SENT so status machine matches planned receive path before GR.
     await updateOrderStatus(order.id, PurchaseOrderStatus.SENT, userId);
 
+    // Map created PO item IDs by productVariantId
+    const poItemMap = new Map(
+        (order.items || []).map((item) => [item.productVariantId, item.id]),
+    );
+
     const grInput: CreateGoodsReceiptValues = {
         purchaseOrderId: order.id,
         isMaklon: false,
@@ -225,6 +230,7 @@ export async function createWalkInReceipt(
         locationId: data.locationId,
         notes: `Nota: ${data.supplierRefNo}${data.notes ? ` | ${data.notes}` : ''}`,
         items: resolvedItems.map((i) => ({
+            purchaseOrderItemId: poItemMap.get(i.productVariantId),
             productVariantId: i.productVariantId,
             receivedQty: i.receivedQty,
             unitCost: i.unitCost,

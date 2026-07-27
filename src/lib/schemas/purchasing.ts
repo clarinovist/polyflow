@@ -43,9 +43,13 @@ export const updatePurchaseOrderSchema = z.object({
 });
 
 export const goodsReceiptItemSchema = z.object({
+    purchaseOrderItemId: z.string().optional(),
     productVariantId: z.string().min(1, 'Product is required'),
-    receivedQty: z.coerce.number().positive('Quantity must be positive'),
-    unitCost: z.coerce.number().min(0, 'Unit cost cannot be negative'),
+    receivedQty: z
+        .number()
+        .positive('Quantity must be positive')
+        .finite('Quantity must be a valid number'),
+    unitCost: z.number().min(0, 'Unit cost cannot be negative'),
 });
 
 export const createGoodsReceiptSchema = z
@@ -74,6 +78,33 @@ export const createGoodsReceiptSchema = z
                 message: 'PO ID is required for standard receipts',
                 path: ['purchaseOrderId'],
             });
+        }
+        // For standard PO receipts, require purchaseOrderItemId on each item
+        if (!data.isMaklon && data.purchaseOrderId) {
+            const poItemIds = data.items
+                .map((i) => i.purchaseOrderItemId)
+                .filter(Boolean);
+            if (poItemIds.length !== data.items.length) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message:
+                        'Semua item harus memiliki purchaseOrderItemId untuk penerimaan PO standar',
+                    path: ['items'],
+                });
+            }
+            // Check duplicate purchaseOrderItemId
+            const seen = new Set<string>();
+            for (let i = 0; i < data.items.length; i++) {
+                const poItemId = data.items[i].purchaseOrderItemId;
+                if (poItemId && seen.has(poItemId)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        message: `Item purchaseOrderItemId duplikat: ${poItemId}`,
+                        path: ['items', i, 'purchaseOrderItemId'],
+                    });
+                }
+                if (poItemId) seen.add(poItemId);
+            }
         }
     });
 

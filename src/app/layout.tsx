@@ -66,6 +66,7 @@ import { SessionProvider } from '@/components/auth/SessionProvider';
 import SessionTimeoutHandler from '@/components/auth/SessionTimeoutHandler';
 import { AutoChangelogBanner } from '@/components/layout/auto-changelog-banner';
 import { PolyflowChatWidget } from '@/components/support/polyflow-chat-widget';
+import { FeatureUsageTracker } from '@/components/analytics/feature-usage-tracker';
 
 export default function RootLayout({
     children,
@@ -81,6 +82,7 @@ export default function RootLayout({
                 <SessionProvider>
                     <ThemeProvider>
                         <SidebarCollapseProvider>
+                            <FeatureUsageTracker />
                             {children}
                             <AutoChangelogBanner />
                             <PolyflowChatWidget />

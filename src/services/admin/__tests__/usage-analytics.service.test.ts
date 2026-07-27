@@ -1,0 +1,90 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { UsageAnalyticsService } from '../usage-analytics.service';
+
+vi.mock('@/lib/core/prisma', () => ({
+    prisma: {
+        usageEvent: {
+            count: vi.fn(),
+            groupBy: vi.fn(),
+        },
+        tenant: {
+            findMany: vi.fn(),
+        },
+        $queryRaw: vi.fn(),
+    },
+}));
+
+import { prisma } from '@/lib/core/prisma';
+
+describe('UsageAnalyticsService Hardened', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('aggregates usage analytics metrics using PostgreSQL aggregations', async () => {
+        const mockTenants = [
+            { id: 'tenant-1', name: 'Kiyowo Craft', subdomain: 'kiyowo' },
+            { id: 'tenant-2', name: 'Melindo Rafia', subdomain: 'melindo' },
+        ];
+
+        vi.mocked(prisma.tenant.findMany).mockResolvedValue(mockTenants as never);
+        vi.mocked(prisma.usageEvent.count)
+            .mockResolvedValueOnce(150) // current total views
+            .mockResolvedValueOnce(100); // previous total views
+
+        vi.mocked(prisma.$queryRaw)
+            .mockResolvedValueOnce([{ count: BigInt(25) }]) // current active users
+            .mockResolvedValueOnce([{ count: BigInt(20) }]) // prev active users
+            .mockResolvedValueOnce([
+                {
+                    featureKey: 'sales.orders.list',
+                    moduleKey: 'sales',
+                    currViews: BigInt(50),
+                    uniqueUsers: BigInt(10),
+                    uniqueTenants: BigInt(2),
+                },
+            ]) // top features raw
+            .mockResolvedValueOnce([
+                {
+                    tenantId: 'tenant-1',
+                    currViews: BigInt(100),
+                    activeUsers: BigInt(15),
+                    featuresUsed: BigInt(8),
+                    lastActivity: new Date('2026-07-27T10:00:00Z'),
+                },
+            ]) // tenant summaries raw
+            .mockResolvedValueOnce([
+                {
+                    dateStr: '2026-07-27',
+                    totalViews: BigInt(50),
+                    activeUsers: BigInt(10),
+                    activeTenants: BigInt(2),
+                },
+            ]); // daily trends raw
+
+        vi.mocked(prisma.usageEvent.groupBy)
+            .mockResolvedValueOnce([{ tenantId: 'tenant-1' }, { tenantId: 'tenant-2' }] as never) // curr active tenants
+            .mockResolvedValueOnce([{ tenantId: 'tenant-1' }] as never) // prev active tenants
+            .mockResolvedValueOnce([{ featureKey: 'sales.orders.list' }] as never) // curr features used
+            .mockResolvedValueOnce([{ featureKey: 'sales.orders.list' }] as never) // prev features used
+            .mockResolvedValueOnce([{ featureKey: 'sales.orders.list', _count: { _all: 30 } }] as never) // prev top feature views
+            .mockResolvedValueOnce([{ tenantId: 'tenant-1', _count: { _all: 80 } }] as never); // prev tenant views
+
+        const data = await UsageAnalyticsService.getAnalytics({ range: '7d' });
+
+        expect(data.metrics.totalViews.value).toBe(150);
+        expect(data.metrics.totalViews.prevValue).toBe(100);
+        expect(data.metrics.totalViews.changePercent).toBe(50);
+
+        expect(data.metrics.activeUsers.value).toBe(25);
+        expect(data.metrics.activeTenants.value).toBe(2);
+
+        expect(data.topFeatures.length).toBe(1);
+        expect(data.topFeatures[0].featureKey).toBe('sales.orders.list');
+        expect(data.topFeatures[0].totalViews).toBe(50);
+
+        expect(data.tenantSummaries.length).toBe(1);
+        expect(data.tenantSummaries[0].tenantName).toBe('Kiyowo Craft');
+        expect(data.dailyTrends.length).toBeGreaterThan(0);
+    });
+});

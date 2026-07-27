@@ -1,4 +1,4 @@
-import { getDeliveryOrders } from '@/actions/inventory/deliveries';
+import { getOpenDeliveryOrders } from '@/actions/inventory/deliveries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { serializeData } from '@/lib/utils/utils';
@@ -9,30 +9,10 @@ import Link from 'next/link';
 import { warehouseLabels } from '@/lib/labels';
 
 export default async function WarehouseOutgoingPage() {
-    const result = await getDeliveryOrders();
-    const allOrders =
-        result.success && result.data ? serializeData(result.data) : [];
-
-    // Active load queue: perintah muat only
-    const openOrders = allOrders.filter(
-        (o: { status: string }) =>
-            o.status === 'PENDING' || o.status === 'LOADING',
-    );
-
-    // LOADING first, then PENDING, then by delivery date
-    openOrders.sort(
-        (
-            a: { status: string; deliveryDate: string },
-            b: { status: string; deliveryDate: string },
-        ) => {
-            if (a.status === 'LOADING' && b.status !== 'LOADING') return -1;
-            if (a.status !== 'LOADING' && b.status === 'LOADING') return 1;
-            return (
-                new Date(a.deliveryDate).getTime() -
-                new Date(b.deliveryDate).getTime()
-            );
-        },
-    );
+    const result = await getOpenDeliveryOrders();
+    const openOrders = result.success && result.data
+        ? serializeData(result.data)
+        : [];
 
     return (
         <div className="flex flex-col space-y-6 p-6">

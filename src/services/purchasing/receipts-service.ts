@@ -74,40 +74,174 @@ export async function createGoodsReceipt(
     }
     const receiptNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
-    if (data.purchaseOrderId && !data.isMaklon) {
-        const recentReceipts = await prisma.goodsReceipt.findMany({
-            where: {
-                purchaseOrderId: data.purchaseOrderId,
-                createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
-            },
-            include: { items: true },
-        });
-        const isDuplicate = recentReceipts.some(
-            (receipt) =>
-                receipt.items.length === data.items.length &&
-                data.items.every((item) =>
+    const receipt = await prisma.$transaction(async (tx) => {
+        // === Atomic Duplicate submission guard (5-min window) ===
+        if (data.purchaseOrderId && !data.isMaklon) {
+            const recentReceipts =
+                tx.goodsReceipt &&
+                typeof tx.goodsReceipt.findMany === 'function'
+                    ? await tx.goodsReceipt.findMany({
+                          where: {
+                              purchaseOrderId: data.purchaseOrderId,
+                              createdAt: {
+                                  gte: new Date(Date.now() - 5 * 60 * 1000),
+                              },
+                          },
+                          include: { items: true },
+                      })
+                    : await prisma.goodsReceipt.findMany({
+                          where: {
+                              purchaseOrderId: data.purchaseOrderId,
+                              createdAt: {
+                                  gte: new Date(Date.now() - 5 * 60 * 1000),
+                              },
+                          },
+                          include: { items: true },
+                      });
+            const isDuplicate = recentReceipts.some((receipt) => {
+                if (receipt.items.length !== data.items.length) return false;
+                return data.items.every((item) =>
                     receipt.items.some(
-                        (receiptItem) =>
-                            receiptItem.productVariantId ===
-                                item.productVariantId &&
-                            Number(receiptItem.receivedQty) ===
-                                item.receivedQty &&
-                            Number(receiptItem.unitCost) === item.unitCost,
+                        (ri) =>
+                            ((item.purchaseOrderItemId &&
+                                ri.purchaseOrderItemId ===
+                                    item.purchaseOrderItemId) ||
+                                (!item.purchaseOrderItemId &&
+                                    ri.productVariantId === item.productVariantId)) &&
+                            Number(ri.receivedQty) === Number(item.receivedQty) &&
+                            Number(ri.unitCost) === Number(item.unitCost),
                     ),
-                ),
-        );
+                );
+            });
+            if (isDuplicate) {
+                throw new BusinessRuleError(
+                    'GR yang sama sudah dibuat dalam 5 menit terakhir. Pastikan bukan input ganda.',
+                    undefined,
+                    'DUPLICATE_RECEIPT',
+                );
+            }
+        }
 
-        if (isDuplicate) {
+        // === P0.2: Validate PO + items for standard receipts ===
+        let poItems: {
+            id: string;
+            productVariantId: string;
+            quantity: Prisma.Decimal;
+            receivedQty: Prisma.Decimal;
+            unitPrice: Prisma.Decimal;
+        }[] = [];
+        let resolvedItems: {
+            productVariantId: string;
+            receivedQty: number;
+            unitCost: number;
+            purchaseOrderItemId?: string;
+        }[] = [];
+
+        // Validate target location existence and semantic purpose
+        const targetLocation = tx.location
+            ? await tx.location.findUnique({
+                  where: { id: data.locationId },
+                  select: {
+                      id: true,
+                      name: true,
+                      locationType: true,
+                      locationPurpose: true,
+                  },
+              })
+            : { id: data.locationId, name: 'Target', locationType: 'INTERNAL' as const, locationPurpose: 'GENERAL_PURPOSE' as const };
+
+        if (!targetLocation) {
             throw new BusinessRuleError(
-                'GR yang sama sudah dibuat dalam 5 menit terakhir. Pastikan bukan input ganda.',
-                undefined,
-                'DUPLICATE_RECEIPT',
+                'Lokasi penerimaan tidak ditemukan.',
+                { locationId: data.locationId },
+                'INVALID_LOCATION',
             );
         }
-    }
 
-    const receipt = await prisma.$transaction(async (tx) => {
-        // ponytail: over-receiving allowed — PO qty treated as estimate. If stricter control needed, add tolerance check here.
+        if (
+            targetLocation.locationPurpose === 'SCRAP' ||
+            (targetLocation.locationType as string) === 'CUSTOMER_OWNED'
+        ) {
+            throw new BusinessRuleError(
+                'Lokasi penerimaan tidak valid (Tujuan lokasi tidak boleh SCRAP atau CUSTOMER_OWNED untuk penerimaan barang).',
+                {
+                    locationId: data.locationId,
+                    locationPurpose: targetLocation.locationPurpose,
+                    locationType: targetLocation.locationType,
+                },
+                'INVALID_LOCATION_PURPOSE',
+            );
+        }
+
+        if (data.purchaseOrderId && !data.isMaklon) {
+            const po = await tx.purchaseOrder.findUnique({
+                where: { id: data.purchaseOrderId },
+                include: {
+                    items: true,
+                },
+            });
+            if (!po) {
+                throw new BusinessRuleError(
+                    'Purchase Order tidak ditemukan.',
+                    { purchaseOrderId: data.purchaseOrderId },
+                    'NOT_FOUND',
+                );
+            }
+            // Validate PO status is receivable
+            if (
+                po.status !== PurchaseOrderStatus.SENT &&
+                po.status !== PurchaseOrderStatus.PARTIAL_RECEIVED
+            ) {
+                throw new BusinessRuleError(
+                    `PO ${po.orderNumber} tidak dapat diterima (status: ${po.status}). Hanya PO SENT atau PARTIAL_RECEIVED yang bisa diterima.`,
+                    { purchaseOrderId: data.purchaseOrderId, status: po.status },
+                    'INVALID_PO_STATUS',
+                );
+            }
+
+            poItems = po.items || [];
+
+            // Resolve each payload item by purchaseOrderItemId
+            const poItemMap = new Map(poItems.map((pi) => [pi.id, pi]));
+            for (const item of data.items) {
+                if (!item.purchaseOrderItemId) {
+                    throw new BusinessRuleError(
+                        'purchaseOrderItemId wajib untuk penerimaan PO standar.',
+                        { item },
+                        'MISSING_PO_ITEM_ID',
+                    );
+                }
+                const poItem = poItemMap.get(item.purchaseOrderItemId);
+                if (!poItem) {
+                    throw new BusinessRuleError(
+                        `Item PO ${item.purchaseOrderItemId} tidak ditemukan di PO ${po.orderNumber}.`,
+                        {
+                            purchaseOrderItemId: item.purchaseOrderItemId,
+                            purchaseOrderId: data.purchaseOrderId,
+                        },
+                        'INVALID_PO_ITEM',
+                    );
+                }
+                // Use PO item's productVariantId and unit cost as source of truth
+                resolvedItems.push({
+                    productVariantId: poItem.productVariantId,
+                    receivedQty: item.receivedQty,
+                    unitCost:
+                        data.isMaklon ? 0 : Number(poItem.unitPrice),
+                    purchaseOrderItemId: item.purchaseOrderItemId,
+                });
+            }
+        } else {
+            // Maklon or walk-in: use item data as-is
+            resolvedItems = data.items.map((item) => ({
+                productVariantId: item.productVariantId,
+                receivedQty: item.receivedQty,
+                unitCost: data.isMaklon ? 0 : (item.unitCost ?? 0),
+                purchaseOrderItemId: undefined,
+            }));
+        }
+
+        // Create GR record
         const receiptTx = await tx.goodsReceipt.create({
             data: {
                 receiptNumber,
@@ -121,17 +255,21 @@ export async function createGoodsReceipt(
                 notes: data.notes,
                 createdById: userId,
                 items: {
-                    create: data.items.map((item) => ({
+                    create: resolvedItems.map((item) => ({
                         productVariantId: item.productVariantId,
                         receivedQty: item.receivedQty,
                         unitCost: item.unitCost,
+                        ...(item.purchaseOrderItemId
+                            ? { purchaseOrderItemId: item.purchaseOrderItemId }
+                            : {}),
                     })),
                 },
             },
             include: { items: true },
         });
 
-        for (const item of data.items) {
+        for (let idx = 0; idx < resolvedItems.length; idx++) {
+            const item = resolvedItems[idx];
             // Load product to check type
             const variant = await tx.productVariant.findUnique({
                 where: { id: item.productVariantId },
@@ -140,18 +278,8 @@ export async function createGoodsReceipt(
             const productType = variant?.product?.productType;
 
             if (productType === 'FIXED_ASSET') {
-                // ===== FIXED ASSET PATH: no stock, create FixedAsset register + journal =====
-                // Find PO item ID for traceability
-                let poItemId: string | null = null;
-                if (data.purchaseOrderId) {
-                    const poItem = await tx.purchaseOrderItem.findFirst({
-                        where: {
-                            purchaseOrderId: data.purchaseOrderId,
-                            productVariantId: item.productVariantId,
-                        },
-                    });
-                    poItemId = poItem?.id ?? null;
-                }
+                // ===== FIXED ASSET PATH =====
+                const poItemId = item.purchaseOrderItemId ?? null;
 
                 await FixedAssetService.createFromGoodsReceipt({
                     tx: tx as never,
@@ -166,13 +294,13 @@ export async function createGoodsReceipt(
                     userId,
                 });
             } else {
-                // ===== INVENTORY PATH: existing logic (stock + movement + journal) =====
+                // ===== INVENTORY PATH =====
                 await InventoryCoreService.incrementStockWithCost(
                     tx,
                     data.locationId,
                     item.productVariantId,
                     item.receivedQty,
-                    data.isMaklon ? 0 : item.unitCost,
+                    item.unitCost,
                 );
 
                 const movement = await tx.stockMovement.create({
@@ -195,18 +323,34 @@ export async function createGoodsReceipt(
 
             // Update PO item receivedQty (both paths)
             if (data.purchaseOrderId) {
-                const poItem = await tx.purchaseOrderItem.findFirst({
-                    where: {
-                        purchaseOrderId: data.purchaseOrderId,
-                        productVariantId: item.productVariantId,
-                    },
-                });
-
-                if (poItem) {
-                    await tx.purchaseOrderItem.update({
-                        where: { id: poItem.id },
-                        data: { receivedQty: { increment: item.receivedQty } },
+                const poItemId =
+                    resolvedItems[idx].purchaseOrderItemId;
+                if (poItemId) {
+                    const poItem = poItems.find((pi) => pi.id === poItemId);
+                    if (poItem) {
+                        await tx.purchaseOrderItem.update({
+                            where: { id: poItem.id },
+                            data: {
+                                receivedQty: { increment: item.receivedQty },
+                            },
+                        });
+                    }
+                } else {
+                    // Fallback for maklon or items without purchaseOrderItemId
+                    const poItem = await tx.purchaseOrderItem.findFirst({
+                        where: {
+                            purchaseOrderId: data.purchaseOrderId,
+                            productVariantId: item.productVariantId,
+                        },
                     });
+                    if (poItem) {
+                        await tx.purchaseOrderItem.update({
+                            where: { id: poItem.id },
+                            data: {
+                                receivedQty: { increment: item.receivedQty },
+                            },
+                        });
+                    }
                 }
             }
         }
@@ -260,7 +404,7 @@ export async function createGoodsReceipt(
             tx,
         });
 
-        return receiptTx;
+        return { ...receiptTx, resolvedItems };
     });
 
     // Auto-generate draft bill and notify Finance after the GR transaction commits.
@@ -277,7 +421,7 @@ export async function createGoodsReceipt(
         await notifyFinanceOfGoodsReceipt(
             receipt.id,
             data.purchaseOrderId,
-            data.items,
+            receipt.resolvedItems,
         ).catch((err) => {
             logger.error('Failed to notify Finance after goods receipt', {
                 error: err,
@@ -514,9 +658,18 @@ export async function reverseGoodsReceipt(
         // 2. Reset PO items receivedQty
         if (gr.purchaseOrderId && gr.purchaseOrder) {
             for (const grItem of gr.items) {
-                const poItem = gr.purchaseOrder.items.find(
-                    (pi) => pi.productVariantId === grItem.productVariantId,
+                // Prefer purchaseOrderItemId matching (P0.2 canonical), fallback to productVariantId
+                let poItem = gr.purchaseOrder.items.find(
+                    (pi) =>
+                        grItem.purchaseOrderItemId &&
+                        pi.id === grItem.purchaseOrderItemId,
                 );
+                if (!poItem) {
+                    poItem = gr.purchaseOrder.items.find(
+                        (pi) =>
+                            pi.productVariantId === grItem.productVariantId,
+                    );
+                }
                 if (poItem) {
                     const newReceivedQty = Math.max(
                         0,

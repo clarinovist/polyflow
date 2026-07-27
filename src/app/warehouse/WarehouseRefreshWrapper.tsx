@@ -465,34 +465,26 @@ export default function WarehouseRefreshWrapper({
                                                                 }
                                                             />
                                                         )}
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="w-full text-xs"
-                                                            disabled
-                                                        >
-                                                            Print Pick List
-                                                        </Button>
                                                     </div>
                                                 </div>
 
                                                 {/* Section 2: Material Requirements Table */}
                                                 <div className="lg:col-span-2">
                                                     <ResponsiveTable
-                                                        minWidth={500}
+                                                                minWidth={500}
                                                         className="rounded-lg border bg-card overflow-hidden"
                                                     >
                                                         <table className="w-full text-sm">
                                                             <thead className="bg-muted/50 border-b">
                                                                 <tr>
                                                                     <th className="p-2 text-left font-medium text-xs text-muted-foreground uppercase">
-                                                                        Material
+                                                                        Bahan / Material
                                                                     </th>
                                                                     <th className="p-2 text-right font-medium text-xs text-muted-foreground uppercase">
-                                                                        Required
+                                                                        Dibutuhkan
                                                                     </th>
                                                                     <th className="p-2 text-right font-medium text-xs text-muted-foreground uppercase">
-                                                                        Issued
+                                                                        Diterbitkan
                                                                     </th>
                                                                     <th className="p-2 text-center w-10"></th>
                                                                 </tr>
@@ -556,16 +548,6 @@ export default function WarehouseRefreshWrapper({
                                 );
                             })}
                         </Accordion>
-
-                        {filteredOrders.length === 0 && (
-                            <Card className="border-dashed bg-transparent mt-4">
-                                <CardContent className="py-20 text-center">
-                                    <p className="text-muted-foreground italic">
-                                        No active production orders.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        )}
                     </div>
                 </CardContent>
             </Card>

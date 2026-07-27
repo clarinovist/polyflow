@@ -9,7 +9,11 @@ import {
     DeliveryStatus,
 } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { getWarehouseTodayKPIs } from '@/actions/dashboard/warehouse-kpi';
+import {
+    getWibDayBounds,
+    toBusinessDateString,
+} from '@/lib/utils/timezone';
 
 export interface WarehouseShiftBoard {
     counts: {
@@ -44,10 +48,8 @@ export const getWarehouseShiftBoard = withTenant(
         return safeAction(async () => {
             await requireAuth();
 
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            const todayEnd = new Date();
-            todayEnd.setHours(23, 59, 59, 999);
+            // Canonical today KPIs (WIB business day, event timestamps)
+            const todayKPIs = await getWarehouseTodayKPIs();
 
             const [
                 receivablePOs,
@@ -55,8 +57,6 @@ export const getWarehouseShiftBoard = withTenant(
                 materialQueue,
                 lowStockCount,
                 suggestedReorderCount,
-                todayGR,
-                todayShipped,
                 todayMaterialIssues,
                 loadingUnverified,
                 partialPOs,
@@ -105,30 +105,19 @@ export const getWarehouseShiftBoard = withTenant(
                 // Suggested reorder count
                 computeSuggestedReorderCount(),
 
-                // Today GR (non-maklon)
-                prisma.goodsReceipt.count({
-                    where: {
-                        isMaklon: false,
-                        receivedDate: { gte: todayStart, lte: todayEnd },
-                    },
-                }),
-
-                // Today shipped DOs
-                prisma.deliveryOrder.count({
-                    where: {
-                        status: DeliveryStatus.SHIPPED,
-                        updatedAt: { gte: todayStart, lte: todayEnd },
-                    },
-                }),
-
                 // Today material issues (best-effort: movements with productionOrderId OUT type)
-                prisma.stockMovement.count({
-                    where: {
-                        type: 'OUT',
-                        productionOrderId: { not: null },
-                        createdAt: { gte: todayStart, lte: todayEnd },
-                    },
-                }),
+                (async () => {
+                    const { startOfDay, endOfDay } = getWibDayBounds(
+                        toBusinessDateString(new Date()),
+                    );
+                    return prisma.stockMovement.count({
+                        where: {
+                            type: 'OUT',
+                            productionOrderId: { not: null },
+                            createdAt: { gte: startOfDay, lte: endOfDay },
+                        },
+                    });
+                })(),
 
                 // Attention: LOADING but not verified
                 prisma.deliveryOrder.findMany({
@@ -180,8 +169,8 @@ export const getWarehouseShiftBoard = withTenant(
                     suggestedReorder: suggestedReorderCount,
                 },
                 today: {
-                    goodsReceipts: todayGR,
-                    deliveriesShipped: todayShipped,
+                    goodsReceipts: todayKPIs.receivedToday,
+                    deliveriesShipped: todayKPIs.shippedToday,
                     materialIssues: todayMaterialIssues,
                 },
                 attention: {
@@ -214,21 +203,24 @@ async function computeLowStockCount(): Promise<number> {
             inventories: {
                 select: {
                     quantity: true,
-                    location: { select: { slug: true } },
+                    location: {
+                        select: {
+                            locationPurpose: true,
+                            locationType: true,
+                        },
+                    },
                 },
             },
         },
     });
 
-    const allowedSlugs = new Set<string>([
-        WAREHOUSE_SLUGS.RAW_MATERIAL,
-        WAREHOUSE_SLUGS.FINISHING,
-    ]);
-
     return lowStockVariants.filter((variant) => {
         const total = variant.inventories
             .filter(
-                (inv) => inv.location && allowedSlugs.has(inv.location.slug),
+                (inv) =>
+                    !inv.location ||
+                    (inv.location.locationPurpose !== 'SCRAP' &&
+                        (inv.location.locationType as string) !== 'CUSTOMER_OWNED'),
             )
             .reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
         const threshold = variant.minStockAlert?.toNumber() || 0;

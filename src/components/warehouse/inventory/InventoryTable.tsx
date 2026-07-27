@@ -168,6 +168,19 @@ export function InventoryTable({
         setCurrentPage(1);
     }, [searchTerm, productTypeFilter, sortField, sortOrder]);
 
+    // Reconcile/clear selection when filters or underlying inventory change
+    React.useEffect(() => {
+        setSelectedItems((prev) => {
+            if (prev.size === 0) return prev;
+            const validIds = new Set(processedInventory.map((i) => i.id));
+            const updated = new Set<string>();
+            for (const id of prev) {
+                if (validIds.has(id)) updated.add(id);
+            }
+            return updated.size === prev.size ? prev : updated;
+        });
+    }, [processedInventory]);
+
     const totalPages = Math.ceil(processedInventory.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedInventory = processedInventory.slice(

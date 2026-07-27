@@ -20,6 +20,7 @@ import { canTransition } from '@/lib/sales/delivery-status';
 import { computeDeliveryTotals } from '@/lib/sales/delivery-pricing';
 import { getActiveTariff } from '@/actions/sales/vehicle-tariffs';
 import { revalidatePath } from 'next/cache';
+import { requireWarehouseResourcePermission } from '@/lib/tools/auth-checks';
 
 export const getDeliveryOrders = withTenant(
     async function getDeliveryOrders(dateRange?: {
@@ -71,6 +72,12 @@ export const getDeliveryOrders = withTenant(
                             name: true,
                         },
                     },
+                    items: {
+                        select: {
+                            id: true,
+                            verifiedQuantity: true,
+                        },
+                    },
                 },
             });
 
@@ -89,6 +96,88 @@ export const getDeliveryOrders = withTenant(
         });
     },
 );
+/**
+ * Dedicated query for open delivery queue (PENDING/LOADING only).
+ * Minimal select for desktop/mobile outgoing pages.
+ * Canonical ordering: LOADING first, then deliveryDate ascending.
+ */
+export const getOpenDeliveryOrders = withTenant(
+    async function getOpenDeliveryOrders() {
+        return safeAction(async () => {
+            const deliveryOrders = await prisma.deliveryOrder.findMany({
+                where: {
+                    status: {
+                        in: [DeliveryStatus.PENDING, DeliveryStatus.LOADING],
+                    },
+                },
+                orderBy: [
+                    { deliveryDate: 'asc' },
+                    { createdAt: 'asc' },
+                    { id: 'asc' },
+                ],
+                select: {
+                    id: true,
+                    orderNumber: true,
+                    salesOrderId: true,
+                    status: true,
+                    deliveryDate: true,
+                    loadVerifiedAt: true,
+                    loadingStartedAt: true,
+                    salesOrder: {
+                        select: {
+                            orderNumber: true,
+                            customer: {
+                                select: { name: true },
+                            },
+                        },
+                    },
+                    sourceLocation: {
+                        select: { name: true },
+                    },
+                    items: {
+                        select: {
+                            id: true,
+                            quantity: true,
+                            verifiedQuantity: true,
+                        },
+                    },
+                },
+            });
+
+            // LOADING first, then PENDING
+            const statusOrder = (s: string) => (s === DeliveryStatus.LOADING ? 0 : 1);
+            deliveryOrders.sort((a, b) => {
+                const diff = statusOrder(a.status) - statusOrder(b.status);
+                if (diff !== 0) return diff;
+                const d1 = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
+                const d2 = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
+                if (d1 !== d2) return d1 - d2;
+                return a.id.localeCompare(b.id);
+            });
+
+            return deliveryOrders;
+        });
+    },
+);
+
+/**
+ * Summary count for open delivery queue (for mobile home badge).
+ */
+export const getOpenDeliveryOrderCount = withTenant(
+    async function getOpenDeliveryOrderCount() {
+        return safeAction(async () => {
+            const count = await prisma.deliveryOrder.count({
+                where: {
+                    status: {
+                        in: [DeliveryStatus.PENDING, DeliveryStatus.LOADING],
+                    },
+                },
+            });
+            return count;
+        });
+    },
+);
+
 export const getDeliveryOrderById = withTenant(
     async function getDeliveryOrderById(id: string) {
         return safeAction(async () => {
@@ -142,7 +231,9 @@ export const createManualDeliveryOrder = withTenant(
         destinationAddress?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
             const validatedData = createManualDeliveryOrderSchema.parse(data);
 
             // Single source of truth: hardened create (D1/D6/D7/D12) — no stock deduct
@@ -202,7 +293,9 @@ export const updateDeliveryStatus = withTenant(
         newStatus: string,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
 
             const doRecord = await prisma.deliveryOrder.findUnique({
                 where: { id: deliveryOrderId },
@@ -317,7 +410,9 @@ export const updateDeliveryPricing = withTenant(
         recomputeFromRates?: boolean;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
             const validated = updateDeliveryPricingSchema.parse(data);
 
             // Load DO
@@ -522,7 +617,9 @@ export const updateDeliveryItemQuantities = withTenant(
         items: Array<{ id: string; quantity: number }>;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
             const validated = updateDeliveryItemQuantitiesSchema.parse(data);
 
             const doRecord = await prisma.deliveryOrder.findUnique({
@@ -666,7 +763,9 @@ export const saveDeliveryLoadVerification = withTenant(
         items: Array<{ id: string; verifiedQuantity: number }>;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
             const validated = saveDeliveryLoadVerificationSchema.parse(data);
 
             const doRecord = await prisma.deliveryOrder.findUnique({
@@ -748,59 +847,65 @@ export const saveDeliveryLoadVerification = withTenant(
 export const confirmDeliveryLoadVerified = withTenant(
     async function confirmDeliveryLoadVerified(deliveryOrderId: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
 
-            const doRecord = await prisma.deliveryOrder.findUnique({
-                where: { id: deliveryOrderId },
-                include: { items: true },
-            });
-            if (!doRecord)
-                throw new NotFoundError('Delivery Order', deliveryOrderId);
-            if (
-                doRecord.status !== DeliveryStatus.PENDING &&
-                doRecord.status !== DeliveryStatus.LOADING
-            ) {
-                throw new BusinessRuleError(
-                    'Verifikasi muat hanya saat SJ PENDING atau LOADING.',
-                    { status: doRecord.status },
-                    'INVALID_DELIVERY_STATUS',
-                );
-            }
-            if (doRecord.items.length === 0) {
-                throw new BusinessRuleError(
-                    'Surat Jalan tidak punya item untuk diverifikasi.',
-                );
-            }
-
-            for (const item of doRecord.items) {
-                if (item.verifiedQuantity == null) {
+            const doRecord = await prisma.$transaction(async (tx) => {
+                const record = await tx.deliveryOrder.findUnique({
+                    where: { id: deliveryOrderId },
+                    include: { items: true },
+                });
+                if (!record)
+                    throw new NotFoundError('Delivery Order', deliveryOrderId);
+                if (
+                    record.status !== DeliveryStatus.PENDING &&
+                    record.status !== DeliveryStatus.LOADING
+                ) {
                     throw new BusinessRuleError(
-                        'Semua baris harus punya qty dihitung sebelum dikunci.',
-                        { itemId: item.id },
-                        'LOAD_VERIFY_INCOMPLETE',
+                        'Verifikasi muat hanya saat SJ PENDING atau LOADING.',
+                        { status: record.status },
+                        'INVALID_DELIVERY_STATUS',
                     );
                 }
-                const planned = Number(item.quantity);
-                const verified = Number(item.verifiedQuantity);
-                if (Math.abs(planned - verified) > 1e-6) {
+                if (record.items.length === 0) {
                     throw new BusinessRuleError(
-                        'Ada selisih qty fisik vs perintah. Koreksi qty SJ atau hitung ulang sampai sesuai, lalu kunci.',
-                        {
-                            itemId: item.id,
-                            planned,
-                            verified,
-                        },
-                        'LOAD_VERIFY_MISMATCH',
+                        'Surat Jalan tidak punya item untuk diverifikasi.',
                     );
                 }
-            }
 
-            await prisma.deliveryOrder.update({
-                where: { id: deliveryOrderId },
-                data: {
-                    loadVerifiedAt: new Date(),
-                    loadVerifiedById: session.user.id,
-                },
+                for (const item of record.items) {
+                    if (item.verifiedQuantity == null) {
+                        throw new BusinessRuleError(
+                            'Semua baris harus punya qty dihitung sebelum dikunci.',
+                            { itemId: item.id },
+                            'LOAD_VERIFY_INCOMPLETE',
+                        );
+                    }
+                    const planned = Number(item.quantity);
+                    const verified = Number(item.verifiedQuantity);
+                    if (Math.abs(planned - verified) > 1e-6) {
+                        throw new BusinessRuleError(
+                            'Ada selisih qty fisik vs perintah. Koreksi qty SJ atau hitung ulang sampai sesuai, lalu kunci.',
+                            {
+                                itemId: item.id,
+                                planned,
+                                verified,
+                            },
+                            'LOAD_VERIFY_MISMATCH',
+                        );
+                    }
+                }
+
+                await tx.deliveryOrder.update({
+                    where: { id: deliveryOrderId },
+                    data: {
+                        loadVerifiedAt: new Date(),
+                        loadVerifiedById: session.user.id,
+                    },
+                });
+
+                return record;
             });
 
             await logActivity({
@@ -829,7 +934,9 @@ export const confirmDeliveryLoadVerified = withTenant(
 export const correctDeliveryQtyToVerified = withTenant(
     async function correctDeliveryQtyToVerified(deliveryOrderId: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
 
             const doRecord = await prisma.deliveryOrder.findUnique({
                 where: { id: deliveryOrderId },

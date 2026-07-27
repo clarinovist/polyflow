@@ -46,6 +46,15 @@ export async function GET(req: Request) {
             },
         });
 
+        // Delete UsageEvents older than 90 days
+        const usageEventCleanup = await prisma.usageEvent.deleteMany({
+            where: {
+                occurredAt: {
+                    lt: ninetyDaysAgo,
+                },
+            },
+        });
+
         // Delete Notifications older than 30 days
         const notificationCleanup = await prisma.notification.deleteMany({
             where: {
@@ -108,6 +117,7 @@ export async function GET(req: Request) {
             message: 'Cleanup routine and Alert triggers executed successfully',
             deletedRecords: {
                 auditLogs: auditLogCleanup.count,
+                usageEvents: usageEventCleanup.count,
                 notifications: notificationCleanup.count,
             },
             expiredQuotations: expiredQuotationsCount,

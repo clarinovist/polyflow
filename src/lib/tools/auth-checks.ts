@@ -160,3 +160,74 @@ export async function requireMaterialPathRole(
     }
     return session;
 }
+
+/**
+ * Server-side resource permission check for warehouse mutations.
+ * Verifies the user's `allowedResources` includes the given resource path
+ * (hierarchical: `/warehouse` covers `/warehouse/incoming`).
+ * ADMIN role always passes. Users with `ALL` resources always pass.
+ * Throws AuthorizationError if denied.
+ */
+export async function requireWarehouseResourcePermission(
+    resourcePath: string,
+) {
+    const session = await requireAuth();
+    const sessionUser = session.user;
+
+    // ADMIN role in session always passes
+    if (hasAnyRole(sessionUser, ['ADMIN'])) {
+        return session;
+    }
+
+    // Query fresh user permissions from DB to avoid stale JWT snapshot issues
+    const dbUser = await prisma.user.findUnique({
+        where: { id: sessionUser.id },
+        select: { id: true, role: true, allowedResources: true, isActive: true },
+    });
+
+    if (!dbUser || !dbUser.isActive) {
+        throw new AuthorizationError('User account tidak aktif atau tidak ditemukan.');
+    }
+
+    if (dbUser.role === 'ADMIN') {
+        return session;
+    }
+
+    const rawAllowed = dbUser.allowedResources as unknown as string[] | 'ALL' | string | undefined;
+
+    // Strict fail-closed: if allowedResources is missing or null, deny access
+    if (!rawAllowed) {
+        throw new AuthorizationError(
+            `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
+        );
+    }
+
+    if (rawAllowed === 'ALL') {
+        return session;
+    }
+
+    let resourceList: string[] = [];
+    if (Array.isArray(rawAllowed)) {
+        resourceList = rawAllowed;
+    } else if (typeof rawAllowed === 'string') {
+        try {
+            resourceList = JSON.parse(rawAllowed);
+        } catch {
+            resourceList = [rawAllowed];
+        }
+    }
+
+    const hasAccess = resourceList.some((allowed) => {
+        if (allowed === 'ALL' || allowed === resourcePath) return true;
+        if (resourcePath.startsWith(allowed + '/')) return true;
+        return false;
+    });
+
+    if (!hasAccess) {
+        throw new AuthorizationError(
+            `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
+        );
+    }
+
+    return session;
+}

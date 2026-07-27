@@ -1095,6 +1095,7 @@ model PurchaseOrderItem {
   receivedQty      Decimal        @default(0) @db.Decimal(15, 4)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   purchaseOrder    PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  goodsReceiptItems GoodsReceiptItem[]
 }
 
 model GoodsReceipt {
@@ -1118,13 +1119,17 @@ model GoodsReceipt {
 }
 
 model GoodsReceiptItem {
-  id               String         @id @default(uuid())
-  goodsReceiptId   String
-  productVariantId String
-  receivedQty      Decimal        @db.Decimal(15, 4)
-  unitCost         Decimal        @db.Decimal(15, 4)
-  goodsReceipt     GoodsReceipt   @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  id                   String             @id @default(uuid())
+  goodsReceiptId       String
+  productVariantId     String
+  purchaseOrderItemId  String?
+  receivedQty          Decimal            @db.Decimal(15, 4)
+  unitCost             Decimal            @db.Decimal(15, 4)
+  goodsReceipt         GoodsReceipt       @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  productVariant       ProductVariant     @relation(fields: [productVariantId], references: [id])
+  purchaseOrderItem    PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+
+  @@index([purchaseOrderItemId])
 }
 
 model PurchaseInvoice {
@@ -3012,3 +3017,28 @@ model TenantAlias {
 
   @@unique([tenantId, term])
 }
+
+// ─── Super Admin Usage Analytics ─────────────────────────
+
+model UsageEvent {
+  id          String   @id @default(uuid())
+  occurredAt  DateTime @default(now())
+  tenantId    String
+  userId      String
+  featureKey  String
+  moduleKey   String
+  eventType   String   @default("FEATURE_VIEW")
+  source      String   @default("WEB")
+  sessionId   String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([occurredAt])
+  @@index([featureKey, occurredAt])
+  @@index([moduleKey, occurredAt])
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, moduleKey, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([tenantId, featureKey, occurredAt])
+}
+

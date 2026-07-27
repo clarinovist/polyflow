@@ -47,6 +47,8 @@ interface GoodsReceiptFormProps {
     purchaseOrderId: string;
     orderNumber: string;
     items: {
+        id?: string;
+        purchaseOrderItemId?: string;
         productVariantId: string;
         productName: string;
         skuCode: string;
@@ -98,6 +100,7 @@ export function GoodsReceiptForm({
             locationId: defaultLocationId || '',
             notes: `Penerimaan untuk pesanan ${orderNumber}`,
             items: pendingItems.map((item) => ({
+                purchaseOrderItemId: item.purchaseOrderItemId || item.id || '',
                 productVariantId: item.productVariantId,
                 receivedQty: Math.max(0, item.orderedQty - item.receivedQty),
                 unitCost: item.unitPrice,
