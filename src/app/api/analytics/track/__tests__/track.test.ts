@@ -87,6 +87,7 @@ describe('Analytics Track API Route Hardened', () => {
             tenantId: 'tenant-test-123',
             subdomain: 'test',
             tenantDb: {} as never,
+            activeModules: [],
         });
         vi.mocked(canAccessWorkspace).mockReturnValue(true);
     });
