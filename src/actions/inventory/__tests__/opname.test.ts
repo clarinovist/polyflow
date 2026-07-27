@@ -31,6 +31,9 @@ vi.mock('@/lib/core/prisma', () => {
     const stockOpname = {
         findUnique: vi.fn(),
     };
+    const user = {
+        findUnique: vi.fn().mockResolvedValue({ id: 'user-1' }),
+    };
 
     const tx = {
         stockOpnameItem,
@@ -42,6 +45,7 @@ vi.mock('@/lib/core/prisma', () => {
         prisma: {
             stockOpnameItem,
             stockOpname,
+            user,
             $transaction: vi.fn(async (input: unknown) => {
                 if (typeof input === 'function') {
                     return (input as (trx: typeof tx) => Promise<unknown>)(tx);
