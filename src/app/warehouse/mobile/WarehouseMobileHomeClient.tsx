@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Truck, Package, ArrowRight, Clock } from 'lucide-react';
+import { Truck, Package, ArrowRight, Clock, ClipboardList } from 'lucide-react';
 
 type HomeData = {
     loadingCount: number;
     pendingCount: number;
     receivableCount: number;
+    openOpnameCount?: number;
     shippedTodayCount?: number;
     receivedTodayCount?: number;
     recentLoading: {
@@ -48,7 +49,7 @@ export function WarehouseMobileHomeClient({ data }: { data: HomeData }) {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
                 <Link
                     href="/warehouse/mobile/outgoing"
                     className="p-4 border rounded-xl bg-card active:scale-[0.98] transition-all"
@@ -73,6 +74,17 @@ export function WarehouseMobileHomeClient({ data }: { data: HomeData }) {
                     <p className="text-2xl font-bold">{data.receivableCount}</p>
                     <p className="text-xs text-muted-foreground">
                         Perlu Diterima
+                    </p>
+                </Link>
+
+                <Link
+                    href="/warehouse/mobile/opname"
+                    className="p-4 border rounded-xl bg-card active:scale-[0.98] transition-all"
+                >
+                    <ClipboardList className="h-6 w-6 text-amber-600 mb-2" />
+                    <p className="text-2xl font-bold">{data.openOpnameCount ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">
+                        Opname Aktif
                     </p>
                 </Link>
             </div>

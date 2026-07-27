@@ -19,19 +19,29 @@ vi.mock('@/lib/errors/errors', async () => {
     };
 });
 
+vi.mock('@/lib/tools/auth-checks', () => ({
+    requireAuth: vi.fn(async () => ({ user: { id: 'user-1' } })),
+    requireRole: vi.fn(async () => ({ user: { id: 'user-1' } })),
+}));
+
 vi.mock('@/lib/core/prisma', () => {
     const stockOpnameItem = {
         count: vi.fn(),
     };
+    const stockOpname = {
+        findUnique: vi.fn(),
+    };
 
     const tx = {
         stockOpnameItem,
+        stockOpname,
         $executeRaw: vi.fn(),
     };
 
     return {
         prisma: {
             stockOpnameItem,
+            stockOpname,
             $transaction: vi.fn(async (input: unknown) => {
                 if (typeof input === 'function') {
                     return (input as (trx: typeof tx) => Promise<unknown>)(tx);
@@ -71,6 +81,7 @@ describe('saveOpnameCount', () => {
             { id: 'item-2', countedQuantity: 12 },
         ];
 
+        vi.mocked(prisma.stockOpname.findUnique).mockResolvedValue({ status: 'OPEN' } as never);
         vi.mocked(prisma.stockOpnameItem.count).mockResolvedValue(items.length as never);
 
         const result = await saveOpnameCount('opname-1', items);
@@ -84,6 +95,7 @@ describe('saveOpnameCount', () => {
             },
         });
         expect(revalidatePath).toHaveBeenCalledWith('/warehouse/opname/opname-1');
+        expect(revalidatePath).toHaveBeenCalledWith('/warehouse/mobile/opname/opname-1');
     });
 
     it('rejects duplicate item ids before hitting database', async () => {
@@ -103,6 +115,7 @@ describe('saveOpnameCount', () => {
             { id: 'item-2', countedQuantity: 12 },
         ];
 
+        vi.mocked(prisma.stockOpname.findUnique).mockResolvedValue({ status: 'OPEN' } as never);
         vi.mocked(prisma.stockOpnameItem.count).mockResolvedValue(1 as never);
 
         await expect(saveOpnameCount('opname-1', items)).rejects.toThrow('Some stock opname items are invalid for this session');

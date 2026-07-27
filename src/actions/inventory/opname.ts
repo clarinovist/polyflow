@@ -8,10 +8,22 @@ import {
     safeAction,
     BusinessRuleError,
     NotFoundError,
-    AuthenticationError,
 } from '@/lib/errors/errors';
-import { auth } from '@/auth';
+import { requireAuth, requireRole } from '@/lib/tools/auth-checks';
+import { Role } from '@prisma/client';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
+
+const MAX_NOTES_LENGTH = 500;
+const MAX_REMARKS_LENGTH = 500;
+
+function revalidateOpnamePaths(opnameId?: string) {
+    revalidatePath('/warehouse/opname');
+    revalidatePath('/warehouse/mobile/opname');
+    if (opnameId) {
+        revalidatePath(`/warehouse/opname/${opnameId}`);
+        revalidatePath(`/warehouse/mobile/opname/${opnameId}`);
+    }
+}
 
 export const getOpnameSessions = withTenant(async function getOpnameSessions() {
     return safeAction(async () => {
@@ -77,7 +89,6 @@ async function generateOpnameNumber() {
 
     let nextSeq = 1;
     if (lastOpname?.opnameNumber) {
-        // Extract sequence part (last part after dash)
         const parts = lastOpname.opnameNumber.split('-');
         const lastSeqStr = parts[parts.length - 1];
         const lastSeq = parseInt(lastSeqStr, 10);
@@ -93,9 +104,13 @@ async function generateOpnameNumber() {
 export const createOpnameSession = withTenant(
     async function createOpnameSession(locationId: string, remarks?: string) {
         return safeAction(async () => {
-            const session = await auth();
-            if (!session?.user?.id) {
-                throw new AuthenticationError('User not authenticated');
+            await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
+
+            if (!locationId || typeof locationId !== 'string') {
+                throw new BusinessRuleError('Lokasi harus dipilih');
+            }
+            if (remarks && remarks.length > MAX_REMARKS_LENGTH) {
+                throw new BusinessRuleError(`Remarks maksimal ${MAX_REMARKS_LENGTH} karakter`);
             }
 
             // 1. Get all inventories for this location to snapshot
@@ -121,18 +136,18 @@ export const createOpnameSession = withTenant(
                     locationId,
                     remarks,
                     status: OpnameStatus.OPEN,
-                    createdById: session.user.id,
+                    createdById: (await requireAuth()).user.id,
                     items: {
                         create: inventories.map((inv) => ({
                             productVariantId: inv.productVariantId,
                             systemQuantity: inv.quantity,
-                            countedQuantity: null, // Start as null to indicate not counted yet
+                            countedQuantity: null,
                         })),
                     },
                 },
             });
 
-            revalidatePath('/warehouse/opname');
+            revalidateOpnamePaths();
             return { id: opnameSession.id };
         });
     },
@@ -143,8 +158,10 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
     items: { id: string; countedQuantity: number; notes?: string }[],
 ) {
     return safeAction(async () => {
+        await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
+
         if (items.length === 0) {
-            revalidatePath(`/warehouse/opname/${opnameId}`);
+            revalidateOpnamePaths(opnameId);
             return;
         }
 
@@ -156,7 +173,31 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
             );
         }
 
+        // Validate each item
+        for (const item of items) {
+            if (!Number.isFinite(item.countedQuantity) || item.countedQuantity < 0) {
+                throw new BusinessRuleError(
+                    'Jumlah item harus angka non-negatif yang valid',
+                );
+            }
+            if (item.notes && item.notes.length > MAX_NOTES_LENGTH) {
+                throw new BusinessRuleError(
+                    `Catatan item maksimal ${MAX_NOTES_LENGTH} karakter`,
+                );
+            }
+        }
+
         await prisma.$transaction(async (tx) => {
+            // Validate session is OPEN
+            const opname = await tx.stockOpname.findUnique({
+                where: { id: opnameId },
+                select: { status: true },
+            });
+            if (!opname) throw new NotFoundError('StockOpname', opnameId);
+            if (opname.status !== OpnameStatus.OPEN) {
+                throw new BusinessRuleError('Hanya sesi OPEN yang dapat diupdate');
+            }
+
             const matchedCount = await tx.stockOpnameItem.count({
                 where: {
                     opnameId,
@@ -207,7 +248,7 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
             `);
         });
 
-        revalidatePath(`/warehouse/opname/${opnameId}`);
+        revalidateOpnamePaths(opnameId);
     });
 });
 
@@ -215,13 +256,10 @@ export const completeOpname = withTenant(async function completeOpname(
     opnameId: string,
 ) {
     return safeAction(async () => {
-        const session = await auth();
-        if (!session?.user?.id) {
-            throw new AuthenticationError('User not authenticated');
-        }
+        const session = await requireAuth();
 
         await StockOpnameService.completeOpname(opnameId, session.user.id);
-        revalidatePath(`/warehouse/opname/${opnameId}`);
+        revalidateOpnamePaths(opnameId);
     });
 });
 
@@ -230,6 +268,8 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
     productVariantId: string,
 ) {
     return safeAction(async () => {
+        await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
+
         // Validasi sesi harus OPEN
         const opname = await prisma.stockOpname.findUnique({
             where: { id: opnameId },
@@ -251,7 +291,7 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
         if (!variant)
             throw new NotFoundError('ProductVariant', productVariantId);
 
-        // Cek duplikasi: item sudah ada di sesi ini?
+        // Cek duplikasi
         const existing = await prisma.stockOpnameItem.findUnique({
             where: {
                 opnameId_productVariantId: {
@@ -267,7 +307,6 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
             );
         }
 
-        // Insert item baru dengan systemQuantity = 0
         await prisma.stockOpnameItem.create({
             data: {
                 opnameId,
@@ -277,14 +316,15 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
             },
         });
 
-        revalidatePath(`/warehouse/opname/${opnameId}`);
-        revalidatePath('/warehouse/opname');
+        revalidateOpnamePaths(opnameId);
     });
 });
 
 export const deleteOpnameSession = withTenant(
     async function deleteOpnameSession(id: string) {
         return safeAction(async () => {
+            await requireRole([Role.WAREHOUSE, Role.ADMIN]);
+
             const session = await prisma.stockOpname.findUnique({
                 where: { id },
                 select: { status: true },
@@ -304,7 +344,7 @@ export const deleteOpnameSession = withTenant(
                 where: { id },
             });
 
-            revalidatePath('/warehouse/opname');
+            revalidateOpnamePaths();
         });
     },
 );

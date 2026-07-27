@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Truck, Package } from 'lucide-react';
+import { Home, Truck, Package, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 
 const tabs = [
     { href: '/warehouse/mobile', label: 'Beranda', icon: Home },
     { href: '/warehouse/mobile/outgoing', label: 'Muat', icon: Truck },
     { href: '/warehouse/mobile/incoming', label: 'Terima', icon: Package },
+    { href: '/warehouse/mobile/opname', label: 'Opname', icon: ClipboardList },
 ];
 
 export function WarehouseBottomNav() {

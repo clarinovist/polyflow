@@ -309,6 +309,20 @@ const FEATURE_REGISTRY: FeatureDefinition[] = [
         priority: 90,
     },
     {
+        featureKey: 'warehouse.mobile.opname.detail',
+        moduleKey: 'warehouse',
+        label: 'Detail Stock Opname Mobile',
+        pattern: /^\/warehouse\/mobile\/opname\/[^/]+$/,
+        priority: 100,
+    },
+    {
+        featureKey: 'warehouse.mobile.opname.list',
+        moduleKey: 'warehouse',
+        label: 'Daftar Stock Opname Mobile',
+        pattern: /^\/warehouse\/mobile\/opname$/,
+        priority: 90,
+    },
+    {
         featureKey: 'warehouse.materials',
         moduleKey: 'warehouse',
         label: 'Gudang Bahan Baku & Penolong',
