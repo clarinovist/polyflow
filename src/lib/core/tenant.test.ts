@@ -118,7 +118,8 @@ describe('resolveTenantContext', () => {
             type: 'RESOLVED',
             subdomain: 'valid-tenant',
             tenantId: 'tenant-123',
-            tenantDb: { isMockTenantDb: true, url: 'postgresql://user:***@localhost:5432/tenant_db' }
+            tenantDb: { isMockTenantDb: true, url: 'postgresql://user:***@localhost:5432/tenant_db' },
+            activeModules: [],
         });
     });
 });
