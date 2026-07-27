@@ -3,6 +3,7 @@ import { getMyPermissions } from '@/actions/admin/permissions';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
+import { getTenantActiveModules } from '@/lib/auth/access-policy';
 
 export default async function SupportLayout({
     children,
@@ -35,7 +36,11 @@ export default async function SupportLayout({
 
     return (
         <div className="min-h-screen bg-secondary/30">
-            <SidebarNav user={user} permissions={permissions} />
+            <SidebarNav
+                user={user}
+                permissions={permissions}
+                activeModules={getTenantActiveModules()}
+            />
 
             {/* Main Content */}
             <SidebarSpacer>

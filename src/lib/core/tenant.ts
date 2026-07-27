@@ -1,4 +1,9 @@
-import { getTenantDb, tenantContext, tenantIdContext } from '@/lib/core/prisma';
+import {
+    getTenantDb,
+    tenantContext,
+    tenantIdContext,
+    entitlementContext,
+} from '@/lib/core/prisma';
 import { actorContext } from '@/lib/core/actor-context';
 import { PrismaClient } from '@prisma/client';
 import { headers } from 'next/headers';
@@ -17,6 +22,7 @@ export type TenantResolutionResult =
           tenantDb: PrismaClient;
           tenantId: string;
           subdomain: string;
+          activeModules: string[];
       };
 
 /**
@@ -98,11 +104,33 @@ export async function resolveTenantContext(reqHeaders: {
     }
 
     const tenantDb = getTenantDb(targetDbUrl);
+
+    // Fetch entitlements once per request to avoid N+1 queries across layouts.
+    let activeModules: string[] = [];
+    try {
+        const { getMainPrisma } = await import('@/lib/core/prisma');
+        const mainPrisma = getMainPrisma();
+        const now = new Date();
+        const rows = await mainPrisma.tenantModule.findMany({
+            where: {
+                tenantId: resolvedTenantId!,
+                status: 'ACTIVE',
+                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            },
+            select: { moduleKey: true },
+        });
+        activeModules = rows.map((r) => r.moduleKey);
+    } catch {
+        // Entitlement query failed — fail-closed: no modules
+        activeModules = [];
+    }
+
     return {
         type: 'RESOLVED',
         tenantDb,
         tenantId: resolvedTenantId!,
         subdomain,
+        activeModules,
     };
 }
 
@@ -149,8 +177,10 @@ export function withTenant<T extends (...args: never[]) => Promise<unknown>>(
 
         return tenantContext.run(result.tenantDb, () =>
             tenantIdContext.run(result.tenantId, () =>
-                actorContext.run({ userId: actorUserId }, () =>
-                    action(...args),
+                entitlementContext.run(result.activeModules, () =>
+                    actorContext.run({ userId: actorUserId }, () =>
+                        action(...args),
+                    ),
                 ),
             ),
         );

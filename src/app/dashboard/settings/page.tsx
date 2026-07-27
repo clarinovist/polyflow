@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { extractSubdomain } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { ContextualHelp } from '@/components/support/contextual-help';
+import { getTenantActiveModules } from '@/lib/auth/access-policy';
 import packageJson from '../../../../package.json';
 
 export default async function SettingsPage() {
@@ -72,6 +73,7 @@ export default async function SettingsPage() {
                 currentUserAvatarUrl={userAvatarUrl}
                 appVersion={packageJson.version}
                 environment={process.env.NODE_ENV}
+                activeModules={getTenantActiveModules()}
             />
         </div>
     );

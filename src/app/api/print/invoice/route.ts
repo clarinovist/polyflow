@@ -8,6 +8,7 @@ import {
     toUint8Array,
     type EscpInvoiceData,
 } from '@/services/printing/escp-generator';
+import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 function toSafeDownloadFilename(value: string): string {
     return (
@@ -20,6 +21,10 @@ function toSafeDownloadFilename(value: string): string {
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
     try {
+        // ── Module entitlement guard ──
+        const denied = await requireModuleOrNextResponse('FINANCE');
+        if (denied) return denied;
+
         await requireAuth();
 
         const invoiceId = req.nextUrl.searchParams.get('id');

@@ -57,6 +57,21 @@ export function getTenantDbFromContext(): PrismaClient | undefined {
     return tenantContext.getStore();
 }
 
+// Entitlement context — stores active module keys for the current tenant.
+// Populated once per request in resolveTenantContext(); avoids N+1 queries.
+const globalForEntitlementContext = globalThis as unknown as {
+    __polyflowEntitlementContext?: AsyncLocalStorage<string[]>;
+};
+export const entitlementContext: AsyncLocalStorage<string[]> =
+    globalForEntitlementContext.__polyflowEntitlementContext ??
+    (globalForEntitlementContext.__polyflowEntitlementContext =
+        new AsyncLocalStorage<string[]>());
+
+/** Get active module keys for the current tenant from context. */
+export function getEntitlementsFromContext(): string[] | undefined {
+    return entitlementContext.getStore();
+}
+
 // Tenant Connection Factory — MUST be global singleton
 const globalForTenantClients = globalThis as unknown as {
     __polyflowTenantClients?: Map<string, PrismaClient>;

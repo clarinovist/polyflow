@@ -14,6 +14,7 @@ import {
     BusinessRuleError,
 } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
+import { expandPackageModules } from '@/lib/modules/module-registry';
 
 const execPromise = util.promisify(exec);
 
@@ -46,6 +47,7 @@ export async function createAndProvisionTenant(formData: FormData) {
         const adminName = formData.get('adminName') as string;
         const adminEmail = formData.get('adminEmail') as string;
         const adminPassword = formData.get('adminPassword') as string;
+        const packageKey = (formData.get('packageKey') as string) || 'ERP_COMPLETE';
 
         if (
             !name ||
@@ -150,9 +152,23 @@ export async function createAndProvisionTenant(formData: FormData) {
                     subdomain,
                     dbUrl: newDbUrl,
                     status: 'ACTIVE',
-                    plan: 'TRIAL',
+                    plan: packageKey,
                 },
             });
+
+            // 6. Create entitlement rows for the selected package
+            const moduleKeys = expandPackageModules(packageKey);
+            const nonCoreModules = moduleKeys.filter((mk) => mk !== 'CORE');
+            if (nonCoreModules.length > 0) {
+                await prisma.tenantModule.createMany({
+                    data: nonCoreModules.map((moduleKey) => ({
+                        tenantId: newTenant.id,
+                        moduleKey,
+                        status: 'ACTIVE' as const,
+                    })),
+                    skipDuplicates: true,
+                });
+            }
 
             await logActivity({
                 userId: session.user.id,

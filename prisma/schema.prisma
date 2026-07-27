@@ -2094,6 +2094,40 @@ model Tenant {
   accountRoles TenantAccountRole[]
   revenueRules TenantRevenueRule[]
   backups      TenantBackup[]
+  modules      TenantModule[]
+}
+
+// ── Modular entitlements ────────────────────────────────────────────────────
+// TenantModule tracks which business modules a tenant has purchased / is
+// entitled to use. This lives in the MAIN (control) database and is the
+// source of truth for module access, NOT RolePermission.
+//
+// Query rules:
+//   - ALWAYS use getMainPrisma() to query this table — never the tenant proxy.
+//   - The Prisma proxy routes to tenant DB, which will also have this table
+//     (schema is shared) but the rows are meaningless there.
+// ─────────────────────────────────────────────────────────────────────────────
+model TenantModule {
+  id        String           @id @default(cuid())
+  tenantId  String
+  moduleKey String           // e.g. HRD, SALES, FINANCE — validated by module-registry.ts
+  status    TenantModuleStatus @default(ACTIVE)
+  enabledAt DateTime         @default(now())
+  expiresAt DateTime?        // null = no expiry
+  config    Json?            // non-secret configuration per module
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleKey])
+  @@index([tenantId, status])
+}
+
+enum TenantModuleStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
 }
 
 model TenantBackup {

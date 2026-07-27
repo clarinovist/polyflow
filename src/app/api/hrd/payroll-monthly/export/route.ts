@@ -4,6 +4,7 @@ import { withTenantRoute } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { PayrollMonthlyService } from '@/services/hrd/payroll-monthly-service';
 import { hasAnyRole } from '@/lib/auth/roles';
+import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 function csvEscape(val: string | number): string {
     const s = String(val);
@@ -18,6 +19,9 @@ const toN = (v: number | { toNumber(): number } | null | undefined): number => {
 };
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
+    const denied = await requireModuleOrNextResponse('HRD');
+    if (denied) return denied;
+
     const session = await auth();
     if (!session) return new Response('Unauthorized', { status: 401 });
     if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD'])) {

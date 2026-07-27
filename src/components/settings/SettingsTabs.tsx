@@ -33,6 +33,8 @@ interface SettingsTabsProps {
     currentUserAvatarUrl?: string | null;
     appVersion?: string;
     environment?: string;
+    /** Active module keys for this tenant. Used to filter Access Control UI. */
+    activeModules?: string[];
 }
 
 type TabValue =
@@ -61,6 +63,7 @@ export function SettingsTabs({
     currentUserAvatarUrl,
     appVersion,
     environment,
+    activeModules,
 }: SettingsTabsProps) {
     const isAdmin = isTenantAdmin({
         role: currentUserRole,
@@ -143,7 +146,7 @@ export function SettingsTabs({
                     <UsersTab currentUserId={currentUserId} />
                 ) : null;
             case 'access':
-                return isAdmin ? <AccessControlTab /> : null;
+                return isAdmin ? <AccessControlTab activeModules={activeModules} /> : null;
             case 'system':
                 return (
                     <Card className="max-w-2xl">

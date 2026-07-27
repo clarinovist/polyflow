@@ -27,9 +27,37 @@ import { Button, ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils/utils';
 // import { DialogProps } from '@radix-ui/react-dialog'; // Removing DialogProps to avoid confusion
 
-export type GlobalSearchProps = ButtonProps;
+export type GlobalSearchProps = ButtonProps & {
+    /** Active module keys. Items for non-entitled modules are hidden. */
+    activeModules?: string[];
+};
 
-export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
+/** Map from href prefix to module key for entitlement filtering. */
+const HREF_MODULE_MAP: Record<string, string> = {
+    '/kiosk': 'PRODUCTION',
+    '/warehouse': 'INVENTORY',
+    '/production': 'PRODUCTION',
+    '/hrd': 'HRD',
+    '/sales': 'SALES',
+    '/finance': 'FINANCE',
+    '/purchasing': 'PURCHASING',
+    '/maklon': 'MAKLON',
+};
+
+function isHrefAllowed(href: string, activeModules?: string[]): boolean {
+    if (!activeModules || activeModules.length === 0) return true;
+    // CORE paths are always allowed
+    if (href.startsWith('/dashboard') || href.startsWith('/support'))
+        return true;
+    for (const [prefix, moduleKey] of Object.entries(HREF_MODULE_MAP)) {
+        if (href.startsWith(prefix)) {
+            return activeModules.includes(moduleKey);
+        }
+    }
+    return true;
+}
+
+export function GlobalSearch({ className, activeModules, ...props }: GlobalSearchProps) {
     const router = useRouter();
     const [open, setOpen] = React.useState(false);
 
@@ -70,43 +98,51 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                 <CommandList>
                     <CommandEmpty>Tidak ada hasil ditemukan.</CommandEmpty>
                     <CommandGroup heading="Ganti Aplikasi">
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() => router.push('/kiosk'))
-                            }
-                        >
-                            <MonitorPlay className="mr-2 h-4 w-4" />
-                            <span>Operator Kiosk</span>
-                        </CommandItem>
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() => router.push('/warehouse'))
-                            }
-                        >
-                            <Warehouse className="mr-2 h-4 w-4" />
-                            <span>Warehouse Portal</span>
-                        </CommandItem>
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() => router.push('/production'))
-                            }
-                        >
-                            <Factory className="mr-2 h-4 w-4" />
-                            <span>Production Floor</span>
-                        </CommandItem>
+                        {isHrefAllowed('/kiosk', activeModules) && (
+                            <CommandItem
+                                onSelect={() =>
+                                    runCommand(() => router.push('/kiosk'))
+                                }
+                            >
+                                <MonitorPlay className="mr-2 h-4 w-4" />
+                                <span>Operator Kiosk</span>
+                            </CommandItem>
+                        )}
+                        {isHrefAllowed('/warehouse', activeModules) && (
+                            <CommandItem
+                                onSelect={() =>
+                                    runCommand(() => router.push('/warehouse'))
+                                }
+                            >
+                                <Warehouse className="mr-2 h-4 w-4" />
+                                <span>Warehouse Portal</span>
+                            </CommandItem>
+                        )}
+                        {isHrefAllowed('/production', activeModules) && (
+                            <CommandItem
+                                onSelect={() =>
+                                    runCommand(() => router.push('/production'))
+                                }
+                            >
+                                <Factory className="mr-2 h-4 w-4" />
+                                <span>Production Floor</span>
+                            </CommandItem>
+                        )}
                     </CommandGroup>
                     <CommandSeparator />
                     <CommandGroup heading="Navigasi Cepat">
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() =>
-                                    router.push('/warehouse/inventory'),
-                                )
-                            }
-                        >
-                            <Warehouse className="mr-2 h-4 w-4" />
-                            <span>Inventaris</span>
-                        </CommandItem>
+                        {isHrefAllowed('/warehouse/inventory', activeModules) && (
+                            <CommandItem
+                                onSelect={() =>
+                                    runCommand(() =>
+                                        router.push('/warehouse/inventory'),
+                                    )
+                                }
+                            >
+                                <Warehouse className="mr-2 h-4 w-4" />
+                                <span>Inventaris</span>
+                            </CommandItem>
+                        )}
                         <CommandItem
                             onSelect={() =>
                                 runCommand(() =>
@@ -117,26 +153,30 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                             <Package className="mr-2 h-4 w-4" />
                             <span>Produk</span>
                         </CommandItem>
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() =>
-                                    router.push('/warehouse/opname'),
-                                )
-                            }
-                        >
-                            <Calculator className="mr-2 h-4 w-4" />
-                            <span>Stock Opname</span>
-                        </CommandItem>
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() =>
-                                    router.push('/warehouse/inventory/history'),
-                                )
-                            }
-                        >
-                            <FileText className="mr-2 h-4 w-4" />
-                            <span>Riwayat Stok</span>
-                        </CommandItem>
+                        {isHrefAllowed('/warehouse/opname', activeModules) && (
+                            <CommandItem
+                                onSelect={() =>
+                                    runCommand(() =>
+                                        router.push('/warehouse/opname'),
+                                    )
+                                }
+                            >
+                                <Calculator className="mr-2 h-4 w-4" />
+                                <span>Stock Opname</span>
+                            </CommandItem>
+                        )}
+                        {isHrefAllowed('/warehouse/inventory/history', activeModules) && (
+                            <CommandItem
+                                onSelect={() =>
+                                    runCommand(() =>
+                                        router.push('/warehouse/inventory/history'),
+                                    )
+                                }
+                            >
+                                <FileText className="mr-2 h-4 w-4" />
+                                <span>Riwayat Stok</span>
+                            </CommandItem>
+                        )}
                     </CommandGroup>
                     <CommandSeparator />
                     <CommandGroup heading="Pengaturan">

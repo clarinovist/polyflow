@@ -45,7 +45,34 @@ export const getRolePermissions = withTenant(async function getRolePermissions(
             const permissions = await prisma.rolePermission.findMany({
                 where: { role: targetRole },
             });
-            return permissions;
+
+            // ── Entitlement boundary: filter out permissions for modules
+            // the tenant does not own. ──
+            const { resolvePermissionToModule } = await import(
+                '@/lib/modules/module-registry'
+            );
+            const { hasTenantModule } = await import(
+                '@/lib/modules/tenant-entitlements'
+            );
+
+            const filtered: typeof permissions = [];
+            for (const p of permissions) {
+                if (p.resource.startsWith('feature:')) {
+                    filtered.push(p);
+                    continue;
+                }
+                const moduleKey = resolvePermissionToModule(p.resource);
+                if (!moduleKey || moduleKey === 'CORE') {
+                    filtered.push(p);
+                    continue;
+                }
+                const entitled = await hasTenantModule(moduleKey);
+                if (entitled) {
+                    filtered.push(p);
+                }
+            }
+
+            return filtered;
         } catch (error) {
             if (error instanceof AuthorizationError) throw error;
             logger.error('Gagal mengambil izin', {
@@ -66,6 +93,26 @@ export const updatePermission = withTenant(async function updatePermission(
     return safeAction(async () => {
         try {
             await checkAdmin();
+
+            // ── Entitlement boundary: block permission changes for modules
+            // the tenant does not own. CORE is always allowed. ──
+            if (!resource.startsWith('feature:')) {
+                const { resolvePermissionToModule } = await import(
+                    '@/lib/modules/module-registry'
+                );
+                const { hasTenantModule } = await import(
+                    '@/lib/modules/tenant-entitlements'
+                );
+                const moduleKey = resolvePermissionToModule(resource);
+                if (moduleKey && moduleKey !== 'CORE') {
+                    const entitled = await hasTenantModule(moduleKey);
+                    if (!entitled) {
+                        throw new BusinessRuleError(
+                            `Tidak dapat mengubah izin untuk modul "${moduleKey}" — modul tidak aktif untuk tenant ini.`,
+                        );
+                    }
+                }
+            }
 
             await prisma.rolePermission.upsert({
                 where: {
@@ -152,8 +199,40 @@ export const updatePermissionsBulk = withTenant(
             try {
                 await checkAdmin();
 
+                // ── Entitlement boundary: filter out resources for modules
+                // the tenant does not own. ──
+                const { resolvePermissionToModule } = await import(
+                    '@/lib/modules/module-registry'
+                );
+                const { hasTenantModule } = await import(
+                    '@/lib/modules/tenant-entitlements'
+                );
+
+                const allowedResources: string[] = [];
+                for (const resource of resources) {
+                    if (resource.startsWith('feature:')) {
+                        allowedResources.push(resource);
+                        continue;
+                    }
+                    const moduleKey = resolvePermissionToModule(resource);
+                    if (!moduleKey || moduleKey === 'CORE') {
+                        allowedResources.push(resource);
+                        continue;
+                    }
+                    const entitled = await hasTenantModule(moduleKey);
+                    if (entitled) {
+                        allowedResources.push(resource);
+                    }
+                }
+
+                if (allowedResources.length === 0) {
+                    throw new BusinessRuleError(
+                        'Tidak ada resource yang dapat diubah — modul tidak aktif untuk tenant ini.',
+                    );
+                }
+
                 await Promise.all(
-                    resources.map((resource) =>
+                    allowedResources.map((resource) =>
                         prisma.rolePermission.upsert({
                             where: {
                                 role_resource: { role: targetRole, resource },

@@ -5,12 +5,17 @@ import { withTenantRoute } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { ProductionExecutionService } from '@/services/production/execution-service';
 import { productionOutputSchema } from '@/lib/schemas/production';
+import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 // We expect an array of valid production output objects
 const bulkDailyReportSchema = z.array(productionOutputSchema);
 
 export const POST = withTenantRoute(async function POST(req: NextRequest) {
     try {
+        // ── Module entitlement guard ──
+        const denied = await requireModuleOrNextResponse('PRODUCTION');
+        if (denied) return denied;
+
         // Auth strategy: accept EITHER a valid API key (for device/machine integrations)
         // OR a valid NextAuth session (for calls from the kiosk frontend)
         const authHeader = req.headers.get('authorization');

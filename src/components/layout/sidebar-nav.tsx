@@ -48,6 +48,8 @@ interface SidebarNavProps {
         avatarUrl?: string | null;
     };
     permissions: string[] | 'ALL';
+    /** Active module keys for this tenant. Empty array = all modules shown (super admin / legacy). */
+    activeModules?: string[];
 }
 
 interface NavItemType {
@@ -132,7 +134,7 @@ function isSupportActive(pathname: string) {
     return pathname.startsWith('/support');
 }
 
-export function SidebarNav({ user, permissions }: SidebarNavProps) {
+export function SidebarNav({ user, permissions, activeModules }: SidebarNavProps) {
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -174,6 +176,23 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
         .map((group) => ({
             ...group,
             items: group.items.filter((item) => {
+                // Entitlement filter: hide modules the tenant hasn't purchased
+                if (activeModules && activeModules.length > 0) {
+                    const hrefToModuleKey: Record<string, string> = {
+                        '/sales': 'SALES',
+                        '/purchasing': 'PURCHASING',
+                        '/production': 'PRODUCTION',
+                        '/warehouse': 'INVENTORY',
+                        '/finance': 'FINANCE',
+                        '/hrd': 'HRD',
+                        '/maklon': 'MAKLON',
+                    };
+                    const moduleKey = hrefToModuleKey[item.href];
+                    if (moduleKey && !activeModules.includes(moduleKey)) {
+                        return false;
+                    }
+                }
+                // Permission filter
                 if (permissions === 'ALL') return true;
                 return permissions.some(
                     (p) =>
@@ -264,7 +283,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
 
                     {!effectiveCollapsed && (
                         <div className="px-4 pt-4">
-                            <GlobalSearch className="w-full justify-start pl-2" />
+                            <GlobalSearch className="w-full justify-start pl-2" activeModules={activeModules} />
                         </div>
                     )}
 

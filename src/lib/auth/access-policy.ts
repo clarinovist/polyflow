@@ -1,4 +1,6 @@
 import { getUserRoles } from '@/lib/auth/roles';
+import { resolveWorkspaceToModule } from '@/lib/modules/module-registry';
+import { getEntitlementsFromContext } from '@/lib/core/prisma';
 
 export type WorkspaceKey =
     | 'admin'
@@ -10,6 +12,37 @@ export type WorkspaceKey =
     | 'purchasing'
     | 'hrd'
     | 'maklon';
+
+/**
+ * Checks if a tenant has an active entitlement for the module that owns a
+ * workspace. Returns true if entitled or if the module is always-active (CORE).
+ * Returns false if the tenant does not own the module.
+ *
+ * Reads from the request-scoped entitlement context (populated once per request
+ * in resolveTenantContext()). No additional DB queries.
+ */
+export function hasWorkspaceEntitlement(
+    workspace: WorkspaceKey,
+): boolean {
+    const moduleKey = resolveWorkspaceToModule(workspace);
+    if (!moduleKey) return true; // unknown workspace, let role policy decide
+    if (moduleKey === 'CORE') return true;
+
+    // Read from request-scoped context (no DB query)
+    const activeModules = getEntitlementsFromContext();
+    if (!activeModules) return true; // no context (super admin / non-tenant), allow
+
+    return activeModules.includes(moduleKey);
+}
+
+/**
+ * Resolves the active module keys for a tenant from the request context.
+ * Returns the cached list from resolveTenantContext(). No additional DB queries.
+ * Falls back to empty array when no context.
+ */
+export function getTenantActiveModules(): string[] {
+    return getEntitlementsFromContext() ?? [];
+}
 
 /**
  * Defines the roles permitted to access each workspace area.
@@ -207,6 +240,8 @@ export function canAccessWorkspace(
 
 /**
  * Resolves the default/home workspace landing page for a user.
+ * Entitlement-aware: if the user's role-based landing is in a module
+ * they don't own, falls back to /dashboard.
  */
 export function getDefaultRedirectForUser(user: {
     role?: string;
@@ -219,12 +254,24 @@ export function getDefaultRedirectForUser(user: {
     // Short URL alias: admin.polyflow.uk/super-admin is rewritten (internally, by
     // proxy.ts) to /admin/super-admin. Redirecting here keeps the address bar short.
     if (isSuperAdmin) return '/super-admin';
-    // Active role drives post-login landing (selected at login)
-    if (activeRole === 'WAREHOUSE') return '/warehouse';
-    if (activeRole === 'PRODUCTION') return '/production';
-    if (activeRole === 'HRD') return '/hrd';
-    if (activeRole === 'PROCUREMENT') return '/purchasing';
-    if (activeRole === 'PLANNING') return '/production';
-    if (activeRole === 'MARKETING') return '/sales';
+
+    // Role-based landing with entitlement check
+    const roleLandingMap: Record<string, WorkspaceKey> = {
+        WAREHOUSE: 'warehouse',
+        PRODUCTION: 'production',
+        HRD: 'hrd',
+        PROCUREMENT: 'purchasing',
+        PLANNING: 'production',
+        MARKETING: 'sales',
+    };
+
+    if (activeRole && roleLandingMap[activeRole]) {
+        const targetWorkspace = roleLandingMap[activeRole];
+        if (hasWorkspaceEntitlement(targetWorkspace)) {
+            return `/${targetWorkspace}`;
+        }
+        // Module not entitled — fall through to /dashboard
+    }
+
     return '/dashboard';
 }

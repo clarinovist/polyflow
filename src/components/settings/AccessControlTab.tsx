@@ -35,6 +35,7 @@ import {
     type PermissionNode,
 } from '@/lib/auth/permission-catalog';
 import { MATRIX_ROLES, getRoleLabel } from '@/lib/auth/system-roles';
+import { resolvePermissionToModule } from '@/lib/modules/module-registry';
 
 const FEATURE_PERMISSIONS = getFeatureCatalog().map((f) => ({
     key: f.key,
@@ -104,7 +105,7 @@ function getDefaultExpandedKeys(
     return expanded;
 }
 
-export function AccessControlTab() {
+export function AccessControlTab({ activeModules }: { activeModules?: string[] }) {
     const [permissions, setPermissions] = useState<PermissionState>({});
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
@@ -251,6 +252,17 @@ export function AccessControlTab() {
 
     const rows = useMemo(() => {
         const out: { node: PermissionNode; depth: number }[] = [];
+
+        // Filter catalog by active modules (if activeModules is provided)
+        const catalog = activeModules && activeModules.length > 0
+            ? PERMISSION_CATALOG.filter((node) => {
+                  const moduleKey = resolvePermissionToModule(node.key);
+                  // CORE items are always shown
+                  if (!moduleKey || moduleKey === 'CORE') return true;
+                  return activeModules.includes(moduleKey);
+              })
+            : PERMISSION_CATALOG;
+
         const walk = (nodes: PermissionNode[], depth: number) => {
             nodes.forEach((node) => {
                 out.push({ node, depth });
@@ -259,9 +271,9 @@ export function AccessControlTab() {
                 }
             });
         };
-        walk(PERMISSION_CATALOG, 0);
+        walk(catalog, 0);
         return out;
-    }, [expandedKeys]);
+    }, [expandedKeys, activeModules]);
 
     if (loading) {
         return (

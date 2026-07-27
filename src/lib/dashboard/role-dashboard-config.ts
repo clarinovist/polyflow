@@ -786,8 +786,8 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
     return catalog[r] ?? catalog.ADMIN;
 }
 
-export function buildModuleShortcuts(): ModuleShortcut[] {
-    return [
+export function buildModuleShortcuts(activeModules?: string[]): ModuleShortcut[] {
+    const all: ModuleShortcut[] = [
         {
             href: '/sales',
             label: 'Sales',
@@ -843,6 +843,22 @@ export function buildModuleShortcuts(): ModuleShortcut[] {
             resourceHint: '/dashboard',
         },
     ];
+
+    if (!activeModules || activeModules.length === 0) return all;
+
+    const hrefModuleMap: Record<string, string> = {
+        '/sales': 'SALES',
+        '/purchasing': 'PURCHASING',
+        '/production': 'PRODUCTION',
+        '/warehouse': 'INVENTORY',
+        '/finance': 'FINANCE',
+    };
+
+    return all.filter((s) => {
+        const moduleKey = hrefModuleMap[s.href];
+        if (!moduleKey) return true; // CORE items always shown
+        return activeModules.includes(moduleKey);
+    });
 }
 
 export function canAccessResource(

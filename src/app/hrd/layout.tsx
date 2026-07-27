@@ -4,6 +4,7 @@ import { HrdSidebar } from '@/components/hrd/hrd-sidebar';
 import {
     canAccessWorkspace,
     getPreferredWorkspaceLanding,
+    hasWorkspaceEntitlement,
     hasWorkspaceResourceAccess,
     isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
@@ -21,6 +22,11 @@ export default async function HrdLayout({
 
     if (!session?.user) {
         redirect('/login');
+    }
+
+    // ── Entitlement gate: tenant must own the HRD module ──
+    if (!hasWorkspaceEntitlement('hrd')) {
+        redirect('/error?error=ModuleNotEntitled');
     }
 
     const reqHeaders = await headers();

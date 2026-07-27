@@ -4,6 +4,7 @@ import { PurchasingSidebar } from '@/components/purchasing/purchasing-sidebar';
 import {
     canAccessWorkspace,
     getPreferredWorkspaceLanding,
+    hasWorkspaceEntitlement,
     hasWorkspaceResourceAccess,
     isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
@@ -21,6 +22,11 @@ export default async function PurchasingLayout({
 
     if (!session?.user) {
         redirect('/login');
+    }
+
+    // ── Entitlement gate: tenant must own the Purchasing module ──
+    if (!hasWorkspaceEntitlement('purchasing')) {
+        redirect('/error?error=ModuleNotEntitled');
     }
 
     const reqHeaders = await headers();

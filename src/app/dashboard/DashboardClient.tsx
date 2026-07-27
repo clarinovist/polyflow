@@ -55,6 +55,7 @@ interface DashboardClientProps {
     userName: string;
     userRole: string;
     permissions: string[] | 'ALL';
+    activeModules?: string[];
 }
 
 export default function DashboardClient({
@@ -62,6 +63,7 @@ export default function DashboardClient({
     userName,
     userRole,
     permissions,
+    activeModules,
 }: DashboardClientProps) {
     const router = useRouter();
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -123,7 +125,7 @@ export default function DashboardClient({
     const quickActions = buildQuickActions(role).filter((a) =>
         canAccessResource(permissions, a.resourceHint),
     );
-    const modules = buildModuleShortcuts().filter((m) =>
+    const modules = buildModuleShortcuts(activeModules).filter((m) =>
         canAccessResource(permissions, m.resourceHint),
     );
 

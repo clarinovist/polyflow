@@ -5,6 +5,7 @@ import { ClockDisplay } from '../kiosk/ClockDisplay';
 import {
     canAccessWorkspace,
     getPreferredWorkspaceLanding,
+    hasWorkspaceEntitlement,
     hasWorkspaceResourceAccess,
     isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
@@ -22,6 +23,11 @@ export default async function WarehouseLayout({
 
     if (!session) {
         redirect('/login');
+    }
+
+    // ── Entitlement gate: tenant must own the Inventory module ──
+    if (!hasWorkspaceEntitlement('warehouse')) {
+        redirect('/error?error=ModuleNotEntitled');
     }
 
     const user = {

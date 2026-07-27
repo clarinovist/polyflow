@@ -6,6 +6,7 @@ import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/core/prisma';
+import { getTenantActiveModules } from '@/lib/auth/access-policy';
 
 export default async function DashboardLayout({
     children,
@@ -84,7 +85,11 @@ export default async function DashboardLayout({
 
     return (
         <div className="min-h-screen bg-secondary/30">
-            <SidebarNav user={user} permissions={permissions} />
+            <SidebarNav
+                user={user}
+                permissions={permissions}
+                activeModules={getTenantActiveModules()}
+            />
 
             {/* Main Content */}
             <SidebarSpacer>

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { AttendanceService } from '@/services/hrd/attendance-service';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import { todayWibDateString } from '@/services/hrd/shift-window';
+import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 function csvEscape(val: string | number): string {
     const s = String(val);
@@ -31,6 +32,10 @@ function csvResponse(filename: string, header: string[], lines: CsvRow[]) {
 }
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
+    // ── Module entitlement guard ──
+    const denied = await requireModuleOrNextResponse('HRD');
+    if (denied) return denied;
+
     const session = await auth();
     if (!session) return new Response('Unauthorized', { status: 401 });
 

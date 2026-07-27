@@ -3,6 +3,7 @@ import { getExecutiveStats } from '@/actions/dashboard/dashboard';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import DashboardClient from './DashboardClient';
 import { serializeData } from '@/lib/utils/utils';
+import { getTenantActiveModules } from '@/lib/auth/access-policy';
 
 export default async function DashboardPage() {
     const session = await auth();
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
             userName={userName}
             userRole={userRole}
             permissions={permissions}
+            activeModules={getTenantActiveModules()}
         />
     );
 }

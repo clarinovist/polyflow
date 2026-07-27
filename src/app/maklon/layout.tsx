@@ -4,6 +4,7 @@ import { MaklonSidebar } from '@/components/maklon/maklon-sidebar';
 import {
     canAccessWorkspace,
     getPreferredWorkspaceLanding,
+    hasWorkspaceEntitlement,
     hasWorkspaceResourceAccess,
     isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
@@ -21,6 +22,11 @@ export default async function MaklonLayout({
 
     if (!session?.user) {
         redirect('/login');
+    }
+
+    // ── Entitlement gate: tenant must own the Maklon module ──
+    if (!hasWorkspaceEntitlement('maklon')) {
+        redirect('/error?error=ModuleNotEntitled');
     }
 
     const reqHeaders = await headers();

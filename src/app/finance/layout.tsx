@@ -4,6 +4,7 @@ import { FinanceSidebar } from '@/components/finance/finance-sidebar';
 import {
     canAccessWorkspace,
     getPreferredWorkspaceLanding,
+    hasWorkspaceEntitlement,
     hasWorkspaceResourceAccess,
     isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
@@ -21,6 +22,11 @@ export default async function FinanceLayout({
 
     if (!session?.user) {
         redirect('/login');
+    }
+
+    // ── Entitlement gate: tenant must own the Finance module ──
+    if (!hasWorkspaceEntitlement('finance')) {
+        redirect('/error?error=ModuleNotEntitled');
     }
 
     const reqHeaders = await headers();
