@@ -87,4 +87,57 @@ describe('UsageAnalyticsService Hardened', () => {
         expect(data.tenantSummaries[0].tenantName).toBe('Kiyowo Craft');
         expect(data.dailyTrends.length).toBeGreaterThan(0);
     });
+
+    it('supports today, yesterday, 30d, and custom ranges', async () => {
+        vi.mocked(prisma.tenant.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
+        vi.mocked(prisma.$queryRaw).mockResolvedValue([]);
+        vi.mocked(prisma.usageEvent.groupBy).mockResolvedValue([]);
+
+        const todayData = await UsageAnalyticsService.getAnalytics({ range: 'today' });
+        expect(todayData.periodLabel).toBe('Hari Ini');
+
+        const yesterdayData = await UsageAnalyticsService.getAnalytics({ range: 'yesterday' });
+        expect(yesterdayData.periodLabel).toBe('Kemarin');
+
+        const thirtyDayData = await UsageAnalyticsService.getAnalytics({ range: '30d' });
+        expect(thirtyDayData.periodLabel).toBe('30 Hari Terakhir');
+
+        const customData = await UsageAnalyticsService.getAnalytics({
+            range: 'custom',
+            startDate: '2026-07-01',
+            endDate: '2026-07-15',
+        });
+        expect(customData.periodLabel).toBe('2026-07-01 s/d 2026-07-15');
+    });
+
+    it('throws BusinessRuleError for invalid custom date ranges', async () => {
+        await expect(
+            UsageAnalyticsService.getAnalytics({ range: 'custom' }),
+        ).rejects.toThrow(/wajib diisi/);
+
+        await expect(
+            UsageAnalyticsService.getAnalytics({
+                range: 'custom',
+                startDate: '2026-13-45',
+                endDate: '2026-07-15',
+            }),
+        ).rejects.toThrow(/harus YYYY-MM-DD/);
+
+        await expect(
+            UsageAnalyticsService.getAnalytics({
+                range: 'custom',
+                startDate: '2026-07-20',
+                endDate: '2026-07-10',
+            }),
+        ).rejects.toThrow(/lebih besar/);
+
+        await expect(
+            UsageAnalyticsService.getAnalytics({
+                range: 'custom',
+                startDate: '2026-01-01',
+                endDate: '2026-06-01',
+            }),
+        ).rejects.toThrow(/maksimal 90 hari/);
+    });
 });

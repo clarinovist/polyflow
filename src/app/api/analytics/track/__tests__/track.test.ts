@@ -150,6 +150,86 @@ describe('Analytics Track API Route Hardened', () => {
         expect(res.status).toBe(403);
     });
 
+    it('returns 400 when body is invalid JSON', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-1' },
+        } as never);
+
+        const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: 'invalid-json',
+        });
+
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when payload fails Zod schema validation', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-1' },
+        } as never);
+
+        const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({ pathname: '' }),
+        });
+
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+    });
+
+    it('returns deduplicated response on immediate repeat tracking', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-dedup' },
+        } as never);
+        vi.mocked(prisma.usageEvent.create).mockResolvedValue({ id: 'evt-1' } as never);
+
+        const req1 = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                pathname: '/finance/coa',
+                sessionId: 'session-dedup',
+            }),
+        });
+
+        const res1 = await POST(req1);
+        expect(res1.status).toBe(200);
+
+        const req2 = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                pathname: '/finance/coa',
+                sessionId: 'session-dedup',
+            }),
+        });
+
+        const res2 = await POST(req2);
+        expect(res2.status).toBe(200);
+        const json2 = await res2.json();
+        expect(json2).toEqual({ success: true, deduplicated: true });
+    });
+
+    it('returns 429 when user exceeds rate limit of 60 calls/min', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-rate-limited' },
+        } as never);
+        vi.mocked(prisma.usageEvent.create).mockResolvedValue({ id: 'evt-1' } as never);
+
+        let lastRes;
+        for (let i = 0; i < 62; i++) {
+            const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+                method: 'POST',
+                body: JSON.stringify({
+                    pathname: '/warehouse/inventory',
+                    sessionId: `sess-${i}`,
+                }),
+            });
+            lastRes = await POST(req);
+        }
+
+        expect(lastRes?.status).toBe(429);
+    });
+
     it('successfully creates UsageEvent derived from valid pathname', async () => {
         vi.mocked(auth).mockResolvedValue({
             user: { id: 'user-1' },
