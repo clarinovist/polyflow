@@ -8,9 +8,9 @@ import {
     safeAction,
     BusinessRuleError,
     NotFoundError,
+    AuthenticationError,
 } from '@/lib/errors/errors';
-import { requireAuth, requireRole } from '@/lib/tools/auth-checks';
-import { Role } from '@prisma/client';
+import { auth } from '@/auth';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
 
 const MAX_NOTES_LENGTH = 500;
@@ -103,8 +103,12 @@ async function generateOpnameNumber() {
 
 export const createOpnameSession = withTenant(
     async function createOpnameSession(locationId: string, remarks?: string) {
-        await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
         return safeAction(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new AuthenticationError('User not authenticated');
+            }
+
             if (!locationId || typeof locationId !== 'string') {
                 throw new BusinessRuleError('Lokasi harus dipilih');
             }
@@ -135,7 +139,7 @@ export const createOpnameSession = withTenant(
                     locationId,
                     remarks,
                     status: OpnameStatus.OPEN,
-                    createdById: (await requireAuth()).user.id,
+                    createdById: session.user.id,
                     items: {
                         create: inventories.map((inv) => ({
                             productVariantId: inv.productVariantId,
@@ -156,7 +160,6 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
     opnameId: string,
     items: { id: string; countedQuantity: number; notes?: string }[],
 ) {
-    await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
     return safeAction(async () => {
         if (items.length === 0) {
             revalidateOpnamePaths(opnameId);
@@ -254,7 +257,10 @@ export const completeOpname = withTenant(async function completeOpname(
     opnameId: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await auth();
+        if (!session?.user?.id) {
+            throw new AuthenticationError('User not authenticated');
+        }
 
         await StockOpnameService.completeOpname(opnameId, session.user.id);
         revalidateOpnamePaths(opnameId);
@@ -265,7 +271,6 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
     opnameId: string,
     productVariantId: string,
 ) {
-    await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
     return safeAction(async () => {
         // Validasi sesi harus OPEN
         const opname = await prisma.stockOpname.findUnique({
@@ -319,7 +324,6 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
 
 export const deleteOpnameSession = withTenant(
     async function deleteOpnameSession(id: string) {
-        await requireRole([Role.WAREHOUSE, Role.ADMIN]);
         return safeAction(async () => {
             const session = await prisma.stockOpname.findUnique({
                 where: { id },
