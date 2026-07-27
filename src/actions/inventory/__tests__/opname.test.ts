@@ -8,12 +8,6 @@ vi.mock('next/cache', () => ({
     revalidatePath: vi.fn(),
 }));
 
-vi.mock('next/headers', () => ({
-    headers: vi.fn().mockResolvedValue({
-        get: vi.fn().mockReturnValue(null),
-    }),
-}));
-
 vi.mock('@/lib/errors/errors', async () => {
     const actual = await vi.importActual<typeof import('@/lib/errors/errors')>('@/lib/errors/errors');
     return {
@@ -32,9 +26,6 @@ vi.mock('@/lib/core/prisma', () => {
     const stockOpname = {
         findUnique: vi.fn(),
     };
-    const user = {
-        findUnique: vi.fn().mockResolvedValue({ id: 'user-1', role: 'WAREHOUSE' }),
-    };
 
     const tx = {
         stockOpnameItem,
@@ -46,7 +37,6 @@ vi.mock('@/lib/core/prisma', () => {
         prisma: {
             stockOpnameItem,
             stockOpname,
-            user,
             $transaction: vi.fn(async (input: unknown) => {
                 if (typeof input === 'function') {
                     return (input as (trx: typeof tx) => Promise<unknown>)(tx);
@@ -57,24 +47,17 @@ vi.mock('@/lib/core/prisma', () => {
     };
 });
 
-vi.mock('@/lib/auth/roles', () => ({
-    getUserRoles: vi.fn((user: { role?: string }) => user?.role ? [user.role] : []),
-    hasAnyRole: vi.fn((user: { role?: string }, roles: string[]) => {
-        return user?.role ? roles.includes(user.role) : false;
-    }),
-    hasRole: vi.fn((user: { role?: string }, role: string) => {
-        return user?.role === role;
-    }),
-}));
-
 vi.mock('@/lib/tools/audit', () => ({
     logActivity: vi.fn(),
 }));
 
 vi.mock('@/auth', () => ({
-    auth: vi.fn(async () => ({
-        user: { id: 'user-1', role: 'WAREHOUSE' },
-    })),
+    auth: vi.fn(),
+}));
+
+vi.mock('@/lib/tools/auth-checks', () => ({
+    requireAuth: vi.fn(async () => ({ user: { id: 'user-1' } })),
+    requireRole: vi.fn(),
 }));
 
 vi.mock('@/services/accounting/accounting-service', () => ({

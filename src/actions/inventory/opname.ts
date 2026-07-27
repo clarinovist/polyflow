@@ -103,9 +103,8 @@ async function generateOpnameNumber() {
 
 export const createOpnameSession = withTenant(
     async function createOpnameSession(locationId: string, remarks?: string) {
+        await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
         return safeAction(async () => {
-            await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
-
             if (!locationId || typeof locationId !== 'string') {
                 throw new BusinessRuleError('Lokasi harus dipilih');
             }
@@ -157,9 +156,8 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
     opnameId: string,
     items: { id: string; countedQuantity: number; notes?: string }[],
 ) {
+    await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
     return safeAction(async () => {
-        await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
-
         if (items.length === 0) {
             revalidateOpnamePaths(opnameId);
             return;
@@ -267,9 +265,8 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
     opnameId: string,
     productVariantId: string,
 ) {
+    await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
     return safeAction(async () => {
-        await requireRole([Role.WAREHOUSE, Role.ADMIN, Role.PRODUCTION, Role.PLANNING]);
-
         // Validasi sesi harus OPEN
         const opname = await prisma.stockOpname.findUnique({
             where: { id: opnameId },
@@ -322,9 +319,8 @@ export const addItemToOpname = withTenant(async function addItemToOpname(
 
 export const deleteOpnameSession = withTenant(
     async function deleteOpnameSession(id: string) {
+        await requireRole([Role.WAREHOUSE, Role.ADMIN]);
         return safeAction(async () => {
-            await requireRole([Role.WAREHOUSE, Role.ADMIN]);
-
             const session = await prisma.stockOpname.findUnique({
                 where: { id },
                 select: { status: true },
