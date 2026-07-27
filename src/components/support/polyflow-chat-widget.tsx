@@ -49,20 +49,38 @@ export function PolyflowChatWidget() {
         );
     }, [pathname]);
 
+    const isMobileRoute = useMemo(() => {
+        if (!pathname) return false;
+        return (
+            pathname.startsWith('/warehouse/mobile') ||
+            pathname.startsWith('/sales/mobile') ||
+            pathname.startsWith('/field/sales') ||
+            pathname.startsWith('/my')
+        );
+    }, [pathname]);
+
     if (shouldHide) {
         return null;
     }
 
     return (
-        <div className="fixed bottom-5 right-5 z-50">
+        <div
+            className={`fixed z-50 transition-all ${
+                isMobileRoute
+                    ? 'bottom-20 right-4 sm:bottom-5 sm:right-5'
+                    : 'bottom-5 right-5'
+            }`}
+        >
             <Popover>
                 <PopoverTrigger asChild>
                     <Button
                         size="lg"
-                        className="group h-14 rounded-full bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 px-5 text-white shadow-[0_20px_45px_-20px_rgba(13,148,136,0.85)] transition hover:scale-[1.02] hover:from-cyan-500 hover:to-emerald-500"
+                        className="group h-11 w-11 p-0 sm:h-14 sm:w-auto sm:px-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 text-white shadow-[0_10px_30px_-10px_rgba(13,148,136,0.85)] transition hover:scale-[1.05] hover:from-cyan-500 hover:to-emerald-500 flex items-center justify-center"
+                        title="Butuh bantuan?"
+                        aria-label="Butuh bantuan?"
                     >
-                        <MessageCircleHeart className="mr-2 h-5 w-5 transition group-hover:rotate-6" />
-                        Butuh bantuan?
+                        <MessageCircleHeart className="h-5 w-5 sm:mr-2 transition group-hover:rotate-6 shrink-0" />
+                        <span className="hidden sm:inline">Butuh bantuan?</span>
                     </Button>
                 </PopoverTrigger>
 

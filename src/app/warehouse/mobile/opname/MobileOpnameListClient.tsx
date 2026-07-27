@@ -31,7 +31,7 @@ interface MobileOpnameListClientProps {
     sessions: OpnameSession[];
 }
 
-export function MobileOpnameListClient({ sessions }: MobileOpnameListClientProps) {
+export function MobileOpnameListClient({ sessions = [] }: MobileOpnameListClientProps) {
     const router = useRouter();
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<'ALL' | 'OPEN' | 'COMPLETED'>('ALL');
@@ -43,16 +43,18 @@ export function MobileOpnameListClient({ sessions }: MobileOpnameListClientProps
         setTimeout(() => setIsRefreshing(false), 600);
     };
 
-    const openCount = sessions.filter((s) => s.status === 'OPEN').length;
+    const sessionsList = Array.isArray(sessions) ? sessions : [];
+    const openCount = sessionsList.filter((s) => s?.status === 'OPEN').length;
 
-    const filtered = sessions.filter((s) => {
+    const filtered = sessionsList.filter((s) => {
+        if (!s) return false;
         if (filter === 'OPEN' && s.status !== 'OPEN') return false;
         if (filter === 'COMPLETED' && s.status !== 'COMPLETED') return false;
         if (!search.trim()) return true;
         const q = search.toLowerCase();
         return (
             (s.opnameNumber || '').toLowerCase().includes(q) ||
-            s.location.name.toLowerCase().includes(q)
+            (s.location?.name || '').toLowerCase().includes(q)
         );
     });
 
@@ -95,7 +97,7 @@ export function MobileOpnameListClient({ sessions }: MobileOpnameListClientProps
                         className="h-7 text-xs px-2.5"
                         onClick={() => setFilter('ALL')}
                     >
-                        Semua ({sessions.length})
+                        Semua ({sessionsList.length})
                     </Button>
                     <Button
                         variant={filter === 'OPEN' ? 'default' : 'outline'}
@@ -111,7 +113,7 @@ export function MobileOpnameListClient({ sessions }: MobileOpnameListClientProps
                         className="h-7 text-xs px-2.5"
                         onClick={() => setFilter('COMPLETED')}
                     >
-                        Selesai ({sessions.filter((s) => s.status === 'COMPLETED').length})
+                        Selesai ({sessionsList.filter((s) => s?.status === 'COMPLETED').length})
                     </Button>
                 </div>
             </div>
@@ -127,9 +129,10 @@ export function MobileOpnameListClient({ sessions }: MobileOpnameListClientProps
                     </div>
                 ) : (
                     filtered.map((session) => {
-                        const totalItems = session.items.length;
-                        const countedItems = session.items.filter(
-                            (i) => i.countedQuantity !== null,
+                        const items = session.items ?? [];
+                        const totalItems = items.length;
+                        const countedItems = items.filter(
+                            (i) => i?.countedQuantity !== null && i?.countedQuantity !== undefined,
                         ).length;
                         const isOpen = session.status === 'OPEN';
 
@@ -164,7 +167,7 @@ export function MobileOpnameListClient({ sessions }: MobileOpnameListClientProps
                                         <div className="flex items-center gap-1 mt-0.5">
                                             <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
                                             <p className="text-xs text-muted-foreground truncate">
-                                                {session.location.name}
+                                                {session.location?.name || '—'}
                                             </p>
                                         </div>
                                     </div>

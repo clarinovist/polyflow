@@ -74,7 +74,8 @@ export function MobileOpnameDetailClient({
     useEffect(() => {
         const initialCounts: Record<string, string> = {};
         const initialNotes: Record<string, string> = {};
-        session.items.forEach((item) => {
+        const items = session.items ?? [];
+        items.forEach((item) => {
             if (item.countedQuantity !== null) {
                 initialCounts[item.id] = item.countedQuantity.toString();
             }
@@ -89,7 +90,8 @@ export function MobileOpnameDetailClient({
     // Dirty detection
     const dirtyItems = useMemo(() => {
         const dirty: string[] = [];
-        for (const item of session.items) {
+        const items = session.items ?? [];
+        for (const item of items) {
             const currentCount = counts[item.id];
             const originalCount =
                 item.countedQuantity !== null
@@ -108,8 +110,9 @@ export function MobileOpnameDetailClient({
 
     // Stats
     const stats = useMemo(() => {
-        const total = session.items.length;
-        const counted = session.items.filter(
+        const items = session.items ?? [];
+        const total = items.length;
+        const counted = items.filter(
             (i) => i.countedQuantity !== null,
         ).length;
         const uncounted = total - counted;
@@ -117,7 +120,7 @@ export function MobileOpnameDetailClient({
         let surplus = 0;
         let shortage = 0;
 
-        for (const item of session.items) {
+        for (const item of items) {
             const countVal = counts[item.id];
             if (countVal === undefined || countVal === '') continue;
             const actual = parseFloat(countVal);
@@ -133,7 +136,7 @@ export function MobileOpnameDetailClient({
 
     // Filtered items
     const filteredItems = useMemo(() => {
-        let items = session.items;
+        let items = session.items ?? [];
 
         if (itemFilter === 'COUNTED') {
             items = items.filter((i) => counts[i.id] !== undefined && counts[i.id] !== '');

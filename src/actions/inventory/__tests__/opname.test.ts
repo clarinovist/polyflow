@@ -25,6 +25,7 @@ vi.mock('@/lib/core/prisma', () => {
     };
     const stockOpname = {
         findUnique: vi.fn(),
+        findMany: vi.fn(),
     };
 
     const tx = {
@@ -68,7 +69,46 @@ vi.mock('@/services/accounting/accounting-service', () => ({
 
 import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
-import { saveOpnameCount } from '../opname';
+import { getOpnameSessions, saveOpnameCount } from '../opname';
+
+describe('getOpnameSessions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('queries stock opnames with location, createdBy, and items select', async () => {
+        const mockSessions = [
+            {
+                id: 'opname-1',
+                opnameNumber: 'OPN-202607-0001',
+                status: 'OPEN',
+                location: { name: 'Main Warehouse' },
+                createdBy: { name: 'Admin' },
+                items: [{ id: 'item-1', countedQuantity: 5 }],
+            },
+        ];
+        vi.mocked(prisma.stockOpname.findMany).mockResolvedValue(mockSessions as never);
+
+        const result = await getOpnameSessions();
+
+        expect(result).toEqual({ success: true, data: mockSessions });
+        expect(prisma.stockOpname.findMany).toHaveBeenCalledWith({
+            orderBy: {
+                createdAt: 'desc',
+            },
+            include: {
+                location: true,
+                createdBy: true,
+                items: {
+                    select: {
+                        id: true,
+                        countedQuantity: true,
+                    },
+                },
+            },
+        });
+    });
+});
 
 describe('saveOpnameCount', () => {
     beforeEach(() => {

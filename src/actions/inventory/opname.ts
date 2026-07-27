@@ -34,6 +34,12 @@ export const getOpnameSessions = withTenant(async function getOpnameSessions() {
             include: {
                 location: true,
                 createdBy: true,
+                items: {
+                    select: {
+                        id: true,
+                        countedQuantity: true,
+                    },
+                },
             },
         });
     });
