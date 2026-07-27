@@ -1,3 +1,4 @@
+import { OpnameStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/core/tenant', () => ({
@@ -24,13 +25,19 @@ vi.mock('@/lib/core/prisma', () => {
         count: vi.fn(),
     };
 
+    const stockOpname = {
+        findUnique: vi.fn(),
+    };
+
     const tx = {
+        stockOpname,
         stockOpnameItem,
         $executeRaw: vi.fn(),
     };
 
     return {
         prisma: {
+            stockOpname,
             stockOpnameItem,
             $transaction: vi.fn(async (input: unknown) => {
                 if (typeof input === 'function') {
@@ -63,6 +70,7 @@ import { saveOpnameCount } from './opname';
 describe('saveOpnameCount', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(prisma.stockOpname.findUnique).mockResolvedValue({ status: OpnameStatus.OPEN } as never);
     });
 
     it('executes a single transactional bulk update and revalidates path', async () => {
