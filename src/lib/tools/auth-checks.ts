@@ -182,7 +182,7 @@ export async function requireWarehouseResourcePermission(
     // Query fresh user permissions from DB to avoid stale JWT snapshot issues
     const dbUser = await prisma.user.findUnique({
         where: { id: sessionUser.id },
-        select: { id: true, role: true, allowedResources: true, isActive: true },
+        select: { id: true, role: true, isActive: true },
     });
 
     if (!dbUser || !dbUser.isActive) {
@@ -193,28 +193,29 @@ export async function requireWarehouseResourcePermission(
         return session;
     }
 
-    const rawAllowed = dbUser.allowedResources as unknown as string[] | 'ALL' | string | undefined;
+    // Aggregate allowedResources from ALL assigned roles (same logic as auth.ts)
+    const userRoles = await prisma.userRole.findMany({
+        where: { userId: sessionUser.id },
+        select: { role: true },
+    });
+    const roleNames = userRoles.map((r) => r.role);
 
-    // Strict fail-closed: if allowedResources is missing or null, deny access
-    if (!rawAllowed) {
+    if (roleNames.length === 0) {
         throw new AuthorizationError(
             `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
         );
     }
 
-    if (rawAllowed === 'ALL') {
-        return session;
-    }
+    const perms = await prisma.rolePermission.findMany({
+        where: { role: { in: roleNames }, canAccess: true },
+        select: { resource: true },
+    });
+    const resourceList = Array.from(new Set(perms.map((p) => p.resource)));
 
-    let resourceList: string[] = [];
-    if (Array.isArray(rawAllowed)) {
-        resourceList = rawAllowed;
-    } else if (typeof rawAllowed === 'string') {
-        try {
-            resourceList = JSON.parse(rawAllowed);
-        } catch {
-            resourceList = [rawAllowed];
-        }
+    if (resourceList.length === 0) {
+        throw new AuthorizationError(
+            `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
+        );
     }
 
     const hasAccess = resourceList.some((allowed) => {

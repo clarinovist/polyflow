@@ -13,6 +13,12 @@ vi.mock('@/lib/core/prisma', () => ({
         user: {
             findUnique: vi.fn(),
         },
+        userRole: {
+            findMany: vi.fn(),
+        },
+        rolePermission: {
+            findMany: vi.fn(),
+        },
         deliveryOrder: {
             findUnique: vi.fn(),
             updateMany: vi.fn(),
@@ -34,7 +40,7 @@ describe('Warehouse Hardening Unit Tests', () => {
     });
 
     describe('Auth Fail-Closed (requireWarehouseResourcePermission)', () => {
-        it('denies access when allowedResources is null or undefined for non-admin user', async () => {
+        it('denies access when user has no assigned roles', async () => {
             vi.mocked(auth).mockResolvedValue({
                 user: { id: 'user-1', role: 'STAFF', email: 'staff@test.com' },
             } as never);
@@ -42,9 +48,10 @@ describe('Warehouse Hardening Unit Tests', () => {
             vi.mocked(prisma.user.findUnique).mockResolvedValue({
                 id: 'user-1',
                 role: 'STAFF',
-                allowedResources: null,
                 isActive: true,
             } as never);
+
+            vi.mocked(prisma.userRole.findMany).mockResolvedValue([]);
 
             await expect(
                 requireWarehouseResourcePermission('/warehouse/incoming'),
@@ -59,9 +66,16 @@ describe('Warehouse Hardening Unit Tests', () => {
             vi.mocked(prisma.user.findUnique).mockResolvedValue({
                 id: 'user-1',
                 role: 'STAFF',
-                allowedResources: JSON.stringify(['/warehouse/inventory']),
                 isActive: true,
             } as never);
+
+            vi.mocked(prisma.userRole.findMany).mockResolvedValue([
+                { role: 'STAFF' },
+            ] as never);
+
+            vi.mocked(prisma.rolePermission.findMany).mockResolvedValue([
+                { resource: '/warehouse/inventory' },
+            ] as never);
 
             await expect(
                 requireWarehouseResourcePermission('/warehouse/incoming'),
@@ -77,9 +91,16 @@ describe('Warehouse Hardening Unit Tests', () => {
             vi.mocked(prisma.user.findUnique).mockResolvedValue({
                 id: 'user-1',
                 role: 'STAFF',
-                allowedResources: JSON.stringify(['/warehouse/incoming']),
                 isActive: true,
             } as never);
+
+            vi.mocked(prisma.userRole.findMany).mockResolvedValue([
+                { role: 'STAFF' },
+            ] as never);
+
+            vi.mocked(prisma.rolePermission.findMany).mockResolvedValue([
+                { resource: '/warehouse/incoming' },
+            ] as never);
 
             const result = await requireWarehouseResourcePermission('/warehouse/incoming');
             expect(result).toEqual(mockSession);
