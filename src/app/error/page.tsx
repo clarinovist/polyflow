@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ const ERROR_MESSAGES: Record<string, { title: string; description: string }> = {
     },
 };
 
-export default function ErrorPage() {
+function ErrorPageContent() {
     const searchParams = useSearchParams();
     const error = searchParams.get('error') || 'Unknown';
     const info = ERROR_MESSAGES[error] || {
@@ -46,5 +47,13 @@ export default function ErrorPage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function ErrorPage() {
+    return (
+        <Suspense>
+            <ErrorPageContent />
+        </Suspense>
     );
 }
