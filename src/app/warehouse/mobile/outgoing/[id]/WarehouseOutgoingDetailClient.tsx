@@ -454,7 +454,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                         entityLabel={order.orderNumber}
                         entityType="deliveryOrderId"
                         checkpoint="LOAD"
-                        attachments={attachments.filter((a) => a.checkpoint === 'LOAD')}
+                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'LOAD')}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
                         onAttachmentChange={() => router.refresh()}
                     />
@@ -463,7 +463,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                         entityLabel={order.orderNumber}
                         entityType="deliveryOrderId"
                         checkpoint="DAMAGE"
-                        attachments={attachments.filter((a) => a.checkpoint === 'DAMAGE')}
+                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'DAMAGE')}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
                         onAttachmentChange={() => router.refresh()}
                     />

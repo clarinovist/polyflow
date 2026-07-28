@@ -67,7 +67,7 @@ interface PurchaseInvoiceTableProps {
 }
 
 export function PurchaseInvoiceTable({
-    invoices,
+    invoices = [],
     basePath = '/purchasing/orders',
     initialStatus,
     overdueMode,
@@ -103,8 +103,9 @@ export function PurchaseInvoiceTable({
     };
 
     const filteredInvoices = useMemo(() => {
+        const safeInvoices = Array.isArray(invoices) ? invoices : [];
         const now = new Date();
-        return invoices.filter((inv) => {
+        return safeInvoices.filter((inv) => {
             // 1. Overdue mode: match board definition (dueDate < now + remaining > 0 + UNPAID/PARTIAL/OVERDUE)
             if (overdueMode) {
                 const remaining =

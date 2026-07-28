@@ -5,18 +5,19 @@ import { MobileSectionHeader, MobileTaskCard } from '@/components/mobile';
 export default async function ProductionTasksPage() {
     const response = await getProductionSupervisorOverview();
     const overview = response.success ? response.data : null;
+    const recentOrders = overview?.recentOrders ?? [];
 
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Tugas & Status SPK" />
 
-            {!overview || overview.recentOrders.length === 0 ? (
+            {!recentOrders.length ? (
                 <p className="text-sm text-slate-500 py-4">
                     Tidak ada SPK aktif saat ini.
                 </p>
             ) : (
                 <div className="space-y-3">
-                    {overview.recentOrders.map((order) => (
+                    {recentOrders.map((order) => (
                         <MobileTaskCard
                             key={order.id}
                             id={order.id}

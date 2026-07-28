@@ -344,7 +344,7 @@ export function OpnameDetailClient({
                         entityLabel={session.opnameNumber || 'Opname'}
                         entityType="stockOpnameId"
                         checkpoint="OPNAME"
-                        attachments={attachments.filter((a) => a.checkpoint === 'OPNAME')}
+                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'OPNAME')}
                         disabled={!isOpen}
                         onAttachmentChange={() => router.refresh()}
                     />

@@ -323,7 +323,7 @@ export function GoodsReceiptDetailClient({
                         entityLabel={receipt.receiptNumber}
                         entityType="goodsReceiptId"
                         checkpoint="RECEIPT"
-                        attachments={attachments.filter((a) => a.checkpoint === 'RECEIPT')}
+                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'RECEIPT')}
                         onAttachmentChange={() => window.location.reload()}
                     />
                 </div>

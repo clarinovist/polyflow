@@ -69,14 +69,15 @@ export function WarehouseAttachmentPanel({
     entityLabel: _entityLabel,
     entityType,
     checkpoint,
-    attachments,
+    attachments = [],
     disabled = false,
     onAttachmentChange,
 }: WarehouseAttachmentPanelProps) {
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const [uploading, setUploading] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [note, setNote] = useState('');
-    const [expanded, setExpanded] = useState(attachments.length > 0);
+    const [expanded, setExpanded] = useState(safeAttachments.length > 0);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const docInputRef = useRef<HTMLInputElement>(null);
 
@@ -191,9 +192,9 @@ export function WarehouseAttachmentPanel({
                     <h3 className="text-sm font-medium">
                         Bukti {CHECKPOINT_LABELS[checkpoint]}
                     </h3>
-                    {attachments.length > 0 && (
+                    {safeAttachments.length > 0 && (
                         <Badge variant="secondary" className="text-[10px]">
-                            {attachments.length}
+                            {safeAttachments.length}
                         </Badge>
                     )}
                 </div>
@@ -220,9 +221,9 @@ export function WarehouseAttachmentPanel({
             {expanded && (
                 <>
                     {/* Existing attachments */}
-                    {attachments.length > 0 && (
+                    {safeAttachments.length > 0 && (
                         <div className="grid grid-cols-3 gap-2">
-                            {attachments.map((att) => (
+                            {safeAttachments.map((att) => (
                                 <div
                                     key={att.id}
                                     className="relative group rounded-lg overflow-hidden border bg-muted/30"

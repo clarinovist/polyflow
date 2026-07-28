@@ -522,7 +522,7 @@ export function MobileOpnameDetailClient({
                 entityLabel={session.opnameNumber || 'Opname'}
                 entityType="stockOpnameId"
                 checkpoint="OPNAME"
-                attachments={attachments.filter((a) => a.checkpoint === 'OPNAME')}
+                attachments={(attachments ?? []).filter((a) => a.checkpoint === 'OPNAME')}
                 disabled={isSaving || isFinalizing}
                 onAttachmentChange={() => router.refresh()}
             />

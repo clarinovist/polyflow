@@ -311,7 +311,7 @@ export function MobileReceiptClient({
                 entityLabel={order.orderNumber}
                 entityType="purchaseOrderId"
                 checkpoint="RECEIPT"
-                attachments={attachments.filter((a) => a.checkpoint === 'RECEIPT')}
+                attachments={(attachments ?? []).filter((a) => a.checkpoint === 'RECEIPT')}
                 disabled={loading}
                 onAttachmentChange={() => router.refresh()}
             />

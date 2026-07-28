@@ -27,8 +27,8 @@ interface MobileSyncStatusProps {
  * Shows queue summary, pending/failed commands, and sync controls.
  */
 export function MobileSyncStatus({
-    commands,
-    counts,
+    commands = [],
+    counts = { queued: 0, syncing: 0, failed: 0 },
     isSyncing,
     isOnline,
     onRetry,
@@ -36,11 +36,13 @@ export function MobileSyncStatus({
     onSync,
     className,
 }: MobileSyncStatusProps) {
-    const hasQueue = counts.queued + counts.syncing + counts.failed > 0;
+    const safeCounts = counts ?? { queued: 0, syncing: 0, failed: 0 };
+    const safeCommands = Array.isArray(commands) ? commands : [];
+    const hasQueue = safeCounts.queued + safeCounts.syncing + safeCounts.failed > 0;
 
     if (!hasQueue) return null;
 
-    const failedCommands = commands.filter((c) => c.status === 'FAILED');
+    const failedCommands = safeCommands.filter((c) => c.status === 'FAILED');
 
     return (
         <div
