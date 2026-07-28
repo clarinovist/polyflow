@@ -156,3 +156,20 @@ export function buildBackupKey(tenant: string, database: string): string {
     const date = new Date().toISOString().split('T')[0];
     return `${tenant}/backups/${database}/${date}.sql.gz`;
 }
+
+/**
+ * Build R2 key for warehouse operational attachments.
+ * Format: {tenant}/warehouse/{entityType}/{entityId}/{checkpoint}/{timestamp}.{ext}
+ * entityType: 'do' | 'gr'
+ */
+export function buildWarehouseAttachmentKey(
+    tenant: string,
+    entityType: 'do' | 'gr' | 'po' | 'opname',
+    entityId: string,
+    checkpoint: string,
+    filename: string,
+): string {
+    const ext = filename.split('.').pop() || 'jpg';
+    const timestamp = Date.now();
+    return `${tenant}/warehouse/${entityType}/${entityId}/${checkpoint}/${timestamp}.${ext}`;
+}

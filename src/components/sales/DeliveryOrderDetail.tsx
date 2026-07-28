@@ -71,6 +71,10 @@ import { type CompanyConfig } from '@/lib/config/company';
 import { compressImageForUpload } from '@/lib/media/compress-image';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { Input } from '@/components/ui/input';
+import {
+    WarehouseAttachmentPanel,
+    type AttachmentItem,
+} from '@/components/warehouse/WarehouseAttachmentPanel';
 
 interface DeliveryOrderVehicle {
     plateNumber: string;
@@ -140,6 +144,8 @@ interface DeliveryOrderDetailProps {
     basePath?: string;
     /** Hide sales-only pricing/retur chrome; keep load ops */
     warehouseMode?: boolean;
+    /** Operational attachments (warehouse evidence) */
+    attachments?: AttachmentItem[];
 }
 
 export function DeliveryOrderDetail({
@@ -147,6 +153,7 @@ export function DeliveryOrderDetail({
     companyConfig,
     basePath = '/sales/deliveries',
     warehouseMode = false,
+    attachments = [],
 }: DeliveryOrderDetailProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
@@ -1230,6 +1237,53 @@ export function DeliveryOrderDetail({
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Bukti Operasional — optional, shown when there are attachments or during active states */}
+            {(attachments.length > 0 ||
+                order.status === 'LOADING' ||
+                order.status === 'SHIPPED' ||
+                order.status === 'IN_TRANSIT' ||
+                order.status === 'ARRIVED' ||
+                order.status === 'DELIVERED') && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Bukti Operasional</CardTitle>
+                        <CardDescription>
+                            Foto dan dokumen opsional terkait proses muat/bongkar
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            <WarehouseAttachmentPanel
+                                entityId={order.id}
+                                entityLabel={order.orderNumber}
+                                entityType="deliveryOrderId"
+                                checkpoint="LOAD"
+                                attachments={attachments.filter((a) => a.checkpoint === 'LOAD')}
+                                disabled={
+                                    order.status === 'DELIVERED' ||
+                                    order.status === 'CANCELLED' ||
+                                    order.status === 'RETURNED'
+                                }
+                                onAttachmentChange={() => router.refresh()}
+                            />
+                            <WarehouseAttachmentPanel
+                                entityId={order.id}
+                                entityLabel={order.orderNumber}
+                                entityType="deliveryOrderId"
+                                checkpoint="DAMAGE"
+                                attachments={attachments.filter((a) => a.checkpoint === 'DAMAGE')}
+                                disabled={
+                                    order.status === 'DELIVERED' ||
+                                    order.status === 'CANCELLED' ||
+                                    order.status === 'RETURNED'
+                                }
+                                onAttachmentChange={() => router.refresh()}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <EntityStatusTimeline
                 entityType="DeliveryOrder"

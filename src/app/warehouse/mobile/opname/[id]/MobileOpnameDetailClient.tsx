@@ -23,6 +23,10 @@ import { Label } from '@/components/ui/label';
 import { saveOpnameCount, completeOpname } from '@/actions/inventory/opname';
 import { toast } from 'sonner';
 import { formatQuantity } from '@/lib/utils/utils';
+import {
+    WarehouseAttachmentPanel,
+    type AttachmentItem,
+} from '@/components/warehouse/WarehouseAttachmentPanel';
 
 type OpnameItem = {
     id: string;
@@ -50,12 +54,14 @@ type OpnameSession = {
 interface MobileOpnameDetailClientProps {
     session: OpnameSession;
     currentUserId?: string;
+    attachments?: AttachmentItem[];
 }
 
 type ItemFilter = 'ALL' | 'COUNTED' | 'UNCOUNTED';
 
 export function MobileOpnameDetailClient({
     session,
+    attachments = [],
 }: MobileOpnameDetailClientProps) {
     const router = useRouter();
     const isOpen = session.status === 'OPEN';
@@ -509,6 +515,17 @@ export function MobileOpnameDetailClient({
                     })
                 )}
             </div>
+
+            {/* Bukti Opname — optional */}
+            <WarehouseAttachmentPanel
+                entityId={session.id}
+                entityLabel={session.opnameNumber || 'Opname'}
+                entityType="stockOpnameId"
+                checkpoint="OPNAME"
+                attachments={attachments.filter((a) => a.checkpoint === 'OPNAME')}
+                disabled={isSaving || isFinalizing}
+                onAttachmentChange={() => router.refresh()}
+            />
 
             {/* Sticky Actions */}
             {isOpen && (

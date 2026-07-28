@@ -110,6 +110,24 @@ export const createGoodsReceipt = withTenant(async function createGoodsReceipt(
             session.user.id,
         );
 
+        // Migrate any operational attachments from PO to the new GR
+        if (validated.purchaseOrderId) {
+            try {
+                await prisma.warehouseOperationalAttachment.updateMany({
+                    where: { purchaseOrderId: validated.purchaseOrderId },
+                    data: {
+                        goodsReceiptId: receipt.id,
+                        purchaseOrderId: null,
+                    },
+                });
+            } catch {
+                // Non-critical: attachment migration failure should not block GR creation
+                console.error(
+                    'Failed to migrate warehouse attachments from PO to GR',
+                );
+            }
+        }
+
         revalidatePath('/purchasing/orders');
         revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
         revalidatePath('/warehouse/incoming');

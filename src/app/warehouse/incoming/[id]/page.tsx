@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { GoodsReceiptDetailClient } from '@/components/purchasing/orders/GoodsReceiptDetailClient';
 import { Metadata } from 'next';
 import { serializeData } from '@/lib/utils/utils';
+import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
 
 import { withTenantPage } from '@/lib/core/tenant';
 
@@ -32,7 +33,10 @@ export default async function WarehouseGoodsReceiptDetailPage({
     params,
 }: PageProps) {
     const { id } = await params;
-    const rawReceipt = await getReceipt(id);
+    const [rawReceipt, attachmentsRes] = await Promise.all([
+        getReceipt(id),
+        listWarehouseAttachments({ goodsReceiptId: id }),
+    ]);
 
     if (!rawReceipt) {
         notFound();
@@ -77,6 +81,22 @@ export default async function WarehouseGoodsReceiptDetailPage({
     // Serialize all Prisma objects for Client Components
     const serializedReceipt = serializeData(warehouseReceipt);
 
+    const attachments =
+        attachmentsRes.success && attachmentsRes.data
+            ? (serializeData(attachmentsRes.data) as unknown as Array<{
+                  id: string;
+                  checkpoint: string;
+                  documentType: string;
+                  url: string;
+                  originalName?: string | null;
+                  mimeType?: string | null;
+                  sizeBytes?: number | null;
+                  note?: string | null;
+                  createdAt: string;
+                  uploadedBy?: { id: string; name: string | null } | null;
+              }>)
+            : [];
+
     return (
         <div className="p-6 max-w-6xl mx-auto">
             <GoodsReceiptDetailClient
@@ -86,6 +106,7 @@ export default async function WarehouseGoodsReceiptDetailPage({
                     >['receipt']
                 }
                 basePath="/warehouse/incoming"
+                attachments={attachments}
             />
         </div>
     );

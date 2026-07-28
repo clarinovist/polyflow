@@ -1,4 +1,5 @@
 import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
+import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
 import { WarehouseOutgoingDetailClient } from './WarehouseOutgoingDetailClient';
@@ -11,7 +12,10 @@ export default async function WarehouseMobileOutgoingDetailPage({
     params,
 }: PageProps) {
     const { id } = await params;
-    const result = await getDeliveryOrderById(id);
+    const [result, attachmentsRes] = await Promise.all([
+        getDeliveryOrderById(id),
+        listWarehouseAttachments({ deliveryOrderId: id }),
+    ]);
 
     if (!result?.success || !result.data) {
         notFound();
@@ -41,5 +45,23 @@ export default async function WarehouseMobileOutgoingDetailPage({
         }[];
     };
 
-    return <WarehouseOutgoingDetailClient order={order} />;
+    const attachments =
+        attachmentsRes.success && attachmentsRes.data
+            ? (serializeData(attachmentsRes.data) as unknown as Array<{
+                  id: string;
+                  checkpoint: string;
+                  documentType: string;
+                  url: string;
+                  originalName?: string | null;
+                  mimeType?: string | null;
+                  sizeBytes?: number | null;
+                  note?: string | null;
+                  createdAt: string;
+                  uploadedBy?: { id: string; name: string | null } | null;
+              }>)
+            : [];
+
+    return (
+        <WarehouseOutgoingDetailClient order={order} attachments={attachments} />
+    );
 }

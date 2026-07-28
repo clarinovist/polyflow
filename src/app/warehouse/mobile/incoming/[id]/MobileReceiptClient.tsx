@@ -24,6 +24,10 @@ import {
 } from 'lucide-react';
 import { createGoodsReceipt } from '@/actions/purchasing/purchasing';
 import { toast } from 'sonner';
+import {
+    WarehouseAttachmentPanel,
+    type AttachmentItem,
+} from '@/components/warehouse/WarehouseAttachmentPanel';
 
 type OrderItem = {
     id: string;
@@ -52,9 +56,11 @@ type Location = { id: string; name: string };
 export function MobileReceiptClient({
     order,
     locations,
+    attachments = [],
 }: {
     order: Order;
     locations: Location[];
+    attachments?: AttachmentItem[];
 }) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -298,6 +304,17 @@ export function MobileReceiptClient({
                     className="h-11"
                 />
             </div>
+
+            {/* Bukti Penerimaan — optional */}
+            <WarehouseAttachmentPanel
+                entityId={order.id}
+                entityLabel={order.orderNumber}
+                entityType="purchaseOrderId"
+                checkpoint="RECEIPT"
+                attachments={attachments.filter((a) => a.checkpoint === 'RECEIPT')}
+                disabled={loading}
+                onAttachmentChange={() => router.refresh()}
+            />
 
             {/* Submit */}
             <Button

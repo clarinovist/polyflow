@@ -42,6 +42,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { warehouseComponentLabels } from '@/lib/labels';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
+import {
+    WarehouseAttachmentPanel,
+    type AttachmentItem,
+} from '@/components/warehouse/WarehouseAttachmentPanel';
 
 export interface OpnameItem {
     id: string;
@@ -72,12 +76,14 @@ interface OpnameDetailClientProps {
     session: OpnameSession;
     currentUserId: string;
     basePath?: string;
+    attachments?: AttachmentItem[];
 }
 
 export function OpnameDetailClient({
     session,
     currentUserId,
     basePath = '/warehouse/opname',
+    attachments = [],
 }: OpnameDetailClientProps) {
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
@@ -323,6 +329,27 @@ export function OpnameDetailClient({
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Bukti Opname — optional */}
+            <Card className="border-border/50 shadow-sm">
+                <CardHeader>
+                    <CardTitle className="text-base">Bukti Opname</CardTitle>
+                    <CardDescription>
+                        Foto kondisi area/rak, item variance, atau berita acara — opsional
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <WarehouseAttachmentPanel
+                        entityId={session.id}
+                        entityLabel={session.opnameNumber || 'Opname'}
+                        entityType="stockOpnameId"
+                        checkpoint="OPNAME"
+                        attachments={attachments.filter((a) => a.checkpoint === 'OPNAME')}
+                        disabled={!isOpen}
+                        onAttachmentChange={() => router.refresh()}
+                    />
+                </CardContent>
+            </Card>
 
             <EntityStatusTimeline
                 entityType="StockOpname"

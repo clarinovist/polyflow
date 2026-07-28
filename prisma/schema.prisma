@@ -73,6 +73,7 @@ model User {
   // ── Fase 5 ──
   loansApproved                  EmployeeLoan[]         @relation("LoanApprover")
   customersCreated               Customer[]
+  warehouseAttachments           WarehouseOperationalAttachment[] @relation("WarehouseAttachmentUploader")
 }
 
 model UserRole {
@@ -670,6 +671,7 @@ model StockOpname {
   createdBy    User?             @relation(fields: [createdById], references: [id])
   location     Location          @relation(fields: [locationId], references: [id])
   items        StockOpnameItem[]
+  attachments  WarehouseOperationalAttachment[] @relation("StockOpnameAttachments")
 }
 
 model StockOpnameItem {
@@ -681,6 +683,7 @@ model StockOpnameItem {
   notes            String?
   opname           StockOpname    @relation(fields: [opnameId], references: [id], onDelete: Cascade)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  attachments      WarehouseOperationalAttachment[] @relation("StockOpnameItemAttachments")
 
   @@unique([opnameId, productVariantId])
 }
@@ -1073,6 +1076,7 @@ model PurchaseOrder {
   updatedAt        DateTime            @updatedAt
   goodsReceipts    GoodsReceipt[]
   invoices         PurchaseInvoice[]
+  operationalAttachments WarehouseOperationalAttachment[] @relation("PurchaseOrderAttachments")
   createdBy        User?               @relation("PurchaseCreator", fields: [createdById], references: [id])
   supplier         Supplier            @relation(fields: [supplierId], references: [id])
   items            PurchaseOrderItem[]
@@ -1116,6 +1120,7 @@ model GoodsReceipt {
   items           GoodsReceiptItem[]
   movements       StockMovement[]    @relation("GoodsReceiptMovement")
   purchaseReturns PurchaseReturn[]
+  operationalAttachments WarehouseOperationalAttachment[] @relation("GoodsReceiptAttachments")
 }
 
 model GoodsReceiptItem {
@@ -1359,6 +1364,7 @@ model DeliveryOrder {
   items              DeliveryOrderItem[]
   salesReturns       SalesReturn[]
   scheduleOrders     DeliveryScheduleOrder[]
+  operationalAttachments WarehouseOperationalAttachment[] @relation("DeliveryAttachments")
 
   @@index([salesOrderId])
   @@index([vehicleId])
@@ -3074,5 +3080,56 @@ model UsageEvent {
   @@index([tenantId, moduleKey, occurredAt])
   @@index([userId, occurredAt])
   @@index([tenantId, featureKey, occurredAt])
+}
+
+// ─── Warehouse Operational Attachments ─────────────────────
+
+enum AttachmentCheckpoint {
+  LOAD
+  UNLOAD
+  DAMAGE
+  RECEIPT
+  OPNAME
+}
+
+enum DocumentType {
+  PHOTO
+  SURAT_JALAN
+  NOTA_INVOICE
+  BERITA_ACARA
+  OTHER
+}
+
+model WarehouseOperationalAttachment {
+  id                String                @id @default(uuid())
+  deliveryOrderId   String?
+  goodsReceiptId    String?
+  purchaseOrderId   String?
+  stockOpnameId     String?
+  stockOpnameItemId String?
+  checkpoint        AttachmentCheckpoint
+  documentType      DocumentType          @default(PHOTO)
+  storageKey        String                @db.Text
+  url               String                @db.Text
+  originalName      String?
+  mimeType          String?
+  sizeBytes         Int?
+  note              String?
+  uploadedById      String?
+  createdAt         DateTime              @default(now())
+
+  deliveryOrder     DeliveryOrder?        @relation("DeliveryAttachments", fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+  goodsReceipt      GoodsReceipt?         @relation("GoodsReceiptAttachments", fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrder     PurchaseOrder?        @relation("PurchaseOrderAttachments", fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  stockOpname       StockOpname?          @relation("StockOpnameAttachments", fields: [stockOpnameId], references: [id], onDelete: Cascade)
+  stockOpnameItem   StockOpnameItem?      @relation("StockOpnameItemAttachments", fields: [stockOpnameItemId], references: [id], onDelete: Cascade)
+  uploadedBy        User?                 @relation("WarehouseAttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([deliveryOrderId])
+  @@index([goodsReceiptId])
+  @@index([purchaseOrderId])
+  @@index([stockOpnameId])
+  @@index([stockOpnameItemId])
+  @@index([checkpoint])
 }
 

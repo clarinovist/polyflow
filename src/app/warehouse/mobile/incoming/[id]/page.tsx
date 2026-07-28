@@ -1,5 +1,6 @@
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { getLocations } from '@/actions/inventory/inventory';
+import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
 import { MobileReceiptClient } from './MobileReceiptClient';
@@ -13,9 +14,10 @@ export default async function WarehouseMobileIncomingDetailPage({
 }: PageProps) {
     const { id } = await params;
 
-    const [po, locationsRes] = await Promise.all([
+    const [po, locationsRes, attachmentsRes] = await Promise.all([
         PurchaseService.getPurchaseOrderById(id),
         getLocations(),
+        listWarehouseAttachments({ purchaseOrderId: id }),
     ]);
 
     if (!po) {
@@ -50,5 +52,21 @@ export default async function WarehouseMobileIncomingDetailPage({
               }))
             : [];
 
-    return <MobileReceiptClient order={order} locations={locations} />;
+    const attachments =
+        attachmentsRes.success && attachmentsRes.data
+            ? (serializeData(attachmentsRes.data) as unknown as Array<{
+                  id: string;
+                  checkpoint: string;
+                  documentType: string;
+                  url: string;
+                  originalName?: string | null;
+                  mimeType?: string | null;
+                  sizeBytes?: number | null;
+                  note?: string | null;
+                  createdAt: string;
+                  uploadedBy?: { id: string; name: string | null } | null;
+              }>)
+            : [];
+
+    return <MobileReceiptClient order={order} locations={locations} attachments={attachments} />;
 }

@@ -32,6 +32,10 @@ import {
     correctDeliveryQtyToVerified,
 } from '@/actions/inventory/deliveries';
 import { toast } from 'sonner';
+import {
+    WarehouseAttachmentPanel,
+    type AttachmentItem,
+} from '@/components/warehouse/WarehouseAttachmentPanel';
 
 type OrderItem = {
     id: string;
@@ -73,7 +77,7 @@ function getItemStatus(
     return 'mismatch';
 }
 
-export function WarehouseOutgoingDetailClient({ order }: { order: Order }) {
+export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { order: Order; attachments?: AttachmentItem[] }) {
     const router = useRouter();
     const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
     const [shipConfirmOpen, setShipConfirmOpen] = useState(false);
@@ -441,6 +445,30 @@ export function WarehouseOutgoingDetailClient({ order }: { order: Order }) {
                     );
                 })}
             </div>
+
+            {/* Bukti Muat — optional, visible during/after loading */}
+            {(isLoading || order.status === 'SHIPPED' || order.status === 'IN_TRANSIT' || order.status === 'ARRIVED' || order.status === 'DELIVERED') && (
+                <>
+                    <WarehouseAttachmentPanel
+                        entityId={order.id}
+                        entityLabel={order.orderNumber}
+                        entityType="deliveryOrderId"
+                        checkpoint="LOAD"
+                        attachments={attachments.filter((a) => a.checkpoint === 'LOAD')}
+                        disabled={isLoadingAction || order.status === 'SHIPPED'}
+                        onAttachmentChange={() => router.refresh()}
+                    />
+                    <WarehouseAttachmentPanel
+                        entityId={order.id}
+                        entityLabel={order.orderNumber}
+                        entityType="deliveryOrderId"
+                        checkpoint="DAMAGE"
+                        attachments={attachments.filter((a) => a.checkpoint === 'DAMAGE')}
+                        disabled={isLoadingAction || order.status === 'SHIPPED'}
+                        onAttachmentChange={() => router.refresh()}
+                    />
+                </>
+            )}
 
             {/* Actions */}
             <div className="space-y-2 pt-2 sticky bottom-20 bg-background pb-2">

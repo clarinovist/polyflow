@@ -21,6 +21,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
+import {
+    WarehouseAttachmentPanel,
+    type AttachmentItem,
+} from '@/components/warehouse/WarehouseAttachmentPanel';
 
 interface GoodsReceiptItem {
     id: string;
@@ -54,11 +58,13 @@ interface GoodsReceiptDetailProps {
         items: GoodsReceiptItem[];
     };
     basePath?: string;
+    attachments?: AttachmentItem[];
 }
 
 export function GoodsReceiptDetailClient({
     receipt,
     basePath = '/warehouse/incoming',
+    attachments = [],
 }: GoodsReceiptDetailProps) {
 
     return (
@@ -310,6 +316,16 @@ export function GoodsReceiptDetailClient({
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Bukti Penerimaan — optional */}
+                    <WarehouseAttachmentPanel
+                        entityId={receipt.id}
+                        entityLabel={receipt.receiptNumber}
+                        entityType="goodsReceiptId"
+                        checkpoint="RECEIPT"
+                        attachments={attachments.filter((a) => a.checkpoint === 'RECEIPT')}
+                        onAttachmentChange={() => window.location.reload()}
+                    />
                 </div>
             </div>
         </div>
