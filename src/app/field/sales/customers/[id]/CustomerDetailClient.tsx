@@ -61,12 +61,14 @@ interface CustomerDetailClientProps {
     customer: Customer;
     recentOrders: Order[];
     outstandingInvoices: Invoice[];
+    routePlanItemId?: string;
 }
 
 export function CustomerDetailClient({
     customer,
     recentOrders,
     outstandingInvoices,
+    routePlanItemId,
 }: CustomerDetailClientProps) {
     const router = useRouter();
     const [isOutsideRoute, setIsOutsideRoute] = useState(false);
@@ -168,6 +170,7 @@ export function CustomerDetailClient({
                 targetLongitude={customer.longitude}
                 isOutsideRoute={isOutsideRoute}
                 isProspect={customer.lifecycleStatus === 'PROSPECT'}
+                routePlanItemId={routePlanItemId}
             />
 
             {/* Address */}

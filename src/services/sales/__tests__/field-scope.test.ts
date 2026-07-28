@@ -18,6 +18,7 @@ import {
   scopedCustomerWhere,
   scopedSalesOrderWhere,
   scopedInvoiceWhere,
+  scopedRouteItemWhere,
   assertCanAccessFieldCustomer,
   assertCanAccessFieldOrder,
 } from "../field-scope";
@@ -126,6 +127,83 @@ describe("field-scope", () => {
       vi.mocked(prisma.salesOrder.count).mockResolvedValue(1);
       await expect(
         assertCanAccessFieldOrder({ actorUserId: "u1", isGlobalViewer: false }, "ord-1")
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("scopedRouteItemWhere", () => {
+    it("returns empty object for global viewer", () => {
+      const where = scopedRouteItemWhere({ actorUserId: "u1", isGlobalViewer: true });
+      expect(where).toEqual({});
+    });
+
+    it("returns route plan filter for sales user", () => {
+      const where = scopedRouteItemWhere({ actorUserId: "u1", isGlobalViewer: false });
+      expect(where.routePlan).toBeDefined();
+      const rp = where.routePlan as { userId: string; date: Date };
+      expect(rp.userId).toBe("u1");
+      expect(rp.date).toBeInstanceOf(Date);
+    });
+  });
+
+  describe("cross-user isolation", () => {
+    const salesA = { actorUserId: "sales-a", isGlobalViewer: false };
+    const salesB = { actorUserId: "sales-b", isGlobalViewer: false };
+    const admin = { actorUserId: "admin-1", isGlobalViewer: true };
+
+    it("sales A and sales B produce different customer scopes", () => {
+      const whereA = scopedCustomerWhere(salesA);
+      const whereB = scopedCustomerWhere(salesB);
+      // Both have OR predicates but with different user IDs
+      expect(whereA.OR).toBeDefined();
+      expect(whereB.OR).toBeDefined();
+      // The assignment predicate references different user IDs
+      const assignmentA = whereA.OR![0] as { salesAssignments: { some: { userId: string } } };
+      const assignmentB = whereB.OR![0] as { salesAssignments: { some: { userId: string } } };
+      expect(assignmentA.salesAssignments.some.userId).toBe("sales-a");
+      expect(assignmentB.salesAssignments.some.userId).toBe("sales-b");
+    });
+
+    it("sales A and sales B produce different order scopes", () => {
+      const whereA = scopedSalesOrderWhere(salesA);
+      const whereB = scopedSalesOrderWhere(salesB);
+      expect(whereA.OR).toBeDefined();
+      expect(whereB.OR).toBeDefined();
+      // createdById predicate references different user IDs
+      const createdByA = whereA.OR![0] as { createdById: string };
+      const createdByB = whereB.OR![0] as { createdById: string };
+      expect(createdByA.createdById).toBe("sales-a");
+      expect(createdByB.createdById).toBe("sales-b");
+    });
+
+    it("admin sees all customers (empty where)", () => {
+      const where = scopedCustomerWhere(admin);
+      expect(where).toEqual({});
+    });
+
+    it("admin sees all orders (empty where)", () => {
+      const where = scopedSalesOrderWhere(admin);
+      expect(where).toEqual({});
+    });
+
+    it("sales A cannot access sales B customer via assertion", async () => {
+      vi.mocked(prisma.customer.count).mockResolvedValue(0);
+      await expect(
+        assertCanAccessFieldCustomer(salesA, "customer-of-b")
+      ).rejects.toThrow();
+    });
+
+    it("sales A can access own assigned customer", async () => {
+      vi.mocked(prisma.customer.count).mockResolvedValue(1);
+      await expect(
+        assertCanAccessFieldCustomer(salesA, "customer-of-a")
+      ).resolves.toBeUndefined();
+    });
+
+    it("admin can access any customer", async () => {
+      vi.mocked(prisma.customer.count).mockResolvedValue(1);
+      await expect(
+        assertCanAccessFieldCustomer(admin, "any-customer")
       ).resolves.toBeUndefined();
     });
   });

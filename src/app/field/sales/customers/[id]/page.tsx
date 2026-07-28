@@ -2,6 +2,7 @@ import {
     getFieldCustomerById,
     getMyFieldSalesOrders,
 } from '@/actions/sales/field-actions';
+import { getTodayRoutePlan } from '@/actions/sales/route-plans';
 import { getOutstandingInvoicesByCustomerId } from '@/actions/finance/invoice';
 import { notFound } from 'next/navigation';
 import { CustomerDetailClient } from './CustomerDetailClient';
@@ -10,10 +11,11 @@ export default async function SalesMobileCustomerDetailPage(props: {
     params: Promise<{ id: string }>;
 }) {
     const { id } = await props.params;
-    const [customerRes, ordersRes, invoicesRes] = await Promise.all([
+    const [customerRes, ordersRes, invoicesRes, routeRes] = await Promise.all([
         getFieldCustomerById(id),
         getMyFieldSalesOrders(),
         getOutstandingInvoicesByCustomerId(id),
+        getTodayRoutePlan(),
     ]);
 
     const customer =
@@ -22,12 +24,19 @@ export default async function SalesMobileCustomerDetailPage(props: {
         ordersRes?.success && ordersRes.data ? ordersRes.data : [];
     const invoices =
         invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
+    const routePlan =
+        routeRes?.success && routeRes.data ? routeRes.data : null;
 
     if (!customer) {
         notFound();
     }
 
     const orders = allOrders.filter((o) => o.customerId === id);
+
+    // Find routePlanItemId for this customer in today's route
+    const routeItem = routePlan?.items?.find(
+        (item: { customerId: string }) => item.customerId === id,
+    );
 
     return (
         <CustomerDetailClient
@@ -72,6 +81,7 @@ export default async function SalesMobileCustomerDetailPage(props: {
                 status: inv.status,
                 orderNumber: inv.salesOrder?.orderNumber || '',
             }))}
+            routePlanItemId={routeItem?.id}
         />
     );
 }

@@ -17,7 +17,7 @@ import {
     fileToDataUrl,
 } from '@/lib/media/compress-image';
 import Link from 'next/link';
-import { startFieldVisitAction } from '@/actions/sales/field-visit';
+import { startFieldVisitAction, completeFieldVisitAction } from '@/actions/sales/field-visit';
 
 type VisitCheckInCardProps = {
     customerId: string;
@@ -26,6 +26,7 @@ type VisitCheckInCardProps = {
     targetLongitude: number | null;
     isOutsideRoute?: boolean;
     isProspect?: boolean;
+    routePlanItemId?: string;
 };
 
 type ActiveVisit = {
@@ -53,6 +54,7 @@ type VisitLog = {
     isOutsideRoute?: boolean;
     extraReason?: string | null;
     clientVisitId?: string;
+    routePlanItemId?: string;
 };
 
 type JourneyItem = {
@@ -67,6 +69,7 @@ export function VisitCheckInCard({
     targetLongitude,
     isOutsideRoute = false,
     isProspect = false,
+    routePlanItemId,
 }: VisitCheckInCardProps) {
     // Lazily load active visit on mount to avoid set-state-in-effect warning
     const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(() => {
@@ -240,6 +243,7 @@ export function VisitCheckInCard({
                 clientVisitId:
                     visitData.clientVisitId ||
                     `v_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+                routePlanItemId,
                 isExtraCall: isOutsideRoute || false,
                 extraReason: isOutsideRoute
                     ? extraReason || undefined
@@ -273,7 +277,7 @@ export function VisitCheckInCard({
         setShowCheckoutModal(true);
     };
 
-    const submitCheckOut = () => {
+    const submitCheckOut = async () => {
         if (!activeVisit) return;
 
         const checkOutTime = new Date().toISOString();
@@ -301,6 +305,7 @@ export function VisitCheckInCard({
             isOutsideRoute: isOutsideRoute || false,
             extraReason: isOutsideRoute ? extraReason : undefined,
             clientVisitId,
+            routePlanItemId: routePlanItemId || undefined,
         };
 
         // Save to logs (for sync banner to pick up)
@@ -314,6 +319,17 @@ export function VisitCheckInCard({
 
         // Mark journey plan as completed
         updateJourneyPlanStatus(customerId, 'COMPLETED');
+
+        // Best-effort server checkout (route item → COMPLETED)
+        try {
+            await completeFieldVisitAction({
+                clientVisitId,
+                notes,
+                photoUrl: photoUrl || undefined,
+            });
+        } catch {
+            // Server call failed — will be synced later via VisitSyncBanner
+        }
 
         setActiveVisit(null);
         setShowCheckoutModal(false);

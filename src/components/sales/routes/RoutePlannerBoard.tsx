@@ -23,8 +23,10 @@ import {
     publishRoutePlan,
     deleteRoutePlan,
     copyLastWeekRoute,
+    copyRouteFromDate,
     importRouteExcel,
     optimizeRouteNearestNeighbor,
+    listRecentRouteDates,
 } from '@/actions/sales/route-plans';
 import { toast } from 'sonner';
 
@@ -76,6 +78,10 @@ export function RoutePlannerBoard({
     );
     const [search, setSearch] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [recentDates, setRecentDates] = useState<
+        { date: string | Date; userId: string; userName: string; itemCount: number }[]
+    >([]);
+    const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
     // Collect unique reps from existing plans
     const reps: Rep[] = useMemo(() => {
@@ -356,6 +362,58 @@ export function RoutePlannerBoard({
         setSelectedCustomerIds((prev) => [...new Set([...prev, ...ids])]);
     };
 
+    // Load recent route dates for template picker
+    const handleLoadRecentDates = async () => {
+        try {
+            const result = await listRecentRouteDates(selectedRepId || undefined);
+            if (result?.success && result.data) {
+                setRecentDates(
+                    result.data as {
+                        date: string | Date;
+                        userId: string;
+                        userName: string;
+                        itemCount: number;
+                    }[],
+                );
+                setShowTemplatePicker(true);
+            }
+        } catch {
+            toast.error('Gagal memuat tanggal rute');
+        }
+    };
+
+    // Copy from a template date
+    const handleCopyFromDate = async (fromDate: string) => {
+        if (!selectedRepId) {
+            toast.error('Pilih sales rep terlebih dahulu');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const result = await copyRouteFromDate(
+                fromDate,
+                selectedDate,
+                selectedRepId,
+            );
+            if (result?.success) {
+                const data = (result as { data?: { items?: unknown[] } }).data;
+                toast.success(
+                    `Berhasil menyalin ${data?.items?.length ?? 0} toko dari tanggal ${fromDate}`,
+                );
+                setShowTemplatePicker(false);
+            } else {
+                toast.error(
+                    (result as { error?: string })?.error ||
+                        'Gagal menyalin rute',
+                );
+            }
+        } catch {
+            toast.error('Gagal menyalin rute dari template');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -485,6 +543,15 @@ export function RoutePlannerBoard({
                     Salin Minggu Lalu
                 </Button>
                 <Button
+                    onClick={handleLoadRecentDates}
+                    size="sm"
+                    variant="outline"
+                    disabled={isSaving || !selectedRepId}
+                >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Gunakan Template
+                </Button>
+                <Button
                     onClick={handleImportExcel}
                     size="sm"
                     variant="outline"
@@ -508,6 +575,58 @@ export function RoutePlannerBoard({
                     Pilih Semua
                 </Button>
             </div>
+
+            {/* Template Picker Dropdown */}
+            {showTemplatePicker && (
+                <div className="border rounded-xl p-4 bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold">
+                            Pilih Tanggal Sumber
+                        </h3>
+                        <Button
+                            onClick={() => setShowTemplatePicker(false)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                        >
+                            Tutup
+                        </Button>
+                    </div>
+                    {recentDates.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                            Belum ada rute tersimpan
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {recentDates.map((rd) => (
+                                <button
+                                    key={`${String(rd.date)}-${rd.userId}`}
+                                    type="button"
+                                    onClick={() =>
+                                        handleCopyFromDate(String(rd.date))
+                                    }
+                                    disabled={isSaving}
+                                    className="text-left p-3 border rounded-lg hover:bg-background active:scale-[0.98] transition-all min-h-[48px]"
+                                >
+                                    <p className="text-xs font-semibold">
+                                        {new Date(rd.date).toLocaleDateString(
+                                            'id-ID',
+                                            {
+                                                weekday: 'short',
+                                                day: 'numeric',
+                                                month: 'short',
+                                            },
+                                        )}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {rd.userName} · {rd.itemCount} toko
+                                    </p>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Customer List */}

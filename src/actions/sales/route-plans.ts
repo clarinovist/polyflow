@@ -376,7 +376,8 @@ export const copyLastWeekRoute = withTenant(async function copyLastWeekRoute(
     userId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        const session = await requireAuth();
+        const actorId = session.user.id;
 
         const targetDate = new Date(date);
         const lastWeek = new Date(targetDate);
@@ -410,7 +411,7 @@ export const copyLastWeekRoute = withTenant(async function copyLastWeekRoute(
             create: {
                 date: targetDate,
                 userId,
-                createdBy: (await requireAuth()).user.id,
+                createdBy: actorId,
                 items: {
                     create: lastWeekPlan.items.map((item, idx) => ({
                         customerId: item.customerId,
@@ -435,6 +436,14 @@ export const copyLastWeekRoute = withTenant(async function copyLastWeekRoute(
                 },
                 user: { select: { id: true, name: true } },
             },
+        });
+
+        await logActivity({
+            userId: actorId,
+            action: 'ROUTE_PLAN_COPIED',
+            entityType: 'SalesRoutePlan',
+            entityId: plan.id,
+            details: `Salin rute minggu lalu ke ${date}: ${lastWeekPlan.items.length} toko`,
         });
 
         revalidatePath('/sales/routes');
@@ -669,6 +678,130 @@ export const getRouteComplianceStats = withTenant(
                         ? Math.round(((visited - extraCalls) / assigned) * 100)
                         : 0,
             };
+        });
+    },
+);
+
+// ── Copy from any date (template) ────────────────────────────────
+
+export const copyRouteFromDate = withTenant(async function copyRouteFromDate(
+    fromDate: string,
+    toDate: string,
+    userId: string,
+) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        const actorId = session.user.id;
+
+        const sourceDate = new Date(fromDate);
+        const targetDate = new Date(toDate);
+
+        const sourcePlan = await prisma.salesRoutePlan.findUnique({
+            where: {
+                date_userId: { date: sourceDate, userId },
+            },
+            include: { items: { orderBy: { sortOrder: 'asc' } } },
+        });
+
+        if (!sourcePlan || sourcePlan.items.length === 0) {
+            throw new NotFoundError('Rute sumber tidak ditemukan atau kosong');
+        }
+
+        const plan = await prisma.salesRoutePlan.upsert({
+            where: {
+                date_userId: { date: targetDate, userId },
+            },
+            update: {
+                items: {
+                    deleteMany: {},
+                    create: sourcePlan.items.map((item, idx) => ({
+                        customerId: item.customerId,
+                        sortOrder: idx + 1,
+                        status: 'PENDING',
+                    })),
+                },
+            },
+            create: {
+                date: targetDate,
+                userId,
+                createdBy: actorId,
+                items: {
+                    create: sourcePlan.items.map((item, idx) => ({
+                        customerId: item.customerId,
+                        sortOrder: idx + 1,
+                        status: 'PENDING',
+                    })),
+                },
+            },
+            include: {
+                items: {
+                    orderBy: { sortOrder: 'asc' },
+                    include: {
+                        customer: {
+                            select: {
+                                id: true,
+                                name: true,
+                                code: true,
+                                city: true,
+                            },
+                        },
+                    },
+                },
+                user: { select: { id: true, name: true } },
+            },
+        });
+
+        await logActivity({
+            userId: actorId,
+            action: 'ROUTE_PLAN_COPIED',
+            entityType: 'SalesRoutePlan',
+            entityId: plan.id,
+            details: `Salin rute dari ${fromDate} ke ${toDate}: ${sourcePlan.items.length} toko`,
+        });
+
+        revalidatePath('/sales/routes');
+        revalidatePath('/field/sales');
+        return plan;
+    });
+});
+
+// ── List recent dates with routes (for template picker) ──────────
+
+export const listRecentRouteDates = withTenant(
+    async function listRecentRouteDates(userId?: string) {
+        return safeAction(async () => {
+            await requireAuth();
+
+            const where: Record<string, unknown> = {};
+            if (userId) where.userId = userId;
+
+            const plans = await prisma.salesRoutePlan.findMany({
+                where,
+                select: {
+                    date: true,
+                    userId: true,
+                    _count: { select: { items: true } },
+                    user: { select: { name: true } },
+                },
+                orderBy: { date: 'desc' },
+                take: 14,
+            });
+
+            // Deduplicate by date (keep first per date)
+            const seen = new Set<string>();
+            const unique = plans.filter((p) => {
+                const key = p.date.toISOString().split('T')[0];
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            return unique.map((p) => ({
+                date: p.date,
+                userId: p.userId,
+                userName: p.user.name ?? 'Unknown',
+                itemCount: p._count.items,
+            }));
         });
     },
 );
