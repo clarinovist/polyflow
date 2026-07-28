@@ -59,6 +59,15 @@ function formatDate(dateStr: string): string {
     });
 }
 
+function isCurrentWeek(weekStart: string, weekEnd: string): boolean {
+    const now = new Date();
+    const start = new Date(weekStart);
+    const end = new Date(weekEnd);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return now >= start && now <= end;
+}
+
 interface ScheduleVehicle {
     vehicle: { id: string; plateNumber: string; name: string };
     orders: { id: string; status: string; deliveryOrderId: string | null }[];
@@ -202,7 +211,7 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                                     const { tripCount, stopCount, unlinked } =
                                         getAggregates(s);
                                     return (
-                                        <TableRow key={s.id}>
+                                        <TableRow key={s.id} className={isCurrentWeek(s.weekStart, s.weekEnd) ? 'bg-blue-50/50' : ''}>
                                             <TableCell>
                                                 <Link
                                                     href={`/sales/delivery-schedules/${s.id}`}
@@ -216,16 +225,23 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                                                 {formatDate(s.weekEnd)}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge
-                                                    className={
-                                                        STATUS_STYLES[
-                                                            s.status
-                                                        ] || ''
-                                                    }
-                                                >
-                                                    {STATUS_LABELS[s.status] ||
-                                                        s.status}
-                                                </Badge>
+                                                <div className="flex items-center gap-1">
+                                                    <Badge
+                                                        className={
+                                                            STATUS_STYLES[
+                                                                s.status
+                                                            ] || ''
+                                                        }
+                                                    >
+                                                        {STATUS_LABELS[s.status] ||
+                                                            s.status}
+                                                    </Badge>
+                                                    {isCurrentWeek(s.weekStart, s.weekEnd) && (
+                                                        <Badge className="bg-blue-600 text-white text-[10px]">
+                                                            Minggu Ini
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 {tripCount}
@@ -302,7 +318,7 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                                 key={s.id}
                                 href={`/sales/delivery-schedules/${s.id}`}
                             >
-                                <Card className="p-4 hover:bg-muted/50 transition-colors">
+                                <Card className={`p-4 hover:bg-muted/50 transition-colors ${isCurrentWeek(s.weekStart, s.weekEnd) ? 'ring-2 ring-blue-200 bg-blue-50/30' : ''}`}>
                                     <div className="flex items-start justify-between">
                                         <div>
                                             <p className="font-bold text-blue-600">
@@ -320,6 +336,11 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                                         >
                                             {STATUS_LABELS[s.status]}
                                         </Badge>
+                                        {isCurrentWeek(s.weekStart, s.weekEnd) && (
+                                            <Badge className="bg-blue-600 text-white ml-1">
+                                                Minggu Ini
+                                            </Badge>
+                                        )}
                                     </div>
                                     <div className="mt-2 flex gap-4 text-sm text-muted-foreground">
                                         <span>{tripCount} trip</span>

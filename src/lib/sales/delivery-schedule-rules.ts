@@ -9,6 +9,8 @@ import type {
     ScheduleStatus,
     TripStatus,
     ScheduleStopStatus,
+    TransportMode,
+    ActivityType,
 } from '@prisma/client';
 
 // ============================================
@@ -122,14 +124,21 @@ export function canTransitionTrip(from: TripStatus, to: TripStatus): boolean {
 /**
  * Guard: trip → DEPARTED.
  * R-T6/A9: semua stop non-cancelled harus punya deliveryOrderId.
+ * Non-delivery activities (BACKHAUL, OTHER) are excluded from this check.
  */
 export function canDepartTrip(
     stops: Array<{
         status: ScheduleStopStatus;
         deliveryOrderId: string | null;
+        activityType: ActivityType;
     }>,
 ): { ok: boolean; error?: string; unlinkedCount: number } {
-    const activeStops = stops.filter((s) => s.status !== 'CANCELLED');
+    const activeStops = stops.filter(
+        (s) =>
+            s.status !== 'CANCELLED' &&
+            s.activityType !== 'BACKHAUL' &&
+            s.activityType !== 'OTHER',
+    );
     const unlinked = activeStops.filter((s) => !s.deliveryOrderId);
     if (unlinked.length > 0) {
         return {
@@ -194,6 +203,42 @@ export function canRemoveTrip(
 }
 
 // ============================================
+// Transport Mode Rules
+// ============================================
+
+/**
+ * Validate transport mode requirements.
+ * - INTERNAL_FLEET: requires vehicleId
+ * - EXTERNAL_FLEET: no vehicleId required, external metadata optional
+ * - CUSTOMER_PICKUP: no vehicleId required
+ * - TBD: no vehicleId required
+ */
+export function validateTransportMode(
+    transportMode: TransportMode,
+    vehicleId: string | null | undefined,
+): { ok: boolean; error?: string } {
+    if (
+        transportMode === 'INTERNAL_FLEET' &&
+        (!vehicleId || vehicleId.trim() === '')
+    ) {
+        return {
+            ok: false,
+            error: 'Armada internal wajib memiliki kendaraan.',
+        };
+    }
+    return { ok: true };
+}
+
+/**
+ * Check if a trip can generate a Surat Jalan.
+ * Only DELIVERY and PICKUP_LOAD activities generate SJ.
+ * BACKHAUL and OTHER do not.
+ */
+export function canGenerateSJ(activityType: ActivityType): boolean {
+    return activityType === 'DELIVERY' || activityType === 'PICKUP_LOAD';
+}
+
+// ============================================
 // Stop (Plan Item) Rules
 // ============================================
 
@@ -232,6 +277,50 @@ export function isDOAlreadyAssigned(
 }
 
 /**
+ * Validate stop source based on activity type.
+ * - DELIVERY: requires salesOrderId (SO wajib)
+ * - PICKUP_LOAD: requires salesOrderId or activityLabel
+ * - BACKHAUL: requires activityLabel (no SO needed)
+ * - OTHER: requires activityLabel (no SO needed)
+ */
+export function validateStopSource(
+    activityType: ActivityType,
+    salesOrderId: string | null | undefined,
+    activityLabel: string | null | undefined,
+): { ok: boolean; error?: string } {
+    switch (activityType) {
+        case 'DELIVERY':
+            if (!salesOrderId) {
+                return {
+                    ok: false,
+                    error: 'Stop delivery wajib memiliki Sales Order.',
+                };
+            }
+            return { ok: true };
+        case 'PICKUP_LOAD':
+            if (!salesOrderId && !activityLabel) {
+                return {
+                    ok: false,
+                    error: 'Stop pickup/load harus memiliki Sales Order atau label aktivitas.',
+                };
+            }
+            return { ok: true };
+        case 'BACKHAUL':
+        case 'OTHER':
+            if (!activityLabel) {
+                return {
+                    ok: false,
+                    error: `Stop ${activityType === 'BACKHAUL' ? 'backhaul' : 'lainnya'} wajib memiliki label aktivitas.`,
+                };
+            }
+            return { ok: true };
+        default:
+            return { ok: true };
+    }
+}
+
+/**
+ * Legacy validator — kept for backward compatibility.
  * Integrity: at least one of salesOrderId or deliveryOrderId must be set.
  */
 export function validateStopHasSource(
@@ -283,8 +372,41 @@ export function canRemoveStop(stopStatus: ScheduleStopStatus): {
 // ============================================
 
 /**
- * R-T2: Check if same vehicle + same date is blocked per schedule.
- * MVP: block exact same vehicleId + departureDate (date-only).
+ * R-T2: Check if same vehicle + same date has existing trips.
+ * Now returns a warning instead of block — multi-trip is allowed.
+ */
+export function checkSameDayTrips(
+    vehicleId: string | null,
+    departureDate: Date | null,
+    existingTrips: Array<{
+        vehicleId: string | null;
+        departureDate: Date | null;
+        status: TripStatus;
+    }>,
+): { warning?: string; sameDayCount: number } {
+    if (!departureDate || !vehicleId) return { sameDayCount: 0 };
+
+    const depDateStr = new Date(departureDate).toDateString();
+    const sameDay = existingTrips.filter(
+        (t) =>
+            t.vehicleId === vehicleId &&
+            t.departureDate &&
+            new Date(t.departureDate).toDateString() === depDateStr &&
+            t.status !== 'CANCELLED',
+    );
+
+    if (sameDay.length > 0) {
+        return {
+            warning: `Kendaraan sudah memiliki ${sameDay.length} trip lain pada tanggal yang sama.`,
+            sameDayCount: sameDay.length,
+        };
+    }
+    return { sameDayCount: 0 };
+}
+
+/**
+ * Legacy: Check if same vehicle + same date is blocked per schedule.
+ * @deprecated Use checkSameDayTrips for multi-trip support.
  */
 export function isDuplicateTrip(
     vehicleId: string,
@@ -353,6 +475,145 @@ export function isSOMultiStop(
 }
 
 // ============================================
+// Planned Item Quantity Validation
+// ============================================
+
+/**
+ * Validate planned item quantity for a stop.
+ * - quantity > 0
+ * - quantity <= residual (total ordered - total delivered - other planned)
+ * - no overlap with other active planned quantities exceeding residual
+ */
+export function validatePlannedItemQuantity(
+    plannedQty: number,
+    totalOrdered: number,
+    totalDelivered: number,
+    otherPlannedQty: number,
+): { ok: boolean; error?: string; residual: number } {
+    const residual = totalOrdered - totalDelivered - otherPlannedQty;
+    if (plannedQty <= 0) {
+        return {
+            ok: false,
+            error: 'Jumlah rencana harus lebih dari 0.',
+            residual,
+        };
+    }
+    if (plannedQty > residual) {
+        return {
+            ok: false,
+            error: `Jumlah rencana (${plannedQty}) melebihi sisa yang tersedia (${residual}).`,
+            residual,
+        };
+    }
+    return { ok: true, residual };
+}
+
+// ============================================
+// Cancel / Reopen / Reschedule Guards
+// ============================================
+
+/**
+ * Guard: trip reschedule (change date/vehicle/mode).
+ * - PLANNED: free to change
+ * - CONFIRMED: requires reason + explicit reopen to PLANNED first
+ * - DEPARTED/COMPLETED: cannot reschedule
+ */
+export function canRescheduleTrip(tripStatus: TripStatus): {
+    allowed: boolean;
+    needsReopen: boolean;
+    error?: string;
+} {
+    switch (tripStatus) {
+        case 'PLANNED':
+            return { allowed: true, needsReopen: false };
+        case 'CONFIRMED':
+            return {
+                allowed: true,
+                needsReopen: true,
+                error: 'Trip sudah dikonfirmasi. Kembali ke Rencana (PLANNED) terlebih dahulu sebelum mengubah jadwal.',
+            };
+        case 'DEPARTED':
+            return {
+                allowed: false,
+                needsReopen: false,
+                error: 'Trip yang sudah berangkat tidak bisa dijadwalkan ulang.',
+            };
+        case 'COMPLETED':
+            return {
+                allowed: false,
+                needsReopen: false,
+                error: 'Trip yang sudah selesai tidak bisa dijadwalkan ulang.',
+            };
+        case 'CANCELLED':
+            return {
+                allowed: false,
+                needsReopen: false,
+                error: 'Trip yang dibatalkan tidak bisa dijadwalkan ulang. Buat trip baru.',
+            };
+        default:
+            return {
+                allowed: false,
+                needsReopen: false,
+                error: 'Status trip tidak dikenal.',
+            };
+    }
+}
+
+/**
+ * Guard: trip cancel.
+ * - PLANNED/CONFIRMED: can cancel with reason
+ * - DEPARTED: cannot cancel (already in transit)
+ * - COMPLETED: cannot cancel
+ * - CANCELLED: already cancelled
+ */
+export function canCancelTrip(tripStatus: TripStatus): {
+    allowed: boolean;
+    error?: string;
+} {
+    switch (tripStatus) {
+        case 'PLANNED':
+        case 'CONFIRMED':
+            return { allowed: true };
+        case 'DEPARTED':
+            return {
+                allowed: false,
+                error: 'Trip yang sudah berangkat tidak bisa dibatalkan.',
+            };
+        case 'COMPLETED':
+            return {
+                allowed: false,
+                error: 'Trip yang sudah selesai tidak bisa dibatalkan.',
+            };
+        case 'CANCELLED':
+            return {
+                allowed: false,
+                error: 'Trip sudah dibatalkan.',
+            };
+        default:
+            return {
+                allowed: false,
+                error: 'Status trip tidak dikenal.',
+            };
+    }
+}
+
+/**
+ * Guard: reopen trip from CONFIRMED back to PLANNED.
+ */
+export function canReopenTrip(tripStatus: TripStatus): {
+    allowed: boolean;
+    error?: string;
+} {
+    if (tripStatus === 'CONFIRMED') {
+        return { allowed: true };
+    }
+    return {
+        allowed: false,
+        error: `Tidak bisa membuka kembali trip dengan status "${tripStatus}". Hanya trip terkonfirmasi yang bisa dikembalikan ke Rencana.`,
+    };
+}
+
+// ============================================
 // Status Labels (Bahasa Indonesia)
 // ============================================
 
@@ -381,6 +642,20 @@ export const STOP_STATUS_LABELS: Record<string, string> = {
     CANCELLED: 'Batal',
 };
 
+export const TRANSPORT_MODE_LABELS: Record<string, string> = {
+    INTERNAL_FLEET: 'Armada Internal',
+    EXTERNAL_FLEET: 'Armada Luar',
+    CUSTOMER_PICKUP: 'Customer Ambil',
+    TBD: 'Belum Ditentukan',
+};
+
+export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+    DELIVERY: 'Pengiriman',
+    PICKUP_LOAD: 'Muat/Pickup',
+    BACKHAUL: 'Backhaul',
+    OTHER: 'Lainnya',
+};
+
 /**
  * Status badge color hints for UI.
  */
@@ -406,4 +681,18 @@ export const STOP_STATUS_COLORS: Record<string, string> = {
     LINKED: 'green',
     GENERATED: 'green',
     CANCELLED: 'red',
+};
+
+export const TRANSPORT_MODE_COLORS: Record<string, string> = {
+    INTERNAL_FLEET: 'blue',
+    EXTERNAL_FLEET: 'purple',
+    CUSTOMER_PICKUP: 'teal',
+    TBD: 'muted',
+};
+
+export const ACTIVITY_TYPE_COLORS: Record<string, string> = {
+    DELIVERY: 'blue',
+    PICKUP_LOAD: 'amber',
+    BACKHAUL: 'purple',
+    OTHER: 'muted',
 };

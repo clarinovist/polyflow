@@ -1035,6 +1035,7 @@ model SalesOrderItem {
   ppnMode                  PpnMode        @default(EXCLUDE)
   productVariant           ProductVariant @relation(fields: [productVariantId], references: [id])
   salesOrder               SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  schedulePlannedItems     DeliveryScheduleOrderItem[]
 
   @@index([salesOrderId])
 }
@@ -1445,47 +1446,78 @@ model DeliverySchedule {
 }
 
 model DeliveryScheduleVehicle {
-  id            String     @id @default(uuid())
+  id            String          @id @default(uuid())
   scheduleId    String
-  vehicleId     String
-  departureDate DateTime? // required in UI for CONFIRMED+; nullable for backfill
-  routeName     String? // optional trip-level route hint
-  status        TripStatus @default(PLANNED)
-  sequence      Int        @default(0)
+  vehicleId     String?         // nullable for EXTERNAL_FLEET, CUSTOMER_PICKUP, TBD
+  transportMode TransportMode   @default(INTERNAL_FLEET)
+  departureDate DateTime?       // required in UI for CONFIRMED+; nullable for backfill
+  routeName     String?         // optional trip-level route hint
+  runNumber     String?         // e.g. "1", "2" — operational run sequence label
+  status        TripStatus      @default(PLANNED)
+  sequence      Int             @default(0)
   notes         String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  // External/TBD metadata
+  externalProvider String?      // external fleet company/provider name
+  externalPlate    String?      // external vehicle plate number
+  externalDriver   String?      // external driver name
+  // Cancel/reschedule
+  cancelReason     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   schedule DeliverySchedule        @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  vehicle  Vehicle                 @relation(fields: [vehicleId], references: [id])
+  vehicle  Vehicle?                @relation(fields: [vehicleId], references: [id])
   orders   DeliveryScheduleOrder[]
 
-  // Multi-trip allowed: same vehicle + same schedule OK if departureDate differs
   @@index([scheduleId])
   @@index([vehicleId, departureDate])
   @@index([status])
+  @@index([transportMode])
+  @@index([departureDate])
 }
 
 model DeliveryScheduleOrder {
   id                String             @id @default(uuid())
   scheduleVehicleId String
-  salesOrderId      String? // plan source — nullable for legacy rows
-  deliveryOrderId   String? // CHANGED: was required → nullable until SJ created
+  salesOrderId      String?            // plan source — nullable for legacy rows & non-delivery activities
+  deliveryOrderId   String?            // CHANGED: was required → nullable until SJ created
+  activityType      ActivityType       @default(DELIVERY)
   plannedWeightKg   Decimal?           @db.Decimal(10, 2)
   sequence          Int                @default(0)
   status            ScheduleStopStatus @default(PLANNED)
   notes             String?
+  // Non-delivery activity labels
+  activityLabel     String?            // e.g. "Muat customer ABC", "Backhaul dari X"
+  activityCustomer  String?            // customer name for non-delivery activities (no SO required)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   scheduleVehicle DeliveryScheduleVehicle @relation(fields: [scheduleVehicleId], references: [id], onDelete: Cascade)
   salesOrder      SalesOrder?             @relation(fields: [salesOrderId], references: [id])
   deliveryOrder   DeliveryOrder?          @relation(fields: [deliveryOrderId], references: [id])
+  plannedItems    DeliveryScheduleOrderItem[]
 
   @@index([scheduleVehicleId])
   @@index([salesOrderId])
   @@index([deliveryOrderId])
   @@index([status])
+  @@index([activityType])
+}
+
+model DeliveryScheduleOrderItem {
+  id                String   @id @default(uuid())
+  scheduleOrderId   String
+  salesOrderItemId  String
+  plannedQuantity   Decimal  @db.Decimal(15, 4) // planned qty in base unit for this stop
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  scheduleOrder  DeliveryScheduleOrder @relation(fields: [scheduleOrderId], references: [id], onDelete: Cascade)
+  salesOrderItem SalesOrderItem        @relation(fields: [salesOrderItemId], references: [id])
+
+  @@index([scheduleOrderId])
+  @@index([salesOrderItemId])
+  @@unique([scheduleOrderId, salesOrderItemId]) // one plan per item per stop
 }
 
 model PurchaseRequest {
@@ -1585,6 +1617,20 @@ enum ScheduleStatus {
   COMPLETED // legacy
   ACTIVE // new — week is live, trips can run
   CLOSED // new — week archived
+}
+
+enum TransportMode {
+  INTERNAL_FLEET
+  EXTERNAL_FLEET
+  CUSTOMER_PICKUP
+  TBD
+}
+
+enum ActivityType {
+  DELIVERY
+  PICKUP_LOAD
+  BACKHAUL
+  OTHER
 }
 
 enum TripStatus {

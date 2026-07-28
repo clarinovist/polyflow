@@ -49,6 +49,11 @@ interface CreateDeliveryOrderParams {
     totalCharge?: number;
     estimatedWeightKg?: number;
     destinationAddress?: string;
+    /** Optional: exact planned quantities per item. If provided, DO uses these instead of full residual. */
+    plannedItems?: Array<{
+        salesOrderItemId: string;
+        plannedQuantity: number;
+    }>;
 }
 
 export interface StockReadinessLine {
@@ -107,6 +112,7 @@ export async function createDeliveryOrderFromSalesOrder(
         totalCharge,
         estimatedWeightKg,
         destinationAddress,
+        plannedItems,
     } = params;
 
     // 1. Load SO + items with product type
@@ -132,6 +138,11 @@ export async function createDeliveryOrderFromSalesOrder(
     }
 
     // 3. Physical lines with residual qty only (D7, D12)
+    // If plannedItems provided, use those quantities; otherwise use full residual
+    const plannedItemMap = new Map(
+        (plannedItems || []).map((pi) => [pi.salesOrderItemId, pi.plannedQuantity]),
+    );
+
     const residualLines = salesOrder.items
         .filter(
             (item) =>
@@ -140,8 +151,15 @@ export async function createDeliveryOrderFromSalesOrder(
         .map((item) => {
             const qty = item.quantity.toNumber();
             const delivered = item.deliveredQty.toNumber();
-            const residual = Math.round((qty - delivered) * 10000) / 10000;
-            return { item, residual };
+            const fullResidual = Math.round((qty - delivered) * 10000) / 10000;
+
+            // Use planned quantity if provided, otherwise full residual
+            const plannedQty = plannedItemMap.get(item.id);
+            const residual = plannedQty !== undefined
+                ? Math.round(plannedQty * 10000) / 10000
+                : fullResidual;
+
+            return { item, residual, fullResidual };
         })
         .filter(({ residual }) => residual > 0);
 

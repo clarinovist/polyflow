@@ -39,16 +39,25 @@ export default async function ScheduleDetailPage({
         vehicles: result.data.trips.map((sv: Trip) => ({
             id: sv.id,
             vehicleId: sv.vehicleId,
+            transportMode: sv.transportMode,
             departureDate: sv.departureDate?.toISOString() || null,
             routeName: sv.routeName,
+            runNumber: sv.runNumber,
             status: sv.status,
             sequence: sv.sequence,
             notes: sv.notes,
+            externalProvider: sv.externalProvider,
+            externalPlate: sv.externalPlate,
+            externalDriver: sv.externalDriver,
+            cancelReason: sv.cancelReason,
             createdAt: sv.createdAt.toISOString(),
             vehicle: sv.vehicle,
             orders: sv.orders.map((so: OrderStop) => ({
                 ...so,
                 createdAt: so.createdAt.toISOString(),
+                activityType: so.activityType,
+                activityLabel: so.activityLabel,
+                activityCustomer: so.activityCustomer,
                 plannedWeightKg: so.plannedWeightKg
                     ? Number(so.plannedWeightKg)
                     : null,

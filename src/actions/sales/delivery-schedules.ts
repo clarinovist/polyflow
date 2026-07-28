@@ -17,15 +17,20 @@ import {
     canDepartTrip,
     validateDepartureInWeek,
     canRemoveTrip,
-    isDuplicateTrip,
     isSOSchedulable,
     isDOAlreadyAssigned,
     validateStopHasSource,
+    validateTransportMode,
+    validateStopSource,
+    canGenerateSJ,
+    canRescheduleTrip,
+    canCancelTrip,
+    canReopenTrip,
+    checkSameDayTrips,
 } from '@/lib/sales/delivery-schedule-rules';
-import { ScheduleStatus, TripStatus, RateType, Prisma } from '@prisma/client';
+import { ScheduleStatus, TripStatus, RateType, Prisma, TransportMode, ActivityType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import {
-    createScheduleTripSchema,
     assignSalesOrderToTripSchema,
 } from '@/lib/schemas/sales';
 
@@ -307,42 +312,47 @@ export const updateDeliverySchedule = withTenant(
 export const createScheduleTrip = withTenant(async function createScheduleTrip(
     scheduleId: string,
     rawData: {
-        vehicleId: string;
+        vehicleId?: string;
+        transportMode?: TransportMode;
         departureDate: Date;
         routeName?: string;
+        runNumber?: string;
         notes?: string;
+        externalProvider?: string;
+        externalPlate?: string;
+        externalDriver?: string;
     },
 ) {
     return safeAction(async () => {
         await requireAuth();
-
-        // Zod validation
-        const parsed = createScheduleTripSchema.safeParse(rawData);
-        if (!parsed.success) {
-            throw new BusinessRuleError(
-                parsed.error.issues.map((i) => i.message).join(', '),
-            );
-        }
-        const data = parsed.data;
 
         const schedule = await prisma.deliverySchedule.findUnique({
             where: { id: scheduleId },
         });
         if (!schedule) throw new NotFoundError('Jadwal Kirim', scheduleId);
 
-        const vehicle = await prisma.vehicle.findUnique({
-            where: { id: data.vehicleId },
-        });
-        if (!vehicle) throw new NotFoundError('Kendaraan', data.vehicleId);
-        if (vehicle.status !== 'ACTIVE') {
-            throw new BusinessRuleError(
-                `Kendaraan "${vehicle.plateNumber}" tidak aktif.`,
-            );
+        const transportMode = rawData.transportMode || 'INTERNAL_FLEET';
+
+        // Validate transport mode requirements
+        const modeCheck = validateTransportMode(transportMode, rawData.vehicleId);
+        if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
+
+        // Validate vehicle if INTERNAL_FLEET
+        if (transportMode === 'INTERNAL_FLEET' && rawData.vehicleId) {
+            const vehicle = await prisma.vehicle.findUnique({
+                where: { id: rawData.vehicleId },
+            });
+            if (!vehicle) throw new NotFoundError('Kendaraan', rawData.vehicleId);
+            if (vehicle.status !== 'ACTIVE') {
+                throw new BusinessRuleError(
+                    `Kendaraan "${vehicle.plateNumber}" tidak aktif.`,
+                );
+            }
         }
 
         // R-T1: departureDate within week bounds
         const weekCheck = validateDepartureInWeek(
-            data.departureDate,
+            rawData.departureDate,
             schedule.weekStart,
             schedule.weekEnd,
         );
@@ -350,18 +360,20 @@ export const createScheduleTrip = withTenant(async function createScheduleTrip(
             throw new BusinessRuleError(weekCheck.error!);
         }
 
-        // R-T2: same vehicle + same date blocked
-        const existingTrips = await prisma.deliveryScheduleVehicle.findMany({
-            where: { scheduleId, status: { not: 'CANCELLED' } },
-            select: { vehicleId: true, departureDate: true, status: true },
-        });
-        const dupeCheck = isDuplicateTrip(
-            data.vehicleId,
-            data.departureDate,
-            existingTrips,
-        );
-        if (dupeCheck.blocked) {
-            throw new BusinessRuleError(dupeCheck.conflictTrip!);
+        // R-T2: same vehicle + same date — warning only (multi-trip allowed)
+        if (rawData.vehicleId) {
+            const existingTrips = await prisma.deliveryScheduleVehicle.findMany({
+                where: { scheduleId, status: { not: 'CANCELLED' } },
+                select: { vehicleId: true, departureDate: true, status: true },
+            });
+            const sameDayCheck = checkSameDayTrips(
+                rawData.vehicleId,
+                rawData.departureDate,
+                existingTrips,
+            );
+            if (sameDayCheck.warning) {
+                console.warn(`[schedule] ${sameDayCheck.warning}`);
+            }
         }
 
         // Default sequence = max + 1
@@ -373,10 +385,15 @@ export const createScheduleTrip = withTenant(async function createScheduleTrip(
         const trip = await prisma.deliveryScheduleVehicle.create({
             data: {
                 scheduleId,
-                vehicleId: data.vehicleId,
-                departureDate: data.departureDate,
-                routeName: data.routeName || null,
-                notes: data.notes || null,
+                vehicleId: rawData.vehicleId || null,
+                transportMode,
+                departureDate: rawData.departureDate,
+                routeName: rawData.routeName || null,
+                runNumber: rawData.runNumber || null,
+                notes: rawData.notes || null,
+                externalProvider: rawData.externalProvider || null,
+                externalPlate: rawData.externalPlate || null,
+                externalDriver: rawData.externalDriver || null,
                 sequence: (maxSeq._max.sequence ?? -1) + 1,
                 status: 'PLANNED',
             },
@@ -388,15 +405,21 @@ export const createScheduleTrip = withTenant(async function createScheduleTrip(
 });
 
 /**
- * Update trip details (only when PLANNED).
+ * Update trip details. Supports PLANNED (free edit) and CONFIRMED (with reopen).
  */
 export const updateScheduleTrip = withTenant(async function updateScheduleTrip(
     tripId: string,
     data: {
         departureDate?: Date;
         routeName?: string;
+        runNumber?: string;
         notes?: string;
         sequence?: number;
+        transportMode?: TransportMode;
+        vehicleId?: string | null;
+        externalProvider?: string;
+        externalPlate?: string;
+        externalDriver?: string;
     },
 ) {
     return safeAction(async () => {
@@ -408,13 +431,28 @@ export const updateScheduleTrip = withTenant(async function updateScheduleTrip(
         });
         if (!trip) throw new NotFoundError('Trip', tripId);
 
+        // If CONFIRMED, must reopen first (separate action)
+        if (trip.status === 'CONFIRMED') {
+            throw new BusinessRuleError(
+                'Trip sudah dikonfirmasi. Gunakan "Kembali ke Rencana" terlebih dahulu.',
+            );
+        }
+
         if (trip.status !== 'PLANNED') {
             throw new BusinessRuleError(
                 `Hanya trip dengan status "Direncanakan" yang bisa diedit.`,
             );
         }
 
-        // If changing departureDate, validate within week + duplicate check
+        // Validate transport mode if changing
+        const newMode = data.transportMode || trip.transportMode;
+        const newVehicleId = data.vehicleId !== undefined ? data.vehicleId : trip.vehicleId;
+        if (data.transportMode || data.vehicleId !== undefined) {
+            const modeCheck = validateTransportMode(newMode, newVehicleId);
+            if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
+        }
+
+        // If changing departureDate, validate within week
         if (data.departureDate) {
             const weekCheck = validateDepartureInWeek(
                 data.departureDate,
@@ -424,43 +462,21 @@ export const updateScheduleTrip = withTenant(async function updateScheduleTrip(
             if (!weekCheck.ok) {
                 throw new BusinessRuleError(weekCheck.error!);
             }
-
-            // R-T2: re-check same vehicle + same date
-            const existingTrips = await prisma.deliveryScheduleVehicle.findMany(
-                {
-                    where: {
-                        scheduleId: trip.scheduleId,
-                        status: { not: 'CANCELLED' },
-                        id: { not: tripId },
-                    },
-                    select: {
-                        vehicleId: true,
-                        departureDate: true,
-                        status: true,
-                    },
-                },
-            );
-            const dupeCheck = isDuplicateTrip(
-                trip.vehicleId,
-                data.departureDate,
-                existingTrips,
-            );
-            if (dupeCheck.blocked) {
-                throw new BusinessRuleError(dupeCheck.conflictTrip!);
-            }
         }
 
         const updated = await prisma.deliveryScheduleVehicle.update({
             where: { id: tripId },
             data: {
-                ...(data.departureDate && {
-                    departureDate: data.departureDate,
-                }),
-                ...(data.routeName !== undefined && {
-                    routeName: data.routeName,
-                }),
+                ...(data.departureDate && { departureDate: data.departureDate }),
+                ...(data.routeName !== undefined && { routeName: data.routeName }),
+                ...(data.runNumber !== undefined && { runNumber: data.runNumber }),
                 ...(data.notes !== undefined && { notes: data.notes }),
                 ...(data.sequence !== undefined && { sequence: data.sequence }),
+                ...(data.transportMode && { transportMode: data.transportMode }),
+                ...(data.vehicleId !== undefined && { vehicleId: data.vehicleId }),
+                ...(data.externalProvider !== undefined && { externalProvider: data.externalProvider }),
+                ...(data.externalPlate !== undefined && { externalPlate: data.externalPlate }),
+                ...(data.externalDriver !== undefined && { externalDriver: data.externalDriver }),
             },
         });
 
@@ -484,7 +500,7 @@ export const updateTripStatus = withTenant(async function updateTripStatus(
             include: {
                 schedule: true,
                 orders: {
-                    select: { id: true, status: true, deliveryOrderId: true },
+                    select: { id: true, status: true, deliveryOrderId: true, activityType: true },
                 },
             },
         });
@@ -986,12 +1002,15 @@ export const assignOrderToSchedule = withTenant(
             const now = new Date();
             const routeKey = doRecord.appliedRouteName?.trim() || null;
 
+            const tariffWhere: Prisma.VehicleTariffWhereInput = {
+                validFrom: { lte: now },
+                OR: [{ validUntil: null }, { validUntil: { gte: now } }],
+            };
+            if (sv.vehicleId) {
+                tariffWhere.vehicleId = sv.vehicleId;
+            }
             const candidates = await prisma.vehicleTariff.findMany({
-                where: {
-                    vehicleId: sv.vehicleId,
-                    validFrom: { lte: now },
-                    OR: [{ validUntil: null }, { validUntil: { gte: now } }],
-                },
+                where: tariffWhere,
                 orderBy: { validFrom: 'desc' },
             });
 
@@ -1170,12 +1189,15 @@ export const linkDeliveryOrderToStop = withTenant(
             const now = new Date();
             const routeKey = doRecord.appliedRouteName?.trim() || null;
 
+            const tariffWhere: Prisma.VehicleTariffWhereInput = {
+                validFrom: { lte: now },
+                OR: [{ validUntil: null }, { validUntil: { gte: now } }],
+            };
+            if (sv.vehicleId) {
+                tariffWhere.vehicleId = sv.vehicleId;
+            }
             const candidates = await prisma.vehicleTariff.findMany({
-                where: {
-                    vehicleId: sv.vehicleId,
-                    validFrom: { lte: now },
-                    OR: [{ validUntil: null }, { validUntil: { gte: now } }],
-                },
+                where: tariffWhere,
                 orderBy: { validFrom: 'desc' },
             });
 
@@ -1323,6 +1345,11 @@ export const generateDeliveryOrderFromStop = withTenant(
             if (!stop.salesOrderId) {
                 throw new BusinessRuleError('Stop tidak memiliki Sales Order.');
             }
+            if (!canGenerateSJ(stop.activityType)) {
+                throw new BusinessRuleError(
+                    `Aktivitas "${stop.activityType}" tidak menghasilkan Surat Jalan.`,
+                );
+            }
 
             const trip = stop.scheduleVehicle;
 
@@ -1342,11 +1369,18 @@ export const generateDeliveryOrderFromStop = withTenant(
             // Reuse the validated service function
             const { createDeliveryOrderFromSalesOrder } =
                 await import('@/services/sales/delivery-fulfillment-service');
+
+            // Load planned items for this stop
+            const plannedItems = await prisma.deliveryScheduleOrderItem.findMany({
+                where: { scheduleOrderId: stopId },
+                select: { salesOrderItemId: true, plannedQuantity: true },
+            });
+
             const deliveryOrder = await createDeliveryOrderFromSalesOrder({
                 salesOrderId: stop.salesOrderId,
                 sourceLocationId,
                 userId: session.user.id,
-                vehicleId: trip.vehicleId,
+                vehicleId: trip.vehicleId ?? undefined,
                 appliedRouteName: trip.routeName || undefined,
                 estimatedWeightKg: stop.plannedWeightKg
                     ? Number(stop.plannedWeightKg)
@@ -1355,18 +1389,27 @@ export const generateDeliveryOrderFromStop = withTenant(
                     so?.customer?.shippingAddress ||
                     so?.customer?.billingAddress ||
                     undefined,
+                plannedItems: plannedItems.length > 0
+                    ? plannedItems.map((pi) => ({
+                          salesOrderItemId: pi.salesOrderItemId,
+                          plannedQuantity: Number(pi.plannedQuantity),
+                      }))
+                    : undefined,
             });
 
             // Apply tariff snapshot (same logic as assignOrderToSchedule)
             const now = new Date();
             const routeKey = trip.routeName?.trim() || null;
 
+            const tripTariffWhere: Prisma.VehicleTariffWhereInput = {
+                validFrom: { lte: now },
+                OR: [{ validUntil: null }, { validUntil: { gte: now } }],
+            };
+            if (trip.vehicleId) {
+                tripTariffWhere.vehicleId = trip.vehicleId;
+            }
             const candidates = await prisma.vehicleTariff.findMany({
-                where: {
-                    vehicleId: trip.vehicleId,
-                    validFrom: { lte: now },
-                    OR: [{ validUntil: null }, { validUntil: { gte: now } }],
-                },
+                where: tripTariffWhere,
                 orderBy: { validFrom: 'desc' },
             });
 
@@ -1458,12 +1501,13 @@ export const generateDeliveryOrdersForTrip = withTenant(
             });
             if (!trip) throw new NotFoundError('Trip', tripId);
 
-            // Get all stops that need DO generation
+            // Get all stops that need DO generation (skip non-SJ activities)
             const stops = await prisma.deliveryScheduleOrder.findMany({
                 where: {
                     scheduleVehicleId: tripId,
                     status: 'PLANNED',
                     salesOrderId: { not: null },
+                    activityType: { in: ['DELIVERY', 'PICKUP_LOAD'] },
                 },
                 orderBy: { sequence: 'asc' },
             });
@@ -1527,12 +1571,18 @@ export const generateDeliveryOrdersForTrip = withTenant(
                         continue;
                     }
 
+                    // Load planned items for this stop
+                    const plannedItems = await prisma.deliveryScheduleOrderItem.findMany({
+                        where: { scheduleOrderId: fullStop.id },
+                        select: { salesOrderItemId: true, plannedQuantity: true },
+                    });
+
                     const deliveryOrder =
                         await createDeliveryOrderFromSalesOrder({
                             salesOrderId: fullStop.salesOrderId,
                             sourceLocationId,
                             userId: session.user.id,
-                            vehicleId: sv.vehicleId,
+                            vehicleId: sv.vehicleId ?? undefined,
                             appliedRouteName: sv.routeName || undefined,
                             estimatedWeightKg: fullStop.plannedWeightKg
                                 ? Number(fullStop.plannedWeightKg)
@@ -1541,20 +1591,29 @@ export const generateDeliveryOrdersForTrip = withTenant(
                                 so?.customer?.shippingAddress ||
                                 so?.customer?.billingAddress ||
                                 undefined,
+                            plannedItems: plannedItems.length > 0
+                                ? plannedItems.map((pi) => ({
+                                      salesOrderItemId: pi.salesOrderItemId,
+                                      plannedQuantity: Number(pi.plannedQuantity),
+                                  }))
+                                : undefined,
                         });
 
                     // Tariff snapshot
                     const now = new Date();
                     const routeKey = sv.routeName?.trim() || null;
+                    const batchTariffWhere: Prisma.VehicleTariffWhereInput = {
+                        validFrom: { lte: now },
+                        OR: [
+                            { validUntil: null },
+                            { validUntil: { gte: now } },
+                        ],
+                    };
+                    if (sv.vehicleId) {
+                        batchTariffWhere.vehicleId = sv.vehicleId;
+                    }
                     const candidates = await prisma.vehicleTariff.findMany({
-                        where: {
-                            vehicleId: sv.vehicleId,
-                            validFrom: { lte: now },
-                            OR: [
-                                { validUntil: null },
-                                { validUntil: { gte: now } },
-                            ],
-                        },
+                        where: batchTariffWhere,
                         orderBy: { validFrom: 'desc' },
                     });
 
@@ -1683,6 +1742,527 @@ export const deleteDeliverySchedule = withTenant(
             });
 
             revalidatePath('/sales/delivery-schedules');
+            return { success: true };
+        });
+    },
+);
+
+// ============================================
+// Operational Board Actions (new)
+// ============================================
+
+/**
+ * Get board data for a specific week — sorted by day → run → stop sequence.
+ * Returns flat list grouped by departureDate for board rendering.
+ */
+export const getDeliveryScheduleBoard = withTenant(
+    async function getDeliveryScheduleBoard(scheduleId: string) {
+        return safeAction(async () => {
+            const schedule = await prisma.deliverySchedule.findUnique({
+                where: { id: scheduleId },
+                include: {
+                    trips: {
+                        include: {
+                            vehicle: {
+                                select: {
+                                    id: true,
+                                    plateNumber: true,
+                                    name: true,
+                                    driverName: true,
+                                    capacityKg: true,
+                                },
+                            },
+                            orders: {
+                                include: {
+                                    salesOrder: {
+                                        include: {
+                                            customer: {
+                                                select: { id: true, name: true },
+                                            },
+                                            items: {
+                                                include: {
+                                                    productVariant: {
+                                                        select: {
+                                                            id: true,
+                                                            name: true,
+                                                            skuCode: true,
+                                                            primaryUnit: true,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                    deliveryOrder: {
+                                        select: {
+                                            id: true,
+                                            orderNumber: true,
+                                            status: true,
+                                        },
+                                    },
+                                    plannedItems: {
+                                        include: {
+                                            salesOrderItem: {
+                                                include: {
+                                                    productVariant: {
+                                                        select: {
+                                                            id: true,
+                                                            name: true,
+                                                            skuCode: true,
+                                                            primaryUnit: true,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                                orderBy: { sequence: 'asc' },
+                            },
+                        },
+                        orderBy: [{ departureDate: 'asc' }, { sequence: 'asc' }],
+                    },
+                    createdBy: { select: { name: true } },
+                },
+            });
+            if (!schedule) throw new NotFoundError('Jadwal Kirim', scheduleId);
+            return schedule;
+        });
+    },
+);
+
+/**
+ * Cancel trip with reason. Sets status to CANCELLED, preserves SJ.
+ */
+export const cancelTrip = withTenant(async function cancelTrip(
+    tripId: string,
+    reason: string,
+) {
+    return safeAction(async () => {
+        await requireAuth();
+
+        const trip = await prisma.deliveryScheduleVehicle.findUnique({
+            where: { id: tripId },
+            include: { schedule: true },
+        });
+        if (!trip) throw new NotFoundError('Trip', tripId);
+
+        const cancelCheck = canCancelTrip(trip.status);
+        if (!cancelCheck.allowed) {
+            throw new BusinessRuleError(cancelCheck.error!);
+        }
+
+        if (!reason || reason.trim() === '') {
+            throw new BusinessRuleError('Alasan pembatalan wajib diisi.');
+        }
+
+        const updated = await prisma.deliveryScheduleVehicle.update({
+            where: { id: tripId },
+            data: {
+                status: 'CANCELLED',
+                cancelReason: reason,
+            },
+        });
+
+        revalidatePath(`/sales/delivery-schedules/${trip.scheduleId}`);
+        return updated;
+    });
+});
+
+/**
+ * Reopen trip from CONFIRMED back to PLANNED.
+ * Requires reason for audit trail.
+ */
+export const reopenTrip = withTenant(async function reopenTrip(
+    tripId: string,
+    reason: string,
+) {
+    return safeAction(async () => {
+        await requireAuth();
+
+        const trip = await prisma.deliveryScheduleVehicle.findUnique({
+            where: { id: tripId },
+            include: { schedule: true },
+        });
+        if (!trip) throw new NotFoundError('Trip', tripId);
+
+        const reopenCheck = canReopenTrip(trip.status);
+        if (!reopenCheck.allowed) {
+            throw new BusinessRuleError(reopenCheck.error!);
+        }
+
+        const updated = await prisma.deliveryScheduleVehicle.update({
+            where: { id: tripId },
+            data: {
+                status: 'PLANNED',
+                cancelReason: reason || null,
+            },
+        });
+
+        revalidatePath(`/sales/delivery-schedules/${trip.scheduleId}`);
+        return updated;
+    });
+});
+
+/**
+ * Reschedule trip: change date, vehicle, mode with reason.
+ * PLANNED: free to change. CONFIRMED: must reopen first.
+ */
+export const rescheduleTrip = withTenant(async function rescheduleTrip(
+    tripId: string,
+    data: {
+        departureDate?: Date;
+        vehicleId?: string | null;
+        transportMode?: TransportMode;
+        externalProvider?: string;
+        externalPlate?: string;
+        externalDriver?: string;
+        reason?: string;
+    },
+) {
+    return safeAction(async () => {
+        await requireAuth();
+
+        const trip = await prisma.deliveryScheduleVehicle.findUnique({
+            where: { id: tripId },
+            include: { schedule: true },
+        });
+        if (!trip) throw new NotFoundError('Trip', tripId);
+
+        const rescheduleCheck = canRescheduleTrip(trip.status);
+        if (!rescheduleCheck.allowed) {
+            throw new BusinessRuleError(rescheduleCheck.error!);
+        }
+
+        // If CONFIRMED, must reopen first
+        if (rescheduleCheck.needsReopen) {
+            if (!data.reason || data.reason.trim() === '') {
+                throw new BusinessRuleError(
+                    'Alasan perubahan wajib diisi untuk trip terkonfirmasi.',
+                );
+            }
+            // Reopen first
+            await prisma.deliveryScheduleVehicle.update({
+                where: { id: tripId },
+                data: { status: 'PLANNED' },
+            });
+        }
+
+        // Validate transport mode
+        const newMode = data.transportMode || trip.transportMode;
+        const newVehicleId = data.vehicleId !== undefined ? data.vehicleId : trip.vehicleId;
+        const modeCheck = validateTransportMode(newMode, newVehicleId);
+        if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
+
+        // Validate departure date within week
+        if (data.departureDate) {
+            const weekCheck = validateDepartureInWeek(
+                data.departureDate,
+                trip.schedule.weekStart,
+                trip.schedule.weekEnd,
+            );
+            if (!weekCheck.ok) throw new BusinessRuleError(weekCheck.error!);
+        }
+
+        const updated = await prisma.deliveryScheduleVehicle.update({
+            where: { id: tripId },
+            data: {
+                status: 'PLANNED',
+                ...(data.departureDate && { departureDate: data.departureDate }),
+                ...(data.vehicleId !== undefined && { vehicleId: data.vehicleId }),
+                ...(data.transportMode && { transportMode: data.transportMode }),
+                ...(data.externalProvider !== undefined && { externalProvider: data.externalProvider }),
+                ...(data.externalPlate !== undefined && { externalPlate: data.externalPlate }),
+                ...(data.externalDriver !== undefined && { externalDriver: data.externalDriver }),
+                ...(data.reason && { cancelReason: data.reason }),
+            },
+        });
+
+        revalidatePath(`/sales/delivery-schedules/${trip.scheduleId}`);
+        return updated;
+    });
+});
+
+/**
+ * Reorder stops within a trip. Accepts ordered array of stop IDs.
+ */
+export const reorderStops = withTenant(async function reorderStops(
+    tripId: string,
+    stopIds: string[],
+) {
+    return safeAction(async () => {
+        await requireAuth();
+
+        const trip = await prisma.deliveryScheduleVehicle.findUnique({
+            where: { id: tripId },
+            include: {
+                orders: { select: { id: true, scheduleVehicleId: true } },
+            },
+        });
+        if (!trip) throw new NotFoundError('Trip', tripId);
+
+        // Verify all stopIds belong to this trip
+        const tripStopIds = new Set(trip.orders.map((o) => o.id));
+        if (stopIds.some((id) => !tripStopIds.has(id))) {
+            throw new BusinessRuleError(
+                'Beberapa stop ID bukan milik trip ini.',
+            );
+        }
+
+        // Update sequence for each stop
+        await prisma.$transaction(
+            stopIds.map((stopId, index) =>
+                prisma.deliveryScheduleOrder.update({
+                    where: { id: stopId },
+                    data: { sequence: index },
+                }),
+            ),
+        );
+
+        revalidatePath(`/sales/delivery-schedules/${trip.scheduleId}`);
+        return { success: true };
+    });
+});
+
+/**
+ * Quick-add: transactional action to add a stop to a trip (or create trip + stop).
+ * Supports: SO delivery, non-delivery activities, planned items.
+ */
+export const quickAddStop = withTenant(async function quickAddStop(
+    scheduleId: string,
+    data: {
+        // Trip selection (existing or create new)
+        existingTripId?: string;
+        // New trip params (if no existingTripId)
+        vehicleId?: string;
+        transportMode?: TransportMode;
+        departureDate: Date;
+        runNumber?: string;
+        externalProvider?: string;
+        externalPlate?: string;
+        externalDriver?: string;
+        // Stop params
+        activityType?: ActivityType;
+        salesOrderId?: string;
+        activityLabel?: string;
+        activityCustomer?: string;
+        plannedWeightKg?: number;
+        notes?: string;
+        // Planned items (optional)
+        plannedItems?: Array<{
+            salesOrderItemId: string;
+            plannedQuantity: number;
+        }>;
+    },
+) {
+    return safeAction(async () => {
+        await requireAuth();
+
+        const schedule = await prisma.deliverySchedule.findUnique({
+            where: { id: scheduleId },
+        });
+        if (!schedule) throw new NotFoundError('Jadwal Kirim', scheduleId);
+
+        const activityType = data.activityType || 'DELIVERY';
+
+        // Validate stop source
+        const sourceCheck = validateStopSource(
+            activityType,
+            data.salesOrderId,
+            data.activityLabel,
+        );
+        if (!sourceCheck.ok) throw new BusinessRuleError(sourceCheck.error!);
+
+        // Validate SO if delivery
+        if (data.salesOrderId) {
+            const so = await prisma.salesOrder.findUnique({
+                where: { id: data.salesOrderId },
+            });
+            if (!so) throw new NotFoundError('Sales Order', data.salesOrderId);
+            if (!isSOSchedulable(so.status)) {
+                throw new BusinessRuleError(
+                    `SO "${so.orderNumber}" tidak bisa dijadwalkan.`,
+                );
+            }
+        }
+
+        let tripId: string;
+
+        if (data.existingTripId) {
+            // Use existing trip
+            const trip = await prisma.deliveryScheduleVehicle.findUnique({
+                where: { id: data.existingTripId },
+            });
+            if (!trip) throw new NotFoundError('Trip', data.existingTripId);
+            if (trip.scheduleId !== scheduleId) {
+                throw new BusinessRuleError('Trip bukan milik jadwal ini.');
+            }
+            if (trip.status !== 'PLANNED' && trip.status !== 'CONFIRMED') {
+                throw new BusinessRuleError(
+                    `Trip dengan status "${trip.status}" tidak bisa menerima stop baru.`,
+                );
+            }
+            tripId = trip.id;
+        } else {
+            // Create new trip
+            const transportMode = data.transportMode || 'INTERNAL_FLEET';
+            const modeCheck = validateTransportMode(transportMode, data.vehicleId);
+            if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
+
+            if (transportMode === 'INTERNAL_FLEET' && data.vehicleId) {
+                const vehicle = await prisma.vehicle.findUnique({
+                    where: { id: data.vehicleId },
+                });
+                if (!vehicle) throw new NotFoundError('Kendaraan', data.vehicleId);
+                if (vehicle.status !== 'ACTIVE') {
+                    throw new BusinessRuleError(
+                        `Kendaraan "${vehicle.plateNumber}" tidak aktif.`,
+                    );
+                }
+            }
+
+            const weekCheck = validateDepartureInWeek(
+                data.departureDate,
+                schedule.weekStart,
+                schedule.weekEnd,
+            );
+            if (!weekCheck.ok) throw new BusinessRuleError(weekCheck.error!);
+
+            const maxSeq = await prisma.deliveryScheduleVehicle.aggregate({
+                where: { scheduleId },
+                _max: { sequence: true },
+            });
+
+            const newTrip = await prisma.deliveryScheduleVehicle.create({
+                data: {
+                    scheduleId,
+                    vehicleId: data.vehicleId || null,
+                    transportMode,
+                    departureDate: data.departureDate,
+                    runNumber: data.runNumber || null,
+                    externalProvider: data.externalProvider || null,
+                    externalPlate: data.externalPlate || null,
+                    externalDriver: data.externalDriver || null,
+                    sequence: (maxSeq._max.sequence ?? -1) + 1,
+                    status: 'PLANNED',
+                },
+            });
+            tripId = newTrip.id;
+        }
+
+        // Create stop
+        const maxStopSeq = await prisma.deliveryScheduleOrder.aggregate({
+            where: { scheduleVehicleId: tripId },
+            _max: { sequence: true },
+        });
+
+        const stop = await prisma.deliveryScheduleOrder.create({
+            data: {
+                scheduleVehicleId: tripId,
+                salesOrderId: data.salesOrderId || null,
+                activityType,
+                activityLabel: data.activityLabel || null,
+                activityCustomer: data.activityCustomer || null,
+                plannedWeightKg: data.plannedWeightKg ?? null,
+                notes: data.notes || null,
+                sequence: (maxStopSeq._max.sequence ?? -1) + 1,
+                status: 'PLANNED',
+            },
+        });
+
+        // Create planned items if provided
+        if (data.plannedItems && data.plannedItems.length > 0) {
+            await prisma.deliveryScheduleOrderItem.createMany({
+                data: data.plannedItems.map((item) => ({
+                    scheduleOrderId: stop.id,
+                    salesOrderItemId: item.salesOrderItemId,
+                    plannedQuantity: item.plannedQuantity,
+                })),
+            });
+        }
+
+        revalidatePath(`/sales/delivery-schedules/${scheduleId}`);
+        return { tripId, stop };
+    });
+});
+
+/**
+ * Update planned items for a stop.
+ * Validates planned quantities against residual.
+ */
+export const updateStopPlannedItems = withTenant(
+    async function updateStopPlannedItems(
+        stopId: string,
+        items: Array<{
+            salesOrderItemId: string;
+            plannedQuantity: number;
+        }>,
+    ) {
+        return safeAction(async () => {
+            await requireAuth();
+
+            const stop = await prisma.deliveryScheduleOrder.findUnique({
+                where: { id: stopId },
+                include: {
+                    scheduleVehicle: { include: { schedule: true } },
+                    plannedItems: true,
+                },
+            });
+            if (!stop) throw new NotFoundError('Stop', stopId);
+            if (stop.status === 'CANCELLED') {
+                throw new BusinessRuleError('Stop sudah dibatalkan.');
+            }
+
+            // Validate each planned item
+            for (const item of items) {
+                const soi = await prisma.salesOrderItem.findUnique({
+                    where: { id: item.salesOrderItemId },
+                });
+                if (!soi) throw new NotFoundError('Sales Order Item', item.salesOrderItemId);
+
+                // Compute residual for this item
+                const totalDelivered = Number(soi.deliveredQty);
+                const otherPlanned = await prisma.deliveryScheduleOrderItem.aggregate({
+                    where: {
+                        salesOrderItemId: item.salesOrderItemId,
+                        scheduleOrderId: { not: stopId },
+                        scheduleOrder: { status: { not: 'CANCELLED' } },
+                    },
+                    _sum: { plannedQuantity: true },
+                });
+                const otherPlannedQty = Number(otherPlanned._sum.plannedQuantity || 0);
+                const residual = Number(soi.quantity) - totalDelivered - otherPlannedQty;
+
+                if (item.plannedQuantity <= 0) {
+                    throw new BusinessRuleError(
+                        `Jumlah rencana untuk item harus lebih dari 0.`,
+                    );
+                }
+                if (item.plannedQuantity > residual) {
+                    throw new BusinessRuleError(
+                        `Jumlah rencana (${item.plannedQuantity}) melebihi sisa yang tersedia (${residual}).`,
+                    );
+                }
+            }
+
+            // Delete existing planned items and recreate
+            await prisma.deliveryScheduleOrderItem.deleteMany({
+                where: { scheduleOrderId: stopId },
+            });
+
+            if (items.length > 0) {
+                await prisma.deliveryScheduleOrderItem.createMany({
+                    data: items.map((item) => ({
+                        scheduleOrderId: stopId,
+                        salesOrderItemId: item.salesOrderItemId,
+                        plannedQuantity: item.plannedQuantity,
+                    })),
+                });
+            }
+
+            revalidatePath(
+                `/sales/delivery-schedules/${stop.scheduleVehicle.scheduleId}`,
+            );
             return { success: true };
         });
     },

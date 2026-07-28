@@ -99,6 +99,34 @@ const STOP_STATUS_STYLES: Record<string, string> = {
     CANCELLED: 'bg-red-100 text-red-700',
 };
 
+const TRANSPORT_MODE_LABELS: Record<string, string> = {
+    INTERNAL_FLEET: 'Armada Internal',
+    EXTERNAL_FLEET: 'Armada Luar',
+    CUSTOMER_PICKUP: 'Customer Ambil',
+    TBD: 'Belum Ditentukan',
+};
+
+const TRANSPORT_MODE_STYLES: Record<string, string> = {
+    INTERNAL_FLEET: 'bg-blue-100 text-blue-700',
+    EXTERNAL_FLEET: 'bg-purple-100 text-purple-700',
+    CUSTOMER_PICKUP: 'bg-teal-100 text-teal-700',
+    TBD: 'bg-gray-100 text-gray-500',
+};
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+    DELIVERY: 'Pengiriman',
+    PICKUP_LOAD: 'Muat/Pickup',
+    BACKHAUL: 'Backhaul',
+    OTHER: 'Lainnya',
+};
+
+const ACTIVITY_TYPE_STYLES: Record<string, string> = {
+    DELIVERY: 'bg-blue-50 text-blue-700',
+    PICKUP_LOAD: 'bg-amber-50 text-amber-700',
+    BACKHAUL: 'bg-purple-50 text-purple-700',
+    OTHER: 'bg-gray-50 text-gray-500',
+};
+
 // ============================================
 // Helpers
 // ============================================
@@ -153,6 +181,9 @@ interface StopItem {
 interface Stop {
     id: string;
     status: string;
+    activityType: string;
+    activityLabel: string | null;
+    activityCustomer: string | null;
     plannedWeightKg: number | null;
     sequence: number;
     notes: string | null;
@@ -174,21 +205,43 @@ interface Stop {
         customer?: { id: string; name: string } | null;
         items: StopItem[];
     } | null;
+    plannedItems?: Array<{
+        id: string;
+        plannedQuantity: number;
+        salesOrderItem: {
+            id: string;
+            quantity: number;
+            deliveredQty: number;
+            productVariant: {
+                id: string;
+                name: string;
+                skuCode: string;
+                primaryUnit: string;
+            };
+        };
+    }>;
 }
 
 interface Trip {
     id: string;
-    vehicleId: string;
+    vehicleId: string | null;
+    transportMode: string;
     departureDate: string | null;
     routeName: string | null;
+    runNumber: string | null;
     status: string;
+    notes: string | null;
+    externalProvider: string | null;
+    externalPlate: string | null;
+    externalDriver: string | null;
+    cancelReason: string | null;
     vehicle: {
         id: string;
         plateNumber: string;
         name: string;
         driverName: string | null;
         capacityKg?: number | null;
-    };
+    } | null;
     orders: Stop[];
 }
 
@@ -298,7 +351,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
             allStops.push({
                 ...o,
                 tripId: t.id,
-                tripPlate: t.vehicle.plateNumber,
+                tripPlate: t.vehicle?.plateNumber || t.externalPlate || '-',
                 tripDate: t.departureDate,
             });
         });
@@ -963,6 +1016,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                 <TableRow>
                                     <TableHead>#</TableHead>
                                     <TableHead>No. SO</TableHead>
+                                    <TableHead>Aktivitas</TableHead>
                                     <TableHead>Customer</TableHead>
                                     <TableHead className="text-right">
                                         Berat Rencana
@@ -1040,9 +1094,18 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                             })()}
                                         </TableCell>
                                         <TableCell>
+                                            <div className="flex items-center gap-1">
+                                                <Badge className={ACTIVITY_TYPE_STYLES[stop.activityType] || ''}>
+                                                    {ACTIVITY_TYPE_LABELS[stop.activityType] || stop.activityType}
+                                                </Badge>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
                                             {stop.salesOrder?.customer?.name ||
                                                 stop.deliveryOrder?.salesOrder
                                                     ?.customer?.name ||
+                                                stop.activityCustomer ||
+                                                stop.activityLabel ||
                                                 '-'}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -1141,11 +1204,9 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                                                                         t.id
                                                                                     }
                                                                                 >
-                                                                                    {
-                                                                                        t
-                                                                                            .vehicle
-                                                                                            .plateNumber
-                                                                                    }{' '}
+                                                                                    {t
+                                                                                        .vehicle
+                                                                                        ?.plateNumber || t.externalPlate || 'Trip'}{' '}
                                                                                     (
                                                                                     {formatDateWithDay(
                                                                                         t.departureDate,
@@ -1227,7 +1288,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                     (s, o) => s + (o.plannedWeightKg || 0),
                                     0,
                                 );
-                                const capacityKg = trip.vehicle.capacityKg
+                                const capacityKg = trip.vehicle?.capacityKg
                                     ? Number(trip.vehicle.capacityKg)
                                     : null;
                                 const utilizationPct = capacityKg
@@ -1243,34 +1304,35 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                         className="border rounded-lg p-4"
                                     >
                                         <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <Car className="h-4 w-4" />
-                                                <span className="font-medium">
-                                                    {trip.vehicle.plateNumber}
-                                                </span>
-                                                <span className="text-muted-foreground">
-                                                    — {trip.vehicle.name}
-                                                </span>
-                                                {trip.vehicle.driverName && (
-                                                    <Badge variant="outline">
-                                                        {
-                                                            trip.vehicle
-                                                                .driverName
-                                                        }
-                                                    </Badge>
+                                                {trip.vehicle ? (
+                                                    <>
+                                                        <span className="font-medium">
+                                                            {trip.vehicle.plateNumber}
+                                                        </span>
+                                                        <span className="text-muted-foreground">
+                                                            — {trip.vehicle.name}
+                                                        </span>
+                                                        {trip.vehicle.driverName && (
+                                                            <Badge variant="outline">
+                                                                {trip.vehicle.driverName}
+                                                            </Badge>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="font-medium text-muted-foreground">
+                                                        {trip.externalPlate || trip.externalProvider || 'Tanpa Kendaraan'}
+                                                    </span>
                                                 )}
-                                                <Badge
-                                                    className={
-                                                        TRIP_STATUS_STYLES[
-                                                            trip.status
-                                                        ]
-                                                    }
-                                                >
-                                                    {
-                                                        TRIP_STATUS_LABELS[
-                                                            trip.status
-                                                        ]
-                                                    }
+                                                <Badge className={TRANSPORT_MODE_STYLES[trip.transportMode] || ''}>
+                                                    {TRANSPORT_MODE_LABELS[trip.transportMode] || trip.transportMode}
+                                                </Badge>
+                                                {trip.runNumber && (
+                                                    <Badge variant="outline">Run {trip.runNumber}</Badge>
+                                                )}
+                                                <Badge className={TRIP_STATUS_STYLES[trip.status]}>
+                                                    {TRIP_STATUS_LABELS[trip.status]}
                                                 </Badge>
                                                 {trip.departureDate && (
                                                     <span className="text-sm text-muted-foreground">
@@ -1368,8 +1430,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                                             onClick={() =>
                                                                 handleRemoveTrip(
                                                                     trip.id,
-                                                                    trip.vehicle
-                                                                        .plateNumber,
+                                                                    trip.vehicle?.plateNumber || trip.externalPlate || 'Trip',
                                                                 )
                                                             }
                                                             disabled={

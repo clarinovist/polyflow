@@ -16,6 +16,16 @@ import {
   isDuplicateTrip,
   checkCapacity,
   isSOMultiStop,
+  validateTransportMode,
+  validateStopSource,
+  canGenerateSJ,
+  canRescheduleTrip,
+  canCancelTrip,
+  canReopenTrip,
+  checkSameDayTrips,
+  validatePlannedItemQuantity,
+  TRANSPORT_MODE_LABELS,
+  ACTIVITY_TYPE_LABELS,
 } from '../delivery-schedule-rules';
 
 describe('delivery-schedule-rules', () => {
@@ -134,15 +144,15 @@ describe('delivery-schedule-rules', () => {
   describe('canDepartTrip', () => {
     it('all stops have DO: ok', () => {
       const stops = [
-        { status: 'LINKED' as const, deliveryOrderId: 'do-1' },
-        { status: 'GENERATED' as const, deliveryOrderId: 'do-2' },
+        { status: 'LINKED' as const, deliveryOrderId: 'do-1', activityType: 'DELIVERY' as const },
+        { status: 'GENERATED' as const, deliveryOrderId: 'do-2', activityType: 'DELIVERY' as const },
       ];
       expect(canDepartTrip(stops).ok).toBe(true);
     });
     it('one stop without DO: blocked', () => {
       const stops = [
-        { status: 'LINKED' as const, deliveryOrderId: 'do-1' },
-        { status: 'PLANNED' as const, deliveryOrderId: null },
+        { status: 'LINKED' as const, deliveryOrderId: 'do-1', activityType: 'DELIVERY' as const },
+        { status: 'PLANNED' as const, deliveryOrderId: null, activityType: 'DELIVERY' as const },
       ];
       const result = canDepartTrip(stops);
       expect(result.ok).toBe(false);
@@ -150,13 +160,19 @@ describe('delivery-schedule-rules', () => {
     });
     it('cancelled stops ignored', () => {
       const stops = [
-        { status: 'LINKED' as const, deliveryOrderId: 'do-1' },
-        { status: 'CANCELLED' as const, deliveryOrderId: null },
+        { status: 'LINKED' as const, deliveryOrderId: 'do-1', activityType: 'DELIVERY' as const },
+        { status: 'CANCELLED' as const, deliveryOrderId: null, activityType: 'DELIVERY' as const },
       ];
       expect(canDepartTrip(stops).ok).toBe(true);
     });
     it('empty stops: ok', () => {
       expect(canDepartTrip([]).ok).toBe(true);
+    });
+    it('backhaul stops without DO: ok', () => {
+      const stops = [
+        { status: 'PLANNED' as const, deliveryOrderId: null, activityType: 'BACKHAUL' as const },
+      ];
+      expect(canDepartTrip(stops).ok).toBe(true);
     });
   });
 
@@ -368,6 +384,241 @@ describe('delivery-schedule-rules', () => {
         { salesOrderId: 'so-1', status: 'CANCELLED' as const },
       ];
       expect(isSOMultiStop('so-1', stopsWithCancelled)).toBe(false);
+    });
+  });
+
+  // ============================================
+  // Transport Mode Rules
+  // ============================================
+
+  describe('validateTransportMode', () => {
+    it('INTERNAL_FLEET with vehicle: ok', () => {
+      expect(validateTransportMode('INTERNAL_FLEET', 'v-1').ok).toBe(true);
+    });
+    it('INTERNAL_FLEET without vehicle: blocked', () => {
+      const result = validateTransportMode('INTERNAL_FLEET', null);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('wajib');
+    });
+    it('EXTERNAL_FLEET without vehicle: ok', () => {
+      expect(validateTransportMode('EXTERNAL_FLEET', null).ok).toBe(true);
+    });
+    it('CUSTOMER_PICKUP without vehicle: ok', () => {
+      expect(validateTransportMode('CUSTOMER_PICKUP', null).ok).toBe(true);
+    });
+    it('TBD without vehicle: ok', () => {
+      expect(validateTransportMode('TBD', null).ok).toBe(true);
+    });
+  });
+
+  // ============================================
+  // Activity Source Rules
+  // ============================================
+
+  describe('validateStopSource', () => {
+    it('DELIVERY with SO: ok', () => {
+      expect(validateStopSource('DELIVERY', 'so-1', null).ok).toBe(true);
+    });
+    it('DELIVERY without SO: blocked', () => {
+      const result = validateStopSource('DELIVERY', null, null);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('Sales Order');
+    });
+    it('PICKUP_LOAD with SO: ok', () => {
+      expect(validateStopSource('PICKUP_LOAD', 'so-1', null).ok).toBe(true);
+    });
+    it('PICKUP_LOAD with label: ok', () => {
+      expect(validateStopSource('PICKUP_LOAD', null, 'Muat ABC').ok).toBe(true);
+    });
+    it('PICKUP_LOAD without SO or label: blocked', () => {
+      const result = validateStopSource('PICKUP_LOAD', null, null);
+      expect(result.ok).toBe(false);
+    });
+    it('BACKHAUL with label: ok', () => {
+      expect(validateStopSource('BACKHAUL', null, 'Backhaul dari X').ok).toBe(true);
+    });
+    it('BACKHAUL without label: blocked', () => {
+      const result = validateStopSource('BACKHAUL', null, null);
+      expect(result.ok).toBe(false);
+    });
+    it('OTHER with label: ok', () => {
+      expect(validateStopSource('OTHER', null, 'Lainnya').ok).toBe(true);
+    });
+    it('OTHER without label: blocked', () => {
+      const result = validateStopSource('OTHER', null, null);
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  // ============================================
+  // SJ Generation
+  // ============================================
+
+  describe('canGenerateSJ', () => {
+    it('DELIVERY: can generate', () => {
+      expect(canGenerateSJ('DELIVERY')).toBe(true);
+    });
+    it('PICKUP_LOAD: can generate', () => {
+      expect(canGenerateSJ('PICKUP_LOAD')).toBe(true);
+    });
+    it('BACKHAUL: cannot generate', () => {
+      expect(canGenerateSJ('BACKHAUL')).toBe(false);
+    });
+    it('OTHER: cannot generate', () => {
+      expect(canGenerateSJ('OTHER')).toBe(false);
+    });
+  });
+
+  // ============================================
+  // Cancel / Reopen / Reschedule Guards
+  // ============================================
+
+  describe('canCancelTrip', () => {
+    it('PLANNED: allowed', () => {
+      expect(canCancelTrip('PLANNED').allowed).toBe(true);
+    });
+    it('CONFIRMED: allowed', () => {
+      expect(canCancelTrip('CONFIRMED').allowed).toBe(true);
+    });
+    it('DEPARTED: blocked', () => {
+      const result = canCancelTrip('DEPARTED');
+      expect(result.allowed).toBe(false);
+      expect(result.error).toContain('berangkat');
+    });
+    it('COMPLETED: blocked', () => {
+      const result = canCancelTrip('COMPLETED');
+      expect(result.allowed).toBe(false);
+      expect(result.error).toContain('selesai');
+    });
+    it('CANCELLED: blocked', () => {
+      const result = canCancelTrip('CANCELLED');
+      expect(result.allowed).toBe(false);
+      expect(result.error).toContain('sudah dibatalkan');
+    });
+  });
+
+  describe('canReopenTrip', () => {
+    it('CONFIRMED: allowed', () => {
+      expect(canReopenTrip('CONFIRMED').allowed).toBe(true);
+    });
+    it('PLANNED: blocked', () => {
+      const result = canReopenTrip('PLANNED');
+      expect(result.allowed).toBe(false);
+    });
+    it('DEPARTED: blocked', () => {
+      const result = canReopenTrip('DEPARTED');
+      expect(result.allowed).toBe(false);
+    });
+  });
+
+  describe('canRescheduleTrip', () => {
+    it('PLANNED: free to change', () => {
+      const result = canRescheduleTrip('PLANNED');
+      expect(result.allowed).toBe(true);
+      expect(result.needsReopen).toBe(false);
+    });
+    it('CONFIRMED: needs reopen', () => {
+      const result = canRescheduleTrip('CONFIRMED');
+      expect(result.allowed).toBe(true);
+      expect(result.needsReopen).toBe(true);
+    });
+    it('DEPARTED: blocked', () => {
+      const result = canRescheduleTrip('DEPARTED');
+      expect(result.allowed).toBe(false);
+    });
+    it('COMPLETED: blocked', () => {
+      const result = canRescheduleTrip('COMPLETED');
+      expect(result.allowed).toBe(false);
+    });
+    it('CANCELLED: blocked', () => {
+      const result = canRescheduleTrip('CANCELLED');
+      expect(result.allowed).toBe(false);
+    });
+  });
+
+  // ============================================
+  // Multi-trip Same Day
+  // ============================================
+
+  describe('checkSameDayTrips', () => {
+    const existingTrips = [
+      { vehicleId: 'v-1', departureDate: new Date('2026-07-28'), status: 'PLANNED' as const },
+    ];
+
+    it('same vehicle same day: warning', () => {
+      const result = checkSameDayTrips('v-1', new Date('2026-07-28'), existingTrips);
+      expect(result.warning).toBeDefined();
+      expect(result.sameDayCount).toBe(1);
+    });
+    it('different vehicle same day: no warning', () => {
+      const result = checkSameDayTrips('v-2', new Date('2026-07-28'), existingTrips);
+      expect(result.warning).toBeUndefined();
+    });
+    it('same vehicle different day: no warning', () => {
+      const result = checkSameDayTrips('v-1', new Date('2026-07-29'), existingTrips);
+      expect(result.warning).toBeUndefined();
+    });
+    it('null vehicleId: no warning', () => {
+      const result = checkSameDayTrips(null, new Date('2026-07-28'), existingTrips);
+      expect(result.warning).toBeUndefined();
+    });
+    it('null departureDate: no warning', () => {
+      const result = checkSameDayTrips('v-1', null, existingTrips);
+      expect(result.warning).toBeUndefined();
+    });
+  });
+
+  // ============================================
+  // Planned Item Quantity
+  // ============================================
+
+  describe('validatePlannedItemQuantity', () => {
+    it('valid quantity: ok', () => {
+      const result = validatePlannedItemQuantity(50, 100, 0, 0);
+      expect(result.ok).toBe(true);
+      expect(result.residual).toBe(100);
+    });
+    it('zero quantity: blocked', () => {
+      const result = validatePlannedItemQuantity(0, 100, 0, 0);
+      expect(result.ok).toBe(false);
+    });
+    it('negative quantity: blocked', () => {
+      const result = validatePlannedItemQuantity(-10, 100, 0, 0);
+      expect(result.ok).toBe(false);
+    });
+    it('exceeds residual: blocked', () => {
+      const result = validatePlannedItemQuantity(150, 100, 0, 0);
+      expect(result.ok).toBe(false);
+      expect(result.residual).toBe(100);
+    });
+    it('accounts for delivered qty', () => {
+      const result = validatePlannedItemQuantity(30, 100, 50, 0);
+      expect(result.ok).toBe(true);
+      expect(result.residual).toBe(50);
+    });
+    it('accounts for other planned qty', () => {
+      const result = validatePlannedItemQuantity(20, 100, 0, 80);
+      expect(result.ok).toBe(true);
+      expect(result.residual).toBe(20);
+    });
+  });
+
+  // ============================================
+  // Labels
+  // ============================================
+
+  describe('labels', () => {
+    it('TRANSPORT_MODE_LABELS has all modes', () => {
+      expect(TRANSPORT_MODE_LABELS.INTERNAL_FLEET).toBeDefined();
+      expect(TRANSPORT_MODE_LABELS.EXTERNAL_FLEET).toBeDefined();
+      expect(TRANSPORT_MODE_LABELS.CUSTOMER_PICKUP).toBeDefined();
+      expect(TRANSPORT_MODE_LABELS.TBD).toBeDefined();
+    });
+    it('ACTIVITY_TYPE_LABELS has all types', () => {
+      expect(ACTIVITY_TYPE_LABELS.DELIVERY).toBeDefined();
+      expect(ACTIVITY_TYPE_LABELS.PICKUP_LOAD).toBeDefined();
+      expect(ACTIVITY_TYPE_LABELS.BACKHAUL).toBeDefined();
+      expect(ACTIVITY_TYPE_LABELS.OTHER).toBeDefined();
     });
   });
 });
