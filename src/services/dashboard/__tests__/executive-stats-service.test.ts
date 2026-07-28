@@ -196,4 +196,30 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             ],
         });
     });
+
+    it('handles numeric and string values in decimalToNumber helper', async () => {
+        mockPrisma.journalLine.aggregate
+            .mockResolvedValueOnce({ _sum: { credit: 1000, debit: '100' } })
+            .mockResolvedValueOnce({ _sum: { credit: '500', debit: 0 } })
+            .mockResolvedValueOnce({ _sum: { debit: 300, credit: 50 } })
+            .mockResolvedValueOnce({ _sum: { debit: 200, credit: 0 } });
+        mockPrisma.salesOrder.findMany.mockResolvedValue([]);
+        mockPrisma.invoice.count.mockResolvedValue(0);
+        mockPrisma.purchaseOrder.count.mockResolvedValue(0);
+        mockPrisma.productionOrder.count.mockResolvedValue(0);
+        mockPrisma.productionOrder.findMany.mockResolvedValue([]);
+        mockPrisma.machine.count.mockResolvedValue(0);
+        mockPrisma.machineDowntime.findMany.mockResolvedValue([]);
+        mockPrisma.scrapRecord.aggregate.mockResolvedValue({ _sum: { quantity: null } });
+        mockPrisma.productionExecution.aggregate.mockResolvedValue({ _sum: { scrapQuantity: null, quantityProduced: null } });
+        mockPrisma.materialIssue.aggregate.mockResolvedValue({ _sum: { quantity: null } });
+        mockPrisma.productVariant.aggregate.mockResolvedValue({ _sum: { price: null }, _count: { id: 0 } });
+        mockPrisma.invoice.aggregate.mockResolvedValue({ _sum: { totalAmount: null, paidAmount: null } });
+        mockPrisma.purchaseInvoice.aggregate.mockResolvedValue({ _sum: { totalAmount: null, paidAmount: null } });
+        mockPrisma.inventory.findMany.mockResolvedValue([]);
+        mockPrisma.inventory.count.mockResolvedValue(0);
+
+        const stats = await ExecutiveStatsService.getExecutiveStats();
+        expect(stats.sales.mtdRevenue).toBe(900);
+    });
 });

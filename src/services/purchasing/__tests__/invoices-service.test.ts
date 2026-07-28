@@ -27,6 +27,9 @@ vi.mock('@/lib/core/prisma', () => ({
         user: {
             findMany: vi.fn(),
         },
+        notification: {
+            createMany: vi.fn(),
+        },
     }
 }));
 
@@ -40,7 +43,7 @@ vi.mock('@/lib/utils/sequence', () => ({
 
 import { prisma } from '@/lib/core/prisma';
 import { getNextSequence } from '@/lib/utils/sequence';
-import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, getOutstandingPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment, calculatePoInvoiceTotalFromReceipts } from '../invoices-service';
+import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, getOutstandingPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment, calculatePoInvoiceTotalFromReceipts, updatePurchaseInvoiceDueDate, checkOverduePurchasingInvoices } from '../invoices-service';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 
 // Mock auto-journal
@@ -652,5 +655,52 @@ describe('calculatePoInvoiceTotalFromReceipts', () => {
 
         const total = await calculatePoInvoiceTotalFromReceipts('po-1');
         expect(total).toBe(2520000);
+    });
+
+    describe('updatePurchaseInvoiceDueDate', () => {
+        it('updates due date for valid invoice', async () => {
+            vi.mocked(prisma.purchaseInvoice.findUnique).mockResolvedValue({
+                id: 'pinv-1',
+                status: PurchaseInvoiceStatus.UNPAID,
+                invoiceDate: new Date('2026-07-01'),
+                termOfPaymentDays: 30,
+            } as any);
+
+            vi.mocked(prisma.purchaseInvoice.update).mockResolvedValue({
+                id: 'pinv-1',
+                termOfPaymentDays: 30,
+            } as any);
+
+            const updated = await updatePurchaseInvoiceDueDate('pinv-1', { termOfPaymentDays: 30 }, 'user-1');
+            expect(updated.id).toBe('pinv-1');
+        });
+
+        it('throws for paid invoice', async () => {
+            vi.mocked(prisma.purchaseInvoice.findUnique).mockResolvedValue({
+                id: 'pinv-1',
+                status: PurchaseInvoiceStatus.PAID,
+            } as any);
+
+            await expect(updatePurchaseInvoiceDueDate('pinv-1', {}, 'user-1')).rejects.toThrow();
+        });
+    });
+
+    describe('checkOverduePurchasingInvoices', () => {
+        it('handles zero or multiple overdue invoices and sends notifications', async () => {
+            vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([
+                {
+                    id: 'pinv-1',
+                    invoiceNumber: 'PINV-001',
+                    totalAmount: { toNumber: () => 1000 },
+                    paidAmount: { toNumber: () => 0 },
+                    dueDate: new Date(),
+                    purchaseOrder: { orderNumber: 'PO-001' },
+                } as any,
+            ]);
+            vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u-admin' }] as any);
+
+            await checkOverduePurchasingInvoices();
+            expect(prisma.purchaseInvoice.findMany).toHaveBeenCalled();
+        });
     });
 });

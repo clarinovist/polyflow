@@ -119,7 +119,15 @@ describe('UsageAnalyticsService Hardened', () => {
         await expect(
             UsageAnalyticsService.getAnalytics({
                 range: 'custom',
-                startDate: '2026-13-45',
+                startDate: '2026-00-15',
+                endDate: '2026-07-15',
+            }),
+        ).rejects.toThrow(/harus YYYY-MM-DD/);
+
+        await expect(
+            UsageAnalyticsService.getAnalytics({
+                range: 'custom',
+                startDate: '2026-07-35',
                 endDate: '2026-07-15',
             }),
         ).rejects.toThrow(/harus YYYY-MM-DD/);
@@ -139,5 +147,26 @@ describe('UsageAnalyticsService Hardened', () => {
                 endDate: '2026-06-01',
             }),
         ).rejects.toThrow(/maksimal 90 hari/);
+    });
+
+    it('applies tenantId and moduleKey filters correctly', async () => {
+        vi.mocked(prisma.tenant.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.usageEvent.count).mockResolvedValue(10);
+        vi.mocked(prisma.$queryRaw).mockResolvedValue([]);
+        vi.mocked(prisma.usageEvent.groupBy).mockResolvedValue([]);
+
+        const data = await UsageAnalyticsService.getAnalytics({
+            tenantId: 'tenant-123',
+            moduleKey: 'sales',
+        });
+        expect(data).toBeDefined();
+        expect(prisma.usageEvent.count).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({
+                    tenantId: 'tenant-123',
+                    moduleKey: 'sales',
+                }),
+            }),
+        );
     });
 });
