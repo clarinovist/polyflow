@@ -55,6 +55,7 @@ import {
     getCostSourceLabel,
     getCostSourceTone,
 } from '@/lib/utils/cost-diagnostics';
+import { evaluateBomMassBalance } from '@/lib/production/bom-form-validation';
 
 type BomForEdit = NonNullable<
     Extract<Awaited<ReturnType<typeof getBom>>, { success: true }>['data']
@@ -187,19 +188,28 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
     }, [bom, form]);
 
     async function onSubmit(values: CreateBomValues) {
-        // Validation 1: Check for Physical Impossibility (Output > Total Input)
-        // It is impossible to create more mass than input (Conservation of Mass)
-        const totalInput = values.items.reduce(
-            (acc, item) => acc + Number(item.quantity),
-            0,
-        );
-        const output = Number(values.outputQuantity);
+        // Evaluate unit-aware mass conservation balance
+        const massEvaluation = evaluateBomMassBalance({
+            outputQuantity: Number(values.outputQuantity),
+            outputUnit: selectedOutputVariant?.primaryUnit,
+            items: values.items.map((item) => {
+                const variant = productVariants.find(
+                    (v) => v.id === item.productVariantId,
+                );
+                return {
+                    productVariantId: item.productVariantId,
+                    quantity: Number(item.quantity),
+                    unit: variant?.primaryUnit,
+                };
+            }),
+        });
 
-        if (output > totalInput) {
+        // Validation 1: Physical Impossibility (Output KG > Total Input KG)
+        if (massEvaluation.status === 'output-exceeds-input') {
             const confirmed = window.confirm(
                 `⚠️ OUTPUT TIDAK MUNGKIN SECARA FISIK ⚠️\n\n` +
-                    `Total Input Material: ${totalInput.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n` +
-                    `Target Output: ${output.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n\n` +
+                    `Total Input Material: ${massEvaluation.totalInputKg.toLocaleString()} KG\n` +
+                    `Target Output: ${massEvaluation.outputKg.toLocaleString()} KG\n\n` +
                     `DILARANG: Output tidak boleh lebih besar dari input material karena akan menyebabkan COGS negatif.\n` +
                     `Kemungkinan error: Basis Output terlalu tinggi.\n\n` +
                     `Yakin ingin melanjutkan?`,
@@ -207,14 +217,13 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
             if (!confirmed) return;
         }
 
-        // Validation 2: Check for Suspicious Ratio (High Shrinkage/Unit Mismatch)
-        // If Input is > 20% higher than Output, it might be a unit error (100kg vs 1 Sack)
-        if (totalInput > output * 1.2) {
+        // Validation 2: Suspicious Ratio (High Shrinkage / Unit Mismatch)
+        if (massEvaluation.status === 'high-shrinkage') {
             const confirmed = window.confirm(
                 `⚠️ HIGH SHRINKAGE / POTENTIAL UNIT ERROR ⚠️\n\n` +
-                    `Total Material Input: ${totalInput.toLocaleString()}\n` +
-                    `Target Output: ${output.toLocaleString()}\n` +
-                    `Implied Shrinkage: ${(((totalInput - output) / totalInput) * 100).toFixed(1)}%\n\n` +
+                    `Total Material Input: ${massEvaluation.totalInputKg.toLocaleString()} KG\n` +
+                    `Target Output: ${massEvaluation.outputKg.toLocaleString()} KG\n` +
+                    `Implied Shrinkage: ${massEvaluation.shrinkagePercent.toFixed(1)}%\n\n` +
                     `This is unusually high. Did you mean to use '1 Sack' instead of 'Mass in KG'?\n` +
                     `POLYFLOW STANDARD: Use KG for both Input and Output.\n\n` +
                     `Click OK to save if this is intentional (e.g. high evaporation).\n` +
@@ -389,15 +398,37 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                     name="outputQuantity"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>
-                                                Basis Output Quantity
+                                            <FormLabel className="flex items-center justify-between">
+                                                <span>Basis Output Quantity</span>
+                                                {selectedOutputVariant?.primaryUnit && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="text-xs font-semibold uppercase"
+                                                    >
+                                                        {selectedOutputVariant.primaryUnit}
+                                                    </Badge>
+                                                )}
                                             </FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    step="0.0001"
-                                                    {...field}
-                                                />
+                                                <div className="relative">
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        {...field}
+                                                        className={
+                                                            selectedOutputVariant?.primaryUnit
+                                                                ? 'pr-20'
+                                                                : ''
+                                                        }
+                                                    />
+                                                    {selectedOutputVariant?.primaryUnit && (
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground uppercase bg-muted px-2 py-0.5 rounded pointer-events-none">
+                                                            {
+                                                                selectedOutputVariant.primaryUnit
+                                                            }
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -785,12 +816,21 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                                             }) => (
                                                                 <FormItem>
                                                                     <FormControl>
-                                                                        <Input
-                                                                            type="number"
-                                                                            step="0.0001"
-                                                                            {...field}
-                                                                            className="text-center"
-                                                                        />
+                                                                        <div className="relative">
+                                                                            <Input
+                                                                                type="number"
+                                                                                step="0.0001"
+                                                                                {...field}
+                                                                                className={`text-center ${variant?.primaryUnit ? 'pr-14' : ''}`}
+                                                                            />
+                                                                            {variant?.primaryUnit && (
+                                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground uppercase bg-muted/80 px-1.5 py-0.5 rounded pointer-events-none">
+                                                                                    {
+                                                                                        variant.primaryUnit
+                                                                                    }
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     </FormControl>
                                                                     <FormMessage />
                                                                 </FormItem>
@@ -864,6 +904,10 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                     </TableBody>
                                 </Table>
                             </div>
+                            <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+                                <Info className="h-3.5 w-3.5" />
+                                Quantity material selalu diisi dalam satuan dasar (Primary Unit) masing-masing SKU.
+                            </p>
                         </CardContent>
                     </Card>
 

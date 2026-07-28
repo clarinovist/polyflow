@@ -183,28 +183,44 @@ export type ConsolidatedBatchMaterialIssueValues = z.infer<
 >;
 
 // BOM Management Schemas
-export const createBomSchema = z.object({
-    name: z.string().min(1, 'Recipe name is required').transform(sanitizeHtml),
-    productVariantId: z.string().min(1, 'Output product is required'),
-    outputQuantity: z.coerce
-        .number()
-        .positive('Output quantity must be positive'),
-    isDefault: z.boolean().default(false),
-    category: z
-        .enum(['STANDARD', 'MIXING', 'EXTRUSION', 'PACKING', 'REWORK'])
-        .default('STANDARD'),
-    items: z
-        .array(
-            z.object({
-                productVariantId: z.string().min(1, 'Ingredient is required'),
-                quantity: z.coerce
-                    .number()
-                    .positive('Quantity must be positive'),
-                scrapPercentage: z.coerce.number().min(0).max(100).default(0),
-            }),
-        )
-        .min(1, 'At least one ingredient is required'),
-});
+export const createBomSchema = z
+    .object({
+        name: z.string().min(1, 'Recipe name is required').transform(sanitizeHtml),
+        productVariantId: z.string().min(1, 'Output product is required'),
+        outputQuantity: z.coerce
+            .number()
+            .positive('Output quantity must be positive'),
+        isDefault: z.boolean().default(false),
+        category: z
+            .enum(['STANDARD', 'MIXING', 'EXTRUSION', 'PACKING', 'REWORK'])
+            .default('STANDARD'),
+        items: z
+            .array(
+                z.object({
+                    productVariantId: z.string().min(1, 'Ingredient is required'),
+                    quantity: z.coerce
+                        .number()
+                        .positive('Quantity must be positive'),
+                    scrapPercentage: z.coerce.number().min(0).max(100).default(0),
+                }),
+            )
+            .min(1, 'At least one ingredient is required'),
+    })
+    .superRefine((data, ctx) => {
+        data.items.forEach((item, index) => {
+            if (
+                item.productVariantId &&
+                item.productVariantId === data.productVariantId
+            ) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message:
+                        'Produk output tidak boleh menjadi bahan baku resep ini',
+                    path: ['items', index, 'productVariantId'],
+                });
+            }
+        });
+    });
 
 export type CreateBomValues = z.infer<typeof createBomSchema>;
 

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { productionOutputSchema, logRunningOutputSchema } from '../production';
+import {
+  productionOutputSchema,
+  logRunningOutputSchema,
+  createBomSchema,
+} from '../production';
 
 describe('productionOutputSchema', () => {
   const baseInput = {
@@ -86,3 +90,43 @@ describe('logRunningOutputSchema', () => {
     }
   });
 });
+
+describe('createBomSchema', () => {
+  const validBomPayload = {
+    name: 'BOM Test',
+    productVariantId: 'variant-output',
+    outputQuantity: 1,
+    isDefault: true,
+    category: 'STANDARD',
+    items: [
+      { productVariantId: 'variant-ing-1', quantity: 10, scrapPercentage: 0 },
+      { productVariantId: 'variant-ing-2', quantity: 5, scrapPercentage: 1 },
+    ],
+  };
+
+  it('accepts valid BOM payload with distinct output and ingredients', () => {
+    const result = createBomSchema.safeParse(validBomPayload);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects when output product is selected as an ingredient for itself', () => {
+    const invalidPayload = {
+      ...validBomPayload,
+      items: [
+        { productVariantId: 'variant-output', quantity: 1, scrapPercentage: 0 },
+        { productVariantId: 'variant-ing-2', quantity: 5, scrapPercentage: 0 },
+      ],
+    };
+
+    const result = createBomSchema.safeParse(invalidPayload);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.path[0] === 'items' && i.path[1] === 0 && i.path[2] === 'productVariantId'
+      );
+      expect(issue).toBeDefined();
+      expect(issue?.message).toBe('Produk output tidak boleh menjadi bahan baku resep ini');
+    }
+  });
+});
+
