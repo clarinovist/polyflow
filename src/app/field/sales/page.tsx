@@ -16,12 +16,17 @@ import {
     Store,
 } from 'lucide-react';
 import Link from 'next/link';
+import { auth } from '@/auth';
 import { RouteTodaySection } from '@/components/field/RouteTodaySection';
 import { PipelineSummaryCard } from '@/components/field/PipelineSummaryCard';
 import { VisitSyncBanner } from '@/components/sales/mobile/VisitSyncBanner';
 import { formatRupiah } from '@/lib/utils/utils';
 
 export default async function FieldSalesDashboardPage() {
+    const session = await auth();
+    const userName =
+        (session?.user as { name?: string })?.name?.split(' ')[0] ?? '';
+
     const [pipelineRes, invoicesRes, customersRes, routeRes, complianceRes] =
         await Promise.all([
             getMyFieldPipelineStats(),
@@ -90,7 +95,10 @@ export default async function FieldSalesDashboardPage() {
         <div className="p-4 space-y-4">
             {/* Header — Today-first greeting */}
             <div>
-                <h1 className="text-xl font-bold">{greeting}</h1>
+                <h1 className="text-xl font-bold">
+                    {greeting}
+                    {userName ? `, ${userName}` : ''}
+                </h1>
                 <p className="text-sm text-muted-foreground">{dateStr}</p>
             </div>
 
