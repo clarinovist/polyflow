@@ -41,26 +41,32 @@ export const getProductionSupervisorOverview = withTenant(
             todayStart.setHours(0, 0, 0, 0);
 
             const [orders, executions, downtimes, qcPending] = await Promise.all([
-                prisma.productionOrder.findMany({
-                    where: {
-                        status: { in: ['IN_PROGRESS', 'RELEASED', 'DRAFT'] },
-                    },
-                    take: 10,
-                    orderBy: { updatedAt: 'desc' },
-                    include: {
-                        bom: { select: { name: true } },
-                    },
-                }),
-                prisma.productionExecution.aggregate({
-                    where: { createdAt: { gte: todayStart } },
-                    _sum: { quantityProduced: true, scrapQuantity: true },
-                }).catch(() => ({ _sum: { quantityProduced: null, scrapQuantity: null } })),
-                prisma.machineDowntime.findMany({
-                    where: { createdAt: { gte: todayStart } },
-                    take: 5,
-                    orderBy: { createdAt: 'desc' },
-                    include: { machine: { select: { name: true } } },
-                }),
+                prisma.productionOrder
+                    ? prisma.productionOrder.findMany({
+                          where: {
+                              status: { in: ['IN_PROGRESS', 'RELEASED', 'DRAFT'] },
+                          },
+                          take: 10,
+                          orderBy: { updatedAt: 'desc' },
+                          include: {
+                              bom: { select: { name: true } },
+                          },
+                      }).catch(() => [])
+                    : Promise.resolve([]),
+                prisma.productionExecution
+                    ? prisma.productionExecution.aggregate({
+                          where: { createdAt: { gte: todayStart } },
+                          _sum: { quantityProduced: true, scrapQuantity: true },
+                      }).catch(() => ({ _sum: { quantityProduced: null, scrapQuantity: null } }))
+                    : Promise.resolve({ _sum: { quantityProduced: null, scrapQuantity: null } }),
+                prisma.machineDowntime
+                    ? prisma.machineDowntime.findMany({
+                          where: { createdAt: { gte: todayStart } },
+                          take: 5,
+                          orderBy: { createdAt: 'desc' },
+                          include: { machine: { select: { name: true } } },
+                      }).catch(() => [])
+                    : Promise.resolve([]),
                 prisma.qualityInspection
                     ? prisma.qualityInspection.count({
                           where: { result: 'QUARANTINE' },
@@ -69,8 +75,8 @@ export const getProductionSupervisorOverview = withTenant(
             ]);
 
             const activeOrdersCount = orders.filter((o) => o.status === 'IN_PROGRESS').length;
-            const outputToday = Number(executions._sum.quantityProduced ?? 0);
-            const scrapToday = Number(executions._sum.scrapQuantity ?? 0);
+            const outputToday = Number(executions._sum?.quantityProduced ?? 0);
+            const scrapToday = Number(executions._sum?.scrapQuantity ?? 0);
 
             const getDowntimeMinutes = (d: { startTime: Date; endTime: Date | null }) => {
                 if (!d.endTime) return 15;

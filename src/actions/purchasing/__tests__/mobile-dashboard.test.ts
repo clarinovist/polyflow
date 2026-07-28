@@ -87,4 +87,22 @@ describe('getPurchasingMobileOverview', () => {
             expect(result.data.recentOrders[0].poNumber).toBe('PO-001');
         }
     });
+
+    it('handles DB errors and returns fallback 0 values', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role: 'PROCUREMENT' },
+        } as any);
+
+        vi.mocked(prisma.purchaseOrder.count).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.purchaseOrder.findMany).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.purchaseInvoice.findMany).mockRejectedValue(new Error('DB Error'));
+
+        const result = await getPurchasingMobileOverview();
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.highlights.draftPoCount).toBe(0);
+            expect(result.data.highlights.waitingReceiptCount).toBe(0);
+            expect(result.data.highlights.overdueApCount).toBe(0);
+        }
+    });
 });

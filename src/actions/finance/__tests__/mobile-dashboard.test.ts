@@ -89,4 +89,24 @@ describe('getFinanceMobileOverview', () => {
             expect(result.data.recentInvoices[0].invoiceNumber).toBe('INV-001');
         }
     });
+
+    it('handles database errors gracefully and returns default values', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role: 'FINANCE' },
+        } as any);
+
+        vi.mocked(prisma.invoice.findMany).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.purchaseInvoice.findMany).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.journalEntry.count).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.bankReconciliation.count).mockRejectedValue(new Error('DB Error'));
+
+        const result = await getFinanceMobileOverview();
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.highlights.overdueArCount).toBe(0);
+            expect(result.data.highlights.overdueApCount).toBe(0);
+            expect(result.data.highlights.draftJournalCount).toBe(0);
+            expect(result.data.highlights.openReconCount).toBe(0);
+        }
+    });
 });

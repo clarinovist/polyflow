@@ -11,6 +11,7 @@ import {
   getMobileHomeForUser,
   getMobileHomeCtaKey,
   getAvailableMobilePortals,
+  resolveMobilePath,
 } from '../mobile-access-policy';
 
 describe('mobile-access-policy', () => {
@@ -238,8 +239,24 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeCtaKey({ roles: ['SALES'] })).toBe('sales-field');
     });
 
-    it('finance key for FINANCE', () => {
-      expect(getMobileHomeCtaKey({ role: 'FINANCE' })).toBe('finance');
+    it('returns selector when user has multiple portals', () => {
+      const res = getMobileHomeCtaKey({ roles: ['SALES', 'WAREHOUSE'] });
+      expect(res).toBe('selector');
+    });
+  });
+
+  // ── resolveMobilePath ─────────────────────────────────────────────
+  describe('resolveMobilePath', () => {
+    it('resolves exact alias path', () => {
+      expect(resolveMobilePath('/sales/mobile')).toBe('/field/sales');
+    });
+
+    it('resolves subpath alias', () => {
+      expect(resolveMobilePath('/sales/mobile/orders')).toBe('/field/sales/orders');
+    });
+
+    it('returns original path when no alias matches', () => {
+      expect(resolveMobilePath('/dashboard')).toBe('/dashboard');
     });
   });
 });

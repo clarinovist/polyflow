@@ -86,4 +86,22 @@ describe('getHrdMobileOverview', () => {
             expect(result.data.pendingLeaves[0].employeeName).toBe('Budi Santoso');
         }
     });
+
+    it('handles DB errors and returns fallback values', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role: 'HRD' },
+        } as any);
+
+        vi.mocked(prisma.attendanceRecord.count).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.leaveRequest.findMany).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.payrollPeriod.findFirst).mockRejectedValue(new Error('DB Error'));
+
+        const result = await getHrdMobileOverview();
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.highlights.presentTodayCount).toBe(0);
+            expect(result.data.highlights.pendingLeaveCount).toBe(0);
+            expect(result.data.highlights.openPayrollPeriodName).toBeUndefined();
+        }
+    });
 });

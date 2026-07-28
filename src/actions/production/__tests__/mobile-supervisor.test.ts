@@ -114,4 +114,28 @@ describe('getProductionSupervisorOverview', () => {
             expect(result.data.downtimeAlerts[0].machineName).toBe('Extruder 1');
         }
     });
+
+    it('handles DB errors gracefully and returns default values', async () => {
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'u1',
+            role: 'PRODUCTION',
+            isActive: true,
+        } as any);
+
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role: 'PRODUCTION' },
+        } as any);
+
+        vi.mocked(prisma.productionOrder.findMany).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.productionExecution.aggregate).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.machineDowntime.findMany).mockRejectedValue(new Error('DB Error'));
+        vi.mocked(prisma.qualityInspection.count).mockRejectedValue(new Error('DB Error'));
+
+        const result = await getProductionSupervisorOverview();
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.highlights.activeOrdersCount).toBe(0);
+            expect(result.data.highlights.outputToday).toBe(0);
+        }
+    });
 });

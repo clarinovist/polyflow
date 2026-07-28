@@ -184,4 +184,21 @@ describe('getSalesDashboardStats (command board)', () => {
       expect.arrayContaining(['PENDING', 'LOADING']),
     );
   });
+
+  it('identifies near-limit credit risk exposure', async () => {
+    mockPrisma.customer.findMany.mockResolvedValue([
+      { id: 'c-near', name: 'Customer Near', creditLimit: 100_000 },
+    ]);
+    mockPrisma.invoice.aggregate.mockResolvedValue({
+      _sum: { totalAmount: 95_000, paidAmount: 0 },
+    });
+    mockPrisma.salesOrder.aggregate.mockResolvedValue({
+      _sum: { totalAmount: 0 },
+    });
+
+    const res = await getSalesDashboardStats();
+    expect(res.success).toBe(true);
+    if (!res.success || !res.data) return;
+    expect(res.data.attention.creditRisk[0]?.exposureStatus).toBe('near');
+  });
 });
