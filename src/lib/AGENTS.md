@@ -148,6 +148,10 @@ The extension creates `AuditLog` entries using the outer PrismaClient, not the `
 - `core/actor-context.ts` — AsyncLocalStorage for current actor
 - `tools/audit.ts` — `logActivity` helper (manual detail logging)
 
+## Coverage
+
+Threshold enforced in `vitest.config.ts`: 71/63/75/72 (Stmts/Branch/Funcs/Lines), target 80%. CI job `test` runs `npx vitest run --coverage` and gates deploy. New lib ≥100 LOC needs test in `__tests__/`. Don't lower threshold — add test.
+
 ## Gotchas
 
 | Issue                           | Solution                                                               |
@@ -159,3 +163,4 @@ The extension creates `AuditLog` entries using the outer PrismaClient, not the `
 | Permission check failing        | Check `permission-catalog.ts` for available permissions                |
 | Status change not logged        | Check model is in `AUDITABLE_MODELS`; check `actorContext` is injected |
 | Infinite loop on AuditLog write | Extension skips `AuditLog` model explicitly                            |
+| Coverage CI fail                | `npm run test:coverage`, check Lowest % table, add test               |

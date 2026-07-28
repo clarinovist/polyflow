@@ -27,7 +27,7 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
 - Fix gap → cek lagi → ulang sampai `Residual Gap: 0`.
 - Gap 0 baru boleh lanjut ke verify.
 
-### 4. VERIFY — Lint + Test Scope
+### 4. VERIFY — Lint + Test Scope + Coverage
 
 - **Lint**: `npm run lint` — wajib lolos. Jika gagal, fix dulu.
 - **Test Scope**: `npm run test` atau scoped test sesuai area yang diubah (contoh: `npm run test -- packing`, `vitest run src/modules/foo`).
@@ -37,8 +37,9 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
       `include` milik vitest hanya mencakup `src/`, jadi test di luar itu tidak
       pernah dijalankan — direktori `tests/` di root sempat mati diam-diam
       selama 5 bulan karena hal ini.
+- **Coverage**: `npm run test:coverage` — wajib lolos sebelum push. Config di `vitest.config.ts` → `test.coverage.thresholds` (71/63/75/72). Provider `v8` tanpa `include` broad sengaja (hanya surface yang ke-exercise test). Lihat tabel uncovered lines di paling kanan output untuk file drop. Jika fail, tambah test dulu, jangan turunin threshold tanpa plan.
 - **Typecheck**: `npx tsc --noEmit` — wajib 0 error. Error di file test tetap dihitung; vitest lolos bukan berarti typecheck lolos.
-- Jika lint/test gagal: balik ke step 2 (FIX), update residual gap.
+- Jika lint/test/coverage gagal: balik ke step 2 (FIX), update residual gap.
 
 ### 5. BUILD — terakhir, dengan koordinasi terminal
 
@@ -110,6 +111,14 @@ docker ps --filter name=polyflow-app --format "{{.Names}} {{.Status}} {{.Image}}
 - Setelah edit massal 5+ file / write ulang component, **WAJIB** `git status --short` + `git diff --stat` sebelum next step.
 - Pernah terjadi file revert hilang: `contextual-help.tsx` + `production/orders/page.tsx` + `support/page.tsx` + `chat-panel.tsx` + `virtual-cs-service.ts` dll reverted setelah write ulang — karena codegraph index lag + tool overwrite.
 - Jika file hilang dari `git status`, re-apply via `Write` atau `Edit` dan verify lagi `grep -n "citedArticles\|prefillQuestion"` ada.
+
+### Coverage CI Mitigation (2026-07-27)
+
+- **Jangan turunkan threshold** di `vitest.config.ts` hanya untuk hijauin CI — itu ratchet guard baseline 71/63/75/72 (Stmts/Branch/Funcs/Lines), target 80%. Turunin = hutang coverage naik.
+- **Setiap service/action baru ≥100 baris** wajib ada `__tests__/*.test.ts` yang cover happy path + branch utama sebelum PR. Jika tidak, coverage global drop (gate di job `test` → `npx vitest run --coverage`).
+- **Jika CI gagal coverage**: `npm run test:coverage` lokal, lihat file di paling bawah tabel (Lowest %), tambah test untuk uncovered lines yang di-list di kolom kanan. Commit coverage fix sebelum push.
+- **Boleh exclude** hanya untuk: `*.d.ts`, `src/lib/schemas/**`, `src/generated/**`, `**/*.test.ts` (sudah di config). Jangan exclude service prod untuk boost ratio.
+- **When stuck**: tulis plan di `docs/plan/` dulu — scope file yang bikin coverage drop, rencana test, residual gap — lalu fix test, bukan config.
 
 ### Status Change Audit Policy (2026-07-25)
 

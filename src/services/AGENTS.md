@@ -68,6 +68,7 @@ Financial transactions automatically generate journal entries:
 
 Each service directory has `__tests__/` with unit tests.
 Run: `npx vitest run src/services/`
+Coverage gate: `npm run test:coverage` — thresholds 71/63/75/72 in `vitest.config.ts`. New service ≥100 LOC must ship with tests; check uncovered lines in right column of coverage table. Never exclude prod service from `test.coverage.exclude`.
 
 ## Gotchas
 
