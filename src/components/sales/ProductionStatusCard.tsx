@@ -65,6 +65,7 @@ interface ProductionStatusCardProps {
         };
     }[];
     currentUserRole?: string;
+    canPlan?: boolean;
 }
 
 export function ProductionStatusCard({
@@ -73,6 +74,7 @@ export function ProductionStatusCard({
     productionOrders,
     items,
     currentUserRole,
+    canPlan: propCanPlan,
 }: ProductionStatusCardProps) {
     const [shortages, setShortages] = useState<Shortage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -109,7 +111,9 @@ export function ProductionStatusCard({
     const progress = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
     const canPlan =
-        currentUserRole === 'PLANNING' || currentUserRole === 'ADMIN';
+        propCanPlan !== undefined
+            ? propCanPlan
+            : currentUserRole === 'PLANNING' || currentUserRole === 'ADMIN';
 
     return (
         <>

@@ -1,10 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import LoginForm from '@/components/auth/login-form';
 import BrandPanel from '@/components/auth/brand-panel';
-import RoleSelection, { RoleType } from '@/components/auth/role-selection';
 import WorkspaceDiscovery from '@/components/auth/workspace-discovery';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -15,24 +12,6 @@ export default function LoginClient({
     subdomain: string | null;
     isAdminSubdomain: boolean;
 }) {
-    // On admin subdomain, skip role selection — go straight to login
-    const [selectedRole, setSelectedRole] = useState<RoleType | null>(
-        isAdminSubdomain ? 'ADMIN' : null,
-    );
-    const router = useRouter();
-
-    const handleSelectRole = (role: RoleType) => {
-        if (role === 'KIOSK') {
-            router.push('/kiosk');
-            return;
-        }
-        setSelectedRole(role);
-    };
-
-    const handleBack = () => {
-        setSelectedRole(null);
-    };
-
     // Determine what to show in the right panel
     const brandSubdomain = isAdminSubdomain ? 'admin' : subdomain;
 
@@ -63,7 +42,6 @@ export default function LoginClient({
                                     }}
                                 >
                                     <LoginForm
-                                        selectedRole="ADMIN"
                                         onBack={() => {
                                             window.location.href = `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk'}/login`;
                                         }}
@@ -82,38 +60,17 @@ export default function LoginClient({
                                 </span>
                             </div>
                             <AnimatePresence mode="wait">
-                                {!selectedRole ? (
-                                    <motion.div
-                                        key="role-selection"
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: 20 }}
-                                        transition={{
-                                            duration: 0.3,
-                                            ease: 'easeInOut',
-                                        }}
-                                    >
-                                        <RoleSelection
-                                            onSelectRole={handleSelectRole}
-                                        />
-                                    </motion.div>
-                                ) : (
-                                    <motion.div
-                                        key="login-form"
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -20 }}
-                                        transition={{
-                                            duration: 0.3,
-                                            ease: 'easeInOut',
-                                        }}
-                                    >
-                                        <LoginForm
-                                            selectedRole={selectedRole}
-                                            onBack={handleBack}
-                                        />
-                                    </motion.div>
-                                )}
+                                <motion.div
+                                    key="tenant-login-form"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{
+                                        duration: 0.3,
+                                        ease: 'easeInOut',
+                                    }}
+                                >
+                                    <LoginForm />
+                                </motion.div>
                             </AnimatePresence>
                         </>
                     ) : (

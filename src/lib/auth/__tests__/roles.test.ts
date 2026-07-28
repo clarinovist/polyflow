@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { getUserRoles, hasAnyRole, hasRole, isTenantAdmin } from "../roles";
+import { getUserRoles, hasAnyRole, hasRole, isTenantAdmin, normalizeUserRoles } from "../roles";
 
 describe("Roles Helper", () => {
+  describe("normalizeUserRoles", () => {
+    it("should combine primary role and assigned roles into unique uppercase array", () => {
+      expect(normalizeUserRoles("PRODUCTION", ["PLANNING"])).toEqual(["PRODUCTION", "PLANNING"]);
+      expect(normalizeUserRoles("PRODUCTION", ["production", "PLANNING"])).toEqual(["PRODUCTION", "PLANNING"]);
+      expect(normalizeUserRoles(null, ["WAREHOUSE"])).toEqual(["WAREHOUSE"]);
+      expect(normalizeUserRoles(undefined, null)).toEqual([]);
+    });
+  });
+
   describe("getUserRoles", () => {
     it("should return empty array if user is null or undefined", () => {
       expect(getUserRoles(null)).toEqual([]);
@@ -14,8 +23,9 @@ describe("Roles Helper", () => {
       expect(getUserRoles({ role: "ADMIN", roles: [] })).toEqual(["ADMIN"]);
     });
 
-    it("should return unique roles array when present", () => {
+    it("should return unique roles array including primary role when present", () => {
       expect(getUserRoles({ role: "WAREHOUSE", roles: ["WAREHOUSE", "PRODUCTION", "WAREHOUSE"] })).toEqual(["WAREHOUSE", "PRODUCTION"]);
+      expect(getUserRoles({ role: "PRODUCTION", roles: ["PLANNING"] })).toEqual(["PRODUCTION", "PLANNING"]);
     });
   });
 

@@ -82,6 +82,7 @@ export function SalesOrderDetailClient({
     basePath = '/sales/orders',
     warehouseMode = false,
     currentUserRole,
+    canPlan,
 }: SalesOrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -1182,6 +1183,7 @@ export function SalesOrderDetailClient({
                         productionOrders={order.productionOrders}
                         items={order.items}
                         currentUserRole={currentUserRole}
+                        canPlan={canPlan}
                     />
 
                     <Card>

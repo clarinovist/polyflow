@@ -202,4 +202,5 @@ export interface SalesOrderDetailClientProps {
     basePath?: string;
     warehouseMode?: boolean;
     currentUserRole?: string;
+    canPlan?: boolean;
 }

@@ -16,16 +16,14 @@ import {
     EyeOff,
 } from 'lucide-react';
 import PolyFlowLogo from './polyflow-logo';
-import { RoleType } from './role-selection';
 import { loginFormLabels as L } from '@/lib/labels/auth';
 import { extractSubdomain } from '@/lib/core/subdomain';
 
 interface LoginFormProps {
-    selectedRole: RoleType;
-    onBack: () => void;
+    onBack?: () => void;
 }
 
-export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
+export default function LoginForm({ onBack }: LoginFormProps = {}) {
     const [errorMessage, formAction, isPending] = useActionState(
         authenticate,
         undefined,
@@ -35,22 +33,19 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
     return (
         <div className="w-full max-w-md mx-auto px-6 sm:px-8 py-8 sm:py-12">
             {/* Back Button */}
-            <button
-                onClick={onBack}
-                className="group flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
-            >
-                <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                {L.backToRoleSelection}
-            </button>
+            {onBack && (
+                <button
+                    onClick={onBack}
+                    className="group flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
+                >
+                    <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                    {L.backToRoleSelection}
+                </button>
+            )}
 
             {/* Logo */}
             <div className="mb-8">
                 <PolyFlowLogo variant="dark" size="md" />
-            </div>
-
-            {/* Role Badge */}
-            <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider mb-4">
-                {selectedRole} {L.workspaceBadge}
             </div>
 
             {/* Sign in Header */}
@@ -59,8 +54,6 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
             </h1>
 
             <form action={formAction} className="space-y-5">
-                {/* Hidden Role field */}
-                <input type="hidden" name="role" value={selectedRole} />
                 {/* Hidden Subdomain field — needed for tenant resolution in NextAuth authorize.
                     Uses the shared extractSubdomain() so reserved subdomains (admin, www, ...)
                     resolve to '' → superadmin/main-DB login instead of a bogus tenant lookup. */}

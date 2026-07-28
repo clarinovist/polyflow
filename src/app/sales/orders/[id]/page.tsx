@@ -11,11 +11,13 @@ interface PageProps {
 }
 
 import { auth } from '@/auth';
+import { hasAnyRole } from '@/lib/auth/roles';
 
 export default async function SalesOrderDetailPage({ params }: PageProps) {
     const { id } = await params;
     const session = await auth();
     const currentUserRole = session?.user?.role;
+    const canPlan = hasAnyRole(session?.user, ['ADMIN', 'PLANNING']);
     const response = await getSalesOrderById(id);
 
     if (!response || !response.success || !response.data) {
@@ -36,6 +38,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                     >['order']
                 }
                 currentUserRole={currentUserRole}
+                canPlan={canPlan}
                 basePath="/sales/orders"
             />
         </div>

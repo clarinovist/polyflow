@@ -1,4 +1,5 @@
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { hasAnyRole } from '@/lib/auth/roles';
 import { PageHeader } from '@/components/ui/page-header';
 import { PaymentBanksSettings } from '@/components/finance/PaymentBanksSettings';
 
@@ -10,8 +11,7 @@ export const metadata = {
 
 export default async function PaymentBanksPage() {
     const session = await requireAuth();
-    const role = (session.user as { role?: string })?.role;
-    const canEdit = role === 'ADMIN' || role === 'FINANCE';
+    const canEdit = hasAnyRole(session.user, ['ADMIN', 'FINANCE']);
 
     return (
         <div className="space-y-6 pb-20">

@@ -9,15 +9,30 @@ export type RoleBearer =
     | null
     | undefined;
 
+/**
+ * Normalizes primary role and assigned roles into a clean, deduplicated, uppercase string array.
+ * Always includes primaryRole if present.
+ */
+export function normalizeUserRoles(
+    primaryRole: string | Role | null | undefined,
+    assignedRoles?: Array<string | Role> | null,
+): string[] {
+    const rolesSet = new Set<string>();
+    if (primaryRole) {
+        rolesSet.add(String(primaryRole).toUpperCase());
+    }
+    if (assignedRoles) {
+        for (const r of assignedRoles) {
+            if (r) rolesSet.add(String(r).toUpperCase());
+        }
+    }
+    return Array.from(rolesSet);
+}
+
 /** Resolve all assigned roles; fallback to [role] for legacy sessions. */
 export function getUserRoles(user: RoleBearer): string[] {
     if (!user) return [];
-    const primary = user.role ? String(user.role).toUpperCase() : null;
-    const fromArray = (user.roles || [])
-        .filter(Boolean)
-        .map((r) => String(r).toUpperCase());
-    if (fromArray.length > 0) return [...new Set(fromArray)];
-    return primary ? [primary] : [];
+    return normalizeUserRoles(user.role, user.roles);
 }
 
 export function hasAnyRole(

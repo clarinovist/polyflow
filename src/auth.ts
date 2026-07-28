@@ -6,6 +6,7 @@ import { prisma } from '@/lib/core/prisma';
 import { extractSubdomain } from '@/lib/core/tenant';
 import { Role, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { normalizeUserRoles } from '@/lib/auth/roles';
 import { SESSION_POLICY } from '@/lib/auth/session-policy';
 
 async function getUser(email: string) {
@@ -47,7 +48,6 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     const {
                         email,
                         password,
-                        role,
                         remember,
                         subdomain: formSubdomain,
                         impersonationBy,
@@ -139,7 +139,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                     if (passwordsMatch) {
                         // Load ALL assigned roles for this user
-                        let userRoles: string[] = [];
+                        let fetchedRoles: string[] = [];
                         try {
                             const roleDb = tenantDbRef || prisma;
                             const userRoleRecords =
@@ -147,37 +147,19 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                                     where: { userId: user.id },
                                     select: { role: true },
                                 });
-                            userRoles = userRoleRecords.map(
+                            fetchedRoles = userRoleRecords.map(
                                 (r: { role: string }) => r.role,
                             );
                         } catch {
                             // Non-fatal: fall back to single primary role
-                            userRoles = [user.role];
+                            fetchedRoles = [user.role];
                         }
 
-                        // Empty UserRole (edge case) → fallback primary
-                        if (userRoles.length === 0) {
-                            userRoles = [user.role];
-                        }
-
-                        const isAssignedAdmin =
-                            userRoles.includes('ADMIN') ||
-                            user.role === 'ADMIN';
-
-                        // Validate: selected role must be in assigned roles (ADMIN bypass)
-                        if (
-                            role &&
-                            !userRoles.includes(role) &&
-                            !isAssignedAdmin
-                        ) {
-                            throw new Error('RoleMismatch');
-                        }
-                        if (!role && !user.isSuperAdmin) {
-                            throw new Error('RoleMismatch');
-                        }
-
-                        // Active role = selected workspace role at login (not always DB primary)
-                        const activeRole = role || user.role;
+                        // Normalize roles: primary role (user.role) is always included
+                        const userRoles = normalizeUserRoles(
+                            user.role,
+                            fetchedRoles,
+                        );
 
                         // Aggregate allowedResources from ALL assigned roles (used by middleware path checks)
                         let allowedResources: string[] = [];
@@ -206,8 +188,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             name: user.name,
                             email: user.email,
                             image: user.avatarUrl || undefined,
-                            role: activeRole as Role, // ACTIVE role (login-selected)
-                            roles: userRoles as Role[], // ALL assigned roles
+                            role: user.role as Role, // Primary role from DB
+                            roles: userRoles as Role[], // ALL assigned roles (normalized)
                             rememberMe: remember,
                             isSuperAdmin: user.isSuperAdmin,
                             allowedResources,

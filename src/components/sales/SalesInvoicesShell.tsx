@@ -21,6 +21,8 @@ import {
     FileText,
 } from 'lucide-react';
 
+import { hasAnyRole } from '@/lib/auth/roles';
+
 type FilterStatus = 'all' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' | 'PAID';
 
 type Stats = {
@@ -58,8 +60,7 @@ export function SalesInvoicesShell({
     initialStatus?: string | null;
 }) {
     const { data: session } = useSession();
-    const canAccessFinance =
-        session?.user?.role === 'ADMIN' || session?.user?.role === 'FINANCE';
+    const canAccessFinance = hasAnyRole(session?.user, ['ADMIN', 'FINANCE']);
     const [filter, setFilter] = useState<FilterStatus>(() =>
         parseStatusFilter(initialStatus),
     );

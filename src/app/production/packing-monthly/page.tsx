@@ -1,4 +1,5 @@
 import { auth } from '@/auth';
+import { hasAnyRole } from '@/lib/auth/roles';
 import { PackingReportService } from '@/services/production/packing-report-service';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,10 +38,9 @@ export default async function PackingMonthlyReportPage({
 }: PageProps) {
     const params = await searchParams;
     const session = await auth();
-    const userRole = (session?.user as { role?: string })?.role || 'PRODUCTION';
 
     // Only ADMIN and PLANNING can see cost/HPP data
-    const showCostData = userRole === 'ADMIN' || userRole === 'PLANNING';
+    const showCostData = hasAnyRole(session?.user, ['ADMIN', 'PLANNING']);
 
     // Default to current month (YYYY-MM) in local time
     const today = new Date();

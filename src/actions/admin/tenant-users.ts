@@ -161,20 +161,22 @@ export async function updateTenantUserRole(
     const target = await db.user.findUnique({ where: { id: userId } });
     if (!target) throw new BusinessRuleError('User tidak ditemukan.');
 
-    await db.user.update({
-        where: { id: userId },
-        data: { role },
-    });
-    // Upsert UserRole entry so userRole.findMany picks up the new role.
-    await db.userRole
-        .upsert({
-            where: { userId_role: { userId, role: target.role } },
-            create: { userId, role },
-            update: {},
-        })
-        .catch(() => {
-            /* non-fatal if UserRole table differs */
+    try {
+        await db.$transaction([
+            db.userRole.deleteMany({ where: { userId } }),
+            db.userRole.create({ data: { userId, role } }),
+            db.user.update({
+                where: { id: userId },
+                data: { role },
+            }),
+        ]);
+    } catch {
+        /* Fallback if UserRole table or transaction fails */
+        await db.user.update({
+            where: { id: userId },
+            data: { role },
         });
+    }
 
     await logActivity({
         userId: session.user.id!,
