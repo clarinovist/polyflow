@@ -43,6 +43,9 @@ interface FinancialInvoiceDetailProps {
             orderType: string;
             customer: { name: string } | null;
             taxAmount: unknown;
+            entrySource?: string;
+            commercialReviewStatus?: string;
+            sourceReference?: string | null;
             items: InvoiceLineItem[];
         } | null;
     };
@@ -114,6 +117,14 @@ export function FinancialInvoiceDetail({
                                         Maklon Service
                                     </Badge>
                                 )}
+                                {salesOrder?.entrySource === 'EMERGENCY_DISPATCH' && (
+                                    <Badge
+                                        variant="outline"
+                                        className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30"
+                                    >
+                                        Pesanan Dadakan
+                                    </Badge>
+                                )}
                             </div>
                             {getStatusBadge(invoice.status)}
                         </div>
@@ -164,6 +175,16 @@ export function FinancialInvoiceDetail({
                                     {salesOrder?.orderNumber || 'N/A'}
                                 </p>
                             </div>
+                            {salesOrder?.sourceReference && (
+                                <div>
+                                    <p className="text-muted-foreground">
+                                        Referensi (Telp/WA)
+                                    </p>
+                                    <p className="font-medium">
+                                        {salesOrder.sourceReference}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                         {!salesOrder && (
                             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">

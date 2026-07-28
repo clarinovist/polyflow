@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Package, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,7 @@ export function MobileWalkInReceiptForm({
     ]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const idempotencyRef = useRef(crypto.randomUUID());
 
     const addItem = () => {
         setItems([
@@ -100,7 +101,7 @@ export function MobileWalkInReceiptForm({
     const handleSubmit = async () => {
         setIsSubmitting(true);
         try {
-            const idempotencyKey = `walkin-${supplierId}-${supplierRefNo.trim()}-${Date.now()}`;
+            const idempotencyKey = `walkin-${supplierId}-${supplierRefNo.trim()}-${idempotencyRef.current}`;
             const result = await createWalkInGoodsReceipt({
                 supplierId,
                 supplierRefNo: supplierRefNo.trim(),

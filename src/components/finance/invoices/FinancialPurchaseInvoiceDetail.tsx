@@ -37,6 +37,9 @@ interface FinancialPurchaseInvoiceDetailProps {
             orderNumber: string;
             supplier: { name: string };
             totalAmount: number;
+            entrySource?: string;
+            commercialReviewStatus?: string;
+            sourceReference?: string | null;
             items?: PurchaseOrderItemData[];
         };
         payments?: {
@@ -94,9 +97,19 @@ export function FinancialPurchaseInvoiceDetail({
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-center">
-                            <span className="text-2xl font-bold">
-                                {invoice.invoiceNumber}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold">
+                                    {invoice.invoiceNumber}
+                                </span>
+                                {invoice.purchaseOrder.entrySource === 'WALK_IN_RECEIPT' && (
+                                    <Badge
+                                        variant="outline"
+                                        className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30"
+                                    >
+                                        Dari Nota
+                                    </Badge>
+                                )}
+                            </div>
                             {getStatusBadge(invoice.status)}
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -159,6 +172,16 @@ export function FinancialPurchaseInvoiceDetail({
                                     {invoice.purchaseOrder.orderNumber}
                                 </p>
                             </div>
+                            {invoice.purchaseOrder.sourceReference && (
+                                <div>
+                                    <p className="text-muted-foreground">
+                                        No. Nota Supplier
+                                    </p>
+                                    <p className="font-medium">
+                                        {invoice.purchaseOrder.sourceReference}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

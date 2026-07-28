@@ -194,6 +194,7 @@ describe('walk-in-dispatch-service', () => {
         it('should approve pending emergency dispatch and create DO', async () => {
             mockPrisma.salesOrder.findUnique.mockResolvedValue({
                 id: 'so-1',
+                status: 'DRAFT',
                 entrySource: 'EMERGENCY_DISPATCH',
                 commercialReviewStatus: 'PENDING',
                 sourceLocationId: 'loc-1',
@@ -210,6 +211,7 @@ describe('walk-in-dispatch-service', () => {
         it('should be idempotent when DO already exists', async () => {
             mockPrisma.salesOrder.findUnique.mockResolvedValue({
                 id: 'so-1',
+                status: 'DRAFT',
                 entrySource: 'EMERGENCY_DISPATCH',
                 commercialReviewStatus: 'PENDING',
                 items: [],
@@ -224,6 +226,7 @@ describe('walk-in-dispatch-service', () => {
         it('should reject non-emergency SO', async () => {
             mockPrisma.salesOrder.findUnique.mockResolvedValue({
                 id: 'so-1',
+                status: 'DRAFT',
                 entrySource: 'STANDARD',
                 commercialReviewStatus: 'NOT_REQUIRED',
             });
@@ -232,12 +235,32 @@ describe('walk-in-dispatch-service', () => {
                 approveWalkInDispatch('so-1', 'user-1'),
             ).rejects.toThrow(/bukan emergency/);
         });
+
+        it('should skip confirmOrder when SO is already CONFIRMED', async () => {
+            mockPrisma.salesOrder.findUnique.mockResolvedValue({
+                id: 'so-1',
+                status: 'CONFIRMED',
+                entrySource: 'EMERGENCY_DISPATCH',
+                commercialReviewStatus: 'PENDING',
+                sourceLocationId: 'loc-1',
+                items: [],
+                deliveryOrders: [],
+            });
+            mockPrisma.salesOrder.update.mockResolvedValue({});
+
+            const result = await approveWalkInDispatch('so-1', 'user-1');
+
+            expect(result.deliveryOrder).toBeDefined();
+            const { confirmOrder } = await import('../orders-service');
+            expect(confirmOrder).not.toHaveBeenCalled();
+        });
     });
 
     describe('rejectWalkInDispatch', () => {
         it('should cancel and reject emergency dispatch', async () => {
             mockPrisma.salesOrder.findUnique.mockResolvedValue({
                 id: 'so-1',
+                status: 'DRAFT',
                 entrySource: 'EMERGENCY_DISPATCH',
                 commercialReviewStatus: 'PENDING',
             });

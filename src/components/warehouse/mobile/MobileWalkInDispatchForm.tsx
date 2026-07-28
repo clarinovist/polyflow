@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Truck, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,7 @@ export function MobileWalkInDispatchForm({
     ]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const idempotencyRef = useRef(crypto.randomUUID());
 
     const addItem = () => {
         setItems([
@@ -107,7 +108,7 @@ export function MobileWalkInDispatchForm({
     const handleSubmit = async () => {
         setIsSubmitting(true);
         try {
-            const idempotencyKey = `emergency-${customerId}-${sourceReference.trim()}-${Date.now()}`;
+            const idempotencyKey = `emergency-${customerId}-${sourceReference.trim()}-${idempotencyRef.current}`;
             const result = await createEmergencyDispatch({
                 customerId,
                 sourceLocationId,

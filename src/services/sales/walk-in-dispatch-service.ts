@@ -11,6 +11,12 @@ import { checkCreditLimit } from './credit-service';
 import { confirmOrder } from './orders-service';
 import { createDeliveryOrderFromSalesOrder } from './delivery-fulfillment-service';
 
+const CONFIRMABLE_STATUSES: SalesOrderStatus[] = [
+    SalesOrderStatus.CONFIRMED,
+    SalesOrderStatus.IN_PRODUCTION,
+    SalesOrderStatus.READY_TO_SHIP,
+];
+
 export interface WalkInDispatchItem {
     productVariantId: string;
     quantity: number;
@@ -358,8 +364,16 @@ export async function approveWalkInDispatch(
         },
     });
 
-    // Confirm SO
-    await confirmOrder(salesOrderId, userId);
+    // Confirm SO only if still DRAFT; skip if already confirmed/in production
+    if (so.status === SalesOrderStatus.DRAFT) {
+        await confirmOrder(salesOrderId, userId);
+    } else if (!CONFIRMABLE_STATUSES.includes(so.status)) {
+        throw new BusinessRuleError(
+            `SO berstatus ${so.status} tidak bisa di-approve.`,
+            { salesOrderId, status: so.status },
+            'SO_NOT_APPROVABLE',
+        );
+    }
 
     // Create DO
     if (!so.sourceLocationId) {
