@@ -302,7 +302,10 @@ export const listWarehouseAttachments = withTenant(
                     },
                 });
 
-            return { success: true, data: attachments };
+            // `safeAction` already wraps the callback output in `{ success, data }`.
+            // Returning another envelope makes callers receive an object here
+            // instead of the attachment array and then crash on `.filter()`.
+            return attachments;
         });
     },
 );

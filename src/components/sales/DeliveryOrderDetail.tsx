@@ -155,6 +155,7 @@ export function DeliveryOrderDetail({
     warehouseMode = false,
     attachments = [],
 }: DeliveryOrderDetailProps) {
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const [isLoading, setIsLoading] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [uploadingVehicle, setUploadingVehicle] = useState(false);
@@ -1239,7 +1240,7 @@ export function DeliveryOrderDetail({
             </Card>
 
             {/* Bukti Operasional — optional, shown when there are attachments or during active states */}
-            {(attachments.length > 0 ||
+            {(safeAttachments.length > 0 ||
                 order.status === 'LOADING' ||
                 order.status === 'SHIPPED' ||
                 order.status === 'IN_TRANSIT' ||
@@ -1259,7 +1260,7 @@ export function DeliveryOrderDetail({
                                 entityLabel={order.orderNumber}
                                 entityType="deliveryOrderId"
                                 checkpoint="LOAD"
-                                attachments={(attachments ?? []).filter((a) => a.checkpoint === 'LOAD')}
+                                attachments={safeAttachments.filter((a) => a.checkpoint === 'LOAD')}
                                 disabled={
                                     order.status === 'DELIVERED' ||
                                     order.status === 'CANCELLED' ||
@@ -1272,7 +1273,7 @@ export function DeliveryOrderDetail({
                                 entityLabel={order.orderNumber}
                                 entityType="deliveryOrderId"
                                 checkpoint="DAMAGE"
-                                attachments={(attachments ?? []).filter((a) => a.checkpoint === 'DAMAGE')}
+                                attachments={safeAttachments.filter((a) => a.checkpoint === 'DAMAGE')}
                                 disabled={
                                     order.status === 'DELIVERED' ||
                                     order.status === 'CANCELLED' ||

@@ -78,6 +78,7 @@ function getItemStatus(
 }
 
 export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { order: Order; attachments?: AttachmentItem[] }) {
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const router = useRouter();
     const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
     const [shipConfirmOpen, setShipConfirmOpen] = useState(false);
@@ -454,7 +455,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                         entityLabel={order.orderNumber}
                         entityType="deliveryOrderId"
                         checkpoint="LOAD"
-                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'LOAD')}
+                        attachments={safeAttachments.filter((a) => a.checkpoint === 'LOAD')}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
                         onAttachmentChange={() => router.refresh()}
                     />
@@ -463,7 +464,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                         entityLabel={order.orderNumber}
                         entityType="deliveryOrderId"
                         checkpoint="DAMAGE"
-                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'DAMAGE')}
+                        attachments={safeAttachments.filter((a) => a.checkpoint === 'DAMAGE')}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
                         onAttachmentChange={() => router.refresh()}
                     />

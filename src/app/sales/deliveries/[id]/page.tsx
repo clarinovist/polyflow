@@ -29,7 +29,7 @@ export default async function DeliveryOrderPage({
 
     const serializedOrder = serializeData(result.data);
     const attachments =
-        attachmentsRes.success && attachmentsRes.data
+        attachmentsRes.success && Array.isArray(attachmentsRes.data)
             ? (serializeData(attachmentsRes.data) as unknown as Array<{
                   id: string;
                   checkpoint: string;

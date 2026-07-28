@@ -317,7 +317,7 @@ export function WarehouseAttachmentPanel({
                         </div>
                     )}
 
-                    {disabled && attachments.length === 0 && (
+                    {disabled && safeAttachments.length === 0 && (
                         <p className="text-xs text-muted-foreground text-center py-2">
                             Tidak ada bukti
                         </p>

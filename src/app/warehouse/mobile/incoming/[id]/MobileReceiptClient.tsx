@@ -62,6 +62,7 @@ export function MobileReceiptClient({
     locations: Location[];
     attachments?: AttachmentItem[];
 }) {
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -311,7 +312,7 @@ export function MobileReceiptClient({
                 entityLabel={order.orderNumber}
                 entityType="purchaseOrderId"
                 checkpoint="RECEIPT"
-                attachments={(attachments ?? []).filter((a) => a.checkpoint === 'RECEIPT')}
+                attachments={safeAttachments.filter((a) => a.checkpoint === 'RECEIPT')}
                 disabled={loading}
                 onAttachmentChange={() => router.refresh()}
             />

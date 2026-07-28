@@ -85,6 +85,7 @@ export function OpnameDetailClient({
     basePath = '/warehouse/opname',
     attachments = [],
 }: OpnameDetailClientProps) {
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const router = useRouter();
@@ -344,7 +345,7 @@ export function OpnameDetailClient({
                         entityLabel={session.opnameNumber || 'Opname'}
                         entityType="stockOpnameId"
                         checkpoint="OPNAME"
-                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'OPNAME')}
+                        attachments={safeAttachments.filter((a) => a.checkpoint === 'OPNAME')}
                         disabled={!isOpen}
                         onAttachmentChange={() => router.refresh()}
                     />

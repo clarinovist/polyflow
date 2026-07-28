@@ -46,7 +46,7 @@ export default async function WarehouseMobileOutgoingDetailPage({
     };
 
     const attachments =
-        attachmentsRes.success && attachmentsRes.data
+        attachmentsRes.success && Array.isArray(attachmentsRes.data)
             ? (serializeData(attachmentsRes.data) as unknown as Array<{
                   id: string;
                   checkpoint: string;

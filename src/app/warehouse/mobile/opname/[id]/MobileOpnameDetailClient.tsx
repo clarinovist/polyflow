@@ -63,6 +63,7 @@ export function MobileOpnameDetailClient({
     session,
     attachments = [],
 }: MobileOpnameDetailClientProps) {
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const router = useRouter();
     const isOpen = session.status === 'OPEN';
 
@@ -522,7 +523,7 @@ export function MobileOpnameDetailClient({
                 entityLabel={session.opnameNumber || 'Opname'}
                 entityType="stockOpnameId"
                 checkpoint="OPNAME"
-                attachments={(attachments ?? []).filter((a) => a.checkpoint === 'OPNAME')}
+                attachments={safeAttachments.filter((a) => a.checkpoint === 'OPNAME')}
                 disabled={isSaving || isFinalizing}
                 onAttachmentChange={() => router.refresh()}
             />

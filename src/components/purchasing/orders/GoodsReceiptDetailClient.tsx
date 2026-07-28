@@ -66,6 +66,7 @@ export function GoodsReceiptDetailClient({
     basePath = '/warehouse/incoming',
     attachments = [],
 }: GoodsReceiptDetailProps) {
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
 
     return (
         <div className="space-y-6">
@@ -323,7 +324,7 @@ export function GoodsReceiptDetailClient({
                         entityLabel={receipt.receiptNumber}
                         entityType="goodsReceiptId"
                         checkpoint="RECEIPT"
-                        attachments={(attachments ?? []).filter((a) => a.checkpoint === 'RECEIPT')}
+                        attachments={safeAttachments.filter((a) => a.checkpoint === 'RECEIPT')}
                         onAttachmentChange={() => window.location.reload()}
                     />
                 </div>

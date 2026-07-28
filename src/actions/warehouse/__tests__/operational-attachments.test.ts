@@ -390,6 +390,13 @@ describe('Warehouse Operational Attachments', () => {
             });
 
             expect(result.success).toBe(true);
+            expect(result).toMatchObject({
+                success: true,
+                data: mockAttachments,
+            });
+            expect(Array.isArray(result.success ? result.data : null)).toBe(
+                true,
+            );
             expect(
                 prisma.warehouseOperationalAttachment.findMany,
             ).toHaveBeenCalledWith(
