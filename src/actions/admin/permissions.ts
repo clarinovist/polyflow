@@ -380,6 +380,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/sales/returns',
         '/sales/reports/sales-performance',
         '/sales/mobile',
+        '/field/sales',
         '/dashboard/products',
         '/sales/customers',
         // Granular Access Control (2026-07-20): inventory lookup only, not full

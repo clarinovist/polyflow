@@ -582,13 +582,13 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 resourceHint: '/sales/invoices',
             },
             {
-                href: '/sales/mobile',
+                href: '/field/sales',
                 label: 'Mode Mobile',
                 icon: Smartphone,
                 color: 'text-amber-600',
                 bg: 'bg-amber-50 dark:bg-amber-900/10',
                 border: 'hover:border-amber-200 dark:hover:border-amber-800',
-                resourceHint: '/sales/mobile',
+                resourceHint: '/sales',
             },
         ],
         PROCUREMENT: [

@@ -165,7 +165,7 @@ const salesNavItems: NavItem[] = [
     {
         id: 'sales-mobile',
         label: 'Mode Mobile',
-        href: '/sales/mobile',
+        href: '/field/sales',
         workspace: 'sales',
         section: 'ringkasan',
         owner: 'sales',

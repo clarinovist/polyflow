@@ -619,6 +619,27 @@ const FEATURE_REGISTRY: FeatureDefinition[] = [
         pattern: /^\/field\/sales(?:\/.*)?$/,
         priority: 90,
     },
+    {
+        featureKey: 'sales.mobile_legacy',
+        moduleKey: 'sales',
+        label: 'Mobile Sales (Legacy Redirect)',
+        pattern: /^\/sales\/mobile(?:\/.*)?$/,
+        priority: 85,
+    },
+    {
+        featureKey: 'warehouse.mobile_portal',
+        moduleKey: 'warehouse',
+        label: 'Portal Mobile Gudang',
+        pattern: /^\/warehouse\/mobile(?:\/.*)?$/,
+        priority: 90,
+    },
+    {
+        featureKey: 'production.kiosk',
+        moduleKey: 'production',
+        label: 'Kiosk Operator Produksi',
+        pattern: /^\/kiosk(?:\/.*)?$/,
+        priority: 90,
+    },
 
     // ─── SETTINGS MODULE ─────────────────────────
     {

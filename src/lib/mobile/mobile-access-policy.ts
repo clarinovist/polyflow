@@ -1,4 +1,8 @@
 import { hasRole, getUserRoles } from '@/lib/auth/roles';
+import {
+    MOBILE_PORTAL_REGISTRY,
+    MOBILE_ROUTE_ALIASES,
+} from '@/lib/mobile/mobile-portal-registry';
 
 // ---------------------------------------------------------------------------
 // Mobile UA detection — same regex as existing sales redirect
@@ -104,53 +108,58 @@ export function isMobileBypassAllowed(
 // Multi-role Available Portals & Home Redirect
 // ---------------------------------------------------------------------------
 export interface MobilePortalInfo {
-    id: 'sales' | 'warehouse' | 'production';
+    id: string;
     title: string;
     description: string;
     path: string;
     icon: string;
+    requiredFeature?: string;
+    status: string;
 }
 
+/**
+ * Resolve which portals a user can access.
+ * Combines role check with portal status (ACTIVE only for general users;
+ * ADMIN can preview BETA/PLANNED portals).
+ */
 export function getAvailableMobilePortals(
     user:
         | {
               role?: string;
               roles?: string[];
+              isSuperAdmin?: boolean;
           }
         | null
         | undefined,
 ): MobilePortalInfo[] {
     if (!user) return [];
     const roles = getUserRoles(user);
+    const isAdmin = hasRole(user, 'ADMIN') || !!user.isSuperAdmin;
+
     const portals: MobilePortalInfo[] = [];
 
-    if (roles.includes('SALES') && !roles.includes('MARKETING')) {
-        portals.push({
-            id: 'sales',
-            title: 'Sales Field',
-            description: 'Absensi sales, kunjungan customer, dan buat SO',
-            path: '/field/sales',
-            icon: 'ShoppingBag',
-        });
-    }
+    for (const portal of MOBILE_PORTAL_REGISTRY) {
+        if (portal.status === 'PLANNED' && !isAdmin) continue;
+        if (portal.status === 'BETA' && !isAdmin) continue;
 
-    if (roles.includes('WAREHOUSE')) {
-        portals.push({
-            id: 'warehouse',
-            title: 'Gudang Mobile',
-            description: 'Penerimaan, pengeluaran, & stock opname barang',
-            path: '/warehouse/mobile',
-            icon: 'Package',
-        });
-    }
+        if (
+            portal.id === 'sales-field' &&
+            roles.includes('MARKETING')
+        ) {
+            continue;
+        }
 
-    if (roles.includes('PRODUCTION')) {
+        const hasMatchingRole = portal.roles.some((r) => roles.includes(r));
+        if (!hasMatchingRole) continue;
+
         portals.push({
-            id: 'production',
-            title: 'Kiosk Produksi',
-            description: 'Input hasil kerja operator & monitoring mesin',
-            path: '/kiosk',
-            icon: 'Factory',
+            id: portal.id,
+            title: portal.title,
+            description: portal.description,
+            path: portal.path,
+            icon: portal.icon,
+            requiredFeature: portal.requiredFeature,
+            status: portal.status,
         });
     }
 
@@ -173,12 +182,7 @@ export function getMobileHomeForUser(
 }
 
 /** Label key for desktop-required CTA */
-export type MobileHomeCtaKey =
-    | 'sales'
-    | 'warehouse'
-    | 'production'
-    | 'selector'
-    | null;
+export type MobileHomeCtaKey = string | null;
 
 export function getMobileHomeCtaKey(
     user:
@@ -194,4 +198,18 @@ export function getMobileHomeCtaKey(
     if (portals.length === 0) return null;
     if (portals.length === 1) return portals[0].id;
     return 'selector';
+}
+
+/**
+ * Resolve a legacy mobile path to its canonical form using route aliases.
+ */
+export function resolveMobilePath(path: string): string {
+    const exact = MOBILE_ROUTE_ALIASES[path];
+    if (exact) return exact;
+    for (const [alias, canonical] of Object.entries(MOBILE_ROUTE_ALIASES)) {
+        if (path.startsWith(`${alias}/`)) {
+            return path.replace(alias, canonical);
+        }
+    }
+    return path;
 }

@@ -6,9 +6,14 @@ const nextConfig: NextConfig = {
     async redirects() {
         return [
             {
+                source: '/sales/mobile',
+                destination: '/field/sales',
+                permanent: false,
+            },
+            {
                 source: '/sales/mobile/:path*',
                 destination: '/field/sales/:path*',
-                permanent: true,
+                permanent: false,
             },
         ];
     },

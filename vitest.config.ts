@@ -16,7 +16,7 @@ export default defineConfig({
         environment: 'node',
         globals: true,
         setupFiles: ['./vitest.setup.ts'],
-        include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
+        include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/*.spec.ts'],
         server: {
             deps: {
                 inline: ['next', 'next-auth', '@auth/core'],

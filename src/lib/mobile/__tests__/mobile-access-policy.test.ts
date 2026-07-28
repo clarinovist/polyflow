@@ -191,7 +191,7 @@ describe('mobile-access-policy', () => {
       };
       const portals = getAvailableMobilePortals(user);
       expect(portals).toHaveLength(2);
-      expect(portals.map((p) => p.id)).toEqual(['warehouse', 'production']);
+      expect(portals.map((p) => p.id)).toEqual(['warehouse', 'production-kiosk']);
       expect(portals.map((p) => p.path)).toEqual(['/warehouse/mobile', '/kiosk']);
     });
   });
@@ -235,8 +235,8 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeCtaKey(user)).toBe('selector');
     });
 
-    it('single SALES role → sales', () => {
-      expect(getMobileHomeCtaKey({ roles: ['SALES'] })).toBe('sales');
+    it('single SALES role → sales-field', () => {
+      expect(getMobileHomeCtaKey({ roles: ['SALES'] })).toBe('sales-field');
     });
 
     it('null for FINANCE', () => {

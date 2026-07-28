@@ -187,7 +187,7 @@ export const quickCreateCustomer = withTenant(
                 },
             });
 
-            revalidatePath('/sales/mobile');
+            revalidatePath('/field/sales');
             return {
                 id: customer.id,
                 name: customer.name,

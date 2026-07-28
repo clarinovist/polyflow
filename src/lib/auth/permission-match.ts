@@ -1,13 +1,27 @@
 import { getModuleRoot } from '@/lib/auth/permission-catalog';
 
 /**
- * Generic per-portal nav visibility check, extracted from the warehouse
- * sidebar's original `canSeeWarehouseLink` (kept behavior-identical).
- *
- * - `undefined` / `'ALL'` permissions → full menu (role-native / tenant admin).
- * - Full module-root grant (e.g. `/warehouse`) → every link under that module.
- * - Otherwise: exact match, being a child of a granted resource, or being the
- *   parent nav of a granted nested resource (so the group stays reachable).
+ * Permission alias map — legacy resource keys that should be treated as
+ * equivalent to their canonical counterparts.
+ */
+const PERMISSION_ALIASES: Record<string, string> = {
+    '/sales/mobile': '/field/sales',
+};
+
+function resolveAlias(value: string): string {
+    const exact = PERMISSION_ALIASES[value];
+    if (exact) return exact;
+    for (const [alias, canonical] of Object.entries(PERMISSION_ALIASES)) {
+        if (value.startsWith(`${alias}/`)) {
+            return value.replace(alias, canonical);
+        }
+    }
+    return value;
+}
+
+/**
+ * Generic per-portal nav visibility check.
+ * Permission aliases are resolved before matching (e.g. `/sales/mobile` ↔ `/field/sales`).
  */
 export function canSeeNavHref(
     href: string,
@@ -19,12 +33,23 @@ export function canSeeNavHref(
     const root = moduleRoot ?? getModuleRoot(href);
     if (root && permissions.includes(root)) return true;
 
-    return permissions.some(
-        (p) =>
+    const resolvedRoot = resolveAlias(root ?? '');
+    if (resolvedRoot !== root && permissions.includes(resolvedRoot)) return true;
+
+    const resolvedHref = resolveAlias(href);
+
+    return permissions.some((p) => {
+        const resolvedPermission = resolveAlias(p);
+        return (
+            resolvedHref === resolvedPermission ||
+            resolvedHref.startsWith(`${resolvedPermission}/`) ||
+            (resolvedPermission.startsWith(`${resolvedHref}/`) &&
+                resolvedHref !== root) ||
             href === p ||
             href.startsWith(`${p}/`) ||
-            (p.startsWith(`${href}/`) && href !== root),
-    );
+            (p.startsWith(`${href}/`) && href !== root)
+        );
+    });
 }
 
 export interface FilterableNavItem {
