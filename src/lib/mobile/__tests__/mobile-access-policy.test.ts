@@ -180,19 +180,22 @@ describe('mobile-access-policy', () => {
 
   // ── getAvailableMobilePortals ──────────────────────────────────────
   describe('getAvailableMobilePortals', () => {
-    it('returns empty for ADMIN/FINANCE without ops roles', () => {
+    it('returns empty for ADMIN without ops roles', () => {
       expect(getAvailableMobilePortals({ role: 'ADMIN' })).toEqual([]);
-      expect(getAvailableMobilePortals({ role: 'FINANCE' })).toEqual([]);
     });
 
-    it('returns 2 portals for Rizal-like user (WAREHOUSE + PRODUCTION)', () => {
+    it('returns finance portal for FINANCE user', () => {
+      const portals = getAvailableMobilePortals({ role: 'FINANCE' });
+      expect(portals).toHaveLength(1);
+      expect(portals[0].id).toBe('finance');
+    });
+
+    it('returns portals for multi-role user', () => {
       const user = {
-        roles: ['HRD', 'MARKETING', 'PLANNING', 'PROCUREMENT', 'PRODUCTION', 'WAREHOUSE'],
+        roles: ['PRODUCTION', 'WAREHOUSE'],
       };
       const portals = getAvailableMobilePortals(user);
-      expect(portals).toHaveLength(2);
-      expect(portals.map((p) => p.id)).toEqual(['warehouse', 'production-kiosk']);
-      expect(portals.map((p) => p.path)).toEqual(['/warehouse/mobile', '/kiosk']);
+      expect(portals.map((p) => p.id)).toEqual(['warehouse', 'production-kiosk', 'production-supervisor']);
     });
   });
 
@@ -202,16 +205,12 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeForUser({ role: 'SALES' })).toBe('/field/sales');
     });
 
-    it('PRODUCTION → /kiosk', () => {
-      expect(getMobileHomeForUser({ role: 'PRODUCTION' })).toBe('/kiosk');
+    it('FINANCE → /finance/mobile', () => {
+      expect(getMobileHomeForUser({ role: 'FINANCE' })).toBe('/finance/mobile');
     });
 
     it('ADMIN (no specific home) → null', () => {
       expect(getMobileHomeForUser({ role: 'ADMIN' })).toBeNull();
-    });
-
-    it('FINANCE → null', () => {
-      expect(getMobileHomeForUser({ role: 'FINANCE' })).toBeNull();
     });
 
     it('WAREHOUSE → /warehouse/mobile', () => {
@@ -239,8 +238,8 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeCtaKey({ roles: ['SALES'] })).toBe('sales-field');
     });
 
-    it('null for FINANCE', () => {
-      expect(getMobileHomeCtaKey({ role: 'FINANCE' })).toBeNull();
+    it('finance key for FINANCE', () => {
+      expect(getMobileHomeCtaKey({ role: 'FINANCE' })).toBe('finance');
     });
   });
 });

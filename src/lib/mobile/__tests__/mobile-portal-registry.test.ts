@@ -76,13 +76,9 @@ describe('mobile-portal-registry', () => {
             expect(paths).toContain('/kiosk');
         });
 
-        it('PLANNED portals include production-supervisor, purchasing, finance, hrd-supervisor, maklon', () => {
+        it('PLANNED portals include maklon', () => {
             const planned = getMobilePortalsByStatus('PLANNED');
             const ids = planned.map((p) => p.id);
-            expect(ids).toContain('production-supervisor');
-            expect(ids).toContain('purchasing');
-            expect(ids).toContain('finance');
-            expect(ids).toContain('hrd-supervisor');
             expect(ids).toContain('maklon');
         });
     });

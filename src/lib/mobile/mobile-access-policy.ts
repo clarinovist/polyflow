@@ -42,6 +42,10 @@ const MOBILE_ALLOWLIST_PREFIXES = [
     '/kiosk',
     '/my',
     '/warehouse/mobile',
+    '/production/mobile',
+    '/purchasing/mobile',
+    '/finance/mobile',
+    '/hrd/mobile',
 ];
 
 export function isMobileAllowlistedPath(pathname: string): boolean {
@@ -73,10 +77,13 @@ export function shouldSoftLandToWarehouseMobile(pathname: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Production soft-landing — /production/* → /kiosk
+// Production soft-landing — /production/* (except /production/mobile) → /kiosk
 // ---------------------------------------------------------------------------
 export function shouldSoftLandToKiosk(pathname: string): boolean {
-    return pathname.startsWith('/production');
+    return (
+        pathname.startsWith('/production') &&
+        !pathname.startsWith('/production/mobile')
+    );
 }
 
 // ---------------------------------------------------------------------------
