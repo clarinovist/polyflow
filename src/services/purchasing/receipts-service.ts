@@ -38,7 +38,7 @@ async function notifyFinanceOfGoodsReceipt(
     if (!purchaseOrder || financeUsers.length === 0) return;
 
     const totalAmount = items.reduce(
-        (total, item) => total + item.receivedQty * item.unitCost,
+        (total, item) => total + item.receivedQty * (item.unitCost ?? 0),
         0,
     );
     await NotificationService.createBulkNotifications(
@@ -108,8 +108,7 @@ export async function createGoodsReceipt(
                                     item.purchaseOrderItemId) ||
                                 (!item.purchaseOrderItemId &&
                                     ri.productVariantId === item.productVariantId)) &&
-                            Number(ri.receivedQty) === Number(item.receivedQty) &&
-                            Number(ri.unitCost) === Number(item.unitCost),
+                            Number(ri.receivedQty) === Number(item.receivedQty),
                     ),
                 );
             });

@@ -33,7 +33,6 @@ export default async function WarehouseMobileIncomingDetailPage({
             productVariantId: string;
             quantity: number;
             receivedQty: number;
-            unitPrice: number;
             enteredUnit?: string;
             productVariant: {
                 name: string;

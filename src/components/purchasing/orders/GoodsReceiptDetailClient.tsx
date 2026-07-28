@@ -10,7 +10,6 @@ import {
     CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import {
     ArrowLeft,
@@ -26,7 +25,6 @@ import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
 interface GoodsReceiptItem {
     id: string;
     receivedQty: number;
-    unitCost: number;
     productVariant: {
         id: string;
         name: string;
@@ -62,10 +60,6 @@ export function GoodsReceiptDetailClient({
     receipt,
     basePath = '/warehouse/incoming',
 }: GoodsReceiptDetailProps) {
-    const totalValue = receipt.items.reduce(
-        (sum, item) => sum + item.receivedQty * item.unitCost,
-        0,
-    );
 
     return (
         <div className="space-y-6">
@@ -122,12 +116,6 @@ export function GoodsReceiptDetailClient({
                                             <th className="h-10 px-4 text-right font-medium">
                                                 Kuantitas
                                             </th>
-                                            <th className="h-10 px-4 text-right font-medium">
-                                                Biaya Satuan
-                                            </th>
-                                            <th className="h-10 px-4 text-right font-medium">
-                                                Total
-                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -157,33 +145,9 @@ export function GoodsReceiptDetailClient({
                                                             .primaryUnit
                                                     }
                                                 </td>
-                                                <td className="p-4 text-right tabular-nums">
-                                                    {formatRupiah(
-                                                        item.unitCost,
-                                                    )}
-                                                </td>
-                                                <td className="p-4 text-right font-medium tabular-nums">
-                                                    {formatRupiah(
-                                                        item.receivedQty *
-                                                            item.unitCost,
-                                                    )}
-                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
-                                    <tfoot className="bg-muted/50 border-t">
-                                        <tr>
-                                            <td
-                                                colSpan={3}
-                                                className="p-4 text-right font-bold"
-                                            >
-                                                Total Nilai
-                                            </td>
-                                            <td className="p-4 text-right font-bold text-lg text-emerald-600 tabular-nums">
-                                                {formatRupiah(totalValue)}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
                                 </table>
                             </div>
                         </CardContent>

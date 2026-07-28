@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach  } from 'vitest';
-import { createOrder, updateOrderStatus, deleteOrder } from '../orders-service';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createOrder, updateOrder, updateOrderStatus, deleteOrder, getPurchaseOrders, getPurchaseOrderById } from '../orders-service';
 import { prisma } from '@/lib/core/prisma';
 import { PurchaseOrderStatus } from '@prisma/client';
 
@@ -8,6 +8,7 @@ vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         purchaseOrder: {
             findFirst: vi.fn(),
+            findMany: vi.fn(),
             create: vi.fn(),
             update: vi.fn(),
             findUnique: vi.fn(),
@@ -137,5 +138,93 @@ describe('OrdersService (Purchasing)', () => {
             });
         });
     });
+
+    describe('updateOrder', () => {
+        it('should throw error if PO is RECEIVED or CANCELLED', async () => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({
+                id: 'po-1',
+                status: PurchaseOrderStatus.RECEIVED,
+                items: [],
+                invoices: []
+            } as never);
+
+            await expect(updateOrder({ id: 'po-1', supplierId: 'sup-1', orderDate: new Date(), expectedDate: new Date(), notes: 'test', items: [] } as any))
+                .rejects.toThrow(/Cannot edit Purchase Order with status RECEIVED/);
+        });
+
+        it('should throw error if attempting to edit unit price when invoices exist', async () => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({
+                id: 'po-1',
+                status: PurchaseOrderStatus.SENT,
+                items: [{ id: 'poi-1', productVariantId: 'pv-1', unitPrice: 100, receivedQty: 0, quantity: 10 }],
+                invoices: [{ id: 'inv-1', status: 'UNPAID' }]
+            } as never);
+
+            const input = {
+                id: 'po-1',
+                supplierId: 'sup-1',
+                orderDate: new Date(),
+                expectedDate: new Date(),
+                notes: 'test',
+                items: [{ id: 'poi-1', productVariantId: 'pv-1', unitPrice: 150, quantity: 10 }]
+            };
+
+            await expect(updateOrder(input as any))
+                .rejects.toThrow(/Unit price cannot be changed because invoices already exist/);
+        });
+
+        it('should update purchase order successfully in transaction', async () => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({
+                id: 'po-1',
+                status: PurchaseOrderStatus.DRAFT,
+                items: [{ id: 'poi-1', productVariantId: 'pv-1', unitPrice: 100, receivedQty: 0, quantity: 10 }],
+                invoices: []
+            } as never);
+
+            const updatedMockOrder = { id: 'po-1', totalAmount: 1200 };
+            vi.mocked(prisma.purchaseOrder.update).mockResolvedValue(updatedMockOrder as any);
+
+            const input = {
+                id: 'po-1',
+                supplierId: 'sup-1',
+                orderDate: new Date(),
+                expectedDate: new Date(),
+                notes: 'Updated PO',
+                shippingCost: 50,
+                items: [
+                    { id: 'poi-1', productVariantId: 'pv-1', unitPrice: 100, quantity: 10, discountPercent: 0, taxPercent: 0 }
+                ]
+            };
+
+            const result = await updateOrder(input as any);
+            expect(result).toEqual(updatedMockOrder);
+            expect(prisma.purchaseOrderItem.deleteMany).toHaveBeenCalled();
+        });
+    });
+
+    describe('getPurchaseOrders', () => {
+        it('should fetch list of purchase orders with filters', async () => {
+            vi.mocked(prisma.purchaseOrder.findMany).mockResolvedValue([{ id: 'po-1' }] as any);
+
+            const result = await getPurchaseOrders({ supplierId: 'sup-1', status: PurchaseOrderStatus.SENT });
+            expect(result).toHaveLength(1);
+            expect(prisma.purchaseOrder.findMany).toHaveBeenCalledWith(expect.objectContaining({
+                where: { supplierId: 'sup-1', status: PurchaseOrderStatus.SENT }
+            }));
+        });
+    });
+
+    describe('getPurchaseOrderById', () => {
+        it('should fetch purchase order by ID with details', async () => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({ id: 'po-1', orderNumber: 'PO-001' } as any);
+
+            const result = await getPurchaseOrderById('po-1');
+            expect(result).toEqual({ id: 'po-1', orderNumber: 'PO-001' });
+            expect(prisma.purchaseOrder.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+                where: { id: 'po-1' }
+            }));
+        });
+    });
 });
+
 

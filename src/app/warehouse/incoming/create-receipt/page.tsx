@@ -29,7 +29,6 @@ type ReceiptOrderItem = {
     productVariantId: string;
     quantity: number;
     receivedQty?: number | null;
-    unitPrice: number;
     enteredUnit?: string | null;
     productVariant?: {
         name?: string | null;
@@ -93,7 +92,6 @@ export default async function WarehouseCreateReceiptPage({
             skuCode: item.productVariant?.skuCode || '',
             orderedQty: Number(item.quantity),
             receivedQty: Number(item.receivedQty || 0),
-            unitPrice: Number(item.unitPrice),
             unit: item.enteredUnit || item.productVariant?.primaryUnit || 'pcs',
         })),
         locations: locations.map((loc) => ({ id: loc.id, name: loc.name })),

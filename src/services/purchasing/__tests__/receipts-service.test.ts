@@ -549,6 +549,134 @@ describe("receipts-service", () => {
       expect(result.receiptNumber).toBe("GR-2026-0001");
     });
 
+    it("should create standard receipt successfully without unitCost in payload", async () => {
+      // Arrange
+      const dataWithoutUnitCost = {
+        receivedDate: new Date("2026-01-15"),
+        locationId,
+        notes: "Test receipt without cost",
+        isMaklon: false,
+        purchaseOrderId: "po-1",
+        items: [{ purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 10 }],
+      };
+      vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+      let createdReceiptData: any;
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
+          goodsReceipt: {
+            create: vi.fn().mockImplementation((args: any) => {
+              createdReceiptData = args.data;
+              return { id: "gr-no-cost", receiptNumber: "GR-2026-0001", items: args.data.items.create };
+            }),
+          },
+          stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
+          purchaseOrderItem: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            update: vi.fn(),
+            findMany: vi.fn().mockResolvedValue([
+              { receivedQty: { toNumber: () => 10 }, quantity: { toNumber: () => 10 } },
+            ]),
+          },
+          purchaseOrder: {
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
+            update: vi.fn(),
+          },
+        };
+        return cb(tx);
+      });
+
+      // Act
+      const result = await createGoodsReceipt(dataWithoutUnitCost, userId);
+
+      // Assert
+      expect(result.receiptNumber).toBe("GR-2026-0001");
+      expect(createdReceiptData.items.create[0].unitCost).toBe(5000);
+      expect(
+        vi.mocked(InventoryCoreService.incrementStockWithCost),
+      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 10, 5000);
+    });
+
+    it("should ignore manipulative unitCost from client and use PO item price as source of truth", async () => {
+      // Arrange
+      const dataWithFakePrice = {
+        receivedDate: new Date("2026-01-15"),
+        locationId,
+        notes: "Test fake price",
+        isMaklon: false,
+        purchaseOrderId: "po-1",
+        items: [{ purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 10, unitCost: 9999999 }],
+      };
+      vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+      let createdReceiptData: any;
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
+          goodsReceipt: {
+            create: vi.fn().mockImplementation((args: any) => {
+              createdReceiptData = args.data;
+              return { id: "gr-fake-cost", receiptNumber: "GR-2026-0001", items: args.data.items.create };
+            }),
+          },
+          stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
+          purchaseOrderItem: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            update: vi.fn(),
+            findMany: vi.fn().mockResolvedValue([
+              { receivedQty: { toNumber: () => 10 }, quantity: { toNumber: () => 10 } },
+            ]),
+          },
+          purchaseOrder: {
+            findUnique: vi.fn().mockResolvedValue(defaultMockPO),
+            update: vi.fn(),
+          },
+        };
+        return cb(tx);
+      });
+
+      // Act
+      await createGoodsReceipt(dataWithFakePrice, userId);
+
+      // Assert
+      expect(createdReceiptData.items.create[0].unitCost).toBe(5000);
+      expect(
+        vi.mocked(InventoryCoreService.incrementStockWithCost),
+      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 10, 5000);
+    });
+
+    it("should reject duplicate submission within 5 minutes even if client sends different unitCost", async () => {
+      // Arrange
+      const data1 = {
+        receivedDate: new Date("2026-01-15"),
+        locationId,
+        notes: "Test dup",
+        isMaklon: false,
+        purchaseOrderId: "po-1",
+        items: [{ purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 10, unitCost: 100 }],
+      };
+      const recentReceipt = {
+        id: "gr-recent",
+        purchaseOrderId: "po-1",
+        createdAt: new Date(),
+        items: [{ purchaseOrderItemId: "poi-1", productVariantId: "pv-1", receivedQty: 10, unitCost: 5000 }],
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([recentReceipt]),
+          },
+        };
+        return cb(tx);
+      });
+
+      // Act & Assert
+      await expect(createGoodsReceipt(data1, userId)).rejects.toThrow(
+        /GR yang sama sudah dibuat dalam 5 menit terakhir/i,
+      );
+    });
+
     it("should pass zero unit cost for maklon receipts", async () => {
       // Arrange
       const data = {

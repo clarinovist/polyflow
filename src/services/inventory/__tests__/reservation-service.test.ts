@@ -1,10 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+  createStockReservation,
+  cancelStockReservation,
+  getActiveReservations,
   getSalesOrderResidualDemand,
   adjustReservationsForVoidOutput,
   cancelSpecificReservation,
 } from "../reservation-service";
 import { ReservationStatus, ReservationType } from "@prisma/client";
+import { prisma } from "@/lib/core/prisma";
+
+vi.mock("@/lib/core/prisma", () => ({
+  prisma: {
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(async (cb) => cb(prisma)),
+    stockReservation: {
+      aggregate: vi.fn(),
+      create: vi.fn(),
+      updateMany: vi.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
+  },
+}));
 
 // Stub a Decimal helper
 const dec = (n: number) => ({ toNumber: () => n, valueOf: () => n });
@@ -12,6 +30,97 @@ const dec = (n: number) => ({ toNumber: () => n, valueOf: () => n });
 describe("reservation-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe("createStockReservation", () => {
+    it("creates ACTIVE reservation when physical stock is sufficient", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValue([{ quantity: "100" }] as any);
+      vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({ _sum: { quantity: dec(20) } } as any);
+      vi.mocked(prisma.stockReservation.create).mockResolvedValue({ id: "res-1", status: ReservationStatus.ACTIVE } as any);
+
+      const input = {
+        productVariantId: "pv-1",
+        locationId: "loc-1",
+        quantity: 50,
+        reservedFor: ReservationType.SALES_ORDER,
+        referenceId: "so-1",
+      };
+
+      const res = await createStockReservation(input as any);
+      expect(res.status).toBe(ReservationStatus.ACTIVE);
+      expect(prisma.stockReservation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: ReservationStatus.ACTIVE,
+            quantity: 50,
+          }),
+        })
+      );
+    });
+
+    it("creates WAITING reservation when physical stock is insufficient", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValue([{ quantity: "30" }] as any);
+      vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({ _sum: { quantity: dec(20) } } as any);
+      vi.mocked(prisma.stockReservation.create).mockResolvedValue({ id: "res-2", status: ReservationStatus.WAITING } as any);
+
+      const input = {
+        productVariantId: "pv-1",
+        locationId: "loc-1",
+        quantity: 50,
+        reservedFor: ReservationType.SALES_ORDER,
+        referenceId: "so-1",
+      };
+
+      const res = await createStockReservation(input as any);
+      expect(res.status).toBe(ReservationStatus.WAITING);
+      expect(prisma.stockReservation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: ReservationStatus.WAITING,
+          }),
+        })
+      );
+    });
+  });
+
+  describe("cancelStockReservation", () => {
+    it("cancels reservation successfully when active or waiting", async () => {
+      vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 1 });
+
+      await expect(cancelStockReservation({ reservationId: "res-1" })).resolves.not.toThrow();
+      expect(prisma.stockReservation.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "res-1",
+          status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] },
+        },
+        data: { status: ReservationStatus.CANCELLED },
+      });
+    });
+
+    it("throws NotFoundError if reservation does not exist", async () => {
+      vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.stockReservation.findUnique).mockResolvedValue(null);
+
+      await expect(cancelStockReservation({ reservationId: "res-missing" })).rejects.toThrow();
+    });
+  });
+
+  describe("getActiveReservations", () => {
+    it("fetches active/waiting reservations with filters", async () => {
+      vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([{ id: "res-1" }] as any);
+
+      const res = await getActiveReservations("loc-1", "pv-1");
+      expect(res).toHaveLength(1);
+      expect(prisma.stockReservation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] },
+            locationId: "loc-1",
+            productVariantId: "pv-1",
+          },
+        })
+      );
+    });
   });
 
   describe("getSalesOrderResidualDemand", () => {
@@ -129,3 +238,4 @@ describe("reservation-service", () => {
     });
   });
 });
+

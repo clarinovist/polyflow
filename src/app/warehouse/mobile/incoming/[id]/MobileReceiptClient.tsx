@@ -30,7 +30,6 @@ type OrderItem = {
     productVariantId: string;
     quantity: number;
     receivedQty: number;
-    unitPrice: number;
     enteredUnit?: string;
     productVariant: {
         name: string;
@@ -74,7 +73,6 @@ export function MobileReceiptClient({
                 purchaseOrderItemId: item.id,
                 productVariantId: item.productVariantId,
                 receivedQty: received,
-                unitCost: item.unitPrice,
                 name: item.productVariant.name,
                 pendingQty: Math.max(0, item.quantity - item.receivedQty),
             };
@@ -131,7 +129,6 @@ export function MobileReceiptClient({
                     purchaseOrderItemId: i.purchaseOrderItemId,
                     productVariantId: i.productVariantId,
                     receivedQty: i.receivedQty,
-                    unitCost: i.unitCost,
                 })),
             });
 

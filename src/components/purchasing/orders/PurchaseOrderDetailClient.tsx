@@ -557,25 +557,30 @@ export function PurchaseOrderDetailClient({
                                             <th className="h-10 px-4 text-right font-medium">
                                                 {purchasingLabels.receivedQty}
                                             </th>
-                                            <th className="h-10 px-4 text-right font-medium">
-                                                {formLabels.unitPrice}
-                                            </th>
-                                            {order.items.some(
-                                                (item) =>
-                                                    Number(
-                                                        item.taxPercent || 0,
-                                                    ) > 0 ||
-                                                    Number(
-                                                        item.taxAmount || 0,
-                                                    ) > 0,
-                                            ) && (
+                                            {!warehouseMode && (
                                                 <th className="h-10 px-4 text-right font-medium">
-                                                    DPP
+                                                    {formLabels.unitPrice}
                                                 </th>
                                             )}
-                                            <th className="h-10 px-4 text-right font-medium">
-                                                {formLabels.subtotal}
-                                            </th>
+                                            {!warehouseMode &&
+                                                order.items.some(
+                                                    (item) =>
+                                                        Number(
+                                                            item.taxPercent || 0,
+                                                        ) > 0 ||
+                                                        Number(
+                                                            item.taxAmount || 0,
+                                                        ) > 0,
+                                                ) && (
+                                                    <th className="h-10 px-4 text-right font-medium">
+                                                        DPP
+                                                    </th>
+                                                )}
+                                            {!warehouseMode && (
+                                                <th className="h-10 px-4 text-right font-medium">
+                                                    {formLabels.subtotal}
+                                                </th>
+                                            )}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -626,37 +631,43 @@ export function PurchaseOrderDetailClient({
                                                         )}
                                                     </span>
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    {formatRupiah(
-                                                        item.unitPrice,
-                                                    )}
-                                                </td>
-                                                {order.items.some(
-                                                    (i) =>
-                                                        Number(
-                                                            i.taxPercent || 0,
-                                                        ) > 0 ||
-                                                        Number(
-                                                            i.taxAmount || 0,
-                                                        ) > 0,
-                                                ) && (
-                                                    <td className="p-4 text-right text-muted-foreground">
-                                                        {item.dppOtherAmount
-                                                            ? formatRupiah(
-                                                                  item.dppOtherAmount,
-                                                              )
-                                                            : '-'}
+                                                {!warehouseMode && (
+                                                    <td className="p-4 text-right">
+                                                        {formatRupiah(
+                                                            item.unitPrice,
+                                                        )}
                                                     </td>
                                                 )}
-                                                <td className="p-4 text-right font-medium">
-                                                    {formatRupiah(
-                                                        item.subtotal,
+                                                {!warehouseMode &&
+                                                    order.items.some(
+                                                        (i) =>
+                                                            Number(
+                                                                i.taxPercent || 0,
+                                                            ) > 0 ||
+                                                            Number(
+                                                                i.taxAmount || 0,
+                                                            ) > 0,
+                                                    ) && (
+                                                        <td className="p-4 text-right text-muted-foreground">
+                                                            {item.dppOtherAmount
+                                                                ? formatRupiah(
+                                                                      item.dppOtherAmount,
+                                                                  )
+                                                                : '-'}
+                                                        </td>
                                                     )}
-                                                </td>
+                                                {!warehouseMode && (
+                                                    <td className="p-4 text-right font-medium">
+                                                        {formatRupiah(
+                                                            item.subtotal,
+                                                        )}
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
-                                    <tfoot className="bg-muted/50 border-t">
+                                    {!warehouseMode && (
+                                        <tfoot className="bg-muted/50 border-t">
                                         {Number(order.discountAmount || 0) >
                                             0 && (
                                             <tr>
@@ -763,6 +774,7 @@ export function PurchaseOrderDetailClient({
                                             </td>
                                         </tr>
                                     </tfoot>
+                                    )}
                                 </table>
                             </div>
                         </CardContent>
@@ -822,7 +834,7 @@ export function PurchaseOrderDetailClient({
                                         : 'Tidak ditentukan'}
                                 </p>
                             </div>
-                            {order.supplier.paymentTermDays && (
+                            {!warehouseMode && order.supplier.paymentTermDays && (
                                 <div>
                                     <h3 className="text-sm font-semibold text-muted-foreground">
                                         Tempo
@@ -899,65 +911,67 @@ export function PurchaseOrderDetailClient({
                         entityId={order.id}
                     />
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>
-                                {purchasingLabels.purchaseInvoice}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {order.invoices.length === 0 ? (
-                                <p className="text-sm text-muted-foreground italic">
-                                    Tidak ada invoice yang dibuat.
-                                </p>
-                            ) : (
-                                <ul className="space-y-4">
-                                    {order.invoices.map((inv) => (
-                                        <li
-                                            key={inv.id}
-                                            className="border p-3 rounded-md shadow-sm"
-                                        >
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="font-bold text-xs">
-                                                    {inv.invoiceNumber}
-                                                </span>
-                                                <Badge
-                                                    className={
-                                                        inv.status === 'PAID'
-                                                            ? 'bg-emerald-500 dark:bg-emerald-600'
-                                                            : 'bg-amber-500 dark:bg-amber-600'
-                                                    }
-                                                >
-                                                    {getStatusLabel(
-                                                        inv.status,
-                                                        'purchasing',
-                                                    )}
-                                                </Badge>
-                                            </div>
-                                            <div className="flex justify-between text-sm">
-                                                <span className="font-semibold">
-                                                    {formatRupiah(
-                                                        Number(inv.totalAmount),
-                                                    )}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground">
-                                                    Tempo:{' '}
-                                                    {inv.dueDate
-                                                        ? format(
-                                                              new Date(
-                                                                  inv.dueDate,
-                                                              ),
-                                                              'dd MMM',
-                                                          )
-                                                        : '-'}
-                                                </span>
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </CardContent>
-                    </Card>
+                    {!warehouseMode && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>
+                                    {purchasingLabels.purchaseInvoice}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {order.invoices.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground italic">
+                                        Tidak ada invoice yang dibuat.
+                                    </p>
+                                ) : (
+                                    <ul className="space-y-4">
+                                        {order.invoices.map((inv) => (
+                                            <li
+                                                key={inv.id}
+                                                className="border p-3 rounded-md shadow-sm"
+                                            >
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="font-bold text-xs">
+                                                        {inv.invoiceNumber}
+                                                    </span>
+                                                    <Badge
+                                                        className={
+                                                            inv.status === 'PAID'
+                                                                ? 'bg-emerald-500 dark:bg-emerald-600'
+                                                                : 'bg-amber-500 dark:bg-amber-600'
+                                                        }
+                                                    >
+                                                        {getStatusLabel(
+                                                            inv.status,
+                                                            'purchasing',
+                                                        )}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="font-semibold">
+                                                        {formatRupiah(
+                                                            Number(inv.totalAmount),
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Tempo:{' '}
+                                                        {inv.dueDate
+                                                            ? format(
+                                                                  new Date(
+                                                                      inv.dueDate,
+                                                                  ),
+                                                                  'dd MMM',
+                                                              )
+                                                            : '-'}
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </div>

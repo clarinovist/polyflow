@@ -37,16 +37,16 @@ export default defineConfig({
                 'src/lib/schemas/**',
                 'src/generated/**',
             ],
-            // Ratchet guard: current baseline (2026-07-18) over the tested surface is
-            // Stmts 72% / Branch 64% / Funcs 77% / Lines 73%. Thresholds sit just
-            // below baseline so CI fails on regression while we ratchet up toward the
-            // 80% policy target. When coverage climbs, raise these — never lower them.
+            // Ratchet guard: baseline (2026-07-27) over tested surface is
+            // Stmts 72.65% / Branch 63.35% / Funcs 76.68% / Lines 73.88%.
+            // Thresholds sit just below baseline so CI fails on regression while
+            // we ratchet up toward the 80% policy target.
             // Policy target: 80% across all metrics.
             thresholds: {
-                statements: 70,
-                branches: 62,
-                functions: 74,
-                lines: 71,
+                statements: 71,
+                branches: 63,
+                functions: 75,
+                lines: 72,
             },
         },
     },

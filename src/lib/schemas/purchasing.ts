@@ -49,7 +49,7 @@ export const goodsReceiptItemSchema = z.object({
         .number()
         .positive('Quantity must be positive')
         .finite('Quantity must be a valid number'),
-    unitCost: z.number().min(0, 'Unit cost cannot be negative'),
+    unitCost: z.number().min(0, 'Unit cost cannot be negative').optional(),
 });
 
 export const createGoodsReceiptSchema = z

@@ -5,10 +5,13 @@ import { prisma } from '@/lib/core/prisma';
 // Mock prisma
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
+        $transaction: vi.fn(async (cb) => cb(prisma)),
         pettyCashTransaction: {
             findMany: vi.fn(),
             count: vi.fn(),
             create: vi.fn(),
+            findUnique: vi.fn(),
+            update: vi.fn(),
         },
         account: {
             findUnique: vi.fn(),
@@ -203,4 +206,61 @@ describe('PettyCashService', () => {
             expect(result.voucherNumber).toBe('PCV-202401-002');
         });
     });
+
+    describe('approveExpense', () => {
+        it('throws error if transaction not found or not DRAFT or missing expenseAccountId', async () => {
+            vi.mocked(prisma.pettyCashTransaction.findUnique).mockResolvedValue(null);
+            await expect(PettyCashService.approveExpense('tx-missing', 'user-1')).rejects.toThrow();
+
+            vi.mocked(prisma.pettyCashTransaction.findUnique).mockResolvedValue({
+                id: 'tx-posted',
+                status: 'POSTED',
+            } as any);
+            await expect(PettyCashService.approveExpense('tx-posted', 'user-1')).rejects.toThrow();
+        });
+
+        it('approves expense and creates journal entry', async () => {
+            const { resolveAccount } = await import('@/services/accounting/account-resolver');
+            const { createJournalEntry, postJournal } = await import('@/services/accounting/journals-service');
+
+            vi.mocked(prisma.pettyCashTransaction.findUnique).mockResolvedValue({
+                id: 'tx-1',
+                status: 'DRAFT',
+                expenseAccountId: 'exp-1',
+                amount: { toNumber: () => 150000 },
+                description: 'Bensin kantor',
+                voucherNumber: 'PCV-202607-001',
+                date: new Date(),
+            } as any);
+
+            vi.mocked(resolveAccount).mockResolvedValue({ id: 'acc-pc' } as any);
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({ id: 'acc-pc' } as any);
+            vi.mocked(prisma.pettyCashTransaction.update).mockResolvedValue({ id: 'tx-1', status: 'POSTED' } as any);
+            vi.mocked(createJournalEntry).mockResolvedValue({ id: 'je-pc-1' } as any);
+
+            const result = await PettyCashService.approveExpense('tx-1', 'user-1');
+            expect(result.status).toBe('POSTED');
+            expect(createJournalEntry).toHaveBeenCalled();
+            expect(postJournal).toHaveBeenCalledWith('je-pc-1', 'user-1', prisma);
+        });
+    });
+
+    describe('replenish', () => {
+        it('replenishes petty cash from bank account and posts journal', async () => {
+            const { resolveAccount } = await import('@/services/accounting/account-resolver');
+            const { createJournalEntry, postJournal } = await import('@/services/accounting/journals-service');
+
+            vi.mocked(resolveAccount).mockResolvedValue({ id: 'acc-pc' } as any);
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({ id: 'acc-pc' } as any);
+            vi.mocked(prisma.pettyCashTransaction.count).mockResolvedValue(0);
+            vi.mocked(prisma.pettyCashTransaction.create).mockResolvedValue({ id: 'pcr-1' } as any);
+            vi.mocked(createJournalEntry).mockResolvedValue({ id: 'je-pcr-1' } as any);
+
+            const result = await PettyCashService.replenish(500000, 'bank-acc-1', 'user-1');
+            expect(result).toEqual({ id: 'pcr-1' });
+            expect(createJournalEntry).toHaveBeenCalled();
+            expect(postJournal).toHaveBeenCalledWith('je-pcr-1', 'user-1', prisma);
+        });
+    });
 });
+
