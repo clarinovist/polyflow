@@ -6,6 +6,7 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { safeAction, NotFoundError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 import { revalidatePath } from 'next/cache';
+import { haversineDistance } from '@/lib/utils/geo';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -553,23 +554,6 @@ export const importRouteExcel = withTenant(
 
 // ── Nearest-neighbor route optimization ────────────────────────────
 
-function haversineDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-): number {
-    const R = 6371e3;
-    const phi1 = (lat1 * Math.PI) / 180;
-    const phi2 = (lat2 * Math.PI) / 180;
-    const dPhi = ((lat2 - lat1) * Math.PI) / 180;
-    const dLambda = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-        Math.sin(dPhi / 2) ** 2 +
-        Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 export const optimizeRouteNearestNeighbor = withTenant(
     async function optimizeRouteNearestNeighbor(id: string) {
         return safeAction(async () => {
@@ -579,6 +563,7 @@ export const optimizeRouteNearestNeighbor = withTenant(
                 where: { id },
                 include: {
                     items: {
+                        orderBy: { sortOrder: 'asc' },
                         include: {
                             customer: {
                                 select: {
@@ -593,15 +578,39 @@ export const optimizeRouteNearestNeighbor = withTenant(
             });
             if (!plan) throw new NotFoundError('Route plan tidak ditemukan');
 
-            const items = plan.items.filter(
+            const allItems = plan.items;
+            const withGps = allItems.filter(
                 (i) =>
-                    i.customer.latitude != null && i.customer.longitude != null,
+                    i.customer.latitude != null &&
+                    i.customer.longitude != null,
             );
-            if (items.length <= 1) return plan;
+            const withoutGps = allItems.filter(
+                (i) =>
+                    i.customer.latitude == null ||
+                    i.customer.longitude == null,
+            );
+
+            if (withGps.length <= 1) {
+                const finalOrder = [...withGps, ...withoutGps];
+                await prisma.$transaction(
+                    finalOrder.map((item, i) =>
+                        prisma.salesRoutePlanItem.update({
+                            where: { id: item.id },
+                            data: { sortOrder: i + 1 },
+                        }),
+                    ),
+                );
+                revalidatePath('/sales/routes');
+                revalidatePath('/field/sales');
+                return {
+                    ...plan,
+                    orderedCustomerIds: finalOrder.map((i) => i.customerId),
+                };
+            }
 
             // Nearest-neighbor from first item
-            const sorted: typeof items = [items[0]];
-            const remaining = items.slice(1);
+            const sorted: typeof withGps = [withGps[0]];
+            const remaining = withGps.slice(1);
 
             while (remaining.length > 0) {
                 const last = sorted[sorted.length - 1];
@@ -626,17 +635,25 @@ export const optimizeRouteNearestNeighbor = withTenant(
                 remaining.splice(bestIdx, 1);
             }
 
-            // Reassign sortOrder
-            for (let i = 0; i < sorted.length; i++) {
-                await prisma.salesRoutePlanItem.update({
-                    where: { id: sorted[i].id },
-                    data: { sortOrder: i + 1 },
-                });
-            }
+            // Append customers without GPS after optimized ones
+            const finalOrder = [...sorted, ...withoutGps];
+
+            // Reassign sortOrder atomically for all items
+            await prisma.$transaction(
+                finalOrder.map((item, i) =>
+                    prisma.salesRoutePlanItem.update({
+                        where: { id: item.id },
+                        data: { sortOrder: i + 1 },
+                    }),
+                ),
+            );
 
             revalidatePath('/sales/routes');
             revalidatePath('/field/sales');
-            return plan;
+            return {
+                ...plan,
+                orderedCustomerIds: finalOrder.map((i) => i.customerId),
+            };
         });
     },
 );

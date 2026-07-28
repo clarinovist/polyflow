@@ -1,3 +1,4 @@
+import 'leaflet/dist/leaflet.css';
 import { listRoutePlans } from '@/actions/sales/route-plans';
 import { getCustomers } from '@/actions/sales/customer';
 import { RoutePlannerBoard } from '@/components/sales/routes/RoutePlannerBoard';

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +29,27 @@ import {
     optimizeRouteNearestNeighbor,
     listRecentRouteDates,
 } from '@/actions/sales/route-plans';
+import { RouteStatsBar } from './RouteStatsBar';
 import { toast } from 'sonner';
+import type { RouteMapCustomer } from './RouteMapPreview';
+
+const DynamicRouteMapPreview = dynamic(
+    () =>
+        import('./RouteMapPreview').then(
+            (module) => module.RouteMapPreview,
+        ),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="flex items-center justify-center bg-muted/30 rounded-lg border h-[400px]">
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-8 w-8 animate-pulse" />
+                    <p className="text-xs">Memuat peta...</p>
+                </div>
+            </div>
+        ),
+    },
+);
 
 type Customer = {
     id: string;
@@ -96,6 +117,25 @@ export function RoutePlannerBoard({
         }
         return Array.from(map.values());
     }, [plans]);
+
+    // Derived customers for map (ordered by selectedCustomerIds)
+    const selectedCustomersForMap: RouteMapCustomer[] = useMemo(() => {
+        return selectedCustomerIds
+            .map((id, idx) => {
+                const c = customers.find((cu) => cu.id === id);
+                if (!c) return null;
+                return {
+                    id: c.id,
+                    name: c.name,
+                    code: c.code,
+                    city: c.city,
+                    latitude: c.latitude ?? null,
+                    longitude: c.longitude ?? null,
+                    sortOrder: idx + 1,
+                };
+            })
+            .filter((c): c is RouteMapCustomer => c !== null);
+    }, [selectedCustomerIds, customers]);
 
     // Existing plan for selected date + rep
     const existingPlan = useMemo(
@@ -249,9 +289,15 @@ export function RoutePlannerBoard({
         try {
             const result = await copyLastWeekRoute(selectedDate, selectedRepId);
             if (result?.success) {
-                const data = (result as { data?: { items?: unknown[] } }).data;
+                const data = (result as { data?: { items?: { customerId: string; sortOrder: number }[] } }).data;
+                const orderedIds = (data?.items ?? [])
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map((i) => i.customerId);
+                if (orderedIds.length > 0) {
+                    setSelectedCustomerIds(orderedIds);
+                }
                 toast.success(
-                    `Berhasil menyalin ${data?.items?.length ?? 0} toko dari minggu lalu`,
+                    `Berhasil menyalin ${orderedIds.length} toko dari minggu lalu`,
                 );
             } else {
                 toast.error(
@@ -285,7 +331,6 @@ export function RoutePlannerBoard({
 
                 const codes: string[] = [];
                 for (const row of rows) {
-                    // Try common column names: code, kode, customer_code, Kode Customer
                     const code =
                         row['code'] ||
                         row['kode'] ||
@@ -315,8 +360,15 @@ export function RoutePlannerBoard({
                 });
 
                 if (result?.success) {
+                    const planData = (result as { data?: { items?: { customerId: string; sortOrder: number }[] } }).data;
+                    const orderedIds = (planData?.items ?? [])
+                        .sort((a, b) => a.sortOrder - b.sortOrder)
+                        .map((i) => i.customerId);
+                    if (orderedIds.length > 0) {
+                        setSelectedCustomerIds(orderedIds);
+                    }
                     toast.success(
-                        `Import berhasil: ${codes.length} kode, ditemukan di database`,
+                        `Import berhasil: ${orderedIds.length} toko ditemukan di database`,
                     );
                 } else {
                     toast.error(
@@ -342,6 +394,11 @@ export function RoutePlannerBoard({
         try {
             const result = await optimizeRouteNearestNeighbor(existingPlan.id);
             if (result?.success) {
+                const data = (result as { data?: { orderedCustomerIds?: string[] } }).data;
+                const orderedIds = data?.orderedCustomerIds;
+                if (orderedIds && orderedIds.length > 0) {
+                    setSelectedCustomerIds(orderedIds);
+                }
                 toast.success('Rute berhasil dioptimasi (nearest-neighbor)');
             } else {
                 toast.error(
@@ -396,9 +453,15 @@ export function RoutePlannerBoard({
                 selectedRepId,
             );
             if (result?.success) {
-                const data = (result as { data?: { items?: unknown[] } }).data;
+                const data = (result as { data?: { items?: { customerId: string; sortOrder: number }[] } }).data;
+                const orderedIds = (data?.items ?? [])
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map((i) => i.customerId);
+                if (orderedIds.length > 0) {
+                    setSelectedCustomerIds(orderedIds);
+                }
                 toast.success(
-                    `Berhasil menyalin ${data?.items?.length ?? 0} toko dari tanggal ${fromDate}`,
+                    `Berhasil menyalin ${orderedIds.length} toko dari tanggal ${fromDate}`,
                 );
                 setShowTemplatePicker(false);
             } else {
@@ -435,7 +498,10 @@ export function RoutePlannerBoard({
                     <Input
                         type="date"
                         value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
+                        onChange={(e) => {
+                            setSelectedDate(e.target.value);
+                            setSelectedCustomerIds([]);
+                        }}
                         className="h-10"
                     />
                 </div>
@@ -575,6 +641,13 @@ export function RoutePlannerBoard({
                     Pilih Semua
                 </Button>
             </div>
+
+            {/* Map Preview + Stats */}
+            <RouteStatsBar
+                customers={selectedCustomersForMap}
+                totalCount={selectedCustomerIds.length}
+            />
+            <DynamicRouteMapPreview customers={selectedCustomersForMap} />
 
             {/* Template Picker Dropdown */}
             {showTemplatePicker && (
