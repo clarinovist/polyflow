@@ -11,9 +11,11 @@ import {
     Calendar,
     Search,
     RefreshCw,
+    FileText,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 type ReceivablePO = {
     id: string;
@@ -21,6 +23,9 @@ type ReceivablePO = {
     orderDate: Date | string;
     expectedDate: Date | string | null;
     status: string;
+    notes?: string | null;
+    entrySource?: string | null;
+    sourceReference?: string | null;
     supplier: { name: string; code: string | null };
     items: {
         id: string;
@@ -91,15 +96,28 @@ export function WarehouseIncomingMobileClient({
                         {receivablePOs.length} PO menunggu diterima
                     </p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-xs border-amber-500/30 text-amber-700"
+                        asChild
+                    >
+                        <Link href="/warehouse/mobile/incoming/from-nota">
+                            <FileText className="h-3.5 w-3.5 mr-1" />
+                            Terima dari Nota
+                        </Link>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                    >
+                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
             </div>
 
             {/* Search & Filters */}
@@ -195,9 +213,19 @@ export function WarehouseIncomingMobileClient({
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold truncate">
-                                                {po.orderNumber}
-                                            </p>
+                                            <div className="flex items-center gap-1.5">
+                                                <p className="text-sm font-semibold truncate">
+                                                    {po.orderNumber}
+                                                </p>
+                                                {po.entrySource === 'WALK_IN_RECEIPT' && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="text-[10px] shrink-0 border-amber-500/30 text-amber-700 bg-amber-500/10"
+                                                    >
+                                                        Dari Nota
+                                                    </Badge>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-1 mt-0.5">
                                                 <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
                                                 <p className="text-xs text-muted-foreground truncate">

@@ -149,6 +149,7 @@ export const createWalkInReceiptSchema = z.object({
         .transform((v) =>
             v == null || v === '' ? undefined : sanitizeHtml(v),
         ),
+    idempotencyKey: z.string().min(1, 'Idempotency key is required'),
     items: z
         .array(
             z.object({
@@ -158,9 +159,7 @@ export const createWalkInReceiptSchema = z.object({
                     .positive('Quantity must be positive'),
                 unitCost: z.coerce
                     .number()
-                    .min(0, 'Unit cost cannot be negative')
-                    .optional()
-                    .nullable(),
+                    .positive('Unit cost must be positive'),
             }),
         )
         .min(1, 'At least one item is required'),

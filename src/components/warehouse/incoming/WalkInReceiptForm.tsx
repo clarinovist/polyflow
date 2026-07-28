@@ -77,11 +77,12 @@ export function WalkInReceiptForm({
             receivedDate: new Date(),
             locationId: defaultLocationId || locations[0]?.id || '',
             notes: '',
+            idempotencyKey: '',
             items: [
                 {
                     productVariantId: '',
                     receivedQty: 1,
-                    unitCost: null,
+                    unitCost: 0,
                 },
             ],
         },
@@ -95,7 +96,11 @@ export function WalkInReceiptForm({
     const onSubmit: SubmitHandler<CreateWalkInReceiptValues> = async (data) => {
         setIsLoading(true);
         try {
-            const result = await createWalkInGoodsReceipt(data);
+            const idempotencyKey = `walkin-${data.supplierId}-${data.supplierRefNo}-${Date.now()}`;
+            const result = await createWalkInGoodsReceipt({
+                ...data,
+                idempotencyKey,
+            });
             if (!result.success) {
                 toast.error(
                     result.error ||
@@ -134,8 +139,8 @@ export function WalkInReceiptForm({
                                 </CardTitle>
                                 <CardDescription>
                                     Input qty fisik sesuai barang yang diterima.
-                                    Harga satuan opsional (default: harga beli
-                                    terakhir / standard cost).
+                                    Harga satuan wajib diisi (bisa auto-fill dari
+                                    harga beli terakhir / standard cost).
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -314,7 +319,7 @@ export function WalkInReceiptForm({
                                             append({
                                                 productVariantId: '',
                                                 receivedQty: 1,
-                                                unitCost: null,
+                                                unitCost: 0,
                                             })
                                         }
                                     >

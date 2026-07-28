@@ -28,6 +28,10 @@ import { logActivity } from '@/lib/tools/audit';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { hasAnyRole } from '@/lib/auth/roles';
+import {
+    approveWalkInInvoice,
+    rejectWalkInInvoice,
+} from '@/services/purchasing/walk-in-receipt-service';
 
 export const createPurchaseOrder = withTenant(
     async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
@@ -464,6 +468,72 @@ export const updatePurchaseInvoiceDueDate = withTenant(
             revalidatePath(`/finance/invoices/purchase/${id}`);
             revalidatePath('/purchasing/orders');
             return serializeData(updated);
+        });
+    },
+);
+
+export const approveWalkInPurchaseInvoice = withTenant(
+    async function approveWalkInPurchaseInvoice(invoiceId: string) {
+        return safeAction(async () => {
+            const session = await requireAuth();
+            if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
+                throw new BusinessRuleError(
+                    'Hanya ADMIN atau FINANCE yang boleh approve invoice walk-in',
+                );
+            }
+
+            const invoice = await approveWalkInInvoice(
+                invoiceId,
+                session.user.id,
+            );
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'APPROVE_EMERGENCY_COMMERCIAL',
+                entityType: 'PurchaseInvoice',
+                entityId: invoiceId,
+                details: `Walk-in invoice approved and activated to UNPAID`,
+            });
+
+            revalidatePath('/finance/invoices/purchase');
+            revalidatePath(`/finance/invoices/purchase/${invoiceId}`);
+            revalidatePath('/purchasing/orders');
+            return serializeData(invoice);
+        });
+    },
+);
+
+export const rejectWalkInPurchaseInvoice = withTenant(
+    async function rejectWalkInPurchaseInvoice(
+        invoiceId: string,
+        reason?: string,
+    ) {
+        return safeAction(async () => {
+            const session = await requireAuth();
+            if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
+                throw new BusinessRuleError(
+                    'Hanya ADMIN atau FINANCE yang boleh reject invoice walk-in',
+                );
+            }
+
+            const invoice = await rejectWalkInInvoice(
+                invoiceId,
+                session.user.id,
+                reason,
+            );
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'REJECT_EMERGENCY_COMMERCIAL',
+                entityType: 'PurchaseInvoice',
+                entityId: invoiceId,
+                details: `Walk-in invoice rejected${reason ? `: ${reason}` : ''}`,
+            });
+
+            revalidatePath('/finance/invoices/purchase');
+            revalidatePath(`/finance/invoices/purchase/${invoiceId}`);
+            revalidatePath('/purchasing/orders');
+            return serializeData(invoice);
         });
     },
 );

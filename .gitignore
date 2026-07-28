@@ -85,9 +85,11 @@ graphify-out/
 
 # Vendored agent-skill docs installed by `graphify install --platform opencode`.
 # Third-party docs, re-created by the installer, and they pollute the graph corpus
-# (they get re-extracted as "changed documents" on every sync). opencode.json and
-# plugins/ stay tracked on purpose so collaborators get the same setup.
+# (they get re-extracted as "changed documents" on every sync). plugins/ stays
+# tracked so collaborators get the same setup.
 /.opencode/skills/
+# Contains plaintext API keys — must NOT be committed.
+/.opencode/opencode.json
 
 # local planning/working docs — kept out of this public repo on purpose.
 # Plans routinely carry internal detail (host addresses, account emails, tenant

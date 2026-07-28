@@ -249,6 +249,18 @@ export async function updateInvoiceStatus(
         throw new NotFoundError('Invoice', id);
     }
 
+    // Prevent direct status change from DRAFT to payment states
+    if (
+        invoice.status === 'DRAFT' &&
+        (status === 'UNPAID' || status === 'PARTIAL' || status === 'PAID')
+    ) {
+        throw new BusinessRuleError(
+            'Invoice masih DRAFT. Finance harus approve terlebih dahulu sebelum bisa dibayar.',
+            { invoiceId: id, currentStatus: invoice.status, targetStatus: status },
+            'INVOICE_DRAFT',
+        );
+    }
+
     await prisma.invoice.update({
         where: { id },
         data: {

@@ -88,7 +88,19 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
         label: 'Stok / Gudang',
         children: [
             { key: '/warehouse/incoming', label: 'Penerimaan' },
+            {
+                key: '/warehouse/incoming/walk-in',
+                label: 'Terima dari Nota (Walk-in)',
+            },
             { key: '/warehouse/outgoing', label: 'Pengeluaran' },
+            {
+                key: '/warehouse/outgoing/walk-in',
+                label: 'Muat Pesanan Dadakan',
+            },
+            {
+                key: '/warehouse/outgoing/walk-in-approve',
+                label: 'Approval Pesanan Dadakan',
+            },
             { key: '/warehouse/materials', label: 'Bahan Produksi' },
             { key: '/warehouse/opname', label: 'Stock Opname' },
             {

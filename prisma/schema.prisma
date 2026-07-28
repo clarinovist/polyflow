@@ -953,6 +953,10 @@ model SalesOrder {
   quotationSentAt  DateTime?
   legacyQuotationId String?               @unique
   nextFollowUpDate DateTime?
+  entrySource              OrderEntrySource        @default(STANDARD)
+  sourceReference          String?
+  commercialReviewStatus   CommercialReviewStatus  @default(NOT_REQUIRED)
+  idempotencyKey           String?                 @unique
   deliveryOrders   DeliveryOrder[]
   scheduleStops    DeliveryScheduleOrder[]
   invoices         Invoice[]
@@ -1075,6 +1079,10 @@ model PurchaseOrder {
   createdById      String?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
+  entrySource              OrderEntrySource        @default(STANDARD)
+  sourceReference          String?
+  commercialReviewStatus   CommercialReviewStatus  @default(NOT_REQUIRED)
+  idempotencyKey           String?                 @unique
   goodsReceipts    GoodsReceipt[]
   invoices         PurchaseInvoice[]
   operationalAttachments WarehouseOperationalAttachment[] @relation("PurchaseOrderAttachments")
@@ -2439,6 +2447,19 @@ model PeriodLock {
 enum PpnMode {
   INCLUDE // Harga sudah termasuk PPN
   EXCLUDE // Harga belum termasuk PPN (default)
+}
+
+enum OrderEntrySource {
+  STANDARD
+  WALK_IN_RECEIPT
+  EMERGENCY_DISPATCH
+}
+
+enum CommercialReviewStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model MachineOperator {

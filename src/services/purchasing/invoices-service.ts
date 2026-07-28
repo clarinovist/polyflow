@@ -178,6 +178,15 @@ export async function recordPayment(
             );
         }
 
+        // Prevent payment on DRAFT invoices (walk-in awaiting Finance approval)
+        if (invoice.status === PurchaseInvoiceStatus.DRAFT) {
+            throw new BusinessRuleError(
+                'Invoice masih DRAFT. Finance harus approve terlebih dahulu.',
+                { invoiceId: id, status: invoice.status },
+                'INVOICE_DRAFT',
+            );
+        }
+
         // Validate payment amount does not exceed remaining balance
         const remainingBalance =
             invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber();
@@ -495,11 +504,19 @@ export async function createDraftBillFromPo(
     const invoiceDate = new Date();
     const dueDate = addDays(invoiceDate, termOfPaymentDays);
 
-    // Set status to UNPAID if PO is RECEIVED or PARTIAL_RECEIVED, otherwise DRAFT
+    // Set status: walk-in always DRAFT (Finance must approve), standard follows PO status
+    const isWalkIn = po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED';
+    const isWalkInSource = await prisma.purchaseOrder.findUnique({
+        where: { id: purchaseOrderId },
+        select: { entrySource: true },
+    }).then((o) => o?.entrySource === 'WALK_IN_RECEIPT');
+
     const status =
-        po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED'
-            ? PurchaseInvoiceStatus.UNPAID
-            : PurchaseInvoiceStatus.DRAFT;
+        isWalkIn && isWalkInSource
+            ? PurchaseInvoiceStatus.DRAFT
+            : isWalkIn
+              ? PurchaseInvoiceStatus.UNPAID
+              : PurchaseInvoiceStatus.DRAFT;
 
     const invoice = await prisma.purchaseInvoice.create({
         data: {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Clock, Package, ArrowRight, CheckCircle, Lock, Search, RefreshCw } from 'lucide-react';
+import { Clock, Package, ArrowRight, CheckCircle, Lock, Search, RefreshCw, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,9 @@ type Order = {
     status: string;
     deliveryDate: string;
     loadVerifiedAt?: string | null;
+    entrySource?: string | null;
     sourceLocation?: { name: string };
-    salesOrder?: { customer?: { name: string } };
+    salesOrder?: { customer?: { name: string }; entrySource?: string | null };
     items?: { id: string; verifiedQuantity?: number | null }[];
 };
 
@@ -56,15 +57,28 @@ export function WarehouseOutgoingMobileClient({ orders }: { orders: Order[] }) {
                         {orders.length} surat jalan menunggu
                     </p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-xs border-amber-500/30 text-amber-700"
+                        asChild
+                    >
+                        <Link href="/warehouse/mobile/outgoing/walk-in">
+                            <Zap className="h-3.5 w-3.5 mr-1" />
+                            Pesanan Dadakan
+                        </Link>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                    >
+                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
             </div>
 
             {/* Search & Filter */}
