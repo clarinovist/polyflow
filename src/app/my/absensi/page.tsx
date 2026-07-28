@@ -2,6 +2,7 @@ import { getEmployeeSession } from '@/lib/auth/employee-session';
 import { redirect } from 'next/navigation';
 import { getMyAttendanceMonth } from '@/actions/employee/self';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MyAttendanceClock } from '@/components/employee/MyAttendanceClock';
 
 type AttendanceRes = Awaited<ReturnType<typeof getMyAttendanceMonth>>;
 type AttendanceRow = NonNullable<AttendanceRes['data']>[number];
@@ -43,6 +44,8 @@ export default async function MyAbsensiPage({
     return (
         <div className="space-y-4">
             <h1 className="text-lg font-black">Absensi & Izin</h1>
+
+            <MyAttendanceClock />
 
             <div className="flex justify-between items-center">
                 <div className="text-sm font-semibold">

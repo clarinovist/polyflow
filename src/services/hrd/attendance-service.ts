@@ -13,6 +13,13 @@ import {
 } from './shift-window';
 import { Prisma } from '@prisma/client';
 import { isValidAttendancePhotoUrl } from '@/lib/media/attendance-photo-url';
+import {
+    parseGeofenceConfig,
+    validateLocation,
+    serializeGeofenceForStorage,
+    type LocationEvidence,
+} from './attendance-location';
+import { haversineDistance } from '@/lib/utils/geo';
 
 // ─── Input types ───
 
@@ -23,6 +30,8 @@ export interface KioskClockInInput {
     /** Required when source is KIOSK (default). */
     clockInPhotoUrl?: string;
     source?: AttendanceSource;
+    /** Optional geofence evidence for kiosk. */
+    locationEvidence?: LocationEvidence;
 }
 
 export interface KioskClockOutInput {
@@ -30,6 +39,8 @@ export interface KioskClockOutInput {
     pin: string;
     /** Optional evidence photo on clock-out. */
     clockOutPhotoUrl?: string;
+    /** Optional geofence evidence for kiosk. */
+    locationEvidence?: LocationEvidence;
 }
 
 /** Input for admin manual operations — no PIN required. */
@@ -41,6 +52,19 @@ export interface AdminClockInInput {
 
 export interface AdminClockOutInput {
     employeeCode: string;
+}
+
+/** Input for self-service operations — employeeId from session, no PIN. */
+export interface SelfServiceClockInInput {
+    employeeId: string;
+    clockInPhotoUrl: string;
+    locationEvidence: LocationEvidence;
+}
+
+export interface SelfServiceClockOutInput {
+    employeeId: string;
+    clockOutPhotoUrl?: string;
+    locationEvidence: LocationEvidence;
 }
 
 export interface AttendanceRecordResult {
@@ -67,6 +91,14 @@ export interface AttendanceRecordResult {
     totalEarnings: number;
     clockInPhotoUrl: string | null;
     clockOutPhotoUrl: string | null;
+    clockInLatitude: number | null;
+    clockInLongitude: number | null;
+    clockInAccuracy: number | null;
+    clockInDistance: number | null;
+    clockOutLatitude: number | null;
+    clockOutLongitude: number | null;
+    clockOutAccuracy: number | null;
+    clockOutDistance: number | null;
 }
 
 export interface DailySummary {
@@ -156,6 +188,14 @@ type RecordWithRelations = {
     totalEarnings: Prisma.Decimal | null;
     clockInPhotoUrl: string | null;
     clockOutPhotoUrl: string | null;
+    clockInLatitude: Prisma.Decimal | null;
+    clockInLongitude: Prisma.Decimal | null;
+    clockInAccuracy: Prisma.Decimal | null;
+    clockInDistance: Prisma.Decimal | null;
+    clockOutLatitude: Prisma.Decimal | null;
+    clockOutLongitude: Prisma.Decimal | null;
+    clockOutAccuracy: Prisma.Decimal | null;
+    clockOutDistance: Prisma.Decimal | null;
     employee: { name: string; code: string };
     workShift: ShiftSelect;
 };
@@ -309,6 +349,30 @@ function buildRecordResult(
         totalEarnings: dailyEarnings + overtimeEarnings,
         clockInPhotoUrl: record.clockInPhotoUrl ?? null,
         clockOutPhotoUrl: record.clockOutPhotoUrl ?? null,
+        clockInLatitude: record.clockInLatitude
+            ? Number(record.clockInLatitude)
+            : null,
+        clockInLongitude: record.clockInLongitude
+            ? Number(record.clockInLongitude)
+            : null,
+        clockInAccuracy: record.clockInAccuracy
+            ? Number(record.clockInAccuracy)
+            : null,
+        clockInDistance: record.clockInDistance
+            ? Number(record.clockInDistance)
+            : null,
+        clockOutLatitude: record.clockOutLatitude
+            ? Number(record.clockOutLatitude)
+            : null,
+        clockOutLongitude: record.clockOutLongitude
+            ? Number(record.clockOutLongitude)
+            : null,
+        clockOutAccuracy: record.clockOutAccuracy
+            ? Number(record.clockOutAccuracy)
+            : null,
+        clockOutDistance: record.clockOutDistance
+            ? Number(record.clockOutDistance)
+            : null,
     };
 }
 
@@ -1090,5 +1154,351 @@ export const AttendanceService = {
                 multiShiftDays,
             };
         });
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // Self-service: clock-in/clock-out from employee portal
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Self-service clock-in. Employee identity from session, shift from assignment.
+     * Geofence and photo required. No PIN needed (already authenticated).
+     */
+    async clockInSelfService(
+        db: PrismaClient,
+        input: SelfServiceClockInInput,
+        settings: Record<string, string | null | undefined>,
+    ): Promise<AttendanceRecordResult> {
+        const employee = await db.employee.findUnique({
+            where: { id: input.employeeId },
+            select: {
+                id: true,
+                name: true,
+                code: true,
+                pinHash: true,
+                status: true,
+                payType: true,
+                dailyRate: true,
+                overtimeHourlyRate: true,
+                standardDayHours: true,
+            },
+        });
+        if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
+        if (employee.status !== 'ACTIVE')
+            throw new BusinessRuleError('Karyawan tidak aktif');
+
+        // Validate photo
+        if (!input.clockInPhotoUrl?.trim()) {
+            throw new BusinessRuleError('Foto absensi wajib');
+        }
+        if (!isValidAttendancePhotoUrl(input.clockInPhotoUrl)) {
+            throw new BusinessRuleError('Foto absensi tidak valid');
+        }
+
+        // Validate geofence
+        const geoConfig = parseGeofenceConfig(settings);
+        if (geoConfig) {
+            const geoResult = validateLocation(geoConfig, input.locationEvidence);
+            if (!geoResult.withinFence) {
+                throw new BusinessRuleError(
+                    geoResult.reason ?? 'Lokasi di luar area kerja',
+                );
+            }
+        }
+
+        // Resolve active shift assignment
+        const now = new Date();
+        const today = new Date(now);
+        today.setUTCHours(0, 0, 0, 0);
+
+        const assignment = await db.employeeShiftAssignment.findFirst({
+            where: {
+                employeeId: employee.id,
+                effectiveFrom: { lte: today },
+                OR: [
+                    { effectiveTo: null },
+                    { effectiveTo: { gte: today } },
+                ],
+            },
+            include: { workShift: true },
+            orderBy: { effectiveFrom: 'desc' },
+        });
+        if (!assignment) {
+            throw new BusinessRuleError(
+                'HRD belum menetapkan shift untuk Anda. Silakan hubungi HRD.',
+            );
+        }
+
+        const shift = assignment.workShift;
+        if (shift.status !== 'ACTIVE')
+            throw new BusinessRuleError('Shift tidak aktif');
+
+        const workDate = resolveWorkDate(now, shift.startTime, shift.endTime);
+
+        // Check for open session
+        const openSession = await db.attendanceRecord.findFirst({
+            where: {
+                employeeId: employee.id,
+                workDate,
+                clockInAt: { not: null },
+                clockOutAt: null,
+            },
+        });
+        if (openSession) {
+            const openShift = await findShift(db, openSession.workShiftId);
+            throw new BusinessRuleError(
+                `Masih belum clock-out shift ${openShift?.name ?? ''}. Pulang dulu sebelum masuk shift berikutnya.`,
+            );
+        }
+
+        // Check duplicate shift
+        const existing = await db.attendanceRecord.findUnique({
+            where: {
+                employeeId_workDate_workShiftId: {
+                    employeeId: employee.id,
+                    workDate,
+                    workShiftId: assignment.workShiftId,
+                },
+            },
+        });
+        if (existing)
+            throw new BusinessRuleError('Sudah absen shift ini hari ini');
+
+        // Determine if overtime shift
+        const sameDayCount = await db.attendanceRecord.count({
+            where: { employeeId: employee.id, workDate, status: 'PRESENT' },
+        });
+
+        const rates = getEmployeeRateSnapshots(employee);
+        const planned = getEffectivePlannedHours(
+            toNum(shift.plannedHours),
+            shift.startTime,
+            shift.endTime,
+        );
+
+        const geoData = geoConfig
+            ? serializeGeofenceForStorage(input.locationEvidence)
+            : null;
+
+        const record = await db.attendanceRecord.create({
+            data: {
+                employeeId: employee.id,
+                workDate,
+                workShiftId: assignment.workShiftId,
+                clockInAt: now,
+                isOvertimeShift: sameDayCount > 0,
+                source: 'SELF_SERVICE',
+                status: 'PRESENT',
+                clockInPhotoUrl: input.clockInPhotoUrl.trim(),
+                clockInLatitude: geoData?.latitude ?? null,
+                clockInLongitude: geoData?.longitude ?? null,
+                clockInAccuracy: geoData?.accuracy ?? null,
+                clockInDistance: geoConfig
+                    ? new Prisma.Decimal(
+                          haversineDistance(
+                              geoConfig.latitude,
+                              geoConfig.longitude,
+                              input.locationEvidence.latitude,
+                              input.locationEvidence.longitude,
+                          ).toFixed(2),
+                      )
+                    : null,
+                plannedHours: new Prisma.Decimal(planned),
+                standardDayHours: new Prisma.Decimal(rates.standardDayHours),
+                dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
+                overtimeRateSnapshot: new Prisma.Decimal(
+                    rates.overtimeHourlyRate,
+                ),
+                regularHours: new Prisma.Decimal(0),
+                overtimeHours: new Prisma.Decimal(0),
+                dailyEarnings: new Prisma.Decimal(0),
+                overtimeEarnings: new Prisma.Decimal(0),
+                totalEarnings: new Prisma.Decimal(0),
+            },
+            include: includeRelations,
+        });
+
+        return buildRecordResult(record as unknown as RecordWithRelations);
+    },
+
+    /**
+     * Self-service clock-out. Employee identity from session.
+     * Geofence required when configured.
+     */
+    async clockOutSelfService(
+        db: PrismaClient,
+        input: SelfServiceClockOutInput,
+        settings: Record<string, string | null | undefined>,
+    ): Promise<AttendanceRecordResult> {
+        const employee = await db.employee.findUnique({
+            where: { id: input.employeeId },
+            select: { id: true, name: true, code: true, status: true },
+        });
+        if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
+        if (employee.status !== 'ACTIVE')
+            throw new BusinessRuleError('Karyawan tidak aktif');
+
+        // Validate geofence
+        const geoConfig = parseGeofenceConfig(settings);
+        if (geoConfig) {
+            const geoResult = validateLocation(geoConfig, input.locationEvidence);
+            if (!geoResult.withinFence) {
+                throw new BusinessRuleError(
+                    geoResult.reason ?? 'Lokasi di luar area kerja',
+                );
+            }
+        }
+
+        const openRecord = await db.attendanceRecord.findFirst({
+            where: {
+                employeeId: employee.id,
+                clockInAt: { not: null },
+                clockOutAt: null,
+            },
+            include: includeRelations,
+            orderBy: { clockInAt: 'desc' },
+        });
+        if (!openRecord)
+            throw new BusinessRuleError(
+                'Tidak ada sesi absensi yang masih terbuka',
+            );
+
+        if (
+            input.clockOutPhotoUrl?.trim() &&
+            !isValidAttendancePhotoUrl(input.clockOutPhotoUrl)
+        ) {
+            throw new BusinessRuleError('Foto absensi tidak valid');
+        }
+
+        const now = new Date();
+        const geoData = geoConfig
+            ? serializeGeofenceForStorage(input.locationEvidence)
+            : null;
+
+        const updated = await db.attendanceRecord.update({
+            where: { id: openRecord.id },
+            data: {
+                clockOutAt: now,
+                ...(input.clockOutPhotoUrl?.trim()
+                    ? { clockOutPhotoUrl: input.clockOutPhotoUrl.trim() }
+                    : {}),
+                clockOutLatitude: geoData?.latitude ?? null,
+                clockOutLongitude: geoData?.longitude ?? null,
+                clockOutAccuracy: geoData?.accuracy ?? null,
+                clockOutDistance: geoConfig
+                    ? new Prisma.Decimal(
+                          haversineDistance(
+                              geoConfig.latitude,
+                              geoConfig.longitude,
+                              input.locationEvidence.latitude,
+                              input.locationEvidence.longitude,
+                          ).toFixed(2),
+                      )
+                    : null,
+            },
+            include: includeRelations,
+        });
+
+        const computed = buildComputedData(
+            updated as unknown as RecordWithRelations,
+        );
+        const finalized = await db.attendanceRecord.update({
+            where: { id: updated.id },
+            data: computed,
+            include: includeRelations,
+        });
+
+        return buildRecordResult(finalized as unknown as RecordWithRelations);
+    },
+
+    /**
+     * Get today's attendance status for an employee (self-service dashboard).
+     */
+    async getMyTodayStatus(
+        db: PrismaClient,
+        employeeId: string,
+    ): Promise<{
+        status: 'NOT_CLOCKED_IN' | 'WORKING' | 'CLOCKED_OUT' | 'OPEN_STALE';
+        record: AttendanceRecordResult | null;
+        shiftName: string | null;
+    }> {
+        const now = new Date();
+
+        // Find active shift assignment
+        const today = new Date(now);
+        today.setUTCHours(0, 0, 0, 0);
+
+        const assignment = await db.employeeShiftAssignment.findFirst({
+            where: {
+                employeeId,
+                effectiveFrom: { lte: today },
+                OR: [
+                    { effectiveTo: null },
+                    { effectiveTo: { gte: today } },
+                ],
+            },
+            include: { workShift: true },
+            orderBy: { effectiveFrom: 'desc' },
+        });
+
+        // Find any open record
+        const openRecord = await db.attendanceRecord.findFirst({
+            where: {
+                employeeId,
+                clockInAt: { not: null },
+                clockOutAt: null,
+            },
+            include: includeRelations,
+            orderBy: { clockInAt: 'desc' },
+        });
+
+        // Find today's completed records
+        const todayRecord = await db.attendanceRecord.findFirst({
+            where: {
+                employeeId,
+                clockInAt: { not: null },
+                clockOutAt: { not: null },
+            },
+            include: includeRelations,
+            orderBy: { clockOutAt: 'desc' },
+        });
+
+        if (openRecord) {
+            // Check if open record is from a previous day (stale)
+            const openDate = openRecord.workDate.toISOString().slice(0, 10);
+            const todayDate = today.toISOString().slice(0, 10);
+            if (openDate !== todayDate) {
+                return {
+                    status: 'OPEN_STALE',
+                    record: buildRecordResult(
+                        openRecord as unknown as RecordWithRelations,
+                    ),
+                    shiftName: (openRecord as unknown as RecordWithRelations).workShift?.name ?? null,
+                };
+            }
+            return {
+                status: 'WORKING',
+                record: buildRecordResult(
+                    openRecord as unknown as RecordWithRelations,
+                ),
+                shiftName: (openRecord as unknown as RecordWithRelations).workShift?.name ?? null,
+            };
+        }
+
+        if (todayRecord) {
+            return {
+                status: 'CLOCKED_OUT',
+                record: buildRecordResult(
+                    todayRecord as unknown as RecordWithRelations,
+                ),
+                shiftName: (todayRecord as unknown as RecordWithRelations).workShift?.name ?? null,
+            };
+        }
+
+        return {
+            status: 'NOT_CLOCKED_IN',
+            record: null,
+            shiftName: assignment?.workShift?.name ?? null,
+        };
     },
 };

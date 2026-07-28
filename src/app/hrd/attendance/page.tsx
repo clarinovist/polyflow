@@ -4,8 +4,15 @@ import {
 } from '@/actions/admin/attendance';
 import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { AttendanceRecap } from '@/components/hrd/AttendanceRecap';
-import { CalendarCheck } from 'lucide-react';
+import { AttendanceSettingsPanel } from '@/components/hrd/AttendanceSettings';
+import { CalendarCheck, Settings } from 'lucide-react';
 import { todayWibDateString } from '@/services/hrd/shift-window';
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '@/components/ui/accordion';
 
 export default async function AttendancePage({
     searchParams,
@@ -45,6 +52,20 @@ export default async function AttendancePage({
                     </p>
                 </div>
             </div>
+
+            <Accordion type="single" collapsible>
+                <AccordionItem value="settings">
+                    <AccordionTrigger>
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                            <Settings className="h-4 w-4" />
+                            Pengaturan Absensi
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                        <AttendanceSettingsPanel />
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
 
             <AttendanceRecap
                 records={records}

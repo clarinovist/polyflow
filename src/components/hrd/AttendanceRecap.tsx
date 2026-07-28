@@ -52,6 +52,23 @@ import {
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import Link from 'next/link';
 
+const SOURCE_LABELS: Record<string, string> = {
+    KIOSK: 'Kiosk',
+    SELF_SERVICE: 'Self-Service',
+    MANUAL: 'Manual',
+};
+
+function sourceBadgeClass(source: string): string {
+    switch (source) {
+        case 'SELF_SERVICE':
+            return 'bg-blue-500/10 text-blue-600';
+        case 'MANUAL':
+            return 'bg-amber-500/10 text-amber-600';
+        default:
+            return 'bg-emerald-500/10 text-emerald-600';
+    }
+}
+
 interface AttendanceRecord {
     id: string;
     employeeId: string;
@@ -69,6 +86,10 @@ interface AttendanceRecord {
     source: string;
     clockInPhotoUrl?: string | null;
     clockOutPhotoUrl?: string | null;
+    clockInLatitude?: number | null;
+    clockInLongitude?: number | null;
+    clockInDistance?: number | null;
+    clockOutDistance?: number | null;
 }
 
 interface DailySummary {
@@ -985,10 +1006,17 @@ export function AttendanceRecap({
                                         <TableCell>
                                             <Badge
                                                 variant="outline"
-                                                className="text-xs"
+                                                className={`text-xs ${sourceBadgeClass(r.source)}`}
                                             >
-                                                {r.source}
+                                                {SOURCE_LABELS[r.source] ?? r.source}
                                             </Badge>
+                                            {r.clockInDistance != null && r.clockInDistance > 0 && (
+                                                <span className="text-[10px] text-muted-foreground ml-1">
+                                                    {r.clockInDistance < 1000
+                                                        ? `${Math.round(r.clockInDistance)}m`
+                                                        : `${(r.clockInDistance / 1000).toFixed(1)}km`}
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>

@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { CalendarDays, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { listAttendanceByEmployee } from '@/actions/hrd/attendance-employee';
 
-type Record = {
+type AttendanceRow = {
     id: string;
     workDate: Date | string;
     shiftName: string;
@@ -25,11 +25,31 @@ type Record = {
     overtimeHours: number;
     isOvertimeShift: boolean;
     status: string;
+    source: string;
     dailyEarnings: number;
     totalEarnings: number;
     clockInPhotoUrl: string | null;
     clockOutPhotoUrl: string | null;
+    clockInDistance: number | null;
+    clockOutDistance: number | null;
 };
+
+const SOURCE_LABELS: Record<string, string> = {
+    KIOSK: 'Kiosk',
+    SELF_SERVICE: 'Self-Service',
+    MANUAL: 'Manual',
+};
+
+function sourceBadgeClass(source: string): string {
+    switch (source) {
+        case 'SELF_SERVICE':
+            return 'bg-blue-500/10 text-blue-600';
+        case 'MANUAL':
+            return 'bg-amber-500/10 text-amber-600';
+        default:
+            return 'bg-emerald-500/10 text-emerald-600';
+    }
+}
 
 function fmtDate(d: Date | string): string {
     return new Intl.DateTimeFormat('id-ID', {
@@ -75,7 +95,7 @@ interface Props {
 }
 
 export function Employee360AttendanceTab({ employeeId }: Props) {
-    const [records, setRecords] = useState<Record[]>([]);
+    const [records, setRecords] = useState<AttendanceRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [baseDate, setBaseDate] = useState(new Date());
     const [photoModal, setPhotoModal] = useState<string | null>(null);
@@ -90,7 +110,7 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                 to.toISOString(),
             );
             setRecords(
-                res.success ? ((res.data ?? []) as unknown as Record[]) : [],
+                res.success ? ((res.data ?? []) as unknown as AttendanceRow[]) : [],
             );
             setLoading(false);
         },
@@ -212,6 +232,7 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                                             Lembur
                                         </TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Sumber</TableHead>
                                         <TableHead className="text-right">
                                             Upah
                                         </TableHead>
@@ -263,6 +284,14 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                                                               'ABSENT'
                                                             ? 'ALFA'
                                                             : 'CUTI'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`text-[10px] ${sourceBadgeClass(r.source)}`}
+                                                >
+                                                    {SOURCE_LABELS[r.source] ?? r.source}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right font-mono text-sm">

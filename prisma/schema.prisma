@@ -144,6 +144,7 @@ model Employee {
   payslips                 Payslip[]
   salaryHistory         EmployeeSalaryHistory[]
   documents             EmployeeDocument[]
+  shiftAssignments      EmployeeShiftAssignment[]
 }
 
 // ── Gelombang B3: Salary history (append-only on salary field change) ──
@@ -883,6 +884,7 @@ model WorkShift {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   attendanceRecords AttendanceRecord[]
+  shiftAssignments  EmployeeShiftAssignment[]
 }
 
 model JobRole {
@@ -2707,6 +2709,14 @@ model AttendanceRecord {
   createdById          String?
   clockInPhotoUrl      String?          @db.Text
   clockOutPhotoUrl     String?          @db.Text
+  clockInLatitude      Decimal?         @db.Decimal(9, 6)
+  clockInLongitude     Decimal?         @db.Decimal(9, 6)
+  clockInAccuracy      Decimal?         @db.Decimal(8, 2)
+  clockInDistance       Decimal?         @db.Decimal(10, 2)
+  clockOutLatitude     Decimal?         @db.Decimal(9, 6)
+  clockOutLongitude    Decimal?         @db.Decimal(9, 6)
+  clockOutAccuracy     Decimal?         @db.Decimal(8, 2)
+  clockOutDistance      Decimal?         @db.Decimal(10, 2)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
@@ -2727,6 +2737,23 @@ enum AttendanceStatus {
 enum AttendanceSource {
   KIOSK
   MANUAL
+  SELF_SERVICE
+}
+
+model EmployeeShiftAssignment {
+  id           String    @id @default(uuid())
+  employeeId   String
+  workShiftId  String
+  effectiveFrom DateTime @db.Date
+  effectiveTo  DateTime? @db.Date
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  workShift WorkShift @relation(fields: [workShiftId], references: [id])
+
+  @@index([employeeId, effectiveFrom, effectiveTo])
+  @@index([employeeId, workShiftId])
 }
 
 // ==========================================

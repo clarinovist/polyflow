@@ -9,6 +9,7 @@ import {
     Wrench,
     LayoutDashboard,
     LogOut,
+    CalendarCheck,
 } from 'lucide-react';
 import { kioskLabels } from '@/lib/labels';
 import { KioskOperatorGate } from '@/components/kiosk/KioskOperatorGate';
@@ -146,7 +147,47 @@ export function KioskHub({
 
     if (!operatorId) {
         return (
-            <div className="p-4 md:p-6 max-w-7xl mx-auto">
+            <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+                {/* Attendance tile - always visible, no operator needed */}
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase mb-1">
+                        Kiosk
+                    </h1>
+                    <p className="text-sm text-muted-foreground font-medium">
+                        Pilih menu di bawah ini
+                    </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                    <Link href="/kiosk/attendance" className="block h-full">
+                        <div className="group relative h-full bg-card border-2 rounded-2xl p-5 sm:p-6 md:p-8 border-blue-200 hover:border-blue-500 hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer min-h-[132px] sm:min-h-[148px] md:min-h-[160px] flex items-center gap-4 sm:gap-6">
+                            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 flex items-center justify-center transition-colors">
+                                <CalendarCheck className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tight leading-tight">
+                                    Absensi Semua Karyawan
+                                </h2>
+                                <p className="text-sm text-muted-foreground mt-1 leading-snug">
+                                    Clock-in dan clock-out untuk semua karyawan
+                                    (bulanan, harian, helper, probation)
+                                </p>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+
+                {/* Separator */}
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground font-semibold">
+                            Produksi — pilih operator
+                        </span>
+                    </div>
+                </div>
+
                 <KioskOperatorGate
                     employees={employees}
                     machines={machines}
