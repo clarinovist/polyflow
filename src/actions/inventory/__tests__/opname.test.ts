@@ -25,12 +25,18 @@ vi.mock('@/lib/core/prisma', () => {
     };
     const stockOpname = {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+        create: vi.fn(),
+    };
+    const inventory = {
         findMany: vi.fn(),
     };
 
     const tx = {
         stockOpnameItem,
         stockOpname,
+        inventory,
         $executeRaw: vi.fn(),
     };
 
@@ -38,6 +44,7 @@ vi.mock('@/lib/core/prisma', () => {
         prisma: {
             stockOpnameItem,
             stockOpname,
+            inventory,
             $transaction: vi.fn(async (input: unknown) => {
                 if (typeof input === 'function') {
                     return (input as (trx: typeof tx) => Promise<unknown>)(tx);
@@ -58,7 +65,7 @@ vi.mock('@/auth', () => ({
 
 vi.mock('@/lib/tools/auth-checks', () => ({
     requireAuth: vi.fn(async () => ({ user: { id: 'user-1' } })),
-    requireRole: vi.fn(),
+    requireRole: vi.fn(async () => ({ user: { id: 'user-1', role: 'WAREHOUSE' } })),
 }));
 
 vi.mock('@/services/accounting/accounting-service', () => ({
@@ -68,8 +75,111 @@ vi.mock('@/services/accounting/accounting-service', () => ({
 }));
 
 import { prisma } from '@/lib/core/prisma';
+import { requireRole } from '@/lib/tools/auth-checks';
 import { revalidatePath } from 'next/cache';
-import { getOpnameSessions, saveOpnameCount } from '../opname';
+import { createOpnameSession, getOpnameSessions, saveOpnameCount } from '../opname';
+import { AuthorizationError } from '@/lib/errors/errors';
+import { Prisma } from '@prisma/client';
+
+describe('createOpnameSession', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireRole).mockResolvedValue({
+            user: { id: 'user-1', role: 'WAREHOUSE' },
+        } as never);
+    });
+
+    it('creates a new opname session when location has inventory and no open session exists', async () => {
+        vi.mocked(prisma.stockOpname.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+            { id: 'inv-1', productVariantId: 'var-1', quantity: 100, locationId: 'loc-1' },
+        ] as never);
+        vi.mocked(prisma.stockOpname.create).mockResolvedValue({
+            id: 'opname-new-1',
+        } as never);
+
+        const result = await createOpnameSession('loc-1', 'Catatan opname');
+
+        expect(result).toEqual({ success: true, data: { id: 'opname-new-1' } });
+        expect(requireRole).toHaveBeenCalledTimes(1);
+        expect(prisma.stockOpname.findFirst).toHaveBeenCalledWith({
+            where: { locationId: 'loc-1', status: 'OPEN' },
+            select: { id: true, opnameNumber: true },
+        });
+        expect(prisma.stockOpname.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+                locationId: 'loc-1',
+                remarks: 'Catatan opname',
+                status: 'OPEN',
+                createdById: 'user-1',
+            }),
+        });
+        expect(revalidatePath).toHaveBeenCalledWith('/warehouse/opname');
+        expect(revalidatePath).toHaveBeenCalledWith('/warehouse/mobile/opname');
+    });
+
+    it('throws authorization error if user does not have required role', async () => {
+        vi.mocked(requireRole).mockRejectedValue(
+            new AuthorizationError('Tidak memiliki izin yang cukup'),
+        );
+
+        await expect(createOpnameSession('loc-1')).rejects.toThrow(
+            AuthorizationError,
+        );
+        expect(prisma.stockOpname.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects creation if an open session already exists for the location', async () => {
+        vi.mocked(prisma.stockOpname.findFirst).mockResolvedValue({
+            id: 'opname-existing',
+            opnameNumber: 'OPN-202607-0001',
+        } as never);
+
+        await expect(createOpnameSession('loc-1')).rejects.toThrow(
+            'Lokasi ini sudah memiliki sesi Stock Opname aktif (OPN-202607-0001)',
+        );
+        expect(prisma.inventory.findMany).not.toHaveBeenCalled();
+        expect(prisma.stockOpname.create).not.toHaveBeenCalled();
+    });
+
+    it('catches Prisma P2002 error and converts to BusinessRuleError', async () => {
+        vi.mocked(prisma.stockOpname.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+            { id: 'inv-1', productVariantId: 'var-1', quantity: 10, locationId: 'loc-1' },
+        ] as never);
+
+        const p2002Error = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+            code: 'P2002',
+            clientVersion: '5.22.0',
+        });
+        vi.mocked(prisma.stockOpname.create).mockRejectedValue(p2002Error);
+
+        await expect(createOpnameSession('loc-1')).rejects.toThrow(
+            'Lokasi ini sudah memiliki sesi Stock Opname yang sedang aktif.',
+        );
+    });
+
+    it('rejects creation if location has no inventory items', async () => {
+        vi.mocked(prisma.stockOpname.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+
+        await expect(createOpnameSession('loc-empty')).rejects.toThrow(
+            'Tidak ada inventori di lokasi ini untuk dilakukan stock opname.',
+        );
+        expect(prisma.stockOpname.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid location input', async () => {
+        await expect(createOpnameSession('')).rejects.toThrow('Lokasi harus dipilih');
+    });
+
+    it('rejects remarks that exceed maximum length', async () => {
+        const longRemarks = 'a'.repeat(501);
+        await expect(createOpnameSession('loc-1', longRemarks)).rejects.toThrow(
+            'Remarks maksimal 500 karakter',
+        );
+    });
+});
 
 describe('getOpnameSessions', () => {
     beforeEach(() => {

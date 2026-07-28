@@ -16,6 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
+import { CreateOpnameDialog } from '@/components/warehouse/inventory/opname/CreateOpnameDialog';
+
 type OpnameSession = {
     id: string;
     opnameNumber: string | null;
@@ -68,15 +70,18 @@ export function MobileOpnameListClient({ sessions = [] }: MobileOpnameListClient
                         {openCount} sesi aktif
                     </p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex items-center gap-2">
+                    <CreateOpnameDialog basePath="/warehouse/mobile/opname" />
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                    >
+                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
             </div>
 
             {/* Search & Filters */}
@@ -121,11 +126,16 @@ export function MobileOpnameListClient({ sessions = [] }: MobileOpnameListClient
             {/* Session List */}
             <div className="space-y-2">
                 {filtered.length === 0 ? (
-                    <div className="text-center py-12">
-                        <ClipboardList className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                    <div className="text-center py-12 space-y-3">
+                        <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
                         <p className="text-sm text-muted-foreground">
                             {search ? 'Tidak ada sesi yang cocok' : 'Belum ada sesi stock opname'}
                         </p>
+                        {!search && (
+                            <div className="pt-2 flex justify-center">
+                                <CreateOpnameDialog basePath="/warehouse/mobile/opname" />
+                            </div>
+                        )}
                     </div>
                 ) : (
                     filtered.map((session) => {

@@ -2,7 +2,7 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { OpnameStatus, Prisma } from '@prisma/client';
+import { OpnameStatus, Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import {
     safeAction,
@@ -11,6 +11,7 @@ import {
     AuthenticationError,
 } from '@/lib/errors/errors';
 import { auth } from '@/auth';
+import { requireRole } from '@/lib/tools/auth-checks';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
 
 const MAX_NOTES_LENGTH = 500;
@@ -110,16 +111,32 @@ async function generateOpnameNumber() {
 export const createOpnameSession = withTenant(
     async function createOpnameSession(locationId: string, remarks?: string) {
         return safeAction(async () => {
-            const session = await auth();
-            if (!session?.user?.id) {
-                throw new AuthenticationError('User not authenticated');
-            }
+            const session = await requireRole([
+                Role.WAREHOUSE,
+                Role.PRODUCTION,
+                Role.PLANNING,
+            ]);
 
             if (!locationId || typeof locationId !== 'string') {
                 throw new BusinessRuleError('Lokasi harus dipilih');
             }
             if (remarks && remarks.length > MAX_REMARKS_LENGTH) {
                 throw new BusinessRuleError(`Remarks maksimal ${MAX_REMARKS_LENGTH} karakter`);
+            }
+
+            // Pre-check: Don't allow multiple OPEN sessions for the same location
+            const existingOpenSession = await prisma.stockOpname.findFirst({
+                where: {
+                    locationId,
+                    status: OpnameStatus.OPEN,
+                },
+                select: { id: true, opnameNumber: true },
+            });
+
+            if (existingOpenSession) {
+                throw new BusinessRuleError(
+                    `Lokasi ini sudah memiliki sesi Stock Opname aktif (${existingOpenSession.opnameNumber || existingOpenSession.id}). Selesaikan atau batalkan sesi tersebut terlebih dahulu.`,
+                );
             }
 
             // 1. Get all inventories for this location to snapshot
@@ -131,7 +148,7 @@ export const createOpnameSession = withTenant(
 
             if (inventories.length === 0) {
                 throw new BusinessRuleError(
-                    'No inventory found for this location to perform stock opname.',
+                    'Tidak ada inventori di lokasi ini untuk dilakukan stock opname.',
                 );
             }
 
@@ -139,25 +156,37 @@ export const createOpnameSession = withTenant(
             const opnameNumber = await generateOpnameNumber();
 
             // 3. Create Session with audit trail
-            const opnameSession = await prisma.stockOpname.create({
-                data: {
-                    opnameNumber,
-                    locationId,
-                    remarks,
-                    status: OpnameStatus.OPEN,
-                    createdById: session.user.id,
-                    items: {
-                        create: inventories.map((inv) => ({
-                            productVariantId: inv.productVariantId,
-                            systemQuantity: inv.quantity,
-                            countedQuantity: null,
-                        })),
+            try {
+                const opnameSession = await prisma.stockOpname.create({
+                    data: {
+                        opnameNumber,
+                        locationId,
+                        remarks,
+                        status: OpnameStatus.OPEN,
+                        createdById: session.user.id,
+                        items: {
+                            create: inventories.map((inv) => ({
+                                productVariantId: inv.productVariantId,
+                                systemQuantity: inv.quantity,
+                                countedQuantity: null,
+                            })),
+                        },
                     },
-                },
-            });
+                });
 
-            revalidateOpnamePaths();
-            return { id: opnameSession.id };
+                revalidateOpnamePaths();
+                return { id: opnameSession.id };
+            } catch (error) {
+                if (
+                    error instanceof Prisma.PrismaClientKnownRequestError &&
+                    error.code === 'P2002'
+                ) {
+                    throw new BusinessRuleError(
+                        'Lokasi ini sudah memiliki sesi Stock Opname yang sedang aktif.',
+                    );
+                }
+                throw error;
+            }
         });
     },
 );

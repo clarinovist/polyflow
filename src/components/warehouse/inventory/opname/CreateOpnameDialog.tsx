@@ -45,6 +45,8 @@ export function CreateOpnameDialog({
 
     useEffect(() => {
         if (open) {
+            setLocationId('');
+            setRemarks('');
             getLocations().then((res) => {
                 if (!res.success) {
                     toast.error(res.error || 'Gagal memuat lokasi');
@@ -78,7 +80,7 @@ export function CreateOpnameDialog({
                 router.push(`${basePath}/${result.data.id}`);
             }
         } catch {
-            toast.error('Gagal memproses BOM. Silakan coba lagi.');
+            toast.error('Gagal membuat sesi stock opname. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }
