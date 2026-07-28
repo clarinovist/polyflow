@@ -163,8 +163,8 @@ export function PurchasingShiftBoardComponent({
                     label="AP overdue"
                     count={counts.overdueApCount}
                     icon={AlertTriangle}
-                    href="/finance/invoices/purchase"
-                    ctaLabel="Ke Finance"
+                    href="/purchasing/invoices"
+                    ctaLabel="Lihat Invoice"
                     colorClass="bg-red-500/10 text-red-600"
                     sub={
                         counts.overdueApAmount > 0
@@ -320,7 +320,7 @@ export function PurchasingShiftBoardComponent({
                             emptyMessage="Tidak ada AP overdue"
                             renderItem={(item) => (
                                 <Link
-                                    href="/finance/invoices/purchase"
+                                    href="/purchasing/invoices"
                                     className="flex-1 flex items-center justify-between group/link"
                                 >
                                     <div>

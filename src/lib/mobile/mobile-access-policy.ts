@@ -32,6 +32,7 @@ export function isMobilePublicPath(pathname: string): boolean {
 // mobile (after RBAC).
 // ---------------------------------------------------------------------------
 const MOBILE_ALLOWLIST_PREFIXES = [
+    '/mobile',
     '/field',
     '/sales/mobile',
     '/kiosk',
@@ -40,7 +41,9 @@ const MOBILE_ALLOWLIST_PREFIXES = [
 ];
 
 export function isMobileAllowlistedPath(pathname: string): boolean {
-    return MOBILE_ALLOWLIST_PREFIXES.some((p) => pathname.startsWith(p));
+    return MOBILE_ALLOWLIST_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -98,23 +101,84 @@ export function isMobileBypassAllowed(
 }
 
 // ---------------------------------------------------------------------------
-// CTA home after hard wall — role-aware redirect
-// Priority must stay in sync with getMobileHomeCtaKey below.
+// Multi-role Available Portals & Home Redirect
 // ---------------------------------------------------------------------------
-export function getMobileHomeForUser(user: {
-    role?: string;
-    roles?: string[];
-}): string | null {
-    const roles = getUserRoles(user);
-    if (roles.includes('SALES') && !roles.includes('MARKETING'))
-        return '/field/sales';
-    if (roles.includes('WAREHOUSE')) return '/warehouse/mobile';
-    if (roles.includes('PRODUCTION')) return '/kiosk';
-    return null; // fallback → "Kembali ke login"
+export interface MobilePortalInfo {
+    id: 'sales' | 'warehouse' | 'production';
+    title: string;
+    description: string;
+    path: string;
+    icon: string;
 }
 
-/** Label key for desktop-required CTA — same role priority as getMobileHomeForUser */
-export type MobileHomeCtaKey = 'sales' | 'warehouse' | 'production' | null;
+export function getAvailableMobilePortals(
+    user:
+        | {
+              role?: string;
+              roles?: string[];
+          }
+        | null
+        | undefined,
+): MobilePortalInfo[] {
+    if (!user) return [];
+    const roles = getUserRoles(user);
+    const portals: MobilePortalInfo[] = [];
+
+    if (roles.includes('SALES') && !roles.includes('MARKETING')) {
+        portals.push({
+            id: 'sales',
+            title: 'Sales Field',
+            description: 'Absensi sales, kunjungan customer, dan buat SO',
+            path: '/field/sales',
+            icon: 'ShoppingBag',
+        });
+    }
+
+    if (roles.includes('WAREHOUSE')) {
+        portals.push({
+            id: 'warehouse',
+            title: 'Gudang Mobile',
+            description: 'Penerimaan, pengeluaran, & stock opname barang',
+            path: '/warehouse/mobile',
+            icon: 'Package',
+        });
+    }
+
+    if (roles.includes('PRODUCTION')) {
+        portals.push({
+            id: 'production',
+            title: 'Kiosk Produksi',
+            description: 'Input hasil kerja operator & monitoring mesin',
+            path: '/kiosk',
+            icon: 'Factory',
+        });
+    }
+
+    return portals;
+}
+
+export function getMobileHomeForUser(
+    user:
+        | {
+              role?: string;
+              roles?: string[];
+          }
+        | null
+        | undefined,
+): string | null {
+    const portals = getAvailableMobilePortals(user);
+    if (portals.length === 0) return null;
+    if (portals.length === 1) return portals[0].path;
+    return '/mobile';
+}
+
+/** Label key for desktop-required CTA */
+export type MobileHomeCtaKey =
+    | 'sales'
+    | 'warehouse'
+    | 'production'
+    | 'selector'
+    | null;
 
 export function getMobileHomeCtaKey(
     user:
@@ -126,9 +190,8 @@ export function getMobileHomeCtaKey(
         | undefined,
 ): MobileHomeCtaKey {
     if (!user) return null;
-    const roles = getUserRoles(user);
-    if (roles.includes('SALES') && !roles.includes('MARKETING')) return 'sales';
-    if (roles.includes('WAREHOUSE')) return 'warehouse';
-    if (roles.includes('PRODUCTION')) return 'production';
-    return null;
+    const portals = getAvailableMobilePortals(user);
+    if (portals.length === 0) return null;
+    if (portals.length === 1) return portals[0].id;
+    return 'selector';
 }

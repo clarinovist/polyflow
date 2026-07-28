@@ -181,7 +181,7 @@ export function PurchaseInvoiceTable({
                     return (
                         <div>
                             <Link
-                                href={`${basePath}/${basePath.includes('finance') ? inv.id : inv.purchaseOrder.id}`}
+                                href={basePath.startsWith('/finance') ? `${basePath}/${inv.id}` : `/purchasing/orders/${inv.purchaseOrder.id}`}
                                 className="font-mono font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
                             >
                                 {inv.invoiceNumber}

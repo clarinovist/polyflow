@@ -30,7 +30,9 @@ export function DesktopRequiredClient() {
               ? L.cta.warehouse
               : ctaKey === 'production'
                 ? L.cta.production
-                : L.cta.login;
+                : ctaKey === 'selector'
+                  ? 'Pilih Portal Mobile'
+                  : L.cta.login;
 
     const handleBypass = () => {
         if (typeof document !== 'undefined') {

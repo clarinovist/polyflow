@@ -169,7 +169,7 @@ export const createPurchaseInvoice = withTenant(
             const invoice = await PurchaseService.createInvoice(validated);
 
             revalidatePath('/finance/invoices/purchase');
-            revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
+            revalidatePath('/purchasing/invoices');
             revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
 
             // Auto-Journal: Purchase Invoice

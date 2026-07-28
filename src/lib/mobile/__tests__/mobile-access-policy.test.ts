@@ -10,6 +10,7 @@ import {
   isMobileBypassAllowed,
   getMobileHomeForUser,
   getMobileHomeCtaKey,
+  getAvailableMobilePortals,
 } from '../mobile-access-policy';
 
 describe('mobile-access-policy', () => {
@@ -177,6 +178,24 @@ describe('mobile-access-policy', () => {
     });
   });
 
+  // ── getAvailableMobilePortals ──────────────────────────────────────
+  describe('getAvailableMobilePortals', () => {
+    it('returns empty for ADMIN/FINANCE without ops roles', () => {
+      expect(getAvailableMobilePortals({ role: 'ADMIN' })).toEqual([]);
+      expect(getAvailableMobilePortals({ role: 'FINANCE' })).toEqual([]);
+    });
+
+    it('returns 2 portals for Rizal-like user (WAREHOUSE + PRODUCTION)', () => {
+      const user = {
+        roles: ['HRD', 'MARKETING', 'PLANNING', 'PROCUREMENT', 'PRODUCTION', 'WAREHOUSE'],
+      };
+      const portals = getAvailableMobilePortals(user);
+      expect(portals).toHaveLength(2);
+      expect(portals.map((p) => p.id)).toEqual(['warehouse', 'production']);
+      expect(portals.map((p) => p.path)).toEqual(['/warehouse/mobile', '/kiosk']);
+    });
+  });
+
   // ── getMobileHomeForUser ───────────────────────────────────────────
   describe('getMobileHomeForUser', () => {
     it('SALES → /field/sales', () => {
@@ -199,14 +218,12 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeForUser({ role: 'WAREHOUSE' })).toBe('/warehouse/mobile');
     });
 
-    it('SALES+PRODUCTION → /field/sales (SALES matched first)', () => {
-      expect(getMobileHomeForUser({ roles: ['SALES', 'PRODUCTION'] })).toBe('/field/sales');
+    it('SALES+PRODUCTION → /mobile (multi-role selector)', () => {
+      expect(getMobileHomeForUser({ roles: ['SALES', 'PRODUCTION'] })).toBe('/mobile');
     });
 
-    it('WAREHOUSE+PRODUCTION → /warehouse/mobile (WAREHOUSE before PRODUCTION)', () => {
-      expect(getMobileHomeForUser({ roles: ['WAREHOUSE', 'PRODUCTION'] })).toBe(
-        '/warehouse/mobile',
-      );
+    it('WAREHOUSE+PRODUCTION → /mobile (multi-role selector)', () => {
+      expect(getMobileHomeForUser({ roles: ['WAREHOUSE', 'PRODUCTION'] })).toBe('/mobile');
     });
   });
 
@@ -214,12 +231,12 @@ describe('mobile-access-policy', () => {
   describe('getMobileHomeCtaKey', () => {
     it('matches path priority for multi-role WAREHOUSE+PRODUCTION', () => {
       const user = { roles: ['WAREHOUSE', 'PRODUCTION'] };
-      expect(getMobileHomeForUser(user)).toBe('/warehouse/mobile');
-      expect(getMobileHomeCtaKey(user)).toBe('warehouse');
+      expect(getMobileHomeForUser(user)).toBe('/mobile');
+      expect(getMobileHomeCtaKey(user)).toBe('selector');
     });
 
-    it('SALES first', () => {
-      expect(getMobileHomeCtaKey({ roles: ['SALES', 'WAREHOUSE'] })).toBe('sales');
+    it('single SALES role → sales', () => {
+      expect(getMobileHomeCtaKey({ roles: ['SALES'] })).toBe('sales');
     });
 
     it('null for FINANCE', () => {

@@ -10,7 +10,9 @@ vi.mock('@/auth', () => ({
 
 vi.mock('next/navigation', () => ({
     redirect: vi.fn((url: string) => {
-        throw new Error(`NEXT_REDIRECT:${url}`);
+        const err = new Error(`NEXT_REDIRECT:${url}`);
+        (err as { digest?: string }).digest = `NEXT_REDIRECT;${url}`;
+        throw err;
     }),
 }));
 
@@ -51,7 +53,7 @@ describe('Auth Actions', () => {
             vi.mocked(signIn).mockRejectedValueOnce(error);
 
             const result = await authenticate(undefined, formData);
-            expect(result).toBe('Invalid email or password.');
+            expect(result).toBe('Email atau kata sandi salah.');
         });
 
         it('returns tenant suspended error message when TenantSuspended error is thrown', async () => {
@@ -68,6 +70,17 @@ describe('Auth Actions', () => {
             expect(result).toBe(
                 'Akun tenant ini telah dinonaktifkan (suspended). Silakan hubungi administrator.',
             );
+        });
+
+        it('returns friendly inline error message for unexpected non-AuthError failures', async () => {
+            const formData = new FormData();
+            formData.append('email', 'user@example.com');
+            formData.append('password', 'secret123');
+
+            vi.mocked(signIn).mockRejectedValueOnce(new Error('DB Connection Timeout'));
+
+            const result = await authenticate(undefined, formData);
+            expect(result).toBe('Login sedang bermasalah. Silakan coba lagi.');
         });
     });
 });

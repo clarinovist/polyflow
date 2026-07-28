@@ -86,6 +86,11 @@ export default async function WarehouseLayout({
         redirect(getPreferredWorkspaceLanding('warehouse', permissions));
     }
 
+    // Mobile paths use dedicated mobile chrome layout — bypass desktop sidebar/header
+    if (pathname.startsWith('/warehouse/mobile')) {
+        return <>{children}</>;
+    }
+
     return (
         <div className="min-h-screen bg-background">
             {/* Dedicated Warehouse Sidebar */}

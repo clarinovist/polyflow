@@ -55,6 +55,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
         children: [
             { key: '/purchasing/requests', label: 'Purchase Request' },
             { key: '/purchasing/orders', label: 'Purchase Order' },
+            { key: '/purchasing/invoices', label: 'Invoice Pembelian' },
             { key: '/purchasing/returns', label: 'Retur Pembelian' },
             { key: '/purchasing/suppliers', label: 'Supplier' },
             { key: '/purchasing/analytics', label: 'Analitik Purchasing' },

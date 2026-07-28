@@ -4,6 +4,7 @@ import {
     LayoutDashboard,
     ClipboardList,
     ShoppingCart,
+    FileText,
     RotateCcw,
     Truck,
     BarChart3,
@@ -48,6 +49,11 @@ const purchasingLinks = [
                 href: '/purchasing/orders',
                 icon: ShoppingCart,
                 label: purchasingSidebarLabels.purchaseOrders,
+            },
+            {
+                href: '/purchasing/invoices',
+                icon: FileText,
+                label: 'Invoice Pembelian',
             },
             {
                 href: '/purchasing/returns',

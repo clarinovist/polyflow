@@ -200,20 +200,20 @@ export default async function PurchasingAnalyticsPage(props: {
                                             {formatRupiah(line.remaining)}
                                         </span>
                                         <Link
-                                            href="/finance/invoices/purchase"
+                                            href="/purchasing/invoices"
                                             className="text-xs text-primary hover:underline flex items-center gap-0.5"
                                         >
-                                            Finance{' '}
+                                            Detail{' '}
                                             <ArrowRight className="h-3 w-3" />
                                         </Link>
                                     </div>
                                 </div>
                             ))}
                             <Link
-                                href="/finance/invoices/purchase"
+                                href="/purchasing/invoices"
                                 className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
                             >
-                                Semua hutang di Finance{' '}
+                                Semua invoice pembelian{' '}
                                 <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
