@@ -4,44 +4,37 @@ import {
     buildAttendancePhotoKey,
     uploadToR2,
 } from '@/lib/storage/r2';
+import { getEmployeeSession } from '@/lib/auth/employee-session';
 import { prisma } from '@/lib/core/prisma';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_BYTES = 1 * 1024 * 1024; // 1MB post-compress
-const EMP_ID_RE = /^[a-zA-Z0-9_-]+$/;
+const MAX_BYTES = 1 * 1024 * 1024; // 1MB
 
 export async function POST(req: NextRequest) {
     try {
+        // Session-bound — cookie path /my, so /api/... cannot read it.
+        // This route lives under /my so emp_session cookie is sent.
+        const session = await getEmployeeSession().catch(() => null);
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Lightweight ACTIVE check
+        const emp = await prisma.employee.findUnique({
+            where: { id: session.employeeId },
+            select: { id: true, status: true },
+        });
+        if (!emp || emp.status !== 'ACTIVE') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const formData = await req.formData();
         const file = formData.get('file') as File | null;
-        const employeeId = (formData.get('employeeId') as string | null)?.trim() || null;
         const kindRaw = (formData.get('kind') as string | null) ?? 'clock_in';
         const kind = kindRaw === 'clock_out' ? 'clock_out' : 'clock_in';
 
-        if (!file || !employeeId) {
-            return NextResponse.json(
-                { error: 'file and employeeId are required' },
-                { status: 400 },
-            );
-        }
-
-        if (!EMP_ID_RE.test(employeeId) || employeeId.length > 64) {
-            return NextResponse.json(
-                { error: 'Invalid employeeId' },
-                { status: 400 },
-            );
-        }
-
-        // Tenant isolation + ensure employee exists and active for this tenant DB
-        const empExists = await prisma.employee.findFirst({
-            where: { id: employeeId, status: 'ACTIVE' },
-            select: { id: true },
-        });
-        if (!empExists) {
-            return NextResponse.json(
-                { error: 'Employee not found or inactive' },
-                { status: 404 },
-            );
+        if (!file) {
+            return NextResponse.json({ error: 'file is required' }, { status: 400 });
         }
 
         if (!ALLOWED_TYPES.includes(file.type)) {
@@ -61,7 +54,7 @@ export async function POST(req: NextRequest) {
         const tenant = await getTenantPrefix();
         const key = buildAttendancePhotoKey(
             tenant,
-            employeeId,
+            session.employeeId,
             kind,
             file.name,
         );
@@ -70,7 +63,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true, publicUrl, key });
     } catch (error) {
-        console.error('Failed to upload attendance photo:', error);
+        console.error('Failed to upload attendance photo (my):', error);
         return NextResponse.json(
             { error: 'Failed to upload photo' },
             { status: 500 },

@@ -5,6 +5,7 @@ import { AttendanceService } from '../attendance-service';
 const mockDb = {
   employee: { findUnique: vi.fn() },
   workShift: { findUnique: vi.fn() },
+  employeeShiftAssignment: { findFirst: vi.fn() },
   attendanceRecord: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
@@ -20,6 +21,15 @@ vi.mock('../pin-helpers', () => ({
 }));
 
 import { verifyPin } from '../pin-helpers';
+
+function todayMidnightUTC() {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+function nowMinusHours(h: number) {
+  return new Date(Date.now() - h * 3600_000);
+}
 
 function dec(n: number) {
   return { toNumber: () => n, valueOf: () => n } as any;
@@ -187,24 +197,28 @@ describe('AttendanceService', () => {
     it('clocks out successfully', async () => {
       vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
       vi.mocked(verifyPin).mockResolvedValue(true);
-      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue({
-        id: 'rec-1', employeeId: 'emp-1', clockInAt: new Date('2026-07-15T06:00:00Z'),
-        clockOutAt: null, workShift: activeShift,
-        dailyRateSnapshot: activeEmployee.dailyRate,
-        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
-        standardDayHours: activeEmployee.standardDayHours,
-        plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
-        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
-      } as any);
+      const recentClockIn = nowMinusHours(2);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-1', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          clockInAt: recentClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        },
+      ] as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
       vi.mocked(mockDb.attendanceRecord.update).mockResolvedValue({
-        id: 'rec-1', employeeId: 'emp-1', clockInAt: new Date('2026-07-15T06:00:00Z'),
-        clockOutAt: new Date('2026-07-15T14:01:00Z'), isOvertimeShift: false,
+        id: 'rec-1', employeeId: 'emp-1', clockInAt: recentClockIn,
+        clockOutAt: new Date(), isOvertimeShift: false,
         status: 'PRESENT', source: 'KIOSK',
         dailyRateSnapshot: activeEmployee.dailyRate,
         overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
         standardDayHours: activeEmployee.standardDayHours,
-        plannedHours: dec(8), actualHours: dec(8.02), regularHours: dec(8), overtimeHours: dec(0.02),
-        dailyEarnings: dec(100000), overtimeEarnings: dec(3750), totalEarnings: dec(103750),
+        plannedHours: dec(8), actualHours: dec(2), regularHours: dec(2), overtimeHours: dec(0),
+        dailyEarnings: dec(25000), overtimeEarnings: dec(0), totalEarnings: dec(25000),
         employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
       } as any);
 
@@ -213,24 +227,27 @@ describe('AttendanceService', () => {
       });
 
       expect(result.clockOutAt).not.toBeNull();
-      expect(result.actualHours).toBeGreaterThan(7);
     });
 
     it('calculates partial day earnings proportionally', async () => {
       vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
       vi.mocked(verifyPin).mockResolvedValue(true);
-      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue({
-        id: 'rec-1', employeeId: 'emp-1', clockInAt: new Date('2026-07-15T06:00:00Z'),
-        clockOutAt: null, workShift: activeShift,
-        dailyRateSnapshot: activeEmployee.dailyRate,
-        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
-        standardDayHours: activeEmployee.standardDayHours,
-        plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
-        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
-      } as any);
+      const recentClockIn = nowMinusHours(3);
+      const recentClockOut = new Date();
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-1', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          clockInAt: recentClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        },
+      ] as any);
       vi.mocked(mockDb.attendanceRecord.update).mockResolvedValue({
-        id: 'rec-1', employeeId: 'emp-1', clockInAt: new Date('2026-07-15T06:00:00Z'),
-        clockOutAt: new Date('2026-07-15T09:00:00Z'), isOvertimeShift: false,
+        id: 'rec-1', employeeId: 'emp-1', clockInAt: recentClockIn,
+        clockOutAt: recentClockOut, isOvertimeShift: false,
         status: 'PRESENT', source: 'KIOSK',
         dailyRateSnapshot: activeEmployee.dailyRate,
         overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
@@ -251,6 +268,7 @@ describe('AttendanceService', () => {
     it('rejects when no open session', async () => {
       vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
       vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([]);
       vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
 
       await expect(
@@ -258,6 +276,75 @@ describe('AttendanceService', () => {
           employeeCode: 'EMP-001', pin: '1234',
         }),
       ).rejects.toThrow('Tidak ada sesi absensi yang masih terbuka');
+    });
+
+    it('rejects stale session with HRD correction message', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      // 22 Juli stale record, clock-in 5 days ago
+      const staleDate = new Date('2026-07-22T00:00:00.000Z');
+      const staleClockIn = new Date(Date.now() - 5 * 24 * 3600_000);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-stale', employeeId: 'emp-1', workDate: staleDate,
+          clockInAt: staleClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        },
+      ] as any);
+
+      await expect(
+        AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+        }),
+      ).rejects.toThrow(/koreksi HRD/i);
+    });
+
+    it('uses findMany resolver and closes newest today record when both today and stale exist', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      const staleDate = new Date('2026-07-22T00:00:00.000Z');
+      const staleClockIn = new Date(Date.now() - 5 * 24 * 3600_000);
+      const todayClockIn = nowMinusHours(1);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-today', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          clockInAt: todayClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        },
+        {
+          id: 'rec-stale', employeeId: 'emp-1', workDate: staleDate,
+          clockInAt: staleClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        },
+      ] as any);
+      vi.mocked(mockDb.attendanceRecord.update).mockResolvedValue({
+        id: 'rec-today', employeeId: 'emp-1', clockInAt: todayClockIn,
+        clockOutAt: new Date(), isOvertimeShift: false,
+        status: 'PRESENT', source: 'KIOSK',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        plannedHours: dec(8), actualHours: dec(1), regularHours: dec(1), overtimeHours: dec(0),
+        dailyEarnings: dec(12500), overtimeEarnings: dec(0), totalEarnings: dec(12500),
+        employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+      } as any);
+
+      const result = await AttendanceService.clockOut(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234',
+      });
+      expect(result.id).toBe('rec-today');
     });
   });
 
@@ -553,6 +640,110 @@ describe('AttendanceService', () => {
       vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([]);
       const summary = await AttendanceService.getMonthlySummary(mockDb as any, 2026, 12);
       expect(summary).toEqual([]);
+    });
+  });
+
+  describe('getMyTodayStatus - stale handling', () => {
+    it('returns OPEN_STALE when only stale open session exists', async () => {
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue({
+        workShift: activeShift,
+      } as any);
+      const staleDate = new Date('2026-07-22T00:00:00.000Z');
+      const staleClockIn = new Date(Date.now() - 5 * 24 * 3600_000);
+      const rec = {
+        id: 'rec-stale', employeeId: 'emp-1', workDate: staleDate,
+        clockInAt: staleClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        employee: { name: 'Budi', code: 'EMP-001' },
+      };
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([rec] as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null); // todayRecord none
+
+      const status = await AttendanceService.getMyTodayStatus(mockDb as any, 'emp-1');
+      expect(status.status).toBe('OPEN_STALE');
+      expect(status.staleDate).toMatch(/2026-07-22/);
+    });
+
+    it('returns WORKING when today open session exists even with stale present', async () => {
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue({
+        workShift: activeShift,
+      } as any);
+      const staleDate = new Date('2026-07-22T00:00:00.000Z');
+      const staleClockIn = new Date(Date.now() - 5 * 24 * 3600_000);
+      const todayClockIn = nowMinusHours(1);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-today', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          clockInAt: todayClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          employee: { name: 'Budi', code: 'EMP-001' },
+        },
+        {
+          id: 'rec-stale', employeeId: 'emp-1', workDate: staleDate,
+          clockInAt: staleClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          employee: { name: 'Budi', code: 'EMP-001' },
+        },
+      ] as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+
+      const status = await AttendanceService.getMyTodayStatus(mockDb as any, 'emp-1');
+      expect(status.status).toBe('WORKING');
+      expect(status.record?.id).toBe('rec-today');
+    });
+  });
+
+  describe('clockInSelfService - missing assignment', () => {
+    it('rejects when no active shift assignment', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue(null);
+
+      await expect(
+        AttendanceService.clockInSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
+        }, { 'attendance.selfServiceEnabled': 'true', 'attendance.geofenceEnabled': 'false' }),
+      ).rejects.toThrow(/HRD belum menetapkan shift/);
+    });
+  });
+
+  describe('clockOutSelfService - stale guard', () => {
+    it('rejects stale session instead of closing wrong record', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue({ id: 'emp-1', name: 'Budi', code: 'EMP-001', status: 'ACTIVE' } as any);
+      const staleDate = new Date('2026-07-22T00:00:00.000Z');
+      const staleClockIn = new Date(Date.now() - 5 * 24 * 3600_000);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-stale', employeeId: 'emp-1', workDate: staleDate,
+          clockInAt: staleClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          employee: { name: 'Budi', code: 'EMP-001' },
+        },
+      ] as any);
+
+      await expect(
+        AttendanceService.clockOutSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
+        }, { 'attendance.geofenceEnabled': 'false' }),
+      ).rejects.toThrow(/koreksi HRD/i);
     });
   });
 });

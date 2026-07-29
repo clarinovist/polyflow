@@ -26,6 +26,7 @@ async function getClientIp(): Promise<string> {
 
 function mapError(error: unknown): string {
     const msg = (error as Error).message ?? '';
+    // Pass-through known business errors with actionable messages
     if (msg.includes('belum diaktifkan') || msg.includes('belum lengkap')) {
         return msg;
     }
@@ -35,7 +36,12 @@ function mapError(error: unknown): string {
     if (msg.includes('belum menetapkan')) {
         return msg;
     }
-    if (msg.includes('belum clock-out') || msg.includes('Sudah absen')) {
+    if (
+        msg.includes('belum clock-out') ||
+        msg.includes('Sudah absen') ||
+        msg.includes('masih terbuka') ||
+        msg.includes('koreksi HRD')
+    ) {
         return msg;
     }
     if (msg.includes('Lokasi') || msg.includes('Akurasi')) {

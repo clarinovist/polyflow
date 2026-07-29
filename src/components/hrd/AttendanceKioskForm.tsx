@@ -75,8 +75,9 @@ async function uploadSelfie(
         const data = (await res.json()) as {
             success?: boolean;
             publicUrl?: string;
+            url?: string;
         };
-        return data.publicUrl ?? null;
+        return data.publicUrl ?? data.url ?? null;
     } catch (error) {
         console.error('Failed to upload selfie:', error);
         return null;

@@ -20,6 +20,7 @@ import {
     type LocationEvidence,
 } from './attendance-location';
 import { haversineDistance } from '@/lib/utils/geo';
+import { isOvernightShift, wibDateStringFrom } from './shift-window';
 
 // ─── Input types ───
 
@@ -603,6 +604,74 @@ export const AttendanceService = {
         return buildRecordResult(record as unknown as RecordWithRelations);
     },
 
+    async _resolveOpenRecordForClockOut(
+        db: PrismaClient,
+        employeeId: string,
+    ): Promise<
+        (RecordWithRelations & { isStale?: boolean; staleDate?: string }) | null
+    > {
+        const now = new Date();
+        const todayWibStr = wibDateStringFrom(now);
+
+        // All open records, newest first
+        const allOpen = (await db.attendanceRecord.findMany({
+            where: { employeeId, clockInAt: { not: null }, clockOutAt: null },
+            include: includeRelations,
+            orderBy: { clockInAt: 'desc' },
+        })) as unknown as RecordWithRelations[];
+
+        if (allOpen.length === 0) return null;
+        if (allOpen.length === 1) {
+            const rec = allOpen[0];
+            const workDateStr = (rec.workDate as Date)
+                .toISOString()
+                .slice(0, 10);
+            const elapsedHours =
+                (now.getTime() -
+                    new Date(rec.clockInAt as Date).getTime()) /
+                (1000 * 60 * 60);
+            const isStale =
+                workDateStr !== todayWibStr && elapsedHours > 20;
+            return {
+                ...rec,
+                isStale: isStale || undefined,
+                staleDate: isStale ? workDateStr : undefined,
+            };
+        }
+
+        // Prefer record whose workDate matches today WIB, or overnight shift that started yesterday
+        const todayMatch = allOpen.filter((r) => {
+            const wd = (r.workDate as Date).toISOString().slice(0, 10);
+            if (wd === todayWibStr) return true;
+            // Overnight: clock-in late night yesterday, still open early today — workDate = yesterday
+            const shift = (r as { workShift?: { startTime: string; endTime: string } })
+                .workShift;
+            if (shift && isOvernightShift(shift.startTime, shift.endTime)) {
+                const clockInStr = wibDateStringFrom(
+                    new Date(r.clockInAt as Date),
+                );
+                // If clocked in today WIB but workDate is yesterday due to overnight logic, it's valid today
+                if (clockInStr === todayWibStr) return true;
+            }
+            return false;
+        });
+
+        if (todayMatch.length > 0) {
+            return todayMatch[0];
+        }
+
+        // No today match — we have only stale records. Return newest stale with flag.
+        const newest = allOpen[0];
+        const staleDate = (newest.workDate as Date)
+            .toISOString()
+            .slice(0, 10);
+        return {
+            ...newest,
+            isStale: true,
+            staleDate,
+        };
+    },
+
     /**
      * Kiosk clock-out.
      */
@@ -618,19 +687,21 @@ export const AttendanceService = {
         const pinValid = await verifyPin(input.pin, employee.pinHash);
         if (!pinValid) throw new BusinessRuleError('PIN salah');
 
-        const openRecord = await db.attendanceRecord.findFirst({
-            where: {
-                employeeId: employee.id,
-                clockInAt: { not: null },
-                clockOutAt: null,
-            },
-            include: includeRelations,
-            orderBy: { clockInAt: 'desc' },
-        });
+        const openRecord = await AttendanceService._resolveOpenRecordForClockOut(
+            db,
+            employee.id,
+        );
         if (!openRecord)
             throw new BusinessRuleError(
                 'Tidak ada sesi absensi yang masih terbuka',
             );
+
+        if (openRecord.isStale) {
+            const d = openRecord.staleDate ?? '?';
+            throw new BusinessRuleError(
+                `Sesi absensi tanggal ${d} masih terbuka dan perlu koreksi HRD. Hubungi HRD untuk menutup sesi lama tersebut.`,
+            );
+        }
 
         if (
             input.clockOutPhotoUrl?.trim() &&
@@ -750,6 +821,8 @@ export const AttendanceService = {
 
     /**
      * Admin manual clock-out — skips PIN verification.
+     * Uses same stale-aware resolver but admin can still close stale via correct() flow.
+     * Here we intentionally allow stale close when admin explicitly calls this.
      */
     async clockOutAsAdmin(
         db: PrismaClient,
@@ -1383,19 +1456,24 @@ export const AttendanceService = {
             }
         }
 
-        const openRecord = await db.attendanceRecord.findFirst({
-            where: {
-                employeeId: employee.id,
-                clockInAt: { not: null },
-                clockOutAt: null,
-            },
-            include: includeRelations,
-            orderBy: { clockInAt: 'desc' },
-        });
-        if (!openRecord)
+        const openResolved =
+            await AttendanceService._resolveOpenRecordForClockOut(
+                db,
+                employee.id,
+            );
+        if (!openResolved)
             throw new BusinessRuleError(
                 'Tidak ada sesi absensi yang masih terbuka',
             );
+
+        if (openResolved.isStale) {
+            const d = openResolved.staleDate ?? '?';
+            throw new BusinessRuleError(
+                `Sesi absensi tanggal ${d} masih terbuka dan perlu koreksi HRD. Hubungi HRD untuk menutup sesi lama tersebut.`,
+            );
+        }
+
+        const openRecord = openResolved as unknown as RecordWithRelations;
 
         if (
             input.clockOutPhotoUrl?.trim() &&
@@ -1455,28 +1533,28 @@ export const AttendanceService = {
         status: 'NOT_CLOCKED_IN' | 'WORKING' | 'CLOCKED_OUT' | 'OPEN_STALE';
         record: AttendanceRecordResult | null;
         shiftName: string | null;
+        staleDate?: string;
     }> {
         const now = new Date();
+        const todayMidnight = new Date(now);
+        todayMidnight.setUTCHours(0, 0, 0, 0);
 
         // Find active shift assignment
-        const today = new Date(now);
-        today.setUTCHours(0, 0, 0, 0);
-
         const assignment = await db.employeeShiftAssignment.findFirst({
             where: {
                 employeeId,
-                effectiveFrom: { lte: today },
+                effectiveFrom: { lte: todayMidnight },
                 OR: [
                     { effectiveTo: null },
-                    { effectiveTo: { gte: today } },
+                    { effectiveTo: { gte: todayMidnight } },
                 ],
             },
             include: { workShift: true },
             orderBy: { effectiveFrom: 'desc' },
         });
 
-        // Find any open record
-        const openRecord = await db.attendanceRecord.findFirst({
+        // Find all open records — needed to correctly detect stale vs today
+        const allOpen = await db.attendanceRecord.findMany({
             where: {
                 employeeId,
                 clockInAt: { not: null },
@@ -1497,25 +1575,44 @@ export const AttendanceService = {
             orderBy: { clockOutAt: 'desc' },
         });
 
-        if (openRecord) {
-            // Check if open record is from a previous day (stale)
-            const openDate = openRecord.workDate.toISOString().slice(0, 10);
-            const todayDate = today.toISOString().slice(0, 10);
-            if (openDate !== todayDate) {
+        if (allOpen.length > 0) {
+            const resolved =
+                await AttendanceService._resolveOpenRecordForClockOut(
+                    db,
+                    employeeId,
+                );
+
+            if (resolved && resolved.isStale) {
                 return {
                     status: 'OPEN_STALE',
                     record: buildRecordResult(
-                        openRecord as unknown as RecordWithRelations,
+                        resolved as unknown as RecordWithRelations,
                     ),
-                    shiftName: (openRecord as unknown as RecordWithRelations).workShift?.name ?? null,
+                    shiftName:
+                        (resolved as unknown as RecordWithRelations).workShift
+                            ?.name ?? null,
+                    staleDate: resolved.staleDate,
                 };
             }
+
+            if (resolved) {
+                return {
+                    status: 'WORKING',
+                    record: buildRecordResult(
+                        resolved as unknown as RecordWithRelations,
+                    ),
+                    shiftName:
+                        (resolved as unknown as RecordWithRelations).workShift
+                            ?.name ?? null,
+                };
+            }
+
+            // Fallback: first open as WORKING (overnight compat)
+            const firstOpen = allOpen[0] as unknown as RecordWithRelations;
             return {
                 status: 'WORKING',
-                record: buildRecordResult(
-                    openRecord as unknown as RecordWithRelations,
-                ),
-                shiftName: (openRecord as unknown as RecordWithRelations).workShift?.name ?? null,
+                record: buildRecordResult(firstOpen),
+                shiftName: firstOpen.workShift?.name ?? null,
             };
         }
 
@@ -1525,7 +1622,9 @@ export const AttendanceService = {
                 record: buildRecordResult(
                     todayRecord as unknown as RecordWithRelations,
                 ),
-                shiftName: (todayRecord as unknown as RecordWithRelations).workShift?.name ?? null,
+                shiftName:
+                    (todayRecord as unknown as RecordWithRelations).workShift
+                        ?.name ?? null,
             };
         }
 

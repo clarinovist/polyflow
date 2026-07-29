@@ -34,7 +34,9 @@ interface LocationState {
 }
 
 export function MyAttendanceClock() {
-    const [today, setToday] = useState<TodayStatus | null>(null);
+    const [today, setToday] = useState<
+        (TodayStatus & { staleDate?: string }) | null
+    >(null);
     const [loading, setLoading] = useState(true);
     const [selfieFile, setSelfieFile] = useState<File | null>(null);
     const [location, setLocation] = useState<LocationState | null>(null);
@@ -98,20 +100,32 @@ export function MyAttendanceClock() {
 
         startTransition(async () => {
             try {
-                // Upload selfie first
+                // Upload selfie via session-bound route under /my (emp_session cookie path = /my)
                 const formData = new FormData();
                 formData.append('file', selfieFile);
-                const uploadRes = await fetch('/api/upload/attendance-photo', {
+                formData.append('kind', 'clock_in');
+                const uploadRes = await fetch('/my/api/attendance-photo', {
                     method: 'POST',
                     body: formData,
                 });
                 if (!uploadRes.ok) {
-                    toast.error('Gagal upload foto');
+                    const errBody = (await uploadRes
+                        .json()
+                        .catch(() => null)) as { error?: string } | null;
+                    toast.error(errBody?.error ?? 'Gagal upload foto');
                     return;
                 }
-                const { url } = (await uploadRes.json()) as { url: string };
+                const body = (await uploadRes.json()) as {
+                    publicUrl?: string;
+                    url?: string;
+                };
+                const photoUrl = body.publicUrl ?? body.url;
+                if (!photoUrl) {
+                    toast.error('Gagal upload foto: URL tidak valid');
+                    return;
+                }
 
-                const result = await selfServiceClockIn(url, location);
+                const result = await selfServiceClockIn(photoUrl, location);
                 if (result.success) {
                     toast.success('Berhasil clock-in!');
                     setSelfieFile(null);
@@ -300,24 +314,29 @@ export function MyAttendanceClock() {
                 )}
 
                 {currentStatus === 'OPEN_STALE' && (
-                    <div className="space-y-2">
-                        <p className="text-sm text-amber-600">
-                            Anda masih memiliki sesi yang terbuka dari hari
-                            sebelumnya. Silakan clock-out terlebih dahulu.
+                    <div className="space-y-3">
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                            <p className="font-semibold">
+                                Sesi tanggal{' '}
+                                {today?.staleDate ??
+                                    (today?.record?.workDate
+                                        ? new Date(
+                                              today.record.workDate,
+                                          ).toLocaleDateString('id-ID')
+                                        : '')}{' '}
+                                masih terbuka.
+                            </p>
+                            <p className="mt-1 text-xs text-amber-700/90">
+                                Hubungi HRD untuk koreksi — absensi tanggal
+                                tersebut perlu ditutup manual sebelum absen
+                                hari ini.
+                            </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Tombol clock-out hanya untuk sesi hari ini. Sesi
+                            lama tidak bisa ditutup dari sini agar tidak salah
+                            tutup record lain.
                         </p>
-                        <Button
-                            className="w-full h-14 text-lg font-bold uppercase"
-                            variant="destructive"
-                            onClick={handleClockOut}
-                            disabled={pending || !location}
-                        >
-                            {pending ? (
-                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                            ) : (
-                                <LogOut className="h-5 w-5 mr-2" />
-                            )}
-                            Clock Out
-                        </Button>
                     </div>
                 )}
 
