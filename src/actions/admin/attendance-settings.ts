@@ -31,30 +31,91 @@ export interface AttendanceSettings {
     lateGraceMinutes: string;
 }
 
-const saveSchema = z.object({
-    selfServiceEnabled: z.boolean(),
-    geofenceEnabled: z.boolean(),
-    latitude: z.string().refine((v) => {
-        const n = parseFloat(v);
-        return Number.isFinite(n) && n >= -90 && n <= 90;
-    }, 'Latitude harus antara -90 dan 90'),
-    longitude: z.string().refine((v) => {
-        const n = parseFloat(v);
-        return Number.isFinite(n) && n >= -180 && n <= 180;
-    }, 'Longitude harus antara -180 dan 180'),
-    radiusMeters: z.string().refine((v) => {
-        const n = parseFloat(v);
-        return Number.isFinite(n) && n > 0;
-    }, 'Radius harus lebih dari 0'),
-    maxAccuracyMeters: z.string().refine((v) => {
-        const n = parseFloat(v);
-        return Number.isFinite(n) && n > 0;
-    }, 'Akurasi maks harus lebih dari 0'),
-    lateGraceMinutes: z.string().refine((v) => {
-        const n = parseInt(v, 10);
-        return Number.isFinite(n) && n >= 0;
-    }, 'Grace period harus 0 atau lebih'),
-});
+const saveSchema = z
+    .object({
+        selfServiceEnabled: z.boolean(),
+        geofenceEnabled: z.boolean(),
+        latitude: z.string(),
+        longitude: z.string(),
+        radiusMeters: z.string(),
+        maxAccuracyMeters: z.string(),
+        lateGraceMinutes: z.string(),
+    })
+    .superRefine((data, ctx) => {
+        if (data.geofenceEnabled) {
+            const lat = parseFloat(data.latitude);
+            if (!data.latitude.trim() || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['latitude'],
+                    message: 'Latitude harus antara -90 dan 90',
+                });
+            }
+
+            const lon = parseFloat(data.longitude);
+            if (!data.longitude.trim() || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['longitude'],
+                    message: 'Longitude harus antara -180 dan 180',
+                });
+            }
+        } else {
+            if (data.latitude.trim()) {
+                const lat = parseFloat(data.latitude);
+                if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['latitude'],
+                        message: 'Latitude harus antara -90 dan 90',
+                    });
+                }
+            }
+            if (data.longitude.trim()) {
+                const lon = parseFloat(data.longitude);
+                if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['longitude'],
+                        message: 'Longitude harus antara -180 dan 180',
+                    });
+                }
+            }
+        }
+
+        if (data.radiusMeters.trim()) {
+            const r = parseFloat(data.radiusMeters);
+            if (!Number.isFinite(r) || r <= 0) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['radiusMeters'],
+                    message: 'Radius harus lebih dari 0',
+                });
+            }
+        }
+
+        if (data.maxAccuracyMeters.trim()) {
+            const acc = parseFloat(data.maxAccuracyMeters);
+            if (!Number.isFinite(acc) || acc <= 0) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['maxAccuracyMeters'],
+                    message: 'Akurasi maks harus lebih dari 0',
+                });
+            }
+        }
+
+        if (data.lateGraceMinutes.trim()) {
+            const g = parseInt(data.lateGraceMinutes, 10);
+            if (!Number.isFinite(g) || g < 0) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['lateGraceMinutes'],
+                    message: 'Grace period harus 0 atau lebih',
+                });
+            }
+        }
+    });
 
 async function requireAdminId(): Promise<string> {
     const session = await auth();
@@ -83,9 +144,9 @@ export const getAttendanceSettings = withTenant(
                 geofenceEnabled: get('attendance.geofenceEnabled') === 'true',
                 latitude: get('attendance.latitude'),
                 longitude: get('attendance.longitude'),
-                radiusMeters: get('attendance.radiusMeters'),
-                maxAccuracyMeters: get('attendance.maxAccuracyMeters'),
-                lateGraceMinutes: get('attendance.lateGraceMinutes'),
+                radiusMeters: get('attendance.radiusMeters') || '100',
+                maxAccuracyMeters: get('attendance.maxAccuracyMeters') || '50',
+                lateGraceMinutes: get('attendance.lateGraceMinutes') || '0',
             } satisfies AttendanceSettings;
         });
     },
@@ -100,11 +161,11 @@ export const saveAttendanceSettings = withTenant(
             const entries: Record<string, string> = {
                 'attendance.selfServiceEnabled': String(parsed.selfServiceEnabled),
                 'attendance.geofenceEnabled': String(parsed.geofenceEnabled),
-                'attendance.latitude': parsed.latitude,
-                'attendance.longitude': parsed.longitude,
-                'attendance.radiusMeters': parsed.radiusMeters,
-                'attendance.maxAccuracyMeters': parsed.maxAccuracyMeters,
-                'attendance.lateGraceMinutes': parsed.lateGraceMinutes,
+                'attendance.latitude': parsed.latitude.trim(),
+                'attendance.longitude': parsed.longitude.trim(),
+                'attendance.radiusMeters': parsed.radiusMeters.trim() || '100',
+                'attendance.maxAccuracyMeters': parsed.maxAccuracyMeters.trim() || '50',
+                'attendance.lateGraceMinutes': parsed.lateGraceMinutes.trim() || '0',
             };
 
             await prisma.$transaction(

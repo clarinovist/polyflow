@@ -108,9 +108,12 @@ export function validateSelfServicePrerequisites(
         return { ready: false, reason: 'Self-service absensi belum diaktifkan oleh HRD' };
     }
 
-    const config = parseGeofenceConfig(settings);
-    if (!config) {
-        return { ready: false, reason: 'Konfigurasi geofence belum lengkap' };
+    const geofenceEnabled = settings['attendance.geofenceEnabled'] === 'true';
+    if (geofenceEnabled) {
+        const config = parseGeofenceConfig(settings);
+        if (!config) {
+            return { ready: false, reason: 'Konfigurasi geofence belum lengkap' };
+        }
     }
 
     return { ready: true };

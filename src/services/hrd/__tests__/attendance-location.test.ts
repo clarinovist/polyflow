@@ -184,6 +184,14 @@ describe('validateSelfServicePrerequisites', () => {
         expect(result.reason).toContain('belum lengkap');
     });
 
+    it('succeeds when self-service is enabled and geofence is disabled', () => {
+        const result = validateSelfServicePrerequisites({
+            'attendance.selfServiceEnabled': 'true',
+            'attendance.geofenceEnabled': 'false',
+        });
+        expect(result.ready).toBe(true);
+    });
+
     it('succeeds when all prerequisites are met', () => {
         const result = validateSelfServicePrerequisites({
             'attendance.selfServiceEnabled': 'true',
