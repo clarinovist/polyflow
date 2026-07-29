@@ -400,15 +400,18 @@ export const getAttendanceMonthlySummary = withTenant(
 const KIOSK_RATE_LIMIT = 5;
 const KIOSK_RATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
-/** Business messages that do not leak whether a code/PIN exists. */
-function mapKioskError(error: unknown): string {
-    if (!(error instanceof Error)) return 'Kode atau PIN tidak valid';
+export async function mapKioskError(error: unknown): Promise<string> {
+    if (!(error instanceof Error)) return 'Terjadi kesalahan pada sistem absensi';
     const msg = error.message;
 
     if (msg.startsWith('Masih belum clock-out')) return msg;
     if (msg === 'Sudah absen shift ini hari ini') return msg;
     if (msg === 'Tidak ada sesi absensi yang masih terbuka') return msg;
-    if (msg === 'Shift tidak aktif') return 'Shift tidak aktif';
+    if (msg === 'Shift tidak aktif') return 'Shift kerja tidak aktif';
+    if (msg === 'PIN salah') return 'PIN yang Anda masukkan salah';
+    if (msg === 'Karyawan tidak aktif') return 'Akun karyawan sedang tidak aktif';
+    if (msg === 'Karyawan tidak ditemukan') return 'Data karyawan tidak ditemukan';
+    if (msg.includes('Tidak ada shift aktif')) return 'Tidak ada shift kerja aktif terdaftar';
     if (
         msg === 'Data absensi tidak lengkap' ||
         msg === 'Foto absensi tidak valid'
@@ -416,8 +419,7 @@ function mapKioskError(error: unknown): string {
         return 'Ambil selfie terlebih dahulu';
     }
 
-    // Karyawan tidak ditemukan / PIN salah / tidak aktif → generic
-    return 'Kode atau PIN tidak valid';
+    return msg || 'Gagal memproses absensi';
 }
 
 export type KioskEmployeeOption = {
@@ -480,7 +482,7 @@ export const kioskClockIn = withTenant(async function kioskClockIn(
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };
     } catch (error) {
-        return { success: false, error: mapKioskError(error) };
+        return { success: false, error: await mapKioskError(error) };
     }
 });
 
@@ -512,6 +514,6 @@ export const kioskClockOut = withTenant(async function kioskClockOut(
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };
     } catch (error) {
-        return { success: false, error: mapKioskError(error) };
+        return { success: false, error: await mapKioskError(error) };
     }
 });

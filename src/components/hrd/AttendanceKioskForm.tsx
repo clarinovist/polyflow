@@ -62,20 +62,25 @@ async function uploadSelfie(
     employeeId: string,
     kind: 'clock_in' | 'clock_out',
 ): Promise<string | null> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('employeeId', employeeId);
-    formData.append('kind', kind);
-    const res = await fetch('/api/upload/attendance-photo', {
-        method: 'POST',
-        body: formData,
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-        success?: boolean;
-        publicUrl?: string;
-    };
-    return data.publicUrl ?? null;
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('employeeId', employeeId);
+        formData.append('kind', kind);
+        const res = await fetch('/api/upload/attendance-photo', {
+            method: 'POST',
+            body: formData,
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as {
+            success?: boolean;
+            publicUrl?: string;
+        };
+        return data.publicUrl ?? null;
+    } catch (error) {
+        console.error('Failed to upload selfie:', error);
+        return null;
+    }
 }
 
 export function AttendanceKioskForm({ shifts, employees }: Props) {
@@ -154,7 +159,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             if (!photoUrl) {
                 setFeedback({
                     type: 'error',
-                    message: 'Gagal upload selfie. Coba lagi.',
+                    message: 'Gagal mengunggah foto selfie. Periksa koneksi internet Anda.',
                 });
                 return;
             }
@@ -181,8 +186,12 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                     message: result.error || 'Gagal clock-in',
                 });
             }
-        } catch {
-            setFeedback({ type: 'error', message: 'Terjadi kesalahan' });
+        } catch (err) {
+            const errMsg =
+                err instanceof Error && err.message
+                    ? err.message
+                    : 'Koneksi terputus. Periksa jaringan internet dan coba lagi.';
+            setFeedback({ type: 'error', message: errMsg });
         } finally {
             setLoading(false);
         }
@@ -234,8 +243,12 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                     message: result.error || 'Gagal clock-out',
                 });
             }
-        } catch {
-            setFeedback({ type: 'error', message: 'Terjadi kesalahan' });
+        } catch (err) {
+            const errMsg =
+                err instanceof Error && err.message
+                    ? err.message
+                    : 'Koneksi terputus. Periksa jaringan internet dan coba lagi.';
+            setFeedback({ type: 'error', message: errMsg });
         } finally {
             setLoading(false);
         }
