@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -132,7 +132,8 @@ export function CustomerDialog({
     };
 
     // Load vehicles when dialog opens
-    useState(() => {
+    useEffect(() => {
+        if (!open) return;
         getVehicles({ status: 'ACTIVE' }).then((res) => {
             if (res.success && res.data)
                 setVehicles(
@@ -143,7 +144,7 @@ export function CustomerDialog({
                     }[],
                 );
         });
-    });
+    }, [open]);
 
     const form = useForm<CreateCustomerValues | UpdateCustomerValues>({
         resolver: zodResolver(
