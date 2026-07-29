@@ -449,7 +449,7 @@ export const listKioskEmployees = withTenant(
 export const kioskClockIn = withTenant(async function kioskClockIn(
     employeeCode: string,
     pin: string,
-    workShiftId: string,
+    workShiftId: string | undefined,
     clockInPhotoUrl: string,
 ) {
     try {
@@ -473,7 +473,7 @@ export const kioskClockIn = withTenant(async function kioskClockIn(
         const result = await AttendanceService.clockIn(db, {
             employeeCode,
             pin,
-            workShiftId,
+            workShiftId: workShiftId?.trim() || undefined,
             clockInPhotoUrl: clockInPhotoUrl.trim(),
         });
         revalidatePath('/kiosk/attendance');

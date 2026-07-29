@@ -48,11 +48,6 @@ interface Props {
     employees: KioskEmployeeOption[];
 }
 
-function getPlannedLabel(s: Shift): string {
-    const h = s.plannedHours ?? '?';
-    return `${h}j`;
-}
-
 function nowWIB(): string {
     return new Date().toLocaleTimeString('id-ID', {
         hour: '2-digit',
@@ -84,7 +79,7 @@ async function uploadSelfie(
 }
 
 export function AttendanceKioskForm({ shifts, employees }: Props) {
-    const [selectedShift, setSelectedShift] = useState<string>(
+    const [selectedShift] = useState<string>(
         shifts[0]?.id ?? '',
     );
     const [selectedEmployee, setSelectedEmployee] =
@@ -146,10 +141,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             });
             return;
         }
-        if (!selectedShift) {
-            setFeedback({ type: 'error', message: 'Pilih shift' });
-            return;
-        }
+        const shiftToUse = selectedShift || shifts[0]?.id || undefined;
 
         setLoading(true);
         setFeedback(null);
@@ -170,13 +162,13 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             const result = await kioskClockIn(
                 selectedEmployee.code,
                 pin,
-                selectedShift,
+                shiftToUse,
                 photoUrl,
             );
             if (result.success && result.data) {
                 const d = result.data;
                 const shiftName =
-                    shifts.find((s) => s.id === selectedShift)?.name ?? '';
+                    d.shiftName || shifts.find((s) => s.id === shiftToUse)?.name || '';
                 const msg = d.isOvertimeShift
                     ? `${d.employeeName} · LEMBUR · ${shiftName}`
                     : `${d.employeeName} · ${shiftName} · ${nowWIB()}`;
@@ -253,7 +245,6 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
         !!selectedEmployee &&
         !!pin.trim() &&
         !!selfieFile &&
-        !!selectedShift &&
         !loading;
     const canClockOut = !!selectedEmployee && !!pin.trim() && !loading;
 
@@ -269,26 +260,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-                {shifts.map((s) => (
-                    <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setSelectedShift(s.id)}
-                        className={cn(
-                            'px-4 py-2 rounded-full text-sm font-bold border-2 transition-all',
-                            selectedShift === s.id
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-card text-muted-foreground border-border hover:border-primary/50',
-                        )}
-                    >
-                        {s.name}{' '}
-                        <span className="opacity-70 ml-1">
-                            {getPlannedLabel(s)}
-                        </span>
-                    </button>
-                ))}
-            </div>
+
 
             <div className="bg-card rounded-2xl border-2 p-4 md:p-6 space-y-4">
                 <EmployeeNameSearch

@@ -26,7 +26,7 @@ import { haversineDistance } from '@/lib/utils/geo';
 export interface KioskClockInInput {
     employeeCode: string;
     pin: string;
-    workShiftId: string;
+    workShiftId?: string;
     /** Required when source is KIOSK (default). */
     clockInPhotoUrl?: string;
     source?: AttendanceSource;
@@ -492,7 +492,41 @@ export const AttendanceService = {
             }
         }
 
-        const shift = await findShift(db, input.workShiftId);
+        let resolvedWorkShiftId = input.workShiftId?.trim();
+        if (!resolvedWorkShiftId) {
+            const today = new Date();
+            today.setUTCHours(0, 0, 0, 0);
+
+            const assignment = await db.employeeShiftAssignment.findFirst({
+                where: {
+                    employeeId: employee.id,
+                    effectiveFrom: { lte: today },
+                    OR: [
+                        { effectiveTo: null },
+                        { effectiveTo: { gte: today } },
+                    ],
+                },
+                select: { workShiftId: true },
+                orderBy: { effectiveFrom: 'desc' },
+            });
+
+            if (assignment) {
+                resolvedWorkShiftId = assignment.workShiftId;
+            } else {
+                const activeShifts = await db.workShift.findMany({
+                    where: { status: 'ACTIVE' },
+                    orderBy: { startTime: 'asc' },
+                });
+                if (activeShifts.length === 0) {
+                    throw new BusinessRuleError(
+                        'Tidak ada shift aktif terdaftar di sistem.',
+                    );
+                }
+                resolvedWorkShiftId = activeShifts[0].id;
+            }
+        }
+
+        const shift = await findShift(db, resolvedWorkShiftId);
         if (!shift) throw new NotFoundError('Shift tidak ditemukan');
         if (shift.status !== 'ACTIVE')
             throw new BusinessRuleError('Shift tidak aktif');
@@ -522,7 +556,7 @@ export const AttendanceService = {
                 employeeId_workDate_workShiftId: {
                     employeeId: employee.id,
                     workDate,
-                    workShiftId: input.workShiftId,
+                    workShiftId: resolvedWorkShiftId,
                 },
             },
         });
@@ -545,7 +579,7 @@ export const AttendanceService = {
             data: {
                 employeeId: employee.id,
                 workDate,
-                workShiftId: input.workShiftId,
+                workShiftId: resolvedWorkShiftId,
                 clockInAt: now,
                 isOvertimeShift: sameDayCount > 0,
                 source,
