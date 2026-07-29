@@ -25,7 +25,10 @@ import {
     ArrowUpDown,
     MoreHorizontal,
     Download,
+    MapPin,
+    ExternalLink,
 } from 'lucide-react';
+import { googleMapsUrl } from '@/lib/utils/maps';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -1004,19 +1007,38 @@ export function AttendanceRecap({
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={`text-xs ${sourceBadgeClass(r.source)}`}
-                                            >
-                                                {SOURCE_LABELS[r.source] ?? r.source}
-                                            </Badge>
-                                            {r.clockInDistance != null && r.clockInDistance > 0 && (
-                                                <span className="text-[10px] text-muted-foreground ml-1">
-                                                    {r.clockInDistance < 1000
-                                                        ? `${Math.round(r.clockInDistance)}m`
-                                                        : `${(r.clockInDistance / 1000).toFixed(1)}km`}
-                                                </span>
-                                            )}
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`text-xs ${sourceBadgeClass(r.source)}`}
+                                                >
+                                                    {SOURCE_LABELS[r.source] ?? r.source}
+                                                </Badge>
+                                                {r.clockInDistance != null &&
+                                                    r.clockInDistance > 0 && (
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            {r.clockInDistance < 1000
+                                                                ? `${Math.round(r.clockInDistance)}m`
+                                                                : `${(r.clockInDistance / 1000).toFixed(1)}km`}
+                                                        </span>
+                                                    )}
+                                                {r.clockInLatitude != null &&
+                                                    r.clockInLongitude != null && (
+                                                        <a
+                                                            href={googleMapsUrl(
+                                                                r.clockInLatitude,
+                                                                r.clockInLongitude,
+                                                            )}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline ml-1"
+                                                            title={`${r.clockInLatitude}, ${r.clockInLongitude}`}
+                                                        >
+                                                            <MapPin className="h-3 w-3" />
+                                                            <ExternalLink className="h-2.5 w-2.5" />
+                                                        </a>
+                                                    )}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>

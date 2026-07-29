@@ -11,7 +11,9 @@ import {
     Loader2,
     AlertCircle,
     CheckCircle2,
+    ExternalLink,
 } from 'lucide-react';
+import { googleMapsUrl } from '@/lib/utils/maps';
 import { toast } from 'sonner';
 import { LiveSelfieCapture } from '@/components/hrd/LiveSelfieCapture';
 import {
@@ -94,7 +96,7 @@ export function MyAttendanceClock() {
             return;
         }
         if (!location) {
-            toast.error('Lokasi belum tersGPS belum tersedia');
+            toast.error('Lokasi GPS belum tersedia');
             return;
         }
 
@@ -246,12 +248,23 @@ export function MyAttendanceClock() {
                 </div>
 
                 {/* Location indicator */}
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
                     {location ? (
-                        <span className="text-emerald-600">
-                            Lokasi GPS tersedia (±{Math.round(location.accuracy)}m)
-                        </span>
+                        <>
+                            <span className="text-emerald-600">
+                                Lokasi GPS tersedia (±{Math.round(location.accuracy)}m)
+                            </span>
+                            <a
+                                href={googleMapsUrl(location.latitude, location.longitude)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                                <ExternalLink className="h-3 w-3" />
+                                Buka di Google Maps
+                            </a>
+                        </>
                     ) : gettingLocation ? (
                         <span className="text-muted-foreground">
                             Mendapatkan lokasi GPS...
@@ -259,16 +272,10 @@ export function MyAttendanceClock() {
                     ) : locationError ? (
                         <span className="text-destructive">{locationError}</span>
                     ) : (
-                        <span className="text-muted-foreground">
-                            Menunggu GPS...
-                        </span>
+                        <span className="text-muted-foreground">Menunggu GPS...</span>
                     )}
                     {!location && !gettingLocation && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={requestLocation}
-                        >
+                        <Button variant="ghost" size="sm" onClick={requestLocation}>
                             Coba Lagi
                         </Button>
                     )}

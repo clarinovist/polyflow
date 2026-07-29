@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Role } from '@prisma/client';
 import { isTenantAdmin } from '@/lib/auth/roles';
 import { GeneralSettings } from './GeneralSettings';
@@ -16,11 +17,20 @@ import {
     Monitor,
     Building2,
     Bell,
+    CalendarCheck,
     LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { settingsLabels } from '@/lib/labels';
+
+const AttendanceSettingsPanel = dynamic(
+    () =>
+        import('@/components/hrd/AttendanceSettings').then((m) => ({
+            default: m.AttendanceSettingsPanel,
+        })),
+    { ssr: false },
+);
 
 interface SettingsTabsProps {
     currentUserRole: Role;
@@ -43,6 +53,7 @@ type TabValue =
     | 'notifications'
     | 'users'
     | 'access'
+    | 'attendance'
     | 'system';
 
 interface TabItem {
@@ -115,6 +126,12 @@ export function SettingsTabs({
                       icon: Lock,
                       description: settingsLabels.accessControlDesc,
                   } as TabItem,
+                  {
+                      value: 'attendance',
+                      label: settingsLabels.attendance,
+                      icon: CalendarCheck,
+                      description: settingsLabels.attendanceDesc,
+                  } as TabItem,
               ]
             : []),
         {
@@ -147,6 +164,8 @@ export function SettingsTabs({
                 ) : null;
             case 'access':
                 return isAdmin ? <AccessControlTab activeModules={activeModules} /> : null;
+            case 'attendance':
+                return isAdmin ? <AttendanceSettingsPanel /> : null;
             case 'system':
                 return (
                     <Card className="max-w-2xl">

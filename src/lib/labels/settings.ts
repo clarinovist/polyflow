@@ -11,6 +11,8 @@ export const settingsLabels = {
     usersDesc: 'Kelola pengguna sistem dan role',
     accessControl: 'Kontrol Akses',
     accessControlDesc: 'Konfigurasi izin untuk setiap role',
+    attendance: 'Absensi',
+    attendanceDesc: 'Konfigurasi self-service & geofence absensi',
     system: 'Sistem',
     systemDesc: 'Lihat kesehatan sistem dan versi',
 

@@ -179,6 +179,7 @@ export const saveAttendanceSettings = withTenant(
             );
 
             revalidatePath('/hrd/attendance');
+            revalidatePath('/dashboard/settings');
             return { success: true };
         });
     },

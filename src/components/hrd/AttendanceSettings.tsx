@@ -12,13 +12,15 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { MapPin, Save, Loader2 } from 'lucide-react';
+import { MapPin, Save, Loader2, Navigation, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import {
     getAttendanceSettings,
     saveAttendanceSettings,
     type AttendanceSettings,
 } from '@/actions/admin/attendance-settings';
+import { LocationMapPreview } from '@/components/shared/LocationMapPreview';
+import { googleMapsUrl } from '@/lib/utils/maps';
 
 const defaultSettings: AttendanceSettings = {
     selfServiceEnabled: false,
@@ -34,6 +36,7 @@ export function AttendanceSettingsPanel() {
     const [settings, setSettings] = useState<AttendanceSettings>(defaultSettings);
     const [loading, setLoading] = useState(true);
     const [saving, startSaving] = useTransition();
+    const [gettingLocation, setGettingLocation] = useState(false);
 
     useEffect(() => {
         getAttendanceSettings().then((result) => {
@@ -54,6 +57,45 @@ export function AttendanceSettingsPanel() {
             }
         });
     }
+
+    function handleUseCurrentLocation() {
+        if (!navigator.geolocation) {
+            toast.error('GPS tidak didukung di browser ini');
+            return;
+        }
+        setGettingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setSettings((s) => ({
+                    ...s,
+                    latitude: pos.coords.latitude.toFixed(6),
+                    longitude: pos.coords.longitude.toFixed(6),
+                }));
+                toast.success('Lokasi diperbarui dari GPS');
+                setGettingLocation(false);
+            },
+            (err) => {
+                const msg =
+                    err.code === err.PERMISSION_DENIED
+                        ? 'Izin lokasi ditolak. Aktifkan GPS di pengaturan browser.'
+                        : 'Gagal mendapatkan lokasi. Coba lagi.';
+                toast.error(msg);
+                setGettingLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+        );
+    }
+
+    const latNum = parseFloat(settings.latitude);
+    const lngNum = parseFloat(settings.longitude);
+    const radiusNum = parseFloat(settings.radiusMeters);
+    const coordValid =
+        Number.isFinite(latNum) &&
+        Number.isFinite(lngNum) &&
+        latNum >= -90 &&
+        latNum <= 90 &&
+        lngNum >= -180 &&
+        lngNum <= 180;
 
     if (loading) {
         return (
@@ -174,6 +216,68 @@ export function AttendanceSettingsPanel() {
                             }
                         />
                     </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUseCurrentLocation}
+                        disabled={gettingLocation}
+                    >
+                        {gettingLocation ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                            <Navigation className="h-4 w-4 mr-2" />
+                        )}
+                        Gunakan lokasi saya saat ini
+                    </Button>
+                    {coordValid && (
+                        <a
+                            href={googleMapsUrl(latNum, lngNum)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <Button type="button" variant="outline" size="sm">
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Buka di Google Maps
+                            </Button>
+                        </a>
+                    )}
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Preview Peta Kantor & Radius</Label>
+                    {coordValid ? (
+                        <LocationMapPreview
+                            latitude={latNum}
+                            longitude={lngNum}
+                            radiusMeters={
+                                Number.isFinite(radiusNum) && radiusNum > 0
+                                    ? radiusNum
+                                    : null
+                            }
+                            label="Kantor"
+                            height={320}
+                        />
+                    ) : (
+                        <div className="rounded-lg border bg-muted/30 h-[320px] flex items-center justify-center text-muted-foreground">
+                            <div className="flex flex-col items-center gap-2 text-xs p-4 text-center">
+                                <MapPin className="h-6 w-6 opacity-50" />
+                                <span>
+                                    Masukkan latitude & longitude valid untuk melihat preview
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    {coordValid && (
+                        <p className="text-[11px] text-muted-foreground">
+                            Lingkaran biru = radius geofence{' '}
+                            {Number.isFinite(radiusNum) ? `${radiusNum}m` : ''}. Titik biru =
+                            lokasi kantor.
+                        </p>
+                    )}
                 </div>
 
                 <Button onClick={handleSave} disabled={saving}>

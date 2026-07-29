@@ -4,15 +4,10 @@ import {
 } from '@/actions/admin/attendance';
 import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { AttendanceRecap } from '@/components/hrd/AttendanceRecap';
-import { AttendanceSettingsPanel } from '@/components/hrd/AttendanceSettings';
 import { CalendarCheck, Settings } from 'lucide-react';
 import { todayWibDateString } from '@/services/hrd/shift-window';
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from '@/components/ui/accordion';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default async function AttendancePage({
     searchParams,
@@ -39,33 +34,27 @@ export default async function AttendancePage({
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <CalendarCheck className="h-5 w-5 text-primary" />
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <CalendarCheck className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-black tracking-tight uppercase">
+                            Rekap Absensi
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Ringkasan kehadiran karyawan per hari
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-2xl font-black tracking-tight uppercase">
-                        Rekap Absensi
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Ringkasan kehadiran karyawan per hari
-                    </p>
-                </div>
+                <Link href="/dashboard/settings?tab=attendance">
+                    <Button variant="outline" size="sm" className="gap-2">
+                        <Settings className="h-4 w-4" />
+                        Pengaturan Absensi
+                    </Button>
+                </Link>
             </div>
-
-            <Accordion type="single" collapsible>
-                <AccordionItem value="settings">
-                    <AccordionTrigger>
-                        <div className="flex items-center gap-2 text-sm font-semibold">
-                            <Settings className="h-4 w-4" />
-                            Pengaturan Absensi
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                        <AttendanceSettingsPanel />
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
 
             <AttendanceRecap
                 records={records}
