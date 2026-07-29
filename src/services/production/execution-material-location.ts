@@ -117,9 +117,39 @@ async function resolveMaklonMaterialLocation(
 
 export async function resolveMaterialLocation(
     tx: Prisma.TransactionClient,
-    order: BackflushOrder,
+    order: BackflushOrder & { materialSourceLocationId?: string | null; routeStepId?: string | null },
     productVariantId: string,
 ): Promise<string> {
+    // ── Phase 5: routed orders use persisted source location first ──
+    if (order.materialSourceLocationId) {
+        // Verify stock at persisted location — if has stock, use it
+        const persistedInv = await tx.inventory.findUnique({
+            where: {
+                locationId_productVariantId: {
+                    locationId: order.materialSourceLocationId,
+                    productVariantId,
+                },
+            },
+            select: { quantity: true },
+        });
+        if (persistedInv && persistedInv.quantity.toNumber() > 0) {
+            return order.materialSourceLocationId;
+        }
+        // Even if no stock, still prefer persisted if explicitly set (WIP handoff expected)
+        // but fall through to legacy resolver only if zero stock + not first step ambiguity
+        // For first step or explicit WIP handoff, use persisted anyway
+        const routeStep = order.routeStepId
+            ? await tx.productionRouteStep.findUnique({ where: { id: order.routeStepId }, select: { sequence: true } })
+            : null;
+        if (routeStep?.sequence === 0 || !routeStep) {
+            // First step or no routeStep record — still check persisted, but allow fallback below if empty
+        } else {
+            // Non-first routed step: if persisted set but empty, it's a real WIP miss — still return persisted
+            // so inventory error surfaces correctly rather than silently consuming wrong location
+            return order.materialSourceLocationId;
+        }
+    }
+
     if (order.isMaklon) {
         const maklonLocation = await resolveMaklonMaterialLocation(
             tx,
@@ -248,5 +278,5 @@ export async function resolveMaterialLocation(
         }
     }
 
-    return order.locationId;
+    return order.materialSourceLocationId ?? order.locationId;
 }

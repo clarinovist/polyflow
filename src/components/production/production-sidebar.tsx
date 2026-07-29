@@ -45,6 +45,11 @@ const productionLinks = [
         heading: 'Antrean',
         items: [
             {
+                href: '/production/runs',
+                icon: Factory,
+                label: 'Production Runs',
+            },
+            {
                 href: '/production/orders',
                 icon: Factory,
                 label: productionSidebarLabels.workOrders,
@@ -98,6 +103,11 @@ const productionLinks = [
                 href: '/production/boms',
                 icon: Files,
                 label: productionSidebarLabels.bom,
+            },
+            {
+                href: '/production/routings',
+                icon: Files,
+                label: 'Routing Produksi',
             },
         ],
     },

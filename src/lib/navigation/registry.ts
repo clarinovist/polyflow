@@ -283,6 +283,22 @@ const productionNavItems: NavItem[] = [
         canonicalHref: '/dashboard/boms',
     },
     {
+        id: 'prod-routings',
+        label: 'Routing Produksi',
+        href: '/production/routings',
+        workspace: 'production',
+        section: 'perencanaan',
+        owner: 'production',
+    },
+    {
+        id: 'prod-runs',
+        label: 'Production Runs',
+        href: '/production/runs',
+        workspace: 'production',
+        section: 'perencanaan',
+        owner: 'production',
+    },
+    {
         id: 'prod-requests',
         label: 'Permintaan FG',
         href: '/production/requests',

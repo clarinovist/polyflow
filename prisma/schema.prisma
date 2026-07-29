@@ -387,31 +387,34 @@ model ApiKey {
 }
 
 model Location {
-  id               String                 @id @default(uuid())
-  name             String
-  slug             String                 @unique
-  description      String?
-  locationType     LocationType           @default(INTERNAL)
-  locationPurpose  LocationPurpose        @default(GENERAL_PURPOSE)
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  Batch            Batch[]
-  deliveryOrders   DeliveryOrder[]
-  fixedAssets      FixedAsset[]
-  goodsReceipts    GoodsReceipt[]
-  inventories      Inventory[]
-  machines         Machine[]
-  MaterialIssue    MaterialIssue[]
-  ProductionOrder  ProductionOrder[]
-  salesOrders      SalesOrder[]           @relation("SalesSourceLocation")
-  ScrapRecord      ScrapRecord[]
-  movementsFrom    StockMovement[]        @relation("FromLocation")
-  movementsTo      StockMovement[]        @relation("ToLocation")
-  opnames          StockOpname[]
-  StockReservation StockReservation[]
-  salesReturns     SalesReturn[]          @relation("ReturnLocation")
-  purchaseReturns  PurchaseReturn[]       @relation("PurchaseReturnLocation")
-  maklonReturns    MaklonMaterialReturn[] @relation("MaklonReturnLocation")
+  id                    String                 @id @default(uuid())
+  name                  String
+  slug                  String                 @unique
+  description           String?
+  locationType          LocationType           @default(INTERNAL)
+  locationPurpose       LocationPurpose        @default(GENERAL_PURPOSE)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  Batch                 Batch[]
+  deliveryOrders        DeliveryOrder[]
+  fixedAssets           FixedAsset[]
+  goodsReceipts         GoodsReceipt[]
+  inventories           Inventory[]
+  machines              Machine[]
+  MaterialIssue         MaterialIssue[]
+  ProductionOrder       ProductionOrder[]
+  salesOrders           SalesOrder[]           @relation("SalesSourceLocation")
+  ScrapRecord           ScrapRecord[]
+  movementsFrom         StockMovement[]        @relation("FromLocation")
+  movementsTo           StockMovement[]        @relation("ToLocation")
+  opnames               StockOpname[]
+  StockReservation      StockReservation[]
+  salesReturns          SalesReturn[]          @relation("ReturnLocation")
+  purchaseReturns       PurchaseReturn[]       @relation("PurchaseReturnLocation")
+  maklonReturns         MaklonMaterialReturn[] @relation("MaklonReturnLocation")
+  routeStepsSource      ProductionRouteStep[]  @relation("RouteStepSourceLocation")
+  routeStepsOutput      ProductionRouteStep[]  @relation("RouteStepOutputLocation")
+  productionOrderSource ProductionOrder[]      @relation("ProductionOrderSourceLocation")
 }
 
 // ==========================================
@@ -479,6 +482,8 @@ model ProductVariant {
   salesReturnItems     SalesReturnItem[]
   purchaseReturnItems  PurchaseReturnItem[]
   maklonReturnItems    MaklonMaterialReturnItem[]
+  productionRoutes     ProductionRoute[]
+  productionRuns       ProductionRun[]
 }
 
 model CustomerProductPrice {
@@ -544,10 +549,11 @@ model Bom {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   category         BomCategory       @default(STANDARD)
-  productVariant   ProductVariant    @relation("ProductBom", fields: [productVariantId], references: [id])
-  archivedBy       User?             @relation(fields: [archivedById], references: [id])
+  productVariant   ProductVariant        @relation("ProductBom", fields: [productVariantId], references: [id])
+  archivedBy       User?                 @relation(fields: [archivedById], references: [id])
   items            BomItem[]
   ProductionOrder  ProductionOrder[]
+  routeSteps       ProductionRouteStep[]
 
   @@index([isActive])
   @@index([productVariantId, isActive, isDefault])
@@ -611,20 +617,21 @@ model Inventory {
 }
 
 model Machine {
-  id              String                @id @default(uuid())
+  id              String                     @id @default(uuid())
   name            String
-  code            String                @unique
+  code            String                     @unique
   type            MachineType
   locationId      String
-  status          MachineStatus         @default(ACTIVE)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  costPerHour     Decimal               @default(0) @db.Decimal(10, 2)
-  location        Location              @relation(fields: [locationId], references: [id])
+  status          MachineStatus              @default(ACTIVE)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  costPerHour     Decimal                    @default(0) @db.Decimal(10, 2)
+  location        Location                   @relation(fields: [locationId], references: [id])
   downtimeLogs    MachineDowntime[]
   executions      ProductionExecution[]
   ProductionOrder ProductionOrder[]
   operators       MachineOperator[]
+  processCapabilities MachineProcessCapability[]
 }
 
 model Batch {
@@ -715,6 +722,13 @@ model ProductionOrder {
   parentOrderId                   String?
   isMaklon                        Boolean               @default(false)
   maklonCustomerId                String?
+  // ── Flexible routing extension (nullable for legacy compatibility) ──
+  productionRunId                 String?
+  routeStepId                     String?
+  routeSequenceSnapshot           Int?
+  processCodeSnapshot             String?
+  processNameSnapshot             String?
+  materialSourceLocationId        String?
   maklonCustomer                  Customer?             @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   maklonCostItems                 MaklonCostItem[]
   materialIssues                  MaterialIssue[]
@@ -733,9 +747,156 @@ model ProductionOrder {
   issues                          ProductionIssue[]
   stockMovements                  StockMovement[]
   helpers                         Employee[]            @relation("OrderHelpers")
+  productionRun                   ProductionRun?        @relation("ProductionRunOrders", fields: [productionRunId], references: [id])
+  routeStep                       ProductionRouteStep?  @relation("RouteStepOrders", fields: [routeStepId], references: [id])
+  sourceLocation                  Location?             @relation("ProductionOrderSourceLocation", fields: [materialSourceLocationId], references: [id])
 
   @@index([actualEndDate])
   @@index([updatedAt, status])
+  @@index([productionRunId])
+  @@index([routeStepId])
+}
+
+// ==========================================
+// FLEXIBLE PRODUCTION ROUTING (Phase 1)
+// ==========================================
+
+model ProductionProcess {
+  id                  String   @id @default(uuid())
+  code                String   @unique
+  name                String
+  description         String?
+  requiresMachine     Boolean  @default(false)
+  requiresQualityGate Boolean  @default(false)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  capabilities MachineProcessCapability[]
+  routeSteps   ProductionRouteStep[]
+
+  @@index([isActive])
+  @@index([code])
+}
+
+model MachineProcessCapability {
+  id        String   @id @default(uuid())
+  machineId String
+  processId String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  machine Machine           @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  process ProductionProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([machineId, processId])
+  @@index([processId])
+  @@index([machineId])
+}
+
+model ProductionRoute {
+  id               String                @id @default(uuid())
+  code             String                @unique
+  name             String
+  productVariantId String
+  version          Int                   @default(1)
+  status           ProductionRouteStatus @default(DRAFT)
+  isDefault        Boolean               @default(false)
+  effectiveFrom    DateTime?
+  effectiveTo      DateTime?
+  notes            String?
+  createdById      String?
+  publishedById    String?
+  publishedAt      DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  productVariant ProductVariant        @relation(fields: [productVariantId], references: [id])
+  steps          ProductionRouteStep[]
+  runs           ProductionRun[]
+
+  @@unique([productVariantId, version])
+  @@index([productVariantId, status])
+  @@index([status])
+  @@index([isDefault])
+}
+
+model ProductionRouteStep {
+  id                       String   @id @default(uuid())
+  routeId                  String
+  sequence                 Int
+  stepCode                 String
+  label                    String
+  processId                String
+  bomId                    String
+  materialSourceLocationId String?
+  outputLocationId         String?
+  requiresQualityGate      Boolean  @default(false)
+  allowsPartialHandoff     Boolean  @default(false)
+  queueTimeMinutes         Int?
+  setupTimeMinutes         Int?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  route                ProductionRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  process              ProductionProcess @relation(fields: [processId], references: [id])
+  bom                  Bom              @relation(fields: [bomId], references: [id])
+  materialSourceLocation Location?      @relation("RouteStepSourceLocation", fields: [materialSourceLocationId], references: [id])
+  outputLocation       Location?        @relation("RouteStepOutputLocation", fields: [outputLocationId], references: [id])
+  productionOrders     ProductionOrder[] @relation("RouteStepOrders")
+
+  @@unique([routeId, sequence])
+  @@unique([routeId, stepCode])
+  @@index([routeId])
+  @@index([processId])
+  @@index([bomId])
+}
+
+model ProductionRun {
+  id                    String              @id @default(uuid())
+  runNumber             String              @unique
+  routeId               String
+  routeVersionSnapshot  Int
+  routeNameSnapshot     String?
+  productVariantId      String
+  plannedQuantity       Decimal             @db.Decimal(15, 4)
+  salesOrderId          String?
+  status                ProductionRunStatus @default(DRAFT)
+  priority              ProductionPriority  @default(NORMAL)
+  plannedStartDate      DateTime?
+  plannedEndDate        DateTime?
+  actualStartDate       DateTime?
+  actualEndDate         DateTime?
+  notes                 String?
+  createdById           String?
+  idempotencyKey        String?             @unique
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  route          ProductionRoute @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant  @relation(fields: [productVariantId], references: [id])
+  salesOrder     SalesOrder?     @relation(fields: [salesOrderId], references: [id])
+  orders         ProductionOrder[] @relation("ProductionRunOrders")
+
+  @@index([routeId])
+  @@index([productVariantId])
+  @@index([status])
+  @@index([plannedStartDate])
+}
+
+enum ProductionRouteStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProductionRunStatus {
+  DRAFT
+  RELEASED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 model MachineDowntime {
@@ -963,6 +1124,7 @@ model SalesOrder {
   scheduleStops    DeliveryScheduleOrder[]
   invoices         Invoice[]
   productionOrders ProductionOrder[]       @relation("SalesProduction")
+  productionRuns   ProductionRun[]
   purchaseRequests PurchaseRequest[]
   createdBy        User?                   @relation("SalesCreator", fields: [createdById], references: [id])
   customer         Customer?               @relation(fields: [customerId], references: [id])

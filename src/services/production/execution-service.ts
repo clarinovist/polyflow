@@ -1,7 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
 import {
-    NotFoundError,
-    ConflictError,
     ProductionRuleViolationError,
 } from '@/lib/errors/errors';
 import {
@@ -13,17 +11,11 @@ import {
 } from '@/lib/schemas/production';
 import {
     ProductionStatus,
-    MovementType,
     ProductionExecution,
     Unit,
     Prisma,
 } from '@prisma/client';
-import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '../accounting/accounting-service';
-import {
-    adjustReservationsForVoidOutput,
-    cancelSpecificReservation,
-} from '@/services/inventory/reservation-service';
 import {
     backflushMaterials,
     recordExecutionScrap,
@@ -32,9 +24,14 @@ import {
 } from './execution-helpers';
 import { resolveProductionOutputUnit } from './execution-unit-conversion';
 import {
-    buildPieceSnapshotForOperator,
-    VOID_PIECE_SNAPSHOT,
+  buildPieceSnapshotForOperator,
 } from '@/services/hrd/piece-rate-helpers';
+import {
+  assertRoutedOrderCanStart,
+  assertMachineCapableForOrder,
+  syncProductionRunStatusFromOrders,
+} from './routing-execution-guard';
+import { voidProductionExecutionInTransaction } from './execution-void-helper';
 
 type ResolvedOutputQuantity = {
     baseQty: number;
@@ -284,12 +281,38 @@ export class ProductionExecutionService {
                 }
             }
 
+            // ── B1: Routed order readiness guard ──
+            const routedOrderForGuard = await tx.productionOrder.findUnique({
+              where: { id: productionOrderId },
+              select: {
+                id: true,
+                productionRunId: true,
+                routeStepId: true,
+                routeSequenceSnapshot: true,
+                plannedQuantity: true,
+                status: true,
+                materialSourceLocationId: true,
+                locationId: true,
+                machineId: true,
+                bomId: true,
+                bom: { select: { productVariantId: true } },
+              },
+            });
+            if (routedOrderForGuard) {
+              await assertRoutedOrderCanStart(tx, routedOrderForGuard as never);
+              await assertMachineCapableForOrder(tx, routedOrderForGuard as never, machineId ?? routedOrderForGuard.machineId);
+            }
+
             // Handover: if SPK still running (paused without full stop), reassign operator/shift
             const existing = await tx.productionExecution.findFirst({
                 where: { productionOrderId, endTime: null },
                 orderBy: { startTime: 'desc' },
             });
             if (existing) {
+                // I1: check capability if new machine assigned during handover
+                if (machineId && machineId !== existing.machineId && routedOrderForGuard) {
+                    await assertMachineCapableForOrder(tx, routedOrderForGuard as never, machineId);
+                }
                 return await tx.productionExecution.update({
                     where: { id: existing.id },
                     data: {
@@ -316,7 +339,7 @@ export class ProductionExecutionService {
 
             const order = await tx.productionOrder.findUnique({
                 where: { id: productionOrderId },
-                select: { status: true },
+                select: { status: true, productionRunId: true },
             });
 
             if (order?.status === ProductionStatus.RELEASED) {
@@ -324,6 +347,11 @@ export class ProductionExecutionService {
                     where: { id: productionOrderId },
                     data: { status: ProductionStatus.IN_PROGRESS },
                 });
+            }
+
+            // B3: sync run status
+            if (order?.productionRunId) {
+              await syncProductionRunStatusFromOrders(tx, order.productionRunId);
             }
 
             return execution;
@@ -441,6 +469,11 @@ export class ProductionExecutionService {
                     productionOrderId,
                     tx,
                 );
+            }
+
+            // B3: sync run status and dates on stop + complete
+            if (order.productionRunId) {
+              await syncProductionRunStatusFromOrders(tx, order.productionRunId, { triggerOrderId: productionOrderId, completedAt: data.completed ? new Date() : undefined });
             }
         });
 
@@ -612,6 +645,10 @@ export class ProductionExecutionService {
                 scrapDaunQty: Number(scrapDaunQty),
                 userId,
             });
+
+            // B3: sync run
+            const runOrder = await tx.productionOrder.findUnique({ where: { id: productionOrderId }, select: { productionRunId: true } });
+            if (runOrder?.productionRunId) await syncProductionRunStatusFromOrders(tx, runOrder.productionRunId);
         });
 
         // DELEGATED: Auto-journal posting is recorded under the transaction via recordFinishedGoodsOutput -> AccountingService.recordInventoryMovement
@@ -777,6 +814,11 @@ export class ProductionExecutionService {
                 scrapDaunQty: Number(scrapDaunQty ?? 0),
                 userId,
             });
+
+            const batchOrder = await tx.productionOrder.findUnique({ where: { id: productionOrderId }, select: { productionRunId: true } });
+            if (batchOrder?.productionRunId) {
+              await syncProductionRunStatusFromOrders(tx, batchOrder.productionRunId);
+            }
         });
     }
 
@@ -832,200 +874,7 @@ export class ProductionExecutionService {
      */
     static async voidExecution(executionId: string, _userId?: string) {
         await prisma.$transaction(async (tx) => {
-            const execution = await tx.productionExecution.findUnique({
-                where: { id: executionId },
-                include: {
-                    productionOrder: {
-                        include: {
-                            bom: true,
-                        },
-                    },
-                },
-            });
-
-            if (!execution)
-                throw new NotFoundError('ProductionExecution', executionId);
-            if (execution.status === 'VOIDED')
-                throw new ConflictError('Eksekusi sudah di-void');
-            if (execution.endTime === null)
-                throw new ProductionRuleViolationError(
-                    'Eksekusi masih berjalan, tidak bisa di-void',
-                );
-
-            const { productionOrderId, quantityProduced, createdAt } =
-                execution;
-
-            // 1. Isolate the execution's own movement window so nearby executions on the same
-            //    work order are not accidentally reversed together.
-            const marginMs = 30000;
-            const adjacentExecutions = await tx.productionExecution.findMany({
-                where: { productionOrderId, id: { not: executionId } },
-                orderBy: { createdAt: 'asc' },
-                select: { createdAt: true },
-            });
-            const previousExecution =
-                adjacentExecutions
-                    .filter((e) => e.createdAt < createdAt)
-                    .at(-1) ?? null;
-            const nextExecution =
-                adjacentExecutions.find((e) => e.createdAt > createdAt) ?? null;
-
-            const startTime = previousExecution
-                ? new Date(
-                      (previousExecution.createdAt.getTime() +
-                          createdAt.getTime()) /
-                          2,
-                  )
-                : new Date(createdAt.getTime() - marginMs);
-            const endTime = nextExecution
-                ? new Date(
-                      (nextExecution.createdAt.getTime() +
-                          createdAt.getTime()) /
-                          2,
-                  )
-                : new Date(createdAt.getTime() + marginMs);
-
-            const movements = await tx.stockMovement.findMany({
-                where: {
-                    productionOrderId,
-                    createdAt: nextExecution
-                        ? { gte: startTime, lt: endTime }
-                        : { gte: startTime, lte: endTime },
-                },
-            });
-
-            // 2. Reverse Stock Movements
-            for (const move of movements) {
-                // Prevent recursive voids
-                if (move.reference && move.reference.startsWith('VOID:'))
-                    continue;
-
-                if (move.type === MovementType.IN) {
-                    // Reversing Finished Goods IN -> OUT
-                    await InventoryCoreService.deductStock(
-                        tx,
-                        move.toLocationId!,
-                        move.productVariantId,
-                        Number(move.quantity),
-                    );
-                    const rev = await tx.stockMovement.create({
-                        data: {
-                            type: MovementType.OUT,
-                            productVariantId: move.productVariantId,
-                            fromLocationId: move.toLocationId,
-                            quantity: move.quantity,
-                            reference: `VOID: ${move.reference}`,
-                            productionOrderId,
-                        },
-                    });
-                    await AccountingService.recordInventoryMovement(rev, tx);
-
-                    // Specific Reservation Cancel
-                    if (
-                        move.reference &&
-                        move.reference.includes('| RESERVE:')
-                    ) {
-                        const reservationId = move.reference
-                            .split('| RESERVE:')[1]
-                            ?.trim();
-                        if (reservationId) {
-                            await cancelSpecificReservation(reservationId, tx);
-                        }
-                    }
-                } else if (move.type === MovementType.OUT) {
-                    // Reversing Backflush OUT -> IN
-                    await InventoryCoreService.incrementStock(
-                        tx,
-                        move.fromLocationId!,
-                        move.productVariantId,
-                        Number(move.quantity),
-                    );
-                    const rev = await tx.stockMovement.create({
-                        data: {
-                            type: MovementType.IN,
-                            productVariantId: move.productVariantId,
-                            toLocationId: move.fromLocationId,
-                            quantity: move.quantity,
-                            reference: `VOID: ${move.reference}`,
-                            productionOrderId,
-                        },
-                    });
-                    await AccountingService.recordInventoryMovement(rev, tx);
-                }
-            }
-
-            // 3. Mark Material Issues as VOIDED (Consumption records)
-            await tx.materialIssue.updateMany({
-                where: {
-                    productionOrderId,
-                    issuedAt: nextExecution
-                        ? { gte: startTime, lt: endTime }
-                        : { gte: startTime, lte: endTime },
-                },
-                data: { status: 'VOIDED' },
-            });
-
-            // 4. Update Production Order Totals & Status
-            const currentOrder = await tx.productionOrder.findUniqueOrThrow({
-                where: { id: productionOrderId },
-            });
-            const newTotal = Math.max(
-                0,
-                (currentOrder.actualQuantity
-                    ? Number(currentOrder.actualQuantity)
-                    : 0) - Number(quantityProduced),
-            );
-
-            // Check remaining active executions
-            const activeExecutionsCount = await tx.productionExecution.count({
-                where: {
-                    productionOrderId,
-                    id: { not: executionId },
-                    status: 'COMPLETED',
-                },
-            });
-
-            let newStatus: ProductionStatus = currentOrder.status;
-            if (activeExecutionsCount === 0) {
-                newStatus = ProductionStatus.DRAFT; // Back to before-release state
-            } else if (newTotal < Number(currentOrder.plannedQuantity)) {
-                newStatus = ProductionStatus.IN_PROGRESS;
-            }
-
-            await tx.productionOrder.update({
-                where: { id: productionOrderId },
-                data: {
-                    actualQuantity: newTotal,
-                    status: newStatus,
-                },
-            });
-
-            // 5. Update Execution status to VOIDED + clear piece pay snapshot
-            await tx.productionExecution.update({
-                where: { id: executionId },
-                data: { status: 'VOIDED', ...VOID_PIECE_SNAPSHOT },
-            });
-
-            // Adjust/Cancel stock reservations created for this voided output (Fase A)
-            // Only as a fallback if the movement didn't have a linked reservation ID
-            const hasLinkedReservation = movements.some(
-                (m) =>
-                    m.type === MovementType.IN &&
-                    m.reference &&
-                    m.reference.includes('| RESERVE:'),
-            );
-            if (
-                !hasLinkedReservation &&
-                execution.productionOrder.salesOrderId
-            ) {
-                await adjustReservationsForVoidOutput(
-                    execution.productionOrder.salesOrderId,
-                    execution.productionOrder.bom.productVariantId,
-                    execution.productionOrder.locationId,
-                    execution.quantityProduced.toNumber(),
-                    tx,
-                );
-            }
+            await voidProductionExecutionInTransaction(tx, executionId);
         });
     }
 }

@@ -68,6 +68,8 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
         children: [
             { key: '/production/orders', label: 'SPK' },
             { key: '/production/boms', label: 'BOM (alias production)' },
+            { key: '/production/routings', label: 'Routing Produksi' },
+            { key: '/production/runs', label: 'Production Runs' },
             { key: '/production/requests', label: 'Permintaan FG' },
             { key: '/production/schedule', label: 'Jadwal' },
             { key: '/production/mrp', label: 'MRP' },

@@ -574,6 +574,27 @@ export const getProductionOrder = withTenant(async function getProductionOrder(
                     },
                 },
             },
+            productionRun: {
+                select: {
+                    id: true,
+                    runNumber: true,
+                    routeId: true,
+                    routeVersionSnapshot: true,
+                    status: true,
+                    route: { select: { id: true, name: true, version: true } },
+                },
+            },
+            routeStep: {
+                select: {
+                    id: true,
+                    stepCode: true,
+                    label: true,
+                    sequence: true,
+                    allowsPartialHandoff: true,
+                    process: { select: { id: true, code: true, name: true } },
+                },
+            },
+            sourceLocation: { select: { id: true, name: true, slug: true } },
         },
     });
 

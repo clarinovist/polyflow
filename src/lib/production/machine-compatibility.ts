@@ -1,6 +1,7 @@
 /**
  * Machine type compatibility with BOM category / production stage.
  * Shared between QuickProduceDialog and create-SPK form.
+ * Now also supports process-based capability with legacy fallback.
  */
 
 type MachineType = string;
@@ -14,7 +15,7 @@ const CATEGORY_MACHINE_MAP: Record<string, readonly MachineType[]> = {
 };
 
 /**
- * Get compatible machine types for a BOM category.
+ * Get compatible machine types for a BOM category (legacy fallback).
  */
 export function getCompatibleMachineTypes(
     bomCategory: string,
@@ -30,6 +31,28 @@ export function isMachineCompatibleWithCategory(
     bomCategory: string,
 ): boolean {
     return getCompatibleMachineTypes(bomCategory).includes(machineType);
+}
+
+/**
+ * ProcessCode → default MachineTypes fallback when capability table empty.
+ * Used as secondary fallback for routed orders.
+ */
+const PROCESS_MACHINE_FALLBACK: Record<string, readonly MachineType[]> = {
+    MIXING: ['MIXER'],
+    EXTRUSION: ['EXTRUDER', 'REWINDER'],
+    INNER_PACKING: ['PACKER'],
+    CARTON_PACKING: ['PACKER', 'GRANULATOR'],
+    PACKING: ['PACKER', 'GRANULATOR'],
+    STERILIZATION: [], // manual process, no machine required
+    INJECTION: ['EXTRUDER'], // injection often uses extruder-like machine or dedicated
+    WINDING: ['REWINDER'],
+    TRIMMING: ['GRANULATOR'],
+    STANDARD: ['EXTRUDER', 'MIXER'],
+    REWORK: ['MIXER', 'EXTRUDER', 'REWINDER', 'PACKER', 'GRANULATOR'],
+};
+
+export function getFallbackMachineTypesForProcess(processCode: string): readonly MachineType[] {
+    return PROCESS_MACHINE_FALLBACK[processCode?.toUpperCase()] ?? [];
 }
 
 /**
@@ -49,4 +72,22 @@ export function filterMachinesByStage<T extends { type: string }>(
     if (!category) return machines;
     const allowed = getCompatibleMachineTypes(category);
     return machines.filter((m) => allowed.includes(m.type));
+}
+
+/**
+ * Filter machines compatible with a process using capability list (primary) + fallback (secondary)
+ */
+export function filterMachinesByProcess<T extends { id: string; type: string }>(
+    machines: T[],
+    processCode?: string | null,
+    capableMachineIds?: Set<string>,
+): T[] {
+    if (capableMachineIds && capableMachineIds.size > 0) {
+        return machines.filter((m) => capableMachineIds.has(m.id));
+    }
+    if (processCode) {
+        const fallback = getFallbackMachineTypesForProcess(processCode);
+        if (fallback.length > 0) return machines.filter((m) => fallback.includes(m.type));
+    }
+    return machines;
 }

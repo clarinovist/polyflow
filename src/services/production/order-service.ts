@@ -9,6 +9,8 @@ import {
     BomCategory,
     SalesOrderType,
     Prisma,
+    ReservationStatus,
+    ReservationType,
 } from '@prisma/client';
 
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
@@ -26,6 +28,12 @@ import {
     resolveSourceLocationId,
     stageFromBomCategory,
 } from '@/lib/locations/resolve-location';
+import {
+    assertMachineCapableForOrder,
+    assertRoutedOrderCanStart,
+    ensureRoutedOrderWipReservation,
+    syncProductionRunStatusFromOrders,
+} from './routing-execution-guard';
 
 export class ProductionOrderService {
     /**
@@ -276,6 +284,7 @@ export class ProductionOrderService {
             }
 
             // 1. Validate Machine Type against BOM Category if machineId is provided
+            // ── Flexible routing: if order has routeStepId / processCodeSnapshot, prefer capability table ──
             if (machineId) {
                 const machine = await transaction.machine.findUnique({
                     where: { id: machineId },
@@ -283,26 +292,59 @@ export class ProductionOrderService {
                 });
 
                 if (machine) {
-                    const bomCategory = bomForOrder.category;
-                    const isTypeMatch =
-                        (bomCategory === BomCategory.MIXING &&
-                            machine.type === MachineType.MIXER) ||
-                        (bomCategory === BomCategory.EXTRUSION &&
-                            (machine.type === MachineType.EXTRUDER ||
-                                machine.type === MachineType.REWINDER)) ||
-                        (bomCategory === BomCategory.PACKING &&
-                            (machine.type === MachineType.PACKER ||
-                                machine.type === MachineType.GRANULATOR)) ||
-                        bomCategory === BomCategory.REWORK || // Rework is manual, any machine is OK
-                        (bomCategory === BomCategory.STANDARD &&
-                            (machine.type === MachineType.EXTRUDER ||
-                                machine.type === MachineType.MIXER)); // Standard fallback
+                    const routeStepId = (data as unknown as { routeStepId?: string }).routeStepId;
+                    let capabilityOk: boolean | null = null;
 
-                    if (!isTypeMatch) {
+                    if (routeStepId) {
+                        const rs = await transaction.productionRouteStep.findUnique({
+                            where: { id: routeStepId },
+                            select: { processId: true },
+                        });
+                        if (rs) {
+                            const cap = await transaction.machineProcessCapability.findUnique({
+                                where: { machineId_processId: { machineId, processId: rs.processId } },
+                            });
+                            const hasAnyCapForProcess = await transaction.machineProcessCapability.findFirst({
+                                where: { processId: rs.processId },
+                                select: { id: true },
+                            });
+                            // If process has capabilities defined, enforce them; otherwise fallback to legacy
+                            if (hasAnyCapForProcess) {
+                                capabilityOk = !!cap;
+                            }
+                        }
+                    }
+
+                    if (capabilityOk === false) {
                         throw new ProductionRuleViolationError(
-                            `Machine type ${machine.type} is not compatible with stage ${bomCategory}`,
-                            { machineType: machine.type, bomCategory },
+                            `Mesin tidak capable untuk process step ini`,
+                            { machineId, routeStepId },
                         );
+                    }
+
+                    if (capabilityOk === null) {
+                        // Legacy fallback
+                        const bomCategory = bomForOrder.category;
+                        const isTypeMatch =
+                            (bomCategory === BomCategory.MIXING &&
+                                machine.type === MachineType.MIXER) ||
+                            (bomCategory === BomCategory.EXTRUSION &&
+                                (machine.type === MachineType.EXTRUDER ||
+                                    machine.type === MachineType.REWINDER)) ||
+                            (bomCategory === BomCategory.PACKING &&
+                                (machine.type === MachineType.PACKER ||
+                                    machine.type === MachineType.GRANULATOR)) ||
+                            bomCategory === BomCategory.REWORK || // Rework is manual, any machine is OK
+                            (bomCategory === BomCategory.STANDARD &&
+                                (machine.type === MachineType.EXTRUDER ||
+                                    machine.type === MachineType.MIXER)); // Standard fallback
+
+                        if (!isTypeMatch) {
+                            throw new ProductionRuleViolationError(
+                                `Machine type ${machine.type} is not compatible with stage ${bomCategory}`,
+                                { machineType: machine.type, bomCategory },
+                            );
+                        }
                     }
                 }
             }
@@ -764,67 +806,103 @@ export class ProductionOrderService {
             plannedStartDate,
         } = data;
 
-        if (locationId) {
-            const existing = await prisma.productionOrder.findUnique({
+        return prisma.$transaction(async (tx) => {
+            const existing = await tx.productionOrder.findUnique({
                 where: { id },
-                select: { status: true, locationId: true },
-            });
-            if (!existing) {
-                throw new NotFoundError('Production Order', id);
-            }
-            if (
-                existing.status === 'COMPLETED' ||
-                existing.status === 'CANCELLED'
-            ) {
-                throw new BusinessRuleError(
-                    'Lokasi output tidak bisa diubah untuk SPK yang sudah selesai atau dibatalkan.',
-                    { status: existing.status, orderId: id },
-                    'INVALID_ORDER_STATUS',
-                );
-            }
-
-            const location = await prisma.location.findUnique({
-                where: { id: locationId },
                 select: {
+                    status: true,
+                    routeStepId: true,
+                    productionRunId: true,
                     id: true,
-                    name: true,
-                    slug: true,
-                    locationPurpose: true,
+                    routeSequenceSnapshot: true,
+                    plannedQuantity: true,
+                    materialSourceLocationId: true,
+                    locationId: true,
+                    machineId: true,
+                    bomId: true,
                 },
             });
-            if (!location) {
-                throw new NotFoundError('Location', locationId);
+            if (!existing) throw new NotFoundError('Production Order', id);
+
+            if (locationId) {
+                if (existing.status === 'COMPLETED' || existing.status === 'CANCELLED') {
+                    throw new BusinessRuleError(
+                        'Lokasi output tidak bisa diubah untuk SPK yang sudah selesai atau dibatalkan.',
+                        { status: existing.status, orderId: id },
+                        'INVALID_ORDER_STATUS',
+                    );
+                }
+
+                const location = await tx.location.findUnique({
+                    where: { id: locationId },
+                    select: { id: true, name: true, slug: true, locationPurpose: true },
+                });
+                if (!location) throw new NotFoundError('Location', locationId);
+                if (isInactiveLocation(location)) {
+                    throw new BusinessRuleError(
+                        'Tidak bisa memakai lokasi nonaktif sebagai output SPK.',
+                        { locationId, slug: location.slug },
+                        'INVALID_LOCATION',
+                    );
+                }
+                if (isRiskyOutputLocation(location)) {
+                    throw new BusinessRuleError(
+                        'Lokasi output tidak valid untuk SPK (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan pilih Gudang Barang Jadi atau Area Proses.',
+                        { locationId, locationName: location.name },
+                        'RISKY_OUTPUT_LOCATION',
+                    );
+                }
             }
 
-            if (isInactiveLocation(location)) {
-                throw new BusinessRuleError(
-                    'Tidak bisa memakai lokasi nonaktif sebagai output SPK.',
-                    { locationId, slug: location.slug },
-                    'INVALID_LOCATION',
-                );
+            // B3: every routed status transition is validated and persisted in this transaction.
+            if (machineId && existing.routeStepId) {
+                await assertMachineCapableForOrder(tx, existing as never, machineId);
             }
 
-            if (isRiskyOutputLocation(location)) {
-                throw new BusinessRuleError(
-                    'Lokasi output tidak valid untuk SPK (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan pilih Gudang Barang Jadi atau Area Proses.',
-                    { locationId, locationName: location.name },
-                    'RISKY_OUTPUT_LOCATION',
-                );
+            // Readiness is only a start guard. Final transitions must be allowed to
+            // complete/cancel even if inventory has since been consumed or moved.
+            if (
+                status &&
+                existing.productionRunId &&
+                existing.routeStepId &&
+                (status === 'RELEASED' || status === 'IN_PROGRESS')
+            ) {
+                await assertRoutedOrderCanStart(tx, existing as never, status);
+                await ensureRoutedOrderWipReservation(tx, existing as never);
             }
-        }
 
-        return await prisma.productionOrder.update({
-            where: { id },
-            data: {
-                status,
-                priority,
-                actualQuantity,
-                actualStartDate,
-                actualEndDate,
-                machineId,
-                ...(locationId ? { locationId } : {}),
-                plannedStartDate,
-            },
+            const updated = await tx.productionOrder.update({
+                where: { id },
+                data: {
+                    status,
+                    priority,
+                    actualQuantity,
+                    actualStartDate,
+                    actualEndDate,
+                    machineId,
+                    ...(locationId ? { locationId } : {}),
+                    plannedStartDate,
+                },
+            });
+
+            if (status && existing.productionRunId && existing.routeStepId) {
+                if (status === 'COMPLETED' || status === 'CANCELLED') {
+                    await tx.stockReservation.updateMany({
+                        where: {
+                            reservedFor: ReservationType.PRODUCTION_ORDER,
+                            referenceId: id,
+                            status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] },
+                        },
+                        data: { status: ReservationStatus.CANCELLED },
+                    });
+                }
+                await syncProductionRunStatusFromOrders(tx, existing.productionRunId, {
+                    triggerOrderId: id,
+                    completedAt: status === 'COMPLETED' ? new Date() : undefined,
+                });
+            }
+
+            return updated;
         });
     }
 

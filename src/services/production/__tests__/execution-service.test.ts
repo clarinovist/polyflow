@@ -28,6 +28,12 @@ vi.mock('@/lib/core/prisma', () => {
         materialIssue: {
             updateMany: vi.fn(),
         },
+        scrapRecord: {
+            deleteMany: vi.fn(),
+        },
+        stockReservation: {
+            updateMany: vi.fn(),
+        },
         machineDowntime: {
             create: vi.fn(),
         },

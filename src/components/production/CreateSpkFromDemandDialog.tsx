@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -76,6 +76,8 @@ export function CreateSpkFromDemandDialog({
         'NORMAL',
     );
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Reuse the same key across timeout/retry; rotate only after a committed run.
+    const idempotencyKeyRef = useRef(`demand-${crypto.randomUUID()}`);
 
     // Filter locations to FG/production relevant ones
     const fgLocations = useMemo(() => {
@@ -114,6 +116,7 @@ export function CreateSpkFromDemandDialog({
                 locationId: selectedLocationId,
                 priority,
                 notes: `Dari Papan Permintaan FG — ${productName} ${variantName}`,
+                idempotencyKey: idempotencyKeyRef.current,
             });
 
             if (result.success) {
@@ -128,6 +131,7 @@ export function CreateSpkFromDemandDialog({
                 setSelectedMachineId('');
                 setSelectedLocationId('');
                 setPriority('NORMAL');
+                idempotencyKeyRef.current = `demand-${crypto.randomUUID()}`;
             } else {
                 toast.error(result.error || 'Gagal membuat SPK');
             }

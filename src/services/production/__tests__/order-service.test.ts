@@ -41,6 +41,12 @@ vi.mock("@/lib/core/prisma", () => ({
     inventory: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    stockReservation: {
+      aggregate: vi.fn(async () => ({ _sum: { quantity: null } })),
+      findFirst: vi.fn(),
+      updateMany: vi.fn(),
     },
     productionOrder: {
       findMany: vi.fn(),
@@ -48,6 +54,7 @@ vi.mock("@/lib/core/prisma", () => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      findFirst: vi.fn(),
     },
     productionMaterial: {
       createMany: vi.fn(),
@@ -57,6 +64,16 @@ vi.mock("@/lib/core/prisma", () => ({
       create: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    productionExecution: {
+      findFirst: vi.fn(),
+    },
+    productionRouteStep: {
+      findUnique: vi.fn(),
+    },
+    machineProcessCapability: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
     },
     stockMovement: {
       updateMany: vi.fn(),
@@ -1270,7 +1287,24 @@ describe("ProductionOrderService", () => {
     });
   });
 
+  const mockExistingOrder = (overrides: Record<string, unknown> = {}) =>
+    ({
+      id: 'po-1',
+      status: 'DRAFT',
+      locationId: 'loc-1',
+      routeStepId: null,
+      productionRunId: null,
+      ...overrides,
+    }) as unknown as Awaited<ReturnType<typeof prisma.productionOrder.findUnique>>;
+
   describe("updateOrder", () => {
+    beforeEach(() => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(mockExistingOrder());
+      vi.mocked(prisma.productionRouteStep.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.machineProcessCapability.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findFirst).mockResolvedValue(null);
+    });
+
     it("should update status and quantities", async () => {
       vi.mocked(prisma.productionOrder.update).mockResolvedValue({
         id: "po-1",

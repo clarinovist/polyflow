@@ -8,12 +8,14 @@ import {
     FgDemandFilters,
 } from '@/services/production/fg-demand-service';
 import { ProductionOrderService } from '@/services/production/order-service';
+import { ProductionRoutingRunService } from '@/services/production/routing-run-service';
 import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import {
     requireAuth,
     requireProductionLeaderRole,
 } from '@/lib/tools/auth-checks';
+import { isRoutingEnabled } from '@/lib/production/routing-feature-flag';
 
 export const getFgDemandBoard = withTenant(async function getFgDemandBoard(
     filters?: FgDemandFilters,
@@ -33,9 +35,10 @@ export const createSpkFromDemand = withTenant(
         locationId: string;
         priority?: 'URGENT' | 'NORMAL' | 'LOW';
         notes?: string;
+        routeId?: string; // I6: if route specified or active default exists, create run instead of single SPK
+        idempotencyKey?: string;
     }) {
         return safeAction(async () => {
-            // PLANNING / PRODUCTION / ADMIN — same surface as floor leaders
             const session = await requireProductionLeaderRole();
 
             const {
@@ -45,6 +48,8 @@ export const createSpkFromDemand = withTenant(
                 locationId,
                 priority,
                 notes,
+                routeId,
+                idempotencyKey,
             } = data;
 
             if (!productVariantId || plannedQuantity <= 0 || !locationId) {
@@ -53,7 +58,40 @@ export const createSpkFromDemand = withTenant(
                 );
             }
 
-            // Find default BOM for this variant
+            const routingEnabled = await isRoutingEnabled();
+
+            // I6: Prefer routing if feature flag ON and active default route exists or routeId specified
+            let activeRouteId: string | null = routeId ?? null;
+            if (activeRouteId && !routingEnabled) {
+                activeRouteId = null; // routing flag OFF, ignore explicit routeId
+            }
+            if (!activeRouteId && routingEnabled) {
+                const activeRoute = await prisma.productionRoute.findFirst({
+                    where: { productVariantId, status: 'ACTIVE', isDefault: true },
+                    select: { id: true },
+                });
+                activeRouteId = activeRoute?.id ?? null;
+            }
+
+            if (activeRouteId) {
+                // Create production run from route
+                const run = await ProductionRoutingRunService.createRun({
+                    routeId: activeRouteId,
+                    plannedQuantity,
+                    priority: (priority as never) ?? 'NORMAL',
+                    notes: notes || 'Dari Papan Permintaan FG (routed)',
+                    createdById: session.user.id,
+                    idempotencyKey: idempotencyKey ?? `demand-${productVariantId}-${plannedQuantity}-${locationId}`,
+                });
+
+                revalidatePath('/production/requests');
+                revalidatePath('/production/runs');
+                revalidatePath('/production/orders');
+
+                return serializeData({ run, routed: true });
+            }
+
+            // Legacy fallback: single SPK from default BOM
             const bom = await prisma.bom.findFirst({
                 where: {
                     productVariantId,
@@ -84,7 +122,6 @@ export const createSpkFromDemand = withTenant(
                 userId: session.user.id,
             });
 
-            // Auto-release if created as DRAFT
             if (order.status === 'DRAFT') {
                 await prisma.productionOrder.update({
                     where: { id: order.id },
@@ -95,7 +132,7 @@ export const createSpkFromDemand = withTenant(
             revalidatePath('/production/requests');
             revalidatePath('/production/orders');
 
-            return serializeData(order);
+            return serializeData({ order, routed: false });
         });
     },
 );

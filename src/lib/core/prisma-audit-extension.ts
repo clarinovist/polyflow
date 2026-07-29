@@ -44,6 +44,8 @@ const AUDITABLE_MODELS = new Set([
     'ProcessPieceRate',
     'WorkShift',
     'MaklonMaterialReturn',
+    'ProductionRoute',
+    'ProductionRun',
 ]);
 
 type QueryArgs = {
