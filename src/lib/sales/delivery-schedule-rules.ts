@@ -99,6 +99,48 @@ export function canCloseSchedule(trips: Array<{ status: TripStatus }>): {
     return { ok: true };
 }
 
+/**
+ * Check if a schedule week is overdue (past weekEnd + buffer).
+ * Used for auto-close job.
+ */
+export function isScheduleOverdue(
+    weekEnd: Date,
+    today: Date = new Date(),
+    bufferDays = 2,
+): boolean {
+    const cutoff = new Date(weekEnd);
+    cutoff.setHours(23, 59, 59, 999);
+    cutoff.setDate(cutoff.getDate() + bufferDays);
+    return today > cutoff;
+}
+
+/**
+ * Can a trip be auto-cancelled because its SOs are all cancelled
+ * or it has no stops and departure is overdue.
+ */
+export function canAutoCancelTrip(trip: {
+    status: TripStatus;
+    departureDate: Date | null;
+    orders: Array<{
+        status: string;
+        salesOrderStatus?: string | null;
+    }>;
+}): { allowed: boolean; reason: string } {
+    if (trip.status !== 'PLANNED' && trip.status !== 'CONFIRMED') {
+        return { allowed: false, reason: `trip status ${trip.status} not auto-cancellable` };
+    }
+    if (trip.orders.length === 0) {
+        return { allowed: true, reason: 'no stops' };
+    }
+    const allCancelled = trip.orders.every(
+        (o) => o.status === 'CANCELLED' || o.salesOrderStatus === 'CANCELLED',
+    );
+    if (allCancelled) {
+        return { allowed: true, reason: 'all stops SO CANCELLED' };
+    }
+    return { allowed: false, reason: 'has active stops' };
+}
+
 // ============================================
 // Trip Status Machine
 // ============================================

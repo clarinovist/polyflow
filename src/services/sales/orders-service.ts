@@ -915,6 +915,15 @@ export async function cancelOrder(id: string, userId: string) {
             data: { status: ReservationStatus.CANCELLED },
         });
 
+        // Cascade: cancel PLANNED stops that reference this SO (delivery schedule)
+        await tx.deliveryScheduleOrder.updateMany({
+            where: {
+                salesOrderId: id,
+                status: 'PLANNED',
+            },
+            data: { status: 'CANCELLED' },
+        });
+
         await tx.salesOrder.update({
             where: { id },
             data: { status: SalesOrderStatus.CANCELLED },

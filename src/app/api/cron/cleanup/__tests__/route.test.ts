@@ -54,6 +54,15 @@ vi.mock('@/services/finance/invoice-service', () => ({
         checkOverdueSalesInvoices: vi.fn().mockResolvedValue(undefined)
     }
 }));
+vi.mock('@/lib/hrd/employment-reminder', () => ({
+    dispatchReminders: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('@/services/sales/orders-service', () => ({
+    autoExpireQuotations: vi.fn().mockResolvedValue(0),
+}));
+vi.mock('@/services/sales/delivery-schedule-auto-close', () => ({
+    autoCloseExpiredDeliverySchedules: vi.fn().mockResolvedValue({ scanned: 0, closed: [], cancelledTrips: 0, cancelledStops: 0 }),
+}));
 
 describe('Cleanup Cron Route', () => {
     const ORIGINAL_ENV = process.env;

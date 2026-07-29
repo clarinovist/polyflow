@@ -280,7 +280,12 @@ export async function commitDeliveryShipment(
     userId: string,
     opts?: { trackingNumber?: string; carrier?: string },
 ) {
-    return prisma.$transaction(async (tx) => {
+    // ponytail: timeout increased from default 15s to 30s — DO with 10+ items was hitting 15040ms (P2028). If 20+ items still timeout, split to 2-phase: stock phase in tx, invoice phase outside.
+    let salesOrderIdForInvoice = '';
+    let doOrderNumber = '';
+    let soOrderNumber = '';
+    const result = await prisma.$transaction(
+        async (tx) => {
         // 1. Atomic claim: ensure DO is committable and loadVerifiedAt is set, preventing concurrent double-shipment
         const claim = await tx.deliveryOrder.updateMany({
             where: {
@@ -514,23 +519,21 @@ export async function commitDeliveryShipment(
             data: { status: SalesOrderStatus.SHIPPED },
         });
 
-        // 9. Invoice DRAFT (after stock success)
-        await InvoiceService.createDraftInvoiceFromOrder(
-            doRecord.salesOrderId,
-            userId,
-        );
-
-        // 10. Fulfill remaining reservations
+        // 9. Fulfill remaining reservations
         await tx.stockReservation.updateMany({
             where: {
                 referenceId: doRecord.salesOrderId,
                 reservedFor: ReservationType.SALES_ORDER,
-                status: ReservationStatus.ACTIVE,
+                status: ReservationStatus.FULFILLED,
             },
             data: { status: ReservationStatus.FULFILLED },
         });
 
-        // 11. Audit log
+        // 10. Audit log (invoice moved outside tx)
+        salesOrderIdForInvoice = doRecord.salesOrderId;
+        doOrderNumber = doRecord.orderNumber;
+        soOrderNumber = doRecord.salesOrder.orderNumber;
+
         await logActivity({
             userId,
             action: 'COMMIT_DELIVERY_SHIPMENT',
@@ -538,14 +541,34 @@ export async function commitDeliveryShipment(
             entityId: deliveryOrderId,
             details:
                 `DO ${doRecord.orderNumber} committed: stock OUT for ${stockLines.length} items, ` +
-                `SO ${doRecord.salesOrder.orderNumber} → SHIPPED, invoice DRAFT created.`,
+                `SO ${doRecord.salesOrder.orderNumber} → SHIPPED.`,
             fromStatus: doRecord.status as string,
             toStatus: 'SHIPPED',
             tx,
         });
 
         return { success: true };
-    });
+    },
+    { timeout: 30_000, maxWait: 10_000 },
+    );
+
+    // Invoice DRAFT outside main tx to reduce work per transaction (was causing P2028 timeout)
+    if (salesOrderIdForInvoice) {
+        try {
+            await InvoiceService.createDraftInvoiceFromOrder(salesOrderIdForInvoice, userId);
+            await logActivity({
+                userId,
+                action: 'INVOICE_DRAFT_FROM_DO',
+                entityType: 'DeliveryOrder',
+                entityId: deliveryOrderId,
+                details: `Invoice DRAFT created for SO ${soOrderNumber} after DO ${doOrderNumber} committed.`,
+            });
+        } catch (invErr) {
+            console.error('[commitDeliveryShipment] invoice creation failed after commit (non-blocking)', invErr);
+        }
+    }
+
+    return result;
 }
 
 // =============================================================================

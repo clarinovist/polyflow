@@ -13,41 +13,78 @@ import {
 import { logger } from "@/lib/config/logger";
 import { logActivity } from "@/lib/tools/audit";
 
+const createMockPrisma = () => ({
+  salesOrder: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  salesOrderItem: {
+    findMany: vi.fn(),
+    update: vi.fn(),
+  },
+  location: {
+    findUnique: vi.fn(),
+  },
+  inventory: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+  },
+  materialIssue: {
+    count: vi.fn(),
+  },
+  stockMovement: {
+    count: vi.fn(),
+  },
+  stockReservation: {
+    aggregate: vi.fn(),
+    groupBy: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  deliveryScheduleOrder: {
+    updateMany: vi.fn(),
+  },
+  bom: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+  },
+  productVariant: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+  },
+  productionOrder: {
+    create: vi.fn().mockResolvedValue({ id: 'po-1' }),
+  },
+  fgDemand: {
+    upsert: vi.fn(),
+    create: vi.fn(),
+  },
+  auditLog: {
+    create: vi.fn(),
+  },
+});
+
+const mockPrismaInstance = createMockPrisma();
+
 vi.mock("@/lib/core/prisma", () => ({
-  prisma: {
-    salesOrder: {
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
-    location: {
-      findUnique: vi.fn(),
-    },
-    inventory: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-    },
-    materialIssue: {
-      count: vi.fn(),
-    },
-    stockMovement: {
-      count: vi.fn(),
-    },
-    stockReservation: {
-      aggregate: vi.fn(),
-      groupBy: vi.fn(),
-      updateMany: vi.fn(),
-    },
-    bom: {
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-    },
-    productVariant: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-    },
-    $transaction: vi.fn((callback) => callback(prisma)),
+  get prisma() {
+    return {
+      ...mockPrismaInstance,
+      $transaction: vi.fn(async (cb: any) => {
+        if (typeof cb === 'function') {
+          // tx that proxies to mockPrismaInstance
+          const tx = new Proxy(mockPrismaInstance, {
+            get(target: any, prop: string) {
+              if (prop in target) return target[prop as keyof typeof target];
+              return { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), upsert: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() };
+            },
+          });
+          return cb(tx);
+        }
+        return cb;
+      }),
+    };
   },
 }));
 

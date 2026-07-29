@@ -112,6 +112,25 @@ export async function GET(req: Request) {
             );
         }
 
+        let autoClosedSchedules: {
+            scanned: number;
+            closed: string[];
+            cancelledTrips: number;
+            cancelledStops: number;
+        } | null = null;
+        try {
+            // 6. Sales: auto-close overdue delivery schedules
+            const { autoCloseExpiredDeliverySchedules } =
+                await import('@/services/sales/delivery-schedule-auto-close');
+            autoClosedSchedules =
+                await autoCloseExpiredDeliverySchedules({ bufferDays: 2 });
+        } catch (closeErr) {
+            console.error(
+                'Failed to auto-close delivery schedules during cron:',
+                closeErr,
+            );
+        }
+
         return NextResponse.json({
             success: true,
             message: 'Cleanup routine and Alert triggers executed successfully',
@@ -121,6 +140,7 @@ export async function GET(req: Request) {
                 notifications: notificationCleanup.count,
             },
             expiredQuotations: expiredQuotationsCount,
+            autoClosedSchedules,
             executedAt: new Date().toISOString(),
         });
     } catch (error) {

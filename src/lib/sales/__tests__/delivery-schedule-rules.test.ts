@@ -4,6 +4,8 @@ import {
   canTransitionSchedule,
   canActivateSchedule,
   canCloseSchedule,
+  isScheduleOverdue,
+  canAutoCancelTrip,
   canTransitionTrip,
   canDepartTrip,
   validateDepartureInWeek,
@@ -606,6 +608,56 @@ describe('delivery-schedule-rules', () => {
   // ============================================
   // Labels
   // ============================================
+
+  describe('isScheduleOverdue', () => {
+    it('weekEnd + 2 days < today: overdue', () => {
+      const weekEnd = new Date('2026-07-19');
+      const today = new Date('2026-07-29');
+      expect(isScheduleOverdue(weekEnd, today, 2)).toBe(true);
+    });
+    it('weekEnd = today -1, buffer 2: not overdue', () => {
+      const weekEnd = new Date('2026-07-28');
+      const today = new Date('2026-07-29');
+      expect(isScheduleOverdue(weekEnd, today, 2)).toBe(false);
+    });
+    it('future weekEnd: not overdue', () => {
+      const weekEnd = new Date('2026-08-02');
+      const today = new Date('2026-07-29');
+      expect(isScheduleOverdue(weekEnd, today, 2)).toBe(false);
+    });
+  });
+
+  describe('canAutoCancelTrip', () => {
+    it('PLANNED trip no stops: can cancel', () => {
+      expect(canAutoCancelTrip({ status: 'PLANNED', departureDate: null, orders: [] }).allowed).toBe(true);
+    });
+    it('CONFIRMED trip all stops SO CANCELLED: can cancel', () => {
+      expect(
+        canAutoCancelTrip({
+          status: 'CONFIRMED',
+          departureDate: new Date(),
+          orders: [
+            { status: 'PLANNED', salesOrderStatus: 'CANCELLED' },
+            { status: 'CANCELLED', salesOrderStatus: 'CANCELLED' },
+          ],
+        }).allowed,
+      ).toBe(true);
+    });
+    it('PLANNED trip has active stop: cannot', () => {
+      expect(
+        canAutoCancelTrip({
+          status: 'PLANNED',
+          departureDate: new Date(),
+          orders: [{ status: 'PLANNED', salesOrderStatus: 'CONFIRMED' }],
+        }).allowed,
+      ).toBe(false);
+    });
+    it('COMPLETED trip: cannot auto cancel', () => {
+      expect(
+        canAutoCancelTrip({ status: 'COMPLETED', departureDate: new Date(), orders: [] }).allowed,
+      ).toBe(false);
+    });
+  });
 
   describe('labels', () => {
     it('TRANSPORT_MODE_LABELS has all modes', () => {

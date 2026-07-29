@@ -1411,20 +1411,20 @@ export const toolRegistry: AssistantToolDefinition[] = [
                 href: '/finance/invoices/sales',
             });
 
-            // Check payment allocations
+            // Check payments directly (PaymentAllocation table removed, Payment has invoiceId FK)
             const payments = await prisma.$queryRaw<
                 {
                     id: string;
-                    paymentId: string;
-                    amount: Prisma.Decimal;
                     paymentNumber: string;
+                    amount: Prisma.Decimal;
                     status: string;
+                    paymentDate: Date;
                 }[]
             >(Prisma.sql`
-        SELECT pa.id, pa."paymentId", pa.amount, p."paymentNumber", p.status
-        FROM "PaymentAllocation" pa
-        JOIN "Payment" p ON pa."paymentId" = p.id
-        WHERE pa."invoiceId" = ${inv.id}
+        SELECT p.id, p."paymentNumber", p.amount, p."paymentDate"
+        , 'PAID'::text as status
+        FROM "Payment" p
+        WHERE p."invoiceId" = ${inv.id}
       `);
 
             if (payments.length > 0) {

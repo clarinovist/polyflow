@@ -1,6 +1,5 @@
 import { getMachines } from '@/actions/production/machines';
 import { getProductionOrders } from '@/actions/production/production-orders';
-import { ProductionStatus } from '@prisma/client';
 import { startOfDay, addDays, parseISO, isValid } from 'date-fns';
 import { Calendar as CalendarIcon, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import {
 } from '@/components/ui/tooltip';
 import { planningLabels } from '@/lib/labels';
 import { ScheduleBoardClient } from '@/components/production/schedule/ScheduleBoardClient';
+import { partitionScheduleOrders } from '@/lib/production/schedule-history';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-    searchParams: Promise<{ from?: string }>;
+    searchParams: Promise<{ from?: string; showCompleted?: string }>;
 }
 
 export default async function PpicSchedulePage({ searchParams }: PageProps) {
@@ -30,18 +30,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
     const machines =
         machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
-    const ordersRes = await getProductionOrders();
-    const allOrders = ordersRes;
-    const orders = allOrders.filter((o) =>
-        (
-            [
-                ProductionStatus.RELEASED,
-                ProductionStatus.IN_PROGRESS,
-                ProductionStatus.DRAFT,
-                ProductionStatus.WAITING_MATERIAL,
-            ] as ProductionStatus[]
-        ).includes(o.status),
-    );
+    const allOrders = await getProductionOrders();
 
     // Parse ?from=YYYY-MM-DD for week navigation
     const today = startOfDay(new Date());
@@ -56,7 +45,21 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
         addDays(timelineStart, i),
     );
 
-    // Map orders to shape expected by client components
+    const showCompleted = params.showCompleted !== '0';
+
+    const partitioned = partitionScheduleOrders(allOrders, timelineDays);
+    const base = partitioned.ongoing;
+    const orders = showCompleted
+        ? [...base, ...partitioned.completedInWeek]
+        : base;
+
+    const clientMachines = machines.map((m) => ({
+        id: m.id,
+        code: m.code,
+        type: m.type,
+        status: m.status,
+    }));
+
     const clientOrders = orders.map((o) => ({
         id: o.id,
         orderNumber: o.orderNumber,
@@ -67,13 +70,10 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
         plannedStartDate: o.plannedStartDate,
     }));
 
-    // Map machines to shape expected by client components
-    const clientMachines = machines.map((m) => ({
-        id: m.id,
-        code: m.code,
-        type: m.type,
-        status: m.status,
-    }));
+    const counts = {
+        ongoing: partitioned.ongoing.length,
+        completedInWeek: partitioned.completedInWeek.length,
+    };
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -85,6 +85,12 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                     </h1>
                     <p className="text-sm md:text-base text-muted-foreground">
                         {planningLabels.scheduleDesc}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {planningLabels.ongoingCount(counts.ongoing)}
+                        {showCompleted && counts.completedInWeek > 0
+                            ? ` + ${planningLabels.completedCount(counts.completedInWeek)}`
+                            : ''}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -135,6 +141,8 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                 orders={clientOrders}
                 timelineDays={timelineDays}
                 from={params.from ?? null}
+                showCompleted={showCompleted}
+                counts={counts}
             />
         </div>
     );

@@ -46,7 +46,7 @@ vi.mock("@/lib/core/prisma", () => ({
     stockMovement: {
       create: vi.fn(),
     },
-    $transaction: vi.fn((callback) => callback(prisma)),
+    $transaction: vi.fn((callback, _opts) => callback(prisma)),
   },
 }));
 

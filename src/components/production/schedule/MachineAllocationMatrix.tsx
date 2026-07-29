@@ -193,7 +193,10 @@ export function MachineAllocationMatrix({
                                                                                         order.status ===
                                                                                             'IN_PROGRESS'
                                                                                             ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-300 font-medium ring-1 ring-blue-400/10'
-                                                                                            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700',
+                                                                                            : order.status ===
+                                                                                                  'COMPLETED'
+                                                                                              ? 'bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 opacity-70'
+                                                                                              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700',
                                                                                     )}
                                                                                 >
                                                                                     <div className="flex items-center justify-between gap-1">
@@ -205,6 +208,12 @@ export function MachineAllocationMatrix({
                                                                                         {order.status ===
                                                                                             'IN_PROGRESS' && (
                                                                                             <span className="flex h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse shrink-0" />
+                                                                                        )}
+                                                                                        {order.status ===
+                                                                                            'COMPLETED' && (
+                                                                                            <span className="text-[8px] bg-emerald-600 text-white px-1 rounded">
+                                                                                                ✓
+                                                                                            </span>
                                                                                         )}
                                                                                     </div>
                                                                                     <div className="truncate text-zinc-600 dark:text-zinc-400">

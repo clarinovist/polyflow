@@ -202,7 +202,7 @@ export const createDeliverySchedule = withTenant(
         notes?: string;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            const session = await requireAuth();
 
             const now = data?.weekStart || new Date();
             const { monday, sunday } = getWeekBounds(now);
@@ -228,6 +228,7 @@ export const createDeliverySchedule = withTenant(
                     weekEnd: sunday,
                     status: 'DRAFT',
                     notes: data?.notes || null,
+                    createdById: session.user.id,
                 },
             });
 
@@ -2264,6 +2265,23 @@ export const updateStopPlannedItems = withTenant(
                 `/sales/delivery-schedules/${stop.scheduleVehicle.scheduleId}`,
             );
             return { success: true };
+        });
+    },
+);
+
+export const closeOverdueDeliverySchedules = withTenant(
+    async function closeOverdueDeliverySchedules(options?: { dryRun?: boolean; bufferDays?: number }) {
+        return safeAction(async () => {
+            await requireAuth();
+            const { autoCloseExpiredDeliverySchedules } = await import(
+                '@/services/sales/delivery-schedule-auto-close'
+            );
+            const result = await autoCloseExpiredDeliverySchedules({
+                dryRun: options?.dryRun,
+                bufferDays: options?.bufferDays ?? 2,
+            });
+            revalidatePath('/sales/delivery-schedules');
+            return result;
         });
     },
 );

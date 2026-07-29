@@ -129,6 +129,15 @@ export const planningLabels = {
     insufficientStock: (count: number) =>
         `Anda memiliki ${count} material dengan stok tidak cukup untuk memenuhi rencana produksi.`,
 
+    // Schedule history
+    showCompleted: 'Tampilkan Selesai',
+    hideCompleted: 'Sembunyikan Selesai',
+    completedThisWeek: 'Selesai Minggu Ini',
+    completedHistoryHint:
+        'Yang sudah selesai tetap tampil sebagai history (faded) untuk audit harian.',
+    ongoingCount: (n: number) => `${n} aktif`,
+    completedCount: (n: number) => `${n} selesai minggu ini`,
+
     // Requests
     incomingRequestsTitle: 'Papan Permintaan FG',
     incomingRequestsDesc:
