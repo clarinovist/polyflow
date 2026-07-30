@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AttendanceService } from '../attendance-service';
+import { haversineDistance } from '@/lib/utils/geo';
 
 // Mock prisma client
 const mockDb = {
@@ -774,6 +775,257 @@ describe('AttendanceService', () => {
           locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
         }, { 'attendance.geofenceEnabled': 'false' }),
       ).rejects.toThrow(/koreksi HRD/i);
+    });
+  });
+
+  // ─── Fase 1 — fail-closed geofence hardening ───
+  describe('clockInSelfService - fail-closed geofence', () => {
+    it('THROWS when geofenceEnabled=true but latitude is empty (fail-open regression guard)', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+
+      await expect(
+        AttendanceService.clockInSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
+        }, {
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '',
+          'attendance.longitude': '106.0',
+          'attendance.radiusMeters': '100',
+          'attendance.maxAccuracyMeters': '50',
+        }),
+      ).rejects.toThrow(/Konfigurasi geofence belum lengkap/);
+    });
+
+    it('THROWS when geofenceEnabled=true but latitude is invalid string', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+
+      await expect(
+        AttendanceService.clockInSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
+        }, {
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': 'invalid',
+          'attendance.longitude': '106.0',
+          'attendance.radiusMeters': '100',
+          'attendance.maxAccuracyMeters': '50',
+        }),
+      ).rejects.toThrow(/Konfigurasi geofence belum lengkap/);
+    });
+  });
+
+  describe('clockOutSelfService - fail-closed geofence', () => {
+    it('THROWS when geofenceEnabled=true but latitude is empty', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
+        id: 'emp-1', name: 'Budi', code: 'EMP-001', status: 'ACTIVE',
+      } as any);
+
+      await expect(
+        AttendanceService.clockOutSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
+        }, {
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '',
+          'attendance.longitude': '106.0',
+          'attendance.radiusMeters': '100',
+          'attendance.maxAccuracyMeters': '50',
+        }),
+      ).rejects.toThrow(/Konfigurasi geofence belum lengkap/);
+    });
+  });
+
+  describe('clockInSelfService - disabled geofence still stores location, distance null', () => {
+    it('succeeds when geofence disabled, stores lat/lon, distance is null', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue({
+        workShiftId: 'shift-1',
+        workShift: activeShift,
+      } as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
+
+      let capturedData: any = null;
+      vi.mocked(mockDb.attendanceRecord.create).mockImplementation(async (arg: any) => {
+        capturedData = arg.data;
+        return {
+          id: 'rec-new', employeeId: 'emp-1', workDate: new Date('2026-07-15'),
+          workShiftId: 'shift-1', clockInAt: new Date(), clockOutAt: null,
+          isOvertimeShift: false, status: 'PRESENT', source: 'SELF_SERVICE',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
+          clockInLatitude: capturedData.clockInLatitude,
+          clockInLongitude: capturedData.clockInLongitude,
+          clockInAccuracy: capturedData.clockInAccuracy,
+          clockInDistance: capturedData.clockInDistance,
+          employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+        } as any;
+      });
+
+      const result = await AttendanceService.clockInSelfService(mockDb as any, {
+        employeeId: 'emp-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: 10 },
+      }, { 'attendance.geofenceEnabled': 'false' });
+
+      expect(result.employeeName).toBe('Budi');
+      // Location must still be persisted (Step 5a)
+      expect(capturedData.clockInLatitude).not.toBeNull();
+      expect(capturedData.clockInLongitude).not.toBeNull();
+      expect(capturedData.clockInAccuracy).not.toBeNull();
+      // Distance must be null when disabled (Step 5b)
+      expect(capturedData.clockInDistance).toBeNull();
+    });
+  });
+
+  // ─── Fase 1 review round — Step 5c distance reuse + accuracy guard ───
+
+  /** Arms the clock-in happy path and returns a getter for the captured create() data. */
+  function armClockInCapture() {
+    vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+    vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue({
+      workShiftId: 'shift-1',
+      workShift: activeShift,
+    } as any);
+    vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+    vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
+    vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
+
+    const captured: { data: any } = { data: null };
+    vi.mocked(mockDb.attendanceRecord.create).mockImplementation(async (arg: any) => {
+      captured.data = arg.data;
+      return {
+        id: 'rec-new', employeeId: 'emp-1', workDate: new Date('2026-07-15'),
+        workShiftId: 'shift-1', clockInAt: new Date(), clockOutAt: null,
+        isOvertimeShift: false, status: 'PRESENT', source: 'SELF_SERVICE',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
+        clockInLatitude: arg.data.clockInLatitude,
+        clockInLongitude: arg.data.clockInLongitude,
+        clockInAccuracy: arg.data.clockInAccuracy,
+        clockInDistance: arg.data.clockInDistance,
+        employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+      } as any;
+    });
+    return captured;
+  }
+
+  describe('clockInSelfService - distance persisted from validateLocation (Step 5c)', () => {
+    it('stores the real haversine distance when inside an active geofence', async () => {
+      const captured = armClockInCapture();
+
+      // Office and employee ~50 m apart, well inside a 500 m fence.
+      const officeLat = -6.2;
+      const officeLon = 106.8;
+      const empLat = -6.2004;
+      const empLon = 106.8002;
+
+      await AttendanceService.clockInSelfService(mockDb as any, {
+        employeeId: 'emp-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        locationEvidence: { latitude: empLat, longitude: empLon, accuracy: 10 },
+      }, {
+        'attendance.geofenceEnabled': 'true',
+        'attendance.latitude': String(officeLat),
+        'attendance.longitude': String(officeLon),
+        'attendance.radiusMeters': '500',
+        'attendance.maxAccuracyMeters': '50',
+      });
+
+      // Must equal the genuine haversine distance — asserting "not null" alone
+      // would still pass if the wrong field were reused.
+      const expected = haversineDistance(officeLat, officeLon, empLat, empLon);
+      expect(captured.data.clockInDistance).not.toBeNull();
+      expect(Number(captured.data.clockInDistance)).toBeCloseTo(expected, 1);
+    });
+  });
+
+  describe('clockInSelfService - non-finite accuracy is dropped, not written', () => {
+    it('stores no location at all when accuracy is NaN', async () => {
+      const captured = armClockInCapture();
+
+      const result = await AttendanceService.clockInSelfService(mockDb as any, {
+        employeeId: 'emp-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: NaN },
+      }, { 'attendance.geofenceEnabled': 'false' });
+
+      // Attendance still succeeds — bad accuracy must not block clocking in.
+      expect(result.employeeName).toBe('Budi');
+      // But no NaN may reach a Decimal column.
+      expect(captured.data.clockInLatitude).toBeNull();
+      expect(captured.data.clockInLongitude).toBeNull();
+      expect(captured.data.clockInAccuracy).toBeNull();
+    });
+  });
+
+  describe('clockOutSelfService - disabled geofence still stores location', () => {
+    it('stores lat/lon/accuracy with distance null', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
+        id: 'emp-1', name: 'Budi', code: 'EMP-001', status: 'ACTIVE',
+      } as any);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-open', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          clockInAt: nowMinusHours(3), clockOutAt: null,
+          workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          employee: { name: 'Budi', code: 'EMP-001' },
+        },
+      ] as any);
+
+      // clockOut issues TWO updates: the geo/clock-out write, then a second
+      // one carrying only computed hours. Keep the first — the last would not
+      // contain the location fields at all.
+      const updateCalls: any[] = [];
+      vi.mocked(mockDb.attendanceRecord.update).mockImplementation(async (arg: any) => {
+        updateCalls.push(arg.data);
+        return {
+          id: 'rec-open', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          workShiftId: 'shift-1', clockInAt: nowMinusHours(3), clockOutAt: new Date(),
+          isOvertimeShift: false, status: 'PRESENT', source: 'SELF_SERVICE',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          plannedHours: dec(8), actualHours: dec(3), regularHours: dec(3), overtimeHours: dec(0),
+          clockInPhotoUrl: null, clockOutPhotoUrl: null,
+          clockOutLatitude: arg.data.clockOutLatitude,
+          clockOutLongitude: arg.data.clockOutLongitude,
+          clockOutAccuracy: arg.data.clockOutAccuracy,
+          clockOutDistance: arg.data.clockOutDistance,
+          employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+        } as any;
+      });
+
+      await AttendanceService.clockOutSelfService(mockDb as any, {
+        employeeId: 'emp-1',
+        locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: 12 },
+      }, { 'attendance.geofenceEnabled': 'false' });
+
+      const geoWrite = updateCalls[0];
+      // Assert real values, not merely "not null" — undefined would satisfy
+      // not.toBeNull() and let a missing field pass silently.
+      expect(Number(geoWrite.clockOutLatitude)).toBeCloseTo(-6.12, 5);
+      expect(Number(geoWrite.clockOutLongitude)).toBeCloseTo(106.12, 5);
+      expect(Number(geoWrite.clockOutAccuracy)).toBeCloseTo(12, 2);
+      expect(geoWrite.clockOutDistance).toBeNull();
     });
   });
 });

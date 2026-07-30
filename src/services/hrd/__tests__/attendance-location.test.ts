@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     parseGeofenceConfig,
+    resolveGeofence,
     validateLocation,
     isSelfServiceEnabled,
     getLateGraceMinutes,
@@ -202,6 +203,111 @@ describe('validateSelfServicePrerequisites', () => {
             'attendance.maxAccuracyMeters': '50',
         });
         expect(result.ready).toBe(true);
+    });
+});
+
+describe('resolveGeofence', () => {
+    it('returns disabled when geofence flag is not true', () => {
+        expect(resolveGeofence({})).toEqual({ kind: 'disabled' });
+        expect(
+            resolveGeofence({ 'attendance.geofenceEnabled': 'false' }),
+        ).toEqual({ kind: 'disabled' });
+        expect(
+            resolveGeofence({ 'attendance.geofenceEnabled': '' }),
+        ).toEqual({ kind: 'disabled' });
+    });
+
+    it('returns invalid when latitude is missing or invalid', () => {
+        const base = {
+            'attendance.geofenceEnabled': 'true',
+            'attendance.longitude': '106.0',
+            'attendance.radiusMeters': '100',
+            'attendance.maxAccuracyMeters': '50',
+        };
+        // missing latitude
+        const r1 = resolveGeofence(base);
+        expect(r1.kind).toBe('invalid');
+        if (r1.kind === 'invalid') {
+            expect(r1.reason).toContain('Koordinat');
+        }
+
+        // invalid latitude string
+        const r2 = resolveGeofence({
+            ...base,
+            'attendance.latitude': 'invalid',
+        });
+        expect(r2.kind).toBe('invalid');
+
+        // out-of-range latitude
+        const r3 = resolveGeofence({
+            ...base,
+            'attendance.latitude': '999',
+        });
+        expect(r3.kind).toBe('invalid');
+    });
+
+    it('returns invalid when radius is 0 or negative', () => {
+        const make = (radius: string) =>
+            resolveGeofence({
+                'attendance.geofenceEnabled': 'true',
+                'attendance.latitude': '-6.12',
+                'attendance.longitude': '106.0',
+                'attendance.radiusMeters': radius,
+                'attendance.maxAccuracyMeters': '50',
+            });
+
+        const r0 = make('0');
+        expect(r0.kind).toBe('invalid');
+        if (r0.kind === 'invalid') {
+            expect(r0.reason).toContain('Radius');
+        }
+
+        const rNeg = make('-10');
+        expect(rNeg.kind).toBe('invalid');
+
+        const rNaN = make('abc');
+        expect(rNaN.kind).toBe('invalid');
+    });
+
+    it('returns invalid when maxAccuracyMeters is invalid', () => {
+        const make = (acc: string) =>
+            resolveGeofence({
+                'attendance.geofenceEnabled': 'true',
+                'attendance.latitude': '-6.12',
+                'attendance.longitude': '106.0',
+                'attendance.radiusMeters': '100',
+                'attendance.maxAccuracyMeters': acc,
+            });
+
+        const r0 = make('0');
+        expect(r0.kind).toBe('invalid');
+        if (r0.kind === 'invalid') {
+            expect(r0.reason).toContain('akurasi');
+        }
+
+        const rNeg = make('-5');
+        expect(rNeg.kind).toBe('invalid');
+
+        const rMissing = make('');
+        expect(rMissing.kind).toBe('invalid');
+    });
+
+    it('returns active with correct config when all values valid', () => {
+        const result = resolveGeofence({
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.123456',
+            'attendance.longitude': '106.123456',
+            'attendance.radiusMeters': '100',
+            'attendance.maxAccuracyMeters': '50',
+        });
+        expect(result.kind).toBe('active');
+        if (result.kind === 'active') {
+            expect(result.config.latitude).toBeCloseTo(-6.123456, 5);
+            expect(result.config.longitude).toBeCloseTo(106.123456, 5);
+            expect(result.config.radiusMeters).toBe(100);
+            expect(result.config.maxAccuracyMeters).toBe(50);
+            expect(result.config.enabled).toBe(true);
+        }
     });
 });
 
