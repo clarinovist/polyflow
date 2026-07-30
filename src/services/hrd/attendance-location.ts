@@ -1,5 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/library';
 import {
+    formatDistance,
     haversineDistance,
     isValidCoordinate,
 } from '@/lib/utils/geo';
@@ -148,6 +149,63 @@ export function validateSelfServicePrerequisites(
     }
 
     return { ready: true };
+}
+
+export type ProximityState =
+    | { kind: 'no-geofence' }
+    | { kind: 'waiting-gps' }
+    | { kind: 'accuracy-poor'; accuracy: number; limit: number; message: string }
+    | { kind: 'outside'; distanceMeters: number; radiusMeters: number; message: string }
+    | { kind: 'inside'; distanceMeters: number; radiusMeters: number; message: string };
+
+export function describeGeofenceProximity(
+    config: GeofenceConfig | null,
+    evidence: LocationEvidence | null,
+): ProximityState {
+    if (config === null) {
+        return { kind: 'no-geofence' };
+    }
+
+    if (
+        evidence === null ||
+        !isValidCoordinate(evidence.latitude, evidence.longitude) ||
+        !Number.isFinite(evidence.accuracy)
+    ) {
+        return { kind: 'waiting-gps' };
+    }
+
+    if (evidence.accuracy > config.maxAccuracyMeters) {
+        const limit = config.maxAccuracyMeters;
+        return {
+            kind: 'accuracy-poor',
+            accuracy: evidence.accuracy,
+            limit,
+            message: `Akurasi GPS ±${Math.round(evidence.accuracy)}m, dibutuhkan ±${limit}m atau lebih baik`,
+        };
+    }
+
+    const distance = haversineDistance(
+        config.latitude,
+        config.longitude,
+        evidence.latitude,
+        evidence.longitude,
+    );
+
+    if (distance > config.radiusMeters) {
+        return {
+            kind: 'outside',
+            distanceMeters: distance,
+            radiusMeters: config.radiusMeters,
+            message: `Anda ${formatDistance(distance)} dari kantor — di luar radius ${formatDistance(config.radiusMeters)}`,
+        };
+    }
+
+    return {
+        kind: 'inside',
+        distanceMeters: distance,
+        radiusMeters: config.radiusMeters,
+        message: `Anda ${formatDistance(distance)} dari kantor — di dalam area absensi`,
+    };
 }
 
 export function serializeGeofenceForStorage(
