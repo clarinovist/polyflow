@@ -16,10 +16,10 @@ import { isValidAttendancePhotoUrl } from '@/lib/media/attendance-photo-url';
 import {
     resolveGeofence,
     validateLocation,
-    serializeGeofenceForStorage,
     type LocationEvidence,
     type GeofenceResult,
 } from './attendance-location';
+import { serializeGeofenceForStorage } from './attendance-location-storage';
 import { isValidCoordinate } from '@/lib/utils/geo';
 import {
     isOvernightShift,

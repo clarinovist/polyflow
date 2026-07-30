@@ -7,8 +7,8 @@ import {
     isSelfServiceEnabled,
     getLateGraceMinutes,
     validateSelfServicePrerequisites,
-    serializeGeofenceForStorage,
 } from '../attendance-location';
+import { serializeGeofenceForStorage } from '../attendance-location-storage';
 import type { GeofenceConfig } from '../attendance-location';
 
 describe('parseGeofenceConfig', () => {

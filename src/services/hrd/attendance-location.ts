@@ -1,4 +1,3 @@
-import { Decimal } from '@prisma/client/runtime/library';
 import {
     formatDistance,
     haversineDistance,
@@ -205,19 +204,5 @@ export function describeGeofenceProximity(
         distanceMeters: distance,
         radiusMeters: config.radiusMeters,
         message: `Anda ${formatDistance(distance)} dari kantor — di dalam area absensi`,
-    };
-}
-
-export function serializeGeofenceForStorage(
-    evidence: LocationEvidence,
-): {
-    latitude: Decimal;
-    longitude: Decimal;
-    accuracy: Decimal;
-} {
-    return {
-        latitude: new Decimal(evidence.latitude.toFixed(6)),
-        longitude: new Decimal(evidence.longitude.toFixed(6)),
-        accuracy: new Decimal(evidence.accuracy.toFixed(2)),
     };
 }
