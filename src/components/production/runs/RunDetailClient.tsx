@@ -38,7 +38,7 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
   const [run] = useState(initialRun);
   const [readiness, setReadiness] = useState<ReadinessRow[]>([]);
   const [cost, setCost] = useState<{ externalMaterialCost: number; internalWipValue: number; conversionCost: number; scrapCost: number; outputMovementValuation: number; reconciliationDelta: number; totalHppNoDoubleCount: number; hppPerUnit: number; totalOutputQty: number } | null>(null);
-  const [rmCheck, setRmCheck] = useState<{ ready: boolean; shortages: { productVariantId: string; needed: number; available: number; shortage: number }[] } | null>(null);
+  const [rmCheck, setRmCheck] = useState<{ ready: boolean; shortages: { productVariantId: string; skuCode: string; name: string; needed: number; available: number; shortage: number }[] } | null>(null);
 
   useEffect(() => {
     getRunReadiness(run.id).then((res) => {
@@ -98,7 +98,7 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
             <div className={`p-2 rounded text-xs border ${rmCheck.ready ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
               {rmCheck.ready ? '✓ RM tersedia untuk tahap pertama' : `⚠ RM shortage: ${rmCheck.shortages.length} item kurang`}
               {!rmCheck.ready && rmCheck.shortages.slice(0, 3).map((s, i) => (
-                <div key={i} className="font-mono">{s.productVariantId.slice(0, 8)} need {s.needed} have {s.available} short {s.shortage}</div>
+                <div key={i} className="font-mono">{s.skuCode || s.productVariantId.slice(0, 8)} — {s.name || '?'} need {s.needed} have {s.available} short {s.shortage}</div>
               ))}
             </div>
           )}

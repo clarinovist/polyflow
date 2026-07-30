@@ -20,8 +20,20 @@ import {
     selfServiceClockIn,
     selfServiceClockOut,
     getMyTodayAttendance,
+    getMyGeofenceInfo,
 } from '@/actions/employee/attendance';
 import type { AttendanceRecordResult } from '@/services/hrd/attendance-service';
+import {
+    describeGeofenceProximity,
+    type GeofenceConfig,
+    type ProximityState,
+} from '@/services/hrd/attendance-location';
+import { LocationMapPreview } from '@/components/shared/LocationMapPreview';
+import {
+    sampleBestPosition,
+    DEFAULT_TARGET_ACCURACY_METERS,
+    DEFAULT_SAMPLE_TIMEOUT_MS,
+} from '@/lib/utils/geolocation-sampler';
 
 type TodayStatus = {
     status: 'NOT_CLOCKED_IN' | 'WORKING' | 'CLOCKED_OUT' | 'OPEN_STALE';
@@ -35,6 +47,83 @@ interface LocationState {
     accuracy: number;
 }
 
+type GeofenceInfo = {
+    selfServiceEnabled: boolean;
+    geofence: GeofenceConfig | null;
+    configInvalid: boolean;
+};
+
+type IndicatorLine = { tone: string; text: string };
+
+function describeIndicator(
+    proximity: ProximityState,
+    hasLocation: boolean,
+    gettingLocation: boolean,
+    locationError: string | null,
+    accuracy: number | null,
+): IndicatorLine {
+    if (!hasLocation) {
+        if (gettingLocation) {
+            return {
+                tone: 'text-muted-foreground',
+                text: 'Mendapatkan lokasi GPS...',
+            };
+        }
+        if (locationError) {
+            return { tone: 'text-destructive', text: locationError };
+        }
+        return {
+            tone: 'text-muted-foreground',
+            text: 'Menunggu GPS...',
+        };
+    }
+
+    switch (proximity.kind) {
+        case 'no-geofence':
+            return {
+                tone: 'text-emerald-600',
+                text: `Lokasi GPS tersedia (±${Math.round(accuracy ?? 0)}m)`,
+            };
+        case 'inside':
+            return { tone: 'text-emerald-600', text: proximity.message };
+        case 'outside':
+            return { tone: 'text-destructive', text: proximity.message };
+        case 'accuracy-poor':
+            return { tone: 'text-amber-600', text: proximity.message };
+        case 'waiting-gps':
+            return {
+                tone: 'text-muted-foreground',
+                text: 'Menunggu GPS...',
+            };
+        default: {
+            const exhaustive: never = proximity;
+            void exhaustive;
+            return { tone: 'text-muted-foreground', text: 'Menunggu GPS...' };
+        }
+    }
+}
+
+function blockedReason(
+    proximity: ProximityState,
+    selfServiceOff: boolean,
+    configInvalid: boolean,
+    geofenceLoadFailed: boolean,
+): string {
+    if (proximity.kind === 'outside' || proximity.kind === 'accuracy-poor') {
+        return proximity.message;
+    }
+    if (selfServiceOff) {
+        return 'Absensi mandiri belum diaktifkan oleh HRD.';
+    }
+    if (configInvalid) {
+        return 'Konfigurasi absensi belum lengkap. Hubungi HRD.';
+    }
+    if (geofenceLoadFailed) {
+        return 'Gagal memuat konfigurasi absensi. Coba muat ulang halaman.';
+    }
+    return 'Lokasi belum siap — tunggu GPS atau muat ulang.';
+}
+
 export function MyAttendanceClock() {
     const [today, setToday] = useState<
         (TodayStatus & { staleDate?: string }) | null
@@ -44,46 +133,81 @@ export function MyAttendanceClock() {
     const [location, setLocation] = useState<LocationState | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [gettingLocation, setGettingLocation] = useState(false);
+    const [geofenceInfo, setGeofenceInfo] = useState<GeofenceInfo | null>(null);
+    const [geofenceLoadFailed, setGeofenceLoadFailed] = useState(false);
     const [pending, startTransition] = useTransition();
 
     const refreshStatus = useCallback(async () => {
-        const result = await getMyTodayAttendance();
-        if (result.success && result.data) {
-            setToday(result.data);
+        const [attendanceResult, geofenceResult] = await Promise.all([
+            getMyTodayAttendance(),
+            getMyGeofenceInfo(),
+        ]);
+
+        if (attendanceResult.success && attendanceResult.data) {
+            setToday(attendanceResult.data);
         }
+
+        if (geofenceResult.success && geofenceResult.data) {
+            setGeofenceInfo(geofenceResult.data as GeofenceInfo);
+            setGeofenceLoadFailed(false);
+        } else {
+            setGeofenceInfo(null);
+            setGeofenceLoadFailed(true);
+        }
+
         setLoading(false);
     }, []);
+
+    const geofence = geofenceInfo?.geofence ?? null;
+    const configInvalid = geofenceInfo?.configInvalid ?? false;
+    const selfServiceOff = geofenceInfo !== null && !geofenceInfo.selfServiceEnabled;
+    const proximity = describeGeofenceProximity(geofence, location);
+    const isProximityBlocked =
+        proximity.kind === 'outside' ||
+        proximity.kind === 'accuracy-poor' ||
+        proximity.kind === 'waiting-gps';
+    const isBlocked = isProximityBlocked || selfServiceOff || configInvalid || geofenceLoadFailed;
+
+    const indicator = describeIndicator(
+        proximity,
+        !!location,
+        gettingLocation,
+        locationError,
+        location?.accuracy ?? null,
+    );
 
     useEffect(() => {
         void refreshStatus();
     }, [refreshStatus]);
 
     const requestLocation = useCallback(() => {
-        if (!navigator.geolocation) {
+        if (
+            typeof navigator === 'undefined' ||
+            !navigator.geolocation
+        ) {
             setLocationError('GPS tidak didukung di browser ini');
             return;
         }
         setGettingLocation(true);
         setLocationError(null);
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
+        void sampleBestPosition({
+            targetAccuracyMeters: DEFAULT_TARGET_ACCURACY_METERS,
+            timeoutMs: DEFAULT_SAMPLE_TIMEOUT_MS,
+        }).then((result) => {
+            if (result.sample) {
                 setLocation({
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude,
-                    accuracy: pos.coords.accuracy,
+                    latitude: result.sample.latitude,
+                    longitude: result.sample.longitude,
+                    accuracy: result.sample.accuracy,
                 });
-                setGettingLocation(false);
-            },
-            (err) => {
-                const msg =
-                    err.code === err.PERMISSION_DENIED
-                        ? 'Izin lokasi ditolak. Aktifkan GPS di pengaturan browser.'
-                        : 'Gagal mendapatkan lokasi. Coba lagi.';
+            } else {
+                const msg = result.permissionDenied
+                    ? 'Izin lokasi ditolak. Aktifkan GPS di pengaturan browser.'
+                    : 'Gagal mendapatkan lokasi. Coba lagi.';
                 setLocationError(msg);
-                setGettingLocation(false);
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-        );
+            }
+            setGettingLocation(false);
+        });
     }, []);
 
     useEffect(() => {
@@ -97,6 +221,16 @@ export function MyAttendanceClock() {
         }
         if (!location) {
             toast.error('Lokasi GPS belum tersedia');
+            return;
+        }
+        if (isBlocked) {
+            const msg = blockedReason(
+                proximity,
+                selfServiceOff,
+                configInvalid,
+                geofenceLoadFailed,
+            );
+            toast.error(msg);
             return;
         }
 
@@ -252,6 +386,21 @@ export function MyAttendanceClock() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+                {/* Banners */}
+                {selfServiceOff ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        Absensi mandiri belum diaktifkan oleh HRD.
+                    </div>
+                ) : configInvalid ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        Konfigurasi absensi belum lengkap. Hubungi HRD.
+                    </div>
+                ) : geofenceLoadFailed ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        Gagal memuat konfigurasi absensi. Coba muat ulang halaman.
+                    </div>
+                ) : null}
+
                 {/* Status */}
                 <div
                     className={`flex items-center gap-3 p-4 rounded-xl ${config.bg}`}
@@ -294,29 +443,17 @@ export function MyAttendanceClock() {
                 {/* Location indicator */}
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    {location ? (
-                        <>
-                            <span className="text-emerald-600">
-                                Lokasi GPS tersedia (±{Math.round(location.accuracy)}m)
-                            </span>
-                            <a
-                                href={googleMapsUrl(location.latitude, location.longitude)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                            >
-                                <ExternalLink className="h-3 w-3" />
-                                Buka di Google Maps
-                            </a>
-                        </>
-                    ) : gettingLocation ? (
-                        <span className="text-muted-foreground">
-                            Mendapatkan lokasi GPS...
-                        </span>
-                    ) : locationError ? (
-                        <span className="text-destructive">{locationError}</span>
-                    ) : (
-                        <span className="text-muted-foreground">Menunggu GPS...</span>
+                    <span className={indicator.tone}>{indicator.text}</span>
+                    {location && (
+                        <a
+                            href={googleMapsUrl(location.latitude, location.longitude)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                            <ExternalLink className="h-3 w-3" />
+                            Buka di Google Maps
+                        </a>
                     )}
                     {!location && !gettingLocation && (
                         <Button variant="ghost" size="sm" onClick={requestLocation}>
@@ -324,6 +461,27 @@ export function MyAttendanceClock() {
                         </Button>
                     )}
                 </div>
+
+                {/* Map preview */}
+                {geofence && location && (
+                    <LocationMapPreview
+                        latitude={geofence.latitude}
+                        longitude={geofence.longitude}
+                        radiusMeters={geofence.radiusMeters}
+                        label="Kantor"
+                        height={200}
+                        interactive={false}
+                        secondaryMarker={
+                            location
+                                ? {
+                                      latitude: location.latitude,
+                                      longitude: location.longitude,
+                                      label: 'Anda',
+                                  }
+                                : null
+                        }
+                    />
+                )}
 
                 {/* Actions based on status */}
                 {currentStatus === 'NOT_CLOCKED_IN' && (
@@ -336,7 +494,7 @@ export function MyAttendanceClock() {
                         <Button
                             className="w-full h-14 text-lg font-bold uppercase"
                             onClick={handleClockIn}
-                            disabled={pending || !selfieFile || !location}
+                            disabled={pending || !selfieFile || !location || isBlocked}
                         >
                             {pending ? (
                                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
@@ -353,7 +511,7 @@ export function MyAttendanceClock() {
                         className="w-full h-14 text-lg font-bold uppercase"
                         variant="destructive"
                         onClick={handleClockOut}
-                        disabled={pending || !location}
+                        disabled={pending || !location || isBlocked}
                     >
                         {pending ? (
                             <Loader2 className="h-5 w-5 mr-2 animate-spin" />

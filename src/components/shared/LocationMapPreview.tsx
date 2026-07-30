@@ -17,15 +17,16 @@ type Props = {
     height?: number;
     zoom?: number;
     interactive?: boolean;
+    secondaryMarker?: { latitude: number; longitude: number; label?: string } | null;
 };
 
-function createPinIcon(L: typeof import('leaflet'), label?: string) {
+function createPinIcon(L: typeof import('leaflet'), label?: string, color = '#2563eb') {
     const safeLabel = label ? `<span style="font-size:10px;color:#1e3a8a;font-weight:600">${label}</span>` : '';
     return L.divIcon({
         className: '',
         iconSize: [32, 38],
         iconAnchor: [16, 38],
-        html: `<div style="display:flex;flex-direction:column;align-items:center"><div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#2563eb;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:14px;line-height:1">📍</span></div>${safeLabel}</div>`,
+        html: `<div style="display:flex;flex-direction:column;align-items:center"><div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:14px;line-height:1">📍</span></div>${safeLabel}</div>`,
     });
 }
 
@@ -37,6 +38,7 @@ export function LocationMapPreview({
     height = 280,
     zoom = 16,
     interactive = true,
+    secondaryMarker,
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<import('leaflet').Map | null>(null);
@@ -101,6 +103,10 @@ export function LocationMapPreview({
         };
     }, []);
 
+    const secondaryLat = secondaryMarker?.latitude;
+    const secondaryLon = secondaryMarker?.longitude;
+    const secondaryLabel = secondaryMarker?.label;
+
     useEffect(() => {
         const L = LRef.current;
         const layer = layerRef.current;
@@ -110,7 +116,19 @@ export function LocationMapPreview({
         layer.clearLayers();
 
         const ll = L.latLng(latitude, longitude);
-        map.setView(ll, zoom);
+        const secondaryLatLng =
+            secondaryLat != null &&
+            secondaryLon != null &&
+            isValidCoord(secondaryLat, secondaryLon)
+                ? L.latLng(secondaryLat, secondaryLon)
+                : null;
+
+        if (secondaryLatLng) {
+            const bounds = L.latLngBounds([ll, secondaryLatLng]).pad(0.25);
+            map.fitBounds(bounds);
+        } else {
+            map.setView(ll, zoom);
+        }
 
         if (radiusMeters && Number.isFinite(radiusMeters) && radiusMeters > 0) {
             L.circle(ll, {
@@ -127,8 +145,25 @@ export function LocationMapPreview({
         if (label) marker.bindPopup(label);
         layer.addLayer(marker);
 
+        if (secondaryLatLng) {
+            const secondaryIcon = createPinIcon(L, secondaryLabel, '#059669');
+            const secondaryM = L.marker(secondaryLatLng, { icon: secondaryIcon });
+            if (secondaryLabel) secondaryM.bindPopup(secondaryLabel);
+            layer.addLayer(secondaryM);
+        }
+
         setTimeout(() => map.invalidateSize(), 100);
-    }, [latitude, longitude, radiusMeters, label, zoom, valid]);
+    }, [
+        latitude,
+        longitude,
+        radiusMeters,
+        label,
+        zoom,
+        valid,
+        secondaryLat,
+        secondaryLon,
+        secondaryLabel,
+    ]);
 
     if (!valid) {
         return (

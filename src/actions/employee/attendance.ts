@@ -6,7 +6,11 @@ import { getEmployeeSession } from '@/lib/auth/employee-session';
 import {
     AttendanceService,
 } from '@/services/hrd/attendance-service';
-import { isSelfServiceEnabled, parseGeofenceConfig } from '@/services/hrd/attendance-location';
+import {
+    isSelfServiceEnabled,
+    parseGeofenceConfig,
+    resolveGeofence,
+} from '@/services/hrd/attendance-location';
 import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
 import { rateLimit } from '@/lib/api/rate-limit';
 import { revalidatePath } from 'next/cache';
@@ -160,6 +164,27 @@ export const selfServiceClockOut = withTenant(
         }
     },
 );
+
+export const getMyGeofenceInfo = withTenant(async function getMyGeofenceInfo() {
+    try {
+        const session = await getEmployeeSession();
+        if (!session) return { success: false, error: 'Unauthorized' };
+
+        const settings = await readAttendanceSettings(db);
+        const resolution = resolveGeofence(settings);
+
+        return {
+            success: true,
+            data: {
+                selfServiceEnabled: isSelfServiceEnabled(settings),
+                geofence: resolution.kind === 'active' ? resolution.config : null,
+                configInvalid: resolution.kind === 'invalid',
+            },
+        };
+    } catch {
+        return { success: false, error: 'Gagal memuat konfigurasi absensi' };
+    }
+});
 
 export const getMyTodayAttendance = withTenant(
     async function getMyTodayAttendance() {

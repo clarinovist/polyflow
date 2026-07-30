@@ -27,6 +27,15 @@ export const getFgDemandBoard = withTenant(async function getFgDemandBoard(
     });
 });
 
+/**
+ * Prefix for the fallback idempotency key generated when the client does not
+ * supply one.  The key now includes a work-day dimension (`YYYY-MM-DD`) so
+ * that it only deduplicates within the same calendar day — a legitimate
+ * re-order on a later day will create a new run instead of silently returning
+ * the stale one.  Client-supplied keys are still honoured as-is.
+ */
+const DEMAND_IDEMPOTENCY_KEY_PREFIX = 'demand';
+
 export const createSpkFromDemand = withTenant(
     async function createSpkFromDemand(data: {
         productVariantId: string;
@@ -75,13 +84,14 @@ export const createSpkFromDemand = withTenant(
 
             if (activeRouteId) {
                 // Create production run from route
+                const today = new Date().toISOString().slice(0, 10);
                 const run = await ProductionRoutingRunService.createRun({
                     routeId: activeRouteId,
                     plannedQuantity,
                     priority: (priority as never) ?? 'NORMAL',
                     notes: notes || 'Dari Papan Permintaan FG (routed)',
                     createdById: session.user.id,
-                    idempotencyKey: idempotencyKey ?? `demand-${productVariantId}-${plannedQuantity}-${locationId}`,
+                    idempotencyKey: idempotencyKey ?? `${DEMAND_IDEMPOTENCY_KEY_PREFIX}-${productVariantId}-${plannedQuantity}-${locationId}-${today}`,
                 });
 
                 revalidatePath('/production/requests');

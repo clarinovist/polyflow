@@ -33,8 +33,9 @@ const mockPrisma = vi.hoisted(() => ({
   productionOrder: { updateMany: vi.fn(), findMany: vi.fn() },
   productionMaterial: { createMany: vi.fn() },
   productionRouteStep: { findUnique: vi.fn() },
-  inventory: { findUnique: vi.fn() },
-  stockReservation: { aggregate: vi.fn() },
+  inventory: { findUnique: vi.fn(), aggregate: vi.fn() },
+  productVariant: { findUnique: vi.fn(), findMany: vi.fn() },
+  stockReservation: { aggregate: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
     if (typeof cb === 'function') return cb(mockTx as never);
     return cb;
@@ -259,5 +260,79 @@ describe('ProductionRoutingRunService', () => {
     const res = await ProductionRoutingRunService.cancelRun('run1', 'actor-1');
     expect(res.status).toBe('CANCELLED');
     expect(mockTx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it('checkRmAvailability returns skuCode and name via batch query (G9)', async () => {
+    const findUnique = mockPrisma.productionRun.findUnique as MockFn;
+    findUnique.mockResolvedValue({
+      id: 'run-avail',
+      runNumber: 'RUN-AVAIL',
+      status: 'RELEASED',
+      orders: [
+        {
+          id: 'order-first',
+          routeSequenceSnapshot: 0,
+          orderNumber: 'WO-001',
+          status: 'RELEASED',
+          plannedQuantity: 100,
+          actualQuantity: null,
+          processNameSnapshot: 'Mixing',
+          bom: { id: 'bom-1', outputQuantity: 1 },
+          machine: null,
+          location: { id: 'loc-1', name: 'Area', slug: 'area' },
+          sourceLocation: null,
+          routeStep: null,
+          plannedMaterials: [
+            { productVariantId: 'rm-aaa', quantity: 50 },
+            { productVariantId: 'rm-bbb', quantity: 80 },
+          ],
+          materialSourceLocationId: null,
+        },
+      ],
+      productVariant: { skuCode: 'FG', name: 'FG Product' },
+      route: { steps: [] },
+      salesOrder: null,
+    } as never);
+
+    // No sourceLocation → code uses inventory.aggregate (not findUnique)
+    // rm-aaa: 100 available (enough), rm-bbb: 30 available (shortage)
+    const invAggregate = vi.fn(async ({ where }: { where: { productVariantId: string } }) => {
+      if (where.productVariantId === 'rm-aaa') return { _sum: { quantity: 100 } };
+      if (where.productVariantId === 'rm-bbb') return { _sum: { quantity: 30 } };
+      return { _sum: { quantity: null } };
+    });
+    mockPrisma.inventory.aggregate = invAggregate;
+
+    // Stock reservation: all zero
+    const resvAggregate = vi.fn(async () => ({ _sum: { quantity: null } }));
+    const stockResvMock = mockPrisma.stockReservation as { aggregate: MockFn; findFirst: MockFn; updateMany: MockFn };
+    stockResvMock.aggregate = resvAggregate;
+
+    // Batch variant lookup — only rm-bbb is in shortage
+    const pvFindMany = vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => {
+      const map: Record<string, { id: string; skuCode: string; name: string }> = {
+        'rm-bbb': { id: 'rm-bbb', skuCode: 'RM-BBB', name: 'Bahan B' },
+      };
+      return where.id.in.map((id: string) => map[id]).filter(Boolean);
+    });
+    const pvMock = mockPrisma.productVariant as { findUnique: MockFn; findMany: MockFn };
+    pvMock.findMany = pvFindMany;
+
+    const result = await ProductionRoutingRunService.checkRmAvailability('run-avail');
+    expect(result.ready).toBe(false);
+    expect(result.shortages).toHaveLength(1);
+    expect(result.shortages[0]).toMatchObject({
+      productVariantId: 'rm-bbb',
+      skuCode: 'RM-BBB',
+      name: 'Bahan B',
+      needed: 80,
+      available: 30,
+    });
+    // Verify batch query was used (called once, not N+1)
+    expect(pvFindMany).toHaveBeenCalledOnce();
+    expect(pvFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ['rm-bbb'] } },
+      select: { id: true, skuCode: true, name: true },
+    });
   });
 });

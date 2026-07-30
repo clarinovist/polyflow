@@ -1,10 +1,15 @@
 import { prisma } from '@/lib/core/prisma';
-import { ProductionRouteStatus } from '@prisma/client';
+import { Prisma, ProductionRouteStatus } from '@prisma/client';
 import {
   BusinessRuleError,
   NotFoundError,
   ValidationError,
 } from '@/lib/errors/errors';
+import {
+  isInactiveLocation,
+  isRiskyOutputLocation,
+  isPackagingSuppliesWarehouse,
+} from '@/lib/locations/resolve-location';
 import {
   validateRouteContinuity,
   type ValidateRouteInput,
@@ -91,7 +96,6 @@ export class ProductionRoutingService {
       await tx.machineProcessCapability.deleteMany({ where: { machineId } });
       if (processIds.length === 0) return [];
       const rows = processIds.map((pid) => ({
-        id: `${machineId.slice(0, 8)}-${pid.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         machineId,
         processId: pid,
         isPrimary: pid === primaryProcessId,
@@ -210,37 +214,40 @@ export class ProductionRoutingService {
   }) {
     const variant = await prisma.productVariant.findUnique({ where: { id: data.productVariantId } });
     if (!variant) throw new NotFoundError('ProductVariant', data.productVariantId);
-
-    const lastRoute = await prisma.productionRoute.findFirst({
-      where: { productVariantId: data.productVariantId },
-      orderBy: { version: 'desc' },
-    });
-    const nextVersion = (lastRoute?.version ?? 0) + 1;
     const code = data.code ?? nextCode(`RT-${variant.skuCode.slice(0, 6)}`);
 
-    return prisma.$transaction(async (tx) => {
-      // I3: draft default must NOT unset active default — only ACTIVE routes can be default
-      if (data.isDefault) {
-        // Only unset active defaults if this draft is being created as ACTIVE (not possible at create) or we allow draft to become default after publish
-        // For MVP: creating draft with isDefault=true is allowed but does NOT unset active default until publish.
-        // So we do NOT unset here — unset happens at publish time.
-        // If creator explicitly passes isDefault but route is DRAFT, keep false until publish.
-        // Only if they create as ACTIVE via direct (shouldn't), unset.
-      }
+    // Version calculation is inside the transaction to avoid P2002 collision
+    // on @@unique([productVariantId, version]) when two requests race.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        return await prisma.$transaction(async (tx) => {
+          const lastRoute = await tx.productionRoute.findFirst({
+            where: { productVariantId: data.productVariantId },
+            orderBy: { version: 'desc' },
+          });
+          const nextVersion = (lastRoute?.version ?? 0) + 1;
 
-      return tx.productionRoute.create({
-        data: {
-          code,
-          name: data.name,
-          productVariantId: data.productVariantId,
-          version: nextVersion,
-          // Draft routes cannot be default initially — default only set at publish/setDefault
-          isDefault: false,
-          notes: data.notes,
-          createdById: data.createdById,
-        },
-      });
-    });
+          // Draft routes cannot be default initially — default only set at publish/setDefault.
+          return tx.productionRoute.create({
+            data: {
+              code,
+              name: data.name,
+              productVariantId: data.productVariantId,
+              version: nextVersion,
+              isDefault: false,
+              notes: data.notes,
+              createdById: data.createdById,
+            },
+          });
+        });
+      } catch (e: unknown) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002' && attempt < 4) {
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw new BusinessRuleError('Gagal membuat route setelah retry version collision', undefined, 'ROUTE_CREATE_FAILED');
   }
 
   static async updateRoute(
@@ -258,54 +265,63 @@ export class ProductionRoutingService {
       throw new BusinessRuleError('Draft tidak bisa jadi default. Publish dulu lalu set default.', undefined, 'ROUTE_DEFAULT_CONFLICT');
     }
 
-    return prisma.$transaction(async (tx) => {
-      return tx.productionRoute.update({ where: { id }, data: { name: data.name, notes: data.notes } });
-    });
+    return prisma.productionRoute.update({ where: { id }, data: { name: data.name, notes: data.notes } });
   }
 
   static async duplicateRoute(id: string, actorId?: string) {
     const route = await this.getRouteById(id);
-    const lastRoute = await prisma.productionRoute.findFirst({
-      where: { productVariantId: route.productVariantId },
-      orderBy: { version: 'desc' },
-    });
-    const nextVersion = (lastRoute?.version ?? 0) + 1;
 
-    return prisma.$transaction(async (tx) => {
-      const newRoute = await tx.productionRoute.create({
-        data: {
-          code: nextCode(`RT-${route.productVariant.skuCode.slice(0, 6)}`),
-          name: `${route.name} v${nextVersion}`,
-          productVariantId: route.productVariantId,
-          version: nextVersion,
-          status: 'DRAFT',
-          isDefault: false,
-          notes: route.notes,
-          createdById: actorId,
-        },
-      });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        return await prisma.$transaction(async (tx) => {
+          const lastRoute = await tx.productionRoute.findFirst({
+            where: { productVariantId: route.productVariantId },
+            orderBy: { version: 'desc' },
+          });
+          const nextVersion = (lastRoute?.version ?? 0) + 1;
 
-      for (const step of route.steps) {
-        await tx.productionRouteStep.create({
-          data: {
-            routeId: newRoute.id,
-            sequence: step.sequence,
-            stepCode: step.stepCode,
-            label: step.label,
-            processId: step.processId,
-            bomId: step.bomId,
-            materialSourceLocationId: step.materialSourceLocationId,
-            outputLocationId: step.outputLocationId,
-            requiresQualityGate: step.requiresQualityGate,
-            allowsPartialHandoff: step.allowsPartialHandoff,
-            queueTimeMinutes: step.queueTimeMinutes,
-            setupTimeMinutes: step.setupTimeMinutes,
-          },
+          const newRoute = await tx.productionRoute.create({
+            data: {
+              code: nextCode(`RT-${route.productVariant.skuCode.slice(0, 6)}`),
+              name: `${route.name} v${nextVersion}`,
+              productVariantId: route.productVariantId,
+              version: nextVersion,
+              status: 'DRAFT',
+              isDefault: false,
+              notes: route.notes,
+              createdById: actorId,
+            },
+          });
+
+          for (const step of route.steps) {
+            await tx.productionRouteStep.create({
+              data: {
+                routeId: newRoute.id,
+                sequence: step.sequence,
+                stepCode: step.stepCode,
+                label: step.label,
+                processId: step.processId,
+                bomId: step.bomId,
+                materialSourceLocationId: step.materialSourceLocationId,
+                outputLocationId: step.outputLocationId,
+                requiresQualityGate: step.requiresQualityGate,
+                allowsPartialHandoff: step.allowsPartialHandoff,
+                queueTimeMinutes: step.queueTimeMinutes,
+                setupTimeMinutes: step.setupTimeMinutes,
+              },
+            });
+          }
+
+          return newRoute;
         });
+      } catch (e: unknown) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002' && attempt < 4) {
+          continue;
+        }
+        throw e;
       }
-
-      return newRoute;
-    });
+    }
+    throw new BusinessRuleError('Gagal menduplikasi route setelah retry version collision', undefined, 'ROUTE_DUPLICATE_FAILED');
   }
 
   static async deleteRoute(id: string) {
@@ -316,8 +332,10 @@ export class ProductionRoutingService {
     if (route._count.runs > 0) {
       throw new BusinessRuleError('Route sudah punya production runs, tidak bisa dihapus. Archive saja.', undefined, 'ROUTE_HAS_RUNS');
     }
-    await prisma.productionRouteStep.deleteMany({ where: { routeId: id } });
-    return prisma.productionRoute.delete({ where: { id } });
+    return prisma.$transaction(async (tx) => {
+      await tx.productionRouteStep.deleteMany({ where: { routeId: id } });
+      return tx.productionRoute.delete({ where: { id } });
+    });
   }
 
   // ── Route Steps ──────────────────────────────────────
@@ -400,18 +418,20 @@ export class ProductionRoutingService {
     if (!step) throw new NotFoundError('ProductionRouteStep', id);
     if (step.route.status !== 'DRAFT') throw new BusinessRuleError('Hanya DRAFT route yang bisa hapus step', undefined, 'ROUTE_VERSION_IMMUTABLE');
 
-    await prisma.productionRouteStep.delete({ where: { id } });
+    return prisma.$transaction(async (tx) => {
+      await tx.productionRouteStep.delete({ where: { id } });
 
-    // Re-normalize sequences
-    const remaining = await prisma.productionRouteStep.findMany({
-      where: { routeId: step.routeId },
-      orderBy: { sequence: 'asc' },
-    });
-    for (let i = 0; i < remaining.length; i++) {
-      if (remaining[i].sequence !== i) {
-        await prisma.productionRouteStep.update({ where: { id: remaining[i].id }, data: { sequence: i } });
+      // Re-normalize sequences
+      const remaining = await tx.productionRouteStep.findMany({
+        where: { routeId: step.routeId },
+        orderBy: { sequence: 'asc' },
+      });
+      for (let i = 0; i < remaining.length; i++) {
+        if (remaining[i].sequence !== i) {
+          await tx.productionRouteStep.update({ where: { id: remaining[i].id }, data: { sequence: i } });
+        }
       }
-    }
+    });
   }
 
   static async reorderSteps(routeId: string, orderedIds: string[]) {
@@ -459,13 +479,6 @@ export class ProductionRoutingService {
     });
     const capableSet = new Set(capabilities.map((c) => c.processId));
 
-    // Detect risky locations by slug heuristics
-    const isRiskySlug = (slug?: string | null) => {
-      if (!slug) return false;
-      const s = slug.toLowerCase();
-      return s.includes('rm_warehouse') || s.includes('gudang-bahan-baku') || s === 'gudang-packaging' || s.includes('inactive');
-    };
-
     const input: ValidateRouteInput = {
       finalProductVariantId: route.productVariantId,
       steps: route.steps.map((s) => ({
@@ -479,10 +492,12 @@ export class ProductionRoutingService {
         processRequiresMachine: s.process.requiresMachine,
         materialSourceLocationId: s.materialSourceLocationId,
         outputLocationId: s.outputLocationId,
-        sourceLocationActive: s.materialSourceLocation ? true : undefined,
-        outputLocationActive: s.outputLocation ? true : undefined,
-        isRiskyOutput: isRiskySlug(s.outputLocation?.slug) || false,
-        isRiskySource: isRiskySlug(s.materialSourceLocation?.slug) || false,
+        sourceLocationActive: s.materialSourceLocation ? !isInactiveLocation(s.materialSourceLocation) : undefined,
+        outputLocationActive: s.outputLocation ? !isInactiveLocation(s.outputLocation) : undefined,
+        isRiskyOutput: s.outputLocation ? isRiskyOutputLocation(s.outputLocation) : false,
+        isRiskySource: s.materialSourceLocation
+          ? isInactiveLocation(s.materialSourceLocation) || isPackagingSuppliesWarehouse(s.materialSourceLocation)
+          : false,
         bomItems: s.bom.items.map((bi) => ({ productVariantId: bi.productVariantId })),
         hasCapableMachine: capableSet.has(s.processId) || !s.process.requiresMachine,
       })),

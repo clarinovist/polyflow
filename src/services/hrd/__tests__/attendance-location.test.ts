@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
+    describeGeofenceProximity,
     parseGeofenceConfig,
+    resolveGeofence,
     validateLocation,
     isSelfServiceEnabled,
     getLateGraceMinutes,
     validateSelfServicePrerequisites,
-    serializeGeofenceForStorage,
 } from '../attendance-location';
+import { serializeGeofenceForStorage } from '../attendance-location-storage';
+import type { GeofenceConfig } from '../attendance-location';
 
 describe('parseGeofenceConfig', () => {
     it('returns null when geofence is disabled', () => {
@@ -202,6 +205,235 @@ describe('validateSelfServicePrerequisites', () => {
             'attendance.maxAccuracyMeters': '50',
         });
         expect(result.ready).toBe(true);
+    });
+});
+
+describe('resolveGeofence', () => {
+    it('returns disabled when geofence flag is not true', () => {
+        expect(resolveGeofence({})).toEqual({ kind: 'disabled' });
+        expect(
+            resolveGeofence({ 'attendance.geofenceEnabled': 'false' }),
+        ).toEqual({ kind: 'disabled' });
+        expect(
+            resolveGeofence({ 'attendance.geofenceEnabled': '' }),
+        ).toEqual({ kind: 'disabled' });
+    });
+
+    it('returns invalid when latitude is missing or invalid', () => {
+        const base = {
+            'attendance.geofenceEnabled': 'true',
+            'attendance.longitude': '106.0',
+            'attendance.radiusMeters': '100',
+            'attendance.maxAccuracyMeters': '50',
+        };
+        // missing latitude
+        const r1 = resolveGeofence(base);
+        expect(r1.kind).toBe('invalid');
+        if (r1.kind === 'invalid') {
+            expect(r1.reason).toContain('Koordinat');
+        }
+
+        // invalid latitude string
+        const r2 = resolveGeofence({
+            ...base,
+            'attendance.latitude': 'invalid',
+        });
+        expect(r2.kind).toBe('invalid');
+
+        // out-of-range latitude
+        const r3 = resolveGeofence({
+            ...base,
+            'attendance.latitude': '999',
+        });
+        expect(r3.kind).toBe('invalid');
+    });
+
+    it('returns invalid when radius is 0 or negative', () => {
+        const make = (radius: string) =>
+            resolveGeofence({
+                'attendance.geofenceEnabled': 'true',
+                'attendance.latitude': '-6.12',
+                'attendance.longitude': '106.0',
+                'attendance.radiusMeters': radius,
+                'attendance.maxAccuracyMeters': '50',
+            });
+
+        const r0 = make('0');
+        expect(r0.kind).toBe('invalid');
+        if (r0.kind === 'invalid') {
+            expect(r0.reason).toContain('Radius');
+        }
+
+        const rNeg = make('-10');
+        expect(rNeg.kind).toBe('invalid');
+
+        const rNaN = make('abc');
+        expect(rNaN.kind).toBe('invalid');
+    });
+
+    it('returns invalid when maxAccuracyMeters is invalid', () => {
+        const make = (acc: string) =>
+            resolveGeofence({
+                'attendance.geofenceEnabled': 'true',
+                'attendance.latitude': '-6.12',
+                'attendance.longitude': '106.0',
+                'attendance.radiusMeters': '100',
+                'attendance.maxAccuracyMeters': acc,
+            });
+
+        const r0 = make('0');
+        expect(r0.kind).toBe('invalid');
+        if (r0.kind === 'invalid') {
+            expect(r0.reason).toContain('akurasi');
+        }
+
+        const rNeg = make('-5');
+        expect(rNeg.kind).toBe('invalid');
+
+        const rMissing = make('');
+        expect(rMissing.kind).toBe('invalid');
+    });
+
+    it('returns active with correct config when all values valid', () => {
+        const result = resolveGeofence({
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.123456',
+            'attendance.longitude': '106.123456',
+            'attendance.radiusMeters': '100',
+            'attendance.maxAccuracyMeters': '50',
+        });
+        expect(result.kind).toBe('active');
+        if (result.kind === 'active') {
+            expect(result.config.latitude).toBeCloseTo(-6.123456, 5);
+            expect(result.config.longitude).toBeCloseTo(106.123456, 5);
+            expect(result.config.radiusMeters).toBe(100);
+            expect(result.config.maxAccuracyMeters).toBe(50);
+            expect(result.config.enabled).toBe(true);
+        }
+    });
+});
+
+describe('describeGeofenceProximity', () => {
+    const office: GeofenceConfig = {
+        enabled: true,
+        latitude: -6.2,
+        longitude: 106.8,
+        radiusMeters: 100,
+        maxAccuracyMeters: 50,
+    };
+
+    it('returns no-geofence when config is null', () => {
+        const result = describeGeofenceProximity(null, {
+            latitude: -6.2,
+            longitude: 106.8,
+            accuracy: 10,
+        });
+        expect(result.kind).toBe('no-geofence');
+    });
+
+    it('returns waiting-gps when evidence is null', () => {
+        const result = describeGeofenceProximity(office, null);
+        expect(result.kind).toBe('waiting-gps');
+    });
+
+    it('returns waiting-gps when coordinates are invalid', () => {
+        const result = describeGeofenceProximity(office, {
+            latitude: NaN,
+            longitude: 106.8,
+            accuracy: 10,
+        });
+        expect(result.kind).toBe('waiting-gps');
+    });
+
+    it('returns waiting-gps when accuracy is not finite', () => {
+        const result = describeGeofenceProximity(office, {
+            latitude: -6.2,
+            longitude: 106.8,
+            accuracy: NaN,
+        });
+        expect(result.kind).toBe('waiting-gps');
+    });
+
+    it('returns accuracy-poor when accuracy exceeds limit', () => {
+        const result = describeGeofenceProximity(office, {
+            latitude: -6.2,
+            longitude: 106.8,
+            accuracy: 200,
+        });
+        expect(result.kind).toBe('accuracy-poor');
+        if (result.kind === 'accuracy-poor') {
+            expect(result.accuracy).toBe(200);
+            expect(result.limit).toBe(50);
+            expect(result.message).toContain('Akurasi GPS');
+            expect(result.message).toContain('±200m');
+            expect(result.message).toContain('±50m');
+        }
+    });
+
+    it('returns outside when distance exceeds radius', () => {
+        // ~1.5km away
+        const result = describeGeofenceProximity(office, {
+            latitude: -6.21,
+            longitude: 106.81,
+            accuracy: 10,
+        });
+        expect(result.kind).toBe('outside');
+        if (result.kind === 'outside') {
+            expect(result.distanceMeters).toBeGreaterThan(100);
+            expect(result.radiusMeters).toBe(100);
+            expect(result.message).toContain('di luar radius');
+        }
+    });
+
+    it('returns inside when within radius and accurate', () => {
+        const result = describeGeofenceProximity(office, {
+            latitude: -6.2,
+            longitude: 106.8,
+            accuracy: 10,
+        });
+        expect(result.kind).toBe('inside');
+        if (result.kind === 'inside') {
+            expect(result.distanceMeters).toBeLessThan(1);
+            expect(result.message).toContain('di dalam area absensi');
+        }
+    });
+
+    it('returns inside when distance is just inside the radius (boundary)', () => {
+        // Calculate point slightly inside radius: 99m north from office
+        const metersPerDegreeLat = 111_000;
+        const deltaLat = 99 / metersPerDegreeLat;
+        const result = describeGeofenceProximity(office, {
+            latitude: office.latitude + deltaLat,
+            longitude: office.longitude,
+            accuracy: 10,
+        });
+        expect(result.kind).toBe('inside');
+        if (result.kind === 'inside') {
+            expect(result.distanceMeters).toBeLessThanOrEqual(office.radiusMeters);
+        }
+    });
+
+    it('returns outside when distance is just outside the radius (boundary)', () => {
+        const metersPerDegreeLat = 111_000;
+        const deltaLat = 101 / metersPerDegreeLat;
+        const result = describeGeofenceProximity(office, {
+            latitude: office.latitude + deltaLat,
+            longitude: office.longitude,
+            accuracy: 10,
+        });
+        expect(result.kind).toBe('outside');
+        if (result.kind === 'outside') {
+            expect(result.distanceMeters).toBeGreaterThan(office.radiusMeters);
+        }
+    });
+
+    it('checks accuracy before distance (accuracy-poor even if also outside)', () => {
+        const result = describeGeofenceProximity(office, {
+            latitude: -7.0,
+            longitude: 107.5,
+            accuracy: 999,
+        });
+        expect(result.kind).toBe('accuracy-poor');
     });
 });
 

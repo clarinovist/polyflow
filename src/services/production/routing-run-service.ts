@@ -340,11 +340,13 @@ export class ProductionRoutingRunService {
   }
 
   /**
-   * I4: Check RM availability for first step of run
+   * I4: Check RM availability for first step of run.
+   * Returns skuCode + name for each shortage so the UI can display human-readable
+   * identifiers instead of raw UUIDs.
    */
   static async checkRmAvailability(runId: string): Promise<{
     ready: boolean;
-    shortages: Array<{ productVariantId: string; needed: number; available: number; shortage: number }>;
+    shortages: Array<{ productVariantId: string; skuCode: string; name: string; needed: number; available: number; shortage: number }>;
   }> {
     const run = await this.getRunById(runId);
     const firstOrder = run.orders.find((o) => (o.routeSequenceSnapshot ?? 0) === 0);
@@ -353,7 +355,7 @@ export class ProductionRoutingRunService {
     // I4: get source location from first step (if specified)
     const sourceLocId = (firstOrder as { materialSourceLocationId?: string }).materialSourceLocationId;
 
-    const shortages: Array<{ productVariantId: string; needed: number; available: number; shortage: number }> = [];
+    const shortageEntries: Array<{ productVariantId: string; needed: number; available: number; shortage: number }> = [];
 
     for (const pm of (firstOrder as { plannedMaterials?: { productVariantId: string; quantity: unknown }[] }).plannedMaterials ?? []) {
       const needed = Number(pm.quantity);
@@ -389,9 +391,31 @@ export class ProductionRoutingRunService {
         available = Math.max(0, invQty - reserved);
       }
       if (available < needed) {
-        shortages.push({ productVariantId: pm.productVariantId, needed, available, shortage: needed - available });
+        shortageEntries.push({ productVariantId: pm.productVariantId, needed, available, shortage: needed - available });
       }
     }
+
+    // Batch-fetch skuCode + name for all shortage variants (single query, no N+1)
+    const variantIds = shortageEntries.map((s) => s.productVariantId);
+    const variants = variantIds.length > 0
+      ? await prisma.productVariant.findMany({
+          where: { id: { in: variantIds } },
+          select: { id: true, skuCode: true, name: true },
+        })
+      : [];
+    const variantMap = new Map(variants.map((v) => [v.id, v]));
+
+    const shortages = shortageEntries.map((entry) => {
+      const v = variantMap.get(entry.productVariantId);
+      return {
+        productVariantId: entry.productVariantId,
+        skuCode: v?.skuCode ?? '',
+        name: v?.name ?? '',
+        needed: entry.needed,
+        available: entry.available,
+        shortage: entry.shortage,
+      };
+    });
 
     return { ready: shortages.length === 0, shortages };
   }

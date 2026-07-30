@@ -38,6 +38,7 @@ import {
     selfServiceClockIn,
     selfServiceClockOut,
     getMyTodayAttendance,
+    getMyGeofenceInfo,
 } from '../attendance';
 
 describe('selfServiceClockIn', () => {
@@ -224,5 +225,105 @@ describe('getMyTodayAttendance', () => {
 
         expect(result.success).toBe(true);
         expect(result.data!.status).toBe('NOT_CLOCKED_IN');
+    });
+});
+
+describe('getMyGeofenceInfo', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('returns error when session is missing', async () => {
+        vi.mocked(getEmployeeSession).mockResolvedValue(null);
+
+        const result = await getMyGeofenceInfo();
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('Unauthorized');
+    });
+
+    it('returns null geofence and configInvalid=false when geofence disabled', async () => {
+        vi.mocked(getEmployeeSession).mockResolvedValue({
+            employeeId: 'emp-1',
+            code: 'EMP-001',
+            name: 'Budi',
+        } as any);
+        vi.mocked(readAttendanceSettings).mockResolvedValue({
+            'attendance.selfServiceEnabled': 'true',
+            'attendance.geofenceEnabled': 'false',
+        } as any);
+
+        const result = await getMyGeofenceInfo();
+
+        expect(result.success).toBe(true);
+        expect(result.data!.geofence).toBeNull();
+        expect(result.data!.configInvalid).toBe(false);
+        expect(result.data!.selfServiceEnabled).toBe(true);
+    });
+
+    it('returns configInvalid=true when geofenceEnabled but latitude empty', async () => {
+        vi.mocked(getEmployeeSession).mockResolvedValue({
+            employeeId: 'emp-1',
+            code: 'EMP-001',
+            name: 'Budi',
+        } as any);
+        vi.mocked(readAttendanceSettings).mockResolvedValue({
+            'attendance.selfServiceEnabled': 'true',
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '',
+            'attendance.longitude': '106.12',
+            'attendance.radiusMeters': '100',
+            'attendance.maxAccuracyMeters': '50',
+        } as any);
+
+        const result = await getMyGeofenceInfo();
+
+        expect(result.success).toBe(true);
+        expect(result.data!.geofence).toBeNull();
+        expect(result.data!.configInvalid).toBe(true);
+    });
+
+    it('returns valid geofence config when all values present', async () => {
+        vi.mocked(getEmployeeSession).mockResolvedValue({
+            employeeId: 'emp-1',
+            code: 'EMP-001',
+            name: 'Budi',
+        } as any);
+        vi.mocked(readAttendanceSettings).mockResolvedValue({
+            'attendance.selfServiceEnabled': 'true',
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.123456',
+            'attendance.longitude': '106.654321',
+            'attendance.radiusMeters': '150',
+            'attendance.maxAccuracyMeters': '75',
+        } as any);
+
+        const result = await getMyGeofenceInfo();
+
+        expect(result.success).toBe(true);
+        expect(result.data!.geofence).not.toBeNull();
+        expect(result.data!.geofence!.latitude).toBeCloseTo(-6.123456, 4);
+        expect(result.data!.geofence!.longitude).toBeCloseTo(106.654321, 4);
+        expect(result.data!.geofence!.radiusMeters).toBe(150);
+        expect(result.data!.configInvalid).toBe(false);
+        expect(result.data!.selfServiceEnabled).toBe(true);
+    });
+
+    it('returns only selfServiceEnabled, geofence, configInvalid fields on success', async () => {
+        vi.mocked(getEmployeeSession).mockResolvedValue({
+            employeeId: 'emp-1',
+            code: 'EMP-001',
+            name: 'Budi',
+        } as any);
+        vi.mocked(readAttendanceSettings).mockResolvedValue({
+            'attendance.selfServiceEnabled': 'false',
+            'attendance.geofenceEnabled': 'false',
+        } as any);
+
+        const result = await getMyGeofenceInfo();
+
+        expect(result.success).toBe(true);
+        const keys = Object.keys(result.data!).sort();
+        expect(keys).toEqual(['configInvalid', 'geofence', 'selfServiceEnabled']);
     });
 });
