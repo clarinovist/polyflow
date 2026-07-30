@@ -23,10 +23,10 @@ vi.mock('../pin-helpers', () => ({
 
 import { verifyPin } from '../pin-helpers';
 
-function todayMidnightUTC() {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
+import { wibDateFrom } from '../shift-window';
+
+function todayWorkDate() {
+  return wibDateFrom(new Date());
 }
 function nowMinusHours(h: number) {
   return new Date(Date.now() - h * 3600_000);
@@ -201,7 +201,7 @@ describe('AttendanceService', () => {
       const recentClockIn = nowMinusHours(2);
       vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
         {
-          id: 'rec-1', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          id: 'rec-1', employeeId: 'emp-1', workDate: todayWorkDate(),
           clockInAt: recentClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
           dailyRateSnapshot: activeEmployee.dailyRate,
           overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
@@ -237,7 +237,7 @@ describe('AttendanceService', () => {
       const recentClockOut = new Date();
       vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
         {
-          id: 'rec-1', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          id: 'rec-1', employeeId: 'emp-1', workDate: todayWorkDate(),
           clockInAt: recentClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
           dailyRateSnapshot: activeEmployee.dailyRate,
           overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
@@ -312,7 +312,7 @@ describe('AttendanceService', () => {
       const todayClockIn = nowMinusHours(1);
       vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
         {
-          id: 'rec-today', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          id: 'rec-today', employeeId: 'emp-1', workDate: todayWorkDate(),
           clockInAt: todayClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
           dailyRateSnapshot: activeEmployee.dailyRate,
           overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
@@ -678,7 +678,7 @@ describe('AttendanceService', () => {
       const todayClockIn = nowMinusHours(1);
       vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
         {
-          id: 'rec-today', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          id: 'rec-today', employeeId: 'emp-1', workDate: todayWorkDate(),
           clockInAt: todayClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
           dailyRateSnapshot: activeEmployee.dailyRate,
           overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
@@ -978,7 +978,7 @@ describe('AttendanceService', () => {
       } as any);
       vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
         {
-          id: 'rec-open', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          id: 'rec-open', employeeId: 'emp-1', workDate: todayWorkDate(),
           clockInAt: nowMinusHours(3), clockOutAt: null,
           workShift: activeShift, workShiftId: 'shift-1',
           dailyRateSnapshot: activeEmployee.dailyRate,
@@ -997,7 +997,7 @@ describe('AttendanceService', () => {
       vi.mocked(mockDb.attendanceRecord.update).mockImplementation(async (arg: any) => {
         updateCalls.push(arg.data);
         return {
-          id: 'rec-open', employeeId: 'emp-1', workDate: todayMidnightUTC(),
+          id: 'rec-open', employeeId: 'emp-1', workDate: todayWorkDate(),
           workShiftId: 'shift-1', clockInAt: nowMinusHours(3), clockOutAt: new Date(),
           isOvertimeShift: false, status: 'PRESENT', source: 'SELF_SERVICE',
           dailyRateSnapshot: activeEmployee.dailyRate,
