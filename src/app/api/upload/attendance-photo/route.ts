@@ -4,7 +4,8 @@ import {
     buildAttendancePhotoKey,
     uploadToR2,
 } from '@/lib/storage/r2';
-import { prisma } from '@/lib/core/prisma';
+import { resolveTenantContext } from '@/lib/core/tenant';
+import { getMainPrisma } from '@/lib/core/prisma';
 
 const ALLOWED_TYPES = [
     'image/jpeg',
@@ -47,8 +48,22 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // Resolve tenant DB correctly (route not under withTenantRoute)
+        // For kiosk selfies the check must run against the tenant DB (kiyowo), not main polyflow.
+        const tenantResult = await resolveTenantContext(req.headers);
+        let tenantDb = null as ReturnType<typeof getMainPrisma> | null;
+        if (tenantResult.type === 'RESOLVED') {
+            tenantDb = tenantResult.tenantDb as unknown as ReturnType<typeof getMainPrisma>;
+        } else if (tenantResult.type === 'NOT_FOUND') {
+            // Tenant missing - but allow fallback to main for superadmin/debug, log warning
+            console.warn(
+                `[attendance-photo] Tenant not found for subdomain=${tenantResult.subdomain}, falling back to main DB`,
+            );
+        }
+        const db = tenantDb ?? getMainPrisma();
+
         // Tenant isolation + ensure employee exists and active for this tenant DB
-        const empExists = await prisma.employee.findFirst({
+        const empExists = await db.employee.findFirst({
             where: { id: employeeId, status: 'ACTIVE' },
             select: { id: true },
         });

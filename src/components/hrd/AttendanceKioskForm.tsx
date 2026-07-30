@@ -61,7 +61,7 @@ async function uploadSelfie(
     file: File,
     employeeId: string,
     kind: 'clock_in' | 'clock_out',
-): Promise<string | null> {
+): Promise<{ url: string | null; error?: string }> {
     try {
         const formData = new FormData();
         formData.append('file', file);
@@ -71,16 +71,39 @@ async function uploadSelfie(
             method: 'POST',
             body: formData,
         });
-        if (!res.ok) return null;
-        const data = (await res.json()) as {
+        let data: {
             success?: boolean;
             publicUrl?: string;
             url?: string;
-        };
-        return data.publicUrl ?? data.url ?? null;
+            error?: string;
+        } = {};
+        try {
+            data = (await res.json()) as typeof data;
+        } catch {
+            // Non-JSON response (e.g. gateway error)
+            return {
+                url: null,
+                error: `Upload selfie gagal (HTTP ${res.status})`,
+            };
+        }
+        if (!res.ok) {
+            return {
+                url: null,
+                error: data.error || `Upload selfie gagal (HTTP ${res.status})`,
+            };
+        }
+        const url = data.publicUrl ?? data.url ?? null;
+        if (!url) {
+            return { url: null, error: 'Upload selfie tidak mengembalikan URL' };
+        }
+        return { url };
     } catch (error) {
         console.error('Failed to upload selfie:', error);
-        return null;
+        const msg =
+            error instanceof Error && error.message
+                ? error.message
+                : 'Koneksi terputus';
+        return { url: null, error: `Gagal upload selfie: ${msg}` };
     }
 }
 
@@ -152,7 +175,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
         setLoading(true);
         setFeedback(null);
         try {
-            const photoUrl = await uploadSelfie(
+            const { url: photoUrl, error: uploadErr } = await uploadSelfie(
                 selfieFile,
                 selectedEmployee.id,
                 'clock_in',
@@ -160,7 +183,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             if (!photoUrl) {
                 setFeedback({
                     type: 'error',
-                    message: 'Gagal mengunggah foto selfie. Periksa koneksi internet Anda.',
+                    message: uploadErr || 'Gagal mengunggah foto selfie. Cek koneksi / R2.',
                 });
                 return;
             }
@@ -213,12 +236,16 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
         try {
             let photoUrl: string | undefined;
             if (selfieFile) {
-                photoUrl =
-                    (await uploadSelfie(
-                        selfieFile,
-                        selectedEmployee.id,
-                        'clock_out',
-                    )) || undefined;
+                const up = await uploadSelfie(
+                    selfieFile,
+                    selectedEmployee.id,
+                    'clock_out',
+                );
+                if (!up.url && up.error) {
+                    // Non-critical for clock-out: log but continue without photo
+                    console.warn('Selfie upload failed on clock-out:', up.error);
+                }
+                photoUrl = up.url || undefined;
             }
 
             const result = await kioskClockOut(

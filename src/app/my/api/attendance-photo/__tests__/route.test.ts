@@ -24,6 +24,33 @@ vi.mock('@/lib/auth/employee-session', () => ({
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: { employee: { findUnique: vi.fn() } },
+    getMainPrisma: vi.fn(() => ({
+        employee: {
+            findFirst: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
+            findUnique: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
+        },
+    })),
+}));
+
+vi.mock('@/lib/core/tenant', () => ({
+    resolveTenantContext: vi.fn().mockResolvedValue({
+        type: 'RESOLVED',
+        tenantDb: {
+            employee: {
+                findFirst: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
+                findUnique: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
+            },
+        },
+        tenantId: 'tenant-kiyowo',
+        subdomain: 'kiyowo',
+        activeModules: [],
+    }),
+}));
+
+vi.mock('next/headers', () => ({
+    headers: vi.fn().mockResolvedValue({
+        get: vi.fn().mockReturnValue('kiyowo.example.com'),
+    }),
 }));
 
 vi.mock('@/lib/storage/r2', () => ({
@@ -62,6 +89,19 @@ describe('/my/api/attendance-photo', () => {
     });
 
     it('401 when employee inactive', async () => {
+        const { resolveTenantContext } = await import('@/lib/core/tenant');
+        vi.mocked(resolveTenantContext as any).mockResolvedValueOnce({
+            type: 'RESOLVED',
+            tenantDb: {
+                employee: {
+                    findUnique: vi.fn().mockResolvedValue(null),
+                    findFirst: vi.fn().mockResolvedValue(null),
+                },
+            },
+            tenantId: 'tenant-kiyowo',
+            subdomain: 'kiyowo',
+            activeModules: [],
+        });
         vi.mocked(getEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1', code: 'EMP-014', name: 'Rizal',
         } as any);

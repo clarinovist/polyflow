@@ -5,7 +5,8 @@ import {
     uploadToR2,
 } from '@/lib/storage/r2';
 import { getEmployeeSession } from '@/lib/auth/employee-session';
-import { prisma } from '@/lib/core/prisma';
+import { resolveTenantContext } from '@/lib/core/tenant';
+import { getMainPrisma } from '@/lib/core/prisma';
 
 const ALLOWED_TYPES = [
     'image/jpeg',
@@ -34,8 +35,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Resolve tenant DB correctly (self-service portal under /my)
+        const tenantResult = await resolveTenantContext(req.headers);
+        let tenantDb = null as ReturnType<typeof getMainPrisma> | null;
+        if (tenantResult.type === 'RESOLVED') {
+            tenantDb = tenantResult.tenantDb as unknown as ReturnType<typeof getMainPrisma>;
+        }
+        const db = tenantDb ?? getMainPrisma();
+
         // Lightweight ACTIVE check
-        const emp = await prisma.employee.findUnique({
+        const emp = await db.employee.findUnique({
             where: { id: session.employeeId },
             select: { id: true, status: true },
         });
