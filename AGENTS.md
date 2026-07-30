@@ -56,6 +56,85 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
 - **Jangan pernah push** ke remote tanpa perintah eksplisit dari user. Tunggu user bilang "push" atau "ship" atau "kirim".
 - Commit message: jelas, mention plan file kalau ada (`plan: docs/plan/...`).
 
+## OpenCode Worker Orchestration (Primary Agent → OpenCode)
+
+Agent utama yang aktif (misalnya Codex atau Claude Code) boleh bertindak sebagai
+**orchestrator** dan memakai OpenCode lokal sebagai coding worker. Delegasi ini
+opsional, bukan pengganti workflow utama. Orchestrator tetap bertanggung jawab
+atas plan, pembatasan scope, review diff aktual, residual gap, verifikasi akhir,
+dan keputusan commit/push.
+
+### Kapan dipakai
+
+- Cocok untuk task implementasi yang jelas, bounded, dan cukup besar sehingga
+  eksplorasi/penulisan patch bisa dipisahkan dari review.
+- Untuk edit kecil atau one-line fix, kerjakan langsung; delegasi biasanya
+  menambah overhead.
+- Jangan menjalankan beberapa worker pada file yang sama. Repo ini shared
+  workspace; gunakan satu writer per file/scope. Jika benar-benar perlu paralel,
+  pakai git worktree terpisah dan integrasikan hasil satu per satu.
+- Operasi production/VPS, seeding, migration deploy, credential, commit, push,
+  dan deploy tetap dijalankan oleh orchestrator sesuai approval dan aturan repo.
+  Worker boleh menulis code atau migration file yang sudah tercakup dalam plan,
+  tetapi tidak boleh mengeksekusi perubahan ke database production.
+
+### Urutan wajib
+
+1. Orchestrator inspect repo dan membuat plan di `docs/plan/` terlebih dahulu.
+2. Pastikan runtime tersedia dengan `command -v opencode`; jangan berasumsi
+   instalasi atau konfigurasi model/provider selalu sama di setiap environment.
+3. Berikan prompt worker yang menyebutkan:
+   - root/module `AGENTS.md` dan plan yang harus dibaca;
+   - file/scope yang boleh disentuh;
+   - acceptance criteria dan test scope;
+   - larangan commit, push, deploy, dan operasi database production.
+4. Jalankan worker. Mode headless adalah default:
+
+   ```bash
+   opencode run \
+     --dir "$PWD" \
+     --format json \
+     "Baca AGENTS.md dan docs/plan/<plan>.md. Implementasikan hanya scope plan. Jangan commit, push, atau deploy."
+   ```
+
+5. Untuk proses panjang, boleh jalankan melalui `tmux` dan simpan log di `/tmp`
+   agar root repo tetap bersih:
+
+   ```bash
+   tmux new-session -d -s opencode-worker \
+     "cd '$PWD' && opencode run --dir '$PWD' '...task bounded...' 2>&1 | tee /tmp/opencode-worker.log"
+   tail -f /tmp/opencode-worker.log
+   ```
+
+6. Setelah worker selesai, orchestrator **wajib** memeriksa workspace nyata dengan
+   `git status --short`, `git diff --stat`, dan `git diff`. Jangan percaya summary
+   worker tanpa verifikasi file aktual.
+7. Orchestrator menjalankan residual gap loop sampai 0, lalu lint, scoped test,
+   coverage, typecheck, dan build sesuai workflow utama. Verifikasi worker tidak
+   menggantikan verifikasi orchestrator.
+8. Setelah code berubah, jalankan `graphify update .` sesuai aturan graphify.
+
+### Guardrail
+
+- Jangan memakai `--auto` secara default. Auto-approve hanya boleh dipertimbangkan
+  dengan persetujuan eksplisit user, scope terisolasi, dan risiko sudah dipahami.
+- Jangan memasukkan secret, credential, production connection string, atau data
+  tenant sensitif ke prompt/log worker.
+- Jika worker menyentuh file di luar scope atau hasilnya tidak sesuai plan,
+  hentikan/reject perubahan tersebut dan review sebelum melanjutkan.
+- Jangan jalankan build dari worker ketika terminal lain masih aktif; aturan
+  koordinasi build tetap berlaku.
+
+### Dampak token dan biaya
+
+OpenCode worker **dapat mengurangi token/konteks yang dipakai sesi orchestrator**
+karena eksplorasi dan implementasi detail dipindahkan ke worker. Namun ini bukan
+jaminan total token atau biaya lebih rendah: OpenCode memakai token provider/model
+worker sendiri, sedangkan duplikasi konteks, prompt terlalu luas, atau rework bisa
+menaikkan konsumsi total. Untuk efisiensi, delegasikan task yang bounded, kirim
+context minimum yang cukup, dan hentikan worker setelah acceptance criteria
+terpenuhi.
+
 ## VPS — nugrohopramono
 
 Container polyflow (Next.js) berjalan di VPS ini.
