@@ -20,7 +20,11 @@ import {
     type LocationEvidence,
 } from './attendance-location';
 import { haversineDistance } from '@/lib/utils/geo';
-import { isOvernightShift, wibDateStringFrom } from './shift-window';
+import {
+    isOvernightShift,
+    wibDateFrom,
+    wibDateStringFrom,
+} from './shift-window';
 
 // ─── Input types ───
 
@@ -627,11 +631,9 @@ export const AttendanceService = {
                 .toISOString()
                 .slice(0, 10);
             const elapsedHours =
-                (now.getTime() -
-                    new Date(rec.clockInAt as Date).getTime()) /
+                (now.getTime() - new Date(rec.clockInAt as Date).getTime()) /
                 (1000 * 60 * 60);
-            const isStale =
-                workDateStr !== todayWibStr && elapsedHours > 20;
+            const isStale = workDateStr !== todayWibStr && elapsedHours > 20;
             return {
                 ...rec,
                 isStale: isStale || undefined,
@@ -644,8 +646,9 @@ export const AttendanceService = {
             const wd = (r.workDate as Date).toISOString().slice(0, 10);
             if (wd === todayWibStr) return true;
             // Overnight: clock-in late night yesterday, still open early today — workDate = yesterday
-            const shift = (r as { workShift?: { startTime: string; endTime: string } })
-                .workShift;
+            const shift = (
+                r as { workShift?: { startTime: string; endTime: string } }
+            ).workShift;
             if (shift && isOvernightShift(shift.startTime, shift.endTime)) {
                 const clockInStr = wibDateStringFrom(
                     new Date(r.clockInAt as Date),
@@ -662,9 +665,7 @@ export const AttendanceService = {
 
         // No today match — we have only stale records. Return newest stale with flag.
         const newest = allOpen[0];
-        const staleDate = (newest.workDate as Date)
-            .toISOString()
-            .slice(0, 10);
+        const staleDate = (newest.workDate as Date).toISOString().slice(0, 10);
         return {
             ...newest,
             isStale: true,
@@ -687,10 +688,11 @@ export const AttendanceService = {
         const pinValid = await verifyPin(input.pin, employee.pinHash);
         if (!pinValid) throw new BusinessRuleError('PIN salah');
 
-        const openRecord = await AttendanceService._resolveOpenRecordForClockOut(
-            db,
-            employee.id,
-        );
+        const openRecord =
+            await AttendanceService._resolveOpenRecordForClockOut(
+                db,
+                employee.id,
+            );
         if (!openRecord)
             throw new BusinessRuleError(
                 'Tidak ada sesi absensi yang masih terbuka',
@@ -1305,7 +1307,10 @@ export const AttendanceService = {
         // Validate geofence
         const geoConfig = parseGeofenceConfig(settings);
         if (geoConfig) {
-            const geoResult = validateLocation(geoConfig, input.locationEvidence);
+            const geoResult = validateLocation(
+                geoConfig,
+                input.locationEvidence,
+            );
             if (!geoResult.withinFence) {
                 throw new BusinessRuleError(
                     geoResult.reason ?? 'Lokasi di luar area kerja',
@@ -1322,10 +1327,7 @@ export const AttendanceService = {
             where: {
                 employeeId: employee.id,
                 effectiveFrom: { lte: today },
-                OR: [
-                    { effectiveTo: null },
-                    { effectiveTo: { gte: today } },
-                ],
+                OR: [{ effectiveTo: null }, { effectiveTo: { gte: today } }],
             },
             include: { workShift: true },
             orderBy: { effectiveFrom: 'desc' },
@@ -1448,7 +1450,10 @@ export const AttendanceService = {
         // Validate geofence
         const geoConfig = parseGeofenceConfig(settings);
         if (geoConfig) {
-            const geoResult = validateLocation(geoConfig, input.locationEvidence);
+            const geoResult = validateLocation(
+                geoConfig,
+                input.locationEvidence,
+            );
             if (!geoResult.withinFence) {
                 throw new BusinessRuleError(
                     geoResult.reason ?? 'Lokasi di luar area kerja',
@@ -1564,10 +1569,17 @@ export const AttendanceService = {
             orderBy: { clockInAt: 'desc' },
         });
 
-        // Find today's completed records
+        // Find today's completed records.
+        // IMPORTANT: must filter by workDate — without it, Prisma returns the
+        // most recently *ever* completed record (ordered by clockOutAt desc),
+        // which permanently reports CLOCKED_OUT for every subsequent day after
+        // an employee's very first successful cycle and hides the clock-in
+        // button with no visible error.
+        const todayWorkDate = wibDateFrom(now);
         const todayRecord = await db.attendanceRecord.findFirst({
             where: {
                 employeeId,
+                workDate: todayWorkDate,
                 clockInAt: { not: null },
                 clockOutAt: { not: null },
             },

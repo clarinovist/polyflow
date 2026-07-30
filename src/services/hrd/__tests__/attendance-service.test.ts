@@ -703,6 +703,36 @@ describe('AttendanceService', () => {
       expect(status.status).toBe('WORKING');
       expect(status.record?.id).toBe('rec-today');
     });
+
+    it('does not treat an old completed record from another day as CLOCKED_OUT today', async () => {
+      // Regression test: the completed-record lookup must filter by
+      // workDate, otherwise Prisma's orderBy: { clockOutAt: 'desc' } returns
+      // the most recently ever completed record — permanently reporting
+      // CLOCKED_OUT (and hiding the clock-in button) after an employee's
+      // very first successful cycle, with no visible error anywhere.
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue({
+        workShift: activeShift,
+      } as any);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([]); // no open records
+      // Simulate a correctly-filtered DB: no record matches today's workDate.
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+
+      const status = await AttendanceService.getMyTodayStatus(mockDb as any, 'emp-1');
+
+      expect(status.status).toBe('NOT_CLOCKED_IN');
+      // The query must scope completed records to today's workDate so a
+      // record from days ago can never satisfy it.
+      expect(mockDb.attendanceRecord.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            employeeId: 'emp-1',
+            workDate: expect.any(Date),
+            clockInAt: { not: null },
+            clockOutAt: { not: null },
+          }),
+        }),
+      );
+    });
   });
 
   describe('clockInSelfService - missing assignment', () => {
