@@ -29,6 +29,7 @@ import {
 import {
   assertRoutedOrderCanStart,
   assertMachineCapableForOrder,
+  ensureRoutedOrderWipReservation,
   syncProductionRunStatusFromOrders,
 } from './routing-execution-guard';
 import { voidProductionExecutionInTransaction } from './execution-void-helper';
@@ -301,6 +302,7 @@ export class ProductionExecutionService {
             if (routedOrderForGuard) {
               await assertRoutedOrderCanStart(tx, routedOrderForGuard as never);
               await assertMachineCapableForOrder(tx, routedOrderForGuard as never, machineId ?? routedOrderForGuard.machineId);
+              await ensureRoutedOrderWipReservation(tx, routedOrderForGuard as never);
             }
 
             // Handover: if SPK still running (paused without full stop), reassign operator/shift

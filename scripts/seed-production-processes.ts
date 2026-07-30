@@ -1,10 +1,13 @@
 /**
  * Idempotent baseline process + machine capability seed
  * Run: npx tsx scripts/seed-production-processes.ts --preview
- *      npx tsx scripts/seed-production-processes.ts --apply
+ *      npx tsx scripts/seed-production-processes.ts --apply --confirm
  *
  * Safe: only creates missing processes, maps existing MachineType to process codes.
  * No deletion, no route auto-publish.
+ *
+ * The target database is printed (host + database name) without credentials.
+ * --apply requires --confirm to proceed; otherwise exits with code 1.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -39,11 +42,35 @@ const MACHINE_TYPE_TO_PROCESS: Record<string, string[]> = {
   GRANULATOR: ['TRIMMING', 'REWORK', 'PACKING'],
 };
 
+/**
+ * Parse DATABASE_URL to extract host and database name.
+ * Never returns user or password.
+ */
+function parseDatabaseTarget(): { host: string; database: string } {
+  const url = process.env.DATABASE_URL ?? '';
+  try {
+    const parsed = new URL(url);
+    return { host: parsed.hostname, database: parsed.pathname.replace(/^\//, '') };
+  } catch {
+    return { host: '(unknown)', database: '(unknown)' };
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
-  const preview = args.includes('--preview') || !args.includes('--apply');
+  const apply = args.includes('--apply');
+  const confirm = args.includes('--confirm');
+  const preview = !apply;
 
-  console.log(`Mode: ${preview ? 'PREVIEW (no write)' : 'APPLY'}`);
+  if (apply && !confirm) {
+    console.error('ERROR: --apply requires --confirm. Run with --apply --confirm to write to the database.');
+    console.error('Example: npx tsx scripts/seed-production-processes.ts --apply --confirm');
+    process.exit(1);
+  }
+
+  const target = parseDatabaseTarget();
+  console.log(`Target: ${target.host} / ${target.database}`);
+  console.log(`Mode: ${preview ? 'PREVIEW (no write)' : 'APPLY (writing changes)'}`);
 
   // Processes
   const existing = await prisma.productionProcess.findMany({ select: { code: true } });
@@ -53,10 +80,12 @@ async function main() {
   console.log(`\nExisting processes: ${existing.length} (${existing.map((e) => e.code).join(', ')})`);
   console.log(`To create: ${toCreate.length}`);
 
+  let processesCreated = 0;
   if (!preview && toCreate.length > 0) {
     for (const p of toCreate) {
       await prisma.productionProcess.create({ data: p });
       console.log(`  Created ${p.code}`);
+      processesCreated++;
     }
   } else {
     for (const p of toCreate) console.log(`  Would create ${p.code}`);
@@ -70,6 +99,7 @@ async function main() {
   console.log(`\nMachines: ${machines.length}`);
 
   let capsToCreate = 0;
+  let capsCreated = 0;
   const capsPreview: string[] = [];
 
   for (const m of machines) {
@@ -87,6 +117,7 @@ async function main() {
           await prisma.machineProcessCapability.create({
             data: { machineId: m.id, processId: procId, isPrimary: false },
           });
+          capsCreated++;
         }
       }
     }
@@ -98,7 +129,12 @@ async function main() {
     if (capsPreview.length > 50) console.log(`... and ${capsPreview.length - 50} more`);
   }
 
-  console.log('\nDone');
+  // Summary
+  console.log(`\n── Summary ──`);
+  console.log(`Database: ${target.host} / ${target.database}`);
+  console.log(`Mode: ${preview ? 'PREVIEW' : 'APPLY'}`);
+  console.log(`Processes created: ${processesCreated}`);
+  console.log(`Capabilities created: ${capsCreated}`);
 }
 
 main()

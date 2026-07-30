@@ -32,6 +32,7 @@ type RunCostSummary = {
 };
 
 type CostMovement = {
+  id: string;
   type: 'IN' | 'OUT';
   productVariantId: string;
   quantity: unknown;
@@ -58,6 +59,42 @@ function executionConversionCost(execution: {
 }
 
 /**
+ * Net paired stock movements: original + its reversal cancel each other out.
+ * Force-cancel reversals use [SOURCE:<id>] marker; manual voids use VOID: <reference>.
+ * Unpaired movements (no reversal exists) remain in the result.
+ */
+function netPairedMovements(allMovements: CostMovement[]): CostMovement[] {
+  const reversedOriginalIds = new Set<string>();
+  const reversalIds = new Set<string>();
+  for (const m of allMovements) {
+    if (!m.reference) continue;
+    const srcMatch = m.reference.match(/\[SOURCE:([^\]]+)\]/);
+    if (srcMatch) {
+      reversalIds.add(m.id);
+      reversedOriginalIds.add(srcMatch[1]);
+      continue;
+    }
+    if (m.reference.startsWith('VOID: ')) {
+      reversalIds.add(m.id);
+      const origRef = m.reference.slice(6);
+      const orig = allMovements.find(
+        (o) =>
+          o.id !== m.id &&
+          !reversalIds.has(o.id) &&
+          !reversedOriginalIds.has(o.id) &&
+          (o.reference === origRef || o.id === origRef) &&
+          o.productVariantId === m.productVariantId &&
+          Number(o.quantity) === Number(m.quantity),
+      );
+      if (orig) reversedOriginalIds.add(orig.id);
+    }
+  }
+  return allMovements.filter(
+    (m) => !reversalIds.has(m.id) && !reversedOriginalIds.has(m.id),
+  );
+}
+
+/**
  * Routing costing policy:
  * - Actual material cost comes from the persisted issue OUT movement cost at
  *   issue time; never re-price an issued quantity using today's standard cost.
@@ -79,8 +116,7 @@ export class RoutingCostService {
             plannedMaterials: { include: { productVariant: { select: { standardCost: true } } } },
             materialIssues: { where: { status: { not: 'VOIDED' } }, select: { productVariantId: true, quantity: true } },
             stockMovements: {
-              where: { reference: { not: { startsWith: 'VOID:' } } },
-              select: { type: true, productVariantId: true, quantity: true, cost: true, reference: true },
+              select: { type: true, productVariantId: true, quantity: true, cost: true, reference: true, id: true },
             },
             executions: {
               where: { status: { not: 'VOIDED' } },
@@ -104,7 +140,8 @@ export class RoutingCostService {
     const steps: RunCostStep[] = [];
 
     for (const order of run.orders) {
-      const movements = order.stockMovements as unknown as CostMovement[];
+      const movements = netPairedMovements(order.stockMovements as unknown as CostMovement[]);
+
       let matExternal = 0;
       let matInternal = 0;
 
@@ -147,7 +184,7 @@ export class RoutingCostService {
     }
 
     const finalOrder = run.orders[run.orders.length - 1];
-    const finalMovements = (finalOrder?.stockMovements ?? []) as unknown as CostMovement[];
+    const finalMovements = netPairedMovements(finalOrder?.stockMovements as unknown as CostMovement[] ?? []);
     const outputMovementValuation = finalMovements
       .filter((move) => move.type === 'IN')
       .reduce((sum, move) => sum + Number(move.cost ?? 0) * Number(move.quantity ?? 0), 0);

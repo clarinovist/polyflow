@@ -1,0 +1,129 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+const mockPrisma = vi.hoisted(() => ({
+  productionRoute: { findFirst: vi.fn() },
+  productionOrder: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  bom: { findFirst: vi.fn() },
+  user: { findUnique: vi.fn() },
+}));
+
+vi.mock('@/lib/core/prisma', () => ({ prisma: mockPrisma }));
+
+vi.mock('@/auth', () => ({ auth: vi.fn() }));
+vi.mock('next/navigation', () => ({
+  redirect: vi.fn((url: string) => {
+    const error = new Error('NEXT_REDIRECT') as Error & { digest: string };
+    error.digest = `NEXT_REDIRECT;replace;${url};307;`;
+    throw error;
+  }),
+}));
+vi.mock('@/lib/core/tenant', () => ({
+  withTenant: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
+}));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('@/lib/utils/utils', () => ({ serializeData: (data: unknown) => data }));
+vi.mock('@/lib/config/logger', () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+}));
+
+vi.mock('@/services/production/fg-demand-service', () => ({
+  listFgDemandBoard: vi.fn(),
+}));
+vi.mock('@/services/production/order-service', () => ({
+  ProductionOrderService: {
+    createOrder: vi.fn(async (data: Record<string, unknown>) => ({
+      id: 'order-1',
+      orderNumber: 'WO-TEST',
+      status: 'DRAFT',
+      ...data,
+    })),
+  },
+}));
+vi.mock('@/services/production/routing-run-service', () => ({
+  ProductionRoutingRunService: {
+    createRun: vi.fn(async (data: Record<string, unknown>) => ({
+      id: 'run-1',
+      runNumber: 'RUN-TEST',
+      idempotencyKey: data.idempotencyKey,
+      ...data,
+    })),
+  },
+}));
+vi.mock('@/lib/production/routing-feature-flag', () => ({
+  isRoutingEnabled: vi.fn(async () => true),
+}));
+
+import { createSpkFromDemand } from '../production-demand';
+import { auth } from '@/auth';
+import { ProductionRoutingRunService } from '@/services/production/routing-run-service';
+
+describe('createSpkFromDemand — G5 idempotency fallback key', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: 'user-1', role: 'PRODUCTION' },
+    } as never);
+    mockPrisma.user.findUnique.mockResolvedValue({ role: 'PRODUCTION' } as never);
+    // Route exists → routed path
+    mockPrisma.productionRoute.findFirst.mockResolvedValue({ id: 'route-1' });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('fallback key includes today date and is same within same day', async () => {
+    vi.setSystemTime(new Date('2026-07-15T10:00:00Z'));
+    await createSpkFromDemand({
+      productVariantId: 'pv-1',
+      plannedQuantity: 100,
+      locationId: 'loc-1',
+    });
+
+    vi.setSystemTime(new Date('2026-07-15T22:00:00Z'));
+    await createSpkFromDemand({
+      productVariantId: 'pv-1',
+      plannedQuantity: 100,
+      locationId: 'loc-1',
+    });
+
+    const calls = vi.mocked(ProductionRoutingRunService.createRun).mock.calls;
+    expect(calls.length).toBe(2);
+    expect(calls[0][0].idempotencyKey).toBe(calls[1][0].idempotencyKey);
+  });
+
+  it('fallback key is different on different days', async () => {
+    vi.setSystemTime(new Date('2026-07-15T10:00:00Z'));
+    await createSpkFromDemand({
+      productVariantId: 'pv-1',
+      plannedQuantity: 100,
+      locationId: 'loc-1',
+    });
+
+    vi.setSystemTime(new Date('2026-07-16T10:00:00Z'));
+    await createSpkFromDemand({
+      productVariantId: 'pv-1',
+      plannedQuantity: 100,
+      locationId: 'loc-1',
+    });
+
+    const calls = vi.mocked(ProductionRoutingRunService.createRun).mock.calls;
+    expect(calls.length).toBe(2);
+    expect(calls[0][0].idempotencyKey).not.toBe(calls[1][0].idempotencyKey);
+  });
+
+  it('client-supplied key is used as-is', async () => {
+    vi.setSystemTime(new Date('2026-07-15T10:00:00Z'));
+    await createSpkFromDemand({
+      productVariantId: 'pv-1',
+      plannedQuantity: 100,
+      locationId: 'loc-1',
+      idempotencyKey: 'custom-key-123',
+    });
+
+    const calls = vi.mocked(ProductionRoutingRunService.createRun).mock.calls;
+    expect(calls.length).toBe(1);
+    expect(calls[0][0].idempotencyKey).toBe('custom-key-123');
+  });
+});

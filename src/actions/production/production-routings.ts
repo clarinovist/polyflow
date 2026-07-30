@@ -97,6 +97,7 @@ export const listMachineCapabilities = withTenant(async function listMachineCapa
 
 export const addMachineCapability = withTenant(async function addMachineCapability(raw: CreateMachineCapabilityValues) {
   return safeAction(async () => {
+    await assertRoutingEnabled();
     await requirePlanningRole();
     const parsed = createMachineCapabilitySchema.parse(raw);
     const result = await ProductionRoutingService.addCapability(parsed.machineId, parsed.processId, parsed.isPrimary);
@@ -107,6 +108,7 @@ export const addMachineCapability = withTenant(async function addMachineCapabili
 
 export const removeMachineCapability = withTenant(async function removeMachineCapability(machineId: string, processId: string) {
   return safeAction(async () => {
+    await assertRoutingEnabled();
     await requirePlanningRole();
     const result = await ProductionRoutingService.removeCapability(machineId, processId);
     revalidatePath('/production/routings');
