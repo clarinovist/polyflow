@@ -57,11 +57,11 @@ function nowWIB(): string {
     });
 }
 
-async function uploadSelfie(
+export async function uploadSelfie(
     file: File,
     employeeId: string,
     kind: 'clock_in' | 'clock_out',
-): Promise<{ url: string | null; error?: string }> {
+): Promise<{ url: string | null; error?: string; nonJson?: boolean }> {
     try {
         const formData = new FormData();
         formData.append('file', file);
@@ -71,28 +71,43 @@ async function uploadSelfie(
             method: 'POST',
             body: formData,
         });
-        let data: {
+        const rawText = await res.text();
+        const contentType = res.headers.get('content-type');
+        let dataObj: {
             success?: boolean;
             publicUrl?: string;
             url?: string;
             error?: string;
-        } = {};
+        };
         try {
-            data = (await res.json()) as typeof data;
+            const parsed = JSON.parse(rawText) as unknown;
+            if (
+                typeof parsed !== 'object' ||
+                parsed === null ||
+                Array.isArray(parsed)
+            ) {
+                throw new Error('not plain object');
+            }
+            dataObj = parsed as typeof dataObj;
         } catch {
-            // Non-JSON response (e.g. gateway error)
+            console.error('[uploadSelfie] non-JSON response', {
+                status: res.status,
+                contentType,
+                bodySnippet: rawText.slice(0, 300),
+            });
             return {
                 url: null,
-                error: `Upload selfie gagal (HTTP ${res.status})`,
+                error: 'Server merespons tidak valid (bukan JSON) — kemungkinan WiFi kiosk terblokir captive portal/proxy. Coba refresh halaman atau ganti jaringan.',
+                nonJson: true,
             };
         }
         if (!res.ok) {
             return {
                 url: null,
-                error: data.error || `Upload selfie gagal (HTTP ${res.status})`,
+                error: dataObj.error || `Upload selfie gagal (HTTP ${res.status})`,
             };
         }
-        const url = data.publicUrl ?? data.url ?? null;
+        const url = dataObj.publicUrl ?? dataObj.url ?? null;
         if (!url) {
             return { url: null, error: 'Upload selfie tidak mengembalikan URL' };
         }
@@ -105,6 +120,17 @@ async function uploadSelfie(
                 : 'Koneksi terputus';
         return { url: null, error: `Gagal upload selfie: ${msg}` };
     }
+}
+
+export async function uploadSelfieWithRetry(
+    file: File,
+    employeeId: string,
+    kind: 'clock_in' | 'clock_out',
+): Promise<{ url: string | null; error?: string; nonJson?: boolean }> {
+    const first = await uploadSelfie(file, employeeId, kind);
+    if (!first.nonJson) return first;
+    await new Promise((r) => setTimeout(r, 1000));
+    return uploadSelfie(file, employeeId, kind);
 }
 
 export function AttendanceKioskForm({ shifts, employees }: Props) {
@@ -175,11 +201,12 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
         setLoading(true);
         setFeedback(null);
         try {
-            const { url: photoUrl, error: uploadErr } = await uploadSelfie(
-                selfieFile,
-                selectedEmployee.id,
-                'clock_in',
-            );
+            const { url: photoUrl, error: uploadErr } =
+                await uploadSelfieWithRetry(
+                    selfieFile,
+                    selectedEmployee.id,
+                    'clock_in',
+                );
             if (!photoUrl) {
                 setFeedback({
                     type: 'error',
@@ -236,7 +263,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
         try {
             let photoUrl: string | undefined;
             if (selfieFile) {
-                const up = await uploadSelfie(
+                const up = await uploadSelfieWithRetry(
                     selfieFile,
                     selectedEmployee.id,
                     'clock_out',

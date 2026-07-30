@@ -41,7 +41,13 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        console.log('[attendance-photo] request', { employeeId, kind });
+
         if (!EMP_ID_RE.test(employeeId) || employeeId.length > 64) {
+            console.warn('[attendance-photo] rejected', {
+                reason: 'invalid_employee_id',
+                employeeId,
+            });
             return NextResponse.json(
                 { error: 'Invalid employeeId' },
                 { status: 400 },
@@ -68,6 +74,10 @@ export async function POST(req: NextRequest) {
             select: { id: true },
         });
         if (!empExists) {
+            console.warn('[attendance-photo] rejected', {
+                reason: 'employee_not_found',
+                employeeId,
+            });
             return NextResponse.json(
                 { error: 'Employee not found or inactive' },
                 { status: 404 },
@@ -78,6 +88,11 @@ export async function POST(req: NextRequest) {
         if (mime && !ALLOWED_TYPES.includes(mime)) {
             const guessed = guessImageTypeFromName(file.name);
             if (!guessed || !ALLOWED_TYPES.includes(guessed)) {
+                console.warn('[attendance-photo] rejected', {
+                    reason: 'invalid_mime',
+                    employeeId,
+                    mime,
+                });
                 return NextResponse.json(
                     { error: 'Only JPEG, PNG, WebP, and HEIC images are allowed' },
                     { status: 400 },
@@ -86,6 +101,11 @@ export async function POST(req: NextRequest) {
         }
 
         if (file.size > MAX_BYTES) {
+            console.warn('[attendance-photo] rejected', {
+                reason: 'file_too_large',
+                employeeId,
+                size: file.size,
+            });
             return NextResponse.json(
                 { error: 'File size must be under 1MB' },
                 { status: 400 },
@@ -102,6 +122,7 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const publicUrl = await uploadToR2(key, buffer, file.type);
 
+        console.log('[attendance-photo] success', { employeeId, kind, key });
         return NextResponse.json({ success: true, publicUrl, key });
     } catch (error) {
         console.error('Failed to upload attendance photo:', error);

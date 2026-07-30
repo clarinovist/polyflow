@@ -101,27 +101,71 @@ export function MyAttendanceClock() {
         }
 
         startTransition(async () => {
-            try {
-                // Upload selfie via session-bound route under /my (emp_session cookie path = /my)
+            type UploadAttempt =
+                | { kind: 'nonJson'; status: number; contentType: string | null }
+                | { kind: 'jsonError'; status: number; parsed: { error?: string; publicUrl?: string; url?: string } | null }
+                | { kind: 'ok'; parsed: { error?: string; publicUrl?: string; url?: string } | null };
+
+            async function doUploadAttempt(): Promise<UploadAttempt> {
                 const formData = new FormData();
-                formData.append('file', selfieFile);
+                formData.append('file', selfieFile!);
                 formData.append('kind', 'clock_in');
-                const uploadRes = await fetch('/my/api/attendance-photo', {
+                const res = await fetch('/my/api/attendance-photo', {
                     method: 'POST',
                     body: formData,
                 });
-                if (!uploadRes.ok) {
-                    const errBody = (await uploadRes
-                        .json()
-                        .catch(() => null)) as { error?: string } | null;
-                    toast.error(errBody?.error ?? 'Gagal upload foto');
+                const rawText = await res.text();
+                const contentType = res.headers.get('content-type');
+                let parsed: { error?: string; publicUrl?: string; url?: string } | null = null;
+                try {
+                    const p = JSON.parse(rawText) as unknown;
+                    if (typeof p !== 'object' || p === null || Array.isArray(p)) {
+                        throw new Error('not plain object');
+                    }
+                    parsed = p as { error?: string; publicUrl?: string; url?: string };
+                } catch {
+                    console.error('[uploadSelfie] non-JSON response', {
+                        status: res.status,
+                        contentType,
+                        bodySnippet: rawText.slice(0, 300),
+                    });
+                    return {
+                        kind: 'nonJson',
+                        status: res.status,
+                        contentType,
+                    };
+                }
+                if (!res.ok) {
+                    return {
+                        kind: 'jsonError',
+                        status: res.status,
+                        parsed,
+                    };
+                }
+                return { kind: 'ok', parsed };
+            }
+
+            try {
+                const firstAttempt = await doUploadAttempt();
+                let attempt: UploadAttempt = firstAttempt;
+                if (firstAttempt.kind === 'nonJson') {
+                    await new Promise((r) => setTimeout(r, 1000));
+                    attempt = await doUploadAttempt();
+                }
+
+                if (attempt.kind === 'nonJson') {
+                    toast.error(
+                        'Server merespons tidak valid (bukan JSON) — kemungkinan jaringan bermasalah. Coba lagi.',
+                    );
                     return;
                 }
-                const body = (await uploadRes.json()) as {
-                    publicUrl?: string;
-                    url?: string;
-                };
-                const photoUrl = body.publicUrl ?? body.url;
+                if (attempt.kind === 'jsonError') {
+                    toast.error(attempt.parsed?.error ?? 'Gagal upload foto');
+                    return;
+                }
+
+                const photoUrl =
+                    attempt.parsed?.publicUrl ?? attempt.parsed?.url;
                 if (!photoUrl) {
                     toast.error('Gagal upload foto: URL tidak valid');
                     return;
