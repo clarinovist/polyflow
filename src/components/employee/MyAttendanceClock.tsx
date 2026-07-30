@@ -29,6 +29,11 @@ import {
     type ProximityState,
 } from '@/services/hrd/attendance-location';
 import { LocationMapPreview } from '@/components/shared/LocationMapPreview';
+import {
+    sampleBestPosition,
+    DEFAULT_TARGET_ACCURACY_METERS,
+    DEFAULT_SAMPLE_TIMEOUT_MS,
+} from '@/lib/utils/geolocation-sampler';
 
 type TodayStatus = {
     status: 'NOT_CLOCKED_IN' | 'WORKING' | 'CLOCKED_OUT' | 'OPEN_STALE';
@@ -98,6 +103,27 @@ function describeIndicator(
     }
 }
 
+function blockedReason(
+    proximity: ProximityState,
+    selfServiceOff: boolean,
+    configInvalid: boolean,
+    geofenceLoadFailed: boolean,
+): string {
+    if (proximity.kind === 'outside' || proximity.kind === 'accuracy-poor') {
+        return proximity.message;
+    }
+    if (selfServiceOff) {
+        return 'Absensi mandiri belum diaktifkan oleh HRD.';
+    }
+    if (configInvalid) {
+        return 'Konfigurasi absensi belum lengkap. Hubungi HRD.';
+    }
+    if (geofenceLoadFailed) {
+        return 'Gagal memuat konfigurasi absensi. Coba muat ulang halaman.';
+    }
+    return 'Lokasi belum siap — tunggu GPS atau muat ulang.';
+}
+
 export function MyAttendanceClock() {
     const [today, setToday] = useState<
         (TodayStatus & { staleDate?: string }) | null
@@ -155,31 +181,33 @@ export function MyAttendanceClock() {
     }, [refreshStatus]);
 
     const requestLocation = useCallback(() => {
-        if (!navigator.geolocation) {
+        if (
+            typeof navigator === 'undefined' ||
+            !navigator.geolocation
+        ) {
             setLocationError('GPS tidak didukung di browser ini');
             return;
         }
         setGettingLocation(true);
         setLocationError(null);
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
+        void sampleBestPosition({
+            targetAccuracyMeters: DEFAULT_TARGET_ACCURACY_METERS,
+            timeoutMs: DEFAULT_SAMPLE_TIMEOUT_MS,
+        }).then((result) => {
+            if (result.sample) {
                 setLocation({
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude,
-                    accuracy: pos.coords.accuracy,
+                    latitude: result.sample.latitude,
+                    longitude: result.sample.longitude,
+                    accuracy: result.sample.accuracy,
                 });
-                setGettingLocation(false);
-            },
-            (err) => {
-                const msg =
-                    err.code === err.PERMISSION_DENIED
-                        ? 'Izin lokasi ditolak. Aktifkan GPS di pengaturan browser.'
-                        : 'Gagal mendapatkan lokasi. Coba lagi.';
+            } else {
+                const msg = result.permissionDenied
+                    ? 'Izin lokasi ditolak. Aktifkan GPS di pengaturan browser.'
+                    : 'Gagal mendapatkan lokasi. Coba lagi.';
                 setLocationError(msg);
-                setGettingLocation(false);
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-        );
+            }
+            setGettingLocation(false);
+        });
     }, []);
 
     useEffect(() => {
@@ -193,6 +221,16 @@ export function MyAttendanceClock() {
         }
         if (!location) {
             toast.error('Lokasi GPS belum tersedia');
+            return;
+        }
+        if (isBlocked) {
+            const msg = blockedReason(
+                proximity,
+                selfServiceOff,
+                configInvalid,
+                geofenceLoadFailed,
+            );
+            toast.error(msg);
             return;
         }
 
