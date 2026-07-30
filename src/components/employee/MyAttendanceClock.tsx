@@ -471,6 +471,15 @@ export function MyAttendanceClock() {
                         label="Kantor"
                         height={200}
                         interactive={false}
+                        secondaryMarker={
+                            location
+                                ? {
+                                      latitude: location.latitude,
+                                      longitude: location.longitude,
+                                      label: 'Anda',
+                                  }
+                                : null
+                        }
                     />
                 )}
 
