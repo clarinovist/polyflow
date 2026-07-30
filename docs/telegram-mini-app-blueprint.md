@@ -1,19 +1,19 @@
 # Polyflow Telegram Mini App — Blueprint
 
 **Tanggal:** 2026-07-30  
-**Status:** DRAFT — untuk review produk dan keamanan  
+**Status:** Phase 1 (shell) in progress — implemented: session validation, webhook, identity linking, audit, kill switch, notification foundation (preference/dedup schema). Not yet implemented: /telegram/data/:domain routes, actual notification delivery/sending, BotFather Main Mini App config, staging UAT. See docs/plan/2026-07-30-telegram-mini-app-phase1-shell.md for details.  
 **Scope:** MVP read-only, satu tenant, role ADMIN saja
 
 ## Keputusan yang Sudah Dikonfirmasi
 
-| Item | Keputusan |
-|---|---|
-| Bot pilot | `@pico2004_bot` |
-| User pilot | Hanya user Polyflow dengan role `ADMIN` yang masuk allowlist |
-| Mode | Read-only |
-| Tenant pilot | Melindo melalui host `melindo.polyflow.uk` |
-| Notifikasi | Disiapkan sejak MVP; stok kritis aktif pertama |
-| Mini App URL | `https://melindo.polyflow.uk/telegram` |
+| Item         | Keputusan                                                    |
+| ------------ | ------------------------------------------------------------ |
+| Bot pilot    | `@pico2004_bot`                                              |
+| User pilot   | Hanya user Polyflow dengan role `ADMIN` yang masuk allowlist |
+| Mode         | Read-only                                                    |
+| Tenant pilot | Melindo melalui host `melindo.polyflow.uk`                   |
+| Notifikasi   | Disiapkan sejak MVP; stok kritis aktif pertama               |
+| Mini App URL | `https://melindo.polyflow.uk/telegram`                       |
 
 > Username bot bukan credential. Bot token tetap rahasia, wajib disimpan di secret/env, dan tidak boleh dimasukkan ke source code atau dokumen.
 
@@ -91,12 +91,12 @@ URL tersebut baru dipasang sebagai **Main Mini App** dan menu button `Buka Polyf
 
 ### Bottom Navigation
 
-| Tab | Isi |
-|---|---|
-| **Home** | KPI dan alert yang relevan dengan role |
-| **Data** | Kartu domain: Stok, Sales, Produksi, Finance, Purchasing |
-| **Tanya** | Virtual CS read-only |
-| **Akun** | User, tenant, koneksi Telegram, bantuan, keluar |
+| Tab       | Isi                                                      |
+| --------- | -------------------------------------------------------- |
+| **Home**  | KPI dan alert yang relevan dengan role                   |
+| **Data**  | Kartu domain: Stok, Sales, Produksi, Finance, Purchasing |
+| **Tanya** | Virtual CS read-only                                     |
+| **Akun**  | User, tenant, koneksi Telegram, bantuan, keluar          |
 
 Tab dan kartu bersifat **dynamic**. Kartu Finance tidak dirender jika user tidak memiliki resource finance; backend tetap wajib melakukan pengecekan ulang.
 
@@ -234,17 +234,17 @@ Jangan tampilkan API key, bot token, raw `initData`, atau detail permission inte
 
 ## 6. Role dan Resource Matrix
 
-| Domain / Tool | Resource | SALES | WAREHOUSE | PRODUCTION / PLANNING | FINANCE | PROCUREMENT | HRD | ADMIN |
-|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Stok produk / kritis | `/warehouse/inventory` | — | ✓ | sesuai grant | — | — | — | ✓ |
-| Riwayat stok | `/warehouse/inventory/history` | — | ✓ | sesuai grant | — | — | — | ✓ |
-| SO / pending sales | `/sales/orders` | ✓ | — | sesuai grant | — | — | — | ✓ |
-| Delivery status | `/sales/deliveries` | ✓ | — | — | — | — | — | ✓ |
-| SPK aktif | `/production/orders` | — | — | ✓ | — | — | — | ✓ |
-| Invoice sales | `/finance/invoices/sales` | — | — | — | ✓ | — | — | ✓ |
-| Finance summary | `/finance/aging` | — | — | — | ✓ | — | — | ✓ |
-| Purchase Order | `/purchasing/orders` | — | — | — | — | ✓ | — | ✓ |
-| Attendance | `/hrd/attendance` | — | — | — | — | — | ✓ | ✓ |
+| Domain / Tool        | Resource                       | SALES | WAREHOUSE | PRODUCTION / PLANNING | FINANCE | PROCUREMENT | HRD | ADMIN |
+| -------------------- | ------------------------------ | :---: | :-------: | :-------------------: | :-----: | :---------: | :-: | :---: |
+| Stok produk / kritis | `/warehouse/inventory`         |   —   |     ✓     |     sesuai grant      |    —    |      —      |  —  |   ✓   |
+| Riwayat stok         | `/warehouse/inventory/history` |   —   |     ✓     |     sesuai grant      |    —    |      —      |  —  |   ✓   |
+| SO / pending sales   | `/sales/orders`                |   ✓   |     —     |     sesuai grant      |    —    |      —      |  —  |   ✓   |
+| Delivery status      | `/sales/deliveries`            |   ✓   |     —     |           —           |    —    |      —      |  —  |   ✓   |
+| SPK aktif            | `/production/orders`           |   —   |     —     |           ✓           |    —    |      —      |  —  |   ✓   |
+| Invoice sales        | `/finance/invoices/sales`      |   —   |     —     |           —           |    ✓    |      —      |  —  |   ✓   |
+| Finance summary      | `/finance/aging`               |   —   |     —     |           —           |    ✓    |      —      |  —  |   ✓   |
+| Purchase Order       | `/purchasing/orders`           |   —   |     —     |           —           |    —    |      ✓      |  —  |   ✓   |
+| Attendance           | `/hrd/attendance`              |   —   |     —     |           —           |    —    |      —      |  ✓  |   ✓   |
 
 Matrix ini adalah default produk; keputusan final tetap mengikuti `allowedResources` aktual user dan tenant entitlement.
 
@@ -273,15 +273,15 @@ sequenceDiagram
 
 ### Endpoint kontrak awal
 
-| Endpoint | Fungsi |
-|---|---|
-| `POST /api/telegram/mini-app/session` | Validasi `initData`, resolve identity, set session |
-| `GET /api/telegram/mini-app/bootstrap` | Tenant, user, feature, allowed domains |
-| `GET /api/telegram/mini-app/home` | KPI dan alert role-aware |
-| `GET /api/telegram/mini-app/data/:domain` | Read-only list/detail |
-| `POST /api/telegram/mini-app/query` | Tanya Virtual CS |
-| `POST /api/telegram/mini-app/unlink` | Revoke koneksi Telegram |
-| `POST /api/telegram/webhook` | Update bot dan notifikasi |
+| Endpoint                                  | Fungsi                                             |
+| ----------------------------------------- | -------------------------------------------------- |
+| `POST /api/telegram/mini-app/session`     | Validasi `initData`, resolve identity, set session |
+| `GET /api/telegram/mini-app/bootstrap`    | Tenant, user, feature, allowed domains             |
+| `GET /api/telegram/mini-app/home`         | KPI dan alert role-aware                           |
+| `GET /api/telegram/mini-app/data/:domain` | Read-only list/detail                              |
+| `POST /api/telegram/mini-app/query`       | Tanya Virtual CS                                   |
+| `POST /api/telegram/mini-app/unlink`      | Revoke koneksi Telegram                            |
+| `POST /api/telegram/webhook`              | Update bot dan notifikasi                          |
 
 Client tidak boleh mengirim `tenantId`, `userId`, `role`, atau `allowedResources` sebagai sumber otoritas. Semua harus ditentukan server.
 
@@ -300,16 +300,16 @@ Jika SDK Telegram dimuat dari domain eksternal, CSP harus diperbarui secara rout
 
 ## 9. Error, Loading, dan Offline States
 
-| Kondisi | UX |
-|---|---|
-| Loading | Skeleton card, bukan spinner layar penuh |
-| Empty | Penjelasan “belum ada data” + waktu pengecekan |
-| Partial | Data tampil dengan banner sumber yang gagal |
-| Forbidden | “Akses modul ini belum tersedia untuk akun Anda” |
-| Session expired | Tombol `Muat ulang Mini App` |
-| Network error | Retry button + last checked timestamp |
-| Stale data | Badge “data terakhir diperiksa …” |
-| Telegram desktop unsupported feature | Fallback ke browser/web |
+| Kondisi                              | UX                                               |
+| ------------------------------------ | ------------------------------------------------ |
+| Loading                              | Skeleton card, bukan spinner layar penuh         |
+| Empty                                | Penjelasan “belum ada data” + waktu pengecekan   |
+| Partial                              | Data tampil dengan banner sumber yang gagal      |
+| Forbidden                            | “Akses modul ini belum tersedia untuk akun Anda” |
+| Session expired                      | Tombol `Muat ulang Mini App`                     |
+| Network error                        | Retry button + last checked timestamp            |
+| Stale data                           | Badge “data terakhir diperiksa …”                |
+| Telegram desktop unsupported feature | Fallback ke browser/web                          |
 
 Tidak ada optimistic UI pada MVP read-only.
 
@@ -361,21 +361,21 @@ Notifikasi finance, overdue delivery, dan blocker produksi disiapkan sebagai cap
 
 ## 11. Security dan Audit Checklist
 
-- [ ] Validasi HMAC `initData` di backend.
-- [ ] Validasi freshness `auth_date`.
-- [ ] Jangan percaya `initDataUnsafe`.
-- [ ] Jangan log raw `initData`, bot token, atau session secret.
+- [x] Validasi HMAC `initData` di backend.
+- [x] Validasi freshness `auth_date`.
+- [x] Jangan percaya `initDataUnsafe`.
+- [x] Jangan log raw `initData`, bot token, atau session secret.
 - [ ] Bot token hanya dari secret/env dan dirotasi sebelum pilot.
-- [ ] Account link one-time, single-use, dan expiry.
-- [ ] Session Mini App HttpOnly, Secure, SameSite sesuai flow.
-- [ ] Tenant dan user diambil server-side.
+- [x] Account link one-time, single-use, dan expiry.
+- [x] Session Mini App HttpOnly, Secure, SameSite sesuai flow.
+- [x] Tenant dan user diambil server-side.
 - [ ] Backend memeriksa resource pada setiap request.
-- [ ] Rate limit per Telegram user + IP.
-- [ ] Audit: Telegram ID ter-hash/terbatas, user, tenant, resource, outcome, latency.
+- [x] Rate limit per Telegram user + IP.
+- [x] Audit: Telegram ID ter-hash/terbatas, user, tenant, resource, outcome, latency.
 - [ ] Pengiriman notifikasi hanya ke admin yang linked, allowlisted, dan opt-in.
 - [ ] Deduplication mencegah alert ganda.
-- [ ] Kill switch untuk menonaktifkan Mini App tanpa rollback aplikasi utama.
-- [ ] Read-only guardrail tetap aktif.
+- [x] Kill switch untuk menonaktifkan Mini App tanpa rollback aplikasi utama.
+- [x] Read-only guardrail tetap aktif.
 
 ## 12. Acceptance Criteria MVP
 
