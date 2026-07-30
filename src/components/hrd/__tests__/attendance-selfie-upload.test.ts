@@ -33,7 +33,7 @@ describe('uploadSelfie / uploadSelfieWithRetry', () => {
         fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(
             jsonRes({ success: true, publicUrl: '/x.jpg' }) as any,
         );
-        const { uploadSelfie } = await import('../AttendanceKioskForm');
+        const { uploadSelfie } = await import('../attendance-selfie-upload');
         const result = await uploadSelfie(new File(['a'], 'a.jpg', { type: 'image/jpeg' }), 'emp-1', 'clock_in');
         expect(result).toEqual({ url: '/x.jpg' });
         expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -43,7 +43,7 @@ describe('uploadSelfie / uploadSelfieWithRetry', () => {
         fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(
             jsonRes({ error: 'Employee not found or inactive' }, false, 404) as any,
         );
-        const { uploadSelfie } = await import('../AttendanceKioskForm');
+        const { uploadSelfie } = await import('../attendance-selfie-upload');
         const result = await uploadSelfie(new File(['a'], 'a.jpg', { type: 'image/jpeg' }), 'emp-1', 'clock_in');
         expect(result.url).toBeNull();
         expect(result.error).toBe('Employee not found or inactive');
@@ -63,7 +63,7 @@ describe('uploadSelfie / uploadSelfieWithRetry', () => {
             .mockResolvedValueOnce(second as any);
         vi.spyOn(globalThis, 'fetch' as any).mockImplementation(fetchMock as any);
 
-        const { uploadSelfie, uploadSelfieWithRetry } = await import('../AttendanceKioskForm');
+        const { uploadSelfie, uploadSelfieWithRetry } = await import('../attendance-selfie-upload');
 
         // uploadSelfie alone
         const r1 = await uploadSelfie(new File(['a'], 'a.jpg', { type: 'image/jpeg' }), 'emp-1', 'clock_in');
@@ -96,7 +96,7 @@ describe('uploadSelfie / uploadSelfieWithRetry', () => {
         const nonJson = htmlRes('<html>captive</html>', true, 200, 'text/html');
         const fetchMock = vi.fn().mockResolvedValue(nonJson as any);
         vi.spyOn(globalThis, 'fetch' as any).mockImplementation(fetchMock as any);
-        const { uploadSelfieWithRetry } = await import('../AttendanceKioskForm');
+        const { uploadSelfieWithRetry } = await import('../attendance-selfie-upload');
 
         const p = uploadSelfieWithRetry(new File(['a'], 'a.jpg', { type: 'image/jpeg' }), 'emp-1', 'clock_in');
         await vi.advanceTimersByTimeAsync(1000);
