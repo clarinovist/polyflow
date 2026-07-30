@@ -34,7 +34,7 @@ const AGENTIC_DEBUG = process.env.AGENTIC_DEBUG === 'true';
 // Re-export legacy types for backward compat
 export type VirtualCsRequest = {
     question: string;
-    channel: 'telegram' | 'web';
+    channel: 'telegram' | 'web' | 'telegram_mini_app';
     requesterName?: string;
 };
 
@@ -116,11 +116,17 @@ export async function generateVirtualCsReply(
     }> = [];
 
     if (context?.tenantId && context?.sessionUser?.id) {
+        const channelValue =
+            input.channel === 'telegram_mini_app'
+                ? 'telegram_mini_app'
+                : input.channel === 'telegram'
+                    ? 'telegram'
+                    : 'web';
         const conversation = await getOrCreateConversation({
             tenantId: context.tenantId,
             userId: context.sessionUser.id,
             conversationId: activeConversationId,
-            channel: 'web',
+            channel: channelValue,
         });
         activeConversationId = conversation.id;
 

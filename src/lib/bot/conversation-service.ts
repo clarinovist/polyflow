@@ -29,10 +29,14 @@ export type ConversationContext = {
 // Create a new conversation
 // ---------------------------------------------------------------------------
 
+export const TELEGRAM_MINI_APP_CHANNEL = 'telegram_mini_app' as const;
+
+export type AllowedChannel = 'web' | 'telegram' | 'telegram_mini_app';
+
 export async function createConversation(input: {
     tenantId: string;
     userId: string;
-    channel?: string;
+    channel?: AllowedChannel | string;
     title?: string;
 }): Promise<HelpConversation> {
     return prisma.helpConversation.create({
@@ -54,7 +58,7 @@ export async function getOrCreateConversation(input: {
     tenantId: string;
     userId: string;
     conversationId?: string;
-    channel?: string;
+    channel?: AllowedChannel | string;
 }): Promise<HelpConversation> {
     if (input.conversationId) {
         const existing = await prisma.helpConversation.findFirst({

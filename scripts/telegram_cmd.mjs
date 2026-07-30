@@ -1,8 +1,16 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 
-const BOT_TOKEN = '8542521615:AAHxxHloS2P9IucDu1t1Slp7vxpBxCuqWPY';
-const CHAT_ID = '-5255163640';
+// ponytail: direct docker exec psql bypass tenant isolation & service registry.
+// ceiling: env-only token + no hardcoded secrets. Upgrade: remove this script entirely and use
+// src/lib/telegram/notification-service + tool-registry in Phase 2.
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-5255163640';
+
+if (!BOT_TOKEN) {
+  console.error('TELEGRAM_BOT_TOKEN env required. Refusing to use hardcoded token.');
+  process.exit(1);
+}
 
 const args = process.argv.slice(2);
 const command = args[0];

@@ -1,7 +1,14 @@
 import { execSync } from 'child_process';
 
-const BOT_TOKEN = '8542521615:AAHxxHloS2P9IucDu1t1Slp7vxpBxCuqWPY';
-const CHAT_ID = '-5255163640';
+// ponytail: legacy script, direct DB query bypasses tenant isolation.
+// ceiling: env-only secrets. Upgrade: remove and use notification service.
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-5255163640';
+
+if (!BOT_TOKEN) {
+  console.error('TELEGRAM_BOT_TOKEN env required. Refusing hardcoded token.');
+  process.exit(1);
+}
 
 let rawData = '';
 

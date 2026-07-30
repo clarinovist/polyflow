@@ -11,7 +11,7 @@ export type AssistantUserContext = {
     roles: string[];
     allowedResources: string[] | 'ALL';
     tenantId: string;
-    channel: 'web' | 'telegram';
+    channel: 'web' | 'telegram' | 'telegram_mini_app';
     locale: string;
 };
 
@@ -129,7 +129,7 @@ export type AssistantResponse = {
 
 export type VirtualCsRequest = {
     question: string;
-    channel: 'telegram' | 'web';
+    channel: 'telegram' | 'web' | 'telegram_mini_app';
     requesterName?: string;
 };
 

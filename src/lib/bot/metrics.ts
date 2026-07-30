@@ -1,4 +1,4 @@
-type Channel = 'telegram' | 'web';
+type Channel = 'telegram' | 'web' | 'telegram_mini_app';
 
 type Counter = {
     allowed: number;
@@ -28,6 +28,7 @@ const state: Snapshot = {
     byChannel: {
         telegram: makeCounter(),
         web: makeCounter(),
+        telegram_mini_app: makeCounter(),
     },
 };
 
@@ -59,6 +60,7 @@ export function getVirtualCsMetrics(): Snapshot {
         byChannel: {
             telegram: { ...state.byChannel.telegram },
             web: { ...state.byChannel.web },
+            telegram_mini_app: { ...state.byChannel.telegram_mini_app },
         },
     };
 }

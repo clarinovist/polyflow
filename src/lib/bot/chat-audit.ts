@@ -5,7 +5,7 @@ import { getMainPrisma } from '@/lib/core/prisma';
 import { HelpOutcome } from '@prisma/client';
 
 export type VirtualCsAuditInput = {
-    channel: 'telegram' | 'web';
+    channel: 'telegram' | 'web' | 'telegram_mini_app';
     product: 'polyflow';
     question: string;
     answer?: string;

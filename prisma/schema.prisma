@@ -3389,3 +3389,157 @@ model WarehouseOperationalAttachment {
   @@index([checkpoint])
 }
 
+// ==========================================
+// TELEGRAM MINI APP (Pilot Phase 1)
+// ==========================================
+
+enum TelegramIdentityStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum TelegramNotificationStatus {
+  SENT
+  FAILED
+  SKIPPED_DUP
+  SKIPPED_QUIET
+  SPAM_BLOCKED
+  SKIPPED_KILL_SWITCH
+}
+
+enum TelegramAuditAction {
+  WEBHOOK_RECEIVE
+  WEBHOOK_DUP
+  WEBHOOK_AUTH_FAILED
+  SESSION_CREATE
+  SESSION_VERIFY
+  SESSION_EXPIRED
+  SESSION_INVALID
+  BOOTSTRAP
+  HOME_FETCH
+  LINK_START
+  LINK_SUCCESS
+  LINK_FAILED
+  UNLINK
+  NOTIF_SEND
+  NOTIF_SKIPPED
+  KILL_SWITCH_BLOCKED
+  ADMIN_BLOCKED
+  ALLOWLIST_BLOCKED
+  TENANT_MISMATCH
+}
+
+model TelegramIdentity {
+  id             String                 @id @default(uuid())
+  telegramUserId String
+  telegramChatId String?
+  telegramUsername String?
+  tenantId       String
+  userId         String
+  status         TelegramIdentityStatus @default(ACTIVE)
+  linkedAt       DateTime               @default(now())
+  revokedAt      DateTime?
+  lastActiveAt   DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([telegramUserId, tenantId])
+  @@index([tenantId, userId])
+  @@index([telegramUserId])
+  @@index([status])
+}
+
+model TelegramLinkToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  tenantId  String
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId, userId])
+  @@index([expiresAt])
+  @@index([token])
+}
+
+model TelegramUpdateLog {
+  id        String   @id @default(uuid())
+  updateId  String   @unique
+  type      String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model TelegramNotificationPreference {
+  id                String   @id @default(uuid())
+  tenantId          String
+  userId            String
+  enabled           Boolean  @default(true)
+  criticalStock     Boolean  @default(true)
+  quietHoursStart   Int?
+  quietHoursEnd     Int?
+  timezone          String   @default("Asia/Jakarta")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+model TelegramNotificationLog {
+  id                String                     @id @default(uuid())
+  tenantId          String
+  userId            String
+  telegramUserId    String?
+  telegramChatId    String?
+  dedupKey          String                     @unique
+  type              String
+  summary           String?                    @db.Text
+  status            TelegramNotificationStatus @default(SENT)
+  telegramMessageId String?
+  sentAt            DateTime?
+  createdAt         DateTime                   @default(now())
+
+  @@index([tenantId, userId])
+  @@index([type, createdAt])
+  @@index([dedupKey])
+}
+
+model TelegramMiniAppSession {
+  id              String   @id @default(uuid())
+  sessionTokenHash String  @unique
+  telegramIdentityId String?
+  telegramUserId  String
+  tenantId        String
+  userId          String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  lastActiveAt    DateTime @default(now())
+
+  @@index([telegramUserId])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([expiresAt])
+}
+
+model TelegramAuditLog {
+  id                 String               @id @default(uuid())
+  createdAt          DateTime             @default(now())
+  action             TelegramAuditAction
+  telegramUserIdHash String?
+  userId             String?
+  tenantId           String?
+  resource           String?
+  outcome            String
+  latencyMs          Int?
+  ip                 String?
+  userAgent          String?              @db.Text
+  details            Json?
+
+  @@index([tenantId, createdAt])
+  @@index([action, createdAt])
+  @@index([userId])
+}
+
