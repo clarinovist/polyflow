@@ -1,8 +1,15 @@
+interface SelfieUploadResult {
+    url: string | null;
+    error?: string;
+    nonJson?: boolean;
+    retryable?: boolean;
+}
+
 export async function uploadSelfie(
     file: File,
     employeeId: string,
     kind: 'clock_in' | 'clock_out',
-): Promise<{ url: string | null; error?: string; nonJson?: boolean }> {
+): Promise<SelfieUploadResult> {
     try {
         const formData = new FormData();
         formData.append('file', file);
@@ -31,15 +38,24 @@ export async function uploadSelfie(
             }
             dataObj = parsed as typeof dataObj;
         } catch {
+            const isRedirectToDesktop =
+                res.redirected &&
+                typeof res.url === 'string' &&
+                res.url.includes('/device/desktop-required');
+            const detail = isRedirectToDesktop
+                ? 'Mobile gate memblokir request — endpoint ini tidak diizinkan dari perangkat mobile.'
+                : 'Kemungkinan WiFi kiosk terblokir captive portal/proxy. Coba refresh halaman atau ganti jaringan.';
             console.error('[uploadSelfie] non-JSON response', {
                 status: res.status,
                 contentType,
+                redirected: res.redirected,
                 bodySnippet: rawText.slice(0, 300),
             });
             return {
                 url: null,
-                error: 'Server merespons tidak valid (bukan JSON) — kemungkinan WiFi kiosk terblokir captive portal/proxy. Coba refresh halaman atau ganti jaringan.',
+                error: `Server merespons tidak valid (bukan JSON) — ${detail}`,
                 nonJson: true,
+                retryable: !isRedirectToDesktop,
             };
         }
         if (!res.ok) {
@@ -67,9 +83,9 @@ export async function uploadSelfieWithRetry(
     file: File,
     employeeId: string,
     kind: 'clock_in' | 'clock_out',
-): Promise<{ url: string | null; error?: string; nonJson?: boolean }> {
+): Promise<SelfieUploadResult> {
     const first = await uploadSelfie(file, employeeId, kind);
-    if (!first.nonJson) return first;
+    if (!first.nonJson || first.retryable === false) return first;
     await new Promise((r) => setTimeout(r, 1000));
     return uploadSelfie(file, employeeId, kind);
 }

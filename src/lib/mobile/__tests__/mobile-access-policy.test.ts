@@ -3,6 +3,7 @@ import {
   isMobileUserAgent,
   isMobilePublicPath,
   isMobileAllowlistedPath,
+  isMobileOperationalApiPath,
   shouldSoftLandToSalesMobile,
   shouldSoftLandToWarehouseMobile,
   shouldSoftLandToKiosk,
@@ -51,6 +52,24 @@ describe('mobile-access-policy', () => {
       ['/kiosk', false],
     ])('path "%s" → %s', (path, expected) => {
       expect(isMobilePublicPath(path)).toBe(expected);
+    });
+  });
+
+  // ── isMobileOperationalApiPath ─────────────────────────────────────
+  describe('isMobileOperationalApiPath', () => {
+    it.each([
+      ['/api/upload/attendance-photo', true],
+      ['/api/upload/attendance-photo/extra', false],
+      ['/api/production/daily-report', true],
+      ['/api/production/daily-report/sub', false],
+      ['/api/auth/csrf', false],
+      ['/api/upload', false],
+      ['/api/production', false],
+      ['/api/users', false],
+      ['/kiosk', false],
+      ['/dashboard', false],
+    ])('path "%s" → %s', (path, expected) => {
+      expect(isMobileOperationalApiPath(path)).toBe(expected);
     });
   });
 

@@ -9,6 +9,7 @@ import {
     isMobileUserAgent,
     isMobilePublicPath,
     isMobileAllowlistedPath,
+    isMobileOperationalApiPath,
     isMobileBypassAllowed,
     shouldSoftLandToSalesMobile,
     shouldSoftLandToWarehouseMobile,
@@ -240,6 +241,10 @@ export const authConfig = {
                             // Public paths always accessible
                             if (isMobilePublicPath(pathname)) {
                                 // fall through to workspace checks below
+                            }
+                            // Operational API endpoints (kiosk selfie upload, etc.)
+                            else if (isMobileOperationalApiPath(pathname)) {
+                                // fall through — API must be reachable from mobile
                             }
                             // Admin bypass — only ADMIN role (or superadmin)
                             else if (

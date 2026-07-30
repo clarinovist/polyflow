@@ -82,6 +82,13 @@ vi.mock('@/lib/telegram/identity-service', () => ({
     touchIdentityLastActive: vi.fn(),
 }));
 
+function assertResponse(res: void | Response): Response {
+    if (res && typeof res === 'object' && 'status' in res && typeof (res as Response).json === 'function') {
+        return res as Response;
+    }
+    throw new Error(`Expected Response but got ${String(res)}`);
+}
+
 function makeRequest(body: unknown, headers: Record<string, string> = {}) {
     return {
         headers: {
@@ -104,7 +111,7 @@ describe('Telegram mini-app session route', () => {
         });
 
         const { POST } = await import('../route');
-        const res = await POST(makeRequest({ initData: 'bad' }));
+        const res = assertResponse(await POST(makeRequest({ initData: 'bad' })));
         const body = await res.json();
 
         expect(res.status).toBe(401);
@@ -119,7 +126,7 @@ describe('Telegram mini-app session route', () => {
         });
 
         const { POST } = await import('../route');
-        const res = await POST(makeRequest({ initData: 'stale' }));
+        const res = assertResponse(await POST(makeRequest({ initData: 'stale' })));
         const body = await res.json();
 
         expect(res.status).toBe(401);
@@ -136,7 +143,7 @@ describe('Telegram mini-app session route', () => {
         (findIdentityByTelegramUserId as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
         const { POST } = await import('../route');
-        const res = await POST(makeRequest({ initData: 'valid' }));
+        const res = assertResponse(await POST(makeRequest({ initData: 'valid' })));
         const body = await res.json();
 
         expect(res.status).toBe(200);
@@ -158,7 +165,7 @@ describe('Telegram mini-app session route', () => {
         });
 
         const { POST } = await import('../route');
-        const res = await POST(makeRequest({ initData: 'valid' }));
+        const res = assertResponse(await POST(makeRequest({ initData: 'valid' })));
         const body = await res.json();
 
         expect(res.status).toBe(403);
@@ -185,7 +192,7 @@ describe('Telegram mini-app session route', () => {
         });
 
         const { POST } = await import('../route');
-        const res = await POST(makeRequest({ initData: 'valid' }));
+        const res = assertResponse(await POST(makeRequest({ initData: 'valid' })));
         const body = await res.json();
 
         expect(res.status).toBe(403);
@@ -212,7 +219,7 @@ describe('Telegram mini-app session route', () => {
         });
 
         const { POST } = await import('../route');
-        const res = await POST(makeRequest({ initData: 'valid' }));
+        const res = assertResponse(await POST(makeRequest({ initData: 'valid' })));
         const body = await res.json();
 
         expect(res.status).toBe(403);
@@ -236,7 +243,7 @@ describe('Telegram mini-app session route', () => {
         (checkPilotAdminGate as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: true });
 
         const { POST } = await import('../route');
-        const res = await POST(makeRequest({ initData: 'valid' }));
+        const res = assertResponse(await POST(makeRequest({ initData: 'valid' })));
         const body = await res.json();
 
         expect(res.status).toBe(200);

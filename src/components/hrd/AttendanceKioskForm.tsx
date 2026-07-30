@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +59,7 @@ function nowWIB(): string {
 }
 
 export function AttendanceKioskForm({ shifts, employees }: Props) {
+    const [clock, setClock] = useState<string | null>(null);
     const [selectedShift] = useState<string>(
         shifts[0]?.id ?? '',
     );
@@ -71,6 +72,12 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
     const [feedback, setFeedback] = useState<Feedback | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [logId, setLogId] = useState(0);
+
+    useEffect(() => {
+        setClock(nowWIB());
+        const id = setInterval(() => setClock(nowWIB()), 30_000);
+        return () => clearInterval(id);
+    }, []);
 
     const addLog = (
         code: string,
@@ -249,7 +256,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                 </h1>
                 <div className="bg-muted px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium border">
                     <Clock className="h-4 w-4 text-primary" />
-                    {nowWIB()} WIB
+                    {clock ?? '--:--'} WIB
                 </div>
             </div>
 

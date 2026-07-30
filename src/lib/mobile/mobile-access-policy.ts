@@ -94,6 +94,20 @@ export function shouldSoftLandDashboard(pathname: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Operational API paths — endpoints called by mobile operational surfaces
+// (e.g. kiosk attendance selfie upload). Only these /api/* paths pass the
+// mobile gate; all other /api/* remain blocked.
+// ---------------------------------------------------------------------------
+const MOBILE_OPERATIONAL_API_PATHS = [
+    '/api/upload/attendance-photo',
+    '/api/production/daily-report',
+];
+
+export function isMobileOperationalApiPath(pathname: string): boolean {
+    return MOBILE_OPERATIONAL_API_PATHS.includes(pathname);
+}
+
+// ---------------------------------------------------------------------------
 // Bypass — only ADMIN (or superadmin / impersonation) may bypass mobile gate
 // ---------------------------------------------------------------------------
 export function isMobileBypassAllowed(

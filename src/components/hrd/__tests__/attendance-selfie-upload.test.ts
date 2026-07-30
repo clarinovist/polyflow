@@ -8,10 +8,12 @@ function jsonRes(body: unknown, ok = true, status = 200, ct = 'application/json'
         text: async () => JSON.stringify(body),
     };
 }
-function htmlRes(html: string, ok = true, status = 200, ct = 'text/html') {
+function htmlRes(html: string, ok = true, status = 200, ct = 'text/html', opts?: { redirected?: boolean; url?: string }) {
     return {
         ok,
         status,
+        redirected: opts?.redirected ?? false,
+        url: opts?.url ?? 'http://localhost:3000/api/upload/attendance-photo',
         headers: { get: (k: string) => (k.toLowerCase() === 'content-type' ? ct : null) },
         text: async () => html,
     };
@@ -104,5 +106,47 @@ describe('uploadSelfie / uploadSelfieWithRetry', () => {
         expect(result.url).toBeNull();
         expect(result.nonJson).toBe(true);
         expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('redirected to /device/desktop-required -> reports mobile gate without retry', async () => {
+        const redirectRes = htmlRes(
+            '<html><body>Desktop Required</body></html>',
+            true,
+            200,
+            'text/html',
+            { redirected: true, url: 'https://kiyowo.polyflow.uk/device/desktop-required?from=%2Fapi%2Fupload%2Fattendance-photo' },
+        );
+        const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(redirectRes as any);
+        const { uploadSelfieWithRetry } = await import('../attendance-selfie-upload');
+
+        const result = await uploadSelfieWithRetry(
+            new File(['a'], 'a.jpg', { type: 'image/jpeg' }),
+            'emp-1',
+            'clock_in',
+        );
+        expect(result.url).toBeNull();
+        expect(result.nonJson).toBe(true);
+        expect(result.retryable).toBe(false);
+        expect(result.error).toContain('Mobile gate');
+        expect(result.error).not.toContain('captive portal');
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('non-redirected non-JSON -> error mentions captive portal', async () => {
+        const captiveRes = htmlRes(
+            '<html><body>WiFi Login</body></html>',
+            true,
+            200,
+            'text/html',
+            { redirected: false, url: 'http://localhost:3000/api/upload/attendance-photo' },
+        );
+        vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(captiveRes as any);
+        const { uploadSelfie } = await import('../attendance-selfie-upload');
+
+        const result = await uploadSelfie(new File(['a'], 'a.jpg', { type: 'image/jpeg' }), 'emp-1', 'clock_in');
+        expect(result.url).toBeNull();
+        expect(result.nonJson).toBe(true);
+        expect(result.error).toContain('captive portal');
+        expect(result.error).not.toContain('Mobile gate');
     });
 });

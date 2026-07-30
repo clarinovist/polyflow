@@ -66,6 +66,13 @@ vi.mock('@/lib/telegram/identity-service', () => ({
     findIdentityByTelegramUserId: vi.fn(),
 }));
 
+function assertResponse(res: void | Response): Response {
+    if (res && typeof res === 'object' && 'status' in res && typeof (res as Response).json === 'function') {
+        return res as Response;
+    }
+    throw new Error(`Expected Response but got ${String(res)}`);
+}
+
 function makeRequest(headers: Record<string, string> = {}) {
     return {
         headers: {
@@ -84,7 +91,7 @@ describe('Telegram mini-app bootstrap route', () => {
         (extractSessionTokenFromCookieHeader as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
         const { GET } = await import('../route');
-        const res = await GET(makeRequest());
+        const res = assertResponse(await GET(makeRequest()));
 
         expect(res.status).toBe(401);
     });
@@ -98,7 +105,7 @@ describe('Telegram mini-app bootstrap route', () => {
         });
 
         const { GET } = await import('../route');
-        const res = await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' }));
+        const res = assertResponse(await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' })));
 
         expect(res.status).toBe(401);
     });
@@ -117,7 +124,7 @@ describe('Telegram mini-app bootstrap route', () => {
         });
 
         const { GET } = await import('../route');
-        const res = await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' }));
+        const res = assertResponse(await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' })));
         const body = await res.json();
 
         expect(res.status).toBe(403);
@@ -147,7 +154,7 @@ describe('Telegram mini-app bootstrap route', () => {
         });
 
         const { GET } = await import('../route');
-        const res = await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' }));
+        const res = assertResponse(await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' })));
         const body = await res.json();
 
         expect(res.status).toBe(403);
@@ -170,7 +177,7 @@ describe('Telegram mini-app bootstrap route', () => {
         });
 
         const { GET } = await import('../route');
-        const res = await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' }));
+        const res = assertResponse(await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' })));
         const body = await res.json();
 
         expect(res.status).toBe(200);
