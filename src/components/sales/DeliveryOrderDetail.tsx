@@ -285,10 +285,16 @@ export function DeliveryOrderDetail({
                 method: 'POST',
                 body: formData,
             });
-            const uploadData = await uploadRes.json();
+            let uploadData: { success?: boolean; url?: string; key?: string; error?: string };
+            try {
+                uploadData = await uploadRes.json();
+            } catch {
+                toast.error(`Upload gagal (HTTP ${uploadRes.status}). Cek koneksi / R2.`);
+                return;
+            }
 
-            if (!uploadData.success) {
-                toast.error(uploadData.error || 'Gagal upload foto.');
+            if (!uploadRes.ok || !uploadData.success) {
+                toast.error(uploadData.error || `Gagal upload foto (HTTP ${uploadRes.status})`);
                 return;
             }
 
@@ -296,7 +302,7 @@ export function DeliveryOrderDetail({
             const attachRes = await attachDeliveryPhoto({
                 deliveryOrderId: order.id,
                 photoType,
-                publicUrl: uploadData.url,
+                publicUrl: uploadData.url || '',
                 receivedBy:
                     photoType === 'proof_of_delivery'
                         ? receivedByName
@@ -314,8 +320,9 @@ export function DeliveryOrderDetail({
             } else {
                 toast.error(attachRes.error || 'Gagal menyimpan foto.');
             }
-        } catch {
-            toast.error('Gagal upload foto.');
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : '';
+            toast.error(msg ? `Gagal upload foto: ${msg}` : 'Gagal upload foto. Cek koneksi.');
         } finally {
             setUploading(false);
         }

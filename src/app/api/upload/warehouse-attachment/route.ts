@@ -6,12 +6,35 @@ import {
     uploadToR2,
 } from '@/lib/storage/r2';
 
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const ALLOWED_DOC_TYPES = [...ALLOWED_IMAGE_TYPES, 'application/pdf'];
+const ALLOWED_IMAGE_TYPES = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 const VALID_CHECKPOINTS = ['LOAD', 'UNLOAD', 'DAMAGE', 'RECEIPT', 'OPNAME'];
 const VALID_DOC_TYPES = ['PHOTO', 'SURAT_JALAN', 'NOTA_INVOICE', 'BERITA_ACARA', 'OTHER'];
+
+function guessImageTypeFromName(name: string): string {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (['jpg', 'jpeg', 'heic', 'heif'].includes(ext)) return 'image/jpeg';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'webp') return 'image/webp';
+    return '';
+}
+
+function isAllowedImageType(mime: string, filename: string): boolean {
+    // iOS Safari: empty MIME from camera capture; infer from filename
+    if (!mime) {
+        const guessed = guessImageTypeFromName(filename);
+        return guessed.startsWith('image/');
+    }
+    return ALLOWED_IMAGE_TYPES.includes(mime);
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -65,15 +88,22 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const allowedTypes = docType === 'PHOTO' ? ALLOWED_IMAGE_TYPES : ALLOWED_DOC_TYPES;
-        if (!allowedTypes.includes(file.type)) {
-            const hint = docType === 'PHOTO'
-                ? 'JPG, PNG, atau WebP.'
-                : 'JPG, PNG, WebP, atau PDF.';
-            return NextResponse.json(
-                { error: `File type not allowed. Gunakan ${hint}` },
-                { status: 400 },
-            );
+        if (docType === 'PHOTO') {
+            if (!isAllowedImageType(file.type, file.name)) {
+                return NextResponse.json(
+                    { error: 'Tipe file tidak didukung. Gunakan JPG, PNG, WebP, HEIC, atau PDF.' },
+                    { status: 400 },
+                );
+            }
+        } else {
+            // Document: image + pdf allowed; empty MIME inferred from name
+            const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+            if (!isPdf && !isAllowedImageType(file.type, file.name)) {
+                return NextResponse.json(
+                    { error: 'Tipe file tidak didukung. Gunakan JPG, PNG, WebP, HEIC, atau PDF.' },
+                    { status: 400 },
+                );
+            }
         }
 
         if (file.size > MAX_SIZE) {
@@ -107,6 +137,8 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Warehouse attachment upload error:', error);
-        return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Upload failed';
+        // Avoid leaking credentials but keep useful context
+        return NextResponse.json({ error: `Upload gagal: ${message}` }, { status: 500 });
     }
 }

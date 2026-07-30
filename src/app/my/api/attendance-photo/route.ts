@@ -7,8 +7,23 @@ import {
 import { getEmployeeSession } from '@/lib/auth/employee-session';
 import { prisma } from '@/lib/core/prisma';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+];
 const MAX_BYTES = 1 * 1024 * 1024; // 1MB
+
+function guessImageTypeFromName(name: string): string {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (['jpg', 'jpeg', 'heic', 'heif'].includes(ext)) return 'image/jpeg';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'webp') return 'image/webp';
+    return '';
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -37,11 +52,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'file is required' }, { status: 400 });
         }
 
-        if (!ALLOWED_TYPES.includes(file.type)) {
-            return NextResponse.json(
-                { error: 'Only JPEG, PNG, and WebP images are allowed' },
-                { status: 400 },
-            );
+        const mime = file.type || '';
+        if (mime && !ALLOWED_TYPES.includes(mime)) {
+            const guessed = guessImageTypeFromName(file.name);
+            if (!guessed || !ALLOWED_TYPES.includes(guessed)) {
+                return NextResponse.json(
+                    { error: 'Only JPEG, PNG, WebP, and HEIC images are allowed' },
+                    { status: 400 },
+                );
+            }
         }
 
         if (file.size > MAX_BYTES) {

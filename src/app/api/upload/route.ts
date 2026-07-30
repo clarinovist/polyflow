@@ -6,8 +6,23 @@ import {
     uploadToR2,
 } from '@/lib/storage/r2';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+function guessImageTypeFromName(name: string): string {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (['jpg', 'jpeg', 'heic', 'heif'].includes(ext)) return 'image/jpeg';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'webp') return 'image/webp';
+    return '';
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -24,11 +39,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (!ALLOWED_TYPES.includes(file.type)) {
-            return NextResponse.json(
-                { error: 'File type not allowed. Use JPG, PNG, or WebP.' },
-                { status: 400 },
-            );
+        const mime = file.type || '';
+        if (mime && !ALLOWED_TYPES.includes(mime)) {
+            const guessed = guessImageTypeFromName(file.name);
+            if (!guessed || !ALLOWED_TYPES.includes(guessed)) {
+                return NextResponse.json(
+                    { error: 'File type not allowed. Use JPG, PNG, WebP, or HEIC.' },
+                    { status: 400 },
+                );
+            }
         }
 
         if (file.size > MAX_SIZE) {

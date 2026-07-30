@@ -101,9 +101,15 @@ export function WarehouseAttachmentPanel({
                     body: formData,
                 });
 
-                const result = await response.json();
-                if (!response.ok) {
-                    toast.error(result.error || 'Gagal upload file');
+                let result: { key?: string; url?: string; originalName?: string; mimeType?: string; sizeBytes?: number; error?: string };
+                try {
+                    result = await response.json();
+                } catch {
+                    toast.error(`Upload gagal (HTTP ${response.status}). Cek koneksi / R2.`);
+                    return;
+                }
+                if (!response.ok || !result.key) {
+                    toast.error(result.error || `Upload gagal (HTTP ${response.status})`);
                     return;
                 }
 
@@ -111,8 +117,8 @@ export function WarehouseAttachmentPanel({
                     [entityType]: entityId,
                     checkpoint,
                     documentType: docType,
-                    storageKey: result.key,
-                    url: result.url,
+                    storageKey: result.key!,
+                    url: result.url || '',
                     originalName: result.originalName,
                     mimeType: result.mimeType,
                     sizeBytes: result.sizeBytes,
@@ -131,8 +137,9 @@ export function WarehouseAttachmentPanel({
                             'Gagal menyimpan attachment',
                     );
                 }
-            } catch {
-                toast.error('Gagal mengunggah file');
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : '';
+                toast.error(msg ? `Gagal mengunggah file: ${msg}` : 'Gagal mengunggah file. Cek koneksi.');
             } finally {
                 setUploading(false);
             }
