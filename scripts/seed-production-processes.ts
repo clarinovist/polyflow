@@ -11,8 +11,19 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { PROCESS_MACHINE_FALLBACK } from '@/lib/production/machine-compatibility';
 
 const prisma = new PrismaClient();
+
+const MACHINE_TYPE_TO_PROCESS: Record<string, string[]> = (() => {
+  const m: Record<string, string[]> = {};
+  for (const [processCode, machineTypes] of Object.entries(PROCESS_MACHINE_FALLBACK)) {
+    for (const mt of machineTypes) {
+      (m[mt] ??= []).push(processCode);
+    }
+  }
+  return m;
+})();
 
 const BASE_PROCESSES: Array<{
   code: string;
@@ -33,14 +44,6 @@ const BASE_PROCESSES: Array<{
   { code: 'REWORK', name: 'Rework', description: 'Proses rework manual', requiresMachine: false },
   { code: 'STANDARD', name: 'Standard', description: 'Standard fallback', requiresMachine: false },
 ];
-
-const MACHINE_TYPE_TO_PROCESS: Record<string, string[]> = {
-  MIXER: ['MIXING', 'STANDARD'],
-  EXTRUDER: ['EXTRUSION', 'INJECTION', 'STANDARD'],
-  REWINDER: ['WINDING', 'EXTRUSION'],
-  PACKER: ['PACKING', 'INNER_PACKING', 'CARTON_PACKING'],
-  GRANULATOR: ['TRIMMING', 'REWORK', 'PACKING'],
-};
 
 /**
  * Parse DATABASE_URL to extract host and database name.
@@ -71,6 +74,13 @@ async function main() {
   const target = parseDatabaseTarget();
   console.log(`Target: ${target.host} / ${target.database}`);
   console.log(`Mode: ${preview ? 'PREVIEW (no write)' : 'APPLY (writing changes)'}`);
+
+  if (preview) {
+    console.log('\nDerived mapping (PROCESS_MACHINE_FALLBACK → MachineType → Process):');
+    for (const [mt, codes] of Object.entries(MACHINE_TYPE_TO_PROCESS)) {
+      console.log(`  ${mt}: [${codes.join(', ')}]`);
+    }
+  }
 
   // Processes
   const existing = await prisma.productionProcess.findMany({ select: { code: true } });
