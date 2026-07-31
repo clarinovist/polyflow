@@ -95,13 +95,15 @@ export function shouldSoftLandDashboard(pathname: string): boolean {
 
 // ---------------------------------------------------------------------------
 // Operational API paths — endpoints called by mobile operational surfaces
-// (e.g. kiosk attendance selfie upload and kiosk production output photo).
+// (e.g. kiosk attendance selfie upload, kiosk production output photo,
+// and warehouse mobile attachment upload).
 // Only these /api/* paths pass the mobile gate; all other /api/* remain
 // blocked.
 // ---------------------------------------------------------------------------
 const MOBILE_OPERATIONAL_API_PATHS = [
     '/api/upload/attendance-photo',
     '/api/upload/production-photo',
+    '/api/upload/warehouse-attachment',
     '/api/production/daily-report',
 ];
 

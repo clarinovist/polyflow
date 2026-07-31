@@ -675,7 +675,34 @@ describe('auth.config', () => {
             }
         });
 
-        it('should redirect mobile user on /api/upload/warehouse-attachment to desktop-required (regression)', async () => {
+        it('should allow mobile user on /api/upload/warehouse-attachment (warehouse operational)', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                const result = await authorizedCallback({
+                    auth: { user: { role: 'WAREHOUSE' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/api/upload/warehouse-attachment'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (Linux; Android 10)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).not.toHaveBeenCalled();
+                expect(result).toBe(true);
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
+        it('should redirect mobile user on /api/upload/hrd-doc to desktop-required (regression)', async () => {
             const { authConfig } = await import('@/auth.config');
             const authorizedCallback = authConfig.callbacks!.authorized!;
 
@@ -687,7 +714,7 @@ describe('auth.config', () => {
                 await authorizedCallback({
                     auth: { user: { role: 'PRODUCTION' } },
                     request: {
-                        nextUrl: new URL('https://kiyowo.polyflow.uk/api/upload/warehouse-attachment'),
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/api/upload/hrd-doc'),
                         headers: new Map([
                             ['host', 'kiyowo.polyflow.uk'],
                             ['user-agent', 'Mozilla/5.0 (Linux; Android 10)'],

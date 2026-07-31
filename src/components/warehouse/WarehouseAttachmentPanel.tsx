@@ -101,6 +101,11 @@ export function WarehouseAttachmentPanel({
                     body: formData,
                 });
 
+                if (response.redirected || !response.headers.get('content-type')?.includes('application/json')) {
+                    toast.error('Upload ditolak (akses mobile). Hubungi admin — endpoint upload belum diizinkan untuk perangkat ini.');
+                    return;
+                }
+
                 let result: { key?: string; url?: string; originalName?: string; mimeType?: string; sizeBytes?: number; error?: string };
                 try {
                     result = await response.json();

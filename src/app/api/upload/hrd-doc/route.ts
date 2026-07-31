@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/tools/auth-checks';
 import { getTenantPrefix, buildHrdDocKey, uploadToR2 } from '@/lib/storage/r2';
 
 const ALLOWED_TYPES = [
@@ -24,6 +25,8 @@ function guessImageTypeFromName(name: string): string {
 
 export async function POST(req: NextRequest) {
     try {
+        await requireAuth();
+
         const formData = await req.formData();
         const file = formData.get('file') as File | null;
         const entityId = formData.get('entityId') as string | null;
