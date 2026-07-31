@@ -13,9 +13,12 @@ import {
 import { auth } from '@/auth';
 import { requireRole } from '@/lib/tools/auth-checks';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
+import { toDecimalNumber } from '@/lib/utils/utils';
 
 const MAX_NOTES_LENGTH = 500;
 const MAX_REMARKS_LENGTH = 500;
+const MAX_LABEL_LENGTH = 100;
+const MAX_ENTRIES_PER_ITEM = 500;
 
 function revalidateOpnamePaths(opnameId?: string) {
     revalidatePath('/warehouse/opname');
@@ -61,6 +64,15 @@ export const getOpnameSession = withTenant(async function getOpnameSession(
                             include: {
                                 product: true,
                             },
+                        },
+                        entries: {
+                            select: {
+                                id: true,
+                                quantity: true,
+                                label: true,
+                                createdAt: true,
+                            },
+                            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
                         },
                     },
                     orderBy: {
@@ -191,6 +203,170 @@ export const createOpnameSession = withTenant(
     },
 );
 
+export const addOpnameEntry = withTenant(async function addOpnameEntry(
+    opnameItemId: string,
+    quantity: number,
+    label?: string,
+) {
+    return safeAction(async () => {
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            throw new BusinessRuleError('Jumlah harus lebih dari 0');
+        }
+
+        if (label && label.length > MAX_LABEL_LENGTH) {
+            throw new BusinessRuleError(`Label maksimal ${MAX_LABEL_LENGTH} karakter`);
+        }
+
+        const authSession = await requireRole([
+            Role.WAREHOUSE,
+            Role.PRODUCTION,
+            Role.PLANNING,
+        ]);
+
+        const result = await prisma.$transaction(async (tx) => {
+            const opnameItem = await tx.stockOpnameItem.findUnique({
+                where: { id: opnameItemId },
+                include: {
+                    opname: {
+                        select: { status: true },
+                    },
+                },
+            });
+
+            if (!opnameItem) {
+                throw new NotFoundError('StockOpnameItem', opnameItemId);
+            }
+
+            if (opnameItem.opname.status !== OpnameStatus.OPEN) {
+                throw new BusinessRuleError('Hanya sesi OPEN yang dapat diupdate');
+            }
+
+            const existingCount = await tx.stockOpnameEntry.count({
+                where: { opnameItemId },
+            });
+
+            if (existingCount >= MAX_ENTRIES_PER_ITEM) {
+                throw new BusinessRuleError(
+                    `Maksimal ${MAX_ENTRIES_PER_ITEM} entri per item`,
+                );
+            }
+
+            const created = await tx.stockOpnameEntry.create({
+                data: {
+                    opnameItemId,
+                    quantity,
+                    label: label ?? null,
+                    createdById: authSession.user.id,
+                },
+            });
+
+            const agg = await tx.stockOpnameEntry.aggregate({
+                where: { opnameItemId },
+                _sum: { quantity: true },
+            });
+
+            const total = agg._sum.quantity != null
+                ? toDecimalNumber(agg._sum.quantity)
+                : quantity;
+
+            await tx.stockOpnameItem.update({
+                where: { id: opnameItemId },
+                data: { countedQuantity: total },
+            });
+
+            return {
+                id: created.id,
+                quantity: toDecimalNumber(created.quantity) || quantity,
+                label: created.label ?? label ?? null,
+                createdAt: created.createdAt,
+                countedQuantity: total,
+                entryCount: existingCount + 1,
+            };
+        });
+
+        return result;
+    });
+});
+
+export const deleteOpnameEntry = withTenant(async function deleteOpnameEntry(
+    entryId: string,
+) {
+    return safeAction(async () => {
+        await requireRole([
+            Role.WAREHOUSE,
+            Role.PRODUCTION,
+            Role.PLANNING,
+        ]);
+
+        const result = await prisma.$transaction(async (tx) => {
+            const entry = await tx.stockOpnameEntry.findUnique({
+                where: { id: entryId },
+                select: {
+                    id: true,
+                    opnameItemId: true,
+                    opnameItem: {
+                        select: {
+                            opnameId: true,
+                            opname: {
+                                select: { status: true },
+                            },
+                        },
+                    },
+                },
+            });
+
+            if (!entry) {
+                throw new NotFoundError('StockOpnameEntry', entryId);
+            }
+
+            if (entry.opnameItem.opname.status !== OpnameStatus.OPEN) {
+                throw new BusinessRuleError('Hanya sesi OPEN yang dapat diupdate');
+            }
+
+            await tx.stockOpnameEntry.delete({
+                where: { id: entryId },
+            });
+
+            const agg = await tx.stockOpnameEntry.aggregate({
+                where: { opnameItemId: entry.opnameItemId },
+                _sum: { quantity: true },
+            });
+
+            const remainingCount = await tx.stockOpnameEntry.count({
+                where: { opnameItemId: entry.opnameItemId },
+            });
+
+            const hasEntries = remainingCount > 0;
+
+            if (!hasEntries) {
+                await tx.stockOpnameItem.update({
+                    where: { id: entry.opnameItemId },
+                    data: { countedQuantity: null },
+                });
+
+                return {
+                    countedQuantity: null as number | null,
+                    entryCount: 0,
+                };
+            }
+
+            const total = toDecimalNumber(agg._sum.quantity);
+
+            await tx.stockOpnameItem.update({
+                where: { id: entry.opnameItemId },
+                data: { countedQuantity: total },
+            });
+
+            return {
+                countedQuantity: total,
+                entryCount: remainingCount,
+            };
+        });
+
+        return result;
+    });
+});
+
 export const saveOpnameCount = withTenant(async function saveOpnameCount(
     opnameId: string,
     items: { id: string; countedQuantity: number; notes?: string }[],
@@ -281,6 +457,18 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
                 WHERE
                     "opnameId" = ${opnameId}
                     AND "id" IN (${Prisma.join(uniqueItemIds)});
+            `);
+
+            await tx.$executeRaw(Prisma.sql`
+                UPDATE "StockOpnameItem" i
+                SET "countedQuantity" = e.total
+                FROM (
+                    SELECT "opnameItemId", SUM("quantity") AS total
+                    FROM "StockOpnameEntry"
+                    WHERE "opnameItemId" IN (${Prisma.join(uniqueItemIds)})
+                    GROUP BY "opnameItemId"
+                ) e
+                WHERE i.id = e."opnameItemId";
             `);
         });
 

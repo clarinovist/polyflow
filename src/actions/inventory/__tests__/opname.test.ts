@@ -20,8 +20,18 @@ vi.mock('@/lib/errors/errors', async () => {
 });
 
 vi.mock('@/lib/core/prisma', () => {
+    const stockOpnameEntry = {
+        create: vi.fn(),
+        count: vi.fn(),
+        aggregate: vi.fn(),
+        findUnique: vi.fn(),
+        delete: vi.fn(),
+        groupBy: vi.fn(),
+    };
     const stockOpnameItem = {
         count: vi.fn(),
+        update: vi.fn(),
+        findUnique: vi.fn(),
     };
     const stockOpname = {
         findUnique: vi.fn(),
@@ -36,6 +46,7 @@ vi.mock('@/lib/core/prisma', () => {
     const tx = {
         stockOpnameItem,
         stockOpname,
+        stockOpnameEntry,
         inventory,
         $executeRaw: vi.fn(),
     };
@@ -44,6 +55,7 @@ vi.mock('@/lib/core/prisma', () => {
         prisma: {
             stockOpnameItem,
             stockOpname,
+            stockOpnameEntry,
             inventory,
             $transaction: vi.fn(async (input: unknown) => {
                 if (typeof input === 'function') {
@@ -77,7 +89,13 @@ vi.mock('@/services/accounting/accounting-service', () => ({
 import { prisma } from '@/lib/core/prisma';
 import { requireRole } from '@/lib/tools/auth-checks';
 import { revalidatePath } from 'next/cache';
-import { createOpnameSession, getOpnameSessions, saveOpnameCount } from '../opname';
+import {
+    createOpnameSession,
+    getOpnameSessions,
+    saveOpnameCount,
+    addOpnameEntry,
+    deleteOpnameEntry,
+} from '../opname';
 import { AuthorizationError } from '@/lib/errors/errors';
 import { Prisma } from '@prisma/client';
 
@@ -271,5 +289,255 @@ describe('saveOpnameCount', () => {
         await expect(saveOpnameCount('opname-1', items)).rejects.toThrow('Some stock opname items are invalid for this session');
         expect(prisma.$transaction).toHaveBeenCalledTimes(1);
         expect(revalidatePath).not.toHaveBeenCalled();
+    });
+
+    it('saveOpnameCount menyinkronkan ulang countedQuantity dari entri', async () => {
+        const items = [
+            { id: 'item-1', countedQuantity: 999, notes: 'manual' },
+        ];
+
+        vi.mocked(prisma.stockOpname.findUnique).mockResolvedValue({ status: 'OPEN' } as never);
+        vi.mocked(prisma.stockOpnameItem.count).mockResolvedValue(1 as never);
+
+        // Patch $transaction to capture $executeRaw calls (bulk + re-sync)
+        const rawCalls: Array<{ strings?: string[]; values?: unknown[] }> = [];
+        type FakeTx = {
+            stockOpnameItem: typeof prisma.stockOpnameItem;
+            stockOpname: typeof prisma.stockOpname;
+            stockOpnameEntry: typeof prisma.stockOpnameEntry;
+            $executeRaw: ReturnType<typeof vi.fn>;
+        };
+        const stubTx = (executeRawFn: ReturnType<typeof vi.fn>): FakeTx => ({
+            stockOpnameItem: prisma.stockOpnameItem as unknown as typeof prisma.stockOpnameItem,
+            stockOpname: prisma.stockOpname as unknown as typeof prisma.stockOpname,
+            stockOpnameEntry: (prisma as unknown as { stockOpnameEntry: typeof prisma.stockOpnameEntry }).stockOpnameEntry,
+            $executeRaw: executeRawFn,
+        });
+
+        const realMock = prisma.$transaction as unknown as ReturnType<typeof vi.fn>;
+        const previousImpl = realMock.getMockImplementation();
+
+        const collectingMock = vi.fn(async (input: unknown) => {
+            if (typeof input === 'function') {
+                const execRaw = vi.fn(async (sql: { strings?: string[] }) => {
+                    rawCalls.push(sql as { strings: string[] });
+                });
+                const fake = stubTx(execRaw);
+                return (input as (trx: FakeTx) => Promise<unknown>)(fake);
+            }
+            return input;
+        });
+
+        realMock.mockImplementation(collectingMock as unknown as () => unknown);
+
+        const result = await saveOpnameCount('opname-1', items);
+
+        // Restore
+        if (previousImpl) {
+            realMock.mockImplementation(previousImpl as unknown as () => unknown);
+        } else {
+            realMock.mockImplementation(async (cb: unknown) => {
+                if (typeof cb === 'function') {
+                    const etx = {
+                        stockOpnameItem: prisma.stockOpnameItem,
+                        stockOpname: prisma.stockOpname,
+                        stockOpnameEntry: (prisma as unknown as { stockOpnameEntry: unknown }).stockOpnameEntry,
+                        inventory: (prisma as unknown as { inventory: unknown }).inventory,
+                        $executeRaw: vi.fn(),
+                    };
+                    return (cb as (trx: typeof etx) => Promise<unknown>)(etx);
+                }
+                return cb;
+            });
+        }
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(rawCalls.length).toBe(2);
+        const secondSql = rawCalls[1] as { strings?: string[] };
+        const sqlText = secondSql.strings ? secondSql.strings.join(' ') : '';
+        expect(sqlText).toContain('StockOpnameEntry');
+        expect(sqlText).toContain('SUM');
+        expect(revalidatePath).toHaveBeenCalledWith('/warehouse/opname/opname-1');
+    });
+});
+
+// ── New: addOpnameEntry / deleteOpnameEntry ──
+
+function makeFakeDecimal(value: number) {
+    return {
+        toNumber: () => value,
+        valueOf: () => value,
+    };
+}
+
+describe('addOpnameEntry', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireRole).mockResolvedValue({
+            user: { id: 'user-1', role: 'WAREHOUSE' },
+        } as never);
+    });
+
+    it('addOpnameEntry membuat entri dan memperbarui countedQuantity dengan total entri', async () => {
+        // Arrange
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            id: 'item-1',
+            opname: { status: 'OPEN' },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(2 as never);
+        vi.mocked(prisma.stockOpnameEntry.create).mockResolvedValue({
+            id: 'entry-new',
+            quantity: makeFakeDecimal(45.3),
+            label: null,
+            createdAt: new Date('2026-07-31T10:00:00Z'),
+        } as never);
+        // Existing 44 + 37 + new 45.3 = 126.3
+        vi.mocked(prisma.stockOpnameEntry.aggregate).mockResolvedValue({
+            _sum: { quantity: makeFakeDecimal(126.3) },
+        } as never);
+        vi.mocked(prisma.stockOpnameItem.update).mockResolvedValue({} as never);
+
+        // Act
+        const result = await addOpnameEntry('item-1', 45.3);
+
+        // Assert
+        expect(result.success).toBe(true);
+        const data = (result as { success: true; data: { countedQuantity: number; entryCount: number } }).data;
+        expect(data.countedQuantity).toBe(126.3);
+        expect(data.entryCount).toBe(3);
+
+        expect(prisma.stockOpnameEntry.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    opnameItemId: 'item-1',
+                    quantity: 45.3,
+                }),
+            }),
+        );
+        expect(prisma.stockOpnameItem.update).toHaveBeenCalledWith({
+            where: { id: 'item-1' },
+            data: { countedQuantity: 126.3 },
+        });
+        // Must NOT revalidate per-entry
+        expect(revalidatePath).not.toHaveBeenCalled();
+    });
+
+    it('addOpnameEntry menolak jumlah nol atau negatif', async () => {
+        await expect(addOpnameEntry('item-1', 0)).rejects.toThrow('Jumlah harus lebih dari 0');
+        await expect(addOpnameEntry('item-1', -5)).rejects.toThrow('Jumlah harus lebih dari 0');
+        await expect(addOpnameEntry('item-1', NaN)).rejects.toThrow('Jumlah harus lebih dari 0');
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('addOpnameEntry menolak sesi yang tidak OPEN', async () => {
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            id: 'item-1',
+            opname: { status: 'COMPLETED' },
+        } as never);
+
+        await expect(addOpnameEntry('item-1', 10)).rejects.toThrow('Hanya sesi OPEN yang dapat diupdate');
+    });
+
+    it('addOpnameEntry menolak saat entri sudah mencapai batas maksimum', async () => {
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            id: 'item-1',
+            opname: { status: 'OPEN' },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(500 as never);
+
+        await expect(addOpnameEntry('item-1', 10)).rejects.toThrow('Maksimal 500 entri per item');
+    });
+
+    it('addOpnameEntry menolak label yang terlalu panjang', async () => {
+        const longLabel = 'x'.repeat(101);
+        await expect(addOpnameEntry('item-1', 10, longLabel)).rejects.toThrow('Label maksimal 100 karakter');
+    });
+});
+
+describe('deleteOpnameEntry', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireRole).mockResolvedValue({
+            user: { id: 'user-1', role: 'WAREHOUSE' },
+        } as never);
+    });
+
+    it('deleteOpnameEntry menghitung ulang countedQuantity setelah penghapusan', async () => {
+        vi.mocked(prisma.stockOpnameEntry.findUnique).mockResolvedValue({
+            id: 'entry-2',
+            opnameItemId: 'item-1',
+            opnameItem: {
+                opnameId: 'opname-1',
+                opname: { status: 'OPEN' },
+            },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.delete).mockResolvedValue({} as never);
+        vi.mocked(prisma.stockOpnameEntry.aggregate).mockResolvedValue({
+            _sum: { quantity: makeFakeDecimal(82.3) },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(2 as never);
+        vi.mocked(prisma.stockOpnameItem.update).mockResolvedValue({} as never);
+
+        const result = await deleteOpnameEntry('entry-2');
+
+        expect(result.success).toBe(true);
+        const data = (result as { success: true; data: { countedQuantity: number | null; entryCount: number } }).data;
+        expect(data.countedQuantity).toBe(82.3);
+        expect(data.entryCount).toBe(2);
+
+        expect(prisma.stockOpnameItem.update).toHaveBeenCalledWith({
+            where: { id: 'item-1' },
+            data: { countedQuantity: 82.3 },
+        });
+        expect(revalidatePath).not.toHaveBeenCalled();
+    });
+
+    it('deleteOpnameEntry mengembalikan countedQuantity ke null saat entri terakhir dihapus', async () => {
+        vi.mocked(prisma.stockOpnameEntry.findUnique).mockResolvedValue({
+            id: 'entry-last',
+            opnameItemId: 'item-1',
+            opnameItem: {
+                opnameId: 'opname-1',
+                opname: { status: 'OPEN' },
+            },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.delete).mockResolvedValue({} as never);
+        vi.mocked(prisma.stockOpnameEntry.aggregate).mockResolvedValue({
+            _sum: { quantity: null },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(0 as never);
+        vi.mocked(prisma.stockOpnameItem.update).mockResolvedValue({} as never);
+
+        const result = await deleteOpnameEntry('entry-last');
+
+        expect(result.success).toBe(true);
+        const data = (result as { success: true; data: { countedQuantity: number | null; entryCount: number } }).data;
+        expect(data.countedQuantity).toBeNull();
+        expect(data.entryCount).toBe(0);
+
+        expect(prisma.stockOpnameItem.update).toHaveBeenCalledWith({
+            where: { id: 'item-1' },
+            data: { countedQuantity: null },
+        });
+    });
+
+    it('deleteOpnameEntry menolak sesi yang tidak OPEN', async () => {
+        vi.mocked(prisma.stockOpnameEntry.findUnique).mockResolvedValue({
+            id: 'entry-1',
+            opnameItemId: 'item-1',
+            opnameItem: {
+                opnameId: 'opname-1',
+                opname: { status: 'COMPLETED' },
+            },
+        } as never);
+
+        await expect(deleteOpnameEntry('entry-1')).rejects.toThrow('Hanya sesi OPEN yang dapat diupdate');
+    });
+
+    it('deleteOpnameEntry menolak user tanpa role yang berwenang', async () => {
+        vi.mocked(requireRole).mockRejectedValue(new AuthorizationError('Tidak memiliki izin yang cukup'));
+
+        await expect(deleteOpnameEntry('entry-1')).rejects.toThrow(AuthorizationError);
+        expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 });

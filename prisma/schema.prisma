@@ -74,6 +74,7 @@ model User {
   loansApproved                  EmployeeLoan[]         @relation("LoanApprover")
   customersCreated               Customer[]
   warehouseAttachments           WarehouseOperationalAttachment[] @relation("WarehouseAttachmentUploader")
+  stockOpnameEntries             StockOpnameEntry[]
 }
 
 model UserRole {
@@ -692,8 +693,22 @@ model StockOpnameItem {
   opname           StockOpname    @relation(fields: [opnameId], references: [id], onDelete: Cascade)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   attachments      WarehouseOperationalAttachment[] @relation("StockOpnameItemAttachments")
+  entries          StockOpnameEntry[]
 
   @@unique([opnameId, productVariantId])
+}
+
+model StockOpnameEntry {
+  id           String          @id @default(uuid())
+  opnameItemId String
+  quantity     Decimal         @db.Decimal(15, 4)
+  label        String?
+  createdAt    DateTime        @default(now())
+  createdById  String?
+  opnameItem   StockOpnameItem @relation(fields: [opnameItemId], references: [id], onDelete: Cascade)
+  createdBy    User?           @relation(fields: [createdById], references: [id])
+
+  @@index([opnameItemId, createdAt])
 }
 
 model ProductionOrder {

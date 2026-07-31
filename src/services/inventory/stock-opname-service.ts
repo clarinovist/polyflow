@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 import { AccountingService } from '@/services/accounting/accounting-service';
+import { toDecimalNumber } from '@/lib/utils/utils';
 import { MovementType, OpnameStatus } from '@prisma/client';
 
 export class StockOpnameService {
@@ -19,10 +20,36 @@ export class StockOpnameService {
             throw new BusinessRuleError('Sesi tidak terbuka');
 
         await prisma.$transaction(async (tx) => {
+            // Defensive sum: if an item has per-roll entries, use that sum as source of truth
+            const entrySums = await tx.stockOpnameEntry.groupBy({
+                by: ['opnameItemId'],
+                where: { opnameItem: { opnameId } },
+                _sum: { quantity: true },
+            });
+
+            const entrySumMap = new Map<string, number>();
+            for (const row of entrySums) {
+                const raw = row._sum.quantity;
+                if (raw === null || raw === undefined) continue;
+                const num = toDecimalNumber(raw);
+                if (Number.isFinite(num)) {
+                    entrySumMap.set(row.opnameItemId, num);
+                }
+            }
+
             // 1. Process items with variance
             for (const item of opname.items) {
-                // If countedQuantity is null, we assume it matched system (or wasn't checked)
-                if (item.countedQuantity === null) continue;
+                const fromEntries = entrySumMap.get(item.id);
+                const rawCounted =
+                    fromEntries !== undefined ? fromEntries : item.countedQuantity;
+
+                // If countedQuantity is null (and no entries), we assume it matched system (or wasn't checked)
+                if (rawCounted === null || rawCounted === undefined) continue;
+
+                // guard null sudah di atas; baru convert
+                const countedQty = toDecimalNumber(rawCounted);
+
+                if (!Number.isFinite(countedQty)) continue;
 
                 // Use live system stock for variance calculation to avoid stale snapshot issues
                 const liveStockRow = await tx.$queryRaw<
@@ -37,7 +64,6 @@ export class StockOpnameService {
                     ? Number(liveStockRow[0].quantity)
                     : 0;
 
-                const countedQty = item.countedQuantity.toNumber();
                 const variance = countedQty - currentSystemQty;
 
                 if (variance !== 0) {
@@ -52,12 +78,12 @@ export class StockOpnameService {
                                 },
                             },
                             update: {
-                                quantity: item.countedQuantity,
+                                quantity: countedQty,
                             },
                             create: {
                                 locationId: opname.locationId,
                                 productVariantId: item.productVariantId,
-                                quantity: item.countedQuantity,
+                                quantity: countedQty,
                             },
                         });
                     } catch (e: unknown) {
@@ -75,7 +101,7 @@ export class StockOpnameService {
                                     productVariantId: item.productVariantId,
                                 },
                             },
-                            data: { quantity: item.countedQuantity },
+                            data: { quantity: countedQty },
                         });
                     }
 

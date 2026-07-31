@@ -21,12 +21,16 @@ const { mockPrisma, mockTx } = vi.hoisted(() => {
     $queryRaw: vi.fn(),
     inventory: {
       upsert: vi.fn(),
+      update: vi.fn(),
     },
     stockMovement: {
       create: vi.fn(),
     },
     stockOpname: {
       update: vi.fn(),
+    },
+    stockOpnameEntry: {
+      groupBy: vi.fn(),
     },
   };
 
@@ -69,6 +73,7 @@ describe("StockOpnameService.completeOpname", () => {
     vi.clearAllMocks();
     mockTx.stockMovement.create.mockResolvedValue({ id: "movement-1" });
     mockTx.stockOpname.update.mockResolvedValue({ id: "opname-1" });
+    mockTx.stockOpnameEntry.groupBy.mockResolvedValue([]);
     // Mock $queryRaw to return live stock for variance calculation
     mockTx.$queryRaw.mockResolvedValue([{ quantity: "7" }]);
   });
@@ -109,11 +114,11 @@ describe("StockOpnameService.completeOpname", () => {
           productVariantId: "variant-1",
         },
       },
-      update: { quantity: new FakeDecimal(10) },
+      update: { quantity: 10 },
       create: {
         locationId: "loc-1",
         productVariantId: "variant-1",
-        quantity: new FakeDecimal(10),
+        quantity: 10,
       },
     });
     expect(mockTx.stockMovement.create).toHaveBeenCalledWith({
@@ -167,5 +172,106 @@ describe("StockOpnameService.completeOpname", () => {
       StockOpnameService.completeOpname("opname-1", "user-1"),
     ).rejects.toBeInstanceOf(BusinessRuleError);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("memakai jumlah entri sebagai hasil hitung saat item memiliki entri rincian", async () => {
+    // entry sum 126.3 overrides countedQuantity 999
+    mockTx.stockOpnameEntry.groupBy.mockResolvedValue([
+      {
+        opnameItemId: "item-1",
+        _sum: { quantity: new FakeDecimal(126.3) },
+      },
+    ]);
+    mockTx.$queryRaw.mockResolvedValue([{ quantity: "100" }]);
+
+    mockPrisma.stockOpname.findUnique.mockResolvedValue({
+      id: "opname-1",
+      opnameNumber: "OPN-202605-0001",
+      locationId: "loc-1",
+      status: OpnameStatus.OPEN,
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "variant-1",
+          systemQuantity: new FakeDecimal(100),
+          // countedQuantity cache that is stale — entry sum should win
+          countedQuantity: new FakeDecimal(999),
+        },
+      ],
+    });
+
+    await StockOpnameService.completeOpname("opname-1", "user-1");
+
+    // variance = 126.3 - 100 = 26.3
+    expect(mockTx.stockOpnameEntry.groupBy).toHaveBeenCalledWith({
+      by: ["opnameItemId"],
+      where: { opnameItem: { opnameId: "opname-1" } },
+      _sum: { quantity: true },
+    });
+    expect(mockTx.inventory.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          locationId_productVariantId: {
+            locationId: "loc-1",
+            productVariantId: "variant-1",
+          },
+        },
+      }),
+    );
+    // Upsert quantity should be the entry sum (126.3), not the stale cache (999)
+    const upsertCall = mockTx.inventory.upsert.mock.calls[0][0] as {
+      update: { quantity: number };
+      create: { quantity: number };
+    };
+    expect(upsertCall.update.quantity).toBe(126.3);
+    expect(mockTx.stockMovement.create).toHaveBeenCalledWith({
+      data: {
+        type: MovementType.ADJUSTMENT,
+        productVariantId: "variant-1",
+        fromLocationId: null,
+        toLocationId: "loc-1",
+        quantity: expect.closeTo(26.3, 5),
+        reference: "OPN-202605-0001",
+      },
+    });
+  });
+
+  it("tetap memakai countedQuantity saat item tidak memiliki entri", async () => {
+    mockTx.stockOpnameEntry.groupBy.mockResolvedValue([]);
+    mockTx.$queryRaw.mockResolvedValue([{ quantity: "7" }]);
+
+    mockPrisma.stockOpname.findUnique.mockResolvedValue({
+      id: "opname-1",
+      opnameNumber: "OPN-202605-0001",
+      locationId: "loc-1",
+      status: OpnameStatus.OPEN,
+      items: [
+        {
+          id: "item-2",
+          productVariantId: "variant-2",
+          systemQuantity: new FakeDecimal(7),
+          countedQuantity: new FakeDecimal(10),
+        },
+      ],
+    });
+
+    await StockOpnameService.completeOpname("opname-1", "user-1");
+
+    expect(mockTx.stockOpnameEntry.groupBy).toHaveBeenCalledTimes(1);
+    expect(mockTx.inventory.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          locationId_productVariantId: {
+            locationId: "loc-1",
+            productVariantId: "variant-2",
+          },
+        },
+      }),
+    );
+    // quantity still from countedQuantity (countedQty is number after defensive sum conversion)
+    const upsertCall = mockTx.inventory.upsert.mock.calls[0][0] as {
+      update: { quantity: number };
+    };
+    expect(upsertCall.update.quantity).toBe(10);
   });
 });
