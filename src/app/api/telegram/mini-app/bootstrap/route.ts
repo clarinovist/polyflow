@@ -7,6 +7,7 @@ import { verifyTelegramSession, extractSessionTokenFromCookieHeader } from '@/li
 import { checkPilotAdminGate } from '@/lib/telegram/allowlist';
 import { logTelegramAudit } from '@/lib/telegram/audit';
 import { findIdentityByTelegramUserId } from '@/lib/telegram/identity-service';
+import { computeAllowedDomains } from '@/lib/telegram/domain-access';
 import type { Role } from '@prisma/client';
 
 function getIp(req: NextRequest): string {
@@ -82,31 +83,12 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
     allowedResources = [];
   }
 
-  const domainMap: Record<string, string> = {
-    '/warehouse/inventory': 'stock',
-    '/sales/orders': 'sales',
-    '/sales/deliveries': 'sales',
-    '/production/orders': 'production',
-    '/finance/invoices/sales': 'finance',
-    '/finance/aging': 'finance',
-    '/purchasing/orders': 'purchasing',
-    '/hrd/attendance': 'hrd',
-  };
-  const allowedDomainsSet = new Set<string>();
-  const hasAll = user.isSuperAdmin || assignedRoles.includes('ADMIN') || user.role === 'ADMIN';
-  if (hasAll) {
-    ['stock', 'sales', 'production', 'finance', 'purchasing'].forEach((d) => allowedDomainsSet.add(d));
-  } else {
-    for (const res of allowedResources) {
-      const dom = domainMap[res];
-      if (dom) allowedDomainsSet.add(dom);
-      if (res === '/warehouse') allowedDomainsSet.add('stock');
-      if (res === '/sales') allowedDomainsSet.add('sales');
-      if (res === '/production') allowedDomainsSet.add('production');
-      if (res === '/finance') allowedDomainsSet.add('finance');
-      if (res === '/purchasing') allowedDomainsSet.add('purchasing');
-    }
-  }
+  const allowedDomainsSet = computeAllowedDomains({
+    isSuperAdmin: user.isSuperAdmin,
+    role: user.role,
+    assignedRoles,
+    allowedResources,
+  });
 
   const pref = await prisma.telegramNotificationPreference.findUnique({
     where: { tenantId_userId: { tenantId: effectiveTenantId, userId } },
