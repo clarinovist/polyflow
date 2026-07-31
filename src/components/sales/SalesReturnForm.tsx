@@ -18,6 +18,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { CustomerCombobox } from '@/components/customers/CustomerCombobox';
 import {
     Form,
     FormControl,
@@ -204,26 +205,13 @@ export function SalesReturnForm({
                                         <FormLabel>
                                             {salesLabels.customer} *
                                         </FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value || undefined}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Pilih Customer" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {customers.map((c) => (
-                                                    <SelectItem
-                                                        key={c.id}
-                                                        value={c.id}
-                                                    >
-                                                        {c.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <CustomerCombobox
+                                                customers={customers}
+                                                value={field.value || ''}
+                                                onChange={field.onChange}
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

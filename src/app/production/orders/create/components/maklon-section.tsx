@@ -9,13 +9,7 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { CustomerCombobox } from '@/components/customers/CustomerCombobox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Factory } from 'lucide-react';
@@ -74,23 +68,13 @@ export function MaklonSection({
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Customer Maklon</FormLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    value={(field.value as string) || ''}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Pilih customer" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {customers.map((c) => (
-                                            <SelectItem key={c.id} value={c.id}>
-                                                {c.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <CustomerCombobox
+                                        customers={customers}
+                                        value={(field.value as string) || ''}
+                                        onChange={field.onChange}
+                                    />
+                                </FormControl>
                                 <FormDescription>
                                     Pilih customer yang memiliki bahan. Konsumsi
                                     material akan dicatat dari lokasi maklon

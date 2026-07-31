@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/card';
 import { Plus, Trash2, Package, Info } from 'lucide-react';
 import { ProductCombobox } from '@/components/products/product-combobox';
+import { CustomerCombobox } from '@/components/customers/CustomerCombobox';
 import { purchasingLabels, formLabels } from '@/lib/labels';
 
 interface MaklonGoodsReceiptFormProps {
@@ -321,28 +322,13 @@ export function MaklonGoodsReceiptForm({
                                             <FormLabel className="text-xs font-bold">
                                                 Customer Maklon
                                             </FormLabel>
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                defaultValue={
-                                                    field.value || undefined
-                                                }
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Pilih customer..." />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {customers.map((c) => (
-                                                        <SelectItem
-                                                            key={c.id}
-                                                            value={c.id}
-                                                        >
-                                                            {c.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <CustomerCombobox
+                                                    customers={customers}
+                                                    value={field.value || ''}
+                                                    onChange={field.onChange}
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}

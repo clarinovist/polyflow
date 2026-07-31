@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Truck, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { CustomerCombobox } from '@/components/customers/CustomerCombobox';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -211,19 +212,11 @@ export function MobileWalkInDispatchForm({
             {/* Customer */}
             <div className="space-y-1.5">
                 <label className="text-sm font-medium">Customer</label>
-                <select
+                <CustomerCombobox
+                    customers={customers}
                     value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    className="w-full h-11 px-3 rounded-lg border bg-background text-sm"
-                >
-                    <option value="">Pilih customer...</option>
-                    {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.code ? ` (${c.code})` : ''}
-                        </option>
-                    ))}
-                </select>
+                    onChange={setCustomerId}
+                />
             </div>
 
             {/* Source reference */}
