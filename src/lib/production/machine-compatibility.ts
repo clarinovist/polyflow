@@ -36,8 +36,9 @@ export function isMachineCompatibleWithCategory(
 /**
  * ProcessCode → default MachineTypes fallback when capability table empty.
  * Used as secondary fallback for routed orders.
+ * Seed script derives its MachineType → ProcessCode map by inverting this table.
  */
-const PROCESS_MACHINE_FALLBACK: Record<string, readonly MachineType[]> = {
+export const PROCESS_MACHINE_FALLBACK: Record<string, readonly MachineType[]> = {
     MIXING: ['MIXER'],
     EXTRUSION: ['EXTRUDER', 'REWINDER'],
     INNER_PACKING: ['PACKER'],

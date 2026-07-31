@@ -3,6 +3,7 @@ import {
   getCompatibleMachineTypes,
   isMachineCompatibleWithCategory,
   filterMachinesByStage,
+  PROCESS_MACHINE_FALLBACK,
 } from "./machine-compatibility";
 
 describe("getCompatibleMachineTypes", () => {
@@ -62,5 +63,21 @@ describe("filterMachinesByStage", () => {
 
   it("returns all for rework stage", () => {
     expect(filterMachinesByStage(machines, "rework")).toEqual(machines);
+  });
+});
+
+describe("PROCESS_MACHINE_FALLBACK", () => {
+  it("REWORK contains all five MachineTypes", () => {
+    expect(PROCESS_MACHINE_FALLBACK.REWORK).toEqual(
+      expect.arrayContaining(["MIXER", "EXTRUDER", "REWINDER", "PACKER", "GRANULATOR"]),
+    );
+    expect(PROCESS_MACHINE_FALLBACK.REWORK).toHaveLength(5);
+  });
+
+  it("CARTON_PACKING contains PACKER and GRANULATOR", () => {
+    expect(PROCESS_MACHINE_FALLBACK.CARTON_PACKING).toEqual(
+      expect.arrayContaining(["PACKER", "GRANULATOR"]),
+    );
+    expect(PROCESS_MACHINE_FALLBACK.CARTON_PACKING).toHaveLength(2);
   });
 });
