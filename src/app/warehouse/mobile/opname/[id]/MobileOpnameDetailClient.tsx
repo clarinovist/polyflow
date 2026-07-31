@@ -29,7 +29,13 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
-import { saveOpnameCount, completeOpname, addItemToOpname } from '@/actions/inventory/opname';
+import {
+    saveOpnameCount,
+    completeOpname,
+    addItemToOpname,
+    addOpnameEntry,
+    deleteOpnameEntry,
+} from '@/actions/inventory/opname';
 import { getProductVariants } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { formatQuantity } from '@/lib/utils/utils';
@@ -37,6 +43,10 @@ import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
 } from '@/components/warehouse/WarehouseAttachmentPanel';
+import {
+    OpnameEntryEditor,
+    type OpnameEntryView,
+} from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
 
 const MAX_VARIANT_RESULTS = 50;
 
@@ -51,6 +61,12 @@ type OpnameItem = {
         primaryUnit: string;
         product: { name: string };
     };
+    entries?: Array<{
+        id: string;
+        quantity: number;
+        label?: string | null;
+        createdAt: Date | string;
+    }>;
 };
 
 type OpnameSession = {
@@ -71,6 +87,26 @@ interface MobileOpnameDetailClientProps {
 
 type ItemFilter = 'ALL' | 'COUNTED' | 'UNCOUNTED';
 
+function replaceOptimisticEntry(
+    entries: OpnameEntryView[],
+    optimisticId: string,
+    savedEntry: OpnameEntryView,
+) {
+    let replaced = false;
+    const nextEntries = entries.flatMap((entry) => {
+        if (entry.id === savedEntry.id) {
+            return [];
+        }
+        if (entry.id === optimisticId) {
+            replaced = true;
+            return [savedEntry];
+        }
+        return [entry];
+    });
+
+    return replaced ? nextEntries : [...nextEntries, savedEntry];
+}
+
 export function MobileOpnameDetailClient({
     session,
     attachments = [],
@@ -88,6 +124,14 @@ export function MobileOpnameDetailClient({
     const [isFinalizing, setIsFinalizing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showVarianceSummary, setShowVarianceSummary] = useState(false);
+
+    // Entry details state
+    const [entriesByItem, setEntriesByItem] = useState<
+        Record<string, OpnameEntryView[]>
+    >({});
+    const [expandedItems, setExpandedItems] = useState<
+        Record<string, boolean>
+    >({});
 
     // Add Item dialog
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -168,6 +212,44 @@ export function MobileOpnameDetailClient({
         });
         setCounts(initialCounts);
         setNotes(initialNotes);
+
+        // Merge entries: preserve optimistic pending/failed rows that haven't appeared on server yet
+        setEntriesByItem((prev) => {
+            const next: Record<string, OpnameEntryView[]> = {};
+            for (const item of items) {
+                const serverEntries: OpnameEntryView[] = (
+                    item.entries ?? []
+                ).map((entry) => ({
+                    id: entry.id,
+                    quantity: Number(entry.quantity),
+                    label: entry.label ?? null,
+                    status: 'saved' as const,
+                }));
+                const localPendingFailed = (prev[item.id] ?? []).filter(
+                    (entry) =>
+                        (entry.status === 'pending' ||
+                            entry.status === 'failed') &&
+                        !serverEntries.some(
+                            (serverEntry) => serverEntry.id === entry.id,
+                        ),
+                );
+                next[item.id] = [...serverEntries, ...localPendingFailed];
+            }
+            return next;
+        });
+
+        // Initialize expand state for KG items (don't override user toggle)
+        setExpandedItems((prev) => {
+            const next: Record<string, boolean> = {};
+            for (const item of items) {
+                if (prev[item.id] !== undefined) {
+                    next[item.id] = prev[item.id];
+                } else {
+                    next[item.id] = item.productVariant.primaryUnit === 'KG';
+                }
+            }
+            return next;
+        });
     }, [session]);
 
     // Dirty detection
@@ -175,19 +257,28 @@ export function MobileOpnameDetailClient({
         const dirty: string[] = [];
         const items = session.items ?? [];
         for (const item of items) {
-            const currentCount = counts[item.id];
-            const originalCount =
-                item.countedQuantity !== null
-                    ? item.countedQuantity.toString()
-                    : '';
             const currentNote = notes[item.id] || '';
             const originalNote = item.notes || '';
-            if (currentCount !== originalCount || currentNote !== originalNote) {
+            // Items with entries: countedQuantity is managed server-side by entries; only notes dirty
+            const hasEntries = (entriesByItem[item.id] ?? []).length > 0;
+            if (hasEntries && currentNote !== originalNote) {
                 dirty.push(item.id);
+            } else if (!hasEntries) {
+                const currentCount = counts[item.id];
+                const originalCount =
+                    item.countedQuantity !== null
+                        ? item.countedQuantity.toString()
+                        : '';
+                if (
+                    currentCount !== originalCount ||
+                    currentNote !== originalNote
+                ) {
+                    dirty.push(item.id);
+                }
             }
         }
         return dirty;
-    }, [session.items, counts, notes]);
+    }, [session.items, counts, notes, entriesByItem]);
 
     const hasChanges = dirtyItems.length > 0;
 
@@ -196,7 +287,8 @@ export function MobileOpnameDetailClient({
         const items = session.items ?? [];
         const total = items.length;
         const counted = items.filter(
-            (i) => i.countedQuantity !== null,
+            (item) =>
+                counts[item.id] !== undefined && counts[item.id] !== '',
         ).length;
         const uncounted = total - counted;
         let matched = 0;
@@ -273,6 +365,25 @@ export function MobileOpnameDetailClient({
     };
 
     const handleFinalize = async () => {
+        // Guard: reject if any entries are still pending/failed
+        const unsavedEntryCount = Object.values(entriesByItem).reduce(
+            (total, entries) =>
+                total +
+                entries.filter(
+                    (entry) =>
+                        entry.status === 'pending' ||
+                        entry.status === 'failed',
+                ).length,
+            0,
+        );
+
+        if (unsavedEntryCount > 0) {
+            toast.error(
+                `Masih ada ${unsavedEntryCount} entri yang belum tersimpan. Kirim ulang dulu.`,
+            );
+            return;
+        }
+
         if (stats.uncounted > 0) {
             if (
                 !confirm(
@@ -307,7 +418,210 @@ export function MobileOpnameDetailClient({
         setTimeout(() => setIsRefreshing(false), 600);
     };
 
+    const handleAddEntry = useCallback(
+        async (itemId: string, quantity: number, label?: string) => {
+            const clientId = crypto.randomUUID();
+            const optimisticEntry: OpnameEntryView = {
+                id: clientId,
+                quantity,
+                label: label ?? null,
+                status: 'pending',
+            };
+
+            setEntriesByItem((prev) => ({
+                ...prev,
+                [itemId]: [...(prev[itemId] ?? []), optimisticEntry],
+            }));
+
+            try {
+                const result = await addOpnameEntry(
+                    itemId,
+                    quantity,
+                    label,
+                );
+                if (!result.success) {
+                    setEntriesByItem((prev) => ({
+                        ...prev,
+                        [itemId]: (prev[itemId] ?? []).map((entry) =>
+                            entry.id === clientId
+                                ? { ...entry, status: 'failed' as const }
+                                : entry,
+                        ),
+                    }));
+                    toast.error(result.error || 'Gagal menambah entri');
+                    return;
+                }
+
+                const savedEntry: OpnameEntryView = {
+                    id: result.data.id,
+                    quantity: result.data.quantity,
+                    label: result.data.label ?? null,
+                    status: 'saved',
+                };
+                setEntriesByItem((prev) => ({
+                    ...prev,
+                    [itemId]: replaceOptimisticEntry(
+                        prev[itemId] ?? [],
+                        clientId,
+                        savedEntry,
+                    ),
+                }));
+                setCounts((prev) => ({
+                    ...prev,
+                    [itemId]: String(result.data.countedQuantity),
+                }));
+            } catch {
+                setEntriesByItem((prev) => ({
+                    ...prev,
+                    [itemId]: (prev[itemId] ?? []).map((entry) =>
+                        entry.id === clientId
+                            ? { ...entry, status: 'failed' as const }
+                            : entry,
+                    ),
+                }));
+                toast.error('Gagal menambah entri');
+            }
+        },
+        [],
+    );
+
+    const handleRetryEntry = useCallback(
+        async (itemId: string, entryId: string) => {
+            const entry = (entriesByItem[itemId] ?? []).find(
+                (candidate) => candidate.id === entryId,
+            );
+            if (!entry || entry.status !== 'failed') {
+                return;
+            }
+
+            setEntriesByItem((prev) => ({
+                ...prev,
+                [itemId]: (prev[itemId] ?? []).map((candidate) =>
+                    candidate.id === entryId
+                        ? { ...candidate, status: 'pending' as const }
+                        : candidate,
+                ),
+            }));
+
+            try {
+                const result = await addOpnameEntry(
+                    itemId,
+                    entry.quantity,
+                    entry.label ?? undefined,
+                );
+                if (!result.success) {
+                    setEntriesByItem((prev) => ({
+                        ...prev,
+                        [itemId]: (prev[itemId] ?? []).map((candidate) =>
+                            candidate.id === entryId
+                                ? {
+                                      ...candidate,
+                                      status: 'failed' as const,
+                                  }
+                                : candidate,
+                        ),
+                    }));
+                    toast.error(
+                        result.error || 'Gagal mengirim ulang entri',
+                    );
+                    return;
+                }
+
+                const savedEntry: OpnameEntryView = {
+                    id: result.data.id,
+                    quantity: result.data.quantity,
+                    label: result.data.label ?? null,
+                    status: 'saved',
+                };
+                setEntriesByItem((prev) => ({
+                    ...prev,
+                    [itemId]: replaceOptimisticEntry(
+                        prev[itemId] ?? [],
+                        entryId,
+                        savedEntry,
+                    ),
+                }));
+                setCounts((prev) => ({
+                    ...prev,
+                    [itemId]: String(result.data.countedQuantity),
+                }));
+            } catch {
+                setEntriesByItem((prev) => ({
+                    ...prev,
+                    [itemId]: (prev[itemId] ?? []).map((candidate) =>
+                        candidate.id === entryId
+                            ? { ...candidate, status: 'failed' as const }
+                            : candidate,
+                    ),
+                }));
+                toast.error('Gagal mengirim ulang entri');
+            }
+        },
+        [entriesByItem],
+    );
+
+    const handleRemoveEntry = useCallback(
+        async (itemId: string, entryId: string) => {
+            const entry = (entriesByItem[itemId] ?? []).find(
+                (candidate) => candidate.id === entryId,
+            );
+            if (!entry) {
+                return;
+            }
+
+            if (entry.status === 'pending') {
+                toast.error('Entri sedang dikirim, tunggu sebentar');
+                return;
+            }
+
+            if (entry.status === 'failed') {
+                setEntriesByItem((prev) => ({
+                    ...prev,
+                    [itemId]: (prev[itemId] ?? []).filter(
+                        (candidate) => candidate.id !== entryId,
+                    ),
+                }));
+                return;
+            }
+
+            try {
+                const result = await deleteOpnameEntry(entryId);
+                if (!result.success) {
+                    toast.error(result.error || 'Gagal menghapus entri');
+                    return;
+                }
+
+                setEntriesByItem((prev) => ({
+                    ...prev,
+                    [itemId]: (prev[itemId] ?? []).filter(
+                        (candidate) => candidate.id !== entryId,
+                    ),
+                }));
+                setCounts((prev) => ({
+                    ...prev,
+                    [itemId]:
+                        result.data.countedQuantity !== null
+                            ? String(result.data.countedQuantity)
+                            : '',
+                }));
+            } catch {
+                toast.error('Gagal menghapus entri');
+            }
+        },
+        [entriesByItem],
+    );
+
     const getVariance = (item: OpnameItem) => {
+        const entries = entriesByItem[item.id] ?? [];
+        if (entries.length > 0) {
+            return (
+                entries.reduce(
+                    (total, entry) => total + entry.quantity,
+                    0,
+                ) - item.systemQuantity
+            );
+        }
+
         const countVal = counts[item.id];
         if (countVal === undefined || countVal === '') return null;
         const actual = parseFloat(countVal);
@@ -511,8 +825,23 @@ export function MobileOpnameDetailClient({
                     </div>
                 ) : (
                     filteredItems.map((item) => {
+                        const itemEntries = entriesByItem[item.id] ?? [];
+                        const hasEntries = itemEntries.length > 0;
+                        const entryTotal = itemEntries.reduce(
+                            (total, entry) => total + entry.quantity,
+                            0,
+                        );
                         const variance = getVariance(item);
-                        const isCounted = counts[item.id] !== undefined && counts[item.id] !== '';
+                        const isCounted =
+                            counts[item.id] !== undefined &&
+                            counts[item.id] !== '';
+                        const actualDisplay = hasEntries
+                            ? formatQuantity(entryTotal)
+                            : isCounted
+                              ? formatQuantity(
+                                    parseFloat(counts[item.id] || '0'),
+                                )
+                              : '—';
                         const isDirty = dirtyItems.includes(item.id);
 
                         return (
@@ -551,25 +880,39 @@ export function MobileOpnameDetailClient({
                                     </p>
                                 )}
 
-                                {/* Actual Qty Input */}
+                                {/* Actual Qty + Entry details */}
                                 {isOpen ? (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2">
                                             <Label className="text-xs text-muted-foreground w-16 shrink-0">
                                                 Aktual
                                             </Label>
-                                            <Input
-                                                type="number"
-                                                inputMode="decimal"
-                                                value={counts[item.id] ?? ''}
-                                                onChange={(e) =>
-                                                    handleCountChange(item.id, e.target.value)
-                                                }
-                                                placeholder="0"
-                                                className="h-9 text-sm flex-1"
-                                                min="0"
-                                                step="any"
-                                            />
+                                            {hasEntries ? (
+                                                <div className="h-9 text-sm flex-1 flex items-center">
+                                                    <span className="font-medium">
+                                                        {formatQuantity(entryTotal)}
+                                                    </span>
+                                                    <span className="ml-2 text-[10px] text-muted-foreground">
+                                                        dari rincian
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <Input
+                                                    type="number"
+                                                    inputMode="decimal"
+                                                    value={counts[item.id] ?? ''}
+                                                    onChange={(e) =>
+                                                        handleCountChange(
+                                                            item.id,
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="0"
+                                                    className="h-9 text-sm flex-1"
+                                                    min="0"
+                                                    step="any"
+                                                />
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <Label className="text-xs text-muted-foreground w-16 shrink-0">
@@ -578,27 +921,88 @@ export function MobileOpnameDetailClient({
                                             <Input
                                                 value={notes[item.id] ?? ''}
                                                 onChange={(e) =>
-                                                    handleNoteChange(item.id, e.target.value)
+                                                    handleNoteChange(
+                                                        item.id,
+                                                        e.target.value,
+                                                    )
                                                 }
                                                 placeholder="Opsional"
                                                 className="h-9 text-sm flex-1"
                                                 maxLength={500}
                                             />
                                         </div>
+
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-between text-xs">
                                         <span className="text-muted-foreground">
-                                            Aktual: {isCounted ? formatQuantity(parseFloat(counts[item.id] || '0')) : '—'}
+                                            Aktual: {actualDisplay}
                                         </span>
                                         {variance !== null && (
-                                            <span className={`font-medium ${getVarianceColor(variance)}`}>
+                                            <span
+                                                className={`font-medium ${getVarianceColor(variance)}`}
+                                            >
                                                 {variance > 0 ? '+' : ''}
                                                 {formatQuantity(variance)}
                                             </span>
                                         )}
                                     </div>
                                 )}
+
+                                {(isOpen || hasEntries) && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setExpandedItems((prev) => ({
+                                                ...prev,
+                                                [item.id]: !prev[item.id],
+                                            }))
+                                        }
+                                        className="mt-2 flex min-h-9 items-center gap-1 text-xs font-medium text-primary"
+                                    >
+                                        {expandedItems[item.id]
+                                            ? 'Tutup rincian'
+                                            : 'Rincian'}
+                                        {hasEntries && (
+                                            <span className="font-normal text-muted-foreground">
+                                                ({itemEntries.length} entri)
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
+
+                                {expandedItems[item.id] &&
+                                    (isOpen || hasEntries) && (
+                                        <div className="mt-2">
+                                            <OpnameEntryEditor
+                                                entries={itemEntries}
+                                                unit={
+                                                    item.productVariant
+                                                        .primaryUnit
+                                                }
+                                                readOnly={!isOpen}
+                                                onAdd={(quantity, label) =>
+                                                    handleAddEntry(
+                                                        item.id,
+                                                        quantity,
+                                                        label,
+                                                    )
+                                                }
+                                                onRemove={(entryId) =>
+                                                    handleRemoveEntry(
+                                                        item.id,
+                                                        entryId,
+                                                    )
+                                                }
+                                                onRetry={(entryId) =>
+                                                    handleRetryEntry(
+                                                        item.id,
+                                                        entryId,
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                    )}
                             </div>
                         );
                     })

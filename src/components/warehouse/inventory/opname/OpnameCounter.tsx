@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,11 +13,21 @@ import {
 } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Save, Loader2 } from 'lucide-react';
+import {
+    Eye,
+    EyeOff,
+    Save,
+    Loader2,
+    ChevronRight,
+    ChevronDown,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { saveOpnameCount } from '@/actions/inventory/opname';
 import { formatQuantity } from '@/lib/utils/utils';
 import { warehouseComponentLabels } from '@/lib/labels';
+import { OpnameEntryEditor } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
+
+const NOOP_ENTRY_ACTION = () => undefined;
 
 interface OpnameItem {
     id: string;
@@ -32,6 +42,12 @@ interface OpnameItem {
             name: string;
         };
     };
+    entries?: Array<{
+        id: string;
+        quantity: number;
+        label?: string | null;
+        createdAt: Date | string;
+    }>;
 }
 
 interface OpnameSession {
@@ -50,6 +66,9 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
     const [blindMode, setBlindMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [expandedItems, setExpandedItems] = useState<
+        Record<string, boolean>
+    >({});
 
     // Initialize state from props
     useEffect(() => {
@@ -77,6 +96,10 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
     const handleNoteChange = (id: string, value: string) => {
         setNotes((prev) => ({ ...prev, [id]: value }));
         setHasChanges(true);
+    };
+
+    const toggleEntryExpansion = (itemId: string) => {
+        setExpandedItems((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
     };
 
     const handleSave = async () => {
@@ -169,73 +192,116 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                 {warehouseComponentLabels.actualQty}
                             </TableHead>
                             <TableHead className="w-[200px]">Notes</TableHead>
+                            <TableHead className="w-[80px]">Rincian</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {(session.items || []).map((item) => (
-                            <TableRow
-                                key={item.id}
-                                className="hover:bg-muted/20"
-                            >
-                                <TableCell className="font-medium">
-                                    <div className="flex flex-col">
-                                        <span>{item.productVariant.name}</span>
-                                        <span className="text-xs text-muted-foreground font-normal">
-                                            {item.productVariant.product.name}
-                                        </span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-muted-foreground text-xs font-mono">
-                                    {item.productVariant.skuCode}
-                                </TableCell>
-                                <TableCell className="text-xs">
-                                    {item.productVariant.primaryUnit}
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground font-mono">
-                                    {blindMode ? (
-                                        <span className="opacity-20 select-none">
-                                            ••••
-                                        </span>
-                                    ) : (
-                                        formatQuantity(
-                                            Number(item.systemQuantity),
-                                        )
+                        {(session.items || []).map((item) => {
+                            const itemEntries = item.entries ?? [];
+                            const hasEntries = itemEntries.length > 0;
+                            const isExpanded = expandedItems[item.id] ?? false;
+
+                            return (
+                                <Fragment key={item.id}>
+                                    <TableRow className="hover:bg-muted/20">
+                                        <TableCell className="font-medium">
+                                            <div className="flex flex-col">
+                                                <span>{item.productVariant.name}</span>
+                                                <span className="text-xs text-muted-foreground font-normal">
+                                                    {item.productVariant.product.name}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground text-xs font-mono">
+                                            {item.productVariant.skuCode}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                            {item.productVariant.primaryUnit}
+                                        </TableCell>
+                                        <TableCell className="text-right text-muted-foreground font-mono">
+                                            {blindMode ? (
+                                                <span className="opacity-20 select-none">
+                                                    ••••
+                                                </span>
+                                            ) : (
+                                                formatQuantity(
+                                                    Number(item.systemQuantity),
+                                                )
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Input
+                                                type="number"
+                                                step="any"
+                                                className="text-right h-9 font-mono"
+                                                placeholder="0"
+                                                value={counts[item.id] || ''}
+                                                onChange={(e) =>
+                                                    handleCountChange(
+                                                        item.id,
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                disabled={isReadOnly || hasEntries}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input
+                                                placeholder={
+                                                    warehouseComponentLabels.optional
+                                                }
+                                                className="h-9 text-xs"
+                                                value={notes[item.id] || ''}
+                                                onChange={(e) =>
+                                                    handleNoteChange(
+                                                        item.id,
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                disabled={isReadOnly}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            {hasEntries ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleEntryExpansion(item.id)}
+                                                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium"
+                                                >
+                                                    {isExpanded ? (
+                                                        <ChevronDown className="h-3.5 w-3.5" />
+                                                    ) : (
+                                                        <ChevronRight className="h-3.5 w-3.5" />
+                                                    )}
+                                                    {itemEntries.length} entri
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                    {isExpanded && hasEntries && (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="bg-muted/10 px-6 py-4">
+                                                <OpnameEntryEditor
+                                                    entries={itemEntries.map((e) => ({
+                                                        id: e.id,
+                                                        quantity: e.quantity,
+                                                        label: e.label,
+                                                        status: 'saved' as const,
+                                                    }))}
+                                                    unit={item.productVariant.primaryUnit}
+                                                    readOnly
+                                                    onAdd={NOOP_ENTRY_ACTION}
+                                                    onRemove={NOOP_ENTRY_ACTION}
+                                                    onRetry={NOOP_ENTRY_ACTION}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
                                     )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Input
-                                        type="number"
-                                        step="any"
-                                        className="text-right h-9 font-mono"
-                                        placeholder="0"
-                                        value={counts[item.id] || ''}
-                                        onChange={(e) =>
-                                            handleCountChange(
-                                                item.id,
-                                                e.target.value,
-                                            )
-                                        }
-                                        disabled={isReadOnly}
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <Input
-                                        placeholder={
-                                            warehouseComponentLabels.optional
-                                        }
-                                        className="h-9 text-xs"
-                                        value={notes[item.id] || ''}
-                                        onChange={(e) =>
-                                            handleNoteChange(
-                                                item.id,
-                                                e.target.value,
-                                            )
-                                        }
-                                        disabled={isReadOnly}
-                                    />
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                </Fragment>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             </div>

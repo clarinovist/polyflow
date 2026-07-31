@@ -210,4 +210,18 @@ describe('OpnameEntryEditor', () => {
         // Assert
         expect(screen.getByTestId('pending-spinner')).toBeDefined();
     });
+
+    it('mengembalikan fokus ke input setelah entri ditambahkan', async () => {
+        // Arrange
+        renderEditor({ entries: [] });
+        const input = screen.getByTestId('entry-input') as HTMLInputElement;
+
+        // Act
+        fireEvent.change(input, { target: { value: '5' } });
+        fireEvent.click(screen.getByTestId('add-button'));
+
+        // Assert — fokus balik ke input setelah requestAnimationFrame
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        expect(document.activeElement).toBe(input);
+    });
 });
