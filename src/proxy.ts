@@ -95,8 +95,12 @@ const handler = auth((req) => {
         request: { headers: requestHeaders },
     });
 
+    const isTelegramRoute = req.nextUrl.pathname.startsWith('/telegram');
+
     // SECURITY: Add missing HTTP security headers
-    response.headers.set('X-Frame-Options', 'DENY');
+    if (!isTelegramRoute) {
+        response.headers.set('X-Frame-Options', 'DENY');
+    }
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.headers.set('X-XSS-Protection', '1; mode=block');
@@ -105,7 +109,20 @@ const handler = auth((req) => {
         'max-age=31536000; includeSubDomains; preload',
     );
 
-    const csp = `
+    const csp = isTelegramRoute
+        ? `
+		default-src 'self';
+		script-src 'self' 'unsafe-inline' https://telegram.org;
+		style-src 'self' 'unsafe-inline';
+		img-src 'self' data: https: blob:;
+		font-src 'self' data:;
+		connect-src 'self' https:;
+		object-src 'none';
+		base-uri 'self';
+		form-action 'self';
+		frame-ancestors 'self' https://web.telegram.org https://telegram.org;
+	`
+        : `
 		default-src 'self';
 		script-src 'self' 'unsafe-inline';
 		style-src 'self' 'unsafe-inline';
@@ -115,11 +132,12 @@ const handler = auth((req) => {
 		object-src 'none';
 		base-uri 'self';
 		form-action 'self';
-	`
-        .replace(/\s{2,}/g, ' ')
-        .trim();
+	`;
 
-    response.headers.set('Content-Security-Policy', csp);
+    response.headers.set(
+        'Content-Security-Policy',
+        csp.replace(/\s{2,}/g, ' ').trim(),
+    );
 
     return response;
 });
