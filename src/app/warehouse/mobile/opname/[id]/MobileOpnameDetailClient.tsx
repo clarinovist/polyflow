@@ -14,19 +14,31 @@ import {
     ClipboardList,
     RefreshCw,
     Warehouse,
+    Plus,
+    Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { saveOpnameCount, completeOpname } from '@/actions/inventory/opname';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
+import { saveOpnameCount, completeOpname, addItemToOpname } from '@/actions/inventory/opname';
+import { getProductVariants } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { formatQuantity } from '@/lib/utils/utils';
 import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
 } from '@/components/warehouse/WarehouseAttachmentPanel';
+
+const MAX_VARIANT_RESULTS = 50;
 
 type OpnameItem = {
     id: string;
@@ -76,6 +88,70 @@ export function MobileOpnameDetailClient({
     const [isFinalizing, setIsFinalizing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showVarianceSummary, setShowVarianceSummary] = useState(false);
+
+    // Add Item dialog
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [productSearch, setProductSearch] = useState('');
+    const [allVariants, setAllVariants] = useState<
+        Array<{
+            id: string;
+            name: string;
+            skuCode: string;
+            primaryUnit: string;
+            product: { name: string };
+        }>
+    >([]);
+    const [isAddingItem, setIsAddingItem] = useState(false);
+
+    // Lazy fetch variants when dialog opens
+    useEffect(() => {
+        if (addDialogOpen && allVariants.length === 0) {
+            getProductVariants()
+                .then((result) => {
+                    if (result.success && result.data) {
+                        setAllVariants(
+                            result.data as unknown as typeof allVariants,
+                        );
+                    } else {
+                        toast.error('Gagal memuat varian produk');
+                    }
+                })
+                .catch(() => toast.error('Gagal memuat varian produk'));
+        }
+    }, [addDialogOpen, allVariants.length]);
+
+    const filteredVariants = useMemo(() => {
+        let variants = allVariants;
+        if (productSearch) {
+            const q = productSearch.toLowerCase();
+            variants = variants.filter(
+                (v) =>
+                    v.name.toLowerCase().includes(q) ||
+                    v.skuCode.toLowerCase().includes(q) ||
+                    v.product.name.toLowerCase().includes(q),
+            );
+        }
+        return variants.slice(0, MAX_VARIANT_RESULTS);
+    }, [allVariants, productSearch]);
+
+    const handleAddItem = async (variantId: string) => {
+        setIsAddingItem(true);
+        try {
+            const result = await addItemToOpname(session.id, variantId);
+            if (result.success) {
+                toast.success('Item berhasil ditambahkan');
+                setAddDialogOpen(false);
+                setProductSearch('');
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Gagal menambahkan item');
+            }
+        } catch {
+            toast.error('Gagal menambahkan item');
+        } finally {
+            setIsAddingItem(false);
+        }
+    };
 
     // Initialize state from session
     useEffect(() => {
@@ -378,6 +454,18 @@ export function MobileOpnameDetailClient({
                 </div>
             </div>
 
+            {/* Add Item Button */}
+            {isOpen && (
+                <Button
+                    variant="outline"
+                    className="w-full h-11 border-dashed"
+                    onClick={() => setAddDialogOpen(true)}
+                >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Tambah Item
+                </Button>
+            )}
+
             {/* Variance Summary (shown when not blind and has counted items) */}
             {!blindMode && stats.counted > 0 && !isOpen && (
                 <button
@@ -527,6 +615,78 @@ export function MobileOpnameDetailClient({
                 disabled={isSaving || isFinalizing}
                 onAttachmentChange={() => router.refresh()}
             />
+
+            {/* Add Item Dialog */}
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogContent className="max-w-[95vw] p-4">
+                    <DialogHeader>
+                        <DialogTitle>Tambah Item ke Opname</DialogTitle>
+                        <DialogDescription>
+                            Cari barang yang ada fisik tapi belum tercatat di
+                            sistem. Item ditambahkan dengan jumlah sistem 0.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Cari nama, SKU, atau produk..."
+                                className="pl-9 h-11"
+                                value={productSearch}
+                                onChange={(e) => setProductSearch(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                        <div className="max-h-[55vh] overflow-y-auto border rounded-lg divide-y">
+                            {allVariants.length === 0 ? (
+                                <div className="p-8 text-center text-muted-foreground text-sm">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Memuat produk...
+                                    </div>
+                                </div>
+                            ) : filteredVariants.length === 0 ? (
+                                <div className="p-8 text-center text-muted-foreground text-sm">
+                                    Produk tidak ditemukan
+                                </div>
+                            ) : (
+                                filteredVariants.map((variant) => (
+                                    <button
+                                        type="button"
+                                        key={variant.id}
+                                        className="w-full p-3 active:bg-muted cursor-pointer flex items-center justify-between text-left transition-colors min-h-14 disabled:pointer-events-none disabled:opacity-50"
+                                        onClick={() => handleAddItem(variant.id)}
+                                        disabled={isAddingItem}
+                                    >
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-medium text-sm truncate">
+                                                {variant.name}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {variant.product.name} &middot;{' '}
+                                                {variant.skuCode}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0 ml-4">
+                                            <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                            >
+                                                {variant.primaryUnit}
+                                            </Badge>
+                                            {isAddingItem ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Plus className="h-4 w-4 text-muted-foreground" />
+                                            )}
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Sticky Actions */}
             {isOpen && (
