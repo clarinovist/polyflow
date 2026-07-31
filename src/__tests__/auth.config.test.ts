@@ -646,6 +646,63 @@ describe('auth.config', () => {
             }
         });
 
+        // === Mobile operational API: production photo ===
+
+        it('should allow mobile user on /api/upload/production-photo (operational API)', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                const result = await authorizedCallback({
+                    auth: { user: { role: 'PRODUCTION' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/api/upload/production-photo'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (Linux; Android 10)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).not.toHaveBeenCalled();
+                expect(result).toBe(true);
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
+        it('should redirect mobile user on /api/upload/warehouse-attachment to desktop-required (regression)', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                await authorizedCallback({
+                    auth: { user: { role: 'PRODUCTION' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/api/upload/warehouse-attachment'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (Linux; Android 10)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).toHaveBeenCalled();
+                const redirectUrl = mockRedirect.mock.calls[0][0];
+                expect(redirectUrl.pathname).toBe('/device/desktop-required');
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
         // === Admin subdomain mobile gate (no redirect loop) ===
 
         it('should redirect superadmin on mobile admin panel to desktop-required', async () => {

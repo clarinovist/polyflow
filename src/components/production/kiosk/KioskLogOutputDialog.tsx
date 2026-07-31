@@ -176,6 +176,15 @@ export function KioskLogOutputDialog({
                 method: 'POST',
                 body: formData,
             });
+            if (
+                (res as Response).redirected ||
+                !res.headers.get('content-type')?.includes('application/json')
+            ) {
+                toast.error(
+                    'Upload foto ditolak (akses mobile). Hubungi admin — endpoint upload belum diizinkan untuk perangkat ini.',
+                );
+                return null;
+            }
             if (!res.ok) {
                 let errMsg = `Gagal upload foto (${res.status})`;
                 try {

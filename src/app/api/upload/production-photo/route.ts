@@ -4,6 +4,9 @@ import {
     buildProductionPhotoKey,
     uploadToR2,
 } from '@/lib/storage/r2';
+import { auth } from '@/auth';
+import { resolveTenantContext } from '@/lib/core/tenant';
+import { getMainPrisma } from '@/lib/core/prisma';
 
 export async function POST(req: NextRequest) {
     try {
@@ -46,6 +49,34 @@ export async function POST(req: NextRequest) {
                 },
                 { status: 400 },
             );
+        }
+
+        // Auth: accept logged-in user OR kiosk anonymous with valid executionId.
+        const session = await auth().catch(() => null);
+        if (!session?.user?.id) {
+            // Anonymous kiosk mode — verify executionId exists in tenant DB.
+            const tenantResult = await resolveTenantContext(req.headers);
+            let tenantDb: ReturnType<typeof getMainPrisma> | null = null;
+            if (tenantResult.type === 'RESOLVED') {
+                tenantDb = tenantResult.tenantDb as unknown as ReturnType<
+                    typeof getMainPrisma
+                >;
+            }
+            const db = tenantDb ?? getMainPrisma();
+            const existing = await db.productionExecution.findUnique({
+                where: { id: executionId },
+                select: { id: true },
+            });
+            if (!existing) {
+                console.warn('[production-photo] rejected', {
+                    reason: 'execution_not_found',
+                    executionId,
+                });
+                return NextResponse.json(
+                    { error: 'Eksekusi produksi tidak ditemukan' },
+                    { status: 403 },
+                );
+            }
         }
 
         const tenant = await getTenantPrefix();
