@@ -12,6 +12,15 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/utils';
+import {
+    CustomerCombobox,
+    type CustomerComboboxOption,
+} from '@/components/customers/CustomerCombobox';
+import { X } from 'lucide-react';
+
+interface SalesOrderFiltersProps {
+    customers: CustomerComboboxOption[];
+}
 
 const STATUS_OPTIONS = [
     { value: 'QUOTATION', label: 'Penawaran' },
@@ -106,10 +115,27 @@ function FilterSelect({
     );
 }
 
-export function SalesOrderFilters() {
+export function SalesOrderFilters({ customers }: SalesOrderFiltersProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const currentStatus = searchParams.get('status') || '';
+    const currentCustomer = searchParams.get('customer') || '';
+
+    const handleCustomerChange = useCallback(
+        (customerId: string) => {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete('view');
+            if (customerId) {
+                params.set('customer', customerId);
+            } else {
+                params.delete('customer');
+            }
+            router.push(`/sales/orders?${params.toString()}`, {
+                scroll: false,
+            });
+        },
+        [router, searchParams],
+    );
 
     const handlePhaseClick = useCallback(
         (phaseValue: string) => {
@@ -153,6 +179,28 @@ export function SalesOrderFilters() {
             </div>
             {/* Detailed filters */}
             <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex items-center gap-1">
+                    <CustomerCombobox
+                        customers={customers}
+                        value={currentCustomer}
+                        onChange={handleCustomerChange}
+                        placeholder="Semua customer"
+                        className="h-8 w-[220px] text-xs"
+                    />
+                    {currentCustomer && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleCustomerChange('')}
+                            aria-label="Hapus filter customer"
+                            title="Semua customer"
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
                 <FilterSelect
                     label="Status"
                     paramKey="status"
