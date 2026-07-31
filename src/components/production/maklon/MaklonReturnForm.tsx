@@ -17,6 +17,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { CustomerCombobox } from '@/components/customers/CustomerCombobox';
 import {
     Form,
     FormControl,
@@ -184,26 +185,13 @@ export function MaklonReturnForm({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Customer *</FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value || undefined}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select Customer" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {customers.map((c) => (
-                                                    <SelectItem
-                                                        key={c.id}
-                                                        value={c.id}
-                                                    >
-                                                        {c.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <CustomerCombobox
+                                                customers={customers}
+                                                value={field.value || ''}
+                                                onChange={field.onChange}
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

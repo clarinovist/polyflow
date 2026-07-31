@@ -28,6 +28,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
     dateRange?: { startDate?: Date; endDate?: Date },
     demandType?: 'customer' | 'legacy-internal',
     extraFilters?: {
+        customerId?: string;
         orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA';
         orderTypes?: Array<'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA'>;
         paymentState?: 'outstanding' | 'paid' | 'no_invoice';
@@ -41,6 +42,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
             startDate: dateRange?.startDate,
             endDate: dateRange?.endDate,
             demandType,
+            customerId: extraFilters?.customerId,
             orderType: extraFilters?.orderType,
             orderTypes: extraFilters?.orderTypes,
             paymentState: extraFilters?.paymentState,
@@ -313,17 +315,20 @@ export const deleteSalesOrder = withTenant(async function deleteSalesOrder(
 });
 
 export const getSalesOrderStats = withTenant(
-    async function getSalesOrderStats(dateRange?: {
-        startDate?: Date;
-        endDate?: Date;
-    }) {
+    async function getSalesOrderStats(
+        dateRange?: {
+            startDate?: Date;
+            endDate?: Date;
+        },
+        customerId?: string,
+    ) {
         return safeAction(async () => {
             await requireAuth();
 
             // Scope: ORDERED customer's orderDate — align with list page's filtered view
             // demandType is NOT a DB column — translate to customerId filter like getOrders() does
             const where: Record<string, unknown> = {
-                customerId: { not: null },
+                customerId: customerId || { not: null },
             };
             if (dateRange?.startDate && dateRange?.endDate) {
                 where.orderDate = {

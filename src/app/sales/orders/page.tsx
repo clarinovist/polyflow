@@ -21,6 +21,7 @@ import { SalesOrderType, SalesOrderStatus } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
 import { OrderPeriodHint } from '@/components/sales/OrderPeriodHint';
 import { ContextualHelp } from '@/components/support/contextual-help';
+import { getCustomers } from '@/actions/sales/customer';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -86,6 +87,7 @@ export default async function SalesPage({
         status?: string;
         fulfill?: string;
         payment?: string;
+        customer?: string;
     }>;
 }) {
     const params = await searchParams;
@@ -108,6 +110,7 @@ export default async function SalesPage({
             if (status) q.set('status', status);
             if (fulfill) q.set('fulfill', fulfill);
             if (payment) q.set('payment', payment);
+            if (params.customer) q.set('customer', params.customer);
             if (params.startDate) q.set('startDate', params.startDate);
             if (params.endDate) q.set('endDate', params.endDate);
             redirect(`/sales/orders${q.toString() ? `?${q.toString()}` : ''}`);
@@ -124,11 +127,13 @@ export default async function SalesPage({
         ? parseISO(params.startDate)
         : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+    const hasExplicitDateRange = Boolean(params?.startDate || params?.endDate);
 
     const fulfillTypes = fulfillToOrderTypes(currentFilters.fulfill);
     const statusList = parseStatusFilter(currentFilters.status);
 
     const extraFilters: Parameters<typeof getSalesOrders>[3] = {};
+    if (params.customer) extraFilters.customerId = params.customer;
     if (fulfillTypes) extraFilters.orderTypes = fulfillTypes;
     if (statusList) extraFilters.statusFilter = statusList;
     if (currentFilters.payment) {
@@ -150,16 +155,33 @@ export default async function SalesPage({
             ? { startDate: archiveCheckStart, endDate: archiveCheckEnd }
             : undefined;
 
-    const dateRange = { startDate: checkStart, endDate: checkEnd };
+    const dateRange =
+        params.customer && !hasExplicitDateRange
+            ? undefined
+            : { startDate: checkStart, endDate: checkEnd };
 
-    const ordersRes = isArchive
-        ? await getSalesOrders(true, archiveDateRange, 'legacy-internal')
-        : await getSalesOrders(true, dateRange, 'customer', extraFilters);
+    const [ordersRes, statsRes, customersRes] = await Promise.all([
+        isArchive
+            ? getSalesOrders(true, archiveDateRange, 'legacy-internal')
+            : getSalesOrders(true, dateRange, 'customer', extraFilters),
+        // Stats use the same date and customer scope as the list.
+        isArchive
+            ? getSalesOrderStats(archiveDateRange)
+            : getSalesOrderStats(dateRange, params.customer),
+        getCustomers(),
+    ]);
 
-    // P0 fix: stats ikut dateRange list — stats global misleading
-    const statsRes = isArchive
-        ? await getSalesOrderStats(archiveDateRange)
-        : await getSalesOrderStats(dateRange);
+    const customers =
+        customersRes.success && customersRes.data
+            ? customersRes.data.map((customer) => ({
+                  id: customer.id,
+                  name: customer.name,
+                  code: customer.code,
+              }))
+            : [];
+    const selectedCustomer = customers.find(
+        (customer) => customer.id === params.customer,
+    );
 
     const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
     const stats =
@@ -297,7 +319,9 @@ export default async function SalesPage({
                             },
                         ]}
                     />
-                    <UrlTransactionDateFilter defaultPreset="this_month" />
+                    <UrlTransactionDateFilter
+                        defaultPreset={params.customer ? 'all' : 'this_month'}
+                    />
                     <Button asChild>
                         <Link href="/sales/orders/create">
                             <Plus className="mr-2 h-4 w-4" />
@@ -308,11 +332,20 @@ export default async function SalesPage({
             </div>
 
             {/* P0 fix: period hint + pipeline omzet — original request "kalau semua terkonversi" */}
-            <OrderPeriodHint
-                start={checkStart}
-                end={checkEnd}
-                displayedCount={displayedCount}
-            />
+            {params.customer && !hasExplicitDateRange ? (
+                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                    Menampilkan seluruh riwayat order{' '}
+                    <span className="font-medium text-foreground">
+                        {selectedCustomer?.name || 'customer terpilih'}
+                    </span>
+                </div>
+            ) : (
+                <OrderPeriodHint
+                    start={checkStart}
+                    end={checkEnd}
+                    displayedCount={displayedCount}
+                />
+            )}
 
             {/* Omzet — money context */}
             <div className="grid gap-4 md:grid-cols-4">
@@ -466,7 +499,7 @@ export default async function SalesPage({
                             </span>
                         </div>
                         <Suspense>
-                            <SalesOrderFilters />
+                            <SalesOrderFilters customers={customers} />
                         </Suspense>
                     </div>
                 </CardHeader>
