@@ -83,6 +83,15 @@ rafra-spreadsheet-mapping.md
 .codegraph/
 graphify-out/
 
+# Wiring graphify/codegraph ke agent lokal — mesin-spesifik, sengaja tidak di-commit.
+# CLAUDE.md hanya meng-import AGENTS.md (AGENTS.md tetap tracked = sumber kebenaran).
+# post-commit/post-checkout + merge driver dipasang oleh `graphify hook install`;
+# .githooks/pre-commit tetap tracked supaya kolaborator tetap dapat gate lint/test.
+/CLAUDE.md
+/.gitattributes
+/.githooks/post-commit
+/.githooks/post-checkout
+
 # Vendored agent-skill docs installed by `graphify install --platform opencode`.
 # Third-party docs, re-created by the installer, and they pollute the graph corpus
 # (they get re-extracted as "changed documents" on every sync). plugins/ stays
