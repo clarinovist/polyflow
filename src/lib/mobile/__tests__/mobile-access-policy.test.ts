@@ -60,6 +60,8 @@ describe('mobile-access-policy', () => {
     it.each([
       ['/api/upload/attendance-photo', true],
       ['/api/upload/attendance-photo/extra', false],
+      ['/api/upload/production-photo', true],
+      ['/api/upload/production-photo/extra', false],
       ['/api/production/daily-report', true],
       ['/api/production/daily-report/sub', false],
       ['/api/auth/csrf', false],
