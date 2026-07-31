@@ -94,6 +94,7 @@ async function main() {
   // Capability mapping
   const allProcesses = await prisma.productionProcess.findMany({ select: { id: true, code: true } });
   const procMap = new Map(allProcesses.map((p) => [p.code, p.id]));
+  const toCreateCodes = new Set(toCreate.map((p) => p.code));
 
   const machines = await prisma.machine.findMany({ select: { id: true, code: true, type: true, status: true } });
   console.log(`\nMachines: ${machines.length}`);
@@ -106,7 +107,15 @@ async function main() {
     const targetCodes = MACHINE_TYPE_TO_PROCESS[m.type] ?? [];
     for (const code of targetCodes) {
       const procId = procMap.get(code);
-      if (!procId) continue;
+      if (!procId) {
+        // Preview skipped process creation, so procMap misses toCreate codes.
+        // Those processes surely have no capability yet — count without DB query.
+        if (preview && toCreateCodes.has(code)) {
+          capsToCreate++;
+          capsPreview.push(`${m.code} (${m.type}) → ${code}`);
+        }
+        continue;
+      }
       const existsCap = await prisma.machineProcessCapability.findUnique({
         where: { machineId_processId: { machineId: m.id, processId: procId } },
       });
