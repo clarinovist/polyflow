@@ -53,6 +53,7 @@ describe('AttendanceService', () => {
     standardDayHours: dec(8),
   };
   const activeShift = { id: 'shift-1', name: 'Pagi-8', startTime: '06:00', endTime: '14:00', plannedHours: null, status: 'ACTIVE' };
+  const kioskGeofenceOff = { 'attendance.geofenceEnabled': 'false' };
 
   describe('clockIn', () => {
     it('clocks in successfully for first shift of the day', async () => {
@@ -78,6 +79,7 @@ describe('AttendanceService', () => {
       const result = await AttendanceService.clockIn(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
         clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        settings: kioskGeofenceOff,
       });
 
       expect(result.employeeName).toBe('Budi');
@@ -115,6 +117,7 @@ describe('AttendanceService', () => {
       const result = await AttendanceService.clockIn(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-2',
         clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        settings: kioskGeofenceOff,
       });
 
       expect(result.isOvertimeShift).toBe(true);
@@ -126,6 +129,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow('Data absensi tidak lengkap');
     });
@@ -137,6 +141,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
           clockInPhotoUrl: 'https://evil.com/selfie.jpg',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow('Foto absensi tidak valid');
     });
@@ -147,6 +152,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-999', pin: '1234', workShiftId: 'shift-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow(/tidak ditemukan/i);
     });
@@ -158,6 +164,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '9999', workShiftId: 'shift-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow('PIN salah');
     });
@@ -174,6 +181,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-2',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow('Masih belum clock-out');
     });
@@ -189,6 +197,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow('Sudah absen shift ini hari ini');
     });
@@ -225,6 +234,7 @@ describe('AttendanceService', () => {
 
       const result = await AttendanceService.clockOut(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234',
+        settings: kioskGeofenceOff,
       });
 
       expect(result.clockOutAt).not.toBeNull();
@@ -260,6 +270,7 @@ describe('AttendanceService', () => {
 
       const result = await AttendanceService.clockOut(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234',
+        settings: kioskGeofenceOff,
       });
 
       expect(result.dailyEarnings).toBe(37500);
@@ -275,6 +286,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockOut(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow('Tidak ada sesi absensi yang masih terbuka');
     });
@@ -300,6 +312,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockOut(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234',
+          settings: kioskGeofenceOff,
         }),
       ).rejects.toThrow(/koreksi HRD/i);
     });
@@ -344,6 +357,7 @@ describe('AttendanceService', () => {
 
       const result = await AttendanceService.clockOut(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234',
+        settings: kioskGeofenceOff,
       });
       expect(result.id).toBe('rec-today');
     });
@@ -746,7 +760,14 @@ describe('AttendanceService', () => {
           employeeId: 'emp-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
           locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
-        }, { 'attendance.selfServiceEnabled': 'true', 'attendance.geofenceEnabled': 'false' }),
+        }, {
+          'attendance.selfServiceEnabled': 'true',
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '-6',
+          'attendance.longitude': '106',
+          'attendance.radiusMeters': '500',
+          'attendance.maxAccuracyMeters': '50',
+        }),
       ).rejects.toThrow(/HRD belum menetapkan shift/);
     });
   });
@@ -773,7 +794,14 @@ describe('AttendanceService', () => {
         AttendanceService.clockOutSelfService(mockDb as any, {
           employeeId: 'emp-1',
           locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
-        }, { 'attendance.geofenceEnabled': 'false' }),
+        }, {
+          'attendance.selfServiceEnabled': 'true',
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '-6',
+          'attendance.longitude': '106',
+          'attendance.radiusMeters': '500',
+          'attendance.maxAccuracyMeters': '50',
+        }),
       ).rejects.toThrow(/koreksi HRD/i);
     });
   });
@@ -838,51 +866,17 @@ describe('AttendanceService', () => {
     });
   });
 
-  describe('clockInSelfService - disabled geofence still stores location, distance null', () => {
-    it('succeeds when geofence disabled, stores lat/lon, distance is null', async () => {
+  describe('clockInSelfService - disabled geofence rejects', () => {
+    it('throws when geofence disabled (self-service requires geofence)', async () => {
       vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
-      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue({
-        workShiftId: 'shift-1',
-        workShift: activeShift,
-      } as any);
-      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
-      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
-      vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
 
-      let capturedData: any = null;
-      vi.mocked(mockDb.attendanceRecord.create).mockImplementation(async (arg: any) => {
-        capturedData = arg.data;
-        return {
-          id: 'rec-new', employeeId: 'emp-1', workDate: new Date('2026-07-15'),
-          workShiftId: 'shift-1', clockInAt: new Date(), clockOutAt: null,
-          isOvertimeShift: false, status: 'PRESENT', source: 'SELF_SERVICE',
-          dailyRateSnapshot: activeEmployee.dailyRate,
-          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
-          standardDayHours: activeEmployee.standardDayHours,
-          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
-          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
-          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
-          clockInLatitude: capturedData.clockInLatitude,
-          clockInLongitude: capturedData.clockInLongitude,
-          clockInAccuracy: capturedData.clockInAccuracy,
-          clockInDistance: capturedData.clockInDistance,
-          employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
-        } as any;
-      });
-
-      const result = await AttendanceService.clockInSelfService(mockDb as any, {
-        employeeId: 'emp-1',
-        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-        locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: 10 },
-      }, { 'attendance.geofenceEnabled': 'false' });
-
-      expect(result.employeeName).toBe('Budi');
-      // Location must still be persisted (Step 5a)
-      expect(capturedData.clockInLatitude).not.toBeNull();
-      expect(capturedData.clockInLongitude).not.toBeNull();
-      expect(capturedData.clockInAccuracy).not.toBeNull();
-      // Distance must be null when disabled (Step 5b)
-      expect(capturedData.clockInDistance).toBeNull();
+      await expect(
+        AttendanceService.clockInSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: 10 },
+        }, { 'attendance.geofenceEnabled': 'false' }),
+      ).rejects.toThrow(/geofence aktif/);
     });
   });
 
@@ -952,34 +946,195 @@ describe('AttendanceService', () => {
     });
   });
 
-  describe('clockInSelfService - non-finite accuracy is dropped, not written', () => {
-    it('stores no location at all when accuracy is NaN', async () => {
-      const captured = armClockInCapture();
+  describe('clockInSelfService - non-finite accuracy rejected', () => {
+    it('throws when accuracy is NaN and geofence is active', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
 
-      const result = await AttendanceService.clockInSelfService(mockDb as any, {
-        employeeId: 'emp-1',
-        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-        locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: NaN },
-      }, { 'attendance.geofenceEnabled': 'false' });
-
-      // Attendance still succeeds — bad accuracy must not block clocking in.
-      expect(result.employeeName).toBe('Budi');
-      // But no NaN may reach a Decimal column.
-      expect(captured.data.clockInLatitude).toBeNull();
-      expect(captured.data.clockInLongitude).toBeNull();
-      expect(captured.data.clockInAccuracy).toBeNull();
+      await expect(
+        AttendanceService.clockInSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: NaN },
+        }, {
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '-6.12',
+          'attendance.longitude': '106.12',
+          'attendance.radiusMeters': '500',
+          'attendance.maxAccuracyMeters': '50',
+        }),
+      ).rejects.toThrow(/Akurasi GPS tidak valid/);
     });
   });
 
-  describe('clockOutSelfService - disabled geofence still stores location', () => {
-    it('stores lat/lon/accuracy with distance null', async () => {
+  describe('clockOutSelfService - disabled geofence rejects', () => {
+    it('throws when geofence disabled (self-service requires geofence)', async () => {
       vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
         id: 'emp-1', name: 'Budi', code: 'EMP-001', status: 'ACTIVE',
       } as any);
+
+      await expect(
+        AttendanceService.clockOutSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: 12 },
+        }, { 'attendance.geofenceEnabled': 'false' }),
+      ).rejects.toThrow(/geofence aktif/);
+    });
+  });
+
+  // ─── Kiosk geofence hardening ───
+  describe('kiosk clockIn - geofence enforcement', () => {
+    it('rejects clock-in when tenant settings are missing', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001',
+          pin: '1234',
+          workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        } as any),
+      ).rejects.toThrow(/Konfigurasi absensi tidak tersedia/);
+    });
+
+    it('allows clock-in without location when geofence is OFF (legacy)', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.workShift.findUnique).mockResolvedValue(activeShift as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
+      vi.mocked(mockDb.attendanceRecord.create).mockResolvedValue({
+        id: 'rec-1', employeeId: 'emp-1', workDate: new Date('2026-07-15'),
+        workShiftId: 'shift-1', clockInAt: new Date(), clockOutAt: null,
+        isOvertimeShift: false, status: 'PRESENT', source: 'KIOSK',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
+        employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+      } as any);
+
+      const result = await AttendanceService.clockIn(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        settings: { 'attendance.geofenceEnabled': 'false' },
+      });
+      expect(result.employeeName).toBe('Budi');
+    });
+
+    it('rejects clock-in when geofence ON but no location provided', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          settings: {
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.2',
+            'attendance.longitude': '106.8',
+            'attendance.radiusMeters': '500',
+            'attendance.maxAccuracyMeters': '50',
+          },
+        }),
+      ).rejects.toThrow(/GPS wajib/);
+    });
+
+    it('rejects clock-in when geofence ON with invalid config (incomplete lat)', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.2, longitude: 106.8, accuracy: 10 },
+          settings: {
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '',
+            'attendance.longitude': '106.8',
+            'attendance.radiusMeters': '500',
+            'attendance.maxAccuracyMeters': '50',
+          },
+        }),
+      ).rejects.toThrow(/belum lengkap/);
+    });
+
+    it('rejects clock-in when outside geofence radius', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -7.0, longitude: 107.5, accuracy: 10 },
+          settings: {
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.2',
+            'attendance.longitude': '106.8',
+            'attendance.radiusMeters': '500',
+            'attendance.maxAccuracyMeters': '50',
+          },
+        }),
+      ).rejects.toThrow(/dari kantor/);
+    });
+
+    it('stores geofence distance when kiosk geofence active and inside', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.workShift.findUnique).mockResolvedValue(activeShift as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
+
+      let capturedData: any = null;
+      vi.mocked(mockDb.attendanceRecord.create).mockImplementation(async (arg: any) => {
+        capturedData = arg.data;
+        return {
+          id: 'rec-1', employeeId: 'emp-1', workDate: new Date('2026-07-15'),
+          workShiftId: 'shift-1', clockInAt: new Date(), clockOutAt: null,
+          isOvertimeShift: false, status: 'PRESENT', source: 'KIOSK',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
+          employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+        } as any;
+      });
+
+      await AttendanceService.clockIn(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        locationEvidence: { latitude: -6.2004, longitude: 106.8002, accuracy: 10 },
+        settings: {
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '-6.2',
+          'attendance.longitude': '106.8',
+          'attendance.radiusMeters': '500',
+          'attendance.maxAccuracyMeters': '50',
+        },
+      });
+
+      expect(capturedData.clockInLatitude).not.toBeNull();
+      expect(capturedData.clockInDistance).not.toBeNull();
+    });
+  });
+
+  describe('kiosk clockOut - geofence enforcement', () => {
+    it('allows clock-out without location when geofence is OFF', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
       vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
         {
-          id: 'rec-open', employeeId: 'emp-1', workDate: todayWorkDate(),
-          clockInAt: nowMinusHours(3), clockOutAt: null,
+          id: 'rec-1', employeeId: 'emp-1', workDate: todayWorkDate(),
+          clockInAt: nowMinusHours(2), clockOutAt: null,
           workShift: activeShift, workShiftId: 'shift-1',
           dailyRateSnapshot: activeEmployee.dailyRate,
           overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
@@ -989,43 +1144,55 @@ describe('AttendanceService', () => {
           employee: { name: 'Budi', code: 'EMP-001' },
         },
       ] as any);
+      vi.mocked(mockDb.attendanceRecord.update).mockResolvedValue({
+        id: 'rec-1', employeeId: 'emp-1', clockInAt: nowMinusHours(2),
+        clockOutAt: new Date(), isOvertimeShift: false,
+        status: 'PRESENT', source: 'KIOSK',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        plannedHours: dec(8), actualHours: dec(2), regularHours: dec(2), overtimeHours: dec(0),
+        dailyEarnings: dec(25000), overtimeEarnings: dec(0), totalEarnings: dec(25000),
+        employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+      } as any);
 
-      // clockOut issues TWO updates: the geo/clock-out write, then a second
-      // one carrying only computed hours. Keep the first — the last would not
-      // contain the location fields at all.
-      const updateCalls: any[] = [];
-      vi.mocked(mockDb.attendanceRecord.update).mockImplementation(async (arg: any) => {
-        updateCalls.push(arg.data);
-        return {
-          id: 'rec-open', employeeId: 'emp-1', workDate: todayWorkDate(),
-          workShiftId: 'shift-1', clockInAt: nowMinusHours(3), clockOutAt: new Date(),
-          isOvertimeShift: false, status: 'PRESENT', source: 'SELF_SERVICE',
-          dailyRateSnapshot: activeEmployee.dailyRate,
-          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
-          standardDayHours: activeEmployee.standardDayHours,
-          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
-          plannedHours: dec(8), actualHours: dec(3), regularHours: dec(3), overtimeHours: dec(0),
-          clockInPhotoUrl: null, clockOutPhotoUrl: null,
-          clockOutLatitude: arg.data.clockOutLatitude,
-          clockOutLongitude: arg.data.clockOutLongitude,
-          clockOutAccuracy: arg.data.clockOutAccuracy,
-          clockOutDistance: arg.data.clockOutDistance,
-          employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
-        } as any;
+      const result = await AttendanceService.clockOut(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234',
+        settings: { 'attendance.geofenceEnabled': 'false' },
       });
+      expect(result.clockOutAt).not.toBeNull();
+    });
 
-      await AttendanceService.clockOutSelfService(mockDb as any, {
-        employeeId: 'emp-1',
-        locationEvidence: { latitude: -6.12, longitude: 106.12, accuracy: 12 },
-      }, { 'attendance.geofenceEnabled': 'false' });
+    it('rejects clock-out when geofence ON but no location', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
 
-      const geoWrite = updateCalls[0];
-      // Assert real values, not merely "not null" — undefined would satisfy
-      // not.toBeNull() and let a missing field pass silently.
-      expect(Number(geoWrite.clockOutLatitude)).toBeCloseTo(-6.12, 5);
-      expect(Number(geoWrite.clockOutLongitude)).toBeCloseTo(106.12, 5);
-      expect(Number(geoWrite.clockOutAccuracy)).toBeCloseTo(12, 2);
-      expect(geoWrite.clockOutDistance).toBeNull();
+      await expect(
+        AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          settings: {
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.2',
+            'attendance.longitude': '106.8',
+            'attendance.radiusMeters': '500',
+            'attendance.maxAccuracyMeters': '50',
+          },
+        }),
+      ).rejects.toThrow(/GPS wajib/);
+    });
+
+    it('rejects invalid evidence even when geofence is OFF', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6, longitude: 106, accuracy: -5 },
+          settings: { 'attendance.geofenceEnabled': 'false' },
+        }),
+      ).rejects.toThrow(/Akurasi GPS tidak valid/);
     });
   });
 });

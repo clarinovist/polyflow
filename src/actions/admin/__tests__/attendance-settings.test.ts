@@ -112,7 +112,7 @@ describe('attendance-settings action', () => {
             vi.mocked(prisma.$transaction).mockResolvedValue([] as any);
 
             const res = await saveAttendanceSettings({
-                selfServiceEnabled: true,
+                selfServiceEnabled: false,
                 geofenceEnabled: false,
                 latitude: '',
                 longitude: '',
@@ -171,6 +171,40 @@ describe('attendance-settings action', () => {
             });
 
             expect(res.success).toBe(false);
+        });
+
+        it('fails when self-service is ON but geofence is OFF', async () => {
+            const res = await saveAttendanceSettings({
+                selfServiceEnabled: true,
+                geofenceEnabled: false,
+                latitude: '',
+                longitude: '',
+                radiusMeters: '100',
+                maxAccuracyMeters: '50',
+                lateGraceMinutes: '0',
+            });
+
+            expect(res.success).toBe(false);
+            if (!res.success) {
+                expect(res.error).toContain('Self-service');
+                expect(res.error).toContain('geofence aktif');
+            }
+        });
+
+        it('succeeds when both self-service and geofence are ON', async () => {
+            vi.mocked(prisma.$transaction).mockResolvedValue([] as any);
+
+            const res = await saveAttendanceSettings({
+                selfServiceEnabled: true,
+                geofenceEnabled: true,
+                latitude: '-6.12345',
+                longitude: '106.12345',
+                radiusMeters: '150',
+                maxAccuracyMeters: '40',
+                lateGraceMinutes: '10',
+            });
+
+            expect(res.success).toBe(true);
         });
     });
 });

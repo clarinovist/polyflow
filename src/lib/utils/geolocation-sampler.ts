@@ -16,7 +16,7 @@ export const DEFAULT_SAMPLE_TIMEOUT_MS = 12_000;
 
 export function pickBestSample(samples: PositionSample[]): PositionSample | null {
     const valid = samples.filter((s) => {
-        if (!Number.isFinite(s.accuracy)) return false;
+        if (!Number.isFinite(s.accuracy) || s.accuracy < 0) return false;
         if (!isValidCoordinate(s.latitude, s.longitude)) return false;
         return true;
     });
@@ -96,6 +96,7 @@ export function sampleBestPosition(opts: {
 
                     if (
                         Number.isFinite(sample.accuracy) &&
+                        sample.accuracy >= 0 &&
                         isValidCoordinate(sample.latitude, sample.longitude) &&
                         sample.accuracy <= opts.targetAccuracyMeters
                     ) {

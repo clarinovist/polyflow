@@ -13,6 +13,11 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { rateLimit } from '@/lib/api/rate-limit';
 import { logActivity } from '@/lib/tools/audit';
 import { headers } from 'next/headers';
+import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
+import {
+    resolveGeofence,
+    type LocationEvidence,
+} from '@/services/hrd/attendance-location';
 
 async function getClientIp(): Promise<string> {
     const h = await headers();
@@ -400,6 +405,31 @@ export const getAttendanceMonthlySummary = withTenant(
 const KIOSK_RATE_LIMIT = 5;
 const KIOSK_RATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
+/** Returns geofence status for kiosk UI in the current tenant context. */
+export const getKioskGeofenceInfo = withTenant(
+    async function getKioskGeofenceInfo() {
+        try {
+            const settings = await readAttendanceSettings(db);
+            const resolution = resolveGeofence(settings);
+            return {
+                success: true,
+                data: {
+                    geofence:
+                        resolution.kind === 'active'
+                            ? resolution.config
+                            : null,
+                    configInvalid: resolution.kind === 'invalid',
+                },
+            };
+        } catch {
+            return {
+                success: false,
+                error: 'Gagal memuat konfigurasi absensi',
+            };
+        }
+    },
+);
+
 export async function mapKioskError(error: unknown): Promise<string> {
     if (!(error instanceof Error)) return 'Terjadi kesalahan pada sistem absensi';
     const msg = error.message;
@@ -418,6 +448,9 @@ export async function mapKioskError(error: unknown): Promise<string> {
     ) {
         return 'Ambil selfie terlebih dahulu';
     }
+    if (msg.includes('Lokasi GPS wajib')) return msg;
+    if (msg.includes('Konfigurasi geofence belum lengkap')) return msg;
+    if (msg.includes('Lokasi') || msg.includes('Akurasi')) return msg;
 
     return msg || 'Gagal memproses absensi';
 }
@@ -453,6 +486,7 @@ export const kioskClockIn = withTenant(async function kioskClockIn(
     pin: string,
     workShiftId: string | undefined,
     clockInPhotoUrl: string,
+    locationEvidence?: LocationEvidence,
 ) {
     try {
         const ip = await getClientIp();
@@ -472,11 +506,15 @@ export const kioskClockIn = withTenant(async function kioskClockIn(
             return { success: false, error: 'Ambil selfie terlebih dahulu' };
         }
 
+        const settings = await readAttendanceSettings(db);
+
         const result = await AttendanceService.clockIn(db, {
             employeeCode,
             pin,
             workShiftId: workShiftId?.trim() || undefined,
             clockInPhotoUrl: clockInPhotoUrl.trim(),
+            locationEvidence,
+            settings,
         });
         revalidatePath('/kiosk/attendance');
         revalidatePath('/hrd/attendance');
@@ -490,6 +528,7 @@ export const kioskClockOut = withTenant(async function kioskClockOut(
     employeeCode: string,
     pin: string,
     clockOutPhotoUrl?: string,
+    locationEvidence?: LocationEvidence,
 ) {
     try {
         const ip = await getClientIp();
@@ -505,10 +544,14 @@ export const kioskClockOut = withTenant(async function kioskClockOut(
             };
         }
 
+        const settings = await readAttendanceSettings(db);
+
         const result = await AttendanceService.clockOut(db, {
             employeeCode,
             pin,
             clockOutPhotoUrl: clockOutPhotoUrl?.trim() || undefined,
+            locationEvidence,
+            settings,
         });
         revalidatePath('/kiosk/attendance');
         revalidatePath('/hrd/attendance');

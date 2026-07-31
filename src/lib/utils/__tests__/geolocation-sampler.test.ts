@@ -44,6 +44,12 @@ describe('pickBestSample', () => {
         expect(result).toBeNull();
     });
 
+    it('drops negative accuracy', () => {
+        const bad: PositionSample = { latitude: -6.2, longitude: 106.8, accuracy: -1 };
+        const good: PositionSample = { latitude: -6.21, longitude: 106.81, accuracy: 12 };
+        expect(pickBestSample([bad, good])).toEqual(good);
+    });
+
     it('returns null when all invalid', () => {
         const samples: PositionSample[] = [
             { latitude: 91, longitude: 0, accuracy: 10 },
@@ -148,6 +154,21 @@ describe('sampleBestPosition', () => {
         expect(result.permissionDenied).toBe(false);
         expect(geo.clearWatch).toHaveBeenCalledWith(lastWatchId);
         expect(clearWatchCalls).toEqual([lastWatchId]);
+    });
+
+    it('ignores negative accuracy instead of resolving it as a good sample', async () => {
+        setupGeolocationMock();
+
+        const promise = sampleBestPosition({
+            targetAccuracyMeters: 30,
+            timeoutMs: 12_000,
+        });
+
+        watchCb!(makePos(-6.2, 106.8, -1));
+        watchCb!(makePos(-6.21, 106.81, 12));
+
+        const result = await promise;
+        expect(result.sample?.accuracy).toBe(12);
     });
 
     it('on timeout returns best collected so far and clearWatch called', async () => {

@@ -161,15 +161,18 @@ export function MyAttendanceClock() {
     const geofence = geofenceInfo?.geofence ?? null;
     const configInvalid = geofenceInfo?.configInvalid ?? false;
     const selfServiceOff = geofenceInfo !== null && !geofenceInfo.selfServiceEnabled;
-    const proximity = describeGeofenceProximity(geofence, location);
-    const isProximityBlocked =
-        proximity.kind === 'outside' ||
-        proximity.kind === 'accuracy-poor' ||
-        proximity.kind === 'waiting-gps';
-    const isBlocked = isProximityBlocked || selfServiceOff || configInvalid || geofenceLoadFailed;
+    const isConfigBlocked = selfServiceOff || configInvalid || geofenceLoadFailed;
+
+    // For display indicator: use stale location as preview
+    const displayProximity = describeGeofenceProximity(geofence, location);
+
+    // Target accuracy: min(default, tenant maxAccuracyMeters) when geofence active
+    const targetAccuracy = geofence
+        ? Math.min(DEFAULT_TARGET_ACCURACY_METERS, geofence.maxAccuracyMeters)
+        : DEFAULT_TARGET_ACCURACY_METERS;
 
     const indicator = describeIndicator(
-        proximity,
+        displayProximity,
         !!location,
         gettingLocation,
         locationError,
@@ -191,7 +194,7 @@ export function MyAttendanceClock() {
         setGettingLocation(true);
         setLocationError(null);
         void sampleBestPosition({
-            targetAccuracyMeters: DEFAULT_TARGET_ACCURACY_METERS,
+            targetAccuracyMeters: targetAccuracy,
             timeoutMs: DEFAULT_SAMPLE_TIMEOUT_MS,
         }).then((result) => {
             if (result.sample) {
@@ -208,24 +211,49 @@ export function MyAttendanceClock() {
             }
             setGettingLocation(false);
         });
-    }, []);
+    }, [targetAccuracy]);
 
     useEffect(() => {
         requestLocation();
     }, [requestLocation]);
+
+    const fetchFreshLocation = useCallback(async (): Promise<LocationState | null> => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) return null;
+        setGettingLocation(true);
+        setLocationError(null);
+        try {
+            const result = await sampleBestPosition({
+                targetAccuracyMeters: targetAccuracy,
+                timeoutMs: DEFAULT_SAMPLE_TIMEOUT_MS,
+            });
+            if (result.sample) {
+                const fresh: LocationState = {
+                    latitude: result.sample.latitude,
+                    longitude: result.sample.longitude,
+                    accuracy: result.sample.accuracy,
+                };
+                setLocation(fresh);
+                return fresh;
+            }
+            if (result.permissionDenied) {
+                setLocationError('Izin lokasi ditolak. Aktifkan GPS di pengaturan browser.');
+            } else {
+                setLocationError('Gagal mendapatkan lokasi. Coba lagi.');
+            }
+            return null;
+        } finally {
+            setGettingLocation(false);
+        }
+    }, [targetAccuracy]);
 
     const handleClockIn = () => {
         if (!selfieFile) {
             toast.error('Ambil selfie terlebih dahulu');
             return;
         }
-        if (!location) {
-            toast.error('Lokasi GPS belum tersedia');
-            return;
-        }
-        if (isBlocked) {
+        if (isConfigBlocked) {
             const msg = blockedReason(
-                proximity,
+                displayProximity,
                 selfServiceOff,
                 configInvalid,
                 geofenceLoadFailed,
@@ -235,6 +263,23 @@ export function MyAttendanceClock() {
         }
 
         startTransition(async () => {
+            // 1. Fetch fresh GPS
+            const freshLocation = await fetchFreshLocation();
+            if (!freshLocation) {
+                toast.error('Gagal mendapatkan lokasi GPS. Aktifkan GPS dan coba lagi.');
+                return;
+            }
+
+            // 2. Precheck proximity before upload
+            if (geofence) {
+                const freshProximity = describeGeofenceProximity(geofence, freshLocation);
+                if (freshProximity.kind === 'outside' || freshProximity.kind === 'accuracy-poor') {
+                    toast.error(freshProximity.message);
+                    return;
+                }
+            }
+
+            // 3. Upload photo
             type UploadAttempt =
                 | { kind: 'nonJson'; status: number; contentType: string | null }
                 | { kind: 'jsonError'; status: number; parsed: { error?: string; publicUrl?: string; url?: string } | null }
@@ -305,7 +350,7 @@ export function MyAttendanceClock() {
                     return;
                 }
 
-                const result = await selfServiceClockIn(photoUrl, location);
+                const result = await selfServiceClockIn(photoUrl, freshLocation);
                 if (result.success) {
                     toast.success('Berhasil clock-in!');
                     setSelfieFile(null);
@@ -320,13 +365,36 @@ export function MyAttendanceClock() {
     };
 
     const handleClockOut = () => {
-        if (!location) {
-            toast.error('Lokasi GPS belum tersedia');
+        if (isConfigBlocked) {
+            const msg = blockedReason(
+                displayProximity,
+                selfServiceOff,
+                configInvalid,
+                geofenceLoadFailed,
+            );
+            toast.error(msg);
             return;
         }
 
         startTransition(async () => {
-            const result = await selfServiceClockOut(location);
+            // 1. Fetch fresh GPS
+            const freshLocation = await fetchFreshLocation();
+            if (!freshLocation) {
+                toast.error('Gagal mendapatkan lokasi GPS. Aktifkan GPS dan coba lagi.');
+                return;
+            }
+
+            // 2. Precheck proximity before submit
+            if (geofence) {
+                const freshProximity = describeGeofenceProximity(geofence, freshLocation);
+                if (freshProximity.kind === 'outside' || freshProximity.kind === 'accuracy-poor') {
+                    toast.error(freshProximity.message);
+                    return;
+                }
+            }
+
+            // 3. Submit
+            const result = await selfServiceClockOut(freshLocation);
             if (result.success) {
                 toast.success('Berhasil clock-out!');
                 await refreshStatus();
@@ -455,9 +523,12 @@ export function MyAttendanceClock() {
                             Buka di Google Maps
                         </a>
                     )}
-                    {!location && !gettingLocation && (
+                    {/* Show retry/refresh when no location, or when stale sample is outside/poor */}
+                    {(!location || displayProximity.kind === 'outside' || displayProximity.kind === 'accuracy-poor') && !gettingLocation && (
                         <Button variant="ghost" size="sm" onClick={requestLocation}>
-                            Coba Lagi
+                            {displayProximity.kind === 'outside' || displayProximity.kind === 'accuracy-poor'
+                                ? 'Perbarui Lokasi'
+                                : 'Coba Lagi'}
                         </Button>
                     )}
                 </div>
@@ -494,7 +565,7 @@ export function MyAttendanceClock() {
                         <Button
                             className="w-full h-14 text-lg font-bold uppercase"
                             onClick={handleClockIn}
-                            disabled={pending || !selfieFile || !location || isBlocked}
+                            disabled={pending || !selfieFile || isConfigBlocked}
                         >
                             {pending ? (
                                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
@@ -511,7 +582,7 @@ export function MyAttendanceClock() {
                         className="w-full h-14 text-lg font-bold uppercase"
                         variant="destructive"
                         onClick={handleClockOut}
-                        disabled={pending || !location || isBlocked}
+                        disabled={pending || isConfigBlocked}
                     >
                         {pending ? (
                             <Loader2 className="h-5 w-5 mr-2 animate-spin" />

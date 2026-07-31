@@ -8,8 +8,8 @@ import {
 } from '@/services/hrd/attendance-service';
 import {
     isSelfServiceEnabled,
-    parseGeofenceConfig,
     resolveGeofence,
+    validateSelfServicePrerequisites,
 } from '@/services/hrd/attendance-location';
 import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
 import { rateLimit } from '@/lib/api/rate-limit';
@@ -81,18 +81,11 @@ export const selfServiceClockIn = withTenant(
 
             const settings = await readAttendanceSettings(db);
 
-            if (!isSelfServiceEnabled(settings)) {
+            const prereq = validateSelfServicePrerequisites(settings);
+            if (!prereq.ready) {
                 return {
                     success: false,
-                    error: 'Self-service absensi belum diaktifkan oleh HRD',
-                };
-            }
-
-            const geoConfig = parseGeofenceConfig(settings);
-            if (geoConfig && !locationEvidence) {
-                return {
-                    success: false,
-                    error: 'Lokasi wajib untuk absensi',
+                    error: prereq.reason ?? 'Self-service absensi tidak tersedia',
                 };
             }
 
@@ -139,10 +132,11 @@ export const selfServiceClockOut = withTenant(
 
             const settings = await readAttendanceSettings(db);
 
-            if (!isSelfServiceEnabled(settings)) {
+            const prereq = validateSelfServicePrerequisites(settings);
+            if (!prereq.ready) {
                 return {
                     success: false,
-                    error: 'Self-service absensi belum diaktifkan oleh HRD',
+                    error: prereq.reason ?? 'Self-service absensi tidak tersedia',
                 };
             }
 
@@ -178,7 +172,8 @@ export const getMyGeofenceInfo = withTenant(async function getMyGeofenceInfo() {
             data: {
                 selfServiceEnabled: isSelfServiceEnabled(settings),
                 geofence: resolution.kind === 'active' ? resolution.config : null,
-                configInvalid: resolution.kind === 'invalid',
+                // disabled or invalid both mean self-service cannot proceed
+                configInvalid: resolution.kind !== 'active',
             },
         };
     } catch {

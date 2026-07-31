@@ -34,4 +34,24 @@ describe('mapKioskError', () => {
     it('maps selfie photo error', async () => {
         expect(await mapKioskError(new Error('Foto absensi tidak valid'))).toBe('Ambil selfie terlebih dahulu');
     });
+
+    it('passes through geofence GPS required error', async () => {
+        expect(await mapKioskError(new Error('Lokasi GPS wajib saat geofence aktif. Aktifkan GPS dan coba lagi.')))
+            .toBe('Lokasi GPS wajib saat geofence aktif. Aktifkan GPS dan coba lagi.');
+    });
+
+    it('passes through geofence config incomplete error', async () => {
+        expect(await mapKioskError(new Error('Konfigurasi geofence belum lengkap. Hubungi admin.')))
+            .toBe('Konfigurasi geofence belum lengkap. Hubungi admin.');
+    });
+
+    it('passes through location error', async () => {
+        expect(await mapKioskError(new Error('Lokasi 500m dari kantor (batas 100m)')))
+            .toBe('Lokasi 500m dari kantor (batas 100m)');
+    });
+
+    it('passes through accuracy error', async () => {
+        expect(await mapKioskError(new Error('Akurasi GPS 200m melebihi batas 50m')))
+            .toBe('Akurasi GPS 200m melebihi batas 50m');
+    });
 });

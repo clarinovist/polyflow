@@ -107,7 +107,11 @@ describe('selfServiceClockIn', () => {
         vi.mocked(rateLimit).mockReturnValue({ success: true, count: 1, remaining: 9 });
         vi.mocked(readAttendanceSettings).mockResolvedValue({
             'attendance.selfServiceEnabled': 'true',
-            'attendance.geofenceEnabled': 'false',
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.12',
+            'attendance.longitude': '106.12',
+            'attendance.radiusMeters': '500',
+            'attendance.maxAccuracyMeters': '50',
         } as any);
         vi.mocked(AttendanceService.clockInSelfService).mockResolvedValue({
             id: 'rec-1',
@@ -134,7 +138,11 @@ describe('selfServiceClockIn', () => {
         vi.mocked(rateLimit).mockReturnValue({ success: true, count: 1, remaining: 9 });
         vi.mocked(readAttendanceSettings).mockResolvedValue({
             'attendance.selfServiceEnabled': 'true',
-            'attendance.geofenceEnabled': 'false',
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.12',
+            'attendance.longitude': '106.12',
+            'attendance.radiusMeters': '500',
+            'attendance.maxAccuracyMeters': '50',
         } as any);
         vi.mocked(AttendanceService.clockInSelfService).mockRejectedValue(
             new Error('Lokasi 500m dari kantor (batas 100m)'),
@@ -178,7 +186,11 @@ describe('selfServiceClockOut', () => {
         vi.mocked(rateLimit).mockReturnValue({ success: true, count: 1, remaining: 9 });
         vi.mocked(readAttendanceSettings).mockResolvedValue({
             'attendance.selfServiceEnabled': 'true',
-            'attendance.geofenceEnabled': 'false',
+            'attendance.geofenceEnabled': 'true',
+            'attendance.latitude': '-6.12',
+            'attendance.longitude': '106.12',
+            'attendance.radiusMeters': '500',
+            'attendance.maxAccuracyMeters': '50',
         } as any);
         vi.mocked(AttendanceService.clockOutSelfService).mockResolvedValue({
             id: 'rec-1',
@@ -242,7 +254,7 @@ describe('getMyGeofenceInfo', () => {
         expect(result.error).toBe('Unauthorized');
     });
 
-    it('returns null geofence and configInvalid=false when geofence disabled', async () => {
+    it('returns null geofence and configInvalid=true when geofence disabled (self-service requires it)', async () => {
         vi.mocked(getEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
@@ -257,7 +269,7 @@ describe('getMyGeofenceInfo', () => {
 
         expect(result.success).toBe(true);
         expect(result.data!.geofence).toBeNull();
-        expect(result.data!.configInvalid).toBe(false);
+        expect(result.data!.configInvalid).toBe(true);
         expect(result.data!.selfServiceEnabled).toBe(true);
     });
 

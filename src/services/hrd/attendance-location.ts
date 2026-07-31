@@ -83,6 +83,44 @@ export function parseGeofenceConfig(
     return null;
 }
 
+/**
+ * Runtime parser for location evidence arriving over the wire.
+ * Uses strict typeof checks — no Number() coercion.
+ * Rejects null, string, boolean, negative, non-finite, and out-of-range values.
+ */
+export function parseLocationEvidence(
+    raw: unknown,
+): { valid: true; evidence: LocationEvidence } | { valid: false; error: string } {
+    if (!raw || typeof raw !== 'object') {
+        return { valid: false, error: 'Lokasi wajib untuk absensi' };
+    }
+    const obj = raw as Record<string, unknown>;
+
+    // Strict typeof: must be actual numbers, not strings/booleans/nulls
+    if (typeof obj.latitude !== 'number' || typeof obj.longitude !== 'number') {
+        return { valid: false, error: 'Koordinat GPS tidak valid' };
+    }
+    if (typeof obj.accuracy !== 'number') {
+        return { valid: false, error: 'Akurasi GPS tidak valid' };
+    }
+
+    const lat = obj.latitude;
+    const lon = obj.longitude;
+    const acc = obj.accuracy;
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return { valid: false, error: 'Koordinat GPS tidak valid' };
+    }
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        return { valid: false, error: 'Koordinat GPS di luar range yang valid' };
+    }
+    if (!Number.isFinite(acc) || acc < 0) {
+        return { valid: false, error: 'Akurasi GPS tidak valid' };
+    }
+
+    return { valid: true, evidence: { latitude: lat, longitude: lon, accuracy: acc } };
+}
+
 export function validateLocation(
     config: GeofenceConfig,
     evidence: LocationEvidence,
@@ -93,6 +131,15 @@ export function validateLocation(
             distanceMeters: Infinity,
             accuracyOk: false,
             reason: 'Koordinat tidak valid',
+        };
+    }
+
+    if (!Number.isFinite(evidence.accuracy) || evidence.accuracy < 0) {
+        return {
+            withinFence: false,
+            distanceMeters: Infinity,
+            accuracyOk: false,
+            reason: 'Akurasi GPS tidak valid',
         };
     }
 
@@ -143,6 +190,9 @@ export function validateSelfServicePrerequisites(
     }
 
     const resolution = resolveGeofence(settings);
+    if (resolution.kind === 'disabled') {
+        return { ready: false, reason: 'Self-service absensi memerlukan geofence aktif' };
+    }
     if (resolution.kind === 'invalid') {
         return { ready: false, reason: 'Konfigurasi geofence belum lengkap' };
     }
@@ -168,7 +218,8 @@ export function describeGeofenceProximity(
     if (
         evidence === null ||
         !isValidCoordinate(evidence.latitude, evidence.longitude) ||
-        !Number.isFinite(evidence.accuracy)
+        !Number.isFinite(evidence.accuracy) ||
+        evidence.accuracy < 0
     ) {
         return { kind: 'waiting-gps' };
     }

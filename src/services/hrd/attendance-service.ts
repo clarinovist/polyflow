@@ -16,6 +16,7 @@ import { isValidAttendancePhotoUrl } from '@/lib/media/attendance-photo-url';
 import {
     resolveGeofence,
     validateLocation,
+    parseLocationEvidence,
     type LocationEvidence,
     type GeofenceResult,
 } from './attendance-location';
@@ -38,6 +39,8 @@ export interface KioskClockInInput {
     source?: AttendanceSource;
     /** Optional geofence evidence for kiosk. */
     locationEvidence?: LocationEvidence;
+    /** Tenant attendance settings — required so kiosk geofence cannot be bypassed. */
+    settings: Record<string, string | null | undefined>;
 }
 
 export interface KioskClockOutInput {
@@ -47,6 +50,8 @@ export interface KioskClockOutInput {
     clockOutPhotoUrl?: string;
     /** Optional geofence evidence for kiosk. */
     locationEvidence?: LocationEvidence;
+    /** Tenant attendance settings — required so kiosk geofence cannot be bypassed. */
+    settings: Record<string, string | null | undefined>;
 }
 
 /** Input for admin manual operations — no PIN required. */
@@ -475,29 +480,36 @@ const includeRelations = {
 /**
  * Fail-closed geofence gate for self-service clock-in/out.
  *
- * Returns the validation result when the fence is active (caller needs its
- * distance), or null when geofencing is switched off. A config that is enabled
- * but incomplete throws — it must never degrade into "no geofence".
+ * Returns the validation result when the fence is active. Disabled or incomplete
+ * geofence configuration throws — self-service must never degrade into "no
+ * geofence".
  *
- * The explicit `GeofenceResult | null` return type is load-bearing: it excludes
- * `undefined`, so under `strict` a future resolution kind that falls through the
- * switch is a compile error rather than a silent bypass. The `never` default
- * catches the same mistake with a clearer message.
+ * The explicit `GeofenceResult` return type excludes `undefined`, so under
+ * `strict` a future resolution kind that falls through the switch is a compile
+ * error rather than a silent bypass. The `never` default catches the same
+ * mistake with a clearer message.
  */
 function enforceGeofence(
     settings: Record<string, string | null | undefined>,
     evidence: LocationEvidence,
-): GeofenceResult | null {
+): GeofenceResult {
     const resolution = resolveGeofence(settings);
     switch (resolution.kind) {
         case 'disabled':
-            return null;
+            // Self-service always requires geofence — disabled is a config error
+            throw new BusinessRuleError(
+                'Self-service absensi memerlukan geofence aktif. Hubungi HRD.',
+            );
         case 'invalid':
             throw new BusinessRuleError(
                 'Konfigurasi geofence belum lengkap. Hubungi HRD.',
             );
         case 'active': {
-            const result = validateLocation(resolution.config, evidence);
+            const parsed = parseLocationEvidence(evidence);
+            if (!parsed.valid) {
+                throw new BusinessRuleError(parsed.error);
+            }
+            const result = validateLocation(resolution.config, parsed.evidence);
             if (!result.withinFence) {
                 throw new BusinessRuleError(
                     result.reason ?? 'Lokasi di luar area kerja',
@@ -519,16 +531,74 @@ function enforceGeofence(
 }
 
 /**
+ * Geofence gate for kiosk clock-in/out.
+ *
+ * - Geofence OFF → allow without GPS (legacy), but invalid evidence is rejected.
+ * - Geofence ON but invalid config → fail-closed.
+ * - Geofence ON + active → require valid evidence inside fence.
+ */
+function enforceKioskGeofence(
+    settings: Record<string, string | null | undefined> | undefined,
+    evidence?: LocationEvidence,
+): GeofenceResult | null {
+    if (!settings) {
+        throw new BusinessRuleError(
+            'Konfigurasi absensi tidak tersedia. Hubungi admin.',
+        );
+    }
+
+    // Always validate evidence format if provided — even when fence is OFF
+    let parsedEvidence: LocationEvidence | null = null;
+    if (evidence) {
+        const parsed = parseLocationEvidence(evidence);
+        if (!parsed.valid) {
+            throw new BusinessRuleError(parsed.error);
+        }
+        parsedEvidence = parsed.evidence;
+    }
+
+    const resolution = resolveGeofence(settings);
+    switch (resolution.kind) {
+        case 'disabled':
+            return null;
+        case 'invalid':
+            throw new BusinessRuleError(
+                'Konfigurasi geofence belum lengkap. Hubungi admin.',
+            );
+        case 'active': {
+            if (!parsedEvidence) {
+                throw new BusinessRuleError(
+                    'Lokasi GPS wajib saat geofence aktif. Aktifkan GPS dan coba lagi.',
+                );
+            }
+            const result = validateLocation(resolution.config, parsedEvidence);
+            if (!result.withinFence) {
+                throw new BusinessRuleError(
+                    result.reason ?? 'Lokasi di luar area kerja',
+                );
+            }
+            return result;
+        }
+        default: {
+            const exhaustive: never = resolution;
+            void exhaustive;
+            throw new BusinessRuleError(
+                'Konfigurasi geofence tidak dikenali. Hubungi admin.',
+            );
+        }
+    }
+}
+
+/**
  * Location evidence is recorded for audit independently of whether the fence is
  * enforced. It arrives over the wire from a browser, so the compile-time type is
  * not a runtime guarantee — a non-finite accuracy would otherwise reach
  * `toFixed()` and write NaN into a Decimal column. Bad evidence is dropped, not
- * thrown on: when geofencing is off, location is an audit nicety and must not
- * block attendance.
+ * thrown on by this storage helper.
  */
 function toStoredLocation(evidence: LocationEvidence) {
     if (!isValidCoordinate(evidence.latitude, evidence.longitude)) return null;
-    if (!Number.isFinite(evidence.accuracy)) return null;
+    if (!Number.isFinite(evidence.accuracy) || evidence.accuracy < 0) return null;
     return serializeGeofenceForStorage(evidence);
 }
 
@@ -549,6 +619,11 @@ export const AttendanceService = {
 
         const pinValid = await verifyPin(input.pin, employee.pinHash);
         if (!pinValid) throw new BusinessRuleError('PIN salah');
+
+        const kioskGeoResult = enforceKioskGeofence(
+            input.settings,
+            input.locationEvidence,
+        );
 
         const source = input.source ?? 'KIOSK';
         if (source === 'KIOSK') {
@@ -643,6 +718,10 @@ export const AttendanceService = {
             shift.endTime,
         );
 
+        const kioskGeoData = input.locationEvidence
+            ? toStoredLocation(input.locationEvidence)
+            : null;
+
         const record = await db.attendanceRecord.create({
             data: {
                 employeeId: employee.id,
@@ -653,6 +732,14 @@ export const AttendanceService = {
                 source,
                 status: 'PRESENT',
                 clockInPhotoUrl: input.clockInPhotoUrl?.trim() || null,
+                clockInLatitude: kioskGeoData?.latitude ?? null,
+                clockInLongitude: kioskGeoData?.longitude ?? null,
+                clockInAccuracy: kioskGeoData?.accuracy ?? null,
+                clockInDistance: kioskGeoResult
+                    ? new Prisma.Decimal(
+                          kioskGeoResult.distanceMeters.toFixed(2),
+                      )
+                    : null,
                 plannedHours: new Prisma.Decimal(planned),
                 standardDayHours: new Prisma.Decimal(rates.standardDayHours),
                 dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
@@ -751,6 +838,11 @@ export const AttendanceService = {
         const pinValid = await verifyPin(input.pin, employee.pinHash);
         if (!pinValid) throw new BusinessRuleError('PIN salah');
 
+        const kioskGeoResult = enforceKioskGeofence(
+            input.settings,
+            input.locationEvidence,
+        );
+
         const openRecord =
             await AttendanceService._resolveOpenRecordForClockOut(
                 db,
@@ -776,6 +868,11 @@ export const AttendanceService = {
         }
 
         const now = new Date();
+
+        const kioskGeoData = input.locationEvidence
+            ? toStoredLocation(input.locationEvidence)
+            : null;
+
         const updated = await db.attendanceRecord.update({
             where: { id: openRecord.id },
             data: {
@@ -783,6 +880,14 @@ export const AttendanceService = {
                 ...(input.clockOutPhotoUrl?.trim()
                     ? { clockOutPhotoUrl: input.clockOutPhotoUrl.trim() }
                     : {}),
+                clockOutLatitude: kioskGeoData?.latitude ?? null,
+                clockOutLongitude: kioskGeoData?.longitude ?? null,
+                clockOutAccuracy: kioskGeoData?.accuracy ?? null,
+                clockOutDistance: kioskGeoResult
+                    ? new Prisma.Decimal(
+                          kioskGeoResult.distanceMeters.toFixed(2),
+                      )
+                    : null,
             },
             include: includeRelations,
         });

@@ -124,10 +124,14 @@ export function AttendanceSettingsPanel() {
                         <Label>Self-Service Absensi</Label>
                         <p className="text-sm text-muted-foreground">
                             Karyawan dapat clock-in/out dari portal /my
+                            {!settings.geofenceEnabled && (
+                                <span className="text-amber-600 ml-1">(memerlukan geofence aktif)</span>
+                            )}
                         </p>
                     </div>
                     <Switch
                         checked={settings.selfServiceEnabled}
+                        disabled={!settings.geofenceEnabled}
                         onCheckedChange={(v) =>
                             setSettings((s) => ({ ...s, selfServiceEnabled: v }))
                         }
@@ -144,7 +148,12 @@ export function AttendanceSettingsPanel() {
                     <Switch
                         checked={settings.geofenceEnabled}
                         onCheckedChange={(v) =>
-                            setSettings((s) => ({ ...s, geofenceEnabled: v }))
+                            setSettings((s) => ({
+                                ...s,
+                                geofenceEnabled: v,
+                                // Auto-disable self-service when geofence is turned off
+                                selfServiceEnabled: v ? s.selfServiceEnabled : false,
+                            }))
                         }
                     />
                 </div>

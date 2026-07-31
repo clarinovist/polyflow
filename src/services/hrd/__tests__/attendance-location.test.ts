@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     describeGeofenceProximity,
     parseGeofenceConfig,
+    parseLocationEvidence,
     resolveGeofence,
     validateLocation,
     isSelfServiceEnabled,
@@ -187,12 +188,13 @@ describe('validateSelfServicePrerequisites', () => {
         expect(result.reason).toContain('belum lengkap');
     });
 
-    it('succeeds when self-service is enabled and geofence is disabled', () => {
+    it('fails when self-service is enabled but geofence is disabled', () => {
         const result = validateSelfServicePrerequisites({
             'attendance.selfServiceEnabled': 'true',
             'attendance.geofenceEnabled': 'false',
         });
-        expect(result.ready).toBe(true);
+        expect(result.ready).toBe(false);
+        expect(result.reason).toContain('geofence aktif');
     });
 
     it('succeeds when all prerequisites are met', () => {
@@ -354,6 +356,15 @@ describe('describeGeofenceProximity', () => {
         expect(result.kind).toBe('waiting-gps');
     });
 
+    it('returns waiting-gps when accuracy is negative', () => {
+        const result = describeGeofenceProximity(office, {
+            latitude: -6.2,
+            longitude: 106.8,
+            accuracy: -1,
+        });
+        expect(result.kind).toBe('waiting-gps');
+    });
+
     it('returns accuracy-poor when accuracy exceeds limit', () => {
         const result = describeGeofenceProximity(office, {
             latitude: -6.2,
@@ -447,5 +458,129 @@ describe('serializeGeofenceForStorage', () => {
         expect(Number(result.latitude)).toBeCloseTo(-6.123457, 5);
         expect(Number(result.longitude)).toBeCloseTo(106.123457, 5);
         expect(Number(result.accuracy)).toBeCloseTo(12.35, 1);
+    });
+});
+
+describe('parseLocationEvidence', () => {
+    it('rejects null input', () => {
+        const r = parseLocationEvidence(null);
+        expect(r.valid).toBe(false);
+        if (!r.valid) expect(r.error).toContain('wajib');
+    });
+
+    it('rejects non-object input', () => {
+        expect(parseLocationEvidence('string').valid).toBe(false);
+        expect(parseLocationEvidence(42).valid).toBe(false);
+    });
+
+    it('rejects non-finite latitude', () => {
+        const r = parseLocationEvidence({ latitude: NaN, longitude: 106, accuracy: 10 });
+        expect(r.valid).toBe(false);
+        if (!r.valid) expect(r.error).toContain('tidak valid');
+    });
+
+    it('rejects out-of-range latitude', () => {
+        const r = parseLocationEvidence({ latitude: 999, longitude: 106, accuracy: 10 });
+        expect(r.valid).toBe(false);
+        if (!r.valid) expect(r.error).toContain('range');
+    });
+
+    it('rejects negative accuracy', () => {
+        const r = parseLocationEvidence({ latitude: -6, longitude: 106, accuracy: -5 });
+        expect(r.valid).toBe(false);
+        if (!r.valid) expect(r.error).toContain('Akurasi');
+    });
+
+    it('rejects NaN accuracy', () => {
+        const r = parseLocationEvidence({ latitude: -6, longitude: 106, accuracy: NaN });
+        expect(r.valid).toBe(false);
+    });
+
+    it('rejects string latitude (no Number coercion)', () => {
+        const r = parseLocationEvidence({ latitude: '-6.12', longitude: 106, accuracy: 10 });
+        expect(r.valid).toBe(false);
+        if (!r.valid) expect(r.error).toContain('tidak valid');
+    });
+
+    it('rejects boolean latitude', () => {
+        const r = parseLocationEvidence({ latitude: true, longitude: 106, accuracy: 10 });
+        expect(r.valid).toBe(false);
+    });
+
+    it('rejects null latitude', () => {
+        const r = parseLocationEvidence({ latitude: null, longitude: 106, accuracy: 10 });
+        expect(r.valid).toBe(false);
+    });
+
+    it('rejects string accuracy', () => {
+        const r = parseLocationEvidence({ latitude: -6, longitude: 106, accuracy: '10' });
+        expect(r.valid).toBe(false);
+        if (!r.valid) expect(r.error).toContain('Akurasi');
+    });
+
+    it('accepts valid evidence', () => {
+        const r = parseLocationEvidence({ latitude: -6.12, longitude: 106.12, accuracy: 10 });
+        expect(r.valid).toBe(true);
+        if (r.valid) {
+            expect(r.evidence.latitude).toBe(-6.12);
+            expect(r.evidence.longitude).toBe(106.12);
+            expect(r.evidence.accuracy).toBe(10);
+        }
+    });
+
+    it('accepts zero accuracy', () => {
+        const r = parseLocationEvidence({ latitude: -6, longitude: 106, accuracy: 0 });
+        expect(r.valid).toBe(true);
+    });
+});
+
+describe('validateLocation - accuracy edge cases', () => {
+    const config: GeofenceConfig = {
+        enabled: true,
+        latitude: -6.123456,
+        longitude: 106.123456,
+        radiusMeters: 100,
+        maxAccuracyMeters: 50,
+    };
+
+    it('rejects negative accuracy', () => {
+        const result = validateLocation(config, {
+            latitude: -6.123456,
+            longitude: 106.123456,
+            accuracy: -1,
+        });
+        expect(result.withinFence).toBe(false);
+        expect(result.accuracyOk).toBe(false);
+        expect(result.reason).toContain('Akurasi');
+    });
+
+    it('rejects NaN accuracy', () => {
+        const result = validateLocation(config, {
+            latitude: -6.123456,
+            longitude: 106.123456,
+            accuracy: NaN,
+        });
+        expect(result.withinFence).toBe(false);
+        expect(result.accuracyOk).toBe(false);
+    });
+
+    it('rejects Infinity accuracy', () => {
+        const result = validateLocation(config, {
+            latitude: -6.123456,
+            longitude: 106.123456,
+            accuracy: Infinity,
+        });
+        expect(result.withinFence).toBe(false);
+        expect(result.accuracyOk).toBe(false);
+    });
+
+    it('accepts zero accuracy', () => {
+        const result = validateLocation(config, {
+            latitude: -6.123456,
+            longitude: 106.123456,
+            accuracy: 0,
+        });
+        expect(result.withinFence).toBe(true);
+        expect(result.accuracyOk).toBe(true);
     });
 });

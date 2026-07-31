@@ -8,6 +8,7 @@ import { z } from 'zod';
 import {
     safeAction,
     AuthorizationError,
+    BusinessRuleError,
 } from '@/lib/errors/errors';
 import { isTenantAdmin } from '@/lib/auth/roles';
 
@@ -115,6 +116,15 @@ const saveSchema = z
                 });
             }
         }
+
+        // Cross-field: self-service requires geofence to be enabled
+        if (data.selfServiceEnabled && !data.geofenceEnabled) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['selfServiceEnabled'],
+                message: 'Self-service absensi memerlukan geofence aktif',
+            });
+        }
     });
 
 async function requireAdminId(): Promise<string> {
@@ -156,6 +166,14 @@ export const saveAttendanceSettings = withTenant(
     async function saveAttendanceSettings(input: AttendanceSettings) {
         return safeAction(async () => {
             const adminId = await requireAdminId();
+
+            // Pre-validate cross-field constraint (safeAction only surfaces ApplicationError)
+            if (input.selfServiceEnabled && !input.geofenceEnabled) {
+                throw new BusinessRuleError(
+                    'Self-service absensi memerlukan geofence aktif',
+                );
+            }
+
             const parsed = saveSchema.parse(input);
 
             const entries: Record<string, string> = {
