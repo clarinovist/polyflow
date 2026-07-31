@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/api/rate-limit';
 import { isMiniAppEnabled } from '@/lib/telegram/kill-switch';
 import { verifyTelegramSession, extractSessionTokenFromCookieHeader } from '@/lib/telegram/session';
 import { logTelegramAudit } from '@/lib/telegram/audit';
+import { findIdentityByTelegramUserId } from '@/lib/telegram/identity-service';
 import { generateVirtualCsReply } from '@/lib/bot/virtual-cs-service';
 import { logVirtualCsEvent } from '@/lib/bot/chat-audit';
 import { POLYFLOW_PRODUCT_ID } from '@/lib/bot/product-scope';
@@ -41,6 +42,12 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
   }
 
+  const identity = await findIdentityByTelegramUserId(telegramUserId, effectiveTenantId);
+  if (!identity || identity.status === 'REVOKED') {
+    logTelegramAudit({ action: 'SESSION_INVALID', telegramUserId, userId, tenantId: effectiveTenantId, outcome: 'REVOKED', ip });
+    return NextResponse.json({ error: 'Identity revoked', status: 'REVOKED' }, { status: 403 });
+  }
+
   let body: { question?: string };
   try {
     body = await req.json() as { question?: string };
@@ -54,9 +61,13 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, role: true, isSuperAdmin: true },
+    select: { id: true, name: true, role: true, isSuperAdmin: true, isActive: true },
   });
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  if (user.isActive === false) {
+    logTelegramAudit({ action: 'SESSION_INVALID', telegramUserId, userId, tenantId: effectiveTenantId, outcome: 'USER_INACTIVE', ip });
+    return NextResponse.json({ error: 'User inactive', status: 'USER_INACTIVE' }, { status: 403 });
+  }
 
   let allowedResources: string[] | 'ALL' = [];
   let assignedRoles: string[] = [];

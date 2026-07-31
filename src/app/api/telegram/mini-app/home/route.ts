@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { isMiniAppEnabled } from '@/lib/telegram/kill-switch';
 import { verifyTelegramSession, extractSessionTokenFromCookieHeader } from '@/lib/telegram/session';
 import { logTelegramAudit } from '@/lib/telegram/audit';
+import { findIdentityByTelegramUserId } from '@/lib/telegram/identity-service';
 
 function getIp(req: NextRequest): string {
   return (req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
@@ -30,6 +31,21 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
   const { tenantId, userId, telegramUserId } = verified.session;
   const ctxTenantId = getTenantIdFromContext();
   const effectiveTenantId = ctxTenantId || tenantId;
+
+  const identity = await findIdentityByTelegramUserId(telegramUserId, effectiveTenantId);
+  if (!identity || identity.status === 'REVOKED') {
+    logTelegramAudit({ action: 'SESSION_INVALID', telegramUserId, userId, tenantId: effectiveTenantId, outcome: 'REVOKED', ip });
+    return NextResponse.json({ error: 'Identity revoked', status: 'REVOKED' }, { status: 403 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isActive: true },
+  });
+  if (!user || user.isActive === false) {
+    logTelegramAudit({ action: 'SESSION_INVALID', telegramUserId, userId, tenantId: effectiveTenantId, outcome: 'USER_INACTIVE', ip });
+    return NextResponse.json({ error: 'User inactive or not found', status: 'USER_INACTIVE' }, { status: 403 });
+  }
 
   const checkedAt = new Date().toISOString();
   const kpis: Array<{ key: string; label: string; value: number | string; checkedAt: string; domain?: string }> = [];
