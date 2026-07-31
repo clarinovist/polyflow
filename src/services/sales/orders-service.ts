@@ -80,7 +80,6 @@ export async function getOrders(filters?: {
     statusFilter?: SalesOrderStatus[];
 }) {
     const where: Prisma.SalesOrderWhereInput = {};
-    if (filters?.customerId) where.customerId = filters.customerId;
 
     // Order type filter — support single (legacy) or multi (new)
     if (filters?.orderTypes && filters.orderTypes.length > 0) {
@@ -94,6 +93,9 @@ export async function getOrders(filters?: {
     } else if (filters?.demandType === 'legacy-internal') {
         where.customerId = null;
     }
+
+    // A concrete customer is more specific than the broad demand type.
+    if (filters?.customerId) where.customerId = filters.customerId;
 
     if (filters?.startDate && filters?.endDate) {
         where.orderDate = {
