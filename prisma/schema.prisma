@@ -3443,6 +3443,7 @@ enum TelegramAuditAction {
   ADMIN_BLOCKED
   ALLOWLIST_BLOCKED
   TENANT_MISMATCH
+  DIGEST_SENT
 }
 
 model TelegramIdentity {
@@ -3494,6 +3495,7 @@ model TelegramNotificationPreference {
   userId            String
   enabled           Boolean  @default(true)
   criticalStock     Boolean  @default(true)
+  dailyDigest       Boolean  @default(true)
   quietHoursStart   Int?
   quietHoursEnd     Int?
   timezone          String   @default("Asia/Jakarta")

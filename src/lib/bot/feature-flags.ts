@@ -8,7 +8,8 @@ export type AssistantFeatureFlag =
     | 'assistant.conversations'
     | 'assistant.tenantKnowledge'
     | 'assistant.crossModuleDiagnosis'
-    | 'assistant.sensitiveDomains';
+    | 'assistant.sensitiveDomains'
+    | 'assistant.proactiveDigest';
 
 const FEATURE_FLAGS: Record<
     AssistantFeatureFlag,
@@ -34,6 +35,11 @@ const FEATURE_FLAGS: Record<
         enabled: false,
         description:
             'Enable HRD and sensitive data access (requires security review)',
+    },
+    'assistant.proactiveDigest': {
+        enabled: false,
+        description:
+            'Enable proactive daily exception digest via Telegram cron',
     },
 };
 

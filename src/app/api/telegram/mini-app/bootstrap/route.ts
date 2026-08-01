@@ -124,6 +124,7 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
     features: {
       notificationsEnabled: pref?.enabled ?? true,
       criticalStock: pref?.criticalStock ?? true,
+      dailyDigest: pref?.dailyDigest ?? true,
       pilot: true,
     },
     version: '1.0.0-phase1',
