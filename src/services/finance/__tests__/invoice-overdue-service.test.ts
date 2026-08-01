@@ -10,6 +10,7 @@ vi.mock("@/lib/core/prisma", () => ({
 vi.mock("@/services/core/notification-service", () => ({
   NotificationService: {
     createBulkNotifications: vi.fn().mockResolvedValue(undefined),
+    createBulkNotificationsThrottled: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -28,7 +29,7 @@ describe("checkOverdueSalesInvoices", () => {
     await checkOverdueSalesInvoices();
 
     expect(prisma.user.findMany).not.toHaveBeenCalled();
-    expect(NotificationService.createBulkNotifications).not.toHaveBeenCalled();
+    expect(NotificationService.createBulkNotificationsThrottled).not.toHaveBeenCalled();
   });
 
   it("returns early when no target users (admin or sales)", async () => {
@@ -46,7 +47,7 @@ describe("checkOverdueSalesInvoices", () => {
 
     await checkOverdueSalesInvoices();
 
-    expect(NotificationService.createBulkNotifications).not.toHaveBeenCalled();
+    expect(NotificationService.createBulkNotificationsThrottled).not.toHaveBeenCalled();
   });
 
   it("creates notifications for admin users", async () => {
@@ -67,7 +68,7 @@ describe("checkOverdueSalesInvoices", () => {
 
     await checkOverdueSalesInvoices();
 
-    expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith(
+    expect(NotificationService.createBulkNotificationsThrottled).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           userId: "admin-1",
@@ -104,7 +105,7 @@ describe("checkOverdueSalesInvoices", () => {
     await checkOverdueSalesInvoices();
 
     // Should only create ONE notification for admin-1, not two
-    const calls = vi.mocked(NotificationService.createBulkNotifications).mock.calls[0][0];
+    const calls = vi.mocked(NotificationService.createBulkNotificationsThrottled).mock.calls[0][0];
     const adminNotifications = calls.filter((n: { userId: string }) => n.userId === "admin-1");
     expect(adminNotifications).toHaveLength(1);
   });
@@ -126,7 +127,7 @@ describe("checkOverdueSalesInvoices", () => {
 
     await checkOverdueSalesInvoices();
 
-    expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith(
+    expect(NotificationService.createBulkNotificationsThrottled).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           title: "Invoice Jatuh Tempo",

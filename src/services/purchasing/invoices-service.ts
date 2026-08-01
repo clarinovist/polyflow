@@ -633,6 +633,6 @@ export async function checkOverduePurchasingInvoices() {
             })
             .flat();
 
-        await NotificationService.createBulkNotifications(inputs);
+        await NotificationService.createBulkNotificationsThrottled(inputs);
     }
 }

@@ -354,7 +354,7 @@ export class InventoryCoreService {
                         entityType: 'ProductVariant',
                         entityId: variant.id,
                     }));
-                    await NotificationService.createBulkNotifications(inputs);
+                    await NotificationService.createBulkNotificationsThrottled(inputs);
                 }
             }
         }

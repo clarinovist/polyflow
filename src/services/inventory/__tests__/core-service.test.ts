@@ -24,6 +24,7 @@ vi.mock("@/lib/core/prisma", () => ({
 vi.mock("@/services/core/notification-service", () => ({
   NotificationService: {
     createBulkNotifications: vi.fn(),
+    createBulkNotificationsThrottled: vi.fn(),
   },
 }));
 
@@ -778,7 +779,7 @@ describe("InventoryCoreService", () => {
 
       // Assert
       expect(
-        NotificationService.createBulkNotifications,
+        NotificationService.createBulkNotificationsThrottled,
       ).not.toHaveBeenCalled();
     });
 
@@ -806,7 +807,7 @@ describe("InventoryCoreService", () => {
 
       // Assert - stock 150 > threshold 100
       expect(
-        NotificationService.createBulkNotifications,
+        NotificationService.createBulkNotificationsThrottled,
       ).not.toHaveBeenCalled();
     });
 
@@ -841,7 +842,7 @@ describe("InventoryCoreService", () => {
         where: { role: "ADMIN" },
         select: { id: true },
       });
-      expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith([
+      expect(NotificationService.createBulkNotificationsThrottled).toHaveBeenCalledWith([
         {
           userId: "user-1",
           type: "LOW_STOCK",
@@ -892,7 +893,7 @@ describe("InventoryCoreService", () => {
 
       // Assert
       expect(
-        NotificationService.createBulkNotifications,
+        NotificationService.createBulkNotificationsThrottled,
       ).not.toHaveBeenCalled();
     });
 
@@ -926,7 +927,7 @@ describe("InventoryCoreService", () => {
       await InventoryCoreService.checkLowStockTriggers();
 
       // Assert - totalForAlert = 30 + 20 = 50 < 100
-      expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith([
+      expect(NotificationService.createBulkNotificationsThrottled).toHaveBeenCalledWith([
         expect.objectContaining({
           message: expect.stringContaining("Current stock: 50."),
         }),
@@ -963,7 +964,7 @@ describe("InventoryCoreService", () => {
       await InventoryCoreService.checkLowStockTriggers();
 
       // Assert - only rm_warehouse counted: 30 < 100, so notification sent
-      expect(NotificationService.createBulkNotifications).toHaveBeenCalled();
+      expect(NotificationService.createBulkNotificationsThrottled).toHaveBeenCalled();
     });
 
     it("should not create notification when totalForAlert is 0", async () => {
@@ -990,7 +991,7 @@ describe("InventoryCoreService", () => {
 
       // Assert - totalForAlert = 0, condition `totalForAlert > 0` is false
       expect(
-        NotificationService.createBulkNotifications,
+        NotificationService.createBulkNotificationsThrottled,
       ).not.toHaveBeenCalled();
     });
 
@@ -1018,7 +1019,7 @@ describe("InventoryCoreService", () => {
 
       // Assert - null slug not in allowed set, totalForAlert=0
       expect(
-        NotificationService.createBulkNotifications,
+        NotificationService.createBulkNotificationsThrottled,
       ).not.toHaveBeenCalled();
     });
 
@@ -1059,10 +1060,10 @@ describe("InventoryCoreService", () => {
       await InventoryCoreService.checkLowStockTriggers();
 
       // Assert - only pv-1 is low (50 < 100), pv-2 is OK (200 > 10)
-      expect(NotificationService.createBulkNotifications).toHaveBeenCalledTimes(
+      expect(NotificationService.createBulkNotificationsThrottled).toHaveBeenCalledTimes(
         1,
       );
-      expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith([
+      expect(NotificationService.createBulkNotificationsThrottled).toHaveBeenCalledWith([
         expect.objectContaining({ entityId: "pv-1" }),
       ]);
     });
@@ -1086,7 +1087,7 @@ describe("InventoryCoreService", () => {
 
       // Assert - threshold = 0 via || 0, totalForAlert=0, condition fails
       expect(
-        NotificationService.createBulkNotifications,
+        NotificationService.createBulkNotificationsThrottled,
       ).not.toHaveBeenCalled();
     });
   });

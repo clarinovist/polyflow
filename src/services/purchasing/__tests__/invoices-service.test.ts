@@ -29,6 +29,7 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         notification: {
             createMany: vi.fn(),
+            findMany: vi.fn().mockResolvedValue([]),
         },
     }
 }));
