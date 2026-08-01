@@ -271,6 +271,21 @@ export async function createOrder(
     const shippingCost = data.shippingCost || 0;
     const finalTotal = totalAmount + shippingCost;
 
+    // ── Resolve salesRepId: explicit override > default from CustomerSalesAssignment > null ──
+    let salesRepId: string | null = data.salesRepId ?? null;
+    if (salesRepId === null && data.customerId) {
+        const primaryAssignment =
+            await prisma.customerSalesAssignment.findFirst({
+                where: {
+                    customerId: data.customerId,
+                    isPrimary: true,
+                    unassignedAt: null,
+                },
+                select: { userId: true },
+            });
+        salesRepId = primaryAssignment?.userId ?? null;
+    }
+
     // Determine initial status and priceStatus
     const initialStatus = isQuotation
         ? SalesOrderStatus.QUOTATION
@@ -299,6 +314,7 @@ export async function createOrder(
             shippingCost: shippingCost > 0 ? shippingCost : null,
             status: initialStatus,
             createdById: userId,
+            salesRepId: salesRepId,
             // ── Quotation commercial fields ──
             validUntil: data.validUntil ?? undefined,
             subject: data.subject ?? undefined,
@@ -482,6 +498,7 @@ export async function updateOrder(
             where: { id: data.id },
             data: {
                 customerId: data.customerId,
+                salesRepId: data.salesRepId,
                 sourceLocationId: sourceLocationId,
                 orderDate: data.orderDate,
                 expectedDate: data.expectedDate,

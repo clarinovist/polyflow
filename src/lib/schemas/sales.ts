@@ -42,6 +42,7 @@ export const createSalesOrderSchema = z
     .object({
         intent: z.enum(['order', 'quotation']).default('order'),
         customerId: z.string().optional(),
+        salesRepId: z.string().optional().nullable(),
         sourceLocationId: z.string().optional().default(''),
         orderDate: z.coerce.date(),
         expectedDate: z.coerce.date().optional().nullable(),
@@ -106,6 +107,7 @@ export const createSalesOrderSchema = z
 export const updateSalesOrderSchema = z.object({
     id: z.string(),
     customerId: z.string().optional(),
+    salesRepId: z.string().optional().nullable(),
     sourceLocationId: z.string().optional().default(''),
     orderDate: z.coerce.date(),
     expectedDate: z.coerce.date().optional().nullable(),

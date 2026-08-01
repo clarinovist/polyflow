@@ -40,6 +40,7 @@ model User {
   createdPurchaseRequests PurchaseRequest[]
   inspections             QualityInspection[]
   salesOrders             SalesOrder[]            @relation("SalesCreator")
+  salesRepOrders          SalesOrder[]            @relation("SalesOrderSalesRep")
   quotations              SalesQuotation[]        @relation("QuotationCreator")
   scrapRecords            ScrapRecord[]
   movements               StockMovement[]
@@ -1141,7 +1142,9 @@ model SalesOrder {
   productionOrders ProductionOrder[]       @relation("SalesProduction")
   productionRuns   ProductionRun[]
   purchaseRequests PurchaseRequest[]
+  salesRepId       String?
   createdBy        User?                   @relation("SalesCreator", fields: [createdById], references: [id])
+  salesRep         User?                   @relation("SalesOrderSalesRep", fields: [salesRepId], references: [id])
   customer         Customer?               @relation(fields: [customerId], references: [id])
   quotation        SalesQuotation?         @relation(fields: [quotationId], references: [id])
   sourceLocation   Location?               @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
@@ -1150,6 +1153,7 @@ model SalesOrder {
   salesReturns     SalesReturn[]
 
   @@index([orderDate])
+  @@index([salesRepId])
 }
 
 model SalesQuotation {

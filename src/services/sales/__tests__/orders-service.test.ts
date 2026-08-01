@@ -63,6 +63,9 @@ const createMockPrisma = () => ({
   auditLog: {
     create: vi.fn(),
   },
+  customerSalesAssignment: {
+    findFirst: vi.fn(),
+  },
 });
 
 const mockPrismaInstance = createMockPrisma();
@@ -588,6 +591,177 @@ describe("confirmOrder", () => {
       enteredUnitPrice: 1000,
       subtotal: 100000,
     });
+  });
+
+  it("defaults salesRepId from CustomerSalesAssignment primary when not explicitly provided", async () => {
+    vi.mocked(prisma.customerSalesAssignment.findFirst).mockResolvedValue({
+      userId: "sales-1",
+    } as never);
+    vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+      id: "pv-1",
+      name: "Product A",
+      product: { productType: ProductType.FINISHED_GOOD },
+    } as never);
+
+    await createOrder(
+      {
+        intent: "order",
+        customerId: "cust-1",
+        sourceLocationId: "loc-1",
+        orderDate: new Date("2026-04-17T00:00:00.000Z"),
+        expectedDate: null,
+        orderType: SalesOrderType.MAKE_TO_STOCK,
+        notes: "",
+        shippingCost: 0,
+        customItems: [],
+        items: [
+          {
+            productVariantId: "pv-1",
+            quantity: 1,
+            unitPrice: 1000,
+            discountPercent: 0,
+            taxPercent: 0,
+            dppOtherAmount: null,
+            ppnMode: "EXCLUDE",
+            isFreeItem: false,
+          },
+        ],
+      },
+      "user-1",
+    );
+
+    const createCall = vi
+      .mocked(prisma.salesOrder.create)
+      .mock.calls.at(-1)?.[0] as never as { data: Record<string, unknown> };
+    expect(createCall.data.salesRepId).toBe("sales-1");
+  });
+
+  it("uses explicit salesRepId override when provided", async () => {
+    vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+      id: "pv-1",
+      name: "Product A",
+      product: { productType: ProductType.FINISHED_GOOD },
+    } as never);
+
+    await createOrder(
+      {
+        intent: "order",
+        customerId: "cust-1",
+        salesRepId: "sales-override",
+        sourceLocationId: "loc-1",
+        orderDate: new Date("2026-04-17T00:00:00.000Z"),
+        expectedDate: null,
+        orderType: SalesOrderType.MAKE_TO_STOCK,
+        notes: "",
+        shippingCost: 0,
+        customItems: [],
+        items: [
+          {
+            productVariantId: "pv-1",
+            quantity: 1,
+            unitPrice: 1000,
+            discountPercent: 0,
+            taxPercent: 0,
+            dppOtherAmount: null,
+            ppnMode: "EXCLUDE",
+            isFreeItem: false,
+          },
+        ],
+      },
+      "user-1",
+    );
+
+    const createCall = vi
+      .mocked(prisma.salesOrder.create)
+      .mock.calls.at(-1)?.[0] as never as { data: Record<string, unknown> };
+    expect(createCall.data.salesRepId).toBe("sales-override");
+    expect(prisma.customerSalesAssignment.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("sets salesRepId to null when customer has no active assignment", async () => {
+    vi.mocked(prisma.customerSalesAssignment.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+      id: "pv-1",
+      name: "Product A",
+      product: { productType: ProductType.FINISHED_GOOD },
+    } as never);
+
+    await createOrder(
+      {
+        intent: "order",
+        customerId: "cust-no-assignment",
+        sourceLocationId: "loc-1",
+        orderDate: new Date("2026-04-17T00:00:00.000Z"),
+        expectedDate: null,
+        orderType: SalesOrderType.MAKE_TO_STOCK,
+        notes: "",
+        shippingCost: 0,
+        customItems: [],
+        items: [
+          {
+            productVariantId: "pv-1",
+            quantity: 1,
+            unitPrice: 1000,
+            discountPercent: 0,
+            taxPercent: 0,
+            dppOtherAmount: null,
+            ppnMode: "EXCLUDE",
+            isFreeItem: false,
+          },
+        ],
+      },
+      "user-1",
+    );
+
+    const createCall = vi
+      .mocked(prisma.salesOrder.create)
+      .mock.calls.at(-1)?.[0] as never as { data: Record<string, unknown> };
+    expect(createCall.data.salesRepId).toBeNull();
+  });
+
+  it("clears salesRepId when explicitly set to null on update", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValueOnce({
+      id: "so-1",
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      status: SalesOrderStatus.DRAFT,
+      items: [],
+      invoices: [],
+      deliveryOrders: [],
+    } as never);
+    vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+      id: "pv-1",
+      name: "Product A",
+      product: { productType: ProductType.FINISHED_GOOD },
+    } as never);
+
+    await updateOrder(
+      {
+        id: "so-1",
+        salesRepId: null,
+        orderDate: new Date("2026-04-17T00:00:00.000Z"),
+        expectedDate: null,
+        notes: "test",
+        shippingCost: 0,
+        items: [
+          {
+            productVariantId: "pv-1",
+            quantity: 1,
+            unitPrice: 1000,
+            discountPercent: 0,
+            taxPercent: 0,
+            dppOtherAmount: null,
+            ppnMode: "EXCLUDE",
+            isFreeItem: false,
+          },
+        ],
+      } as never,
+      "user-1",
+    );
+
+    const updateCall = vi
+      .mocked(prisma.salesOrder.update)
+      .mock.calls.at(-1)?.[0] as never as { data: Record<string, unknown> };
+    expect(updateCall.data.salesRepId).toBeNull();
   });
 });
 

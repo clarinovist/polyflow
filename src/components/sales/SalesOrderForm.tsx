@@ -80,6 +80,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { CreditExposure } from '@/services/sales/credit-service';
+import { getSalesTeamAction } from '@/actions/sales/sales-team';
 
 import {
     Command,
@@ -189,6 +190,24 @@ export function SalesOrderForm({
             : reorderData?.customerId,
     );
 
+    // Sales team for dropdown
+    const [salesTeam, setSalesTeam] = useState<
+        { id: string; name: string }[]
+    >([]);
+    useEffect(() => {
+        getSalesTeamAction()
+            .then((result) => {
+                const data =
+                    result &&
+                    typeof result === 'object' &&
+                    'data' in result
+                        ? (result as { data: { id: string; name: string }[] | null }).data
+                        : null;
+                setSalesTeam(data ?? []);
+            })
+            .catch(() => setSalesTeam([]));
+    }, []);
+
     // Track which items have "Kena Pajak" checked (controls Pajak/DPP visibility)
     const [taxableItems, setTaxableItems] = useState<Record<number, boolean>>(
         () => {
@@ -231,6 +250,7 @@ export function SalesOrderForm({
     type SalesOrderFormValues = {
         id?: string;
         customerId?: string;
+        salesRepId?: string | null;
         sourceLocationId: string;
         orderDate: Date;
         expectedDate?: Date | null;
@@ -266,6 +286,9 @@ export function SalesOrderForm({
         defaultValues: initialData
             ? {
                   ...initialData,
+                  salesRepId:
+                      ((initialData as Record<string, unknown>)
+                          .salesRepId as string | null) ?? null,
                   orderType:
                       lockedOrderType ||
                       ((initialData as Record<string, unknown>)
@@ -294,6 +317,7 @@ export function SalesOrderForm({
                 }
               : {
                     customerId: '',
+                    salesRepId: null,
                     sourceLocationId: '',
                     orderDate: new Date(),
                     notes: '',
@@ -1393,6 +1417,53 @@ export function SalesOrderForm({
                                         value={field.value || ''}
                                     />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Sales Rep */}
+                    <FormField
+                        control={form.control}
+                        name="salesRepId"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Sales</FormLabel>
+                                <Select
+                                    onValueChange={(value) =>
+                                        field.onChange(
+                                            value === '__none__'
+                                                ? null
+                                                : value,
+                                        )
+                                    }
+                                    value={field.value ?? '__none__'}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Pilih sales" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">
+                                            <span className="text-muted-foreground italic">
+                                                Tanpa sales
+                                            </span>
+                                        </SelectItem>
+                                        {salesTeam.map((s) => (
+                                            <SelectItem
+                                                key={s.id}
+                                                value={s.id}
+                                            >
+                                                {s.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                    Sales pemilik order. Kosongkan jika belum
+                                    ditentukan.
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
