@@ -6,3 +6,5 @@ export * from './session';
 export * from './identity-service';
 export * from './link-token-service';
 export * from './notification-dedup';
+export * from './send-message';
+export * from './permissions';

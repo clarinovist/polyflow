@@ -9,6 +9,7 @@ import {
   getBotUsername,
 } from '@/lib/telegram/kill-switch';
 import { logTelegramAudit } from '@/lib/telegram/audit';
+import { sendTelegramMessage } from '@/lib/telegram/send-message';
 
 type TelegramUpdate = {
   update_id: number;
@@ -34,30 +35,6 @@ async function getPilotTenantDb(): Promise<{ tenantId: string; tenantDb: ReturnT
     return { tenantId: tenant.id, tenantDb: getTenantDb(tenant.dbUrl) };
   } catch {
     return null;
-  }
-}
-
-async function sendTelegramMessage(
-  chatId: number | string,
-  text: string,
-  options?: { reply_markup?: unknown },
-) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return;
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: 'Markdown',
-        ...options,
-      }),
-    });
-  } catch {
-    // best effort
   }
 }
 

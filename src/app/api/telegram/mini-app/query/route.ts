@@ -11,7 +11,7 @@ import { generateVirtualCsReply } from '@/lib/bot/virtual-cs-service';
 import { logVirtualCsEvent } from '@/lib/bot/chat-audit';
 import { POLYFLOW_PRODUCT_ID } from '@/lib/bot/product-scope';
 import { buildAssistantContext } from '@/lib/bot/assistant-context';
-import type { Role } from '@prisma/client';
+import { resolveAllowedResources } from '@/lib/telegram/permissions';
 
 function getIp(req: NextRequest): string {
   return (req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
@@ -74,13 +74,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
   try {
     const roleRows = await prisma.userRole.findMany({ where: { userId }, select: { role: true } });
     assignedRoles = roleRows.map((r) => r.role as string);
-    const allRoles = [...new Set([user.role, ...assignedRoles])].filter(Boolean) as Role[];
-    if (user.isSuperAdmin) {
-      allowedResources = 'ALL';
-    } else if (allRoles.length) {
-      const perms = await prisma.rolePermission.findMany({ where: { role: { in: allRoles }, canAccess: true }, select: { resource: true } });
-      allowedResources = [...new Set(perms.map((p) => p.resource))];
-    }
+    allowedResources = await resolveAllowedResources(userId);
   } catch { /* ignore */ }
 
   const assistantCtx = buildAssistantContext(
