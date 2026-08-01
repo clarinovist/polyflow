@@ -28,6 +28,15 @@ export type SalesPerformanceSummary = {
     avgOrderValue: number;
     topCustomers: { name: string; revenue: number; orders: number }[];
     topProducts: { name: string; revenue: number; quantity: number }[];
+    bySalesperson: {
+        userId: string;
+        name: string;
+        revenue: number;
+        orders: number;
+        avgOrderValue: number;
+        portfolioSize: number;
+        visitCount: number;
+    }[];
 };
 
 export const getSalesPerformanceReport = withTenant(
@@ -58,7 +67,7 @@ export const getSalesPerformanceReport = withTenant(
                 where,
                 include: {
                     customer: { select: { name: true } },
-                    createdBy: { select: { name: true } },
+                    salesRep: { select: { id: true, name: true } },
                     items: {
                         include: {
                             productVariant: {
@@ -94,7 +103,7 @@ export const getSalesPerformanceReport = withTenant(
                     totalAmount: Number(order.totalAmount || 0),
                     status: order.status,
                     invoiceStatus: order.invoices[0]?.status || null,
-                    salesPerson: order.createdBy?.name || '-',
+                    salesPerson: order.salesRep?.name || '-',
                 })),
             );
 
@@ -152,6 +161,90 @@ export const getSalesPerformanceReport = withTenant(
                 .sort((a, b) => b.revenue - a.revenue)
                 .slice(0, 10);
 
+            // ── bySalesperson aggregation ──
+            const salespersonMap = new Map<
+                string,
+                {
+                    userId: string;
+                    name: string;
+                    revenue: number;
+                    orders: number;
+                }
+            >();
+            for (const order of orders) {
+                const rep = order.salesRep;
+                const userId = rep?.id || '__unattributed__';
+                const name = rep?.name || 'Belum ada atribusi';
+                const existing = salespersonMap.get(userId) || {
+                    userId,
+                    name,
+                    revenue: 0,
+                    orders: 0,
+                };
+                existing.revenue += Number(order.totalAmount || 0);
+                existing.orders += 1;
+                salespersonMap.set(userId, existing);
+            }
+
+            // Collect all attributed sales rep IDs (skip __unattributed__ for DB queries)
+            const attributedUserIds = Array.from(salespersonMap.keys()).filter(
+                (id) => id !== '__unattributed__',
+            );
+
+            // Portfolio size: active CustomerSalesAssignment per sales (snapshot, not per-period)
+            const portfolioCounts: Record<string, number> = {};
+            if (attributedUserIds.length > 0) {
+                const portfolioRows =
+                    await prisma.customerSalesAssignment.groupBy({
+                        by: ['userId'],
+                        where: {
+                            userId: { in: attributedUserIds },
+                            unassignedAt: null,
+                        },
+                        _count: { id: true },
+                    });
+                for (const row of portfolioRows) {
+                    portfolioCounts[row.userId] = row._count.id;
+                }
+            }
+
+            // Visit count: SalesVisit within the same date filter range
+            const visitCounts: Record<string, number> = {};
+            if (attributedUserIds.length > 0) {
+                const visitWhere: Record<string, unknown> = {
+                    userId: { in: attributedUserIds },
+                };
+                if (filters?.startDate && filters?.endDate) {
+                    visitWhere.checkInTime = {
+                        gte: filters.startDate,
+                        lte: filters.endDate,
+                    };
+                }
+                const visitRows = await prisma.salesVisit.groupBy({
+                    by: ['userId'],
+                    where: visitWhere,
+                    _count: { id: true },
+                });
+                for (const row of visitRows) {
+                    visitCounts[row.userId] = row._count.id;
+                }
+            }
+
+            const bySalesperson = Array.from(salespersonMap.values())
+                .map((sp) => ({
+                    ...sp,
+                    avgOrderValue: sp.orders > 0 ? sp.revenue / sp.orders : 0,
+                    portfolioSize:
+                        sp.userId === '__unattributed__'
+                            ? 0
+                            : portfolioCounts[sp.userId] || 0,
+                    visitCount:
+                        sp.userId === '__unattributed__'
+                            ? 0
+                            : visitCounts[sp.userId] || 0,
+                }))
+                .sort((a, b) => b.revenue - a.revenue);
+
             const summary: SalesPerformanceSummary = {
                 totalRevenue,
                 totalOrders: orders.length,
@@ -160,6 +253,7 @@ export const getSalesPerformanceReport = withTenant(
                     orders.length > 0 ? totalRevenue / orders.length : 0,
                 topCustomers,
                 topProducts,
+                bySalesperson,
             };
 
             return { rows, summary };

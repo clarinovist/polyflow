@@ -23,6 +23,15 @@ type Summary = {
     avgOrderValue: number;
     topCustomers: { name: string; revenue: number; orders: number }[];
     topProducts: { name: string; revenue: number; quantity: number }[];
+    bySalesperson: {
+        userId: string;
+        name: string;
+        revenue: number;
+        orders: number;
+        avgOrderValue: number;
+        portfolioSize: number;
+        visitCount: number;
+    }[];
 };
 
 type Row = {
@@ -55,13 +64,18 @@ export function SalesPerformanceReportClient({
     const summary = initialData?.summary ?? null;
     const rows = initialData?.rows ?? [];
     const [activeTab, setActiveTab] = useState<
-        'summary' | 'customers' | 'products' | 'detail'
+        'summary' | 'customers' | 'products' | 'salesperson' | 'detail'
     >('summary');
 
     const tabs = [
         { key: 'summary' as const, label: 'Ringkasan', icon: TrendingUp },
         { key: 'customers' as const, label: 'Top Customer', icon: Users },
         { key: 'products' as const, label: 'Top Produk', icon: Package },
+        {
+            key: 'salesperson' as const,
+            label: 'Performa per Sales',
+            icon: Users,
+        },
         { key: 'detail' as const, label: 'Detail Order', icon: BarChart3 },
     ];
 
@@ -243,6 +257,151 @@ export function SalesPerformanceReportClient({
                                 </Table>
                             </CardContent>
                         </Card>
+                    )}
+
+                    {/* Sales Performance Tab */}
+                    {activeTab === 'salesperson' && (
+                        <div className="space-y-4">
+                            {/* Summary metric cards */}
+                            {summary.bySalesperson.length > 0 && (
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <CardTitle className="text-sm font-medium">
+                                                Total Omzet Bulan Ini
+                                            </CardTitle>
+                                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-2xl font-bold">
+                                                {formatRupiah(
+                                                    summary.totalRevenue,
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <CardTitle className="text-sm font-medium">
+                                                Top Performer
+                                            </CardTitle>
+                                            <Users className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-2xl font-bold">
+                                                {summary.bySalesperson[0]
+                                                    ?.name || '-'}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {formatRupiah(
+                                                    summary.bySalesperson[0]
+                                                        ?.revenue || 0,
+                                                )}
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <CardTitle className="text-sm font-medium">
+                                                Rata-rata Omzet per Sales
+                                            </CardTitle>
+                                            <Package className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-2xl font-bold">
+                                                {formatRupiah(
+                                                    summary.bySalesperson
+                                                        .length > 0
+                                                        ? summary.totalRevenue /
+                                                              summary
+                                                                  .bySalesperson
+                                                                  .length
+                                                        : 0,
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>
+                                        Ranking Performa Sales
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {summary.bySalesperson.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground text-center py-6">
+                                            Belum ada data performa sales.
+                                        </p>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-[40px]">
+                                                        #
+                                                    </TableHead>
+                                                    <TableHead>Nama</TableHead>
+                                                    <TableHead className="text-right">
+                                                        Omzet
+                                                    </TableHead>
+                                                    <TableHead className="text-center">
+                                                        Jumlah Order
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        Avg Order Value
+                                                    </TableHead>
+                                                    <TableHead className="text-center">
+                                                        Customer Aktif
+                                                    </TableHead>
+                                                    <TableHead className="text-center">
+                                                        Kunjungan
+                                                    </TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {summary.bySalesperson.map(
+                                                    (sp, i) => (
+                                                        <TableRow
+                                                            key={sp.userId}
+                                                        >
+                                                            <TableCell className="text-muted-foreground">
+                                                                {i + 1}
+                                                            </TableCell>
+                                                            <TableCell className="font-medium">
+                                                                {sp.name}
+                                                            </TableCell>
+                                                            <TableCell className="text-right font-semibold">
+                                                                {formatRupiah(
+                                                                    sp.revenue,
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {sp.orders}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {formatRupiah(
+                                                                    sp.avgOrderValue,
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {
+                                                                    sp.portfolioSize
+                                                                }
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {sp.visitCount}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ),
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
                     )}
 
                     {/* Detail Tab */}
