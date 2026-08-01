@@ -72,9 +72,9 @@ export const verifyProspectAction = withTenant(
     async function verifyProspectAction(customerId: string) {
         return safeAction(async () => {
             const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'SALES_ADMIN'])) {
+            if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {
                 throw new BusinessRuleError(
-                    'Hanya admin atau sales admin yang dapat memverifikasi prospect',
+                    'Hanya admin atau marketing yang dapat memverifikasi prospect',
                 );
             }
 

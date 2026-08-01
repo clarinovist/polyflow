@@ -235,6 +235,14 @@ const salesNavItems: NavItem[] = [
         owner: 'sales',
     },
     {
+        id: 'sales-team',
+        label: 'Daftar Sales',
+        href: '/sales/team',
+        workspace: 'sales',
+        section: 'pelaporan',
+        owner: 'sales',
+    },
+    {
         id: 'sales-shipping-cost',
         label: 'Biaya Pengiriman',
         href: '/sales/reports/shipping-cost',

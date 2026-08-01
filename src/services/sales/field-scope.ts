@@ -8,7 +8,7 @@ export type FieldSalesActorScope = {
 };
 
 /**
- * Determines whether the current actor can view all sales data (admin/sales_admin)
+ * Determines whether the current actor can view all sales data (admin/marketing)
  * or only personal data (sales).
  */
 export function getFieldSalesScope(session: {
@@ -24,7 +24,7 @@ export function getFieldSalesScope(session: {
         roles:
             session.user.roles?.filter((r): r is string => r != null) ?? null,
     };
-    const isGlobalViewer = hasAnyRole(normalizedUser, ['ADMIN', 'SALES_ADMIN']);
+    const isGlobalViewer = hasAnyRole(normalizedUser, ['ADMIN', 'MARKETING']);
 
     return {
         actorUserId: session.user.id,

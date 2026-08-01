@@ -23,9 +23,9 @@ export const assignCustomerAction = withTenant(
     }) {
         return safeAction(async () => {
             const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'SALES_ADMIN'])) {
+            if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {
                 throw new BusinessRuleError(
-                    'Hanya admin atau sales admin yang dapat meng-assign customer',
+                    'Hanya admin atau marketing yang dapat meng-assign customer',
                 );
             }
 
@@ -48,9 +48,9 @@ export const unassignCustomerAction = withTenant(
     }) {
         return safeAction(async () => {
             const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'SALES_ADMIN'])) {
+            if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {
                 throw new BusinessRuleError(
-                    'Hanya admin atau sales admin yang dapat meng-unassign customer',
+                    'Hanya admin atau marketing yang dapat meng-unassign customer',
                 );
             }
 

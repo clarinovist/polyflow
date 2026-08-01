@@ -105,4 +105,30 @@ describe("customer-assignment actions", () => {
     const result = await getMyAssignedCustomers();
     expect(result).toBeDefined();
   });
+
+  it("assignCustomerAction passes MARKETING role to hasAnyRole guard", async () => {
+    vi.mocked(hasAnyRole).mockReturnValue(true);
+    await assignCustomerAction({ customerId: "cus-1", userId: "u1" });
+    expect(hasAnyRole).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining(["MARKETING"]),
+    );
+  });
+
+  it("unassignCustomerAction passes MARKETING role to hasAnyRole guard", async () => {
+    vi.mocked(hasAnyRole).mockReturnValue(true);
+    await unassignCustomerAction({ customerId: "cus-1", userId: "u1" });
+    expect(hasAnyRole).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining(["MARKETING"]),
+    );
+  });
+
+  it("assignCustomerAction guard does not include SALES_ADMIN", async () => {
+    vi.mocked(hasAnyRole).mockReturnValue(true);
+    await assignCustomerAction({ customerId: "cus-1", userId: "u1" });
+    const callArgs = vi.mocked(hasAnyRole).mock.calls[0];
+    const roles = callArgs[1] as string[];
+    expect(roles).not.toContain("SALES_ADMIN");
+  });
 });
