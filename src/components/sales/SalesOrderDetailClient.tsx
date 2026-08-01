@@ -28,7 +28,6 @@ import {
     Receipt,
     AlertTriangle,
     Repeat,
-    CalendarPlus,
     MoreHorizontal,
     Send,
 } from 'lucide-react';
@@ -52,6 +51,7 @@ import { ProductionStatusCard } from './ProductionStatusCard';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { ShipmentDialog } from './ShipmentDialog';
 import { CreateDeliveryOrderDialog } from './CreateDeliveryOrderDialog';
+import { AddToScheduleDialog } from './AddToScheduleDialog';
 import { isBillableDeliveryStatus } from '@/lib/sales/delivery-status';
 import {
     AlertDialog,
@@ -579,12 +579,9 @@ export function SalesOrderDetailClient({
                                     <CreateDeliveryOrderDialog
                                         defaultSalesOrderId={order.id}
                                     />
-                                    <Button variant="outline" asChild>
-                                        <Link href="/sales/delivery-schedules">
-                                            <CalendarPlus className="mr-2 h-4 w-4" />{' '}
-                                            Tambah ke Jadwal
-                                        </Link>
-                                    </Button>
+                                    <AddToScheduleDialog
+                                        salesOrderId={order.id}
+                                    />
                                 </>
                             )
                         ))}
