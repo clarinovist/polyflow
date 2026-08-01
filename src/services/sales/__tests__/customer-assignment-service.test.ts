@@ -12,6 +12,7 @@ vi.mock("@/lib/core/prisma", () => ({
             Promise.resolve({ id: "assign-1", ...args.data })
           ),
           update: vi.fn().mockResolvedValue({ id: "assign-1" }),
+          updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         },
       };
       return fn(tx);
@@ -21,6 +22,7 @@ vi.mock("@/lib/core/prisma", () => ({
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   },
 }));
@@ -32,6 +34,7 @@ vi.mock("@/lib/tools/audit", () => ({
 import {
   assignCustomerToSales,
   unassignCustomerFromSales,
+  unassignAllCustomersFromUser,
   autoAssignProspectToSales,
   getCustomerAssignments,
   getAssignedCustomers,
@@ -191,6 +194,22 @@ describe("customer-assignment-service", () => {
       ] as never);
       const result = await getAssignedCustomers("u1");
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe("unassignAllCustomersFromUser", () => {
+    it("bulk updates active assignments and logs activity", async () => {
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.customerSalesAssignment.updateMany).mockResolvedValue({ count: 3 });
+      const result = await unassignAllCustomersFromUser("u1", "admin-1");
+      expect(result).toBe(3);
+    });
+
+    it("returns 0 and skips log when no active assignments", async () => {
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.customerSalesAssignment.updateMany).mockResolvedValue({ count: 0 });
+      const result = await unassignAllCustomersFromUser("u1", "admin-1");
+      expect(result).toBe(0);
     });
   });
 });

@@ -15,6 +15,7 @@ import {
 } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 import { isTenantAdmin } from '@/lib/auth/roles';
+import { unassignAllCustomersFromUser } from '@/services/sales/customer-assignment-service';
 
 // Schema for creating a user
 const CreateUserSchema = z.object({
@@ -378,6 +379,8 @@ export const deleteUser = withTenant(async function deleteUser(userId: string) {
             where: { id: userId },
             data: { isActive: false },
         });
+
+        await unassignAllCustomersFromUser(userId, actorId);
 
         await logActivity({
             userId: actorId,

@@ -151,6 +151,38 @@ export async function getCustomerAssignments(customerId: string) {
 }
 
 /**
+ * Bulk unassigns all active customers from a user (e.g. on deactivation).
+ * Single logActivity call instead of per-customer.
+ */
+export async function unassignAllCustomersFromUser(
+    userId: string,
+    unassignedById: string,
+) {
+    const now = new Date();
+    const result = await prisma.customerSalesAssignment.updateMany({
+        where: {
+            userId,
+            unassignedAt: null,
+        },
+        data: {
+            unassignedAt: now,
+        },
+    });
+
+    if (result.count > 0) {
+        await logActivity({
+            userId: unassignedById,
+            action: 'CUSTOMER_UNASSIGNED',
+            entityType: 'Customer',
+            entityId: userId,
+            details: `${result.count} customer(s) unassigned dari ${userId} (bulk: user dinonaktifkan)`,
+        });
+    }
+
+    return result.count;
+}
+
+/**
  * Gets all customers assigned to a sales rep.
  */
 export async function getAssignedCustomers(userId: string) {
