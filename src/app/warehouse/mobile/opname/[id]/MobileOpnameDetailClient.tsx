@@ -16,6 +16,8 @@ import {
     Warehouse,
     Plus,
     Loader2,
+    ChevronDown,
+    ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,7 @@ import {
     OpnameEntryEditor,
     type OpnameEntryView,
 } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
+import { useOpnameAutosave } from '@/hooks/useOpnameAutosave';
 
 const MAX_VARIANT_RESULTS = 50;
 
@@ -129,9 +132,9 @@ export function MobileOpnameDetailClient({
     const [entriesByItem, setEntriesByItem] = useState<
         Record<string, OpnameEntryView[]>
     >({});
-    const [expandedItems, setExpandedItems] = useState<
-        Record<string, boolean>
-    >({});
+    const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>(
+        {},
+    );
 
     // Add Item dialog
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -282,13 +285,44 @@ export function MobileOpnameDetailClient({
 
     const hasChanges = dirtyItems.length > 0;
 
+    // Autosave: dirty payload (items without entries only)
+    const autosaveDirtyPayload = useMemo(() => {
+        const items = session.items ?? [];
+        const dirty = dirtyItems.filter((id) => {
+            const item = items.find((i) => i.id === id);
+            return item && (entriesByItem[item.id] ?? []).length === 0;
+        });
+        if (dirty.length === 0) return null;
+        return dirty.map((id) => ({
+            id,
+            countedQuantity: parseFloat(counts[id] || '0'),
+            notes: notes[id],
+        }));
+    }, [session.items, dirtyItems, counts, notes, entriesByItem]);
+
+    const autosaveSaveFn = useCallback(
+        async (payload: { id: string; countedQuantity: number; notes: string }[]) => {
+            const result = await saveOpnameCount(session.id, payload);
+            if (!result.success) {
+                throw new Error(result.error || 'Autosave gagal');
+            }
+            router.refresh();
+        },
+        [session.id, router],
+    );
+
+    const { status: autosaveStatus, lastSavedAt, flush: autosaveFlush } =
+        useOpnameAutosave(autosaveDirtyPayload as NonNullable<typeof autosaveDirtyPayload>, autosaveSaveFn, {
+            enabled: isOpen && !isFinalizing,
+            delayMs: 2500,
+        });
+
     // Stats
     const stats = useMemo(() => {
         const items = session.items ?? [];
         const total = items.length;
         const counted = items.filter(
-            (item) =>
-                counts[item.id] !== undefined && counts[item.id] !== '',
+            (item) => counts[item.id] !== undefined && counts[item.id] !== '',
         ).length;
         const uncounted = total - counted;
         let matched = 0;
@@ -314,7 +348,9 @@ export function MobileOpnameDetailClient({
         let items = session.items ?? [];
 
         if (itemFilter === 'COUNTED') {
-            items = items.filter((i) => counts[i.id] !== undefined && counts[i.id] !== '');
+            items = items.filter(
+                (i) => counts[i.id] !== undefined && counts[i.id] !== '',
+            );
         } else if (itemFilter === 'UNCOUNTED') {
             items = items.filter(
                 (i) => counts[i.id] === undefined || counts[i.id] === '',
@@ -371,8 +407,7 @@ export function MobileOpnameDetailClient({
                 total +
                 entries.filter(
                     (entry) =>
-                        entry.status === 'pending' ||
-                        entry.status === 'failed',
+                        entry.status === 'pending' || entry.status === 'failed',
                 ).length,
             0,
         );
@@ -434,11 +469,7 @@ export function MobileOpnameDetailClient({
             }));
 
             try {
-                const result = await addOpnameEntry(
-                    itemId,
-                    quantity,
-                    label,
-                );
+                const result = await addOpnameEntry(itemId, quantity, label);
                 if (!result.success) {
                     setEntriesByItem((prev) => ({
                         ...prev,
@@ -521,9 +552,7 @@ export function MobileOpnameDetailClient({
                                 : candidate,
                         ),
                     }));
-                    toast.error(
-                        result.error || 'Gagal mengirim ulang entri',
-                    );
+                    toast.error(result.error || 'Gagal mengirim ulang entri');
                     return;
                 }
 
@@ -615,10 +644,8 @@ export function MobileOpnameDetailClient({
         const entries = entriesByItem[item.id] ?? [];
         if (entries.length > 0) {
             return (
-                entries.reduce(
-                    (total, entry) => total + entry.quantity,
-                    0,
-                ) - item.systemQuantity
+                entries.reduce((total, entry) => total + entry.quantity, 0) -
+                item.systemQuantity
             );
         }
 
@@ -684,14 +711,18 @@ export function MobileOpnameDetailClient({
                     onClick={handleRefresh}
                     disabled={isRefreshing}
                 >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <RefreshCw
+                        className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                    />
                 </Button>
             </div>
 
             {/* Progress */}
             <div className="p-3 border rounded-xl bg-card">
                 <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-muted-foreground">Progres Hitung</span>
+                    <span className="text-muted-foreground">
+                        Progres Hitung
+                    </span>
                     <span className="font-medium">
                         {stats.counted}/{stats.total} item
                     </span>
@@ -716,7 +747,9 @@ export function MobileOpnameDetailClient({
                             <Eye className="h-4 w-4 text-primary" />
                         )}
                         <div>
-                            <Label className="text-sm font-medium">Blind Mode</Label>
+                            <Label className="text-sm font-medium">
+                                Blind Mode
+                            </Label>
                             <p className="text-[10px] text-muted-foreground">
                                 Sembunyikan jumlah sistem
                             </p>
@@ -750,7 +783,9 @@ export function MobileOpnameDetailClient({
                         Semua ({stats.total})
                     </Button>
                     <Button
-                        variant={itemFilter === 'UNCOUNTED' ? 'default' : 'outline'}
+                        variant={
+                            itemFilter === 'UNCOUNTED' ? 'default' : 'outline'
+                        }
                         size="sm"
                         className="h-7 text-xs px-2.5"
                         onClick={() => setItemFilter('UNCOUNTED')}
@@ -758,7 +793,9 @@ export function MobileOpnameDetailClient({
                         Belum ({stats.uncounted})
                     </Button>
                     <Button
-                        variant={itemFilter === 'COUNTED' ? 'default' : 'outline'}
+                        variant={
+                            itemFilter === 'COUNTED' ? 'default' : 'outline'
+                        }
                         size="sm"
                         className="h-7 text-xs px-2.5"
                         onClick={() => setItemFilter('COUNTED')}
@@ -789,7 +826,9 @@ export function MobileOpnameDetailClient({
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <AlertTriangle className="h-4 w-4 text-amber-600" />
-                            <span className="text-sm font-medium">Ringkasan Selisih</span>
+                            <span className="text-sm font-medium">
+                                Ringkasan Selisih
+                            </span>
                         </div>
                         <span className="text-xs text-muted-foreground">
                             {showVarianceSummary ? 'Tutup' : 'Lihat'}
@@ -798,16 +837,28 @@ export function MobileOpnameDetailClient({
                     {showVarianceSummary && (
                         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                             <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20">
-                                <p className="text-lg font-bold text-emerald-600">{stats.matched}</p>
-                                <p className="text-[10px] text-muted-foreground">Matched</p>
+                                <p className="text-lg font-bold text-emerald-600">
+                                    {stats.matched}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                    Matched
+                                </p>
                             </div>
                             <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20">
-                                <p className="text-lg font-bold text-blue-600">{stats.surplus}</p>
-                                <p className="text-[10px] text-muted-foreground">Surplus</p>
+                                <p className="text-lg font-bold text-blue-600">
+                                    {stats.surplus}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                    Surplus
+                                </p>
                             </div>
                             <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/20">
-                                <p className="text-lg font-bold text-red-600">{stats.shortage}</p>
-                                <p className="text-[10px] text-muted-foreground">Shortage</p>
+                                <p className="text-lg font-bold text-red-600">
+                                    {stats.shortage}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                    Shortage
+                                </p>
                             </div>
                         </div>
                     )}
@@ -820,7 +871,9 @@ export function MobileOpnameDetailClient({
                     <div className="text-center py-12">
                         <ClipboardList className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
                         <p className="text-sm text-muted-foreground">
-                            {search ? 'Tidak ada item yang cocok' : 'Tidak ada item'}
+                            {search
+                                ? 'Tidak ada item yang cocok'
+                                : 'Tidak ada item'}
                         </p>
                     </div>
                 ) : (
@@ -848,7 +901,9 @@ export function MobileOpnameDetailClient({
                             <div
                                 key={item.id}
                                 className={`p-3 border rounded-xl bg-card transition-all ${
-                                    isDirty ? 'border-primary/50 bg-primary/5' : ''
+                                    isDirty
+                                        ? 'border-primary/50 bg-primary/5'
+                                        : ''
                                 }`}
                             >
                                 {/* Item Header */}
@@ -858,8 +913,10 @@ export function MobileOpnameDetailClient({
                                             {item.productVariant.name}
                                         </p>
                                         <p className="text-[10px] text-muted-foreground truncate">
-                                            {item.productVariant.product.name} &middot;{' '}
-                                            {item.productVariant.skuCode} &middot;{' '}
+                                            {item.productVariant.product.name}{' '}
+                                            &middot;{' '}
+                                            {item.productVariant.skuCode}{' '}
+                                            &middot;{' '}
                                             {item.productVariant.primaryUnit}
                                         </p>
                                     </div>
@@ -876,7 +933,8 @@ export function MobileOpnameDetailClient({
                                 {/* System Qty (hidden in blind mode) */}
                                 {!blindMode && (
                                     <p className="text-xs text-muted-foreground mb-2">
-                                        Sistem: {formatQuantity(item.systemQuantity)}
+                                        Sistem:{' '}
+                                        {formatQuantity(item.systemQuantity)}
                                     </p>
                                 )}
 
@@ -890,7 +948,9 @@ export function MobileOpnameDetailClient({
                                             {hasEntries ? (
                                                 <div className="h-9 text-sm flex-1 flex items-center">
                                                     <span className="font-medium">
-                                                        {formatQuantity(entryTotal)}
+                                                        {formatQuantity(
+                                                            entryTotal,
+                                                        )}
                                                     </span>
                                                     <span className="ml-2 text-[10px] text-muted-foreground">
                                                         dari rincian
@@ -900,12 +960,17 @@ export function MobileOpnameDetailClient({
                                                 <Input
                                                     type="number"
                                                     inputMode="decimal"
-                                                    value={counts[item.id] ?? ''}
+                                                    value={
+                                                        counts[item.id] ?? ''
+                                                    }
                                                     onChange={(e) =>
                                                         handleCountChange(
                                                             item.id,
                                                             e.target.value,
                                                         )
+                                                    }
+                                                    onBlur={() =>
+                                                        autosaveFlush()
                                                     }
                                                     placeholder="0"
                                                     className="h-9 text-sm flex-1"
@@ -926,12 +991,14 @@ export function MobileOpnameDetailClient({
                                                         e.target.value,
                                                     )
                                                 }
+                                                onBlur={() =>
+                                                    autosaveFlush()
+                                                }
                                                 placeholder="Opsional"
                                                 className="h-9 text-sm flex-1"
                                                 maxLength={500}
                                             />
                                         </div>
-
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-between text-xs">
@@ -958,8 +1025,13 @@ export function MobileOpnameDetailClient({
                                                 [item.id]: !prev[item.id],
                                             }))
                                         }
-                                        className="mt-2 flex min-h-9 items-center gap-1 text-xs font-medium text-primary"
+                                        className="mt-2 flex min-h-9 items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary"
                                     >
+                                        {expandedItems[item.id] ? (
+                                            <ChevronDown className="h-3.5 w-3.5" />
+                                        ) : (
+                                            <ChevronRight className="h-3.5 w-3.5" />
+                                        )}
                                         {expandedItems[item.id]
                                             ? 'Tutup rincian'
                                             : 'Rincian'}
@@ -1015,7 +1087,9 @@ export function MobileOpnameDetailClient({
                 entityLabel={session.opnameNumber || 'Opname'}
                 entityType="stockOpnameId"
                 checkpoint="OPNAME"
-                attachments={safeAttachments.filter((a) => a.checkpoint === 'OPNAME')}
+                attachments={safeAttachments.filter(
+                    (a) => a.checkpoint === 'OPNAME',
+                )}
                 disabled={isSaving || isFinalizing}
                 onAttachmentChange={() => router.refresh()}
             />
@@ -1037,7 +1111,9 @@ export function MobileOpnameDetailClient({
                                 placeholder="Cari nama, SKU, atau produk..."
                                 className="pl-9 h-11"
                                 value={productSearch}
-                                onChange={(e) => setProductSearch(e.target.value)}
+                                onChange={(e) =>
+                                    setProductSearch(e.target.value)
+                                }
                                 autoFocus
                             />
                         </div>
@@ -1059,7 +1135,9 @@ export function MobileOpnameDetailClient({
                                         type="button"
                                         key={variant.id}
                                         className="w-full p-3 active:bg-muted cursor-pointer flex items-center justify-between text-left transition-colors min-h-14 disabled:pointer-events-none disabled:opacity-50"
-                                        onClick={() => handleAddItem(variant.id)}
+                                        onClick={() =>
+                                            handleAddItem(variant.id)
+                                        }
                                         disabled={isAddingItem}
                                     >
                                         <div className="flex flex-col min-w-0">
@@ -1095,6 +1173,35 @@ export function MobileOpnameDetailClient({
             {/* Sticky Actions */}
             {isOpen && (
                 <div className="fixed bottom-16 left-0 right-0 z-40 bg-background border-t p-3 pb-[env(safe-area-inset-bottom)]">
+                    {(autosaveStatus === 'saving' ||
+                        autosaveStatus === 'saved' ||
+                        autosaveStatus === 'error') && (
+                        <div className="mb-2 text-center">
+                            {autosaveStatus === 'saving' && (
+                                <span className="text-[10px] text-muted-foreground">
+                                    Menyimpan…
+                                </span>
+                            )}
+                            {autosaveStatus === 'saved' && lastSavedAt && (
+                                <span className="text-[10px] text-muted-foreground">
+                                    Tersimpan otomatis ·{' '}
+                                    {lastSavedAt.toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })}
+                                </span>
+                            )}
+                            {autosaveStatus === 'error' && (
+                                <button
+                                    type="button"
+                                    onClick={() => autosaveFlush()}
+                                    className="text-[10px] text-red-600 underline"
+                                >
+                                    Gagal autosave, tap untuk coba lagi
+                                </button>
+                            )}
+                        </div>
+                    )}
                     <div className="flex gap-2">
                         <Button
                             onClick={handleSave}

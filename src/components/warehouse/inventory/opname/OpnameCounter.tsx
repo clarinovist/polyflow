@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +26,7 @@ import { saveOpnameCount } from '@/actions/inventory/opname';
 import { formatQuantity } from '@/lib/utils/utils';
 import { warehouseComponentLabels } from '@/lib/labels';
 import { OpnameEntryEditor } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
+import { useOpnameAutosave } from '@/hooks/useOpnameAutosave';
 
 const NOOP_ENTRY_ACTION = () => undefined;
 
@@ -101,6 +102,33 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
     const toggleEntryExpansion = (itemId: string) => {
         setExpandedItems((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
     };
+
+    // Autosave: send all items with counts (backend handles entries correctly)
+    const autosaveDirtyPayload = useMemo(() => {
+        const keys = Object.keys(counts);
+        if (keys.length === 0) return null;
+        return keys.map((id) => ({
+            id,
+            countedQuantity: parseFloat(counts[id] || '0'),
+            notes: notes[id],
+        }));
+    }, [counts, notes]);
+
+    const autosaveSaveFn = useCallback(
+        async (payload: { id: string; countedQuantity: number; notes: string }[]) => {
+            const result = await saveOpnameCount(session.id, payload);
+            if (!result.success) {
+                throw new Error(result.error || 'Autosave gagal');
+            }
+        },
+        [session.id],
+    );
+
+    const { status: autosaveStatus, lastSavedAt, flush: autosaveFlush } =
+        useOpnameAutosave(autosaveDirtyPayload as NonNullable<typeof autosaveDirtyPayload>, autosaveSaveFn, {
+            enabled: !isReadOnly,
+            delayMs: 2500,
+        });
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -242,6 +270,9 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                                         e.target.value,
                                                     )
                                                 }
+                                                onBlur={() =>
+                                                    autosaveFlush()
+                                                }
                                                 disabled={isReadOnly || hasEntries}
                                             />
                                         </TableCell>
@@ -257,6 +288,9 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                                         item.id,
                                                         e.target.value,
                                                     )
+                                                }
+                                                onBlur={() =>
+                                                    autosaveFlush()
                                                 }
                                                 disabled={isReadOnly}
                                             />
@@ -305,6 +339,38 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Autosave status indicator */}
+            {!isReadOnly &&
+                (autosaveStatus === 'saving' ||
+                    autosaveStatus === 'saved' ||
+                    autosaveStatus === 'error') && (
+                    <div className="text-center py-1">
+                        {autosaveStatus === 'saving' && (
+                            <span className="text-[10px] text-muted-foreground">
+                                Menyimpan…
+                            </span>
+                        )}
+                        {autosaveStatus === 'saved' && lastSavedAt && (
+                            <span className="text-[10px] text-muted-foreground">
+                                Tersimpan otomatis ·{' '}
+                                {lastSavedAt.toLocaleTimeString('id-ID', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </span>
+                        )}
+                        {autosaveStatus === 'error' && (
+                            <button
+                                type="button"
+                                onClick={() => autosaveFlush()}
+                                className="text-[10px] text-red-600 underline"
+                            >
+                                Gagal autosave, tap untuk coba lagi
+                            </button>
+                        )}
+                    </div>
+                )}
 
             {/* Sticky Save Action */}
             {!isReadOnly && (
