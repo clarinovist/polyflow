@@ -32,7 +32,7 @@ import { getVehicles } from '@/actions/sales/vehicles';
 interface ScheduleTrip {
     id: string;
     vehicleId: string;
-    departureDate: string | null;
+    departureDate: Date | null;
     status: string;
     sequence: number;
     vehicle: {
@@ -48,8 +48,8 @@ interface DeliverySchedule {
     id: string;
     scheduleNumber: string;
     status: string;
-    weekStart: string;
-    weekEnd: string;
+    weekStart: Date;
+    weekEnd: Date;
     trips: ScheduleTrip[];
 }
 
@@ -185,7 +185,10 @@ export function AddToScheduleDialog({
                 );
                 return;
             }
-            const newSchedule = result.data as DeliverySchedule;
+            const newSchedule: DeliverySchedule = {
+                ...(result.data as Omit<DeliverySchedule, 'trips'>),
+                trips: [],
+            };
             setSchedules((prev) => [newSchedule, ...prev]);
             setSelectedScheduleId(newSchedule.id);
             toast.success(
@@ -310,7 +313,8 @@ export function AddToScheduleDialog({
                                         </SelectContent>
                                     </Select>
                                     <p className="text-xs text-muted-foreground">
-                                        Atau isi di bawah untuk membuat trip baru:
+                                        Atau isi di bawah untuk membuat trip
+                                        baru:
                                     </p>
                                 </div>
                             )}
@@ -351,14 +355,14 @@ export function AddToScheduleDialog({
                                         }
                                         disabled={!!selectedTripId}
                                         min={
-                                            selectedSchedule.weekStart.split(
-                                                'T',
-                                            )[0]
+                                            new Date(selectedSchedule.weekStart)
+                                                .toISOString()
+                                                .split('T')[0]
                                         }
                                         max={
-                                            selectedSchedule.weekEnd.split(
-                                                'T',
-                                            )[0]
+                                            new Date(selectedSchedule.weekEnd)
+                                                .toISOString()
+                                                .split('T')[0]
                                         }
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                                     />
