@@ -133,6 +133,7 @@ export const salesSidebarLabels = {
     salesPerformance: 'Performa Penjualan',
     salesReturns: 'Retur Penjualan',
     customerManagement: 'Customer',
+    salesTeam: 'Daftar Sales',
     mobileMode: 'Mode Mobile',
 } as const;
 
