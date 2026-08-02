@@ -4,8 +4,16 @@ import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, ArrowLeft, AlertCircle, TrendingDown } from 'lucide-react';
+import {
+    Search,
+    ArrowLeft,
+    AlertCircle,
+    TrendingDown,
+    CalendarClock,
+    Clock,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import NextLink from 'next/link';
 import { format } from 'date-fns';
 import { formatRupiah } from '@/lib/utils/utils';
 
@@ -19,7 +27,28 @@ type Invoice = {
     status: string;
     customerName: string;
     orderNumber: string;
+    daysOverdue?: number;
+    lastPromise?: {
+        id: string;
+        promisedDate: Date | string | null;
+        promisedAmount: number | null;
+    } | null;
 };
+
+function overdueBadgeStyle(days?: number) {
+    if (days == null) return 'bg-slate-100 text-slate-600';
+    if (days < 0) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (days <= 7) return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (days <= 30) return 'bg-orange-50 text-orange-700 border-orange-200';
+    return 'bg-red-50 text-red-700 border-red-200';
+}
+
+function overdueLabel(days?: number) {
+    if (days == null) return null;
+    if (days < 0) return `${Math.abs(days)}h lagi`;
+    if (days === 0) return 'Jatuh tempo hari ini';
+    return `${days}h overdue`;
+}
 
 interface ReceivablesListClientProps {
     invoices: Invoice[];
@@ -179,6 +208,7 @@ export function ReceivablesListClient({
                         const isOverdue =
                             inv.status === 'OVERDUE' ||
                             (inv.dueDate && new Date(inv.dueDate) < new Date());
+                        const days = inv.daysOverdue;
 
                         return (
                             <div
@@ -200,16 +230,27 @@ export function ReceivablesListClient({
                                             </strong>
                                         </p>
                                     </div>
-                                    <Badge
-                                        variant={
-                                            isOverdue
-                                                ? 'destructive'
-                                                : 'secondary'
-                                        }
-                                        className="text-[9px] uppercase font-bold px-2 py-0.5 shrink-0"
-                                    >
-                                        {isOverdue ? 'Overdue' : inv.status}
-                                    </Badge>
+                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                        <Badge
+                                            variant={
+                                                isOverdue
+                                                    ? 'destructive'
+                                                    : 'secondary'
+                                            }
+                                            className="text-[9px] uppercase font-bold px-2 py-0.5"
+                                        >
+                                            {isOverdue ? 'Overdue' : inv.status}
+                                        </Badge>
+                                        {days != null && (
+                                            <Badge
+                                                variant="outline"
+                                                className={`text-[9px] font-bold ${overdueBadgeStyle(days)}`}
+                                            >
+                                                <Clock className="h-2.5 w-2.5 mr-0.5" />
+                                                {overdueLabel(days)}
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2 pt-2.5 border-t text-xs">
@@ -227,6 +268,23 @@ export function ReceivablesListClient({
                                                   )
                                                 : '-'}
                                         </p>
+                                        {inv.lastPromise?.promisedDate && (
+                                            <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-1">
+                                                <CalendarClock className="h-3 w-3" />
+                                                Janji:{' '}
+                                                {format(
+                                                    new Date(
+                                                        inv.lastPromise
+                                                            .promisedDate,
+                                                    ),
+                                                    'dd MMM yyyy',
+                                                )}
+                                                {inv.lastPromise
+                                                    .promisedAmount != null
+                                                    ? ` • ${formatRupiah(inv.lastPromise.promisedAmount)}`
+                                                    : ''}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="text-right">
                                         <p className="text-[10px] text-muted-foreground">
@@ -236,6 +294,21 @@ export function ReceivablesListClient({
                                             {formatRupiah(remaining)}
                                         </p>
                                     </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex-1 h-8 text-xs"
+                                    >
+                                        <NextLink
+                                            href={`/field/sales/collection?invoiceId=${inv.id}`}
+                                        >
+                                            Catat Aktivitas
+                                        </NextLink>
+                                    </Button>
                                 </div>
                             </div>
                         );

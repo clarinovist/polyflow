@@ -12,6 +12,8 @@ export interface AgingInvoiceDetail {
     bucket: 'notYetDue' | '1-30' | '31-60' | '61-90' | '90+';
 }
 
+export type AgingBucket = AgingInvoiceDetail['bucket'];
+
 export interface AgingRow {
     partnerId: string;
     partnerName: string;
@@ -25,7 +27,7 @@ export interface AgingRow {
     invoices: AgingInvoiceDetail[];
 }
 
-function getBucket(daysOverdue: number): AgingInvoiceDetail['bucket'] {
+export function getBucket(daysOverdue: number): AgingBucket {
     if (daysOverdue < 0) return 'notYetDue';
     if (daysOverdue <= 30) return '1-30';
     if (daysOverdue <= 60) return '31-60';

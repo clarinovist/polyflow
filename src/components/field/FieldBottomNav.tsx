@@ -2,7 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, ClipboardList, MapPin, Package } from 'lucide-react';
+import {
+    Home,
+    Users,
+    ClipboardList,
+    MapPin,
+    Package,
+    HandCoins,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { canSeeNavHref } from '@/lib/auth/permission-match';
 
@@ -30,6 +37,12 @@ const tabs = [
         label: 'Kunjungan',
         icon: MapPin,
         badgeKey: 'visits' as const,
+    },
+    {
+        href: '/field/sales/collection',
+        label: 'Tagih',
+        icon: HandCoins,
+        badgeKey: 'collection' as const,
     },
     {
         href: '/field/sales/stock',
