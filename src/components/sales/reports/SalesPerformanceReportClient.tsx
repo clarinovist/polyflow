@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
@@ -31,6 +31,11 @@ type Summary = {
         avgOrderValue: number;
         portfolioSize: number;
         visitCount: number;
+        // Added in Gap 6 — additive, nullable when no target set
+        revenueTarget: number | null;
+        achievementPercent: number | null;
+        visitTarget: number | null;
+        visitAchievementPercent: number | null;
     }[];
 };
 
@@ -52,6 +57,28 @@ type Row = {
 
 type Initial = { rows: Row[]; summary: Summary } | null;
 
+type SalesSortKey = 'revenue' | 'achievementPercent';
+
+function AchievementCell({ pct }: { pct: number | null }) {
+    if (pct == null) return <span className="text-muted-foreground">–</span>;
+    const cappedWidth = Math.min(Math.max(pct, 0), 100);
+    const color =
+        pct >= 100 ? 'bg-green-500' : pct >= 80 ? 'bg-amber-500' : 'bg-red-400';
+    return (
+        <div className="flex flex-col gap-1 min-w-[90px]">
+            <span className="text-xs font-medium tabular-nums">
+                {pct.toFixed(1)}%
+            </span>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                    className={`h-full rounded-full ${color} transition-all`}
+                    style={{ width: `${cappedWidth}%` }}
+                />
+            </div>
+        </div>
+    );
+}
+
 export function SalesPerformanceReportClient({
     initialData,
     periodLabel,
@@ -66,6 +93,23 @@ export function SalesPerformanceReportClient({
     const [activeTab, setActiveTab] = useState<
         'summary' | 'customers' | 'products' | 'salesperson' | 'detail'
     >('summary');
+    const [salesSort, setSalesSort] = useState<SalesSortKey>('revenue');
+
+    const sortedBySalesperson = useMemo(() => {
+        if (!summary) return [];
+        const arr = [...summary.bySalesperson];
+        if (salesSort === 'achievementPercent') {
+            arr.sort((a, b) => {
+                const ap = a.achievementPercent ?? -1;
+                const bp = b.achievementPercent ?? -1;
+                if (ap !== bp) return bp - ap;
+                return b.revenue - a.revenue;
+            });
+        } else {
+            arr.sort((a, b) => b.revenue - a.revenue);
+        }
+        return arr;
+    }, [summary, salesSort]);
 
     const tabs = [
         { key: 'summary' as const, label: 'Ringkasan', icon: TrendingUp },
@@ -89,7 +133,8 @@ export function SalesPerformanceReportClient({
             ) : (
                 <>
                     <p className="text-xs text-muted-foreground">
-                        Scope: {periodLabel} • orderDate non-batal
+                        Scope: {periodLabel} • orderDate non-batal • Basis:
+                        nilai Sales Order
                     </p>
                     <div className="flex gap-2 border-b pb-2">
                         {tabs.map((tab) => {
@@ -325,79 +370,145 @@ export function SalesPerformanceReportClient({
                             )}
 
                             <Card>
-                                <CardHeader>
-                                    <CardTitle>
-                                        Ranking Performa Sales
-                                    </CardTitle>
+                                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <CardTitle>
+                                            Ranking Performa Sales
+                                        </CardTitle>
+                                        <p className="text-[11px] text-muted-foreground mt-1">
+                                            Basis: nilai Sales Order — berbeda
+                                            dengan basis jurnal akuntansi (4xx)
+                                            di dashboard
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-xs text-muted-foreground">
+                                            Urut:
+                                        </label>
+                                        <select
+                                            value={salesSort}
+                                            onChange={(e) =>
+                                                setSalesSort(
+                                                    e.target
+                                                        .value as SalesSortKey,
+                                                )
+                                            }
+                                            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                                        >
+                                            <option value="revenue">
+                                                Omzet
+                                            </option>
+                                            <option value="achievementPercent">
+                                                % Pencapaian
+                                            </option>
+                                        </select>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
-                                    {summary.bySalesperson.length === 0 ? (
+                                    {sortedBySalesperson.length === 0 ? (
                                         <p className="text-sm text-muted-foreground text-center py-6">
                                             Belum ada data performa sales.
                                         </p>
                                     ) : (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="w-[40px]">
-                                                        #
-                                                    </TableHead>
-                                                    <TableHead>Nama</TableHead>
-                                                    <TableHead className="text-right">
-                                                        Omzet
-                                                    </TableHead>
-                                                    <TableHead className="text-center">
-                                                        Jumlah Order
-                                                    </TableHead>
-                                                    <TableHead className="text-right">
-                                                        Avg Order Value
-                                                    </TableHead>
-                                                    <TableHead className="text-center">
-                                                        Customer Aktif
-                                                    </TableHead>
-                                                    <TableHead className="text-center">
-                                                        Kunjungan
-                                                    </TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {summary.bySalesperson.map(
-                                                    (sp, i) => (
-                                                        <TableRow
-                                                            key={sp.userId}
-                                                        >
-                                                            <TableCell className="text-muted-foreground">
-                                                                {i + 1}
-                                                            </TableCell>
-                                                            <TableCell className="font-medium">
-                                                                {sp.name}
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-semibold">
-                                                                {formatRupiah(
-                                                                    sp.revenue,
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {sp.orders}
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {formatRupiah(
-                                                                    sp.avgOrderValue,
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {
-                                                                    sp.portfolioSize
-                                                                }
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {sp.visitCount}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ),
-                                                )}
-                                            </TableBody>
-                                        </Table>
+                                        <div className="overflow-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="w-[40px]">
+                                                            #
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            Nama
+                                                        </TableHead>
+                                                        <TableHead className="text-right">
+                                                            Omzet
+                                                        </TableHead>
+                                                        <TableHead className="text-right">
+                                                            Target
+                                                        </TableHead>
+                                                        <TableHead className="text-left min-w-[110px]">
+                                                            Pencapaian
+                                                        </TableHead>
+                                                        <TableHead className="text-center">
+                                                            Jumlah Order
+                                                        </TableHead>
+                                                        <TableHead className="text-right">
+                                                            Avg Order Value
+                                                        </TableHead>
+                                                        <TableHead className="text-center">
+                                                            Kunjungan / Target
+                                                        </TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {sortedBySalesperson.map(
+                                                        (sp, i) => (
+                                                            <TableRow
+                                                                key={sp.userId}
+                                                            >
+                                                                <TableCell className="text-muted-foreground">
+                                                                    {i + 1}
+                                                                </TableCell>
+                                                                <TableCell className="font-medium">
+                                                                    {sp.name}
+                                                                </TableCell>
+                                                                <TableCell className="text-right font-semibold">
+                                                                    {formatRupiah(
+                                                                        sp.revenue,
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {sp.revenueTarget !=
+                                                                    null ? (
+                                                                        formatRupiah(
+                                                                            sp.revenueTarget,
+                                                                        )
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground">
+                                                                            –
+                                                                        </span>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <AchievementCell
+                                                                        pct={
+                                                                            sp.achievementPercent
+                                                                        }
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell className="text-center">
+                                                                    {sp.orders}
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {formatRupiah(
+                                                                        sp.avgOrderValue,
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="text-center text-sm">
+                                                                    {
+                                                                        sp.visitCount
+                                                                    }
+                                                                    {sp.visitTarget !=
+                                                                    null
+                                                                        ? ` / ${sp.visitTarget}`
+                                                                        : ''}
+                                                                    {sp.visitAchievementPercent !=
+                                                                    null ? (
+                                                                        <span className="ml-1 text-xs text-muted-foreground">
+                                                                            (
+                                                                            {
+                                                                                sp.visitAchievementPercent
+                                                                            }
+                                                                            %)
+                                                                        </span>
+                                                                    ) : null}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ),
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     )}
                                 </CardContent>
                             </Card>

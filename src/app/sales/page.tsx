@@ -491,9 +491,9 @@ export default async function SalesCommandBoardPage(props: {
                             <p className="text-muted-foreground">Definisi</p>
                             <p
                                 className="font-semibold text-xs"
-                                title="Omzet = total jurnal pendapatan (akun 4*) yang sudah POSTED pada periode ini. Berbeda dengan total SO non-batal."
+                                title="Omzet = total jurnal pendapatan (akun 4*) yang sudah POSTED pada periode ini. Basis ini berbeda dengan nilai Sales Order di laporan performa — bukan bug."
                             >
-                                Jurnal akun 4*
+                                Basis: jurnal akuntansi (4xx)
                             </p>
                         </div>
                     </div>
