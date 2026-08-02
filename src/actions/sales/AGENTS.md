@@ -11,20 +11,33 @@ status helpers in `src/lib/sales/order-phase.ts`.
 
 ## Key Files
 
-| File                         | Purpose                             |
-| ---------------------------- | ----------------------------------- |
-| `sales.ts`                   | Sales order CRUD, status management |
-| `customer.ts`                | Customer management                 |
-| `customer-360.ts`            | 360° customer view                  |
-| `customer-product-prices.ts` | Customer-specific pricing           |
-| `delivery-schedules.ts`      | Delivery scheduling                 |
-| `delivery-photos.ts`         | Delivery proof photos               |
-| `sales-returns.ts`           | Sales return processing             |
-| `sales-reports.ts`           | Sales reporting                     |
-| `vehicles.ts`                | Vehicle management                  |
-| `vehicle-tariffs.ts`         | Delivery tariff management          |
-| `visits.ts`                  | Sales visit tracking                |
-| `shipping-reports.ts`        | Shipping reports                    |
+| File                                    | Purpose                                                        |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `sales.ts`                              | Sales order CRUD, status management                            |
+| `customer.ts`                           | Customer management                                            |
+| `customer-360.ts`                       | 360° customer view                                             |
+| `customer-product-prices.ts`            | Customer-specific pricing                                      |
+| `delivery-schedules.ts`                 | Barrel re-export for delivery schedule sub-modules (see below) |
+| `delivery-schedules/schedules.ts`       | Schedule CRUD, board, auto-close                               |
+| `delivery-schedules/trips.ts`           | Trip lifecycle, reschedule, cancel                             |
+| `delivery-schedules/vehicles.ts`        | Vehicle assignment to trip                                     |
+| `delivery-schedules/stops.ts`           | Stop assignment/reorder/removal (SO-first & item-level)        |
+| `delivery-schedules/delivery-orders.ts` | DO linkage to stop + DO generation from stop                   |
+| `delivery-photos.ts`                    | Delivery proof photos                                          |
+| `sales-returns.ts`                      | Sales return processing                                        |
+| `sales-reports.ts`                      | Sales reporting                                                |
+| `pipeline.ts`                           | Sales pipeline board                                           |
+| `margin-report.ts`                      | Margin analysis report                                         |
+| `customer-activity-report.ts`           | Customer activity summary                                      |
+| `vehicles.ts`                           | Vehicle management                                             |
+| `vehicle-tariffs.ts`                    | Delivery tariff management                                     |
+| `visits.ts`                             | Sales visit tracking                                           |
+| `shipping-reports.ts`                   | Shipping reports                                               |
+
+> **Note:** `/sales/mobile/**` is retired — all page.tsx files redirect to
+> `/field/sales/**`. File-nya belum dihapus (menunggu satu siklus rilis
+> tanpa keluhan). `MOBILE_ALLOWLIST_PREFIXES` dan
+> `shouldSoftLandToSalesMobile` tetap dipertahankan sampai Gap 3 selesai.
 
 ## Patterns
 
@@ -107,7 +120,8 @@ DRAFT → CONFIRMED → PROCESSING → READY → SHIPPED → DELIVERED
 Business logic lives in `src/services/sales/`:
 
 - `sales-service.ts` — Core sales logic
-- `orders-service.ts` — Order management, incl. quotation-phase transitions
+- `orders-service.ts` — Order management (operational lifecycle)
+- `quotation-service.ts` — Quotation lifecycle (send, accept, reject, expire, reopen, follow-up)
 - `credit-service.ts` — Credit limit checking
 - `delivery-fulfillment-service.ts` — Delivery processing
 - `fulfillment-service.ts` — Order fulfillment

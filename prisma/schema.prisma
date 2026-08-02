@@ -1206,6 +1206,8 @@ enum CommissionBasis {
   PAID_INVOICE
 }
 
+/// DEPRECATED — data historis, tidak ditulis kode sejak unifikasi lifecycle
+/// SO. Jangan pakai untuk fitur baru. Lihat docs/plan/2026-08-02-sales-gap-08-tech-debt.md.
 model SalesQuotation {
   id              String               @id @default(uuid())
   quotationNumber String               @unique
