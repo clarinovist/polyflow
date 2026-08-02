@@ -12,6 +12,14 @@ import {
     CalendarDays,
     Car,
     BarChart3,
+    FileSignature,
+    Route,
+    MapPinned,
+    UserSearch,
+    Target,
+    Wallet,
+    Tag,
+    HandCoins,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -30,7 +38,7 @@ interface SalesSidebarProps {
     permissions?: string[] | 'ALL';
 }
 
-const salesLinks = [
+export const salesLinks = [
     {
         heading: 'Hari Ini',
         items: [
@@ -44,9 +52,14 @@ const salesLinks = [
     {
         heading: 'Transaksi',
         items: [
-            // Penawaran tidak lagi jadi menu terpisah — sudah menyatu ke
-            // lifecycle Sales Order (status QUOTATION/QUOTATION_SENT).
-            // Aksesnya lewat filter status di halaman Sales Order.
+            // Penawaran menyatu ke lifecycle Sales Order (QUOTATION/QUOTATION_SENT),
+            // tapi tetap punya entry nav tersendiri yang redirect ke /sales/orders
+            // dengan filter status terisi — /sales/quotations.
+            {
+                href: '/sales/quotations',
+                icon: FileSignature,
+                label: salesSidebarLabels.quotations,
+            },
             {
                 href: '/sales/orders',
                 icon: ShoppingCart,
@@ -93,9 +106,49 @@ const salesLinks = [
                 label: salesSidebarLabels.customerManagement,
             },
             {
+                href: '/sales/price-list',
+                icon: Tag,
+                label: salesSidebarLabels.priceList,
+            },
+            {
+                href: '/sales/routes',
+                icon: Route,
+                label: salesSidebarLabels.dailyRoutes,
+            },
+            {
                 href: '/sales/team',
                 icon: UserCog,
                 label: salesSidebarLabels.salesTeam,
+            },
+            {
+                href: '/sales/targets',
+                icon: Target,
+                label: salesSidebarLabels.targets,
+            },
+        ],
+    },
+    {
+        heading: 'Lapangan',
+        items: [
+            {
+                href: '/sales/visits',
+                icon: MapPinned,
+                label: salesSidebarLabels.visits,
+            },
+            {
+                href: '/sales/prospects',
+                icon: UserSearch,
+                label: salesSidebarLabels.prospects,
+            },
+        ],
+    },
+    {
+        heading: 'Penagihan',
+        items: [
+            {
+                href: '/sales/collection',
+                icon: HandCoins,
+                label: salesSidebarLabels.collection,
             },
         ],
     },
@@ -106,6 +159,11 @@ const salesLinks = [
                 href: '/sales/reports/sales-performance',
                 icon: BarChart3,
                 label: salesSidebarLabels.salesPerformance,
+            },
+            {
+                href: '/sales/reports/commission',
+                icon: Wallet,
+                label: salesSidebarLabels.commissionReport,
             },
             {
                 href: '/sales/reports/shipping-cost',

@@ -135,6 +135,14 @@ export const salesSidebarLabels = {
     customerManagement: 'Customer',
     salesTeam: 'Daftar Sales',
     mobileMode: 'Mode Mobile',
+    dailyRoutes: 'Rute Harian',
+    quotations: 'Penawaran',
+    visits: 'Kunjungan',
+    prospects: 'Prospek',
+    targets: 'Target Sales',
+    commissionReport: 'Laporan Komisi',
+    priceList: 'Price List',
+    collection: 'Penagihan',
 } as const;
 
 export const planningSidebarLabelsExtended = {

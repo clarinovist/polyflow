@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Decimal } from '@prisma/client/runtime/library';
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
@@ -12,6 +13,17 @@ vi.mock('@/lib/core/prisma', () => ({
             groupBy: vi.fn().mockResolvedValue([]),
         },
     },
+}));
+
+vi.mock('@/services/sales/target-service', () => ({
+    getTargetsForPeriod: vi.fn().mockResolvedValue([]),
+}));
+
+// target-service uses real prisma, but we mock it — so need to mock sales-access guard
+vi.mock('@/lib/auth/sales-access', () => ({
+    requireSalesAccess: vi.fn().mockResolvedValue({
+        user: { id: 'admin', role: 'ADMIN' },
+    }),
 }));
 
 vi.mock('@/lib/tools/auth-checks', () => ({
@@ -37,12 +49,14 @@ vi.mock('@/lib/errors/errors', () => ({
 
 import { prisma } from '@/lib/core/prisma';
 import { getSalesPerformanceReport } from '../sales-reports';
+import { getTargetsForPeriod } from '@/services/sales/target-service';
 
 const mockFindMany = vi.mocked(prisma.salesOrder.findMany);
 const mockPortfolioGroupBy = vi.mocked(
     prisma.customerSalesAssignment.groupBy,
 );
 const mockVisitGroupBy = vi.mocked(prisma.salesVisit.groupBy);
+const mockGetTargetsForPeriod = vi.mocked(getTargetsForPeriod);
 
 function makeOrder(overrides: {
     id?: string;
@@ -407,6 +421,109 @@ describe('getSalesPerformanceReport', () => {
             expect(data.rows[0].salesPerson).toBe('Budi Sales');
             // Should NOT be the createdBy name
             expect(data.rows[0].salesPerson).not.toBe('Admin Input');
+        }
+    });
+
+    // ── Gap 6 regression: bySalesperson now includes target fields (additive, not replacing old) ──
+
+    it('bySalesperson entry has new target fields (revenueTarget, achievementPercent, visitTarget, visitAchievementPercent) — additive', async () => {
+        mockFindMany.mockResolvedValue([
+            makeOrder({
+                id: 'so-1',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                totalAmount: 800000,
+            }),
+        ]);
+        mockGetTargetsForPeriod.mockResolvedValue([
+            {
+                id: 't1',
+                userId: 'user-sales-1',
+                periodYear: 2026,
+                periodMonth: 8,
+                revenueTarget: new Decimal(1000000),
+                visitTarget: 20,
+                orderTarget: null,
+                notes: null,
+                createdById: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                userName: 'Budi Sales',
+                revenueActual: new Decimal(800000),
+                revenueAchievementPercent: 80,
+                visitActual: 10,
+                visitAchievementPercent: 50,
+            } as never,
+        ]);
+
+        const result = await getSalesPerformanceReport({
+            startDate: new Date('2026-08-01'),
+            endDate: new Date('2026-08-31'),
+        });
+
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: {
+                    bySalesperson: {
+                        userId: string;
+                        name: string;
+                        revenue: number;
+                        orders: number;
+                        avgOrderValue: number;
+                        portfolioSize: number;
+                        visitCount: number;
+                        revenueTarget: number | null;
+                        achievementPercent: number | null;
+                        visitTarget: number | null;
+                        visitAchievementPercent: number | null;
+                    }[];
+                };
+            };
+            expect(data.summary.bySalesperson).toHaveLength(1);
+            const sp = data.summary.bySalesperson[0];
+
+            // Old fields still present and correct
+            expect(sp.userId).toBe('user-sales-1');
+            expect(sp.revenue).toBe(800000);
+            expect(sp.orders).toBe(1);
+
+            // New additive fields
+            expect(sp.revenueTarget).toBe(1000000);
+            expect(sp.achievementPercent).toBe(80);
+            expect(sp.visitTarget).toBe(20);
+            expect(sp.visitAchievementPercent).toBe(50);
+        }
+    });
+
+    it('bySalesperson entry has null targets when no target set — old fields unaffected', async () => {
+        mockFindMany.mockResolvedValue([
+            makeOrder({
+                id: 'so-1',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                totalAmount: 500000,
+            }),
+        ]);
+        mockGetTargetsForPeriod.mockResolvedValue([]);
+
+        const result = await getSalesPerformanceReport({
+            startDate: new Date('2026-08-01'),
+            endDate: new Date('2026-08-31'),
+        });
+
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: {
+                    bySalesperson: {
+                        revenue: number;
+                        revenueTarget: number | null;
+                        achievementPercent: number | null;
+                    }[];
+                };
+            };
+            expect(data.summary.bySalesperson[0].revenue).toBe(500000);
+            expect(data.summary.bySalesperson[0].revenueTarget).toBeNull();
+            expect(data.summary.bySalesperson[0].achievementPercent).toBeNull();
         }
     });
 });

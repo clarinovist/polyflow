@@ -13,69 +13,72 @@ datasource db {
 // ==========================================
 
 model User {
-  id                      String                  @id @default(uuid())
-  email                   String                  @unique
-  name                    String?
-  password                String
-  role                    Role                    @default(WAREHOUSE)
-  roles                   UserRole[]
-  isActive                Boolean                 @default(true)
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
-  locale                  String                  @default("en")
-  isSuperAdmin            Boolean                 @default(false)
-  avatarUrl               String?
-  tokenVersion            Int                     @default(0)
-  notificationPrefs       String?                 @db.Text
-  auditLogs               AuditLog[]
-  deliveryOrders          DeliveryOrder[]         @relation("DeliveryCreator")
-  goodsReceipts           GoodsReceipt[]          @relation("GoodsReceiptCreator")
-  approvedJournals        JournalEntry[]          @relation("JournalApprover")
-  createdJournals         JournalEntry[]          @relation("JournalCreator")
-  downtimeLogs            MachineDowntime[]
-  materialIssues          MaterialIssue[]
-  productionCreator       ProductionOrder[]       @relation("ProductionCreator")
-  purchaseOrders          PurchaseOrder[]         @relation("PurchaseCreator")
-  purchasePayments        PurchasePayment[]       @relation("PaymentCreator")
-  createdPurchaseRequests PurchaseRequest[]
-  inspections             QualityInspection[]
-  salesOrders             SalesOrder[]            @relation("SalesCreator")
-  salesRepOrders          SalesOrder[]            @relation("SalesOrderSalesRep")
-  quotations              SalesQuotation[]        @relation("QuotationCreator")
-  scrapRecords            ScrapRecord[]
-  movements               StockMovement[]
-  opnames                 StockOpname[]
-  reportedIssues          ProductionIssue[]       @relation("IssueReporter")
-  costHistory             CostHistory[]
-  salaryChanges                  EmployeeSalaryHistory[] @relation("SalaryChangedBy")
+  id                             String                           @id @default(uuid())
+  email                          String                           @unique
+  name                           String?
+  password                       String
+  role                           Role                             @default(WAREHOUSE)
+  roles                          UserRole[]
+  isActive                       Boolean                          @default(true)
+  createdAt                      DateTime                         @default(now())
+  updatedAt                      DateTime                         @updatedAt
+  locale                         String                           @default("en")
+  isSuperAdmin                   Boolean                          @default(false)
+  avatarUrl                      String?
+  tokenVersion                   Int                              @default(0)
+  notificationPrefs              String?                          @db.Text
+  auditLogs                      AuditLog[]
+  deliveryOrders                 DeliveryOrder[]                  @relation("DeliveryCreator")
+  goodsReceipts                  GoodsReceipt[]                   @relation("GoodsReceiptCreator")
+  approvedJournals               JournalEntry[]                   @relation("JournalApprover")
+  createdJournals                JournalEntry[]                   @relation("JournalCreator")
+  downtimeLogs                   MachineDowntime[]
+  materialIssues                 MaterialIssue[]
+  productionCreator              ProductionOrder[]                @relation("ProductionCreator")
+  purchaseOrders                 PurchaseOrder[]                  @relation("PurchaseCreator")
+  purchasePayments               PurchasePayment[]                @relation("PaymentCreator")
+  createdPurchaseRequests        PurchaseRequest[]
+  inspections                    QualityInspection[]
+  salesOrders                    SalesOrder[]                     @relation("SalesCreator")
+  salesRepOrders                 SalesOrder[]                     @relation("SalesOrderSalesRep")
+  quotations                     SalesQuotation[]                 @relation("QuotationCreator")
+  scrapRecords                   ScrapRecord[]
+  movements                      StockMovement[]
+  opnames                        StockOpname[]
+  reportedIssues                 ProductionIssue[]                @relation("IssueReporter")
+  costHistory                    CostHistory[]
+  salaryChanges                  EmployeeSalaryHistory[]          @relation("SalaryChangedBy")
   uploadedDocuments              EmployeeDocument[]
   apiKeys                        ApiKey[]
   archivedBoms                   Bom[]
-  salesReturns                   SalesReturn[]          @relation("SalesReturnCreator")
-  purchaseReturns                PurchaseReturn[]       @relation("PurchaseReturnCreator")
+  salesReturns                   SalesReturn[]                    @relation("SalesReturnCreator")
+  purchaseReturns                PurchaseReturn[]                 @relation("PurchaseReturnCreator")
   notifications                  Notification[]
-  pettyCashTransactions          PettyCashTransaction[] @relation("PettyCashCreator")
-  maklonReturns                  MaklonMaterialReturn[] @relation("MaklonReturnCreator")
-  createdPettyCashReports        PettyCashDailyReport[] @relation("PettyCashReportCreator")
-  readyToPrintPettyCashReports   PettyCashDailyReport[] @relation("PettyCashReportReadyToPrintMarker")
-  physicalSignedPettyCashReports PettyCashDailyReport[] @relation("PettyCashReportPhysicalSignedConfirmer")
-  finalizedPettyCashReports      PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
+  pettyCashTransactions          PettyCashTransaction[]           @relation("PettyCashCreator")
+  maklonReturns                  MaklonMaterialReturn[]           @relation("MaklonReturnCreator")
+  createdPettyCashReports        PettyCashDailyReport[]           @relation("PettyCashReportCreator")
+  readyToPrintPettyCashReports   PettyCashDailyReport[]           @relation("PettyCashReportReadyToPrintMarker")
+  physicalSignedPettyCashReports PettyCashDailyReport[]           @relation("PettyCashReportPhysicalSignedConfirmer")
+  finalizedPettyCashReports      PettyCashDailyReport[]           @relation("PettyCashReportFinalizer")
   bankReconciliations            BankReconciliation[]
-  voidedPettyCashReports         PettyCashDailyReport[] @relation("PettyCashReportVoider")
+  voidedPettyCashReports         PettyCashDailyReport[]           @relation("PettyCashReportVoider")
   lockedPeriods                  PeriodLock[]
-  salesVisits                    SalesVisit[]           @relation("SalesVisitCreator")
+  salesVisits                    SalesVisit[]                     @relation("SalesVisitCreator")
   routePlans                     SalesRoutePlan[]
-  customerSalesAssignments       CustomerSalesAssignment[] @relation("CustomerSalesAssignee")
-  customerAssignmentsCreated     CustomerSalesAssignment[] @relation("CustomerSalesAssignmentCreator")
-  schedulesCreated               DeliverySchedule[]     @relation("ScheduleCreator")
+  customerSalesAssignments       CustomerSalesAssignment[]        @relation("CustomerSalesAssignee")
+  customerAssignmentsCreated     CustomerSalesAssignment[]        @relation("CustomerSalesAssignmentCreator")
+  schedulesCreated               DeliverySchedule[]               @relation("ScheduleCreator")
   // ── Fase 4 ──
   disciplinaryActionsIssued      DisciplinaryAction[]
   leaveRequestsReviewed          LeaveRequest[]
   // ── Fase 5 ──
-  loansApproved                  EmployeeLoan[]         @relation("LoanApprover")
+  loansApproved                  EmployeeLoan[]                   @relation("LoanApprover")
   customersCreated               Customer[]
   warehouseAttachments           WarehouseOperationalAttachment[] @relation("WarehouseAttachmentUploader")
   stockOpnameEntries             StockOpnameEntry[]
+  salesTargets                   SalesTarget[]
+  collectionActivities           CollectionActivity[]
+  salesRemittances               SalesRemittance[]
 }
 
 model UserRole {
@@ -92,20 +95,20 @@ model UserRole {
 }
 
 model Employee {
-  id                       String                  @id @default(uuid())
+  id                       String                    @id @default(uuid())
   name                     String
-  code                     String                  @unique
+  code                     String                    @unique
   role                     String
-  status                   EmployeeStatus          @default(ACTIVE)
-  payType                  EmployeePayType         @default(DAILY)
-  createdAt                DateTime                @default(now())
-  updatedAt                DateTime                @updatedAt
-  dailyRate                Decimal                 @default(0) @db.Decimal(12, 2)
-  overtimeHourlyRate       Decimal?                @db.Decimal(12, 2)
-  standardDayHours         Decimal                 @default(8) @db.Decimal(4, 2)
+  status                   EmployeeStatus            @default(ACTIVE)
+  payType                  EmployeePayType           @default(DAILY)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  dailyRate                Decimal                   @default(0) @db.Decimal(12, 2)
+  overtimeHourlyRate       Decimal?                  @db.Decimal(12, 2)
+  standardDayHours         Decimal                   @default(8) @db.Decimal(4, 2)
   pinHash                  String?
   // ── Fase 2: employment status & data master (semua nullable, additive) ──
-  employmentStatus         EmploymentStatus        @default(PROBATION)
+  employmentStatus         EmploymentStatus          @default(PROBATION)
   joinDate                 DateTime?
   probationEndDate         DateTime?
   contractEndDate          DateTime?
@@ -117,7 +120,7 @@ model Employee {
   maritalStatus            MaritalStatus?
   address                  String?
   phone                    String?
-  photoUrl                 String?                 @db.Text
+  photoUrl                 String?                   @db.Text
   bankName                 String?
   bankAccountNo            String?
   bankAccountName          String?
@@ -125,28 +128,28 @@ model Employee {
   emergencyContactPhone    String?
   emergencyContactRelation String?
   attendanceRecords        AttendanceRecord[]
-  executionsAsOperator     ProductionExecution[]   @relation("ExecutionOperator")
-  executionsAsHelper       ProductionExecution[]   @relation("ExecutionHelpers")
-  shiftsAsOperator         ProductionShift[]       @relation("ShiftOperator")
-  shiftsAsHelper           ProductionShift[]       @relation("ShiftHelpers")
-  ordersAsHelper           ProductionOrder[]       @relation("OrderHelpers")
+  executionsAsOperator     ProductionExecution[]     @relation("ExecutionOperator")
+  executionsAsHelper       ProductionExecution[]     @relation("ExecutionHelpers")
+  shiftsAsOperator         ProductionShift[]         @relation("ShiftOperator")
+  shiftsAsHelper           ProductionShift[]         @relation("ShiftHelpers")
+  ordersAsHelper           ProductionOrder[]         @relation("OrderHelpers")
   machineAssignments       MachineOperator[]
   // ── Fase 4 ──
   disciplinaryActions      DisciplinaryAction[]
   leaveRequests            LeaveRequest[]
   // ── Fase 5: monthly payroll / kasbon / BPJS ──
-  monthlySalary            Decimal?                @db.Decimal(12, 2)
-  bpjsParticipant          Boolean                 @default(false)
-  bpjsEmployeeDeduction    Decimal?                @db.Decimal(12, 2)
-  bpjsEmployerCost         Decimal?                @db.Decimal(12, 2)
+  monthlySalary            Decimal?                  @db.Decimal(12, 2)
+  bpjsParticipant          Boolean                   @default(false)
+  bpjsEmployeeDeduction    Decimal?                  @db.Decimal(12, 2)
+  bpjsEmployerCost         Decimal?                  @db.Decimal(12, 2)
   bpjsKesehatanNo          String?
   bpjsKetenagakerjaanNo    String?
   allowances               EmployeeAllowance[]
   loans                    EmployeeLoan[]
   payslips                 Payslip[]
-  salaryHistory         EmployeeSalaryHistory[]
-  documents             EmployeeDocument[]
-  shiftAssignments      EmployeeShiftAssignment[]
+  salaryHistory            EmployeeSalaryHistory[]
+  documents                EmployeeDocument[]
+  shiftAssignments         EmployeeShiftAssignment[]
 }
 
 // ── Gelombang B3: Salary history (append-only on salary field change) ──
@@ -192,18 +195,18 @@ enum EmployeeDocumentStatus {
 }
 
 model EmployeeDocument {
-  id          String                   @id @default(uuid())
-  employeeId  String
-  category    EmployeeDocumentCategory
-  name        String
-  fileUrl     String                   @db.Text
-  fileSize    Int?
-  mimeType    String?
-  status      EmployeeDocumentStatus   @default(ACTIVE)
-  notes       String?
+  id           String                   @id @default(uuid())
+  employeeId   String
+  category     EmployeeDocumentCategory
+  name         String
+  fileUrl      String                   @db.Text
+  fileSize     Int?
+  mimeType     String?
+  status       EmployeeDocumentStatus   @default(ACTIVE)
+  notes        String?
   uploadedById String?
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 
   employee   Employee @relation(fields: [employeeId], references: [id])
   uploadedBy User?    @relation(fields: [uploadedById], references: [id])
@@ -331,49 +334,50 @@ model Supplier {
 }
 
 model Customer {
-  id               String                 @id @default(uuid())
-  name             String
-  code             String?                @unique
-  phone            String?
-  email            String?
-  billingAddress   String?
-  shippingAddress  String?
-  taxId            String?
-  creditLimit      Decimal?               @db.Decimal(15, 2)
-  paymentTermDays  Int?
-  discountPercent  Decimal?               @db.Decimal(5, 2)
-  notes            String?
-  isActive         Boolean                @default(true)
+  id                 String                    @id @default(uuid())
+  name               String
+  code               String?                   @unique
+  phone              String?
+  email              String?
+  billingAddress     String?
+  shippingAddress    String?
+  taxId              String?
+  creditLimit        Decimal?                  @db.Decimal(15, 2)
+  paymentTermDays    Int?
+  discountPercent    Decimal?                  @db.Decimal(5, 2)
+  maxDiscountPercent Decimal?                  @db.Decimal(5, 2)
+  notes              String?
+  isActive           Boolean                   @default(true)
   // Location fields
-  latitude         Decimal?               @db.Decimal(10, 7)
-  longitude        Decimal?               @db.Decimal(10, 7)
-  photoUrl         String?
-  province         String?
-  city             String?
-  district         String?
-  village          String?
-  defaultVehicleId String?
-  defaultVehicle   Vehicle?               @relation("CustomerDefaultVehicle", fields: [defaultVehicleId], references: [id])
+  latitude           Decimal?                  @db.Decimal(10, 7)
+  longitude          Decimal?                  @db.Decimal(10, 7)
+  photoUrl           String?
+  province           String?
+  city               String?
+  district           String?
+  village            String?
+  defaultVehicleId   String?
+  defaultVehicle     Vehicle?                  @relation("CustomerDefaultVehicle", fields: [defaultVehicleId], references: [id])
   // ── Lifecycle & attribution ──
-  lifecycleStatus  CustomerLifecycleStatus @default(ACTIVE)
-  createdById      String?
-  createdBy        User?                  @relation(fields: [createdById], references: [id])
-  verifiedAt       DateTime?
-  verifiedById     String?
-  mergedIntoId     String?
-  source           String?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  salesOrders      SalesOrder[]
-  quotations       SalesQuotation[]
-  productPrices    CustomerProductPrice[]
-  salesReturns     SalesReturn[]
-  maklonOrders     ProductionOrder[]      @relation("MaklonCustomer")
-  maklonReceipts   GoodsReceipt[]         @relation("MaklonGoodsReceiptCustomer")
-  maklonReturns    MaklonMaterialReturn[] @relation("MaklonReturnCustomer")
-  salesVisits      SalesVisit[]
-  routePlanItems   SalesRoutePlanItem[]
-  salesAssignments CustomerSalesAssignment[]
+  lifecycleStatus    CustomerLifecycleStatus   @default(ACTIVE)
+  createdById        String?
+  createdBy          User?                     @relation(fields: [createdById], references: [id])
+  verifiedAt         DateTime?
+  verifiedById       String?
+  mergedIntoId       String?
+  source             String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  salesOrders        SalesOrder[]
+  quotations         SalesQuotation[]
+  productPrices      CustomerProductPrice[]
+  salesReturns       SalesReturn[]
+  maklonOrders       ProductionOrder[]         @relation("MaklonCustomer")
+  maklonReceipts     GoodsReceipt[]            @relation("MaklonGoodsReceiptCustomer")
+  maklonReturns      MaklonMaterialReturn[]    @relation("MaklonReturnCustomer")
+  salesVisits        SalesVisit[]
+  routePlanItems     SalesRoutePlanItem[]
+  salesAssignments   CustomerSalesAssignment[]
 }
 
 model ApiKey {
@@ -539,18 +543,18 @@ model SupplierProduct {
 }
 
 model Bom {
-  id               String            @id @default(uuid())
+  id               String                @id @default(uuid())
   name             String
   description      String?
   productVariantId String
-  outputQuantity   Decimal           @default(1.0) @db.Decimal(10, 4)
-  isDefault        Boolean           @default(false)
-  isActive         Boolean           @default(true)
+  outputQuantity   Decimal               @default(1.0) @db.Decimal(10, 4)
+  isDefault        Boolean               @default(false)
+  isActive         Boolean               @default(true)
   archivedAt       DateTime?
   archivedById     String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  category         BomCategory       @default(STANDARD)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  category         BomCategory           @default(STANDARD)
   productVariant   ProductVariant        @relation("ProductBom", fields: [productVariantId], references: [id])
   archivedBy       User?                 @relation(fields: [archivedById], references: [id])
   items            BomItem[]
@@ -619,20 +623,20 @@ model Inventory {
 }
 
 model Machine {
-  id              String                     @id @default(uuid())
-  name            String
-  code            String                     @unique
-  type            MachineType
-  locationId      String
-  status          MachineStatus              @default(ACTIVE)
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-  costPerHour     Decimal                    @default(0) @db.Decimal(10, 2)
-  location        Location                   @relation(fields: [locationId], references: [id])
-  downtimeLogs    MachineDowntime[]
-  executions      ProductionExecution[]
-  ProductionOrder ProductionOrder[]
-  operators       MachineOperator[]
+  id                  String                     @id @default(uuid())
+  name                String
+  code                String                     @unique
+  type                MachineType
+  locationId          String
+  status              MachineStatus              @default(ACTIVE)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  costPerHour         Decimal                    @default(0) @db.Decimal(10, 2)
+  location            Location                   @relation(fields: [locationId], references: [id])
+  downtimeLogs        MachineDowntime[]
+  executions          ProductionExecution[]
+  ProductionOrder     ProductionOrder[]
+  operators           MachineOperator[]
   processCapabilities MachineProcessCapability[]
 }
 
@@ -669,30 +673,30 @@ model StockReservation {
 }
 
 model StockOpname {
-  id           String            @id @default(uuid())
-  opnameNumber String?           @unique
+  id           String                           @id @default(uuid())
+  opnameNumber String?                          @unique
   locationId   String
-  status       OpnameStatus      @default(OPEN)
+  status       OpnameStatus                     @default(OPEN)
   remarks      String?
   createdById  String?
-  createdAt    DateTime          @default(now())
+  createdAt    DateTime                         @default(now())
   completedAt  DateTime?
-  updatedAt    DateTime          @updatedAt
-  createdBy    User?             @relation(fields: [createdById], references: [id])
-  location     Location          @relation(fields: [locationId], references: [id])
+  updatedAt    DateTime                         @updatedAt
+  createdBy    User?                            @relation(fields: [createdById], references: [id])
+  location     Location                         @relation(fields: [locationId], references: [id])
   items        StockOpnameItem[]
   attachments  WarehouseOperationalAttachment[] @relation("StockOpnameAttachments")
 }
 
 model StockOpnameItem {
-  id               String         @id @default(uuid())
+  id               String                           @id @default(uuid())
   opnameId         String
   productVariantId String
-  systemQuantity   Decimal        @db.Decimal(15, 4)
-  countedQuantity  Decimal?       @db.Decimal(15, 4)
+  systemQuantity   Decimal                          @db.Decimal(15, 4)
+  countedQuantity  Decimal?                         @db.Decimal(15, 4)
   notes            String?
-  opname           StockOpname    @relation(fields: [opnameId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  opname           StockOpname                      @relation(fields: [opnameId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant                   @relation(fields: [productVariantId], references: [id])
   attachments      WarehouseOperationalAttachment[] @relation("StockOpnameItemAttachments")
   entries          StockOpnameEntry[]
 
@@ -855,12 +859,12 @@ model ProductionRouteStep {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  route                ProductionRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  process              ProductionProcess @relation(fields: [processId], references: [id])
-  bom                  Bom              @relation(fields: [bomId], references: [id])
-  materialSourceLocation Location?      @relation("RouteStepSourceLocation", fields: [materialSourceLocationId], references: [id])
-  outputLocation       Location?        @relation("RouteStepOutputLocation", fields: [outputLocationId], references: [id])
-  productionOrders     ProductionOrder[] @relation("RouteStepOrders")
+  route                  ProductionRoute   @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  process                ProductionProcess @relation(fields: [processId], references: [id])
+  bom                    Bom               @relation(fields: [bomId], references: [id])
+  materialSourceLocation Location?         @relation("RouteStepSourceLocation", fields: [materialSourceLocationId], references: [id])
+  outputLocation         Location?         @relation("RouteStepOutputLocation", fields: [outputLocationId], references: [id])
+  productionOrders       ProductionOrder[] @relation("RouteStepOrders")
 
   @@unique([routeId, sequence])
   @@unique([routeId, stepCode])
@@ -870,29 +874,29 @@ model ProductionRouteStep {
 }
 
 model ProductionRun {
-  id                    String              @id @default(uuid())
-  runNumber             String              @unique
-  routeId               String
-  routeVersionSnapshot  Int
-  routeNameSnapshot     String?
-  productVariantId      String
-  plannedQuantity       Decimal             @db.Decimal(15, 4)
-  salesOrderId          String?
-  status                ProductionRunStatus @default(DRAFT)
-  priority              ProductionPriority  @default(NORMAL)
-  plannedStartDate      DateTime?
-  plannedEndDate        DateTime?
-  actualStartDate       DateTime?
-  actualEndDate         DateTime?
-  notes                 String?
-  createdById           String?
-  idempotencyKey        String?             @unique
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  id                   String              @id @default(uuid())
+  runNumber            String              @unique
+  routeId              String
+  routeVersionSnapshot Int
+  routeNameSnapshot    String?
+  productVariantId     String
+  plannedQuantity      Decimal             @db.Decimal(15, 4)
+  salesOrderId         String?
+  status               ProductionRunStatus @default(DRAFT)
+  priority             ProductionPriority  @default(NORMAL)
+  plannedStartDate     DateTime?
+  plannedEndDate       DateTime?
+  actualStartDate      DateTime?
+  actualEndDate        DateTime?
+  notes                String?
+  createdById          String?
+  idempotencyKey       String?             @unique
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
-  route          ProductionRoute @relation(fields: [routeId], references: [id], onDelete: Restrict)
-  productVariant ProductVariant  @relation(fields: [productVariantId], references: [id])
-  salesOrder     SalesOrder?     @relation(fields: [salesOrderId], references: [id])
+  route          ProductionRoute   @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant    @relation(fields: [productVariantId], references: [id])
+  salesOrder     SalesOrder?       @relation(fields: [salesOrderId], references: [id])
   orders         ProductionOrder[] @relation("ProductionRunOrders")
 
   @@index([routeId])
@@ -1052,14 +1056,14 @@ model ProductionExecution {
 }
 
 model WorkShift {
-  id                String             @id @default(uuid())
+  id                String                    @id @default(uuid())
   name              String
   startTime         String
   endTime           String
-  plannedHours      Decimal?           @db.Decimal(4, 2)
-  status            WorkShiftStatus    @default(ACTIVE)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  plannedHours      Decimal?                  @db.Decimal(4, 2)
+  status            WorkShiftStatus           @default(ACTIVE)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
   attendanceRecords AttendanceRecord[]
   shiftAssignments  EmployeeShiftAssignment[]
 }
@@ -1105,55 +1109,99 @@ model AuditLog {
 // ==========================================
 
 model SalesOrder {
-  id               String                  @id @default(uuid())
-  orderNumber      String                  @unique
-  customerId       String?
-  orderDate        DateTime                @default(now())
-  expectedDate     DateTime?
-  orderType        SalesOrderType          @default(MAKE_TO_STOCK)
-  status           SalesOrderStatus        @default(DRAFT)
-  sourceLocationId String?
-  totalAmount      Decimal?                @db.Decimal(15, 2)
-  notes            String?
-  createdById      String?
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  discountAmount   Decimal?                @db.Decimal(15, 2)
-  taxAmount        Decimal?                @db.Decimal(15, 2)
-  shippingCost     Decimal?                @db.Decimal(15, 2)
-  quotationId      String?
+  id                     String                  @id @default(uuid())
+  orderNumber            String                  @unique
+  customerId             String?
+  orderDate              DateTime                @default(now())
+  expectedDate           DateTime?
+  orderType              SalesOrderType          @default(MAKE_TO_STOCK)
+  status                 SalesOrderStatus        @default(DRAFT)
+  sourceLocationId       String?
+  totalAmount            Decimal?                @db.Decimal(15, 2)
+  notes                  String?
+  createdById            String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  discountAmount         Decimal?                @db.Decimal(15, 2)
+  taxAmount              Decimal?                @db.Decimal(15, 2)
+  shippingCost           Decimal?                @db.Decimal(15, 2)
+  quotationId            String?
   // ── Quotation-phase commercial fields ──
-  validUntil       DateTime?
-  subject          String?
-  paymentTerms     String?
-  shippingTerms    String?
-  termsConditions  String?
-  priceStatus      SalesPriceStatus?
-  quotationSentAt  DateTime?
-  legacyQuotationId String?               @unique
-  nextFollowUpDate DateTime?
-  entrySource              OrderEntrySource        @default(STANDARD)
-  sourceReference          String?
-  commercialReviewStatus   CommercialReviewStatus  @default(NOT_REQUIRED)
-  idempotencyKey           String?                 @unique
-  deliveryOrders   DeliveryOrder[]
-  scheduleStops    DeliveryScheduleOrder[]
-  invoices         Invoice[]
-  productionOrders ProductionOrder[]       @relation("SalesProduction")
-  productionRuns   ProductionRun[]
-  purchaseRequests PurchaseRequest[]
-  salesRepId       String?
-  createdBy        User?                   @relation("SalesCreator", fields: [createdById], references: [id])
-  salesRep         User?                   @relation("SalesOrderSalesRep", fields: [salesRepId], references: [id])
-  customer         Customer?               @relation(fields: [customerId], references: [id])
-  quotation        SalesQuotation?         @relation(fields: [quotationId], references: [id])
-  sourceLocation   Location?               @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
-  items            SalesOrderItem[]
-  movements        StockMovement[]         @relation("SalesMovement")
-  salesReturns     SalesReturn[]
+  validUntil             DateTime?
+  subject                String?
+  paymentTerms           String?
+  shippingTerms          String?
+  termsConditions        String?
+  priceStatus            SalesPriceStatus?
+  quotationSentAt        DateTime?
+  legacyQuotationId      String?                 @unique
+  nextFollowUpDate       DateTime?
+  entrySource            OrderEntrySource        @default(STANDARD)
+  sourceReference        String?
+  commercialReviewStatus CommercialReviewStatus  @default(NOT_REQUIRED)
+  idempotencyKey         String?                 @unique
+  deliveryOrders         DeliveryOrder[]
+  scheduleStops          DeliveryScheduleOrder[]
+  invoices               Invoice[]
+  productionOrders       ProductionOrder[]       @relation("SalesProduction")
+  productionRuns         ProductionRun[]
+  purchaseRequests       PurchaseRequest[]
+  salesRepId             String?
+  createdBy              User?                   @relation("SalesCreator", fields: [createdById], references: [id])
+  salesRep               User?                   @relation("SalesOrderSalesRep", fields: [salesRepId], references: [id])
+  customer               Customer?               @relation(fields: [customerId], references: [id])
+  quotation              SalesQuotation?         @relation(fields: [quotationId], references: [id])
+  sourceLocation         Location?               @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
+  items                  SalesOrderItem[]
+  movements              StockMovement[]         @relation("SalesMovement")
+  salesReturns           SalesReturn[]
 
   @@index([orderDate])
   @@index([salesRepId])
+}
+
+model SalesTarget {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  periodYear    Int
+  periodMonth   Int
+  revenueTarget Decimal  @db.Decimal(15, 2)
+  visitTarget   Int?
+  orderTarget   Int?
+  notes         String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, periodYear, periodMonth])
+  @@index([periodYear, periodMonth])
+}
+
+model CommissionScheme {
+  id        String           @id @default(cuid())
+  name      String
+  isActive  Boolean          @default(true)
+  basis     CommissionBasis  @default(PAID_INVOICE)
+  tiers     CommissionTier[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model CommissionTier {
+  id                    String           @id @default(cuid())
+  schemeId              String
+  scheme                CommissionScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  minAchievementPercent Decimal          @db.Decimal(5, 2)
+  ratePercent           Decimal          @db.Decimal(5, 2)
+
+  @@index([schemeId])
+}
+
+enum CommissionBasis {
+  SALES_ORDER
+  ISSUED_INVOICE
+  PAID_INVOICE
 }
 
 model SalesQuotation {
@@ -1201,130 +1249,201 @@ model SalesQuotationItem {
 }
 
 model SalesOrderItem {
-  id                       String         @id @default(uuid())
+  id                       String                      @id @default(uuid())
   salesOrderId             String
   productVariantId         String
-  quantity                 Decimal        @db.Decimal(15, 4)
-  unitPrice                Decimal        @db.Decimal(15, 2)
-  isFreeItem               Boolean        @default(false)
-  enteredQuantity          Decimal?       @db.Decimal(15, 4)
+  quantity                 Decimal                     @db.Decimal(15, 4)
+  unitPrice                Decimal                     @db.Decimal(15, 2)
+  isFreeItem               Boolean                     @default(false)
+  enteredQuantity          Decimal?                    @db.Decimal(15, 4)
   enteredUnit              Unit?
-  conversionFactorSnapshot Decimal?       @db.Decimal(10, 4)
-  enteredUnitPrice         Decimal?       @db.Decimal(15, 2)
-  subtotal                 Decimal        @db.Decimal(15, 2)
-  deliveredQty             Decimal        @default(0) @db.Decimal(15, 4)
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
-  discountPercent          Decimal?       @db.Decimal(15, 6)
-  taxAmount                Decimal?       @db.Decimal(15, 2)
-  taxPercent               Decimal?       @db.Decimal(5, 2)
-  dppOtherAmount           Decimal?       @db.Decimal(15, 2)
-  ppnMode                  PpnMode        @default(EXCLUDE)
-  productVariant           ProductVariant @relation(fields: [productVariantId], references: [id])
-  salesOrder               SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  conversionFactorSnapshot Decimal?                    @db.Decimal(10, 4)
+  enteredUnitPrice         Decimal?                    @db.Decimal(15, 2)
+  subtotal                 Decimal                     @db.Decimal(15, 2)
+  deliveredQty             Decimal                     @default(0) @db.Decimal(15, 4)
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
+  discountPercent          Decimal?                    @db.Decimal(15, 6)
+  taxAmount                Decimal?                    @db.Decimal(15, 2)
+  taxPercent               Decimal?                    @db.Decimal(5, 2)
+  dppOtherAmount           Decimal?                    @db.Decimal(15, 2)
+  ppnMode                  PpnMode                     @default(EXCLUDE)
+  productVariant           ProductVariant              @relation(fields: [productVariantId], references: [id])
+  salesOrder               SalesOrder                  @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   schedulePlannedItems     DeliveryScheduleOrderItem[]
 
   @@index([salesOrderId])
 }
 
 model Invoice {
-  id                String        @id @default(uuid())
-  invoiceNumber     String        @unique
-  salesOrderId      String
-  invoiceDate       DateTime      @default(now())
-  dueDate           DateTime?
-  status            InvoiceStatus @default(UNPAID)
-  totalAmount       Decimal       @db.Decimal(15, 2)
-  paidAmount        Decimal       @default(0) @db.Decimal(15, 2)
-  notes             String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  termOfPaymentDays Int           @default(0)
-  salesOrder        SalesOrder    @relation(fields: [salesOrderId], references: [id])
-  payments          Payment[]
+  id                   String                @id @default(uuid())
+  invoiceNumber        String                @unique
+  salesOrderId         String
+  invoiceDate          DateTime              @default(now())
+  dueDate              DateTime?
+  status               InvoiceStatus         @default(UNPAID)
+  totalAmount          Decimal               @db.Decimal(15, 2)
+  paidAmount           Decimal               @default(0) @db.Decimal(15, 2)
+  notes                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  termOfPaymentDays    Int                   @default(0)
+  salesOrder           SalesOrder            @relation(fields: [salesOrderId], references: [id])
+  payments             Payment[]
+  collectionActivities CollectionActivity[]
+  remittanceItems      SalesRemittanceItem[]
 
   @@index([salesOrderId])
 }
 
+// ==========================================
+// Sales Collection & Remittance (Gap 06)
+// ==========================================
+
+model CollectionActivity {
+  id             String                 @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice                @relation(fields: [invoiceId], references: [id])
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id])
+  type           CollectionActivityType
+  activityDate   DateTime               @default(now())
+  promisedDate   DateTime?
+  promisedAmount Decimal?               @db.Decimal(15, 2)
+  outcome        String?
+  notes          String?                @db.Text
+  visitId        String?
+  createdAt      DateTime               @default(now())
+
+  @@index([invoiceId])
+  @@index([userId, activityDate])
+  @@index([promisedDate])
+}
+
+enum CollectionActivityType {
+  CALL
+  VISIT
+  PROMISE_TO_PAY
+  PARTIAL_COLLECTED
+  DISPUTE
+  UNREACHABLE
+}
+
+model SalesRemittance {
+  id               String                @id @default(cuid())
+  remittanceNumber String                @unique
+  userId           String
+  user             User                  @relation(fields: [userId], references: [id])
+  collectedAt      DateTime
+  totalAmount      Decimal               @db.Decimal(15, 2)
+  status           RemittanceStatus      @default(PENDING)
+  verifiedById     String?
+  verifiedAt       DateTime?
+  notes            String?               @db.Text
+  items            SalesRemittanceItem[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([userId, status])
+}
+
+model SalesRemittanceItem {
+  id              String          @id @default(cuid())
+  remittanceId    String
+  remittance      SalesRemittance @relation(fields: [remittanceId], references: [id], onDelete: Cascade)
+  invoiceId       String
+  invoice         Invoice         @relation(fields: [invoiceId], references: [id])
+  amount          Decimal         @db.Decimal(15, 2)
+  method          String
+  referenceNumber String?
+  paymentId       String?         @unique
+}
+
+enum RemittanceStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 model PurchaseOrder {
-  id               String              @id @default(uuid())
-  orderNumber      String              @unique
-  supplierId       String
-  orderDate        DateTime            @default(now())
-  expectedDate     DateTime?
-  status           PurchaseOrderStatus @default(DRAFT)
-  totalAmount      Decimal?            @db.Decimal(15, 2)
-  discountAmount   Decimal?            @db.Decimal(15, 2)
-  taxAmount        Decimal?            @db.Decimal(15, 2)
-  shippingCost     Decimal?            @db.Decimal(15, 2)
-  deliveryAddress  String?
-  notes            String?
-  createdById      String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  entrySource              OrderEntrySource        @default(STANDARD)
-  sourceReference          String?
-  commercialReviewStatus   CommercialReviewStatus  @default(NOT_REQUIRED)
-  idempotencyKey           String?                 @unique
-  goodsReceipts    GoodsReceipt[]
-  invoices         PurchaseInvoice[]
+  id                     String                           @id @default(uuid())
+  orderNumber            String                           @unique
+  supplierId             String
+  orderDate              DateTime                         @default(now())
+  expectedDate           DateTime?
+  status                 PurchaseOrderStatus              @default(DRAFT)
+  totalAmount            Decimal?                         @db.Decimal(15, 2)
+  discountAmount         Decimal?                         @db.Decimal(15, 2)
+  taxAmount              Decimal?                         @db.Decimal(15, 2)
+  shippingCost           Decimal?                         @db.Decimal(15, 2)
+  deliveryAddress        String?
+  notes                  String?
+  createdById            String?
+  createdAt              DateTime                         @default(now())
+  updatedAt              DateTime                         @updatedAt
+  entrySource            OrderEntrySource                 @default(STANDARD)
+  sourceReference        String?
+  commercialReviewStatus CommercialReviewStatus           @default(NOT_REQUIRED)
+  idempotencyKey         String?                          @unique
+  goodsReceipts          GoodsReceipt[]
+  invoices               PurchaseInvoice[]
   operationalAttachments WarehouseOperationalAttachment[] @relation("PurchaseOrderAttachments")
-  createdBy        User?               @relation("PurchaseCreator", fields: [createdById], references: [id])
-  supplier         Supplier            @relation(fields: [supplierId], references: [id])
-  items            PurchaseOrderItem[]
-  purchaseRequests PurchaseRequest[]   @relation("PrToPo")
-  purchaseReturns  PurchaseReturn[]
+  createdBy              User?                            @relation("PurchaseCreator", fields: [createdById], references: [id])
+  supplier               Supplier                         @relation(fields: [supplierId], references: [id])
+  items                  PurchaseOrderItem[]
+  purchaseRequests       PurchaseRequest[]                @relation("PrToPo")
+  purchaseReturns        PurchaseReturn[]
 }
 
 model PurchaseOrderItem {
-  id               String         @id @default(uuid())
-  purchaseOrderId  String
-  productVariantId String
-  quantity         Decimal        @db.Decimal(15, 4)
-  unitPrice        Decimal        @db.Decimal(15, 4)
-  subtotal         Decimal        @db.Decimal(15, 2)
-  discountPercent  Decimal?       @db.Decimal(15, 6)
-  taxPercent       Decimal?       @db.Decimal(5, 2)
-  taxAmount        Decimal?       @db.Decimal(15, 2)
-  dppOtherAmount   Decimal?       @db.Decimal(15, 2)
-  ppnMode          PpnMode        @default(EXCLUDE)
-  receivedQty      Decimal        @default(0) @db.Decimal(15, 4)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
-  purchaseOrder    PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  id                String             @id @default(uuid())
+  purchaseOrderId   String
+  productVariantId  String
+  quantity          Decimal            @db.Decimal(15, 4)
+  unitPrice         Decimal            @db.Decimal(15, 4)
+  subtotal          Decimal            @db.Decimal(15, 2)
+  discountPercent   Decimal?           @db.Decimal(15, 6)
+  taxPercent        Decimal?           @db.Decimal(5, 2)
+  taxAmount         Decimal?           @db.Decimal(15, 2)
+  dppOtherAmount    Decimal?           @db.Decimal(15, 2)
+  ppnMode           PpnMode            @default(EXCLUDE)
+  receivedQty       Decimal            @default(0) @db.Decimal(15, 4)
+  productVariant    ProductVariant     @relation(fields: [productVariantId], references: [id])
+  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   goodsReceiptItems GoodsReceiptItem[]
 }
 
 model GoodsReceipt {
-  id              String             @id @default(uuid())
-  receiptNumber   String             @unique
-  purchaseOrderId String?
-  receivedDate    DateTime           @default(now())
-  locationId      String
-  isMaklon        Boolean            @default(false)
-  customerId      String?
-  notes           String?
-  createdById     String?
-  createdAt       DateTime           @default(now())
-  createdBy       User?              @relation("GoodsReceiptCreator", fields: [createdById], references: [id])
-  location        Location           @relation(fields: [locationId], references: [id])
-  purchaseOrder   PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id])
-  customer        Customer?          @relation("MaklonGoodsReceiptCustomer", fields: [customerId], references: [id])
-  items           GoodsReceiptItem[]
-  movements       StockMovement[]    @relation("GoodsReceiptMovement")
-  purchaseReturns PurchaseReturn[]
+  id                     String                           @id @default(uuid())
+  receiptNumber          String                           @unique
+  purchaseOrderId        String?
+  receivedDate           DateTime                         @default(now())
+  locationId             String
+  isMaklon               Boolean                          @default(false)
+  customerId             String?
+  notes                  String?
+  createdById            String?
+  createdAt              DateTime                         @default(now())
+  createdBy              User?                            @relation("GoodsReceiptCreator", fields: [createdById], references: [id])
+  location               Location                         @relation(fields: [locationId], references: [id])
+  purchaseOrder          PurchaseOrder?                   @relation(fields: [purchaseOrderId], references: [id])
+  customer               Customer?                        @relation("MaklonGoodsReceiptCustomer", fields: [customerId], references: [id])
+  items                  GoodsReceiptItem[]
+  movements              StockMovement[]                  @relation("GoodsReceiptMovement")
+  purchaseReturns        PurchaseReturn[]
   operationalAttachments WarehouseOperationalAttachment[] @relation("GoodsReceiptAttachments")
 }
 
 model GoodsReceiptItem {
-  id                   String             @id @default(uuid())
-  goodsReceiptId       String
-  productVariantId     String
-  purchaseOrderItemId  String?
-  receivedQty          Decimal            @db.Decimal(15, 4)
-  unitCost             Decimal            @db.Decimal(15, 4)
-  goodsReceipt         GoodsReceipt       @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
-  productVariant       ProductVariant     @relation(fields: [productVariantId], references: [id])
-  purchaseOrderItem    PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+  id                  String             @id @default(uuid())
+  goodsReceiptId      String
+  productVariantId    String
+  purchaseOrderItemId String?
+  receivedQty         Decimal            @db.Decimal(15, 4)
+  unitCost            Decimal            @db.Decimal(15, 4)
+  goodsReceipt        GoodsReceipt       @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  productVariant      ProductVariant     @relation(fields: [productVariantId], references: [id])
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
 
   @@index([purchaseOrderItemId])
 }
@@ -1518,44 +1637,44 @@ model Budget {
 }
 
 model DeliveryOrder {
-  id                 String                  @id @default(uuid())
-  orderNumber        String                  @unique
-  salesOrderId       String
-  deliveryDate       DateTime                @default(now())
-  status             DeliveryStatus          @default(PENDING)
-  trackingNumber     String?
-  carrier            String?
-  sourceLocationId   String
-  createdById        String?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  notes              String?
-  vehicleId          String?
-  appliedRateType    RateType?
-  appliedCostRate    Decimal?                @db.Decimal(15, 2)
-  appliedChargeRate  Decimal?                @db.Decimal(15, 2)
-  totalCost          Decimal?                @db.Decimal(15, 2)
-  totalCharge        Decimal?                @db.Decimal(15, 2)
-  estimatedWeightKg  Decimal?                @db.Decimal(10, 2)
-  appliedRouteName   String?
-  destinationAddress String?
-  vehiclePhotoUrl    String?
-  proofOfDeliveryUrl String?
-  proofOfDeliveryAt  DateTime?
-  receivedBy         String?
-  loadingStartedAt   DateTime?
-  loadingStartedById String?
-  loadVerifiedAt     DateTime?
-  loadVerifiedById   String?
-  stockCommittedAt   DateTime?
-  stockCommittedById String?
-  createdBy          User?                   @relation("DeliveryCreator", fields: [createdById], references: [id])
-  salesOrder         SalesOrder              @relation(fields: [salesOrderId], references: [id])
-  sourceLocation     Location                @relation(fields: [sourceLocationId], references: [id])
-  vehicle            Vehicle?                @relation(fields: [vehicleId], references: [id])
-  items              DeliveryOrderItem[]
-  salesReturns       SalesReturn[]
-  scheduleOrders     DeliveryScheduleOrder[]
+  id                     String                           @id @default(uuid())
+  orderNumber            String                           @unique
+  salesOrderId           String
+  deliveryDate           DateTime                         @default(now())
+  status                 DeliveryStatus                   @default(PENDING)
+  trackingNumber         String?
+  carrier                String?
+  sourceLocationId       String
+  createdById            String?
+  createdAt              DateTime                         @default(now())
+  updatedAt              DateTime                         @updatedAt
+  notes                  String?
+  vehicleId              String?
+  appliedRateType        RateType?
+  appliedCostRate        Decimal?                         @db.Decimal(15, 2)
+  appliedChargeRate      Decimal?                         @db.Decimal(15, 2)
+  totalCost              Decimal?                         @db.Decimal(15, 2)
+  totalCharge            Decimal?                         @db.Decimal(15, 2)
+  estimatedWeightKg      Decimal?                         @db.Decimal(10, 2)
+  appliedRouteName       String?
+  destinationAddress     String?
+  vehiclePhotoUrl        String?
+  proofOfDeliveryUrl     String?
+  proofOfDeliveryAt      DateTime?
+  receivedBy             String?
+  loadingStartedAt       DateTime?
+  loadingStartedById     String?
+  loadVerifiedAt         DateTime?
+  loadVerifiedById       String?
+  stockCommittedAt       DateTime?
+  stockCommittedById     String?
+  createdBy              User?                            @relation("DeliveryCreator", fields: [createdById], references: [id])
+  salesOrder             SalesOrder                       @relation(fields: [salesOrderId], references: [id])
+  sourceLocation         Location                         @relation(fields: [sourceLocationId], references: [id])
+  vehicle                Vehicle?                         @relation(fields: [vehicleId], references: [id])
+  items                  DeliveryOrderItem[]
+  salesReturns           SalesReturn[]
+  scheduleOrders         DeliveryScheduleOrder[]
   operationalAttachments WarehouseOperationalAttachment[] @relation("DeliveryAttachments")
 
   @@index([salesOrderId])
@@ -1637,24 +1756,24 @@ model DeliverySchedule {
 }
 
 model DeliveryScheduleVehicle {
-  id            String          @id @default(uuid())
-  scheduleId    String
-  vehicleId     String?         // nullable for EXTERNAL_FLEET, CUSTOMER_PICKUP, TBD
-  transportMode TransportMode   @default(INTERNAL_FLEET)
-  departureDate DateTime?       // required in UI for CONFIRMED+; nullable for backfill
-  routeName     String?         // optional trip-level route hint
-  runNumber     String?         // e.g. "1", "2" — operational run sequence label
-  status        TripStatus      @default(PLANNED)
-  sequence      Int             @default(0)
-  notes         String?
+  id               String        @id @default(uuid())
+  scheduleId       String
+  vehicleId        String? // nullable for EXTERNAL_FLEET, CUSTOMER_PICKUP, TBD
+  transportMode    TransportMode @default(INTERNAL_FLEET)
+  departureDate    DateTime? // required in UI for CONFIRMED+; nullable for backfill
+  routeName        String? // optional trip-level route hint
+  runNumber        String? // e.g. "1", "2" — operational run sequence label
+  status           TripStatus    @default(PLANNED)
+  sequence         Int           @default(0)
+  notes            String?
   // External/TBD metadata
-  externalProvider String?      // external fleet company/provider name
-  externalPlate    String?      // external vehicle plate number
-  externalDriver   String?      // external driver name
+  externalProvider String? // external fleet company/provider name
+  externalPlate    String? // external vehicle plate number
+  externalDriver   String? // external driver name
   // Cancel/reschedule
   cancelReason     String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   schedule DeliverySchedule        @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   vehicle  Vehicle?                @relation(fields: [vehicleId], references: [id])
@@ -1670,22 +1789,22 @@ model DeliveryScheduleVehicle {
 model DeliveryScheduleOrder {
   id                String             @id @default(uuid())
   scheduleVehicleId String
-  salesOrderId      String?            // plan source — nullable for legacy rows & non-delivery activities
-  deliveryOrderId   String?            // CHANGED: was required → nullable until SJ created
+  salesOrderId      String? // plan source — nullable for legacy rows & non-delivery activities
+  deliveryOrderId   String? // CHANGED: was required → nullable until SJ created
   activityType      ActivityType       @default(DELIVERY)
   plannedWeightKg   Decimal?           @db.Decimal(10, 2)
   sequence          Int                @default(0)
   status            ScheduleStopStatus @default(PLANNED)
   notes             String?
   // Non-delivery activity labels
-  activityLabel     String?            // e.g. "Muat customer ABC", "Backhaul dari X"
-  activityCustomer  String?            // customer name for non-delivery activities (no SO required)
+  activityLabel     String? // e.g. "Muat customer ABC", "Backhaul dari X"
+  activityCustomer  String? // customer name for non-delivery activities (no SO required)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  scheduleVehicle DeliveryScheduleVehicle @relation(fields: [scheduleVehicleId], references: [id], onDelete: Cascade)
-  salesOrder      SalesOrder?             @relation(fields: [salesOrderId], references: [id])
-  deliveryOrder   DeliveryOrder?          @relation(fields: [deliveryOrderId], references: [id])
+  scheduleVehicle DeliveryScheduleVehicle     @relation(fields: [scheduleVehicleId], references: [id], onDelete: Cascade)
+  salesOrder      SalesOrder?                 @relation(fields: [salesOrderId], references: [id])
+  deliveryOrder   DeliveryOrder?              @relation(fields: [deliveryOrderId], references: [id])
   plannedItems    DeliveryScheduleOrderItem[]
 
   @@index([scheduleVehicleId])
@@ -1696,19 +1815,19 @@ model DeliveryScheduleOrder {
 }
 
 model DeliveryScheduleOrderItem {
-  id                String   @id @default(uuid())
-  scheduleOrderId   String
-  salesOrderItemId  String
-  plannedQuantity   Decimal  @db.Decimal(15, 4) // planned qty in base unit for this stop
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(uuid())
+  scheduleOrderId  String
+  salesOrderItemId String
+  plannedQuantity  Decimal  @db.Decimal(15, 4) // planned qty in base unit for this stop
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   scheduleOrder  DeliveryScheduleOrder @relation(fields: [scheduleOrderId], references: [id], onDelete: Cascade)
   salesOrderItem SalesOrderItem        @relation(fields: [salesOrderItemId], references: [id])
 
+  @@unique([scheduleOrderId, salesOrderItemId]) // one plan per item per stop
   @@index([scheduleOrderId])
   @@index([salesOrderItemId])
-  @@unique([scheduleOrderId, salesOrderItemId]) // one plan per item per stop
 }
 
 model PurchaseRequest {
@@ -2351,15 +2470,15 @@ model Tenant {
 //     (schema is shared) but the rows are meaningless there.
 // ─────────────────────────────────────────────────────────────────────────────
 model TenantModule {
-  id        String           @id @default(cuid())
+  id        String             @id @default(cuid())
   tenantId  String
-  moduleKey String           // e.g. HRD, SALES, FINANCE — validated by module-registry.ts
+  moduleKey String // e.g. HRD, SALES, FINANCE — validated by module-registry.ts
   status    TenantModuleStatus @default(ACTIVE)
-  enabledAt DateTime         @default(now())
-  expiresAt DateTime?        // null = no expiry
-  config    Json?            // non-secret configuration per module
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  enabledAt DateTime           @default(now())
+  expiresAt DateTime? // null = no expiry
+  config    Json? // non-secret configuration per module
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -2662,28 +2781,28 @@ model MachineOperator {
 }
 
 model SalesVisit {
-  id              String                    @id @default(uuid())
+  id              String                 @id @default(uuid())
   customerId      String
-  customer        Customer                  @relation(fields: [customerId], references: [id])
+  customer        Customer               @relation(fields: [customerId], references: [id])
   userId          String
-  user            User                      @relation("SalesVisitCreator", fields: [userId], references: [id])
+  user            User                   @relation("SalesVisitCreator", fields: [userId], references: [id])
   checkInTime     DateTime
   checkOutTime    DateTime
   durationSeconds Int
-  latitude        Decimal                   @db.Decimal(10, 7)
-  longitude       Decimal                   @db.Decimal(10, 7)
+  latitude        Decimal                @db.Decimal(10, 7)
+  longitude       Decimal                @db.Decimal(10, 7)
   distance        Float
-  notes           String?                   @db.Text
-  photoUrl        String?                   @db.Text
+  notes           String?                @db.Text
+  photoUrl        String?                @db.Text
   // ── EC & route integration ──
   clientVisitId   String?
   routePlanItemId String?
-  routePlanItem   SalesRoutePlanItem?       @relation(fields: [routePlanItemId], references: [id])
-  isExtraCall     Boolean                   @default(false)
+  routePlanItem   SalesRoutePlanItem?    @relation(fields: [routePlanItemId], references: [id])
+  isExtraCall     Boolean                @default(false)
   extraReason     SalesVisitExtraReason?
-  reviewStatus    SalesVisitReviewStatus    @default(NOT_REQUIRED)
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  reviewStatus    SalesVisitReviewStatus @default(NOT_REQUIRED)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@unique([userId, clientVisitId])
   @@index([userId])
@@ -2697,15 +2816,15 @@ model SalesVisit {
 // ==========================================
 
 model SalesRoutePlan {
-  id          String                 @id @default(cuid())
-  date        DateTime               @db.Date
-  userId      String
-  user        User                   @relation(fields: [userId], references: [id])
-  status      SalesRoutePlanStatus   @default(DRAFT)
-  items       SalesRoutePlanItem[]
-  createdBy   String
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id        String               @id @default(cuid())
+  date      DateTime             @db.Date
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id])
+  status    SalesRoutePlanStatus @default(DRAFT)
+  items     SalesRoutePlanItem[]
+  createdBy String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 
   @@unique([date, userId])
   @@index([date])
@@ -2713,18 +2832,18 @@ model SalesRoutePlan {
 }
 
 model SalesRoutePlanItem {
-  id           String          @id @default(cuid())
-  routePlanId  String
-  routePlan    SalesRoutePlan  @relation(fields: [routePlanId], references: [id], onDelete: Cascade)
-  customerId   String
-  customer     Customer        @relation(fields: [customerId], references: [id])
-  sortOrder    Int
-  status       String          @default("PENDING") // PENDING, VISITING, COMPLETED, SKIPPED
-  isExtraCall  Boolean         @default(false)
-  extraReason  String?
-  notes        String?         @db.Text
-  createdAt    DateTime        @default(now())
-  visits       SalesVisit[]
+  id          String         @id @default(cuid())
+  routePlanId String
+  routePlan   SalesRoutePlan @relation(fields: [routePlanId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id])
+  sortOrder   Int
+  status      String         @default("PENDING") // PENDING, VISITING, COMPLETED, SKIPPED
+  isExtraCall Boolean        @default(false)
+  extraReason String?
+  notes       String?        @db.Text
+  createdAt   DateTime       @default(now())
+  visits      SalesVisit[]
 
   @@index([routePlanId])
   @@index([customerId])
@@ -2735,19 +2854,19 @@ model SalesRoutePlanItem {
 // ==========================================
 
 model CustomerSalesAssignment {
-  id           String                  @id @default(cuid())
+  id           String    @id @default(cuid())
   customerId   String
-  customer     Customer                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   userId       String
-  user         User                    @relation("CustomerSalesAssignee", fields: [userId], references: [id])
-  isPrimary    Boolean                 @default(true)
-  assignedAt   DateTime                @default(now())
+  user         User      @relation("CustomerSalesAssignee", fields: [userId], references: [id])
+  isPrimary    Boolean   @default(true)
+  assignedAt   DateTime  @default(now())
   unassignedAt DateTime?
   assignedById String
-  assignedBy   User                    @relation("CustomerSalesAssignmentCreator", fields: [assignedById], references: [id])
+  assignedBy   User      @relation("CustomerSalesAssignmentCreator", fields: [assignedById], references: [id])
   notes        String?
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([userId, unassignedAt])
   @@index([customerId, unassignedAt])
@@ -2893,11 +3012,11 @@ model AttendanceRecord {
   clockInLatitude      Decimal?         @db.Decimal(9, 6)
   clockInLongitude     Decimal?         @db.Decimal(9, 6)
   clockInAccuracy      Decimal?         @db.Decimal(8, 2)
-  clockInDistance       Decimal?         @db.Decimal(10, 2)
+  clockInDistance      Decimal?         @db.Decimal(10, 2)
   clockOutLatitude     Decimal?         @db.Decimal(9, 6)
   clockOutLongitude    Decimal?         @db.Decimal(9, 6)
   clockOutAccuracy     Decimal?         @db.Decimal(8, 2)
-  clockOutDistance      Decimal?         @db.Decimal(10, 2)
+  clockOutDistance     Decimal?         @db.Decimal(10, 2)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
@@ -2922,13 +3041,13 @@ enum AttendanceSource {
 }
 
 model EmployeeShiftAssignment {
-  id           String    @id @default(uuid())
-  employeeId   String
-  workShiftId  String
-  effectiveFrom DateTime @db.Date
-  effectiveTo  DateTime? @db.Date
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  employeeId    String
+  workShiftId   String
+  effectiveFrom DateTime  @db.Date
+  effectiveTo   DateTime? @db.Date
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   employee  Employee  @relation(fields: [employeeId], references: [id])
   workShift WorkShift @relation(fields: [workShiftId], references: [id])
@@ -3092,20 +3211,20 @@ enum HelpFeedback {
 }
 
 model HelpInteraction {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   tenantId       String?
   userId         String?
-  channel        String       @default("web") // web | telegram
-  question       String       @db.Text
-  answerPreview  String       @db.Text
-  outcome        HelpOutcome  @default(SUCCESS)
+  channel        String        @default("web") // web | telegram
+  question       String        @db.Text
+  answerPreview  String        @db.Text
+  outcome        HelpOutcome   @default(SUCCESS)
   feedback       HelpFeedback?
   confidence     Float?
   latencyMs      Int
   blockedReason  String?
-  conversationId String?      // links to HelpConversation
-  citedSlugs     String[]     // evidence article slugs
-  createdAt      DateTime     @default(now())
+  conversationId String? // links to HelpConversation
+  citedSlugs     String[] // evidence article slugs
+  createdAt      DateTime      @default(now())
 
   @@index([tenantId, createdAt])
   @@index([outcome])
@@ -3113,11 +3232,11 @@ model HelpInteraction {
 }
 
 model HelpSettings {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  valueJson   String   @db.Text
-  updatedAt   DateTime @updatedAt
-  updatedBy   String?
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueJson String   @db.Text
+  updatedAt DateTime @updatedAt
+  updatedBy String?
 }
 
 enum HelpArticleStatus {
@@ -3133,25 +3252,25 @@ enum HelpArticleSource {
 }
 
 model HelpArticle {
-  id               String            @id @default(cuid())
-  slug             String            @unique
-  title            String
-  summary          String            @default("")
-  bodyMd           String            @db.Text
-  status           HelpArticleStatus @default(DRAFT)
-  locale           String            @default("id")
-  modules          String[]          // sales | warehouse | production | finance | hrd | purchasing | access | global
-  tags             String[]
-  errorCodes       String[]          // e.g. STOCK_INSUFFICIENT, PERMISSION_DENIED
-  source           HelpArticleSource @default(SEED)
-  version          Int               @default(1)
-  publishedAt      DateTime?
-  createdBy        String?
-  updatedBy        String?
-  helpfulCount     Int               @default(0)
-  notHelpfulCount  Int               @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id              String            @id @default(cuid())
+  slug            String            @unique
+  title           String
+  summary         String            @default("")
+  bodyMd          String            @db.Text
+  status          HelpArticleStatus @default(DRAFT)
+  locale          String            @default("id")
+  modules         String[] // sales | warehouse | production | finance | hrd | purchasing | access | global
+  tags            String[]
+  errorCodes      String[] // e.g. STOCK_INSUFFICIENT, PERMISSION_DENIED
+  source          HelpArticleSource @default(SEED)
+  version         Int               @default(1)
+  publishedAt     DateTime?
+  createdBy       String?
+  updatedBy       String?
+  helpfulCount    Int               @default(0)
+  notHelpfulCount Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@index([status, createdAt])
   @@index([slug])
@@ -3175,42 +3294,42 @@ enum HelpLearningStatus {
 }
 
 model HelpQuestionCluster {
-  id                String             @id @default(cuid())
+  id                String            @id @default(cuid())
   canonicalQuestion String
-  normalizedKey     String             @unique // normalized canonical for dedup
-  hitCount          Int                @default(1)
-  suggestedModule   String?            // sales | warehouse | ...
-  sampleQuestions   String[]           // redacted, max 5
-  status            HelpClusterStatus  @default(OPEN)
-  lastSeenAt        DateTime           @default(now())
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  normalizedKey     String            @unique // normalized canonical for dedup
+  hitCount          Int               @default(1)
+  suggestedModule   String? // sales | warehouse | ...
+  sampleQuestions   String[] // redacted, max 5
+  status            HelpClusterStatus @default(OPEN)
+  lastSeenAt        DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  drafts            HelpLearningDraft[]
+  drafts HelpLearningDraft[]
 
   @@index([status, hitCount])
   @@index([lastSeenAt])
 }
 
 model HelpLearningDraft {
-  id            String              @id @default(cuid())
-  clusterId     String?
-  articleId     String?             // if editing existing article
-  draftTitle    String
-  draftBodyMd   String              @db.Text
-  summary       String              @default("")
-  modules       String[]            @default([])
-  tags          String[]            @default([])
-  status        HelpLearningStatus  @default(PENDING_REVIEW)
-  sourceSampleCount Int             @default(0)
-  modelMeta     String?             @db.Text // JSON: model name, prompt version
-  reviewedBy    String?
-  reviewNote    String?             @db.Text
-  reviewedAt    DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id                String             @id @default(cuid())
+  clusterId         String?
+  articleId         String? // if editing existing article
+  draftTitle        String
+  draftBodyMd       String             @db.Text
+  summary           String             @default("")
+  modules           String[]           @default([])
+  tags              String[]           @default([])
+  status            HelpLearningStatus @default(PENDING_REVIEW)
+  sourceSampleCount Int                @default(0)
+  modelMeta         String?            @db.Text // JSON: model name, prompt version
+  reviewedBy        String?
+  reviewNote        String?            @db.Text
+  reviewedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  cluster       HelpQuestionCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+  cluster HelpQuestionCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([clusterId])
@@ -3241,7 +3360,7 @@ model HelpConversation {
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 
-  messages      HelpMessage[]
+  messages       HelpMessage[]
   toolExecutions HelpToolExecution[]
 
   @@index([tenantId, userId, lastMessageAt(sort: Desc)])
@@ -3249,14 +3368,14 @@ model HelpConversation {
 }
 
 model HelpMessage {
-  id             String   @id @default(cuid())
+  id             String          @id @default(cuid())
   conversationId String
   role           HelpMessageRole
-  content        String   @db.Text
+  content        String          @db.Text
   evidenceJson   Json?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime        @default(now())
 
-  conversation   HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt(sort: Asc)])
 }
@@ -3273,7 +3392,7 @@ model HelpToolExecution {
   evidenceMetaJson   Json?
   createdAt          DateTime @default(now())
 
-  conversation       HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([toolName])
@@ -3299,24 +3418,24 @@ enum TenantKnowledgeSource {
 }
 
 model TenantKnowledgeArticle {
-  id               String                  @id @default(cuid())
+  id               String                     @id @default(cuid())
   tenantId         String
   slug             String
   title            String
-  summary          String                  @default("")
-  bodyMd           String                  @db.Text
-  status           TenantKnowledgeStatus   @default(DRAFT)
+  summary          String                     @default("")
+  bodyMd           String                     @db.Text
+  status           TenantKnowledgeStatus      @default(DRAFT)
   modules          String[]
   tags             String[]
   sensitivity      TenantKnowledgeSensitivity @default(INTERNAL)
   allowedResources String[]
-  source           TenantKnowledgeSource   @default(HUMAN)
-  version          Int                     @default(1)
+  source           TenantKnowledgeSource      @default(HUMAN)
+  version          Int                        @default(1)
   publishedAt      DateTime?
   createdBy        String?
   updatedBy        String?
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
 
   @@unique([tenantId, slug])
   @@index([tenantId, status, updatedAt(sort: Desc)])
@@ -3336,17 +3455,17 @@ model TenantAlias {
 // ─── Super Admin Usage Analytics ─────────────────────────
 
 model UsageEvent {
-  id          String   @id @default(uuid())
-  occurredAt  DateTime @default(now())
-  tenantId    String
-  userId      String
-  featureKey  String
-  moduleKey   String
-  eventType   String   @default("FEATURE_VIEW")
-  source      String   @default("WEB")
-  sessionId   String
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  occurredAt DateTime @default(now())
+  tenantId   String
+  userId     String
+  featureKey String
+  moduleKey  String
+  eventType  String   @default("FEATURE_VIEW")
+  source     String   @default("WEB")
+  sessionId  String
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
   @@index([occurredAt])
   @@index([featureKey, occurredAt])
@@ -3376,29 +3495,29 @@ enum DocumentType {
 }
 
 model WarehouseOperationalAttachment {
-  id                String                @id @default(uuid())
+  id                String               @id @default(uuid())
   deliveryOrderId   String?
   goodsReceiptId    String?
   purchaseOrderId   String?
   stockOpnameId     String?
   stockOpnameItemId String?
   checkpoint        AttachmentCheckpoint
-  documentType      DocumentType          @default(PHOTO)
-  storageKey        String                @db.Text
-  url               String                @db.Text
+  documentType      DocumentType         @default(PHOTO)
+  storageKey        String               @db.Text
+  url               String               @db.Text
   originalName      String?
   mimeType          String?
   sizeBytes         Int?
   note              String?
   uploadedById      String?
-  createdAt         DateTime              @default(now())
+  createdAt         DateTime             @default(now())
 
-  deliveryOrder     DeliveryOrder?        @relation("DeliveryAttachments", fields: [deliveryOrderId], references: [id], onDelete: Cascade)
-  goodsReceipt      GoodsReceipt?         @relation("GoodsReceiptAttachments", fields: [goodsReceiptId], references: [id], onDelete: Cascade)
-  purchaseOrder     PurchaseOrder?        @relation("PurchaseOrderAttachments", fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  stockOpname       StockOpname?          @relation("StockOpnameAttachments", fields: [stockOpnameId], references: [id], onDelete: Cascade)
-  stockOpnameItem   StockOpnameItem?      @relation("StockOpnameItemAttachments", fields: [stockOpnameItemId], references: [id], onDelete: Cascade)
-  uploadedBy        User?                 @relation("WarehouseAttachmentUploader", fields: [uploadedById], references: [id])
+  deliveryOrder   DeliveryOrder?   @relation("DeliveryAttachments", fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+  goodsReceipt    GoodsReceipt?    @relation("GoodsReceiptAttachments", fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrder   PurchaseOrder?   @relation("PurchaseOrderAttachments", fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  stockOpname     StockOpname?     @relation("StockOpnameAttachments", fields: [stockOpnameId], references: [id], onDelete: Cascade)
+  stockOpnameItem StockOpnameItem? @relation("StockOpnameItemAttachments", fields: [stockOpnameItemId], references: [id], onDelete: Cascade)
+  uploadedBy      User?            @relation("WarehouseAttachmentUploader", fields: [uploadedById], references: [id])
 
   @@index([deliveryOrderId])
   @@index([goodsReceiptId])
@@ -3451,18 +3570,18 @@ enum TelegramAuditAction {
 }
 
 model TelegramIdentity {
-  id             String                 @id @default(uuid())
-  telegramUserId String
-  telegramChatId String?
+  id               String                 @id @default(uuid())
+  telegramUserId   String
+  telegramChatId   String?
   telegramUsername String?
-  tenantId       String
-  userId         String
-  status         TelegramIdentityStatus @default(ACTIVE)
-  linkedAt       DateTime               @default(now())
-  revokedAt      DateTime?
-  lastActiveAt   DateTime?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+  tenantId         String
+  userId           String
+  status           TelegramIdentityStatus @default(ACTIVE)
+  linkedAt         DateTime               @default(now())
+  revokedAt        DateTime?
+  lastActiveAt     DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@unique([telegramUserId, tenantId])
   @@index([tenantId, userId])
@@ -3494,17 +3613,17 @@ model TelegramUpdateLog {
 }
 
 model TelegramNotificationPreference {
-  id                String   @id @default(uuid())
-  tenantId          String
-  userId            String
-  enabled           Boolean  @default(true)
-  criticalStock     Boolean  @default(true)
-  dailyDigest       Boolean  @default(true)
-  quietHoursStart   Int?
-  quietHoursEnd     Int?
-  timezone          String   @default("Asia/Jakarta")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(uuid())
+  tenantId        String
+  userId          String
+  enabled         Boolean  @default(true)
+  criticalStock   Boolean  @default(true)
+  dailyDigest     Boolean  @default(true)
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+  timezone        String   @default("Asia/Jakarta")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([tenantId, userId])
   @@index([tenantId])
@@ -3530,15 +3649,15 @@ model TelegramNotificationLog {
 }
 
 model TelegramMiniAppSession {
-  id              String   @id @default(uuid())
-  sessionTokenHash String  @unique
+  id                 String   @id @default(uuid())
+  sessionTokenHash   String   @unique
   telegramIdentityId String?
-  telegramUserId  String
-  tenantId        String
-  userId          String
-  expiresAt       DateTime
-  createdAt       DateTime @default(now())
-  lastActiveAt    DateTime @default(now())
+  telegramUserId     String
+  tenantId           String
+  userId             String
+  expiresAt          DateTime
+  createdAt          DateTime @default(now())
+  lastActiveAt       DateTime @default(now())
 
   @@index([telegramUserId])
   @@index([userId])
@@ -3547,8 +3666,8 @@ model TelegramMiniAppSession {
 }
 
 model TelegramAuditLog {
-  id                 String               @id @default(uuid())
-  createdAt          DateTime             @default(now())
+  id                 String              @id @default(uuid())
+  createdAt          DateTime            @default(now())
   action             TelegramAuditAction
   telegramUserIdHash String?
   userId             String?
@@ -3557,11 +3676,10 @@ model TelegramAuditLog {
   outcome            String
   latencyMs          Int?
   ip                 String?
-  userAgent          String?              @db.Text
+  userAgent          String?             @db.Text
   details            Json?
 
   @@index([tenantId, createdAt])
   @@index([action, createdAt])
   @@index([userId])
 }
-

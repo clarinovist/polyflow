@@ -2,8 +2,9 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
+import { getTargetsForPeriod } from '@/services/sales/target-service';
 
 export type SalesPerformanceRow = {
     period: string;
@@ -21,6 +22,13 @@ export type SalesPerformanceRow = {
     salesPerson: string;
 };
 
+export type SalesPerformanceReportTargetEntry = {
+    revenueTarget: number | null;
+    achievementPercent: number | null;
+    visitTarget: number | null;
+    visitAchievementPercent: number | null;
+};
+
 export type SalesPerformanceSummary = {
     totalRevenue: number;
     totalOrders: number;
@@ -28,7 +36,7 @@ export type SalesPerformanceSummary = {
     avgOrderValue: number;
     topCustomers: { name: string; revenue: number; orders: number }[];
     topProducts: { name: string; revenue: number; quantity: number }[];
-    bySalesperson: {
+    bySalesperson: ({
         userId: string;
         name: string;
         revenue: number;
@@ -36,7 +44,7 @@ export type SalesPerformanceSummary = {
         avgOrderValue: number;
         portfolioSize: number;
         visitCount: number;
-    }[];
+    } & SalesPerformanceReportTargetEntry)[];
 };
 
 export const getSalesPerformanceReport = withTenant(
@@ -46,7 +54,7 @@ export const getSalesPerformanceReport = withTenant(
         customerId?: string;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const where: Record<string, unknown> = {
                 status: { not: 'CANCELLED' },
@@ -230,19 +238,71 @@ export const getSalesPerformanceReport = withTenant(
                 }
             }
 
+            // ── target lookup: periode diambil dari startDate bulan,
+            // konsisten dengan pattern commission-service ──
+            const targetMap = new Map<
+                string,
+                {
+                    revenueTarget: number | null;
+                    achievementPercent: number | null;
+                    visitTarget: number | null;
+                    visitAchievementPercent: number | null;
+                }
+            >();
+
+            let resolvedYear: number | null = null;
+            let resolvedMonth: number | null = null;
+            if (filters?.startDate instanceof Date) {
+                resolvedYear = filters.startDate.getFullYear();
+                resolvedMonth = filters.startDate.getMonth() + 1;
+            }
+
+            if (resolvedYear != null && resolvedMonth != null) {
+                try {
+                    const targetRows = await getTargetsForPeriod(
+                        resolvedYear,
+                        resolvedMonth,
+                    );
+                    for (const tr of targetRows) {
+                        targetMap.set(tr.userId, {
+                            revenueTarget: tr.revenueTarget
+                                ? Number(tr.revenueTarget)
+                                : null,
+                            achievementPercent:
+                                tr.revenueAchievementPercent ?? null,
+                            visitTarget: tr.visitTarget ?? null,
+                            visitAchievementPercent:
+                                tr.visitAchievementPercent ?? null,
+                        });
+                    }
+                } catch {
+                    // Jangan gagalkan laporan performa kalau target-service error
+                }
+            }
+
             const bySalesperson = Array.from(salespersonMap.values())
-                .map((sp) => ({
-                    ...sp,
-                    avgOrderValue: sp.orders > 0 ? sp.revenue / sp.orders : 0,
-                    portfolioSize:
-                        sp.userId === '__unattributed__'
-                            ? 0
-                            : portfolioCounts[sp.userId] || 0,
-                    visitCount:
-                        sp.userId === '__unattributed__'
-                            ? 0
-                            : visitCounts[sp.userId] || 0,
-                }))
+                .map((sp) => {
+                    const tgt = targetMap.get(sp.userId) ?? {
+                        revenueTarget: null,
+                        achievementPercent: null,
+                        visitTarget: null,
+                        visitAchievementPercent: null,
+                    };
+                    return {
+                        ...sp,
+                        avgOrderValue:
+                            sp.orders > 0 ? sp.revenue / sp.orders : 0,
+                        portfolioSize:
+                            sp.userId === '__unattributed__'
+                                ? 0
+                                : portfolioCounts[sp.userId] || 0,
+                        visitCount:
+                            sp.userId === '__unattributed__'
+                                ? 0
+                                : visitCounts[sp.userId] || 0,
+                        ...tgt,
+                    };
+                })
                 .sort((a, b) => b.revenue - a.revenue);
 
             const summary: SalesPerformanceSummary = {

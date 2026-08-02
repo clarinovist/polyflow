@@ -2,11 +2,15 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requireSalesAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import { safeAction, NotFoundError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 import { revalidatePath } from 'next/cache';
 import { haversineDistance } from '@/lib/utils/geo';
+import { calculateComplianceRate } from '@/lib/sales/route-compliance';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -34,7 +38,7 @@ export const getRoutePlan = withTenant(async function getRoutePlan(
     userId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const plan = await prisma.salesRoutePlan.findUnique({
             where: {
@@ -73,7 +77,7 @@ export const getRoutePlan = withTenant(async function getRoutePlan(
 
 export const getTodayRoutePlan = withTenant(async function getTodayRoutePlan() {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const userId = session.user.id;
 
         const today = new Date();
@@ -116,7 +120,7 @@ export const listRoutePlans = withTenant(
         userId?: string;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const where: Record<string, unknown> = {};
             if (filters.startDate || filters.endDate) {
@@ -171,7 +175,7 @@ export const createRoutePlan = withTenant(async function createRoutePlan(
     data: CreateRoutePlanInput,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const userId = session.user.id;
 
         const plan = await prisma.salesRoutePlan.upsert({
@@ -242,7 +246,7 @@ export const publishRoutePlan = withTenant(async function publishRoutePlan(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const userId = session.user.id;
 
         const plan = await prisma.salesRoutePlan.findUnique({ where: { id } });
@@ -288,7 +292,7 @@ export const publishRoutePlan = withTenant(async function publishRoutePlan(
 export const updateRoutePlanItems = withTenant(
     async function updateRoutePlanItems(data: UpdateRoutePlanInput) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const userId = session.user.id;
 
             const plan = await prisma.salesRoutePlan.findUnique({
@@ -348,7 +352,7 @@ export const deleteRoutePlan = withTenant(async function deleteRoutePlan(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesApprover();
         const userId = session.user.id;
 
         const plan = await prisma.salesRoutePlan.findUnique({ where: { id } });
@@ -377,7 +381,7 @@ export const copyLastWeekRoute = withTenant(async function copyLastWeekRoute(
     userId: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const actorId = session.user.id;
 
         const targetDate = new Date(date);
@@ -462,7 +466,7 @@ export const importRouteExcel = withTenant(
         customerCodes: string[];
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const userId = session.user.id;
 
             const customers = await prisma.customer.findMany({
@@ -557,7 +561,7 @@ export const importRouteExcel = withTenant(
 export const optimizeRouteNearestNeighbor = withTenant(
     async function optimizeRouteNearestNeighbor(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const plan = await prisma.salesRoutePlan.findUnique({
                 where: { id },
@@ -581,13 +585,11 @@ export const optimizeRouteNearestNeighbor = withTenant(
             const allItems = plan.items;
             const withGps = allItems.filter(
                 (i) =>
-                    i.customer.latitude != null &&
-                    i.customer.longitude != null,
+                    i.customer.latitude != null && i.customer.longitude != null,
             );
             const withoutGps = allItems.filter(
                 (i) =>
-                    i.customer.latitude == null ||
-                    i.customer.longitude == null,
+                    i.customer.latitude == null || i.customer.longitude == null,
             );
 
             if (withGps.length <= 1) {
@@ -663,7 +665,7 @@ export const optimizeRouteNearestNeighbor = withTenant(
 export const getRouteComplianceStats = withTenant(
     async function getRouteComplianceStats(date: string, userId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const planDate = new Date(date);
             const plan = await prisma.salesRoutePlan.findUnique({
@@ -690,10 +692,11 @@ export const getRouteComplianceStats = withTenant(
                 assigned,
                 visited,
                 extraCalls,
-                compliance:
-                    assigned > 0
-                        ? Math.round(((visited - extraCalls) / assigned) * 100)
-                        : 0,
+                compliance: calculateComplianceRate({
+                    assigned,
+                    visited,
+                    extraCalls,
+                }),
             };
         });
     },
@@ -707,7 +710,7 @@ export const copyRouteFromDate = withTenant(async function copyRouteFromDate(
     userId: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const actorId = session.user.id;
 
         const sourceDate = new Date(fromDate);
@@ -787,7 +790,7 @@ export const copyRouteFromDate = withTenant(async function copyRouteFromDate(
 export const listRecentRouteDates = withTenant(
     async function listRecentRouteDates(userId?: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const where: Record<string, unknown> = {};
             if (userId) where.userId = userId;
@@ -829,7 +832,7 @@ export const getServerVisits = withTenant(async function getServerVisits(
     date?: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const userId = session.user.id;
 
         const where: Record<string, unknown> = { userId };
@@ -862,6 +865,7 @@ export const getServerVisits = withTenant(async function getServerVisits(
             synced: true,
             isExtraCall: v.isExtraCall,
             extraReason: v.extraReason,
+            reviewStatus: v.reviewStatus,
         }));
     });
 });

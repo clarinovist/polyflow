@@ -32,6 +32,10 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
         children: [
             { key: '/sales/mobile', label: 'Mode Mobile (Legacy)' },
             { key: '/field/sales', label: 'Sales Field Mobile' },
+            // /sales/quotations adalah redirect ke /sales/orders?status=QUOTATION.
+            // Grant tanpa /sales/orders akan berujung redirect-loop-ish
+            // (guard /sales/orders menolak). Selalu grant bareng /sales/orders.
+            { key: '/sales/quotations', label: 'Penawaran' },
             { key: '/sales/orders', label: 'Sales Order' },
             { key: '/sales/routes', label: 'Rute Harian' },
             { key: '/sales/invoices', label: 'Invoice & Piutang' },
@@ -40,6 +44,11 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/sales/deliveries', label: 'Surat Jalan' },
             { key: '/sales/vehicles', label: 'Armada' },
             { key: '/sales/customers', label: 'Pelanggan' },
+            { key: '/sales/price-list', label: 'Price List' },
+            { key: '/sales/team', label: 'Daftar Sales' },
+            { key: '/sales/targets', label: 'Target Sales' },
+            { key: '/sales/visits', label: 'Kunjungan' },
+            { key: '/sales/prospects', label: 'Prospek' },
             {
                 key: '/sales/reports/shipping-cost',
                 label: 'Laporan Biaya Kirim',
@@ -48,6 +57,11 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                 key: '/sales/reports/sales-performance',
                 label: 'Performa Penjualan',
             },
+            {
+                key: '/sales/reports/commission',
+                label: 'Laporan Komisi',
+            },
+            { key: '/sales/collection', label: 'Penagihan' },
         ],
     },
     {

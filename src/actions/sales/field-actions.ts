@@ -2,7 +2,7 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import { SalesOrderStatus } from '@prisma/client';
@@ -20,7 +20,7 @@ import {
 export const getMyFieldCustomers = withTenant(
     async function getMyFieldCustomers() {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
             const where = scopedCustomerWhere(scope);
 
@@ -38,7 +38,7 @@ export const getMyFieldCustomers = withTenant(
 export const searchFieldCustomers = withTenant(
     async function searchFieldCustomers(query: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
             if (query.length < 2) return [];
 
@@ -78,7 +78,7 @@ export const searchFieldCustomers = withTenant(
 export const getMyFieldSalesOrders = withTenant(
     async function getMyFieldSalesOrders() {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
             const where = scopedSalesOrderWhere(scope);
 
@@ -104,7 +104,7 @@ export const getMyFieldSalesOrders = withTenant(
 export const getFieldSalesOrderById = withTenant(
     async function getFieldSalesOrderById(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
             await assertCanAccessFieldOrder(scope, id);
 
@@ -152,7 +152,7 @@ export const getFieldSalesOrderById = withTenant(
 export const getMyFieldPipelineStats = withTenant(
     async function getMyFieldPipelineStats() {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
             const where = scopedSalesOrderWhere(scope);
 
@@ -233,12 +233,23 @@ export const getMyFieldPipelineStats = withTenant(
     },
 );
 
-// ── My scoped receivables ─────────────────────────────────────────
+// ── My scoped receivables (enriched) ─────────────────────────────────
+// Non-breaking: keeps all existing fields via spread, adds daysOverdue + lastPromise.
+// Batch query for PROMISE_TO_PAY latest per invoice (no N+1).
+
+function calcDaysOverdue(
+    dueDate: Date | null | undefined,
+    invoiceDate: Date,
+): number {
+    const base = dueDate ?? invoiceDate;
+    const msPerDay = 1000 * 3600 * 24;
+    return Math.floor((Date.now() - new Date(base).getTime()) / msPerDay);
+}
 
 export const getMyFieldReceivables = withTenant(
     async function getMyFieldReceivables() {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
             const where = scopedInvoiceWhere(scope);
 
@@ -255,7 +266,50 @@ export const getMyFieldReceivables = withTenant(
                 orderBy: { dueDate: 'asc' },
             });
 
-            return serializeData(invoices);
+            if (invoices.length === 0) return serializeData(invoices);
+
+            const invoiceIds = invoices.map((i: { id: string }) => i.id);
+
+            // Single batch query for latest PROMISE_TO_PAY per invoice (no N+1)
+            const lastPromiseByInvoice = new Map<string, unknown>();
+            try {
+                const promises = await prisma.collectionActivity.findMany({
+                    where: {
+                        invoiceId: { in: invoiceIds },
+                        type: 'PROMISE_TO_PAY',
+                    },
+                    orderBy: { activityDate: 'desc' },
+                });
+                // Keep first (latest) per invoice since ordered desc
+                for (const p of promises) {
+                    if (
+                        !lastPromiseByInvoice.has(
+                            (p as { invoiceId: string }).invoiceId,
+                        )
+                    ) {
+                        lastPromiseByInvoice.set(
+                            (p as { invoiceId: string }).invoiceId,
+                            p,
+                        );
+                    }
+                }
+            } catch {
+                // collectionActivity table may be missing in older env — keep empty map
+            }
+
+            const enriched = invoices.map(
+                (inv: {
+                    id: string;
+                    dueDate: Date | null;
+                    invoiceDate: Date;
+                }) => ({
+                    ...inv,
+                    daysOverdue: calcDaysOverdue(inv.dueDate, inv.invoiceDate),
+                    lastPromise: lastPromiseByInvoice.get(inv.id) ?? null,
+                }),
+            );
+
+            return serializeData(enriched as unknown as typeof invoices);
         });
     },
 );
@@ -265,7 +319,7 @@ export const getMyFieldReceivables = withTenant(
 export const getMyFieldComplianceStats = withTenant(
     async function getMyFieldComplianceStats() {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
 
             const today = new Date();
@@ -310,7 +364,7 @@ export const getMyFieldComplianceStats = withTenant(
 export const getFieldCustomerById = withTenant(
     async function getFieldCustomerById(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
             await assertCanAccessFieldCustomer(scope, id);
 

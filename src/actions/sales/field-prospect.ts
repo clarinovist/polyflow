@@ -1,15 +1,19 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requireSalesAccess,
+    requireSalesManager,
+} from '@/lib/auth/sales-access';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import {
     checkCustomerDuplicate,
     createProspectWithAssignment,
     verifyProspect,
+    listProspects,
+    rejectProspect,
 } from '@/services/sales/field-prospect-service';
-import { hasAnyRole } from '@/lib/auth/roles';
 
 // ── Check duplicate ──────────────────────────────────────────────
 
@@ -21,7 +25,7 @@ export const checkCustomerDuplicateAction = withTenant(
         longitude?: number;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             const result = await checkCustomerDuplicate(
                 data.name,
                 data.phone,
@@ -46,7 +50,7 @@ export const createProspectAction = withTenant(
         photoUrl?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             if (!data.name || data.name.trim().length < 2) {
                 throw new BusinessRuleError('Nama toko minimal 2 karakter');
@@ -66,19 +70,44 @@ export const createProspectAction = withTenant(
     },
 );
 
+// ── List prospects (supervisor queue) ────────────────────────────
+
+export const listProspectsAction = withTenant(
+    async function listProspectsAction(filters?: {
+        page?: number;
+        pageSize?: number;
+    }) {
+        return safeAction(async () => {
+            await requireSalesAccess();
+            const result = await listProspects(
+                filters?.page,
+                filters?.pageSize,
+            );
+            return serializeData(result);
+        });
+    },
+);
+
 // ── Verify prospect (back-office) ────────────────────────────────
 
 export const verifyProspectAction = withTenant(
     async function verifyProspectAction(customerId: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {
-                throw new BusinessRuleError(
-                    'Hanya admin atau marketing yang dapat memverifikasi prospect',
-                );
-            }
+            const session = await requireSalesManager();
 
             const result = await verifyProspect(customerId, session.user.id);
+            return serializeData(result);
+        });
+    },
+);
+
+// ── Reject prospect (set INACTIVE) ───────────────────────────────
+
+export const rejectProspectAction = withTenant(
+    async function rejectProspectAction(customerId: string) {
+        return safeAction(async () => {
+            const session = await requireSalesManager();
+            const result = await rejectProspect(customerId, session.user.id);
             return serializeData(result);
         });
     },
