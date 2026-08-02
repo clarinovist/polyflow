@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { Decimal } from '@prisma/client/runtime/library';
 import { NotFoundError } from '@/lib/errors/errors';
+import { getInitialReviewStatus } from '@/lib/sales/route-compliance';
 
 type StartVisitInput = {
     userId: string;
@@ -214,6 +215,11 @@ export async function syncVisitLogs(
                 continue;
             }
 
+            const initialReviewStatus = getInitialReviewStatus({
+                isExtraCall: log.isExtraCall ?? false,
+                extraReason: log.extraReason,
+            });
+
             const visit = await prisma.salesVisit.create({
                 data: {
                     customerId: log.customerId,
@@ -236,6 +242,7 @@ export async function syncVisitLogs(
                               | 'TOKO_TUTUP_GANTI')
                         : undefined,
                     routePlanItemId: log.routePlanItemId || undefined,
+                    reviewStatus: initialReviewStatus,
                 },
             });
 

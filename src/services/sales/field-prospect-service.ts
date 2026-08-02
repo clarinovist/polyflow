@@ -201,3 +201,65 @@ export async function verifyProspect(customerId: string, verifiedById: string) {
         return updated;
     });
 }
+
+/**
+ * Lists prospect customers (lifecycleStatus = PROSPECT).
+ */
+export async function listProspects(page: number = 1, pageSize: number = 50) {
+    const p = Math.max(1, page);
+    const ps = Math.min(200, Math.max(1, pageSize));
+    const skip = (p - 1) * ps;
+
+    const where = { lifecycleStatus: 'PROSPECT' as const };
+
+    const [customers, total] = await Promise.all([
+        prisma.customer.findMany({
+            where: where as never,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: ps,
+        }),
+        prisma.customer.count({ where: where as never }),
+    ]);
+
+    return {
+        customers,
+        total,
+        page: p,
+        pageSize: ps,
+        totalPages: Math.ceil(total / ps),
+    };
+}
+
+/**
+ * Rejects a prospect: set lifecycleStatus = INACTIVE (no REJECTED in enum).
+ */
+export async function rejectProspect(customerId: string, rejectedById: string) {
+    return prisma.$transaction(async (tx) => {
+        const customer = await tx.customer.findUnique({
+            where: { id: customerId },
+        });
+        if (!customer || customer.lifecycleStatus !== 'PROSPECT') {
+            throw new BusinessRuleError(
+                'Customer bukan prospect atau tidak ditemukan',
+            );
+        }
+
+        const updated = await tx.customer.update({
+            where: { id: customerId },
+            data: {
+                lifecycleStatus: 'INACTIVE',
+            },
+        });
+
+        await logActivity({
+            userId: rejectedById,
+            action: 'CUSTOMER_PROSPECT_REJECTED',
+            entityType: 'Customer',
+            entityId: customerId,
+            details: `Prospek "${customer.name}" ditolak`,
+        });
+
+        return updated;
+    });
+}

@@ -32,6 +32,7 @@ type VisitLog = {
     synced?: boolean;
     isExtraCall?: boolean;
     extraReason?: string | null;
+    reviewStatus?: string | null;
 };
 
 const EC_REASON_LABELS: Record<string, string> = {
@@ -39,6 +40,26 @@ const EC_REASON_LABELS: Record<string, string> = {
     DEKAT_RUTE: 'Dekat Rute',
     PERMINTAAN_DADAKAN: 'Permintaan Dadakan',
     TOKO_TUTUP_GASI: 'Toko Tutup Ganti',
+    TOKO_TUTUP_GANTI: 'Toko Tutup Ganti',
+};
+
+const REVIEW_BADGE: Record<string, { label: string; className: string }> = {
+    PENDING: {
+        label: 'Pending',
+        className: 'bg-amber-100 text-amber-800 border-amber-200',
+    },
+    APPROVED: {
+        label: 'Approved',
+        className: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    },
+    REJECTED: {
+        label: 'Rejected',
+        className: 'bg-red-100 text-red-800 border-red-200',
+    },
+    NOT_REQUIRED: {
+        label: 'Tidak perlu review',
+        className: 'bg-gray-100 text-gray-600 border-gray-200',
+    },
 };
 
 export default function SalesMobileVisitsHistoryPage() {
@@ -219,11 +240,19 @@ export default function SalesMobileVisitsHistoryPage() {
                                             {format(date, 'dd MMM yyyy, HH:mm')}
                                         </span>
                                     </div>
-                                    <div className="flex gap-1.5 shrink-0">
+                                    <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
                                         {isEC && (
                                             <Badge className="font-bold border shrink-0 text-[10px] bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-100">
                                                 <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />
                                                 EC
+                                            </Badge>
+                                        )}
+                                        {isEC && log.reviewStatus && (
+                                            <Badge
+                                                className={`font-bold border shrink-0 text-[10px] ${REVIEW_BADGE[log.reviewStatus]?.className ?? 'bg-gray-100 text-gray-600'}`}
+                                            >
+                                                {REVIEW_BADGE[log.reviewStatus]
+                                                    ?.label ?? log.reviewStatus}
                                             </Badge>
                                         )}
                                         <Badge
