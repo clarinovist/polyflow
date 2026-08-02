@@ -17,6 +17,7 @@ import {
     TrendingUp,
     CreditCard,
     Package,
+    Clock,
 } from 'lucide-react';
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -56,6 +57,7 @@ export default async function SalesCommandBoardPage(props: {
                       openDeliveries: [],
                       overdueInvoices: [],
                       creditRisk: [],
+                      followUpsDue: [],
                   },
                   performance: {
                       totalRevenue: 0,
@@ -414,12 +416,67 @@ export default async function SalesCommandBoardPage(props: {
                     </Card>
                 )}
 
+                {/* Follow-up Hari Ini / Terlewat */}
+                {attention.followUpsDue.length > 0 && (
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                Follow-up Hari Ini / Terlewat (
+                                {attention.followUpsDue.length})
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {attention.followUpsDue.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="flex items-center justify-between text-sm gap-2"
+                                >
+                                    <div className="min-w-0">
+                                        <Link
+                                            href={`/sales/orders/${item.id}`}
+                                            className="font-medium hover:underline truncate block"
+                                        >
+                                            {item.orderNumber}
+                                        </Link>
+                                        <p className="text-xs text-muted-foreground truncate">
+                                            {item.customerName}
+                                            {item.nextFollowUpDate
+                                                ? ` · ${new Date(item.nextFollowUpDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                                                : ''}
+                                        </p>
+                                    </div>
+                                    <Badge
+                                        variant={
+                                            item.isOverdue
+                                                ? 'destructive'
+                                                : 'outline'
+                                        }
+                                        className="shrink-0 ml-2"
+                                    >
+                                        {item.isOverdue
+                                            ? 'Terlambat'
+                                            : 'Hari ini'}
+                                    </Badge>
+                                </div>
+                            ))}
+                            <Link
+                                href="/sales/orders?status=QUOTATION,QUOTATION_SENT&followUpDue=1"
+                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
+                            >
+                                Lihat semua <ArrowRight className="h-3 w-3" />
+                            </Link>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Empty state when no attention items */}
                 {attention.oldDrafts.length === 0 &&
                     attention.readyWithoutDo.length === 0 &&
                     attention.openDeliveries.length === 0 &&
                     attention.overdueInvoices.length === 0 &&
-                    attention.creditRisk.length === 0 && (
+                    attention.creditRisk.length === 0 &&
+                    attention.followUpsDue.length === 0 && (
                         <Card className="md:col-span-2 lg:col-span-3">
                             <CardContent className="py-8 text-center text-muted-foreground">
                                 <p>

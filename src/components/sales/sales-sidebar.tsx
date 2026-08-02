@@ -20,6 +20,7 @@ import {
     Wallet,
     Tag,
     HandCoins,
+    Kanban,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -155,6 +156,21 @@ export const salesLinks = [
     {
         heading: 'Laporan',
         items: [
+            {
+                href: '/sales/pipeline',
+                icon: Kanban,
+                label: 'Pipeline Penawaran',
+            },
+            {
+                href: '/sales/reports/margin',
+                icon: BarChart3,
+                label: 'Laporan Margin',
+            },
+            {
+                href: '/sales/reports/customer-activity',
+                icon: Users2,
+                label: 'Aktivitas Customer',
+            },
             {
                 href: '/sales/reports/sales-performance',
                 icon: BarChart3,

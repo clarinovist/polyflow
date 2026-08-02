@@ -151,11 +151,19 @@ export type SerializedProductionOrder = Omit<
 
 export type SerializedSalesOrder = Omit<
     SalesOrder,
-    'totalAmount' | 'orderDate' | 'expectedDate' | 'createdAt' | 'updatedAt'
+    | 'totalAmount'
+    | 'orderDate'
+    | 'expectedDate'
+    | 'nextFollowUpDate'
+    | 'createdAt'
+    | 'updatedAt'
 > & {
     totalAmount: number | null;
     orderDate: Date | string;
     expectedDate: Date | string | null;
+    nextFollowUpDate?: Date | string | null;
+    lostReason?: string | null;
+    lostReasonNotes?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     // Fase B: priceStatus surfacing — explicit for client safety

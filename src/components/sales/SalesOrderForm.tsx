@@ -259,6 +259,7 @@ export function SalesOrderForm({
         orderType?: SalesOrderType; // Optional in form state logic, handled by schema defaults
         notes?: string;
         shippingCost?: number;
+        nextFollowUpDate?: Date | null;
         items: {
             id?: string;
             productVariantId: string;
@@ -1442,6 +1443,70 @@ export function SalesOrderForm({
                             </FormItem>
                         )}
                     />
+
+                    {documentIntent === 'quotation' && (
+                        <FormField
+                            control={form.control}
+                            name="nextFollowUpDate"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Jadwal Follow-up</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    className={cn(
+                                                        'w-full pl-3 text-left font-normal',
+                                                        !field.value &&
+                                                            'text-muted-foreground',
+                                                    )}
+                                                >
+                                                    {field.value ? (
+                                                        format(
+                                                            field.value as Date,
+                                                            'PPP',
+                                                        )
+                                                    ) : (
+                                                        <span>
+                                                            Pilih tanggal
+                                                            follow-up
+                                                        </span>
+                                                    )}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                            className="w-auto p-0"
+                                            align="start"
+                                        >
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value as Date}
+                                                onSelect={field.onChange}
+                                                disabled={(date) =>
+                                                    date <
+                                                    new Date('1900-01-01')
+                                                }
+                                                captionLayout="dropdown"
+                                                fromYear={2000}
+                                                toYear={
+                                                    new Date().getFullYear() + 5
+                                                }
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormDescription>
+                                        Kapan harus hubungi customer lagi.
+                                        Opsional.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
 
                     {/* Sales Rep */}
                     <FormField

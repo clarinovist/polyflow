@@ -63,6 +63,22 @@ export const getSalesDashboardStats = withTenant(
                 prisma.customer.count({ where: { isActive: true } }),
             ]);
 
+            // 3f. Follow-ups due today or overdue (quotation phase only) — top 5
+            const followUpsDueRaw = await prisma.salesOrder.findMany({
+                take: 5,
+                where: {
+                    status: { in: ['QUOTATION', 'QUOTATION_SENT'] },
+                    nextFollowUpDate: { not: null, lte: todayEnd },
+                },
+                orderBy: { nextFollowUpDate: 'asc' },
+                select: {
+                    id: true,
+                    orderNumber: true,
+                    nextFollowUpDate: true,
+                    customer: { select: { name: true } },
+                },
+            });
+
             // Overdue amount sum
             const overdueAgg = await prisma.invoice.aggregate({
                 where: {
@@ -275,6 +291,17 @@ export const getSalesDashboardStats = withTenant(
                             inv.salesOrderId ?? inv.salesOrder?.id ?? null,
                     })),
                     creditRisk: creditRiskList,
+                    followUpsDue: followUpsDueRaw.map((o) => ({
+                        id: o.id,
+                        orderNumber: o.orderNumber,
+                        customerName: o.customer?.name ?? '-',
+                        nextFollowUpDate:
+                            o.nextFollowUpDate?.toISOString() ?? '',
+                        isOverdue:
+                            o.nextFollowUpDate != null &&
+                            new Date(o.nextFollowUpDate).getTime() <
+                                todayStart.getTime(),
+                    })),
                 },
                 performance: {
                     totalRevenue: analytics.totalRevenue,

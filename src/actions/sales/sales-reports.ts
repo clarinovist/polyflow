@@ -29,6 +29,13 @@ export type SalesPerformanceReportTargetEntry = {
     visitAchievementPercent: number | null;
 };
 
+export type ProductMixByRegion = {
+    region: string;
+    productName: string;
+    quantity: number;
+    revenue: number;
+};
+
 export type SalesPerformanceSummary = {
     totalRevenue: number;
     totalOrders: number;
@@ -45,6 +52,7 @@ export type SalesPerformanceSummary = {
         portfolioSize: number;
         visitCount: number;
     } & SalesPerformanceReportTargetEntry)[];
+    productMixByRegion: ProductMixByRegion[];
 };
 
 export const getSalesPerformanceReport = withTenant(
@@ -74,7 +82,7 @@ export const getSalesPerformanceReport = withTenant(
             const orders = await prisma.salesOrder.findMany({
                 where,
                 include: {
-                    customer: { select: { name: true } },
+                    customer: { select: { name: true, city: true, province: true } },
                     salesRep: { select: { id: true, name: true } },
                     items: {
                         include: {
@@ -168,6 +176,44 @@ export const getSalesPerformanceReport = withTenant(
             const topProducts = Array.from(productMap.values())
                 .sort((a, b) => b.revenue - a.revenue)
                 .slice(0, 10);
+
+            // ── productMixByRegion aggregation ──
+            type RegionProductAcc = {
+                quantity: number;
+                revenue: number;
+            };
+            const regionProductMap = new Map<string, RegionProductAcc>();
+            for (const order of orders) {
+                const region =
+                    order.customer?.city ||
+                    order.customer?.province ||
+                    'Tidak diketahui';
+                for (const item of order.items) {
+                    const productName =
+                        item.productVariant?.product?.name ||
+                        item.productVariant?.name ||
+                        '-';
+                    const key = `${region}::${productName}`;
+                    const existing = regionProductMap.get(key);
+                    if (existing) {
+                        existing.quantity += Number(item.quantity);
+                        existing.revenue += Number(item.subtotal);
+                    } else {
+                        regionProductMap.set(key, {
+                            quantity: Number(item.quantity),
+                            revenue: Number(item.subtotal),
+                        });
+                    }
+                }
+            }
+            const productMixByRegion: ProductMixByRegion[] = Array.from(
+                regionProductMap.entries(),
+            )
+                .map(([key, agg]) => {
+                    const [region, productName] = key.split('::');
+                    return { region, productName, ...agg };
+                })
+                .sort((a, b) => b.revenue - a.revenue);
 
             // ── bySalesperson aggregation ──
             const salespersonMap = new Map<
@@ -314,6 +360,7 @@ export const getSalesPerformanceReport = withTenant(
                 topCustomers,
                 topProducts,
                 bySalesperson,
+                productMixByRegion,
             };
 
             return { rows, summary };

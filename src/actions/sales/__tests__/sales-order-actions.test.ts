@@ -489,20 +489,43 @@ describe('sales order actions', () => {
             expect(acceptQuotation).toHaveBeenCalledWith('so-1', 'user-1');
         });
 
-        it('forwards the rejection reason', async () => {
+        it('forwards the rejection reason as enum', async () => {
             // Arrange
             vi.mocked(rejectQuotation).mockResolvedValue({
                 id: 'so-1',
             } as never);
 
             // Act
-            await rejectQuotationOrder('so-1', 'harga terlalu tinggi');
+            await rejectQuotationOrder('so-1', 'HARGA_TERLALU_TINGGI' as never);
 
             // Assert
             expect(rejectQuotation).toHaveBeenCalledWith(
                 'so-1',
                 'user-1',
-                'harga terlalu tinggi',
+                'HARGA_TERLALU_TINGGI',
+                undefined,
+            );
+        });
+
+        it('forwards notes for LAINNYA', async () => {
+            // Arrange
+            vi.mocked(rejectQuotation).mockResolvedValue({
+                id: 'so-1',
+            } as never);
+
+            // Act
+            await rejectQuotationOrder(
+                'so-1',
+                'LAINNYA' as never,
+                'custom reason detail',
+            );
+
+            // Assert
+            expect(rejectQuotation).toHaveBeenCalledWith(
+                'so-1',
+                'user-1',
+                'LAINNYA',
+                'custom reason detail',
             );
         });
 

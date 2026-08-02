@@ -359,6 +359,51 @@ export const getMyFieldComplianceStats = withTenant(
     },
 );
 
+// ── My follow-ups today (quotation phase, scoped) ─────────────────
+export const getMyFollowUpsToday = withTenant(
+    async function getMyFollowUpsToday() {
+        return safeAction(async () => {
+            const session = await requireSalesAccess();
+            const scope = getFieldSalesScope(session);
+            const baseWhere = scopedSalesOrderWhere(scope);
+
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+
+            const orders = await prisma.salesOrder.findMany({
+                where: {
+                    ...baseWhere,
+                    customerId: { not: null },
+                    status: {
+                        in: [
+                            SalesOrderStatus.QUOTATION,
+                            SalesOrderStatus.QUOTATION_SENT,
+                        ],
+                    },
+                    nextFollowUpDate: { not: null, lte: todayEnd },
+                },
+                include: {
+                    customer: { select: { name: true } },
+                },
+                orderBy: { nextFollowUpDate: 'asc' },
+                take: 10,
+            });
+
+            return serializeData(
+                orders.map((o) => ({
+                    id: o.id,
+                    orderNumber: o.orderNumber,
+                    customerName: o.customer?.name ?? '-',
+                    nextFollowUpDate: o.nextFollowUpDate!.toISOString(),
+                    isOverdue:
+                        o.nextFollowUpDate!.getTime() <
+                        new Date(new Date().setHours(0, 0, 0, 0)).getTime(),
+                })),
+            );
+        });
+    },
+);
+
 // ── Scoped customer by ID (for detail page) ───────────────────────
 
 export const getFieldCustomerById = withTenant(

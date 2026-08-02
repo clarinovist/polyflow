@@ -88,6 +88,7 @@ export default async function SalesPage({
         fulfill?: string;
         payment?: string;
         customer?: string;
+        followUpDue?: string;
     }>;
 }) {
     const params = await searchParams;
@@ -141,6 +142,9 @@ export default async function SalesPage({
             | 'outstanding'
             | 'paid'
             | 'no_invoice';
+    }
+    if (params?.followUpDue === '1') {
+        extraFilters.followUpDue = true;
     }
 
     // Archive: default all-time unless user sets dates

@@ -225,3 +225,26 @@ export const FOLLOW_UP_STATUSES: readonly SalesOrderStatus[] = [
 export function needsFollowUp(status: SalesOrderStatus): boolean {
     return (FOLLOW_UP_STATUSES as readonly SalesOrderStatus[]).includes(status);
 }
+
+// ── Lost reason (Fase B) ────────────────────────────────────────────
+
+export const SALES_LOST_REASON_LABELS: Record<string, string> = {
+    HARGA_TERLALU_TINGGI: 'Harga terlalu tinggi',
+    STOK_TIDAK_TERSEDIA: 'Stok tidak tersedia',
+    WAKTU_KIRIM: 'Waktu kirim tidak sesuai',
+    PINDAH_KOMPETITOR: 'Pindah ke kompetitor',
+    BATAL_KEBUTUHAN: 'Batal kebutuhan',
+    LAINNYA: 'Lainnya',
+} as const;
+
+export const SALES_LOST_REASONS = Object.keys(
+    SALES_LOST_REASON_LABELS,
+) as readonly string[];
+
+export const SALES_LOST_REASON_OPTIONS = (
+    Object.entries(SALES_LOST_REASON_LABELS) as [string, string][]
+).map(([value, label]) => ({ value, label }));
+
+export function isValidLostReason(value: unknown): boolean {
+    return typeof value === 'string' && value in SALES_LOST_REASON_LABELS;
+}

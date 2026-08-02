@@ -258,6 +258,30 @@ const salesNavItems: NavItem[] = [
         section: 'pelaporan',
         owner: 'sales',
     },
+    {
+        id: 'sales-pipeline',
+        label: 'Pipeline Penawaran',
+        href: '/sales/pipeline',
+        workspace: 'sales',
+        section: 'pelaporan',
+        owner: 'sales',
+    },
+    {
+        id: 'sales-margin-report',
+        label: 'Laporan Margin',
+        href: '/sales/reports/margin',
+        workspace: 'sales',
+        section: 'pelaporan',
+        owner: 'sales',
+    },
+    {
+        id: 'sales-customer-activity-report',
+        label: 'Aktivitas Customer',
+        href: '/sales/reports/customer-activity',
+        workspace: 'sales',
+        section: 'pelaporan',
+        owner: 'sales',
+    },
 ];
 
 /**

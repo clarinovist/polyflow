@@ -1136,6 +1136,8 @@ model SalesOrder {
   quotationSentAt        DateTime?
   legacyQuotationId      String?                 @unique
   nextFollowUpDate       DateTime?
+  lostReason             SalesLostReason?
+  lostReasonNotes        String?
   entrySource            OrderEntrySource        @default(STANDARD)
   sourceReference        String?
   commercialReviewStatus CommercialReviewStatus  @default(NOT_REQUIRED)
@@ -2150,6 +2152,15 @@ enum SalesPriceStatus {
   PENDING
   PROVISIONAL
   FINAL
+}
+
+enum SalesLostReason {
+  HARGA_TERLALU_TINGGI
+  STOK_TIDAK_TERSEDIA
+  WAKTU_KIRIM
+  PINDAH_KOMPETITOR
+  BATAL_KEBUTUHAN
+  LAINNYA
 }
 
 enum SalesRoutePlanStatus {

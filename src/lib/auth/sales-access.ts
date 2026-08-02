@@ -66,6 +66,17 @@ export async function requireSalesManager() {
     return session;
 }
 
+/** ADMIN, MARKETING, or FINANCE — laporan margin (data sensitif harga/HPP). */
+export async function requireSalesMarginAccess() {
+    const session = await requireAuth();
+    if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING', 'FINANCE'])) {
+        throw new BusinessRuleError(
+            'Unauthorized: Laporan margin hanya untuk admin, marketing, atau finance.',
+        );
+    }
+    return session;
+}
+
 /** ADMIN, SALES, MARKETING, or WAREHOUSE — read jadwal kirim & daftar muatan. */
 export async function requireDeliveryAccess() {
     const session = await requireAuth();

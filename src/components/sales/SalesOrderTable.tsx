@@ -18,8 +18,12 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 import { getSalesStatusLabel, formLabels, salesLabels } from '@/lib/labels';
 
-type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
+type SerializedSalesOrder = Omit<
+    SalesOrder,
+    'totalAmount' | 'nextFollowUpDate'
+> & {
     totalAmount: number | null;
+    nextFollowUpDate?: string | Date | null;
     priceStatus?: 'PENDING' | 'PROVISIONAL' | 'FINAL' | null;
     customer:
         | (Omit<
@@ -191,6 +195,15 @@ export function SalesOrderTable({
         };
     };
 
+    const hasQuotationPhase = useMemo(
+        () =>
+            initialData.some(
+                (o) =>
+                    o.status === 'QUOTATION' || o.status === 'QUOTATION_SENT',
+            ),
+        [initialData],
+    );
+
     const columns: ColumnDef<SerializedSalesOrder, unknown>[] = useMemo(
         () => [
             {
@@ -317,6 +330,66 @@ export function SalesOrderTable({
                     );
                 },
             },
+            ...(hasQuotationPhase
+                ? [
+                      {
+                          id: 'followUp',
+                          header: 'Follow-up',
+                          size: 140,
+                          accessorFn: (row: SerializedSalesOrder) =>
+                              row.nextFollowUpDate
+                                  ? new Date(
+                                        row.nextFollowUpDate as Date | string,
+                                    ).getTime()
+                                  : 0,
+                          cell: ({
+                              row,
+                          }: {
+                              row: { original: SerializedSalesOrder };
+                          }) => {
+                              const v = row.original.nextFollowUpDate;
+                              if (!v)
+                                  return (
+                                      <span className="text-xs text-muted-foreground">
+                                          -
+                                      </span>
+                                  );
+                              const d = new Date(v as Date | string);
+                              if (isNaN(d.getTime()))
+                                  return (
+                                      <span className="text-xs text-muted-foreground">
+                                          -
+                                      </span>
+                                  );
+                              const isOverdue =
+                                  d.getTime() <
+                                  new Date(
+                                      new Date().setHours(0, 0, 0, 0),
+                                  ).getTime();
+                              const isQuotation =
+                                  row.original.status === 'QUOTATION' ||
+                                  row.original.status === 'QUOTATION_SENT';
+                              if (!isQuotation)
+                                  return (
+                                      <span className="text-xs text-muted-foreground">
+                                          -
+                                      </span>
+                                  );
+                              return (
+                                  <Badge
+                                      variant={
+                                          isOverdue ? 'destructive' : 'outline'
+                                      }
+                                      className="text-[11px]"
+                                  >
+                                      {format(d, 'dd MMM yyyy')}
+                                      {isOverdue ? ' · Terlambat' : ''}
+                                  </Badge>
+                              );
+                          },
+                      } as ColumnDef<SerializedSalesOrder, unknown>,
+                  ]
+                : []),
             {
                 accessorKey: 'totalAmount',
                 header: () => (

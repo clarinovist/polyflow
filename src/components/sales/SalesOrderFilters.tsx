@@ -219,6 +219,31 @@ export function SalesOrderFilters({ customers }: SalesOrderFiltersProps) {
                     currentValue={searchParams.get('payment') || ''}
                     options={PAYMENT_OPTIONS}
                 />
+                <Button
+                    variant={
+                        searchParams.get('followUpDue') === '1'
+                            ? 'default'
+                            : 'outline'
+                    }
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                        const params = new URLSearchParams(
+                            searchParams.toString(),
+                        );
+                        params.delete('view');
+                        if (params.get('followUpDue') === '1') {
+                            params.delete('followUpDue');
+                        } else {
+                            params.set('followUpDue', '1');
+                        }
+                        router.push(`/sales/orders?${params.toString()}`, {
+                            scroll: false,
+                        });
+                    }}
+                >
+                    Follow-up jatuh tempo
+                </Button>
             </div>
         </div>
     );

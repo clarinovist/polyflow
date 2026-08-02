@@ -15,15 +15,20 @@ import {
     acceptQuotation,
     rejectQuotation,
     reopenQuotation,
+    updateFollowUpDate,
 } from '@/services/sales/orders-service';
-import { SalesOrderStatus } from '@prisma/client';
+import { SalesLostReason, SalesOrderStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import {
     requireSalesAccess,
     requireSalesApprover,
 } from '@/lib/auth/sales-access';
-import { safeAction, NotFoundError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    NotFoundError,
+    ValidationError,
+} from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 
 export const getSalesOrders = withTenant(async function getSalesOrders(
@@ -36,6 +41,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
         orderTypes?: Array<'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA'>;
         paymentState?: 'outstanding' | 'paid' | 'no_invoice';
         statusFilter?: SalesOrderStatus[];
+        followUpDue?: boolean;
     },
 ) {
     return safeAction(async () => {
@@ -462,11 +468,21 @@ export const acceptQuotationOrder = withTenant(
 );
 
 export const rejectQuotationOrder = withTenant(
-    async function rejectQuotationOrder(id: string, reason?: string) {
+    async function rejectQuotationOrder(
+        id: string,
+        lostReason: SalesLostReason,
+        lostReasonNotes?: string,
+    ) {
         return safeAction(async () => {
             const session = await requireSalesAccess();
-            const result = await rejectQuotation(id, session.user.id, reason);
+            const result = await rejectQuotation(
+                id,
+                session.user.id,
+                lostReason,
+                lostReasonNotes,
+            );
             revalidatePath('/sales/orders');
+            revalidatePath(`/sales/orders/${id}`);
             return result;
         });
     },
@@ -478,6 +494,30 @@ export const reopenQuotationOrder = withTenant(
             const session = await requireSalesAccess();
             const result = await reopenQuotation(id, session.user.id);
             revalidatePath('/sales/orders');
+            return result;
+        });
+    },
+);
+
+/**
+ * Set or clear follow-up date on a quotation-phase SO.
+ * date ISO string or null to clear.
+ */
+export const updateFollowUpDateAction = withTenant(
+    async function updateFollowUpDateAction(
+        id: string,
+        dateIso: string | null,
+    ) {
+        return safeAction(async () => {
+            const session = await requireSalesAccess();
+            const date = dateIso ? new Date(dateIso) : null;
+            if (dateIso && isNaN(date!.getTime())) {
+                throw new ValidationError('Tanggal follow-up tidak valid.');
+            }
+            const result = await updateFollowUpDate(id, session.user.id, date);
+            revalidatePath('/sales/orders');
+            revalidatePath(`/sales/orders/${id}`);
+            revalidatePath('/sales');
             return result;
         });
     },

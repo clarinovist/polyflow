@@ -1,6 +1,6 @@
 'use client';
 
-import { SalesOrderStatus } from '@prisma/client';
+import { SalesOrderStatus, SalesLostReason } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -42,6 +42,7 @@ import {
     acceptQuotationOrder,
     rejectQuotationOrder,
     reopenQuotationOrder,
+    updateFollowUpDateAction,
 } from '@/actions/sales/sales';
 import {
     approvePriceAction,
@@ -80,6 +81,29 @@ import {
     getEnteredUnitPriceDisplay,
 } from '@/lib/utils/production-units';
 import type { SalesOrderDetailClientProps } from './sales-order-types';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { CalendarClock } from 'lucide-react';
+import {
+    SALES_LOST_REASON_LABELS,
+    SALES_LOST_REASON_OPTIONS,
+} from '@/lib/sales/order-phase';
 
 export function SalesOrderDetailClient({
     order,
@@ -91,6 +115,34 @@ export function SalesOrderDetailClient({
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [isShipDialogOpen, setIsShipDialogOpen] = useState(false);
+    const [isFollowUpDialogOpen, setIsFollowUpDialogOpen] = useState(false);
+    const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [lostReasonValue, setLostReasonValue] = useState<string>('');
+    const [lostReasonNotes, setLostReasonNotes] = useState<string>('');
+    const [followUpDateInput, setFollowUpDateInput] = useState<string>(() => {
+        const raw = (order as { nextFollowUpDate?: string | Date | null })
+            .nextFollowUpDate;
+        if (!raw) return '';
+        try {
+            const d = new Date(raw as string | Date);
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+        } catch {
+            return '';
+        }
+    });
+    const rawFollowUp = (order as { nextFollowUpDate?: string | Date | null })
+        .nextFollowUpDate;
+    const followUpDate: Date | null = rawFollowUp
+        ? (() => {
+              const d = new Date(rawFollowUp as string | Date);
+              return isNaN(d.getTime()) ? null : d;
+          })()
+        : null;
+    const isFollowUpOverdue = followUpDate
+        ? followUpDate.getTime() <
+          new Date(new Date().setHours(0, 0, 0, 0)).getTime()
+        : false;
     const isLegacyInternalOrder = !order.customerId;
     const isMaklonOrder = order.orderType === 'MAKLON_JASA';
     const customerLabel = order.customer?.name || 'Legacy Internal Stock Build';
@@ -430,6 +482,14 @@ export function SalesOrderDetailClient({
                     {order.status === 'QUOTATION' && (
                         <>
                             <Button
+                                variant="outline"
+                                onClick={() => setIsFollowUpDialogOpen(true)}
+                                disabled={isLoading}
+                            >
+                                <CalendarClock className="mr-2 h-4 w-4" />
+                                Jadwalkan Follow-up
+                            </Button>
+                            <Button
                                 onClick={() =>
                                     handleAction('dikirim', sendQuotationOrder)
                                 }
@@ -452,12 +512,7 @@ export function SalesOrderDetailClient({
                             </Button>
                             <Button
                                 variant="destructive"
-                                onClick={() =>
-                                    handleAction(
-                                        'ditolak',
-                                        rejectQuotationOrder,
-                                    )
-                                }
+                                onClick={() => setIsRejectDialogOpen(true)}
                                 disabled={isLoading}
                             >
                                 Tolak
@@ -467,6 +522,14 @@ export function SalesOrderDetailClient({
 
                     {order.status === 'QUOTATION_SENT' && (
                         <>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsFollowUpDialogOpen(true)}
+                                disabled={isLoading}
+                            >
+                                <CalendarClock className="mr-2 h-4 w-4" />
+                                Jadwalkan Follow-up
+                            </Button>
                             <Button
                                 onClick={() =>
                                     handleAction(
@@ -480,12 +543,7 @@ export function SalesOrderDetailClient({
                             </Button>
                             <Button
                                 variant="destructive"
-                                onClick={() =>
-                                    handleAction(
-                                        'ditolak',
-                                        rejectQuotationOrder,
-                                    )
-                                }
+                                onClick={() => setIsRejectDialogOpen(true)}
                                 disabled={isLoading}
                             >
                                 Tolak
@@ -938,6 +996,76 @@ export function SalesOrderDetailClient({
                                     {order.orderType.replace(/_/g, ' ')}
                                 </Badge>
                             </div>
+                            <div>
+                                <h3 className="font-semibold text-sm text-muted-foreground">
+                                    Follow-up
+                                </h3>
+                                {followUpDate ? (
+                                    <div className="flex items-center gap-2">
+                                        <p
+                                            className={
+                                                isFollowUpOverdue
+                                                    ? 'text-destructive font-medium'
+                                                    : ''
+                                            }
+                                        >
+                                            {format(followUpDate, 'PPP')}
+                                        </p>
+                                        {isFollowUpOverdue && (
+                                            <Badge variant="destructive">
+                                                Terlambat
+                                            </Badge>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        Belum dijadwalkan
+                                    </p>
+                                )}
+                            </div>
+
+                            {(order as { lostReason?: string | null })
+                                .lostReason &&
+                                order.status === 'QUOTATION_REJECTED' && (
+                                    <div>
+                                        <h3 className="font-semibold text-sm text-muted-foreground">
+                                            Alasan Kalah
+                                        </h3>
+                                        <p className="font-medium">
+                                            {(() => {
+                                                const lr = (
+                                                    order as {
+                                                        lostReason?:
+                                                            | string
+                                                            | null;
+                                                    }
+                                                ).lostReason as string;
+                                                return (
+                                                    SALES_LOST_REASON_LABELS[
+                                                        lr
+                                                    ] ?? lr
+                                                );
+                                            })()}
+                                        </p>
+                                        {(
+                                            order as {
+                                                lostReasonNotes?: string | null;
+                                            }
+                                        ).lostReasonNotes && (
+                                            <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">
+                                                {
+                                                    (
+                                                        order as {
+                                                            lostReasonNotes?:
+                                                                | string
+                                                                | null;
+                                                        }
+                                                    ).lostReasonNotes
+                                                }
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                         </div>
 
                         {order.notes && (
@@ -1384,6 +1512,257 @@ export function SalesOrderDetailClient({
                         : null
                 }
             />
+
+            <Dialog
+                open={isFollowUpDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) setIsFollowUpDialogOpen(false);
+                }}
+            >
+                <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <CalendarClock className="h-5 w-5" />
+                            Jadwalkan Follow-up
+                        </DialogTitle>
+                        <DialogDescription>
+                            Atur tanggal follow-up untuk {order.orderNumber}.
+                            Kosongkan untuk hapus jadwal.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="followUpDate">
+                                Tanggal follow-up
+                            </Label>
+                            <Input
+                                id="followUpDate"
+                                type="date"
+                                value={followUpDateInput}
+                                onChange={(e) =>
+                                    setFollowUpDateInput(e.target.value)
+                                }
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setFollowUpDateInput('');
+                                setIsFollowUpDialogOpen(false);
+                            }}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={isLoading}
+                            onClick={async () => {
+                                setIsLoading(true);
+                                try {
+                                    const res = await updateFollowUpDateAction(
+                                        order.id,
+                                        null,
+                                    );
+                                    if (res.success) {
+                                        toast.success(
+                                            'Jadwal follow-up dihapus.',
+                                        );
+                                        setFollowUpDateInput('');
+                                        setIsFollowUpDialogOpen(false);
+                                        router.refresh();
+                                    } else {
+                                        toast.error(
+                                            res.error ||
+                                                'Gagal menghapus jadwal.',
+                                        );
+                                    }
+                                } catch {
+                                    toast.error(
+                                        'Gagal menghapus jadwal follow-up.',
+                                    );
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }}
+                        >
+                            Hapus jadwal
+                        </Button>
+                        <Button
+                            disabled={isLoading}
+                            onClick={async () => {
+                                if (!followUpDateInput) {
+                                    toast.error(
+                                        'Pilih tanggal follow-up terlebih dahulu.',
+                                    );
+                                    return;
+                                }
+                                setIsLoading(true);
+                                try {
+                                    const iso = new Date(
+                                        followUpDateInput,
+                                    ).toISOString();
+                                    const res = await updateFollowUpDateAction(
+                                        order.id,
+                                        iso,
+                                    );
+                                    if (res.success) {
+                                        toast.success(
+                                            'Jadwal follow-up disimpan.',
+                                        );
+                                        setIsFollowUpDialogOpen(false);
+                                        router.refresh();
+                                    } else {
+                                        toast.error(
+                                            res.error ||
+                                                'Gagal menyimpan jadwal.',
+                                        );
+                                    }
+                                } catch {
+                                    toast.error(
+                                        'Gagal menyimpan jadwal follow-up.',
+                                    );
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }}
+                        >
+                            Simpan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={isRejectDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setIsRejectDialogOpen(false);
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle>Tolak penawaran</DialogTitle>
+                        <DialogDescription>
+                            Pilih alasan penolakan untuk {order.orderNumber}.
+                            Alasan wajib diisi.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="lostReason">Alasan kalah *</Label>
+                            <Select
+                                value={lostReasonValue}
+                                onValueChange={setLostReasonValue}
+                            >
+                                <SelectTrigger id="lostReason">
+                                    <SelectValue placeholder="Pilih alasan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {SALES_LOST_REASON_OPTIONS.map((opt) => (
+                                        <SelectItem
+                                            key={opt.value}
+                                            value={opt.value}
+                                        >
+                                            {opt.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="lostReasonNotes">
+                                Catatan
+                                {lostReasonValue === 'LAINNYA'
+                                    ? ' *'
+                                    : ' (opsional)'}
+                            </Label>
+                            <Textarea
+                                id="lostReasonNotes"
+                                value={lostReasonNotes}
+                                onChange={(e) =>
+                                    setLostReasonNotes(e.target.value)
+                                }
+                                placeholder={
+                                    lostReasonValue === 'LAINNYA'
+                                        ? 'Jelaskan alasan lainnya (wajib)'
+                                        : 'Catatan tambahan (opsional)'
+                                }
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setIsRejectDialogOpen(false);
+                            }}
+                            disabled={isLoading}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            disabled={
+                                isLoading ||
+                                !lostReasonValue ||
+                                (lostReasonValue === 'LAINNYA' &&
+                                    !lostReasonNotes.trim())
+                            }
+                            onClick={async () => {
+                                if (!lostReasonValue) {
+                                    toast.error('Alasan kalah wajib dipilih.');
+                                    return;
+                                }
+                                if (
+                                    lostReasonValue === 'LAINNYA' &&
+                                    !lostReasonNotes.trim()
+                                ) {
+                                    toast.error(
+                                        'Catatan wajib diisi untuk alasan Lainnya.',
+                                    );
+                                    return;
+                                }
+                                setIsLoading(true);
+                                try {
+                                    const res = await rejectQuotationOrder(
+                                        order.id,
+                                        lostReasonValue as SalesLostReason,
+                                        lostReasonNotes.trim()
+                                            ? lostReasonNotes.trim()
+                                            : undefined,
+                                    );
+                                    if (res.success) {
+                                        toast.success(
+                                            `Penawaran ${order.orderNumber} ditolak.`,
+                                        );
+                                        setIsRejectDialogOpen(false);
+                                        setLostReasonValue('');
+                                        setLostReasonNotes('');
+                                        router.refresh();
+                                    } else {
+                                        toast.error(
+                                            res.error ||
+                                                'Gagal menolak penawaran.',
+                                        );
+                                    }
+                                } catch {
+                                    toast.error(
+                                        'Gagal menolak penawaran. Coba lagi.',
+                                    );
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }}
+                        >
+                            Tolak penawaran
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

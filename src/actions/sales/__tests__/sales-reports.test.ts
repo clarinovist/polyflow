@@ -526,4 +526,245 @@ describe('getSalesPerformanceReport', () => {
             expect(data.summary.bySalesperson[0].achievementPercent).toBeNull();
         }
     });
+
+    // ── Gap 10: productMixByRegion tests ──
+
+    it('productMixByRegion groups by customer.city and sums quantity/revenue', async () => {
+        mockFindMany.mockResolvedValue([
+            {
+                id: 'so-1',
+                orderNumber: 'SO-001',
+                orderDate: new Date('2026-08-01'),
+                status: 'CONFIRMED',
+                totalAmount: 2000000,
+                customerId: 'cus-1',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                customer: { name: 'Customer A', city: 'Jakarta', province: 'DKI' },
+                createdBy: { name: 'Admin Input' },
+                items: [
+                    {
+                        id: 'item-1',
+                        quantity: 10,
+                        unitPrice: 200000,
+                        subtotal: 2000000,
+                        productVariant: {
+                            name: 'Variant A',
+                            product: { name: 'Product A' },
+                        },
+                    },
+                ],
+                invoices: [],
+            },
+            {
+                id: 'so-2',
+                orderNumber: 'SO-002',
+                orderDate: new Date('2026-08-05'),
+                status: 'CONFIRMED',
+                totalAmount: 1500000,
+                customerId: 'cus-2',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                customer: { name: 'Customer B', city: 'Bandung', province: 'Jawa Barat' },
+                createdBy: { name: 'Admin Input' },
+                items: [
+                    {
+                        id: 'item-2',
+                        quantity: 5,
+                        unitPrice: 300000,
+                        subtotal: 1500000,
+                        productVariant: {
+                            name: 'Variant B',
+                            product: { name: 'Product B' },
+                        },
+                    },
+                ],
+                invoices: [],
+            },
+        ] as never);
+
+        const result = await getSalesPerformanceReport();
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: {
+                    productMixByRegion: {
+                        region: string;
+                        productName: string;
+                        quantity: number;
+                        revenue: number;
+                    }[];
+                };
+            };
+            expect(data.summary.productMixByRegion).toHaveLength(2);
+            const jakarta = data.summary.productMixByRegion.find(
+                (r) => r.region === 'Jakarta',
+            );
+            expect(jakarta).toBeDefined();
+            expect(jakarta!.productName).toBe('Product A');
+            expect(jakarta!.quantity).toBe(10);
+            expect(jakarta!.revenue).toBe(2000000);
+        }
+    });
+
+    it('productMixByRegion falls back to province when city is null', async () => {
+        mockFindMany.mockResolvedValue([
+            {
+                id: 'so-1',
+                orderNumber: 'SO-001',
+                orderDate: new Date('2026-08-01'),
+                status: 'CONFIRMED',
+                totalAmount: 1000000,
+                customerId: 'cus-1',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                customer: { name: 'Customer A', city: null, province: 'Jawa Barat' },
+                createdBy: { name: 'Admin Input' },
+                items: [
+                    {
+                        id: 'item-1',
+                        quantity: 5,
+                        unitPrice: 200000,
+                        subtotal: 1000000,
+                        productVariant: {
+                            name: 'Variant A',
+                            product: { name: 'Product A' },
+                        },
+                    },
+                ],
+                invoices: [],
+            },
+        ] as never);
+
+        const result = await getSalesPerformanceReport();
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: {
+                    productMixByRegion: { region: string; productName: string }[];
+                };
+            };
+            expect(data.summary.productMixByRegion).toHaveLength(1);
+            expect(data.summary.productMixByRegion[0].region).toBe('Jawa Barat');
+        }
+    });
+
+    it('productMixByRegion falls back to "Tidak diketahui" when both city and province are null', async () => {
+        mockFindMany.mockResolvedValue([
+            {
+                id: 'so-1',
+                orderNumber: 'SO-001',
+                orderDate: new Date('2026-08-01'),
+                status: 'CONFIRMED',
+                totalAmount: 500000,
+                customerId: 'cus-1',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                customer: { name: 'Customer A', city: null, province: null },
+                createdBy: { name: 'Admin Input' },
+                items: [
+                    {
+                        id: 'item-1',
+                        quantity: 2,
+                        unitPrice: 250000,
+                        subtotal: 500000,
+                        productVariant: {
+                            name: 'Variant A',
+                            product: { name: 'Product A' },
+                        },
+                    },
+                ],
+                invoices: [],
+            },
+        ] as never);
+
+        const result = await getSalesPerformanceReport();
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: {
+                    productMixByRegion: { region: string }[];
+                };
+            };
+            expect(data.summary.productMixByRegion[0].region).toBe(
+                'Tidak diketahui',
+            );
+        }
+    });
+
+    it('productMixByRegion sums correctly for multi-item per order', async () => {
+        mockFindMany.mockResolvedValue([
+            {
+                id: 'so-1',
+                orderNumber: 'SO-001',
+                orderDate: new Date('2026-08-01'),
+                status: 'CONFIRMED',
+                totalAmount: 3000000,
+                customerId: 'cus-1',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                customer: { name: 'Customer A', city: 'Jakarta', province: 'DKI' },
+                createdBy: { name: 'Admin Input' },
+                items: [
+                    {
+                        id: 'item-1',
+                        quantity: 10,
+                        unitPrice: 200000,
+                        subtotal: 2000000,
+                        productVariant: {
+                            name: 'Variant A',
+                            product: { name: 'Product A' },
+                        },
+                    },
+                    {
+                        id: 'item-2',
+                        quantity: 5,
+                        unitPrice: 200000,
+                        subtotal: 1000000,
+                        productVariant: {
+                            name: 'Variant B',
+                            product: { name: 'Product B' },
+                        },
+                    },
+                ],
+                invoices: [],
+            },
+        ] as never);
+
+        const result = await getSalesPerformanceReport();
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: {
+                    productMixByRegion: {
+                        region: string;
+                        productName: string;
+                        quantity: number;
+                        revenue: number;
+                    }[];
+                };
+            };
+            expect(data.summary.productMixByRegion).toHaveLength(2);
+            const productA = data.summary.productMixByRegion.find(
+                (r) => r.productName === 'Product A',
+            );
+            expect(productA).toBeDefined();
+            expect(productA!.quantity).toBe(10);
+            expect(productA!.revenue).toBe(2000000);
+            const productB = data.summary.productMixByRegion.find(
+                (r) => r.productName === 'Product B',
+            );
+            expect(productB).toBeDefined();
+            expect(productB!.quantity).toBe(5);
+            expect(productB!.revenue).toBe(1000000);
+        }
+    });
+
+    it('productMixByRegion returns empty array when no orders', async () => {
+        mockFindMany.mockResolvedValue([]);
+
+        const result = await getSalesPerformanceReport();
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: { productMixByRegion: unknown[] };
+            };
+            expect(data.summary.productMixByRegion).toEqual([]);
+        }
+    });
 });

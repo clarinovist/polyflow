@@ -3,6 +3,7 @@ import {
     getMyFieldReceivables,
     getMyFieldCustomers,
     getMyFieldComplianceStats,
+    getMyFollowUpsToday,
 } from '@/actions/sales/field-actions';
 import { getTodayRoutePlan } from '@/actions/sales/route-plans';
 import {
@@ -19,6 +20,7 @@ import Link from 'next/link';
 import { auth } from '@/auth';
 import { RouteTodaySection } from '@/components/field/RouteTodaySection';
 import { PipelineSummaryCard } from '@/components/field/PipelineSummaryCard';
+import { FollowUpTodaySection } from '@/components/field/FollowUpTodaySection';
 import { VisitSyncBanner } from '@/components/sales/mobile/VisitSyncBanner';
 import { formatRupiah } from '@/lib/utils/utils';
 
@@ -27,14 +29,21 @@ export default async function FieldSalesDashboardPage() {
     const userName =
         (session?.user as { name?: string })?.name?.split(' ')[0] ?? '';
 
-    const [pipelineRes, invoicesRes, customersRes, routeRes, complianceRes] =
-        await Promise.all([
-            getMyFieldPipelineStats(),
-            getMyFieldReceivables(),
-            getMyFieldCustomers(),
-            getTodayRoutePlan(),
-            getMyFieldComplianceStats(),
-        ]);
+    const [
+        pipelineRes,
+        invoicesRes,
+        customersRes,
+        routeRes,
+        complianceRes,
+        followUpsRes,
+    ] = await Promise.all([
+        getMyFieldPipelineStats(),
+        getMyFieldReceivables(),
+        getMyFieldCustomers(),
+        getTodayRoutePlan(),
+        getMyFieldComplianceStats(),
+        getMyFollowUpsToday(),
+    ]);
 
     const pipeline =
         pipelineRes?.success && pipelineRes.data ? pipelineRes.data : null;
@@ -58,6 +67,8 @@ export default async function FieldSalesDashboardPage() {
         complianceRes?.success && complianceRes.data
             ? complianceRes.data
             : null;
+    const followUps =
+        followUpsRes?.success && followUpsRes.data ? followUpsRes.data : [];
 
     const totalOutstanding = invoices.reduce(
         (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)),
@@ -110,6 +121,9 @@ export default async function FieldSalesDashboardPage() {
                 routePlan={routePlan}
                 activeCustomers={activeCustomers}
             />
+
+            {/* Follow-up Hari Ini — next to route */}
+            <FollowUpTodaySection items={followUps} />
 
             {/* Compliance KPI */}
             {compliance && compliance.assigned > 0 && (

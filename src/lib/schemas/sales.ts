@@ -57,6 +57,7 @@ export const createSalesOrderSchema = z
         paymentTerms: z.string().optional().nullable(),
         shippingTerms: z.string().optional().nullable(),
         termsConditions: z.string().optional().nullable(),
+        nextFollowUpDate: z.coerce.date().optional().nullable(),
         items: z
             .array(salesOrderItemSchema)
             .min(1, 'At least one item is required'),
@@ -119,6 +120,7 @@ export const updateSalesOrderSchema = z.object({
     paymentTerms: z.string().optional().nullable(),
     shippingTerms: z.string().optional().nullable(),
     termsConditions: z.string().optional().nullable(),
+    nextFollowUpDate: z.coerce.date().optional().nullable(),
     items: z
         .array(salesOrderItemSchema)
         .min(1, 'At least one item is required'),

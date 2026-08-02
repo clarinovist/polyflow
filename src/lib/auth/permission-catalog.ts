@@ -53,6 +53,12 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                 key: '/sales/reports/shipping-cost',
                 label: 'Laporan Biaya Kirim',
             },
+            { key: '/sales/pipeline', label: 'Pipeline Penawaran' },
+            { key: '/sales/reports/margin', label: 'Laporan Margin' },
+            {
+                key: '/sales/reports/customer-activity',
+                label: 'Aktivitas Customer',
+            },
             {
                 key: '/sales/reports/sales-performance',
                 label: 'Performa Penjualan',

@@ -10,11 +10,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { BarChart3, Users, Package, TrendingUp } from 'lucide-react';
+import { BarChart3, Users, Package, TrendingUp, MapPin } from 'lucide-react';
 
 type Summary = {
     totalRevenue: number;
@@ -36,6 +37,12 @@ type Summary = {
         achievementPercent: number | null;
         visitTarget: number | null;
         visitAchievementPercent: number | null;
+    }[];
+    productMixByRegion: {
+        region: string;
+        productName: string;
+        quantity: number;
+        revenue: number;
     }[];
 };
 
@@ -91,7 +98,7 @@ export function SalesPerformanceReportClient({
     const summary = initialData?.summary ?? null;
     const rows = initialData?.rows ?? [];
     const [activeTab, setActiveTab] = useState<
-        'summary' | 'customers' | 'products' | 'salesperson' | 'detail'
+        'summary' | 'customers' | 'products' | 'salesperson' | 'region' | 'detail'
     >('summary');
     const [salesSort, setSalesSort] = useState<SalesSortKey>('revenue');
 
@@ -120,6 +127,11 @@ export function SalesPerformanceReportClient({
             label: 'Performa per Sales',
             icon: Users,
         },
+        {
+            key: 'region' as const,
+            label: 'Product Mix per Wilayah',
+            icon: MapPin,
+        },
         { key: 'detail' as const, label: 'Detail Order', icon: BarChart3 },
     ];
 
@@ -136,28 +148,37 @@ export function SalesPerformanceReportClient({
                         Scope: {periodLabel} • orderDate non-batal • Basis:
                         nilai Sales Order
                     </p>
-                    <div className="flex gap-2 border-b pb-2">
-                        {tabs.map((tab) => {
-                            const Icon = tab.icon;
-                            return (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setActiveTab(tab.key)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors ${
-                                        activeTab === tab.key
-                                            ? 'bg-primary text-primary-foreground'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                                    }`}
-                                >
-                                    <Icon className="h-4 w-4" />
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <Tabs
+                        value={activeTab}
+                        onValueChange={(v) =>
+                            setActiveTab(
+                                v as
+                                    | 'summary'
+                                    | 'customers'
+                                    | 'products'
+                                    | 'salesperson'
+                                    | 'region'
+                                    | 'detail',
+                            )
+                        }
+                    >
+                        <TabsList className="flex flex-wrap h-auto">
+                            {tabs.map((tab) => {
+                                const Icon = tab.icon;
+                                return (
+                                    <TabsTrigger
+                                        key={tab.key}
+                                        value={tab.key}
+                                    >
+                                        <Icon className="h-3.5 w-3.5 mr-1.5" />
+                                        {tab.label}
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
 
                     {/* Summary Tab */}
-                    {activeTab === 'summary' && (
+                    <TabsContent value="summary" className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -212,10 +233,10 @@ export function SalesPerformanceReportClient({
                                 </CardContent>
                             </Card>
                         </div>
-                    )}
+                    </TabsContent>
 
                     {/* Top Customers Tab */}
-                    {activeTab === 'customers' && (
+                    <TabsContent value="customers">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Top 10 Customer by Omzet</CardTitle>
@@ -257,10 +278,10 @@ export function SalesPerformanceReportClient({
                                 </Table>
                             </CardContent>
                         </Card>
-                    )}
+                    </TabsContent>
 
                     {/* Top Products Tab */}
-                    {activeTab === 'products' && (
+                    <TabsContent value="products">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Top 10 Produk by Omzet</CardTitle>
@@ -302,11 +323,10 @@ export function SalesPerformanceReportClient({
                                 </Table>
                             </CardContent>
                         </Card>
-                    )}
+                    </TabsContent>
 
                     {/* Sales Performance Tab */}
-                    {activeTab === 'salesperson' && (
-                        <div className="space-y-4">
+                    <TabsContent value="salesperson" className="space-y-4">
                             {/* Summary metric cards */}
                             {summary.bySalesperson.length > 0 && (
                                 <div className="grid gap-4 md:grid-cols-3">
@@ -507,16 +527,90 @@ export function SalesPerformanceReportClient({
                                                         ),
                                                     )}
                                                 </TableBody>
-                                            </Table>
+                                                </Table>
                                         </div>
                                     )}
                                 </CardContent>
                             </Card>
-                        </div>
-                    )}
+                    </TabsContent>
+
+                    {/* Product Mix per Wilayah Tab */}
+                    <TabsContent value="region">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-sm">
+                                    Product Mix per Wilayah
+                                </CardTitle>
+                                <p className="text-[11px] text-muted-foreground mt-1">
+                                    Dikelompokkan berdasarkan kota (fallback ke
+                                    provinsi jika kota kosong)
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-lg border overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>
+                                                    Wilayah
+                                                </TableHead>
+                                                <TableHead>
+                                                    Produk
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Qty
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Omzet
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {summary.productMixByRegion.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell
+                                                        colSpan={4}
+                                                        className="text-center text-muted-foreground py-8"
+                                                    >
+                                                        Tidak ada data product
+                                                        mix per wilayah.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                summary.productMixByRegion.map(
+                                                    (row, i) => (
+                                                        <TableRow
+                                                            key={`${row.region}-${row.productName}-${i}`}
+                                                        >
+                                                            <TableCell className="font-medium">
+                                                                {row.region}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {
+                                                                    row.productName
+                                                                }
+                                                            </TableCell>
+                                                            <TableCell className="text-right tabular-nums">
+                                                                {row.quantity}
+                                                            </TableCell>
+                                                            <TableCell className="text-right font-semibold">
+                                                                {formatRupiah(
+                                                                    row.revenue,
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ),
+                                                )
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
                     {/* Detail Tab */}
-                    {activeTab === 'detail' && (
+                    <TabsContent value="detail">
                         <Card>
                             <CardHeader>
                                 <CardTitle>
@@ -593,7 +687,8 @@ export function SalesPerformanceReportClient({
                                 </div>
                             </CardContent>
                         </Card>
-                    )}
+                    </TabsContent>
+                    </Tabs>
                 </>
             )}
         </div>

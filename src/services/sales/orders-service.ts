@@ -7,6 +7,7 @@ import {
     Prisma,
     ProductType,
     InvoiceStatus,
+    SalesLostReason,
 } from '@prisma/client';
 import {
     CreateSalesOrderValues,
@@ -18,11 +19,19 @@ import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 import { processOrderItems } from './order-item-processor';
-import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import {
+    BusinessRuleError,
+    NotFoundError,
+    ValidationError,
+} from '@/lib/errors/errors';
 import {
     DISCOUNT_CEILING_SETTING_KEY,
     checkDiscountCeiling,
 } from '@/lib/sales/discount-policy';
+import {
+    SALES_LOST_REASON_LABELS,
+    isValidLostReason,
+} from '@/lib/sales/order-phase';
 
 // ── Discount ceiling helpers (Fase C) ─────────────────────────────────
 
@@ -139,6 +148,7 @@ export async function getOrders(filters?: {
     orderTypes?: Array<'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA'>;
     paymentState?: 'outstanding' | 'paid' | 'no_invoice';
     statusFilter?: SalesOrderStatus[];
+    followUpDue?: boolean;
 }) {
     const where: Prisma.SalesOrderWhereInput = {};
 
@@ -202,6 +212,21 @@ export async function getOrders(filters?: {
 
     if (filters?.statusFilter && filters.statusFilter.length > 0) {
         where.status = { in: filters.statusFilter };
+    }
+
+    if (filters?.followUpDue) {
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+        where.nextFollowUpDate = { not: null, lte: todayEnd };
+        // follow-up only relevant in quotation phase — if status not already constrained, narrow to quotation
+        if (!where.status) {
+            where.status = {
+                in: [
+                    SalesOrderStatus.QUOTATION,
+                    SalesOrderStatus.QUOTATION_SENT,
+                ],
+            };
+        }
     }
 
     const include: Prisma.SalesOrderInclude = {
@@ -405,6 +430,7 @@ export async function createOrder(
             paymentTerms: data.paymentTerms ?? undefined,
             shippingTerms: data.shippingTerms ?? undefined,
             termsConditions: data.termsConditions ?? undefined,
+            nextFollowUpDate: data.nextFollowUpDate ?? undefined,
             priceStatus: priceStatus ?? undefined,
             items: {
                 create: itemsWithTotals.map((item) => ({
@@ -654,6 +680,7 @@ export async function updateOrder(
                 paymentTerms: data.paymentTerms ?? undefined,
                 shippingTerms: data.shippingTerms ?? undefined,
                 termsConditions: data.termsConditions ?? undefined,
+                nextFollowUpDate: data.nextFollowUpDate ?? undefined,
                 items: {
                     create: itemsToCreate,
                 },
@@ -1205,8 +1232,25 @@ export async function acceptQuotation(id: string, userId: string) {
 export async function rejectQuotation(
     id: string,
     userId: string,
-    reason?: string,
+    lostReason: SalesLostReason,
+    lostReasonNotes?: string,
 ) {
+    if (!lostReason || !isValidLostReason(lostReason)) {
+        throw new ValidationError('Alasan kalah wajib dipilih.', {
+            field: 'lostReason',
+            provided: lostReason as unknown as string,
+        });
+    }
+    if (
+        lostReason === SalesLostReason.LAINNYA &&
+        (!lostReasonNotes || !lostReasonNotes.trim())
+    ) {
+        throw new ValidationError('Catatan wajib diisi untuk alasan Lainnya.', {
+            field: 'lostReasonNotes',
+            lostReason,
+        });
+    }
+
     const order = await prisma.salesOrder.findUnique({ where: { id } });
     if (!order) throw new NotFoundError('Sales Order', id);
     if (
@@ -1220,9 +1264,16 @@ export async function rejectQuotation(
         );
     }
 
+    const humanLabel =
+        SALES_LOST_REASON_LABELS[lostReason as string] ?? lostReason;
+
     const updated = await prisma.salesOrder.update({
         where: { id },
-        data: { status: SalesOrderStatus.QUOTATION_REJECTED },
+        data: {
+            status: SalesOrderStatus.QUOTATION_REJECTED,
+            lostReason: lostReason as SalesLostReason,
+            lostReasonNotes: lostReasonNotes?.trim() || null,
+        },
     });
 
     await logActivity({
@@ -1230,7 +1281,7 @@ export async function rejectQuotation(
         action: 'QUOTATION_REJECTED',
         entityType: 'SalesOrder',
         entityId: id,
-        details: `Penawaran ${order.orderNumber} ditolak${reason ? `: ${reason}` : ''}`,
+        details: `Penawaran ${order.orderNumber} ditolak: ${humanLabel}${lostReasonNotes?.trim() ? ` — ${lostReasonNotes.trim()}` : ''}`,
         fromStatus: order.status,
         toStatus: SalesOrderStatus.QUOTATION_REJECTED,
     });
@@ -1297,6 +1348,48 @@ export async function reopenQuotation(id: string, userId: string) {
         details: `Penawaran ${order.orderNumber} dibuka kembali`,
         fromStatus: order.status,
         toStatus: SalesOrderStatus.QUOTATION,
+    });
+
+    return updated;
+}
+
+/**
+ * Update follow-up date for a quotation-phase SO.
+ * Only allowed when status is QUOTATION or QUOTATION_SENT.
+ * date can be null to clear.
+ */
+export async function updateFollowUpDate(
+    id: string,
+    userId: string,
+    date: Date | null,
+) {
+    const order = await prisma.salesOrder.findUnique({ where: { id } });
+    if (!order) throw new NotFoundError('Sales Order', id);
+    const allowed: string[] = [
+        SalesOrderStatus.QUOTATION,
+        SalesOrderStatus.QUOTATION_SENT,
+    ];
+    if (!allowed.includes(order.status as string)) {
+        throw new BusinessRuleError(
+            'Follow-up hanya bisa diatur saat penawaran masih fase quotation.',
+            { status: order.status, orderId: id },
+            'INVALID_ORDER_STATUS',
+        );
+    }
+
+    const updated = await prisma.salesOrder.update({
+        where: { id },
+        data: { nextFollowUpDate: date },
+    });
+
+    await logActivity({
+        userId,
+        action: 'FOLLOW_UP_SCHEDULED',
+        entityType: 'SalesOrder',
+        entityId: id,
+        details: date
+            ? `Jadwal follow-up diatur ke ${date.toISOString().split('T')[0]} untuk ${order.orderNumber}`
+            : `Jadwal follow-up dihapus untuk ${order.orderNumber}`,
     });
 
     return updated;
