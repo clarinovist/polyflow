@@ -21,7 +21,7 @@ export function BottomNav({ allowedDomains }: { allowedDomains?: string[] }) {
   });
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-[var(--tg-theme-bg-color,#fff)] tg-safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-black/10 bg-[var(--tg-theme-bg-color,#fff)] dark:border-white/10 tg-safe-bottom">
       <div className="mx-auto flex max-w-[480px] items-stretch justify-around">
         {filtered.map((it) => {
           const active = pathname === it.href || (it.href !== '/telegram/home' && pathname.startsWith(it.href));

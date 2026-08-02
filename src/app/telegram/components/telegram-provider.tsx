@@ -74,7 +74,52 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-    const value = useMemo<TelegramContextValue>(() => {
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+
+    const tgVarMap: Record<string, string> = {
+      bg_color: '--tg-theme-bg-color',
+      text_color: '--tg-theme-text-color',
+      hint_color: '--tg-theme-hint-color',
+      link_color: '--tg-theme-link-color',
+      button_color: '--tg-theme-button-color',
+      button_text_color: '--tg-theme-button-text-color',
+      secondary_bg_color: '--tg-theme-secondary-bg-color',
+      header_bg_color: '--tg-theme-header-bg-color',
+      accent_text_color: '--tg-theme-accent-text-color',
+      section_bg_color: '--tg-theme-section-bg-color',
+      section_header_text_color: '--tg-theme-section-header-text-color',
+      subtitle_text_color: '--tg-theme-subtitle-text-color',
+      destructive_text_color: '--tg-theme-destructive-text-color',
+    };
+
+    if (Object.keys(themeParams).length > 0) {
+      for (const [tgKey, cssVar] of Object.entries(tgVarMap)) {
+        if (themeParams[tgKey]) {
+          root.style.setProperty(cssVar, themeParams[tgKey]);
+        }
+      }
+    } else {
+      for (const cssVar of Object.values(tgVarMap)) {
+        root.style.removeProperty(cssVar);
+      }
+    }
+  }, [theme, themeParams]);
+
+  useEffect(() => {
+    if (window.Telegram?.WebApp) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = (dark: boolean) => {
+      document.documentElement.classList.toggle('dark', dark);
+    };
+    apply(mq.matches);
+    const handler = (e: MediaQueryListEvent) => apply(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const value = useMemo<TelegramContextValue>(() => {
     const webApp = typeof window !== 'undefined' ? window.Telegram?.WebApp : undefined;
     return {
       webApp: webApp as unknown as undefined,

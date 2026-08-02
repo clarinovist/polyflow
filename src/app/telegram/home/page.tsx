@@ -77,8 +77,8 @@ function HomeInner() {
     return (
       <div className="mx-auto max-w-[480px] p-4 pb-24">
         <div className="mb-4">
-          <div className="h-5 w-32 animate-pulse rounded bg-black/10" />
-          <div className="mt-2 h-3 w-48 animate-pulse rounded bg-black/5" />
+          <div className="h-5 w-32 animate-pulse rounded bg-black/10 dark:bg-white/10" />
+          <div className="mt-2 h-3 w-48 animate-pulse rounded bg-black/5 dark:bg-white/5" />
         </div>
         <SkeletonList count={6} />
       </div>

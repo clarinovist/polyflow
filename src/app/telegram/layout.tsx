@@ -25,6 +25,7 @@ export default async function TelegramLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
+        <meta name="color-scheme" content="light dark" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         {/* Telegram Mini App Theme Support */}
         <style>{`

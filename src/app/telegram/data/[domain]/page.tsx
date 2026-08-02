@@ -169,7 +169,7 @@ function DomainDataInner({ domain }: { domain: string }) {
     if (loading) {
         return (
             <div className="mx-auto max-w-[480px] p-4 pb-24">
-                <div className="mb-4 h-5 w-40 animate-pulse rounded bg-black/10" />
+                <div className="mb-4 h-5 w-40 animate-pulse rounded bg-black/10 dark:bg-white/10" />
                 <SkeletonList count={4} />
             </div>
         );
