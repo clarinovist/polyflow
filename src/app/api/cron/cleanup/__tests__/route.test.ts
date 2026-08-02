@@ -60,7 +60,7 @@ vi.mock('@/services/finance/invoice-service', () => ({
 vi.mock('@/lib/hrd/employment-reminder', () => ({
     dispatchReminders: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('@/services/sales/orders-service', () => ({
+vi.mock('@/services/sales/quotation-service', () => ({
     autoExpireQuotations: vi.fn().mockResolvedValue(0),
 }));
 vi.mock('@/services/sales/delivery-schedule-auto-close', () => ({

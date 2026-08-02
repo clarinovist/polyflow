@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { autoExpireQuotations, confirmOrder } from "../orders-service";
+import { autoExpireQuotations } from "../quotation-service";
+import { confirmOrder } from "../orders-service";
 import { prisma } from "@/lib/core/prisma";
 import { SalesOrderStatus } from "@prisma/client";
 

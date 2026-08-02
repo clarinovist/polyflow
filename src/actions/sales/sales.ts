@@ -16,7 +16,7 @@ import {
     rejectQuotation,
     reopenQuotation,
     updateFollowUpDate,
-} from '@/services/sales/orders-service';
+} from '@/services/sales/quotation-service';
 import { SalesLostReason, SalesOrderStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';

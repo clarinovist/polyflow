@@ -22,7 +22,7 @@ import {
     acceptQuotation,
     rejectQuotation,
     reopenQuotation,
-} from '@/services/sales/orders-service';
+} from '@/services/sales/quotation-service';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { requireSalesAccess, requireSalesApprover } from '@/lib/auth/sales-access';
 import { revalidatePath } from 'next/cache';
@@ -80,7 +80,7 @@ vi.mock('@/services/sales/sales-service', () => ({
     },
 }));
 
-vi.mock('@/services/sales/orders-service', () => ({
+vi.mock('@/services/sales/quotation-service', () => ({
     sendQuotation: vi.fn(),
     acceptQuotation: vi.fn(),
     rejectQuotation: vi.fn(),

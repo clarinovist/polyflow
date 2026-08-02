@@ -33,7 +33,7 @@ vi.mock('@/services/sales/sales-service', () => ({
     SalesService: {},
 }));
 
-vi.mock('@/services/sales/orders-service', () => ({
+vi.mock('@/services/sales/quotation-service', () => ({
     sendQuotation: vi.fn(),
     acceptQuotation: vi.fn(),
     rejectQuotation: vi.fn(),

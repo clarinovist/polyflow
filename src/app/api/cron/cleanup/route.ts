@@ -93,7 +93,7 @@ export async function GET(req: Request) {
 
                 try {
                     const { autoExpireQuotations } = await import(
-                        '@/services/sales/orders-service'
+                        '@/services/sales/quotation-service'
                     );
                     expiredQuotations = await autoExpireQuotations();
                     if (expiredQuotations > 0) {

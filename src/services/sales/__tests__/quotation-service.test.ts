@@ -7,7 +7,7 @@ import {
   reopenQuotation,
   autoExpireQuotations,
   updateFollowUpDate,
-} from "../orders-service";
+} from "../quotation-service";
 import { prisma } from "@/lib/core/prisma";
 import { SalesOrderStatus, SalesLostReason } from "@prisma/client";
 import { logActivity } from "@/lib/tools/audit";
