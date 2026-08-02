@@ -49,6 +49,14 @@ export default async function CustomerDetailPage(props: {
         discountPercent: customer.discountPercent
             ? Number(customer.discountPercent)
             : null,
+        maxDiscountPercent:
+            (customer as { maxDiscountPercent?: unknown }).maxDiscountPercent !=
+            null
+                ? Number(
+                      (customer as { maxDiscountPercent: unknown })
+                          .maxDiscountPercent,
+                  )
+                : null,
         notes: customer.notes,
         isActive: customer.isActive,
         latitude: customer.latitude ? Number(customer.latitude) : null,
@@ -88,6 +96,20 @@ export default async function CustomerDetailPage(props: {
                               discountPercent: order.customer.discountPercent
                                   ? Number(order.customer.discountPercent)
                                   : null,
+                              maxDiscountPercent:
+                                  (
+                                      order.customer as {
+                                          maxDiscountPercent?: unknown;
+                                      }
+                                  ).maxDiscountPercent != null
+                                      ? Number(
+                                            (
+                                                order.customer as {
+                                                    maxDiscountPercent: unknown;
+                                                }
+                                            ).maxDiscountPercent,
+                                        )
+                                      : null,
                               latitude: order.customer.latitude
                                   ? Number(order.customer.latitude)
                                   : null,

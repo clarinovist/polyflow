@@ -19,6 +19,67 @@ import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 import { processOrderItems } from './order-item-processor';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import {
+    DISCOUNT_CEILING_SETTING_KEY,
+    checkDiscountCeiling,
+} from '@/lib/sales/discount-policy';
+
+// ── Discount ceiling helpers (Fase C) ─────────────────────────────────
+
+function decimalToNumberOrNull(val: unknown): number | null {
+    if (val == null) return null;
+    if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+    if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+        const n = (val as { toNumber: () => number }).toNumber();
+        return Number.isFinite(n) ? n : null;
+    }
+    const n = Number(val);
+    return Number.isFinite(n) ? n : null;
+}
+
+async function resolveCustomerCeiling(
+    customerId: string | null | undefined,
+): Promise<number | null> {
+    if (!customerId) return null;
+    try {
+        const row = await prisma.customer.findUnique({
+            where: { id: customerId },
+            select: { maxDiscountPercent: true },
+        });
+        return decimalToNumberOrNull(
+            (row as { maxDiscountPercent?: unknown } | null)
+                ?.maxDiscountPercent,
+        );
+    } catch {
+        return null;
+    }
+}
+
+async function resolveTenantCeiling(): Promise<number | null> {
+    try {
+        const row = await prisma.appSetting.findUnique({
+            where: { key: DISCOUNT_CEILING_SETTING_KEY },
+        });
+        if (!row?.value) return null;
+        // value is stored as plain string decimal
+        const n = Number(row.value);
+        if (!Number.isFinite(n) || n < 0) return null;
+        return n;
+    } catch {
+        return null;
+    }
+}
+
+function maxDiscountPercentInItems(
+    items: { discountPercent?: number | null }[],
+): number {
+    let max = 0;
+    for (const it of items) {
+        const d = Number(it.discountPercent ?? 0);
+        if (Number.isFinite(d) && d > max) max = d;
+    }
+    return max;
+}
 
 // ── Confirm Order types ──────────────────────────────────────────────
 export type ConfirmOrderWarning = {
@@ -291,13 +352,36 @@ export async function createOrder(
         ? SalesOrderStatus.QUOTATION
         : SalesOrderStatus.DRAFT;
 
-    // priceStatus: PENDING if any line has 0 price, else PROVISIONAL for quotation, FINAL for order
-    const hasZeroPrice = itemsWithTotals.some((item) => item.unitPrice <= 0);
-    const priceStatus = isQuotation
-        ? hasZeroPrice
+    // ── priceStatus sources (union: zero price OR discount over ceiling) ──
+    const hasZeroPrice = itemsWithTotals.some(
+        (item) => Number(item.unitPrice) <= 0,
+    );
+    const maxDiscount = maxDiscountPercentInItems(itemsWithTotals);
+    let discountOverCeiling = false;
+    if (maxDiscount > 0) {
+        const [customerCeiling, tenantCeiling] = await Promise.all([
+            resolveCustomerCeiling(data.customerId),
+            resolveTenantCeiling(),
+        ]);
+        const ceilingCheck = checkDiscountCeiling({
+            discountPercent: maxDiscount,
+            customerCeiling,
+            tenantCeiling,
+        });
+        if (!ceilingCheck.allowed) discountOverCeiling = true;
+    }
+
+    const needsPending = hasZeroPrice || discountOverCeiling;
+    // priceStatus: PENDING if zero price OR discount over ceiling
+    //   - quotation: PENDING vs PROVISIONAL
+    //   - order (DRAFT): PENDING vs stays null/undefined (caught at confirm gate)
+    const priceStatus: 'PENDING' | 'PROVISIONAL' | undefined = isQuotation
+        ? needsPending
             ? ('PENDING' as const)
             : ('PROVISIONAL' as const)
-        : undefined; // orders don't need explicit priceStatus until confirm
+        : needsPending
+          ? ('PENDING' as const)
+          : undefined;
 
     const order = await prisma.salesOrder.create({
         data: {
@@ -453,6 +537,31 @@ export async function updateOrder(
     const shippingCost = data.shippingCost || 0;
     const finalTotal = totalAmount + shippingCost;
 
+    // ── Fase C: discount ceiling → PENDING (same union as createOrder) ──
+    let discountCeilingPending = false;
+    const maxDiscountUpdate = maxDiscountPercentInItems(itemsWithTotals);
+    if (maxDiscountUpdate > 0) {
+        // Use customerId from payload if present, otherwise from current order
+        const custIdForCeiling =
+            (data as { customerId?: string | null }).customerId ??
+            currentOrder.customerId ??
+            null;
+        const [customerCeilingUpd, tenantCeilingUpd] = await Promise.all([
+            resolveCustomerCeiling(custIdForCeiling),
+            resolveTenantCeiling(),
+        ]);
+        const ceilingCheck = checkDiscountCeiling({
+            discountPercent: maxDiscountUpdate,
+            customerCeiling: customerCeilingUpd,
+            tenantCeiling: tenantCeilingUpd,
+        });
+        if (!ceilingCheck.allowed) discountCeilingPending = true;
+    }
+    const hasZeroPriceUpdate = itemsWithTotals.some(
+        (it) => Number(it.unitPrice) <= 0,
+    );
+    const needsPendingUpdate = discountCeilingPending || hasZeroPriceUpdate;
+
     return await prisma.$transaction(async (tx) => {
         // Delete only items that are NOT delivered (delivered items stay)
         const undeliveredItemIds = currentOrder.items
@@ -494,6 +603,28 @@ export async function updateOrder(
             };
         });
 
+        // ── Fase C: resolve priceStatus correction for update ──────
+        // - needsPendingUpdate → PENDING (new violation)
+        // - previous PENDING but now fixed → auto-clear: PROVISIONAL for
+        //   quotation-phase orders, null-ish (FINAL gate cleared) for draft.
+        //   ponytail: if business wants fix still require approval, change
+        //   this branch to keep PENDING until explicit approve.
+        const currentPriceStatus = (
+            currentOrder as { priceStatus?: string | null }
+        ).priceStatus;
+        let nextPriceStatus: 'PENDING' | 'PROVISIONAL' | null | undefined;
+        if (needsPendingUpdate) {
+            nextPriceStatus = 'PENDING';
+        } else if (currentPriceStatus === 'PENDING') {
+            // Fixed — auto-clear
+            const isQuot =
+                currentOrder.status === SalesOrderStatus.QUOTATION ||
+                currentOrder.status === SalesOrderStatus.QUOTATION_SENT;
+            nextPriceStatus = isQuot ? 'PROVISIONAL' : null;
+        } else {
+            nextPriceStatus = undefined; // leave as-is
+        }
+
         return await tx.salesOrder.update({
             where: { id: data.id },
             data: {
@@ -507,6 +638,16 @@ export async function updateOrder(
                 discountAmount: totalDiscount,
                 taxAmount: totalTax,
                 shippingCost: shippingCost > 0 ? shippingCost : null,
+                ...(nextPriceStatus !== undefined
+                    ? {
+                          priceStatus:
+                              nextPriceStatus === null
+                                  ? null
+                                  : (nextPriceStatus as
+                                        | 'PENDING'
+                                        | 'PROVISIONAL'),
+                      }
+                    : {}),
                 // ── Quotation commercial fields ──
                 validUntil: data.validUntil ?? undefined,
                 subject: data.subject ?? undefined,
@@ -545,6 +686,18 @@ export async function confirmOrder(
             status: order.status,
         });
     }
+
+    // ── PriceStatus gate (Fase B): PENDING must be approved first ─────
+    // This is intentionally before any other mutation or side-effect so that
+    // the caller gets a clean rejection with zero DB writes.
+    if ((order as { priceStatus?: string | null }).priceStatus === 'PENDING') {
+        throw new BusinessRuleError(
+            'Harga belum final — perlu di-approve dulu sebelum order bisa dikonfirmasi.',
+            { orderId: id, priceStatus: 'PENDING' },
+            'PRICE_NOT_FINAL',
+        );
+    }
+
     if (!order.customerId) {
         throw new BusinessRuleError(
             'Sales Order without customer is treated as a legacy internal stock build. Assign a customer first, or use a Production Order for internal replenishment.',

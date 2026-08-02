@@ -43,6 +43,10 @@ import {
     rejectQuotationOrder,
     reopenQuotationOrder,
 } from '@/actions/sales/sales';
+import {
+    approvePriceAction,
+    rejectPriceAction,
+} from '@/actions/sales/price-list';
 import { createInvoice } from '@/actions/finance/invoice';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -244,6 +248,95 @@ export function SalesOrderDetailClient({
         );
     };
 
+    // ── priceStatus badge helpers (mirroring commercialReviewStatus pattern) ──
+    const priceStatus =
+        (order as { priceStatus?: string | null }).priceStatus ?? null;
+
+    const getPriceStatusBadge = (ps: string | null) => {
+        if (!ps) return null;
+        const labels: Record<string, string> = {
+            PENDING: 'Harga belum final',
+            PROVISIONAL: 'Harga sementara',
+            FINAL: 'Harga final',
+        };
+        const styles: Record<string, string> = {
+            PENDING:
+                'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/30',
+            PROVISIONAL:
+                'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/30',
+            FINAL: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/30',
+        };
+        const extraClass = ps === 'FINAL' ? '' : 'variant="outline" as const';
+        void extraClass;
+        if (ps === 'PENDING') {
+            return (
+                <Badge variant="outline" className={styles.PENDING}>
+                    {labels.PENDING}
+                </Badge>
+            );
+        }
+        if (ps === 'PROVISIONAL') {
+            return (
+                <Badge variant="outline" className={styles.PROVISIONAL}>
+                    {labels.PROVISIONAL}
+                </Badge>
+            );
+        }
+        return (
+            <Badge variant="secondary" className={styles.FINAL}>
+                {labels.FINAL}
+            </Badge>
+        );
+    };
+
+    const handleApprovePrice = async () => {
+        setIsLoading(true);
+        try {
+            const result = await approvePriceAction({
+                orderId: order.id,
+            });
+            if (result.success) {
+                toast.success(
+                    `Harga untuk ${order.orderNumber} disetujui → sementara`,
+                );
+                router.refresh();
+            } else {
+                toast.error(
+                    result.error || 'Gagal menyetujui harga. Coba lagi.',
+                );
+            }
+        } catch {
+            toast.error('Gagal menyetujui harga. Coba lagi.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRejectPrice = async () => {
+        const reason = window.prompt('Alasan penolakan harga (wajib diisi):');
+        if (!reason || !reason.trim()) {
+            toast.error('Alasan penolakan wajib diisi.');
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const result = await rejectPriceAction({
+                orderId: order.id,
+                notes: reason.trim(),
+            });
+            if (result.success) {
+                toast.success(`Harga untuk ${order.orderNumber} ditolak.`);
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Gagal menolak harga. Coba lagi.');
+            }
+        } catch {
+            toast.error('Gagal menolak harga. Coba lagi.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {isLegacyInternalOrder && (
@@ -321,6 +414,7 @@ export function SalesOrderDetailClient({
                             {order.commercialReviewStatus === 'REJECTED' && (
                                 <Badge variant="destructive">Ditolak</Badge>
                             )}
+                            {getPriceStatusBadge(priceStatus)}
                         </h1>
                         <p className="text-muted-foreground text-sm">
                             {formLabels.createdOn}{' '}
@@ -427,6 +521,28 @@ export function SalesOrderDetailClient({
                         >
                             Buka Kembali
                         </Button>
+                    )}
+
+                    {/* ── Price approval: PENDING → PROVISIONAL (ADMIN+MARKETING guard in action, UI shows to all but toast error if unauthorized) ── */}
+                    {!warehouseMode && priceStatus === 'PENDING' && (
+                        <>
+                            <Button
+                                onClick={handleApprovePrice}
+                                disabled={isLoading}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                                Harga
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={handleRejectPrice}
+                                disabled={isLoading}
+                                className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800/50 dark:text-red-400"
+                            >
+                                <XCircle className="mr-2 h-4 w-4" /> Tolak Harga
+                            </Button>
+                        </>
                     )}
 
                     {/* ── Edit button: visible for QUOTATION*, DRAFT, CONFIRMED+, READY_TO_SHIP ── */}

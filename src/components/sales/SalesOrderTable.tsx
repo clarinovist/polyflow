@@ -20,13 +20,19 @@ import { getSalesStatusLabel, formLabels, salesLabels } from '@/lib/labels';
 
 type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
     totalAmount: number | null;
+    priceStatus?: 'PENDING' | 'PROVISIONAL' | 'FINAL' | null;
     customer:
         | (Omit<
               Customer,
-              'creditLimit' | 'discountPercent' | 'latitude' | 'longitude'
+              | 'creditLimit'
+              | 'discountPercent'
+              | 'maxDiscountPercent'
+              | 'latitude'
+              | 'longitude'
           > & {
               creditLimit: number | null;
               discountPercent: number | null;
+              maxDiscountPercent: number | null;
               latitude: number | null;
               longitude: number | null;
           })
@@ -51,6 +57,27 @@ type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
     }>;
     _count: { items: number };
 };
+
+function getPriceStatusMeta(
+    ps: string | null | undefined,
+): { label: string; cls: string } | null {
+    if (!ps) return null;
+    const map: Record<string, { label: string; cls: string }> = {
+        PENDING: {
+            label: 'Harga blm final',
+            cls: 'bg-red-100 text-red-700 border-red-200',
+        },
+        PROVISIONAL: {
+            label: 'Harga sementara',
+            cls: 'bg-amber-100 text-amber-700 border-amber-200',
+        },
+        FINAL: {
+            label: 'Harga final',
+            cls: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        },
+    };
+    return map[ps] ?? null;
+}
 
 interface SalesOrderTableProps {
     initialData: SerializedSalesOrder[];
@@ -237,17 +264,32 @@ export function SalesOrderTable({
             {
                 accessorKey: 'status',
                 header: formLabels.status,
-                size: 140,
+                size: 200,
                 cell: ({ row }) => {
                     const statusLabel = getSalesOrderStatusLabel(row.original);
+                    const psMeta = getPriceStatusMeta(
+                        (row.original as { priceStatus?: string | null })
+                            .priceStatus,
+                    );
                     return (
-                        <Badge
-                            variant="secondary"
-                            className={getStatusColor(row.original.status)}
-                            title={statusLabel}
-                        >
-                            {statusLabel}
-                        </Badge>
+                        <div className="flex flex-col gap-1 items-start">
+                            <Badge
+                                variant="secondary"
+                                className={getStatusColor(row.original.status)}
+                                title={statusLabel}
+                            >
+                                {statusLabel}
+                            </Badge>
+                            {psMeta && (
+                                <Badge
+                                    variant="outline"
+                                    className={`text-[10px] px-1.5 h-4 font-normal ${psMeta.cls}`}
+                                    title={psMeta.label}
+                                >
+                                    {psMeta.label}
+                                </Badge>
+                            )}
+                        </div>
                     );
                 },
             },
@@ -329,12 +371,33 @@ export function SalesOrderTable({
                                             </p>
                                         </div>
                                     </div>
-                                    <Badge
-                                        variant="secondary"
-                                        className={`text-[10px] px-1.5 h-5 ${getStatusColor(order.status)}`}
-                                    >
-                                        {getSalesOrderStatusLabel(order)}
-                                    </Badge>
+                                    <div className="flex flex-col gap-1 items-end">
+                                        <Badge
+                                            variant="secondary"
+                                            className={`text-[10px] px-1.5 h-5 ${getStatusColor(order.status)}`}
+                                        >
+                                            {getSalesOrderStatusLabel(order)}
+                                        </Badge>
+                                        {(() => {
+                                            const m = getPriceStatusMeta(
+                                                (
+                                                    order as {
+                                                        priceStatus?:
+                                                            | string
+                                                            | null;
+                                                    }
+                                                ).priceStatus,
+                                            );
+                                            return m ? (
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`text-[9px] px-1 h-3.5 font-normal ${m.cls}`}
+                                                >
+                                                    {m.label}
+                                                </Badge>
+                                            ) : null;
+                                        })()}
+                                    </div>
                                 </div>
                             </CardHeader>
                             <CardContent className="p-4 pt-1">

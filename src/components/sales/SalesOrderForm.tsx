@@ -191,17 +191,19 @@ export function SalesOrderForm({
     );
 
     // Sales team for dropdown
-    const [salesTeam, setSalesTeam] = useState<
-        { id: string; name: string }[]
-    >([]);
+    const [salesTeam, setSalesTeam] = useState<{ id: string; name: string }[]>(
+        [],
+    );
     useEffect(() => {
         getSalesTeamAction()
             .then((result) => {
                 const data =
-                    result &&
-                    typeof result === 'object' &&
-                    'data' in result
-                        ? (result as { data: { id: string; name: string }[] | null }).data
+                    result && typeof result === 'object' && 'data' in result
+                        ? (
+                              result as {
+                                  data: { id: string; name: string }[] | null;
+                              }
+                          ).data
                         : null;
                 setSalesTeam(data ?? []);
             })
@@ -287,8 +289,9 @@ export function SalesOrderForm({
             ? {
                   ...initialData,
                   salesRepId:
-                      ((initialData as Record<string, unknown>)
-                          .salesRepId as string | null) ?? null,
+                      ((initialData as Record<string, unknown>).salesRepId as
+                          | string
+                          | null) ?? null,
                   orderType:
                       lockedOrderType ||
                       ((initialData as Record<string, unknown>)
@@ -477,6 +480,24 @@ export function SalesOrderForm({
             cancelled = true;
         };
     }, [watchCustomerId]);
+
+    // ── Fase C: discount ceiling inline warning (cheap client path) ──
+    // customers prop now carries maxDiscountPercent after batch 3 mapping.
+    // Tenant-wide ceiling still server-side only (AppSetting) — not shown
+    // client-side without extra fetch (follow-up: expose via light action if needed).
+    const selectedCustomerCeiling = useMemo(() => {
+        if (!watchCustomerId) return null;
+        const found = (
+            customers as unknown as {
+                id: string;
+                maxDiscountPercent?: number | null;
+            }[]
+        ).find((c) => c.id === watchCustomerId);
+        const raw = found?.maxDiscountPercent;
+        if (raw == null) return null;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+    }, [customers, watchCustomerId]);
 
     // Check if shipping cost is driven by fleet delivery orders
     const deliveryOrders = (initialData as Record<string, unknown>)
@@ -1432,9 +1453,7 @@ export function SalesOrderForm({
                                 <Select
                                     onValueChange={(value) =>
                                         field.onChange(
-                                            value === '__none__'
-                                                ? null
-                                                : value,
+                                            value === '__none__' ? null : value,
                                         )
                                     }
                                     value={field.value ?? '__none__'}
@@ -1451,10 +1470,7 @@ export function SalesOrderForm({
                                             </span>
                                         </SelectItem>
                                         {salesTeam.map((s) => (
-                                            <SelectItem
-                                                key={s.id}
-                                                value={s.id}
-                                            >
+                                            <SelectItem key={s.id} value={s.id}>
                                                 {s.name}
                                             </SelectItem>
                                         ))}
@@ -2259,6 +2275,25 @@ export function SalesOrderForm({
                                                                         )}
                                                                     </span>
                                                                 )}
+                                                                {selectedCustomerCeiling !=
+                                                                    null &&
+                                                                    Number(
+                                                                        discField.value ||
+                                                                            0,
+                                                                    ) >
+                                                                        selectedCustomerCeiling && (
+                                                                        <span className="text-[10px] text-amber-600 whitespace-normal max-w-[120px] leading-tight">
+                                                                            Melebihi
+                                                                            plafon
+                                                                            {
+                                                                                selectedCustomerCeiling
+                                                                            }
+                                                                            % —
+                                                                            akan
+                                                                            jadi
+                                                                            PENDING
+                                                                        </span>
+                                                                    )}
                                                             </div>
                                                         );
                                                     }}
@@ -3049,6 +3084,22 @@ export function SalesOrderForm({
                                                                 )}
                                                             </div>
                                                         )}
+                                                        {selectedCustomerCeiling !=
+                                                            null &&
+                                                            Number(
+                                                                discField.value ||
+                                                                    0,
+                                                            ) >
+                                                                selectedCustomerCeiling && (
+                                                                <div className="text-[10px] text-amber-600 leading-tight mt-1">
+                                                                    Melebihi
+                                                                    plafon{' '}
+                                                                    {
+                                                                        selectedCustomerCeiling
+                                                                    }
+                                                                    % → PENDING
+                                                                </div>
+                                                            )}
                                                         <FormMessage />
                                                     </FormItem>
                                                 );

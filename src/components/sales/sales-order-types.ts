@@ -12,10 +12,11 @@ import {
 
 export type SerializedCustomer = Omit<
     Customer,
-    'creditLimit' | 'discountPercent'
+    'creditLimit' | 'discountPercent' | 'maxDiscountPercent'
 > & {
     creditLimit: number | null;
     discountPercent: number | null;
+    maxDiscountPercent: number | null;
 };
 
 // Helper type for client-side usage where Decimals are converted to numbers
@@ -157,6 +158,8 @@ export type SerializedSalesOrder = Omit<
     expectedDate: Date | string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
+    // Fase B: priceStatus surfacing — explicit for client safety
+    priceStatus?: 'PENDING' | 'PROVISIONAL' | 'FINAL' | null;
     items: SerializedSalesOrderItem[];
     customer:
         | (Omit<

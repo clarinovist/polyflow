@@ -44,10 +44,15 @@ import { FileUpload } from '@/components/ui/file-upload';
 
 type SerializedCustomer = Omit<
     Customer,
-    'creditLimit' | 'discountPercent' | 'latitude' | 'longitude'
+    | 'creditLimit'
+    | 'discountPercent'
+    | 'maxDiscountPercent'
+    | 'latitude'
+    | 'longitude'
 > & {
     creditLimit: number | null;
     discountPercent: number | null;
+    maxDiscountPercent: number | null;
     latitude: number | null;
     longitude: number | null;
 };

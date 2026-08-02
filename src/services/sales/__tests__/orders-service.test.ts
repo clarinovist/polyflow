@@ -23,6 +23,7 @@ const createMockPrisma = () => ({
   salesOrderItem: {
     findMany: vi.fn(),
     update: vi.fn(),
+    deleteMany: vi.fn().mockResolvedValue({ count: 0 } as never),
   },
   location: {
     findUnique: vi.fn(),
@@ -65,6 +66,12 @@ const createMockPrisma = () => ({
   },
   customerSalesAssignment: {
     findFirst: vi.fn(),
+  },
+  customer: {
+    findUnique: vi.fn(),
+  },
+  appSetting: {
+    findUnique: vi.fn(),
   },
 });
 
@@ -763,6 +770,104 @@ describe("confirmOrder", () => {
       .mock.calls.at(-1)?.[0] as never as { data: Record<string, unknown> };
     expect(updateCall.data.salesRepId).toBeNull();
   });
+
+  // ── Fase B: priceStatus gate ────────────────────────────────────────
+  it("confirm SO dengan priceStatus PENDING ditolak BusinessRuleError — tidak ada mutasi DB apa pun (harga 0 scenario)", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 0 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      priceStatus: "PENDING",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 1 } as never,
+          unitPrice: 0,
+          isFreeItem: false,
+          productVariant: { product: { productType: "PHYSICAL" }, name: "Barang harga 0" },
+        },
+      ],
+    } as never);
+
+    await expect(confirmOrder("so-1", "user-1")).rejects.toThrow(
+      /Harga belum final.*perlu di-approve/i,
+    );
+
+    // Zero DB writes — priceStatus check happens before transaction
+    expect(prisma.salesOrder.update).not.toHaveBeenCalled();
+    expect(prisma.inventory.findMany).not.toHaveBeenCalled();
+    expect(prisma.stockReservation.groupBy).not.toHaveBeenCalled();
+  });
+
+  it("confirm SO dengan priceStatus PROVISIONAL sukses dan naik ke FINAL", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 100000 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      priceStatus: "PROVISIONAL",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 } as never,
+          unitPrice: 10000,
+          productVariant: { product: { productType: "PHYSICAL" }, name: "Produk OK" },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+      { productVariantId: "pv-1", quantity: { toNumber: () => 100 } as never },
+    ] as never);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([] as never);
+
+    const result = await confirmOrder("so-1", "user-1");
+
+    expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
+    // The tx update should set priceStatus FINAL (from PROVISIONAL)
+    expect(prisma.salesOrder.update).toHaveBeenCalled();
+    const updateCalls = vi.mocked(prisma.salesOrder.update).mock.calls as unknown as Array<[{ data: Record<string, unknown> }]>;
+    const finalCall = updateCalls.find((c) => c[0]?.data?.priceStatus === "FINAL");
+    expect(finalCall).toBeDefined();
+  });
+
+  it("confirm SO dengan priceStatus null — sukses (backward compat, bukan PENDING)", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 50000 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      priceStatus: null,
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 5 } as never,
+          unitPrice: 10000,
+          productVariant: { product: { productType: "PHYSICAL" }, name: "Produk OK" },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+      { productVariantId: "pv-1", quantity: { toNumber: () => 100 } as never },
+    ] as never);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+
+    const result = await confirmOrder("so-1", "user-1");
+    expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
+  });
 });
 
 describe("cancelOrder", () => {
@@ -838,5 +943,226 @@ describe("cancelOrder", () => {
     await expect(cancelOrder("nonexistent", "user-1")).rejects.toThrow(
       "Sales Order",
     );
+  });
+});
+
+describe("createOrder — discount ceiling → priceStatus PENDING", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.salesOrder.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.salesOrder.create).mockResolvedValue({ id: "so-new", items: [] } as never);
+    vi.mocked(prisma.customerSalesAssignment.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+      id: "pv-1",
+      name: "Produk A",
+      product: { productType: ProductType.FINISHED_GOOD },
+    } as never);
+    vi.mocked(prisma.location.findUnique).mockResolvedValue({
+      id: "loc-1",
+      name: "Gudang A",
+      locationType: LocationType.INTERNAL,
+    } as never);
+    // No ceiling by default
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue(null as never);
+  });
+
+  function baseInput(overrides: Partial<{
+    discountPercent: number;
+    intent: "order" | "quotation";
+  }> = {}) {
+    return {
+      intent: (overrides.intent ?? "order") as "order" | "quotation",
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      orderDate: new Date("2026-08-02T00:00:00.000Z"),
+      expectedDate: null,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      notes: "",
+      shippingCost: 0,
+      customItems: [],
+      items: [
+        {
+          productVariantId: "pv-1",
+          quantity: 10,
+          unitPrice: 10000,
+          discountPercent: overrides.discountPercent ?? 0,
+          taxPercent: 0,
+          dppOtherAmount: null,
+          ppnMode: "EXCLUDE" as const,
+          isFreeItem: false,
+        },
+      ],
+    };
+  }
+
+  it("diskon di bawah plafon tenant → priceStatus tidak PENDING (perilaku existing)", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+      key: "sales.discountCeilingPercent",
+      value: "15",
+    } as never);
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue({
+      maxDiscountPercent: null,
+    } as never);
+
+    await createOrder(baseInput({ discountPercent: 10 }) as any, "user-1");
+
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    // Order intent with below-ceiling discount → priceStatus undefined (not PENDING)
+    expect(createCall.data.priceStatus).toBeUndefined();
+  });
+
+  it("diskon tepat di plafon (inklusif) → allowed, tidak PENDING", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+      key: "sales.discountCeilingPercent",
+      value: "10",
+    } as never);
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue({
+      maxDiscountPercent: null,
+    } as never);
+
+    await createOrder(baseInput({ discountPercent: 10 }) as any, "user-1");
+
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    expect(createCall.data.priceStatus).toBeUndefined();
+  });
+
+  it("diskon melebihi plafon tenant (order) → priceStatus PENDING", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+      key: "sales.discountCeilingPercent",
+      value: "10",
+    } as never);
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue({
+      maxDiscountPercent: null,
+    } as never);
+
+    await createOrder(baseInput({ discountPercent: 25 }) as any, "user-1");
+
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    expect(createCall.data.priceStatus).toBe("PENDING");
+  });
+
+  it("diskon melebihi plafon per customer (override tenant) → PENDING, PENDING ditolak saat confirm (union zero|discount)", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+      key: "sales.discountCeilingPercent",
+      value: "30",
+    } as never);
+    // Customer has stricter ceiling (customer override wins)
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue({
+      maxDiscountPercent: { toNumber: () => 5 } as never,
+    } as never);
+
+    await createOrder(baseInput({ discountPercent: 10 }) as any, "user-1");
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    expect(createCall.data.priceStatus).toBe("PENDING");
+
+    // Confirm gate should reject PENDING (0 mutation)
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 100 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      priceStatus: "PENDING",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 } as never,
+          unitPrice: 10000,
+          productVariant: { product: { productType: "PHYSICAL" } },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.salesOrder.update).mockClear();
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+
+    await expect(confirmOrder("so-1", "user-1")).rejects.toThrow(/Harga belum final/i);
+    expect(prisma.salesOrder.update).not.toHaveBeenCalled();
+  });
+
+  it("quotation dengan diskon over plafon → PENDING (bukan PROVISIONAL)", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+      key: "sales.discountCeilingPercent",
+      value: "10",
+    } as never);
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue({
+      maxDiscountPercent: null,
+    } as never);
+
+    await createOrder(baseInput({ discountPercent: 20, intent: "quotation" }) as any, "user-1");
+
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    expect(createCall.data.priceStatus).toBe("PENDING");
+    expect(createCall.data.status).toBe(SalesOrderStatus.QUOTATION);
+  });
+
+  it("quotation dengan diskon normal → PROVISIONAL", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+      key: "sales.discountCeilingPercent",
+      value: "10",
+    } as never);
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue(null as never);
+
+    await createOrder(baseInput({ discountPercent: 5, intent: "quotation" }) as any, "user-1");
+
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    expect(createCall.data.priceStatus).toBe("PROVISIONAL");
+  });
+
+  it("tidak ada plafon sama sekali → selalu allowed (backward compat)", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue(null as never);
+
+    await createOrder(baseInput({ discountPercent: 50 }) as any, "user-1");
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    expect(createCall.data.priceStatus).toBeUndefined();
+  });
+
+  it("zero-price + discount over ceiling (union) → PENDING (gabung kondisi)", async () => {
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+      key: "sales.discountCeilingPercent",
+      value: "5",
+    } as never);
+    vi.mocked(prisma.customer.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+      id: "pv-1",
+      name: "Produk Gratis ?",
+      product: { productType: ProductType.FINISHED_GOOD },
+    } as never);
+
+    // unitPrice 0 + discount over ceiling both trigger PENDING (same path)
+    await createOrder(
+      {
+        intent: "order",
+        customerId: "cust-1",
+        sourceLocationId: "loc-1",
+        orderDate: new Date("2026-08-02T00:00:00.000Z"),
+        expectedDate: null,
+        orderType: SalesOrderType.MAKE_TO_STOCK,
+        notes: "",
+        shippingCost: 0,
+        customItems: [],
+        items: [
+          {
+            productVariantId: "pv-1",
+            quantity: 1,
+            unitPrice: 0,
+            discountPercent: 20,
+            taxPercent: 0,
+            dppOtherAmount: null,
+            ppnMode: "EXCLUDE",
+            isFreeItem: false,
+          },
+        ],
+      } as any,
+      "user-1",
+    );
+
+    const createCall = vi.mocked(prisma.salesOrder.create).mock.calls[0][0] as any;
+    expect(createCall.data.priceStatus).toBe("PENDING");
   });
 });

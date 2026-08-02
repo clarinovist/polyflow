@@ -98,6 +98,17 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
                             discountPercent: c.discountPercent
                                 ? Number(c.discountPercent)
                                 : null,
+                            maxDiscountPercent:
+                                (c as { maxDiscountPercent?: unknown })
+                                    .maxDiscountPercent != null
+                                    ? Number(
+                                          (
+                                              c as {
+                                                  maxDiscountPercent: unknown;
+                                              }
+                                          ).maxDiscountPercent,
+                                      )
+                                    : null,
                         }))}
                         locations={locations}
                         products={products

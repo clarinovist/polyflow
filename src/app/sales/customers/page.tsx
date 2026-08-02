@@ -316,6 +316,8 @@ export default function CustomersPage() {
                                                             customer.paymentTermDays ||
                                                             0,
                                                         discountPercent: null,
+                                                        maxDiscountPercent:
+                                                            null,
                                                         notes: '',
                                                         latitude: null,
                                                         longitude: null,
