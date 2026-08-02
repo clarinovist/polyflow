@@ -10,6 +10,10 @@ import {
 } from '@/lib/schemas/partner';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requireSalesAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import {
@@ -32,7 +36,7 @@ export const getCustomerById = withTenant(async function getCustomerById(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
         return prisma.customer.findUnique({
             where: { id },
         });
@@ -41,7 +45,7 @@ export const getCustomerById = withTenant(async function getCustomerById(
 
 export const getNextCustomerCode = withTenant(
     async function getNextCustomerCode(): Promise<string> {
-        await requireAuth();
+        await requireSalesAccess();
         const prefix = 'CUS-';
 
         const lastCustomer = await prisma.customer.findFirst({
@@ -76,7 +80,7 @@ export const createCustomer = withTenant(async function createCustomer(
     data: CreateCustomerValues,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
         const result = createCustomerSchema.safeParse(data);
 
         if (!result.success) {
@@ -132,7 +136,7 @@ export const updateCustomer = withTenant(async function updateCustomer(
     data: UpdateCustomerValues,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
         const result = updateCustomerSchema.safeParse(data);
 
         if (!result.success) {
@@ -170,7 +174,7 @@ export const quickCreateCustomer = withTenant(
         billingAddress?: string;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             if (!data.name.trim()) {
                 throw new BusinessRuleError('Nama customer wajib diisi');
@@ -203,7 +207,7 @@ export const deleteCustomer = withTenant(async function deleteCustomer(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesApprover();
         try {
             await prisma.customer.delete({
                 where: { id },
@@ -225,7 +229,7 @@ export const deleteCustomer = withTenant(async function deleteCustomer(
 export const getCustomerCreditExposureAction = withTenant(
     async function getCustomerCreditExposureAction(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             return getCustomerCreditExposure(customerId);
         });
     },
@@ -234,7 +238,7 @@ export const getCustomerCreditExposureAction = withTenant(
 export const getCustomersWithCreditSummaryAction = withTenant(
     async function getCustomersWithCreditSummaryAction() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             return getCustomersWithCreditSummary();
         });
     },

@@ -19,7 +19,10 @@ import {
 import { SalesOrderStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { requireSalesApprover } from '@/lib/auth/sales-access';
+import {
+    requireSalesAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import { safeAction, NotFoundError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 
@@ -36,7 +39,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
         const orders = await SalesService.getOrders({
             includeItems,
             startDate: dateRange?.startDate,
@@ -55,7 +58,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
 export const getSalesOrdersByCustomerId = withTenant(
     async function getSalesOrdersByCustomerId(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             const orders = await SalesService.getOrders({ customerId });
             return serializeData(orders);
         });
@@ -77,7 +80,7 @@ export const createSalesOrder = withTenant(async function createSalesOrder(
     data: CreateSalesOrderValues,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const result = createSalesOrderSchema.parse(data);
 
         // Handle custom items: create products on-the-fly and replace temp IDs
@@ -143,7 +146,7 @@ export const updateSalesOrder = withTenant(async function updateSalesOrder(
     data: UpdateSalesOrderValues,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const result = updateSalesOrderSchema.parse(data);
         await SalesService.updateOrder(result, session.user.id);
         revalidatePath('/sales');
@@ -156,7 +159,7 @@ export const confirmSalesOrder = withTenant(async function confirmSalesOrder(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const result = await SalesService.confirmOrder(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
@@ -168,7 +171,7 @@ export const markReadyToShip = withTenant(async function markReadyToShip(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         await SalesService.markReadyToShip(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
@@ -182,7 +185,7 @@ export const shipSalesOrder = withTenant(async function shipSalesOrder(data: {
     carrier?: string;
 }) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const validatedData = shipSalesOrderSchema.parse(data);
         await SalesService.shipOrder(validatedData.id, session.user.id, {
             trackingNumber: validatedData.trackingNumber,
@@ -198,7 +201,7 @@ export const shipSalesOrder = withTenant(async function shipSalesOrder(data: {
 export const checkSalesOrderFulfillment = withTenant(
     async function checkSalesOrderFulfillment(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             const order = await prisma.salesOrder.findUnique({
                 where: { id },
                 include: {
@@ -281,7 +284,7 @@ export const deliverSalesOrder = withTenant(async function deliverSalesOrder(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         await SalesService.deliverOrder(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
@@ -307,96 +310,89 @@ export const deleteSalesOrder = withTenant(async function deleteSalesOrder(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesApprover();
         await SalesService.deleteOrder(id);
         revalidatePath('/sales');
         return true;
     });
 });
 
-export const getSalesOrderStats = withTenant(
-    async function getSalesOrderStats(
-        dateRange?: {
-            startDate?: Date;
-            endDate?: Date;
-        },
-        customerId?: string,
-    ) {
-        return safeAction(async () => {
-            await requireAuth();
-
-            // Scope: ORDERED customer's orderDate — align with list page's filtered view
-            // demandType is NOT a DB column — translate to customerId filter like getOrders() does
-            const where: Record<string, unknown> = {
-                customerId: customerId || { not: null },
-            };
-            if (dateRange?.startDate && dateRange?.endDate) {
-                where.orderDate = {
-                    gte: dateRange.startDate,
-                    lte: dateRange.endDate,
-                };
-            }
-
-            const stats = await prisma.salesOrder.groupBy({
-                where,
-                by: ['status'],
-                _count: { status: true },
-                _sum: { totalAmount: true },
-            });
-
-            const sum = (rows: typeof stats) =>
-                rows.reduce(
-                    (acc, r) => acc + Number(r._sum.totalAmount || 0),
-                    0,
-                );
-            const count = (rows: typeof stats) =>
-                rows.reduce((acc, r) => acc + r._count.status, 0);
-
-            const isActive = (s: string) =>
-                [
-                    'QUOTATION',
-                    'QUOTATION_SENT',
-                    'DRAFT',
-                    'CONFIRMED',
-                    'IN_PRODUCTION',
-                    'READY_TO_SHIP',
-                ].includes(s);
-            const isDone = (s: string) => ['SHIPPED', 'DELIVERED'].includes(s);
-            const isQuotationPhase = (s: string) =>
-                ['QUOTATION', 'QUOTATION_SENT'].includes(s);
-
-            const activeRows = stats.filter((s) => isActive(s.status));
-            const doneRows = stats.filter((s) => isDone(s.status));
-            const cancelledRows = stats.filter((s) => s.status === 'CANCELLED');
-            const quotationRows = stats.filter((s) =>
-                isQuotationPhase(s.status),
-            );
-
-            // Pipeline = aktif non-batal
-            const pipelineRows = activeRows;
-
-            return {
-                totalOrders: count(stats),
-                activeCount: count(activeRows),
-                completedCount: count(doneRows),
-                cancelledCount: count(cancelledRows),
-                openQuotationCount: count(quotationRows),
-
-                totalAmount: sum(stats),
-                activeAmount: sum(activeRows),
-                completedAmount: sum(doneRows),
-                pipelineAmount: sum(pipelineRows),
-                cancelledAmount: sum(cancelledRows),
-                openQuotationAmount: sum(quotationRows),
-            };
-        });
+export const getSalesOrderStats = withTenant(async function getSalesOrderStats(
+    dateRange?: {
+        startDate?: Date;
+        endDate?: Date;
     },
-);
+    customerId?: string,
+) {
+    return safeAction(async () => {
+        await requireSalesAccess();
+
+        // Scope: ORDERED customer's orderDate — align with list page's filtered view
+        // demandType is NOT a DB column — translate to customerId filter like getOrders() does
+        const where: Record<string, unknown> = {
+            customerId: customerId || { not: null },
+        };
+        if (dateRange?.startDate && dateRange?.endDate) {
+            where.orderDate = {
+                gte: dateRange.startDate,
+                lte: dateRange.endDate,
+            };
+        }
+
+        const stats = await prisma.salesOrder.groupBy({
+            where,
+            by: ['status'],
+            _count: { status: true },
+            _sum: { totalAmount: true },
+        });
+
+        const sum = (rows: typeof stats) =>
+            rows.reduce((acc, r) => acc + Number(r._sum.totalAmount || 0), 0);
+        const count = (rows: typeof stats) =>
+            rows.reduce((acc, r) => acc + r._count.status, 0);
+
+        const isActive = (s: string) =>
+            [
+                'QUOTATION',
+                'QUOTATION_SENT',
+                'DRAFT',
+                'CONFIRMED',
+                'IN_PRODUCTION',
+                'READY_TO_SHIP',
+            ].includes(s);
+        const isDone = (s: string) => ['SHIPPED', 'DELIVERED'].includes(s);
+        const isQuotationPhase = (s: string) =>
+            ['QUOTATION', 'QUOTATION_SENT'].includes(s);
+
+        const activeRows = stats.filter((s) => isActive(s.status));
+        const doneRows = stats.filter((s) => isDone(s.status));
+        const cancelledRows = stats.filter((s) => s.status === 'CANCELLED');
+        const quotationRows = stats.filter((s) => isQuotationPhase(s.status));
+
+        // Pipeline = aktif non-batal
+        const pipelineRows = activeRows;
+
+        return {
+            totalOrders: count(stats),
+            activeCount: count(activeRows),
+            completedCount: count(doneRows),
+            cancelledCount: count(cancelledRows),
+            openQuotationCount: count(quotationRows),
+
+            totalAmount: sum(stats),
+            activeAmount: sum(activeRows),
+            completedAmount: sum(doneRows),
+            pipelineAmount: sum(pipelineRows),
+            cancelledAmount: sum(cancelledRows),
+            openQuotationAmount: sum(quotationRows),
+        };
+    });
+});
 
 export const getRecentPipelineOrders = withTenant(
     async function getRecentPipelineOrders() {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const userId = session.user.id;
 
             const orders = await prisma.salesOrder.findMany({
@@ -447,7 +443,7 @@ export const sendQuotationOrder = withTenant(async function sendQuotationOrder(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         const result = await sendQuotation(id, session.user.id);
         revalidatePath('/sales/orders');
         return result;
@@ -457,7 +453,7 @@ export const sendQuotationOrder = withTenant(async function sendQuotationOrder(
 export const acceptQuotationOrder = withTenant(
     async function acceptQuotationOrder(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const result = await acceptQuotation(id, session.user.id);
             revalidatePath('/sales/orders');
             return result;
@@ -468,7 +464,7 @@ export const acceptQuotationOrder = withTenant(
 export const rejectQuotationOrder = withTenant(
     async function rejectQuotationOrder(id: string, reason?: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const result = await rejectQuotation(id, session.user.id, reason);
             revalidatePath('/sales/orders');
             return result;
@@ -479,7 +475,7 @@ export const rejectQuotationOrder = withTenant(
 export const reopenQuotationOrder = withTenant(
     async function reopenQuotationOrder(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const result = await reopenQuotation(id, session.user.id);
             revalidatePath('/sales/orders');
             return result;
@@ -499,7 +495,7 @@ export const reopenQuotationOrder = withTenant(
 export const resolveQuotationOrderId = withTenant(
     async function resolveQuotationOrderId(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const order = await prisma.salesOrder.findUnique({
                 where: { id },

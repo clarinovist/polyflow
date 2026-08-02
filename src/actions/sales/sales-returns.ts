@@ -1,6 +1,9 @@
 'use server';
 
-import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requireSalesAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { SalesReturnService } from '@/services/sales/returns-service';
@@ -15,7 +18,7 @@ export const getSalesReturns = withTenant(async function getSalesReturns(
     filters?: Record<string, unknown>,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
         const returns = await SalesReturnService.getReturns(filters);
         return returns; // Assumes serializeData is done at component level or not needed if no Dates are strictly passed to client
     });
@@ -25,7 +28,7 @@ export const getSalesReturnById = withTenant(async function getSalesReturnById(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
         const salesReturn = await SalesReturnService.getReturnById(id);
         return salesReturn;
     });
@@ -36,7 +39,7 @@ export const createSalesReturnAction = withTenant(
         data: z.infer<typeof createSalesReturnSchema>,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const parsedData = createSalesReturnSchema.parse(data);
             const salesReturn = await SalesReturnService.createReturn(
                 parsedData,
@@ -54,7 +57,7 @@ export const updateSalesReturnAction = withTenant(
         data: z.infer<typeof updateSalesReturnSchema>,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const parsedData = updateSalesReturnSchema.parse(data);
             const salesReturn = await SalesReturnService.updateReturn(
                 parsedData,
@@ -71,7 +74,7 @@ export const updateSalesReturnAction = withTenant(
 export const confirmSalesReturnAction = withTenant(
     async function confirmSalesReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const salesReturn = await SalesReturnService.confirmReturn(
                 id,
                 session.user.id,
@@ -87,7 +90,7 @@ export const confirmSalesReturnAction = withTenant(
 export const receiveSalesReturnAction = withTenant(
     async function receiveSalesReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const salesReturn = await SalesReturnService.receiveReturn(
                 id,
                 session.user.id,
@@ -103,7 +106,7 @@ export const receiveSalesReturnAction = withTenant(
 export const completeSalesReturnAction = withTenant(
     async function completeSalesReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const salesReturn = await SalesReturnService.completeReturn(
                 id,
                 session.user.id,
@@ -119,7 +122,7 @@ export const completeSalesReturnAction = withTenant(
 export const cancelSalesReturnAction = withTenant(
     async function cancelSalesReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesApprover();
             const salesReturn = await SalesReturnService.cancelReturn(
                 id,
                 session.user.id,

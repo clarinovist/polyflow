@@ -2,7 +2,10 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requireSalesAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import {
     safeAction,
     BusinessRuleError,
@@ -24,6 +27,8 @@ export const getVehicles = withTenant(async function getVehicles(filters?: {
     status?: string;
 }) {
     return safeAction(async () => {
+        await requireSalesAccess();
+
         return prisma.vehicle.findMany({
             where: {
                 ...(filters?.ownershipType && {
@@ -52,6 +57,8 @@ export const getVehicles = withTenant(async function getVehicles(filters?: {
  */
 export const getVehicle = withTenant(async function getVehicle(id: string) {
     return safeAction(async () => {
+        await requireSalesAccess();
+
         const vehicle = await prisma.vehicle.findUnique({
             where: { id },
             include: {
@@ -71,7 +78,7 @@ export const createVehicle = withTenant(async function createVehicle(
     data: CreateVehicleValues,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const result = createVehicleSchema.safeParse(data);
         if (!result.success) {
@@ -119,7 +126,7 @@ export const updateVehicle = withTenant(async function updateVehicle(
     data: CreateVehicleValues,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const vehicle = await prisma.vehicle.findUnique({ where: { id } });
         if (!vehicle) throw new NotFoundError('Kendaraan', id);
@@ -174,7 +181,7 @@ export const deleteVehicle = withTenant(async function deleteVehicle(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesApprover();
 
         const vehicle = await prisma.vehicle.findUnique({ where: { id } });
         if (!vehicle) throw new NotFoundError('Kendaraan', id);

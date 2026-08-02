@@ -9,6 +9,11 @@ import {
 } from "../customer";
 import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
+import { requireAuth } from "@/lib/tools/auth-checks";
+import {
+  requireSalesAccess,
+  requireSalesApprover,
+} from "@/lib/auth/sales-access";
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
@@ -34,7 +39,12 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/lib/tools/auth-checks", () => ({
-  requireAuth: vi.fn().mockResolvedValue(undefined),
+  requireAuth: vi.fn().mockResolvedValue({ user: { id: "u1", role: "WAREHOUSE", roles: ["WAREHOUSE"] } }),
+}));
+
+vi.mock("@/lib/auth/sales-access", () => ({
+  requireSalesAccess: vi.fn().mockResolvedValue({ user: { id: "u1", role: "SALES", roles: ["SALES"] } }),
+  requireSalesApprover: vi.fn().mockResolvedValue({ user: { id: "u1", role: "ADMIN", roles: ["ADMIN"] } }),
 }));
 
 vi.mock("@/lib/config/logger", () => ({
@@ -48,9 +58,13 @@ vi.mock("@/lib/config/logger", () => ({
 describe("customer actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset to happy-path defaults
+    vi.mocked(requireAuth).mockResolvedValue({ user: { id: "u1", role: "WAREHOUSE", roles: ["WAREHOUSE"] } } as any);
+    vi.mocked(requireSalesAccess).mockResolvedValue({ user: { id: "u1", role: "SALES", roles: ["SALES"] } } as any);
+    vi.mocked(requireSalesApprover).mockResolvedValue({ user: { id: "u1", role: "ADMIN", roles: ["ADMIN"] } } as any);
   });
 
-  // ── getCustomers ──────────────────────────────────────────────────
+  // ── getCustomers (exception lintas-portal) ───────────────────────
 
   describe("getCustomers", () => {
     it("returns all customers ordered by name ascending", async () => {
@@ -83,6 +97,25 @@ describe("customer actions", () => {
       // Assert
       expect(result).toEqual({ success: true, data: [] });
     });
+
+    it("allows WAREHOUSE role (lintas-portal exception — tetap requireAuth polos)", async () => {
+      // getCustomers uses requireAuth, not requireSalesAccess — so WAREHOUSE passes
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
+      // requireAuth resolves regardless of role
+      const result = await getCustomers();
+      expect(result.success).toBe(true);
+      expect(requireAuth).toHaveBeenCalled();
+      expect(requireSalesAccess).not.toHaveBeenCalled();
+      expect(requireSalesApprover).not.toHaveBeenCalled();
+    });
+
+    it("rejects when unauthenticated", async () => {
+      // Simulate requireAuth throwing
+      const { BusinessRuleError } = await import("@/lib/errors/errors");
+      vi.mocked(requireAuth).mockRejectedValue(new BusinessRuleError("Unauthorized"));
+      const result = await getCustomers();
+      expect(result.success).toBe(false);
+    });
   });
 
   // ── getCustomerById ───────────────────────────────────────────────
@@ -114,6 +147,14 @@ describe("customer actions", () => {
 
       // Assert
       expect(result).toEqual({ success: true, data: null });
+    });
+
+    it("requires SALES role — WAREHOUSE rejected", async () => {
+      const { BusinessRuleError } = await import("@/lib/errors/errors");
+      vi.mocked(requireSalesAccess).mockRejectedValue(new BusinessRuleError("Unauthorized: Akses sales hanya untuk admin atau sales."));
+      const result = await getCustomerById("cust-1") as any;
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/Unauthorized/);
     });
   });
 
@@ -488,6 +529,14 @@ describe("customer actions", () => {
         },
       });
     });
+
+    it("rejects WAREHOUSE role for createCustomer", async () => {
+      const { BusinessRuleError } = await import("@/lib/errors/errors");
+      vi.mocked(requireSalesAccess).mockRejectedValue(new BusinessRuleError("Unauthorized: Akses sales hanya untuk admin atau sales."));
+      const result = await createCustomer({ name: "Blocked Customer" }) as any;
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/Unauthorized/);
+    });
   });
 
   // ── updateCustomer ────────────────────────────────────────────────
@@ -645,7 +694,7 @@ describe("customer actions", () => {
   // ── deleteCustomer ────────────────────────────────────────────────
 
   describe("deleteCustomer", () => {
-    it("deletes customer and returns success", async () => {
+    it("deletes customer and returns success for ADMIN", async () => {
       // Arrange
       vi.mocked(prisma.customer.delete).mockResolvedValue({
         id: "cust-1",
@@ -660,6 +709,16 @@ describe("customer actions", () => {
       expect(prisma.customer.delete).toHaveBeenCalledWith({
         where: { id: "cust-1" },
       });
+      expect(requireSalesApprover).toHaveBeenCalled();
+    });
+
+    it("rejects delete for SALES role", async () => {
+      const { BusinessRuleError } = await import("@/lib/errors/errors");
+      vi.mocked(requireSalesApprover).mockRejectedValue(new BusinessRuleError("Unauthorized: Hanya admin yang dapat melakukan aksi ini (cancel order, force ops)."));
+      const result = await deleteCustomer("cust-1") as any;
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/Unauthorized/);
+      expect(prisma.customer.delete).not.toHaveBeenCalled();
     });
 
     it("returns error when database delete fails", async () => {

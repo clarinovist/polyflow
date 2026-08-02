@@ -24,9 +24,10 @@ import {
     reopenQuotation,
 } from '@/services/sales/orders-service';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { requireSalesApprover } from '@/lib/auth/sales-access';
+import { requireSalesAccess, requireSalesApprover } from '@/lib/auth/sales-access';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/core/prisma';
+import { BusinessRuleError } from '@/lib/errors/errors';
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ vi.mock('@/lib/tools/auth-checks', () => ({
 }));
 
 vi.mock('@/lib/auth/sales-access', () => ({
+    requireSalesAccess: vi.fn(),
     requireSalesApprover: vi.fn(),
 }));
 
@@ -101,6 +103,7 @@ describe('sales order actions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(requireAuth).mockResolvedValue(SESSION as never);
+        vi.mocked(requireSalesAccess).mockResolvedValue(SESSION as never);
         vi.mocked(requireSalesApprover).mockResolvedValue(SESSION as never);
     });
 
@@ -514,6 +517,85 @@ describe('sales order actions', () => {
 
             // Assert
             expect(reopenQuotation).toHaveBeenCalledWith('so-1', 'user-1');
+        });
+    });
+
+    describe('authorization guards (gap 03 — kelompok 5)', () => {
+        // getSalesOrderById exception: stays requireAuth() per plan Section 9, so WAREHOUSE can still read
+        it('getSalesOrderById uses plain requireAuth() — WAREHOUSE still passes (cross-portal exception)', async () => {
+            // Arrange — simulate WAREHOUSE session passing requireAuth but SalesService returning an order
+            vi.mocked(SalesService.getOrderById).mockResolvedValue({
+                id: 'so-1',
+                orderNumber: 'SO-1',
+            } as never);
+
+            // Act
+            const res = await getSalesOrderById('so-1');
+
+            // Assert
+            expect(requireAuth).toHaveBeenCalled();
+            expect(requireSalesAccess).not.toHaveBeenCalled();
+            expect(res.success).toBe(true);
+        });
+
+        it('cancelSalesOrder uses requireSalesApprover() — WAREHOUSE/SALES would be blocked at guard level', async () => {
+            // Arrange — approver passes in this happy path
+            vi.mocked(SalesService.cancelOrder).mockResolvedValue(undefined as never);
+
+            // Act
+            await cancelSalesOrder('so-1');
+
+            // Assert
+            expect(requireSalesApprover).toHaveBeenCalled();
+            expect(requireAuth).not.toHaveBeenCalled();
+            expect(requireSalesAccess).not.toHaveBeenCalled();
+        });
+
+        it('deleteSalesOrder uses requireSalesApprover() — SALES is rejected', async () => {
+            // Arrange — simulate SALES user rejected by approver guard
+            vi.mocked(requireSalesApprover).mockRejectedValue(
+                new BusinessRuleError(
+                    'Unauthorized: Hanya admin yang dapat melakukan aksi ini (cancel order, force ops).',
+                ),
+            );
+
+            // Act
+            const res = await deleteSalesOrder('so-1');
+
+            // Assert — guard failure surfaces as failed envelope (BusinessRuleError → safeAction)
+            expect(res.success).toBe(false);
+            if (!res.success) {
+                expect(res.error).toMatch(/admin/i);
+            }
+        });
+
+        it('getSalesOrders uses requireSalesAccess() — rejected SALES-access returns failed envelope', async () => {
+            // Arrange
+            const guardError = new BusinessRuleError(
+                'Unauthorized: Akses sales hanya untuk admin atau sales.',
+            );
+            vi.mocked(requireSalesAccess).mockRejectedValue(guardError);
+
+            // Act
+            const res = await getSalesOrders();
+
+            // Assert
+            expect(res.success).toBe(false);
+            if (!res.success) {
+                expect(res.error).toMatch(/akses sales/i);
+            }
+        });
+
+        it('quotation actions use requireSalesAccess() — allowed roles pass', async () => {
+            // Arrange
+            vi.mocked(sendQuotation).mockResolvedValue({ id: 'so-1' } as never);
+
+            // Act
+            const res = await sendQuotationOrder('so-1');
+
+            // Assert
+            expect(requireSalesAccess).toHaveBeenCalled();
+            expect(res.success).toBe(true);
         });
     });
 });

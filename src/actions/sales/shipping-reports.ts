@@ -2,6 +2,7 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { Prisma, OwnershipType, RateType } from '@prisma/client';
 
@@ -71,6 +72,8 @@ interface OwnershipSummary {
 export const getShippingCostReport = withTenant(
     async function getShippingCostReport(filters: ShippingReportFilters) {
         return safeAction(async () => {
+            await requireSalesAccess();
+
             const where: Prisma.DeliveryOrderWhereInput = {
                 vehicleId: { not: null },
             };

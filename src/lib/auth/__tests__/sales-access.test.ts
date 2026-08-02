@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { requireSalesAccess, requireSalesApprover, requireSalesFinance } from "../sales-access";
+import { requireSalesAccess, requireSalesApprover, requireSalesFinance, requireSalesManager, requireDeliveryAccess } from "../sales-access";
 import { BusinessRuleError } from "@/lib/errors/errors";
 
 vi.mock("@/lib/tools/auth-checks", () => ({
@@ -77,6 +77,71 @@ describe("sales-access helpers", () => {
     it("rejects SALES", async () => {
       vi.mocked(requireAuth).mockResolvedValue(mockSession("SALES"));
       await expect(requireSalesFinance()).rejects.toThrow(BusinessRuleError);
+    });
+  });
+
+  describe("requireSalesManager", () => {
+    it("allows ADMIN", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("ADMIN"));
+      const session = await requireSalesManager();
+      expect(session.user.role).toBe("ADMIN");
+    });
+
+    it("allows MARKETING", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("MARKETING"));
+      const session = await requireSalesManager();
+      expect(session.user.role).toBe("MARKETING");
+    });
+
+    it("rejects SALES", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("SALES"));
+      await expect(requireSalesManager()).rejects.toThrow(BusinessRuleError);
+    });
+
+    it("rejects WAREHOUSE", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("WAREHOUSE"));
+      await expect(requireSalesManager()).rejects.toThrow(BusinessRuleError);
+    });
+
+    it("rejects FINANCE", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("FINANCE"));
+      await expect(requireSalesManager()).rejects.toThrow(BusinessRuleError);
+    });
+  });
+
+  describe("requireDeliveryAccess", () => {
+    it("allows ADMIN", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("ADMIN"));
+      const session = await requireDeliveryAccess();
+      expect(session.user.role).toBe("ADMIN");
+    });
+
+    it("allows SALES", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("SALES"));
+      const session = await requireDeliveryAccess();
+      expect(session.user.role).toBe("SALES");
+    });
+
+    it("allows MARKETING", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("MARKETING"));
+      const session = await requireDeliveryAccess();
+      expect(session.user.role).toBe("MARKETING");
+    });
+
+    it("allows WAREHOUSE", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("WAREHOUSE"));
+      const session = await requireDeliveryAccess();
+      expect(session.user.role).toBe("WAREHOUSE");
+    });
+
+    it("rejects FINANCE", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("FINANCE"));
+      await expect(requireDeliveryAccess()).rejects.toThrow(BusinessRuleError);
+    });
+
+    it("rejects PRODUCTION", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("PRODUCTION"));
+      await expect(requireDeliveryAccess()).rejects.toThrow(BusinessRuleError);
     });
   });
 });

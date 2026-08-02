@@ -11,13 +11,15 @@ vi.mock("@/lib/core/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/auth/roles", () => ({
-  hasAnyRole: vi.fn(),
-}));
-
 vi.mock("@/lib/tools/auth-checks", () => ({
   requireAuth: vi.fn().mockResolvedValue({
     user: { id: "u1", role: "SALES", roles: null },
+  }),
+}));
+
+vi.mock("@/lib/auth/sales-access", () => ({
+  requireSalesManager: vi.fn().mockResolvedValue({
+    user: { id: "u1", role: "ADMIN", roles: ["ADMIN"] },
   }),
 }));
 
@@ -53,29 +55,37 @@ vi.mock("@/services/sales/customer-assignment-service", () => ({
   getAssignedCustomers: vi.fn().mockResolvedValue([]),
 }));
 
-import { hasAnyRole } from "@/lib/auth/roles";
+import { requireAuth } from "@/lib/tools/auth-checks";
+import { requireSalesManager } from "@/lib/auth/sales-access";
 import {
   assignCustomerAction,
   unassignCustomerAction,
   getMyAssignedCustomers,
+  getCustomerAssignmentsAction,
 } from "../customer-assignment";
 
 describe("customer-assignment actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuth).mockResolvedValue({
+      user: { id: "u1", role: "SALES", roles: null },
+    } as any);
+    vi.mocked(requireSalesManager).mockResolvedValue({
+      user: { id: "u1", role: "ADMIN", roles: ["ADMIN"] },
+    } as any);
   });
 
   it("assignCustomerAction works for admin", async () => {
-    vi.mocked(hasAnyRole).mockReturnValue(true);
     const result = await assignCustomerAction({
       customerId: "cus-1",
       userId: "u1",
     });
-    expect(result).toBeDefined();
+    expect(result.success).toBe(true);
+    expect(requireSalesManager).toHaveBeenCalled();
   });
 
-  it("assignCustomerAction rejects non-admin", async () => {
-    vi.mocked(hasAnyRole).mockReturnValue(false);
+  it("assignCustomerAction rejects non-admin/non-marketing", async () => {
+    vi.mocked(requireSalesManager).mockRejectedValue(new Error("Unauthorized: Hanya admin atau marketing yang dapat melakukan aksi ini."));
     const result = await assignCustomerAction({
       customerId: "cus-1",
       userId: "u1",
@@ -83,17 +93,20 @@ describe("customer-assignment actions", () => {
     expect(result.success).toBe(false);
   });
 
-  it("unassignCustomerAction works for admin", async () => {
-    vi.mocked(hasAnyRole).mockReturnValue(true);
+  it("unassignCustomerAction works for marketing", async () => {
+    vi.mocked(requireSalesManager).mockResolvedValue({
+      user: { id: "u2", role: "MARKETING", roles: ["MARKETING"] },
+    } as any);
     const result = await unassignCustomerAction({
       customerId: "cus-1",
       userId: "u1",
     });
-    expect(result).toBeDefined();
+    expect(result.success).toBe(true);
+    expect(requireSalesManager).toHaveBeenCalled();
   });
 
-  it("unassignCustomerAction rejects non-admin", async () => {
-    vi.mocked(hasAnyRole).mockReturnValue(false);
+  it("unassignCustomerAction rejects SALES", async () => {
+    vi.mocked(requireSalesManager).mockRejectedValue(new Error("Unauthorized: Hanya admin atau marketing yang dapat melakukan aksi ini."));
     const result = await unassignCustomerAction({
       customerId: "cus-1",
       userId: "u1",
@@ -101,34 +114,25 @@ describe("customer-assignment actions", () => {
     expect(result.success).toBe(false);
   });
 
-  it("getMyAssignedCustomers returns list", async () => {
+  it("getMyAssignedCustomers returns list (requireAuth, no manager guard)", async () => {
     const result = await getMyAssignedCustomers();
     expect(result).toBeDefined();
+    expect(requireAuth).toHaveBeenCalled();
   });
 
-  it("assignCustomerAction passes MARKETING role to hasAnyRole guard", async () => {
-    vi.mocked(hasAnyRole).mockReturnValue(true);
+  it("getCustomerAssignmentsAction works (requireAuth)", async () => {
+    const result = await getCustomerAssignmentsAction("cus-1");
+    expect(result).toBeDefined();
+    expect(requireAuth).toHaveBeenCalled();
+  });
+
+  it("assign uses requireSalesManager not hasAnyRole inline", async () => {
     await assignCustomerAction({ customerId: "cus-1", userId: "u1" });
-    expect(hasAnyRole).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.arrayContaining(["MARKETING"]),
-    );
+    expect(requireSalesManager).toHaveBeenCalledTimes(1);
   });
 
-  it("unassignCustomerAction passes MARKETING role to hasAnyRole guard", async () => {
-    vi.mocked(hasAnyRole).mockReturnValue(true);
+  it("unassign uses requireSalesManager not hasAnyRole inline", async () => {
     await unassignCustomerAction({ customerId: "cus-1", userId: "u1" });
-    expect(hasAnyRole).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.arrayContaining(["MARKETING"]),
-    );
-  });
-
-  it("assignCustomerAction guard does not include SALES_ADMIN", async () => {
-    vi.mocked(hasAnyRole).mockReturnValue(true);
-    await assignCustomerAction({ customerId: "cus-1", userId: "u1" });
-    const callArgs = vi.mocked(hasAnyRole).mock.calls[0];
-    const roles = callArgs[1] as string[];
-    expect(roles).not.toContain("SALES_ADMIN");
+    expect(requireSalesManager).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,14 +2,14 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { QUOTATION_STATUSES } from '@/lib/sales/order-phase';
 
 export const listCustomerInvoices = withTenant(
     async function listCustomerInvoices(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             const salesOrders = await prisma.salesOrder.findMany({
                 where: { customerId },
                 select: { id: true },
@@ -32,7 +32,7 @@ export const listCustomerInvoices = withTenant(
 export const listCustomerReturns = withTenant(
     async function listCustomerReturns(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             return prisma.salesReturn.findMany({
                 where: { customerId },
                 orderBy: { returnDate: 'desc' },
@@ -44,7 +44,7 @@ export const listCustomerReturns = withTenant(
 export const listCustomerDeliveries = withTenant(
     async function listCustomerDeliveries(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             return prisma.deliveryOrder.findMany({
                 where: { salesOrder: { customerId } },
                 orderBy: { deliveryDate: 'desc' },
@@ -64,7 +64,7 @@ export const listCustomerDeliveries = withTenant(
 export const listCustomerQuotations = withTenant(
     async function listCustomerQuotations(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             return prisma.salesOrder.findMany({
                 where: {
                     customerId,
@@ -88,7 +88,7 @@ export const listCustomerVisits = withTenant(async function listCustomerVisits(
     customerId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
         return prisma.salesVisit.findMany({
             where: { customerId },
             orderBy: { checkInTime: 'desc' },
@@ -102,7 +102,7 @@ export const listCustomerVisits = withTenant(async function listCustomerVisits(
 export const getCustomerSalesAnalytics = withTenant(
     async function getCustomerSalesAnalytics(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
             const sixMonthsAgo = new Date();
             sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
             sixMonthsAgo.setDate(1);

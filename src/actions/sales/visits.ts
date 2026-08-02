@@ -1,7 +1,7 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { syncVisitLogs } from '@/services/sales/field-visit-service';
 
@@ -24,7 +24,7 @@ type VisitLogInput = {
 export const syncVisitLogsAction = withTenant(
     async function syncVisitLogsAction(logs: VisitLogInput[]) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             const results = await syncVisitLogs(
                 session.user.id,

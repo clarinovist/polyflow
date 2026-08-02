@@ -2,7 +2,10 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requireSalesAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import {
     safeAction,
     BusinessRuleError,
@@ -22,6 +25,8 @@ import { revalidatePath } from 'next/cache';
 export const getTariffsByVehicle = withTenant(
     async function getTariffsByVehicle(vehicleId: string) {
         return safeAction(async () => {
+            await requireSalesAccess();
+
             return prisma.vehicleTariff.findMany({
                 where: { vehicleId },
                 orderBy: { validFrom: 'desc' },
@@ -43,6 +48,8 @@ export const getActiveTariff = withTenant(async function getActiveTariff(
     routeName?: string | null,
 ) {
     return safeAction(async () => {
+        await requireSalesAccess();
+
         const now = new Date();
         const dateFilter = {
             validFrom: { lte: now },
@@ -84,6 +91,8 @@ export const getActiveTariff = withTenant(async function getActiveTariff(
 export const listVehicleRouteOptions = withTenant(
     async function listVehicleRouteOptions(vehicleId: string) {
         return safeAction(async () => {
+            await requireSalesAccess();
+
             const tariffs = await prisma.vehicleTariff.findMany({
                 where: { vehicleId, routeName: { not: null } },
                 select: { routeName: true },
@@ -103,7 +112,7 @@ export const listVehicleRouteOptions = withTenant(
 export const createVehicleTariff = withTenant(
     async function createVehicleTariff(data: CreateVehicleTariffValues) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const result = createVehicleTariffSchema.safeParse(data);
             if (!result.success) {
@@ -190,7 +199,7 @@ export const updateVehicleTariff = withTenant(
         data: CreateVehicleTariffValues,
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const existing = await prisma.vehicleTariff.findUnique({
                 where: { id },
@@ -270,7 +279,7 @@ export const updateVehicleTariff = withTenant(
 export const deleteVehicleTariff = withTenant(
     async function deleteVehicleTariff(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesApprover();
 
             const existing = await prisma.vehicleTariff.findUnique({
                 where: { id },

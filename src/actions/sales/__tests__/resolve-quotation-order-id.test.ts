@@ -25,6 +25,7 @@ vi.mock('@/lib/tools/auth-checks', () => ({
 }));
 
 vi.mock('@/lib/auth/sales-access', () => ({
+    requireSalesAccess: vi.fn().mockResolvedValue({ user: { id: 'user-1' } }),
     requireSalesApprover: vi.fn().mockResolvedValue(undefined),
 }));
 

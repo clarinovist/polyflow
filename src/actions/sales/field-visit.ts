@@ -1,7 +1,7 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import {
@@ -24,7 +24,7 @@ export const startFieldVisitAction = withTenant(
         extraReason?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const visit = await startFieldVisit({
                 ...data,
                 userId: session.user.id,
@@ -43,7 +43,7 @@ export const completeFieldVisitAction = withTenant(
         photoUrl?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const visit = await completeFieldVisit({
                 ...data,
                 userId: session.user.id,
@@ -74,7 +74,7 @@ export const syncVisitLogsAction = withTenant(
         }[],
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
             const results = await syncVisitLogs(session.user.id, logs);
             const syncedCount = results.filter((r) => r.success).length;
             return { count: syncedCount, results };

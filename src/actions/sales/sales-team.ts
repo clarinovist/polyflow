@@ -1,7 +1,7 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import { prisma } from '@/lib/core/prisma';
@@ -12,7 +12,7 @@ import { getAssignedCustomers } from '@/services/sales/customer-assignment-servi
 export const getSalesTeamAction = withTenant(
     async function getSalesTeamAction() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const users = await prisma.user.findMany({
                 where: {
@@ -61,7 +61,7 @@ export const getSalesTeamAction = withTenant(
 export const getSalesTeamAssignedCustomersAction = withTenant(
     async function getSalesTeamAssignedCustomersAction(userId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const assignments = await getAssignedCustomers(userId);
 

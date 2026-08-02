@@ -2,7 +2,8 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { requireSalesManager } from '@/lib/auth/sales-access';
+import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import {
     assignCustomerToSales,
@@ -10,7 +11,6 @@ import {
     getCustomerAssignments,
     getAssignedCustomers,
 } from '@/services/sales/customer-assignment-service';
-import { hasAnyRole } from '@/lib/auth/roles';
 
 // ── Assign customer to sales ─────────────────────────────────────
 
@@ -22,12 +22,7 @@ export const assignCustomerAction = withTenant(
         notes?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {
-                throw new BusinessRuleError(
-                    'Hanya admin atau marketing yang dapat meng-assign customer',
-                );
-            }
+            const session = await requireSalesManager();
 
             const assignment = await assignCustomerToSales({
                 ...data,
@@ -47,12 +42,7 @@ export const unassignCustomerAction = withTenant(
         userId: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {
-                throw new BusinessRuleError(
-                    'Hanya admin atau marketing yang dapat meng-unassign customer',
-                );
-            }
+            await requireSalesManager();
 
             const result = await unassignCustomerFromSales(data);
             return serializeData(result);

@@ -3,7 +3,7 @@
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { logActivity } from '@/lib/tools/audit';
 import { revalidatePath } from 'next/cache';
 
@@ -23,7 +23,7 @@ export const attachDeliveryPhoto = withTenant(
         receivedBy?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             const doRecord = await prisma.deliveryOrder.findUnique({
                 where: { id: data.deliveryOrderId },

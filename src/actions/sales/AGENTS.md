@@ -30,21 +30,46 @@ status helpers in `src/lib/sales/order-phase.ts`.
 
 ### Action Structure
 
+**Jangan pakai `requireAuth()` polos di action baru.** `withTenant` bukan
+gerbang auth — untuk pemanggil tanpa session ia fallback ke `SYSTEM_USER_ID`
+dan tetap menjalankan action (`src/lib/core/tenant.ts`). `requireAuth()`
+hanya memastikan ada session, tidak memfilter role — artinya staf HRD/gudang/
+kasir bisa memanggil action penjualan apa pun. Pakai helper dari
+`@/lib/auth/sales-access` sesuai tabel di bawah.
+
 ```typescript
 'use server';
 import { withTenant } from '@/lib/core/tenant';
 import { safeAction, NotFoundError } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 
 export const myAction = withTenant(async function myAction(data: InputType) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireSalesAccess();
         // ... business logic
         revalidatePath('/sales');
         return result;
     });
 });
 ```
+
+**Matriks guard** (`src/lib/auth/sales-access.ts`):
+
+| Kelompok action                                                    | Guard                     | Role                               |
+| ------------------------------------------------------------------ | ------------------------- | ---------------------------------- |
+| Baca/tulis data sales (list, detail, laporan, CRUD SO/return/rute) | `requireSalesAccess()`    | ADMIN, SALES, MARKETING            |
+| Destruktif/override (cancel, delete, force ops)                    | `requireSalesApprover()`  | ADMIN                              |
+| Assign/unassign customer, verifikasi prospek                       | `requireSalesManager()`   | ADMIN, MARKETING                   |
+| Invoice & piutang sisi sales                                       | `requireSalesFinance()`   | ADMIN, FINANCE                     |
+| Jadwal kirim & daftar muatan (dibaca portal gudang)                | `requireDeliveryAccess()` | ADMIN, SALES, MARKETING, WAREHOUSE |
+
+Exception terdokumentasi (JANGAN naikkan ke guard di atas — dipakai
+lintas-portal di luar `/sales/**`): `getCustomers` (`customer.ts`) dan
+`getSalesOrderById` (`sales.ts`) tetap `requireAuth()` polos karena dipanggil
+dari halaman finance/warehouse/maklon. Kalau menambah action baru yang juga
+dipanggil lintas-portal, grep dulu:
+`grep -rn "from '@/actions/sales/" src/app src/components | grep -v "app/sales\|app/field/sales\|components/sales"`
+sebelum memutuskan guard-nya.
 
 ### Sales Order Types
 

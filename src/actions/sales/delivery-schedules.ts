@@ -2,7 +2,11 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requireDeliveryAccess,
+    requireSalesAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import {
     safeAction,
     BusinessRuleError,
@@ -28,11 +32,16 @@ import {
     canReopenTrip,
     checkSameDayTrips,
 } from '@/lib/sales/delivery-schedule-rules';
-import { ScheduleStatus, TripStatus, RateType, Prisma, TransportMode, ActivityType } from '@prisma/client';
-import { revalidatePath } from 'next/cache';
 import {
-    assignSalesOrderToTripSchema,
-} from '@/lib/schemas/sales';
+    ScheduleStatus,
+    TripStatus,
+    RateType,
+    Prisma,
+    TransportMode,
+    ActivityType,
+} from '@prisma/client';
+import { revalidatePath } from 'next/cache';
+import { assignSalesOrderToTripSchema } from '@/lib/schemas/sales';
 
 // ============================================
 // Helpers
@@ -78,6 +87,8 @@ export const getDeliverySchedules = withTenant(
         year?: number;
     }) {
         return safeAction(async () => {
+            await requireDeliveryAccess();
+
             const where: Prisma.DeliveryScheduleWhereInput = {};
             if (filters?.status)
                 where.status = filters.status as ScheduleStatus;
@@ -122,6 +133,8 @@ export const getDeliverySchedules = withTenant(
 export const getDeliverySchedule = withTenant(
     async function getDeliverySchedule(id: string) {
         return safeAction(async () => {
+            await requireDeliveryAccess();
+
             const schedule = await prisma.deliverySchedule.findUnique({
                 where: { id },
                 include: {
@@ -202,7 +215,7 @@ export const createDeliverySchedule = withTenant(
         notes?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             const now = data?.weekStart || new Date();
             const { monday, sunday } = getWeekBounds(now);
@@ -248,7 +261,7 @@ export const updateDeliverySchedule = withTenant(
         data: { status?: ScheduleStatus; notes?: string },
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const schedule = await prisma.deliverySchedule.findUnique({
                 where: { id },
@@ -325,7 +338,7 @@ export const createScheduleTrip = withTenant(async function createScheduleTrip(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const schedule = await prisma.deliverySchedule.findUnique({
             where: { id: scheduleId },
@@ -335,7 +348,10 @@ export const createScheduleTrip = withTenant(async function createScheduleTrip(
         const transportMode = rawData.transportMode || 'INTERNAL_FLEET';
 
         // Validate transport mode requirements
-        const modeCheck = validateTransportMode(transportMode, rawData.vehicleId);
+        const modeCheck = validateTransportMode(
+            transportMode,
+            rawData.vehicleId,
+        );
         if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
 
         // Validate vehicle if INTERNAL_FLEET
@@ -343,7 +359,8 @@ export const createScheduleTrip = withTenant(async function createScheduleTrip(
             const vehicle = await prisma.vehicle.findUnique({
                 where: { id: rawData.vehicleId },
             });
-            if (!vehicle) throw new NotFoundError('Kendaraan', rawData.vehicleId);
+            if (!vehicle)
+                throw new NotFoundError('Kendaraan', rawData.vehicleId);
             if (vehicle.status !== 'ACTIVE') {
                 throw new BusinessRuleError(
                     `Kendaraan "${vehicle.plateNumber}" tidak aktif.`,
@@ -363,10 +380,16 @@ export const createScheduleTrip = withTenant(async function createScheduleTrip(
 
         // R-T2: same vehicle + same date — warning only (multi-trip allowed)
         if (rawData.vehicleId) {
-            const existingTrips = await prisma.deliveryScheduleVehicle.findMany({
-                where: { scheduleId, status: { not: 'CANCELLED' } },
-                select: { vehicleId: true, departureDate: true, status: true },
-            });
+            const existingTrips = await prisma.deliveryScheduleVehicle.findMany(
+                {
+                    where: { scheduleId, status: { not: 'CANCELLED' } },
+                    select: {
+                        vehicleId: true,
+                        departureDate: true,
+                        status: true,
+                    },
+                },
+            );
             const sameDayCheck = checkSameDayTrips(
                 rawData.vehicleId,
                 rawData.departureDate,
@@ -424,7 +447,7 @@ export const updateScheduleTrip = withTenant(async function updateScheduleTrip(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const trip = await prisma.deliveryScheduleVehicle.findUnique({
             where: { id: tripId },
@@ -447,7 +470,8 @@ export const updateScheduleTrip = withTenant(async function updateScheduleTrip(
 
         // Validate transport mode if changing
         const newMode = data.transportMode || trip.transportMode;
-        const newVehicleId = data.vehicleId !== undefined ? data.vehicleId : trip.vehicleId;
+        const newVehicleId =
+            data.vehicleId !== undefined ? data.vehicleId : trip.vehicleId;
         if (data.transportMode || data.vehicleId !== undefined) {
             const modeCheck = validateTransportMode(newMode, newVehicleId);
             if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
@@ -468,16 +492,32 @@ export const updateScheduleTrip = withTenant(async function updateScheduleTrip(
         const updated = await prisma.deliveryScheduleVehicle.update({
             where: { id: tripId },
             data: {
-                ...(data.departureDate && { departureDate: data.departureDate }),
-                ...(data.routeName !== undefined && { routeName: data.routeName }),
-                ...(data.runNumber !== undefined && { runNumber: data.runNumber }),
+                ...(data.departureDate && {
+                    departureDate: data.departureDate,
+                }),
+                ...(data.routeName !== undefined && {
+                    routeName: data.routeName,
+                }),
+                ...(data.runNumber !== undefined && {
+                    runNumber: data.runNumber,
+                }),
                 ...(data.notes !== undefined && { notes: data.notes }),
                 ...(data.sequence !== undefined && { sequence: data.sequence }),
-                ...(data.transportMode && { transportMode: data.transportMode }),
-                ...(data.vehicleId !== undefined && { vehicleId: data.vehicleId }),
-                ...(data.externalProvider !== undefined && { externalProvider: data.externalProvider }),
-                ...(data.externalPlate !== undefined && { externalPlate: data.externalPlate }),
-                ...(data.externalDriver !== undefined && { externalDriver: data.externalDriver }),
+                ...(data.transportMode && {
+                    transportMode: data.transportMode,
+                }),
+                ...(data.vehicleId !== undefined && {
+                    vehicleId: data.vehicleId,
+                }),
+                ...(data.externalProvider !== undefined && {
+                    externalProvider: data.externalProvider,
+                }),
+                ...(data.externalPlate !== undefined && {
+                    externalPlate: data.externalPlate,
+                }),
+                ...(data.externalDriver !== undefined && {
+                    externalDriver: data.externalDriver,
+                }),
             },
         });
 
@@ -494,14 +534,19 @@ export const updateTripStatus = withTenant(async function updateTripStatus(
     newStatus: TripStatus,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const trip = await prisma.deliveryScheduleVehicle.findUnique({
             where: { id: tripId },
             include: {
                 schedule: true,
                 orders: {
-                    select: { id: true, status: true, deliveryOrderId: true, activityType: true },
+                    select: {
+                        id: true,
+                        status: true,
+                        deliveryOrderId: true,
+                        activityType: true,
+                    },
                 },
             },
         });
@@ -554,7 +599,7 @@ export const assignVehicleToSchedule = withTenant(
         vehicleId: string,
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const schedule = await prisma.deliverySchedule.findUnique({
                 where: { id: scheduleId },
@@ -607,7 +652,7 @@ export const assignVehicleToSchedule = withTenant(
 export const removeVehicleFromSchedule = withTenant(
     async function removeVehicleFromSchedule(scheduleVehicleId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const sv = await prisma.deliveryScheduleVehicle.findUnique({
                 where: { id: scheduleVehicleId },
@@ -654,7 +699,7 @@ export const assignSalesOrderToTrip = withTenant(
         },
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             // Zod validation
             const parsed = assignSalesOrderToTripSchema.safeParse(rawData);
@@ -734,7 +779,7 @@ export const scheduleSOWithTrip = withTenant(async function scheduleSOWithTrip(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const schedule = await prisma.deliverySchedule.findUnique({
             where: { id: scheduleId },
@@ -833,6 +878,8 @@ export const listSchedulableSalesOrders = withTenant(
         scheduleId?: string;
     }) {
         return safeAction(async () => {
+            await requireDeliveryAccess();
+
             const where: Prisma.SalesOrderWhereInput = {
                 status: {
                     notIn: [
@@ -966,7 +1013,7 @@ export const assignOrderToSchedule = withTenant(
         deliveryOrderId: string,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             const sv = await prisma.deliveryScheduleVehicle.findUnique({
                 where: { id: scheduleVehicleId },
@@ -1118,7 +1165,7 @@ export const linkDeliveryOrderToStop = withTenant(
         deliveryOrderId: string,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             const stop = await prisma.deliveryScheduleOrder.findUnique({
                 where: { id: stopId },
@@ -1277,7 +1324,7 @@ export const linkDeliveryOrderToStop = withTenant(
 export const removeOrderFromSchedule = withTenant(
     async function removeOrderFromSchedule(scheduleOrderId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const stop = await prisma.deliveryScheduleOrder.findUnique({
                 where: { id: scheduleOrderId },
@@ -1323,7 +1370,7 @@ export const generateDeliveryOrderFromStop = withTenant(
         options?: { sourceLocationId?: string },
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             // Load stop with full context
             const stop = await prisma.deliveryScheduleOrder.findUnique({
@@ -1372,10 +1419,11 @@ export const generateDeliveryOrderFromStop = withTenant(
                 await import('@/services/sales/delivery-fulfillment-service');
 
             // Load planned items for this stop
-            const plannedItems = await prisma.deliveryScheduleOrderItem.findMany({
-                where: { scheduleOrderId: stopId },
-                select: { salesOrderItemId: true, plannedQuantity: true },
-            });
+            const plannedItems =
+                await prisma.deliveryScheduleOrderItem.findMany({
+                    where: { scheduleOrderId: stopId },
+                    select: { salesOrderItemId: true, plannedQuantity: true },
+                });
 
             const deliveryOrder = await createDeliveryOrderFromSalesOrder({
                 salesOrderId: stop.salesOrderId,
@@ -1390,12 +1438,13 @@ export const generateDeliveryOrderFromStop = withTenant(
                     so?.customer?.shippingAddress ||
                     so?.customer?.billingAddress ||
                     undefined,
-                plannedItems: plannedItems.length > 0
-                    ? plannedItems.map((pi) => ({
-                          salesOrderItemId: pi.salesOrderItemId,
-                          plannedQuantity: Number(pi.plannedQuantity),
-                      }))
-                    : undefined,
+                plannedItems:
+                    plannedItems.length > 0
+                        ? plannedItems.map((pi) => ({
+                              salesOrderItemId: pi.salesOrderItemId,
+                              plannedQuantity: Number(pi.plannedQuantity),
+                          }))
+                        : undefined,
             });
 
             // Apply tariff snapshot (same logic as assignOrderToSchedule)
@@ -1494,7 +1543,7 @@ export const generateDeliveryOrdersForTrip = withTenant(
         options?: { sourceLocationId?: string },
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireSalesAccess();
 
             const trip = await prisma.deliveryScheduleVehicle.findUnique({
                 where: { id: tripId },
@@ -1573,10 +1622,14 @@ export const generateDeliveryOrdersForTrip = withTenant(
                     }
 
                     // Load planned items for this stop
-                    const plannedItems = await prisma.deliveryScheduleOrderItem.findMany({
-                        where: { scheduleOrderId: fullStop.id },
-                        select: { salesOrderItemId: true, plannedQuantity: true },
-                    });
+                    const plannedItems =
+                        await prisma.deliveryScheduleOrderItem.findMany({
+                            where: { scheduleOrderId: fullStop.id },
+                            select: {
+                                salesOrderItemId: true,
+                                plannedQuantity: true,
+                            },
+                        });
 
                     const deliveryOrder =
                         await createDeliveryOrderFromSalesOrder({
@@ -1592,12 +1645,15 @@ export const generateDeliveryOrdersForTrip = withTenant(
                                 so?.customer?.shippingAddress ||
                                 so?.customer?.billingAddress ||
                                 undefined,
-                            plannedItems: plannedItems.length > 0
-                                ? plannedItems.map((pi) => ({
-                                      salesOrderItemId: pi.salesOrderItemId,
-                                      plannedQuantity: Number(pi.plannedQuantity),
-                                  }))
-                                : undefined,
+                            plannedItems:
+                                plannedItems.length > 0
+                                    ? plannedItems.map((pi) => ({
+                                          salesOrderItemId: pi.salesOrderItemId,
+                                          plannedQuantity: Number(
+                                              pi.plannedQuantity,
+                                          ),
+                                      }))
+                                    : undefined,
                         });
 
                     // Tariff snapshot
@@ -1713,7 +1769,7 @@ export const generateDeliveryOrdersForTrip = withTenant(
 export const deleteDeliverySchedule = withTenant(
     async function deleteDeliverySchedule(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesApprover();
 
             const schedule = await prisma.deliverySchedule.findUnique({
                 where: { id },
@@ -1759,6 +1815,8 @@ export const deleteDeliverySchedule = withTenant(
 export const getDeliveryScheduleBoard = withTenant(
     async function getDeliveryScheduleBoard(scheduleId: string) {
         return safeAction(async () => {
+            await requireDeliveryAccess();
+
             const schedule = await prisma.deliverySchedule.findUnique({
                 where: { id: scheduleId },
                 include: {
@@ -1778,7 +1836,10 @@ export const getDeliveryScheduleBoard = withTenant(
                                     salesOrder: {
                                         include: {
                                             customer: {
-                                                select: { id: true, name: true },
+                                                select: {
+                                                    id: true,
+                                                    name: true,
+                                                },
                                             },
                                             items: {
                                                 include: {
@@ -1821,7 +1882,10 @@ export const getDeliveryScheduleBoard = withTenant(
                                 orderBy: { sequence: 'asc' },
                             },
                         },
-                        orderBy: [{ departureDate: 'asc' }, { sequence: 'asc' }],
+                        orderBy: [
+                            { departureDate: 'asc' },
+                            { sequence: 'asc' },
+                        ],
                     },
                     createdBy: { select: { name: true } },
                 },
@@ -1840,7 +1904,7 @@ export const cancelTrip = withTenant(async function cancelTrip(
     reason: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesApprover();
 
         const trip = await prisma.deliveryScheduleVehicle.findUnique({
             where: { id: tripId },
@@ -1879,7 +1943,7 @@ export const reopenTrip = withTenant(async function reopenTrip(
     reason: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const trip = await prisma.deliveryScheduleVehicle.findUnique({
             where: { id: tripId },
@@ -1922,7 +1986,7 @@ export const rescheduleTrip = withTenant(async function rescheduleTrip(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const trip = await prisma.deliveryScheduleVehicle.findUnique({
             where: { id: tripId },
@@ -1951,7 +2015,8 @@ export const rescheduleTrip = withTenant(async function rescheduleTrip(
 
         // Validate transport mode
         const newMode = data.transportMode || trip.transportMode;
-        const newVehicleId = data.vehicleId !== undefined ? data.vehicleId : trip.vehicleId;
+        const newVehicleId =
+            data.vehicleId !== undefined ? data.vehicleId : trip.vehicleId;
         const modeCheck = validateTransportMode(newMode, newVehicleId);
         if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
 
@@ -1969,12 +2034,24 @@ export const rescheduleTrip = withTenant(async function rescheduleTrip(
             where: { id: tripId },
             data: {
                 status: 'PLANNED',
-                ...(data.departureDate && { departureDate: data.departureDate }),
-                ...(data.vehicleId !== undefined && { vehicleId: data.vehicleId }),
-                ...(data.transportMode && { transportMode: data.transportMode }),
-                ...(data.externalProvider !== undefined && { externalProvider: data.externalProvider }),
-                ...(data.externalPlate !== undefined && { externalPlate: data.externalPlate }),
-                ...(data.externalDriver !== undefined && { externalDriver: data.externalDriver }),
+                ...(data.departureDate && {
+                    departureDate: data.departureDate,
+                }),
+                ...(data.vehicleId !== undefined && {
+                    vehicleId: data.vehicleId,
+                }),
+                ...(data.transportMode && {
+                    transportMode: data.transportMode,
+                }),
+                ...(data.externalProvider !== undefined && {
+                    externalProvider: data.externalProvider,
+                }),
+                ...(data.externalPlate !== undefined && {
+                    externalPlate: data.externalPlate,
+                }),
+                ...(data.externalDriver !== undefined && {
+                    externalDriver: data.externalDriver,
+                }),
                 ...(data.reason && { cancelReason: data.reason }),
             },
         });
@@ -1992,7 +2069,7 @@ export const reorderStops = withTenant(async function reorderStops(
     stopIds: string[],
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const trip = await prisma.deliveryScheduleVehicle.findUnique({
             where: { id: tripId },
@@ -2057,7 +2134,7 @@ export const quickAddStop = withTenant(async function quickAddStop(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireSalesAccess();
 
         const schedule = await prisma.deliverySchedule.findUnique({
             where: { id: scheduleId },
@@ -2107,14 +2184,18 @@ export const quickAddStop = withTenant(async function quickAddStop(
         } else {
             // Create new trip
             const transportMode = data.transportMode || 'INTERNAL_FLEET';
-            const modeCheck = validateTransportMode(transportMode, data.vehicleId);
+            const modeCheck = validateTransportMode(
+                transportMode,
+                data.vehicleId,
+            );
             if (!modeCheck.ok) throw new BusinessRuleError(modeCheck.error!);
 
             if (transportMode === 'INTERNAL_FLEET' && data.vehicleId) {
                 const vehicle = await prisma.vehicle.findUnique({
                     where: { id: data.vehicleId },
                 });
-                if (!vehicle) throw new NotFoundError('Kendaraan', data.vehicleId);
+                if (!vehicle)
+                    throw new NotFoundError('Kendaraan', data.vehicleId);
                 if (vehicle.status !== 'ACTIVE') {
                     throw new BusinessRuleError(
                         `Kendaraan "${vehicle.plateNumber}" tidak aktif.`,
@@ -2200,7 +2281,7 @@ export const updateStopPlannedItems = withTenant(
         }>,
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireSalesAccess();
 
             const stop = await prisma.deliveryScheduleOrder.findUnique({
                 where: { id: stopId },
@@ -2219,20 +2300,28 @@ export const updateStopPlannedItems = withTenant(
                 const soi = await prisma.salesOrderItem.findUnique({
                     where: { id: item.salesOrderItemId },
                 });
-                if (!soi) throw new NotFoundError('Sales Order Item', item.salesOrderItemId);
+                if (!soi)
+                    throw new NotFoundError(
+                        'Sales Order Item',
+                        item.salesOrderItemId,
+                    );
 
                 // Compute residual for this item
                 const totalDelivered = Number(soi.deliveredQty);
-                const otherPlanned = await prisma.deliveryScheduleOrderItem.aggregate({
-                    where: {
-                        salesOrderItemId: item.salesOrderItemId,
-                        scheduleOrderId: { not: stopId },
-                        scheduleOrder: { status: { not: 'CANCELLED' } },
-                    },
-                    _sum: { plannedQuantity: true },
-                });
-                const otherPlannedQty = Number(otherPlanned._sum.plannedQuantity || 0);
-                const residual = Number(soi.quantity) - totalDelivered - otherPlannedQty;
+                const otherPlanned =
+                    await prisma.deliveryScheduleOrderItem.aggregate({
+                        where: {
+                            salesOrderItemId: item.salesOrderItemId,
+                            scheduleOrderId: { not: stopId },
+                            scheduleOrder: { status: { not: 'CANCELLED' } },
+                        },
+                        _sum: { plannedQuantity: true },
+                    });
+                const otherPlannedQty = Number(
+                    otherPlanned._sum.plannedQuantity || 0,
+                );
+                const residual =
+                    Number(soi.quantity) - totalDelivered - otherPlannedQty;
 
                 if (item.plannedQuantity <= 0) {
                     throw new BusinessRuleError(
@@ -2270,12 +2359,14 @@ export const updateStopPlannedItems = withTenant(
 );
 
 export const closeOverdueDeliverySchedules = withTenant(
-    async function closeOverdueDeliverySchedules(options?: { dryRun?: boolean; bufferDays?: number }) {
+    async function closeOverdueDeliverySchedules(options?: {
+        dryRun?: boolean;
+        bufferDays?: number;
+    }) {
         return safeAction(async () => {
-            await requireAuth();
-            const { autoCloseExpiredDeliverySchedules } = await import(
-                '@/services/sales/delivery-schedule-auto-close'
-            );
+            await requireSalesApprover();
+            const { autoCloseExpiredDeliverySchedules } =
+                await import('@/services/sales/delivery-schedule-auto-close');
             const result = await autoCloseExpiredDeliverySchedules({
                 dryRun: options?.dryRun,
                 bufferDays: options?.bufferDays ?? 2,
