@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,16 +28,14 @@ import {
     importRouteExcel,
     optimizeRouteNearestNeighbor,
     listRecentRouteDates,
+    getRouteComplianceStats,
 } from '@/actions/sales/route-plans';
 import { RouteStatsBar } from './RouteStatsBar';
 import { toast } from 'sonner';
 import type { RouteMapCustomer } from './RouteMapPreview';
 
 const DynamicRouteMapPreview = dynamic(
-    () =>
-        import('./RouteMapPreview').then(
-            (module) => module.RouteMapPreview,
-        ),
+    () => import('./RouteMapPreview').then((module) => module.RouteMapPreview),
     {
         ssr: false,
         loading: () => (
@@ -100,9 +98,20 @@ export function RoutePlannerBoard({
     const [search, setSearch] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [recentDates, setRecentDates] = useState<
-        { date: string | Date; userId: string; userName: string; itemCount: number }[]
+        {
+            date: string | Date;
+            userId: string;
+            userName: string;
+            itemCount: number;
+        }[]
     >([]);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+    const [compliance, setCompliance] = useState<{
+        assigned: number;
+        visited: number;
+        extraCalls: number;
+        compliance: number;
+    } | null>(null);
 
     // Collect unique reps from existing plans
     const reps: Rep[] = useMemo(() => {
@@ -145,6 +154,39 @@ export function RoutePlannerBoard({
             ),
         [plans, selectedDate, selectedRepId],
     );
+
+    const fetchCompliance = useCallback(async () => {
+        if (!selectedRepId || !selectedDate) {
+            setCompliance(null);
+            return;
+        }
+        try {
+            const res = await getRouteComplianceStats(
+                selectedDate,
+                selectedRepId,
+            );
+            if (res?.success && res.data) {
+                setCompliance(
+                    res.data as {
+                        assigned: number;
+                        visited: number;
+                        extraCalls: number;
+                        compliance: number;
+                    },
+                );
+            }
+        } catch {
+            // tetap render — compliance opsional
+        }
+    }, [selectedDate, selectedRepId]);
+
+    useEffect(() => {
+        if (existingPlan) {
+            void fetchCompliance();
+        } else {
+            setCompliance(null);
+        }
+    }, [existingPlan, fetchCompliance]);
 
     // Filtered customers
     const filteredCustomers = useMemo(() => {
@@ -289,7 +331,13 @@ export function RoutePlannerBoard({
         try {
             const result = await copyLastWeekRoute(selectedDate, selectedRepId);
             if (result?.success) {
-                const data = (result as { data?: { items?: { customerId: string; sortOrder: number }[] } }).data;
+                const data = (
+                    result as {
+                        data?: {
+                            items?: { customerId: string; sortOrder: number }[];
+                        };
+                    }
+                ).data;
                 const orderedIds = (data?.items ?? [])
                     .sort((a, b) => a.sortOrder - b.sortOrder)
                     .map((i) => i.customerId);
@@ -360,7 +408,16 @@ export function RoutePlannerBoard({
                 });
 
                 if (result?.success) {
-                    const planData = (result as { data?: { items?: { customerId: string; sortOrder: number }[] } }).data;
+                    const planData = (
+                        result as {
+                            data?: {
+                                items?: {
+                                    customerId: string;
+                                    sortOrder: number;
+                                }[];
+                            };
+                        }
+                    ).data;
                     const orderedIds = (planData?.items ?? [])
                         .sort((a, b) => a.sortOrder - b.sortOrder)
                         .map((i) => i.customerId);
@@ -394,7 +451,9 @@ export function RoutePlannerBoard({
         try {
             const result = await optimizeRouteNearestNeighbor(existingPlan.id);
             if (result?.success) {
-                const data = (result as { data?: { orderedCustomerIds?: string[] } }).data;
+                const data = (
+                    result as { data?: { orderedCustomerIds?: string[] } }
+                ).data;
                 const orderedIds = data?.orderedCustomerIds;
                 if (orderedIds && orderedIds.length > 0) {
                     setSelectedCustomerIds(orderedIds);
@@ -422,7 +481,9 @@ export function RoutePlannerBoard({
     // Load recent route dates for template picker
     const handleLoadRecentDates = async () => {
         try {
-            const result = await listRecentRouteDates(selectedRepId || undefined);
+            const result = await listRecentRouteDates(
+                selectedRepId || undefined,
+            );
             if (result?.success && result.data) {
                 setRecentDates(
                     result.data as {
@@ -453,7 +514,13 @@ export function RoutePlannerBoard({
                 selectedRepId,
             );
             if (result?.success) {
-                const data = (result as { data?: { items?: { customerId: string; sortOrder: number }[] } }).data;
+                const data = (
+                    result as {
+                        data?: {
+                            items?: { customerId: string; sortOrder: number }[];
+                        };
+                    }
+                ).data;
                 const orderedIds = (data?.items ?? [])
                     .sort((a, b) => a.sortOrder - b.sortOrder)
                     .map((i) => i.customerId);
@@ -646,6 +713,7 @@ export function RoutePlannerBoard({
             <RouteStatsBar
                 customers={selectedCustomersForMap}
                 totalCount={selectedCustomerIds.length}
+                compliance={compliance ?? undefined}
             />
             <DynamicRouteMapPreview customers={selectedCustomersForMap} />
 

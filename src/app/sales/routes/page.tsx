@@ -2,6 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import { listRoutePlans } from '@/actions/sales/route-plans';
 import { getCustomers } from '@/actions/sales/customer';
 import { RoutePlannerBoard } from '@/components/sales/routes/RoutePlannerBoard';
+import { PageHeader } from '@/components/ui/page-header';
 import { serializeData } from '@/lib/utils/utils';
 
 export default async function SalesRoutesPage() {
@@ -19,6 +20,10 @@ export default async function SalesRoutesPage() {
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
+            <PageHeader
+                title="Rute Harian"
+                description="Atur rute kunjungan harian untuk sales rep dan pantau kepatuhan kunjungan."
+            />
             <RoutePlannerBoard plans={plans} customers={customers} />
         </div>
     );
