@@ -7,6 +7,16 @@ vi.mock('@/auth', () => ({
     auth: vi.fn(),
 }));
 
+vi.mock('@/lib/auth/purchasing-access', () => ({
+    requirePurchasingAccess: vi.fn().mockResolvedValue({
+        user: { id: 'u1', role: 'PROCUREMENT', roles: ['PROCUREMENT'] },
+    }),
+    requirePurchasingApprover: vi.fn(),
+    requirePurchasingFinance: vi.fn(),
+    requirePurchasingCreator: vi.fn(),
+    requirePurchasingAnalyticsRead: vi.fn(),
+}));
+
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         user: {

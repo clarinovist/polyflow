@@ -1,6 +1,6 @@
 'use server';
 
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { PurchaseReturnService } from '@/services/purchasing/returns-service';
@@ -15,7 +15,7 @@ export const getPurchaseReturns = withTenant(async function getPurchaseReturns(
     filters?: Record<string, unknown>,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requirePurchasingAccess();
         const returns = await PurchaseReturnService.getReturns(filters);
         return returns;
     });
@@ -24,7 +24,7 @@ export const getPurchaseReturns = withTenant(async function getPurchaseReturns(
 export const getPurchaseReturnById = withTenant(
     async function getPurchaseReturnById(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const purchaseReturn =
                 await PurchaseReturnService.getReturnById(id);
             return purchaseReturn;
@@ -37,7 +37,7 @@ export const createPurchaseReturnAction = withTenant(
         data: z.infer<typeof createPurchaseReturnSchema>,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const parsedData = createPurchaseReturnSchema.parse(data);
             const purchaseReturn = await PurchaseReturnService.createReturn(
                 parsedData,
@@ -55,7 +55,7 @@ export const updatePurchaseReturnAction = withTenant(
         data: z.infer<typeof updatePurchaseReturnSchema>,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const parsedData = updatePurchaseReturnSchema.parse(data);
             const purchaseReturn = await PurchaseReturnService.updateReturn(
                 parsedData,
@@ -72,7 +72,7 @@ export const updatePurchaseReturnAction = withTenant(
 export const confirmPurchaseReturnAction = withTenant(
     async function confirmPurchaseReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const purchaseReturn = await PurchaseReturnService.confirmReturn(
                 id,
                 session.user.id,
@@ -87,7 +87,7 @@ export const confirmPurchaseReturnAction = withTenant(
 export const shipPurchaseReturnAction = withTenant(
     async function shipPurchaseReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const purchaseReturn = await PurchaseReturnService.shipReturn(
                 id,
                 session.user.id,
@@ -102,7 +102,7 @@ export const shipPurchaseReturnAction = withTenant(
 export const completePurchaseReturnAction = withTenant(
     async function completePurchaseReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const purchaseReturn = await PurchaseReturnService.completeReturn(
                 id,
                 session.user.id,
@@ -117,7 +117,7 @@ export const completePurchaseReturnAction = withTenant(
 export const cancelPurchaseReturnAction = withTenant(
     async function cancelPurchaseReturnAction(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const purchaseReturn = await PurchaseReturnService.cancelReturn(
                 id,
                 session.user.id,

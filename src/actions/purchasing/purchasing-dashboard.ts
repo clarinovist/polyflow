@@ -2,7 +2,7 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
@@ -13,7 +13,7 @@ import { PR_AGING_THRESHOLD_DAYS } from './purchasing-types';
 export const getPurchasingShiftBoard = withTenant(
     async function getPurchasingShiftBoard() {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
 
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -272,7 +272,7 @@ export const getPurchasingShiftBoard = withTenant(
 export const getPurchasingDashboardStats = withTenant(
     async function getPurchasingDashboardStats() {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
 
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -365,7 +365,7 @@ export const getPurchasingDashboardStats = withTenant(
 export const getSuggestedReorderForPurchasing = withTenant(
     async function getSuggestedReorderForPurchasing() {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
 
             const items = await getSuggestedPurchases();
             return items.slice(0, 20).map((v) => ({

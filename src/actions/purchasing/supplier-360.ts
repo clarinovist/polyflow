@@ -2,13 +2,13 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { safeAction } from '@/lib/errors/errors';
 
 export const listPurchaseOrdersBySupplier = withTenant(
     async function listPurchaseOrdersBySupplier(supplierId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             return prisma.purchaseOrder.findMany({
                 where: { supplierId },
                 orderBy: { orderDate: 'desc' },
@@ -23,7 +23,7 @@ export const listPurchaseOrdersBySupplier = withTenant(
 export const listPurchaseReturnsBySupplier = withTenant(
     async function listPurchaseReturnsBySupplier(supplierId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             return prisma.purchaseReturn.findMany({
                 where: { supplierId },
                 orderBy: { returnDate: 'desc' },
@@ -35,7 +35,7 @@ export const listPurchaseReturnsBySupplier = withTenant(
 export const listPurchaseInvoicesBySupplier = withTenant(
     async function listPurchaseInvoicesBySupplier(supplierId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const pos = await prisma.purchaseOrder.findMany({
                 where: { supplierId },
                 select: { id: true },
@@ -60,7 +60,7 @@ export const listPurchaseInvoicesBySupplier = withTenant(
 export const getSupplierPerformanceStats = withTenant(
     async function getSupplierPerformanceStats(supplierId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const recentOrders = await prisma.purchaseOrder.findMany({
                 where: {
                     supplierId,
@@ -126,7 +126,7 @@ export const getSupplierPerformanceStats = withTenant(
 export const getSupplierSpendingAnalytics = withTenant(
     async function getSupplierSpendingAnalytics(supplierId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const sixMonthsAgo = new Date();
             sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
             sixMonthsAgo.setDate(1);

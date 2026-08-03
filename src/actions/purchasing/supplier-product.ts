@@ -8,6 +8,10 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    requirePurchasingAccess,
+    requirePurchasingApprover,
+} from '@/lib/auth/purchasing-access';
 
 const linkSupplierSchema = z.object({
     supplierId: z.string().min(1, 'Supplier is required'),
@@ -28,6 +32,7 @@ export type LinkSupplierValues = z.infer<typeof linkSupplierSchema>;
 export const linkSupplierToProduct = withTenant(
     async function linkSupplierToProduct(data: LinkSupplierValues) {
         return safeAction(async () => {
+            await requirePurchasingApprover();
             const result = linkSupplierSchema.safeParse(data);
 
             if (!result.success) {
@@ -103,6 +108,7 @@ export const linkSupplierToProduct = withTenant(
 export const unlinkSupplierFromProduct = withTenant(
     async function unlinkSupplierFromProduct(id: string) {
         return safeAction(async () => {
+            await requirePurchasingApprover();
             try {
                 const item = await prisma.supplierProduct.findUnique({
                     where: { id },
@@ -144,6 +150,7 @@ export const unlinkSupplierFromProduct = withTenant(
 export const getSupplierProducts = withTenant(
     async function getSupplierProducts(supplierId: string) {
         return safeAction(async () => {
+            await requirePurchasingAccess();
             try {
                 const products = await prisma.supplierProduct.findMany({
                     where: { supplierId },
@@ -176,6 +183,7 @@ export const getSupplierProducts = withTenant(
 export const getProductSuppliers = withTenant(
     async function getProductSuppliers(productVariantId: string) {
         return safeAction(async () => {
+            await requirePurchasingAccess();
             try {
                 const suppliers = await prisma.supplierProduct.findMany({
                     where: { productVariantId },
@@ -202,6 +210,7 @@ export const getProductSuppliers = withTenant(
 export const setPreferredSupplier = withTenant(
     async function setPreferredSupplier(id: string) {
         return safeAction(async () => {
+            await requirePurchasingApprover();
             try {
                 const item = await prisma.supplierProduct.findUnique({
                     where: { id },

@@ -9,13 +9,16 @@ import {
     UpdateSupplierValues,
 } from '@/lib/schemas/partner';
 import { revalidatePath } from 'next/cache';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import {
+    requirePurchasingAccess,
+    requirePurchasingApprover,
+} from '@/lib/auth/purchasing-access';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 
 export const getSuppliers = withTenant(async function getSuppliers() {
     return safeAction(async () => {
-        await requireAuth();
+        await requirePurchasingAccess();
         return prisma.supplier.findMany({
             orderBy: {
                 name: 'asc',
@@ -28,7 +31,7 @@ export const getSupplierById = withTenant(async function getSupplierById(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requirePurchasingAccess();
         return prisma.supplier.findUnique({
             where: { id },
             include: {
@@ -44,7 +47,7 @@ export const getSupplierById = withTenant(async function getSupplierById(
 
 export const getNextSupplierCode = withTenant(
     async function getNextSupplierCode(): Promise<string> {
-        await requireAuth();
+        await requirePurchasingAccess();
         const prefix = 'SUP-';
 
         const suppliers = await prisma.supplier.findMany({
@@ -77,7 +80,7 @@ export const createSupplier = withTenant(async function createSupplier(
     data: CreateSupplierValues,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requirePurchasingApprover();
         const result = createSupplierSchema.safeParse(data);
 
         if (!result.success) {
@@ -133,7 +136,7 @@ export const updateSupplier = withTenant(async function updateSupplier(
     data: UpdateSupplierValues,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requirePurchasingApprover();
         const result = updateSupplierSchema.safeParse(data);
 
         if (!result.success) {
@@ -164,7 +167,7 @@ export const deleteSupplier = withTenant(async function deleteSupplier(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requirePurchasingApprover();
         try {
             const checks = await Promise.all([
                 prisma.supplierProduct.count({ where: { supplierId: id } }),

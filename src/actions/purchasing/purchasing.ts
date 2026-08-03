@@ -27,16 +27,31 @@ import { AutoJournalService } from '@/services/finance/auto-journal-service';
 import { logActivity } from '@/lib/tools/audit';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
-import { hasAnyRole } from '@/lib/auth/roles';
+import { getUserRoles } from '@/lib/auth/roles';
+import {
+    requirePurchasingCreator,
+    requirePurchasingApprover,
+    requirePurchasingAccess,
+    requirePurchasingFinance,
+} from '@/lib/auth/purchasing-access';
 import {
     approveWalkInInvoice,
     rejectWalkInInvoice,
 } from '@/services/purchasing/walk-in-receipt-service';
 
+function resolvePurchasingApproverRole(
+    user: Parameters<typeof getUserRoles>[0],
+): 'ADMIN' | 'PROCUREMENT' {
+    const roles = getUserRoles(user);
+    if (roles.includes('ADMIN')) return 'ADMIN';
+    if (roles.includes('PROCUREMENT')) return 'PROCUREMENT';
+    throw new BusinessRuleError('Role approver purchasing tidak valid');
+}
+
 export const createPurchaseOrder = withTenant(
     async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const validated = createPurchaseOrderSchema.parse(formData);
 
             const order = await PurchaseService.createOrder(
@@ -63,7 +78,7 @@ export const createManualPurchaseRequest = withTenant(
         data: CreatePurchaseRequestValues,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingCreator();
             const validated = createPurchaseRequestSchema.parse(data);
 
             const pr = await PurchaseService.createPurchaseRequest(
@@ -80,7 +95,7 @@ export const createManualPurchaseRequest = withTenant(
 export const updatePurchaseOrder = withTenant(
     async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const validated = updatePurchaseOrderSchema.parse(formData);
 
             const order = await PurchaseService.updateOrder(validated);
@@ -185,7 +200,7 @@ export const createPurchaseInvoice = withTenant(
         formData: CreatePurchaseInvoiceValues,
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingFinance();
             const validated = createPurchaseInvoiceSchema.parse(formData);
 
             const invoice = await PurchaseService.createInvoice(validated);
@@ -222,7 +237,7 @@ export const recordPurchasePayment = withTenant(
         },
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingFinance();
             const paymentDate = options?.paymentDate
                 ? new Date(options.paymentDate)
                 : new Date();
@@ -280,7 +295,7 @@ export const updatePurchaseOrderStatus = withTenant(
         status: PurchaseOrderStatus,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
             const order = await PurchaseService.updateOrderStatus(
                 id,
                 status,
@@ -297,7 +312,7 @@ export const updatePurchaseOrderStatus = withTenant(
 export const deletePurchaseOrder = withTenant(
     async function deletePurchaseOrder(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requirePurchasingAccess();
 
             try {
                 const result = await PurchaseService.deleteOrder(
@@ -324,7 +339,7 @@ export const getPurchaseOrders = withTenant(
         status?: PurchaseOrderStatus;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const orders = await PurchaseService.getPurchaseOrders(filters);
             return serializeData(orders);
         });
@@ -334,7 +349,7 @@ export const getPurchaseOrders = withTenant(
 export const getPurchaseOrderById = withTenant(
     async function getPurchaseOrderById(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const order = await PurchaseService.getPurchaseOrderById(id);
             return serializeData(order);
         });
@@ -344,7 +359,7 @@ export const getPurchaseOrderById = withTenant(
 export const getGoodsReceiptById = withTenant(
     async function getGoodsReceiptById(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const receipt = await PurchaseService.getGoodsReceiptById(id);
             return serializeData(receipt);
         });
@@ -353,7 +368,7 @@ export const getGoodsReceiptById = withTenant(
 
 export const getGoodsReceipts = withTenant(async function getGoodsReceipts() {
     return safeAction(async () => {
-        await requireAuth();
+        await requirePurchasingAccess();
         const receipts = await PurchaseService.getGoodsReceipts();
         return serializeData(receipts);
     });
@@ -362,7 +377,7 @@ export const getGoodsReceipts = withTenant(async function getGoodsReceipts() {
 export const getPurchaseInvoiceById = withTenant(
     async function getPurchaseInvoiceById(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const invoice = await PurchaseService.getPurchaseInvoiceById(id);
             return serializeData(invoice);
         });
@@ -372,7 +387,7 @@ export const getPurchaseInvoiceById = withTenant(
 export const getPurchaseInvoices = withTenant(
     async function getPurchaseInvoices() {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
             const invoices = await PurchaseService.getPurchaseInvoices();
             return serializeData(invoices);
         });
@@ -384,9 +399,32 @@ export const getPurchaseRequests = withTenant(
         status?: 'OPEN' | 'APPROVED' | 'CONVERTED' | 'REJECTED';
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            const session = await requireAuth();
+            const userRoles = getUserRoles(session.user);
+
+            const isAdminOrApprover =
+                userRoles.includes('ADMIN') ||
+                userRoles.includes('PROCUREMENT');
+
+            const ownershipWhere = isAdminOrApprover
+                ? {}
+                : ['PLANNING', 'WAREHOUSE', 'PRODUCTION'].some((r) =>
+                        userRoles.includes(r),
+                    )
+                  ? { createdById: session.user.id }
+                  : (() => {
+                        throw new BusinessRuleError(
+                            'Tidak memiliki akses untuk melihat purchase requests',
+                        );
+                    })();
+
+            const where = {
+                ...ownershipWhere,
+                ...(filters?.status ? { status: filters.status } : {}),
+            };
+
             const requests = await prisma.purchaseRequest.findMany({
-                where: filters?.status ? { status: filters.status } : undefined,
+                where,
                 orderBy: { createdAt: 'desc' },
                 include: {
                     items: {
@@ -402,6 +440,9 @@ export const getPurchaseRequests = withTenant(
                     createdBy: {
                         select: { name: true },
                     },
+                    reviewedBy: {
+                        select: { id: true, name: true },
+                    },
                 },
             });
             return serializeData(requests);
@@ -415,23 +456,54 @@ export const consolidatePurchaseRequests = withTenant(
         supplierId: string,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
-            try {
-                const po = await PurchaseService.consolidateRequestsToOrder(
-                    requestIds,
-                    supplierId,
-                    session.user.id,
-                );
-                revalidatePath('/purchasing/requests');
-                revalidatePath('/purchasing/orders');
-                return serializeData(po);
-            } catch (error) {
-                throw new BusinessRuleError(
-                    error instanceof Error
-                        ? error.message
-                        : 'Failed to consolidate requests',
-                );
-            }
+            const session = await requirePurchasingApprover();
+            const po = await PurchaseService.consolidateRequestsToOrder(
+                requestIds,
+                supplierId,
+                session.user.id,
+            );
+            revalidatePath('/purchasing/requests');
+            revalidatePath('/purchasing/orders');
+            return serializeData(po);
+        });
+    },
+);
+
+export const approvePurchaseRequest = withTenant(
+    async function approvePurchaseRequest(requestId: string) {
+        return safeAction(async () => {
+            const session = await requirePurchasingApprover();
+            const actorId = session.user.id;
+            const actorRole = resolvePurchasingApproverRole(session.user);
+
+            const result = await PurchaseService.approveRequest(
+                requestId,
+                actorId,
+                actorRole,
+            );
+
+            revalidatePath('/purchasing/requests');
+            return serializeData(result);
+        });
+    },
+);
+
+export const rejectPurchaseRequest = withTenant(
+    async function rejectPurchaseRequest(requestId: string, reason: string) {
+        return safeAction(async () => {
+            const session = await requirePurchasingApprover();
+            const actorId = session.user.id;
+            const actorRole = resolvePurchasingApproverRole(session.user);
+
+            const result = await PurchaseService.rejectRequest(
+                requestId,
+                actorId,
+                actorRole,
+                reason,
+            );
+
+            revalidatePath('/purchasing/requests');
+            return serializeData(result);
         });
     },
 );
@@ -446,12 +518,7 @@ export const updatePurchaseInvoiceDueDate = withTenant(
         },
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-                throw new BusinessRuleError(
-                    'Hanya ADMIN atau FINANCE yang boleh mengubah jatuh tempo',
-                );
-            }
+            const session = await requirePurchasingFinance();
             const parsed = {
                 dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
                 invoiceDate: data.invoiceDate
@@ -475,12 +542,7 @@ export const updatePurchaseInvoiceDueDate = withTenant(
 export const approveWalkInPurchaseInvoice = withTenant(
     async function approveWalkInPurchaseInvoice(invoiceId: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-                throw new BusinessRuleError(
-                    'Hanya ADMIN atau FINANCE yang boleh approve invoice walk-in',
-                );
-            }
+            const session = await requirePurchasingFinance();
 
             const invoice = await approveWalkInInvoice(
                 invoiceId,
@@ -509,12 +571,7 @@ export const rejectWalkInPurchaseInvoice = withTenant(
         reason?: string,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
-            if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-                throw new BusinessRuleError(
-                    'Hanya ADMIN atau FINANCE yang boleh reject invoice walk-in',
-                );
-            }
+            const session = await requirePurchasingFinance();
 
             const invoice = await rejectWalkInInvoice(
                 invoiceId,

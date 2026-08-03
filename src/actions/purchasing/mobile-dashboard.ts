@@ -3,7 +3,7 @@
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { safeAction } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { serializeData } from '@/lib/utils/utils';
 
 export interface MobilePurchasingOverview {
@@ -27,7 +27,7 @@ export interface MobilePurchasingOverview {
 export const getPurchasingMobileOverview = withTenant(
     async function getPurchasingMobileOverview() {
         return safeAction(async () => {
-            await requireAuth();
+            await requirePurchasingAccess();
 
             const [draftPos, pendingPos, recentPos, overdueInvoices] =
                 await Promise.all([

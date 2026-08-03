@@ -19,8 +19,15 @@ vi.mock('@/lib/core/tenant', () => ({
   withTenant: (fn: (...args: unknown[]) => unknown) => fn,
 }));
 
+vi.mock('@/lib/auth/purchasing-access', () => ({
+  requirePurchasingAccess: vi.fn().mockResolvedValue({ user: { id: 'u1', roles: ['PROCUREMENT'] } }),
+  requirePurchasingApprover: vi.fn(),
+  requirePurchasingFinance: vi.fn(),
+  requirePurchasingCreator: vi.fn(),
+  requirePurchasingAnalyticsRead: vi.fn(),
+}));
 vi.mock('@/lib/tools/auth-checks', () => ({
-  requireAuth: vi.fn().mockResolvedValue({ user: { id: 'u1' } }),
+  requireAuth: vi.fn(),
 }));
 
 vi.mock('@/lib/errors/errors', () => ({

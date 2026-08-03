@@ -10,6 +10,7 @@ import {
     DateRange,
 } from '@/types/analytics';
 import { safeAction } from '@/lib/errors/errors';
+import { requirePurchasingAnalyticsRead } from '@/lib/auth/purchasing-access';
 
 function safePercentage(numerator: number, denominator: number): number {
     if (denominator === 0) return 0;
@@ -23,6 +24,7 @@ export const getPurchaseSpendReport = withTenant(
         error?: string;
     }> {
         return safeAction(async () => {
+            await requirePurchasingAnalyticsRead();
             const now = new Date();
             // Trend starts from Jan 1st of current year
             const trendStartDate = new Date(now.getFullYear(), 0, 1);
@@ -166,6 +168,7 @@ export const getTopSuppliers = withTenant(async function getTopSuppliers(
     limit: number = 5,
 ): Promise<{ success: boolean; data?: TopSupplierItem[]; error?: string }> {
     return safeAction(async () => {
+        await requirePurchasingAnalyticsRead();
         const suppliers = await prisma.purchaseOrder.groupBy({
             by: ['supplierId'],
             where: {
@@ -219,6 +222,7 @@ export const getPurchaseStatusSummary = withTenant(
         error?: string;
     }> {
         return safeAction(async () => {
+            await requirePurchasingAnalyticsRead();
             const groups = await prisma.purchaseOrder.groupBy({
                 by: ['status'],
                 where: {
@@ -258,6 +262,7 @@ export const getAPAgingReport = withTenant(
         error?: string;
     }> {
         return safeAction(async () => {
+            await requirePurchasingAnalyticsRead();
             const unpaidInvoices = await prisma.purchaseInvoice.findMany({
                 where: {
                     status: { notIn: ['PAID', 'CANCELLED'] },
@@ -326,6 +331,7 @@ export const getOverdueAPLines = withTenant(async function getOverdueAPLines(
     limit = 10,
 ) {
     return safeAction(async () => {
+        await requirePurchasingAnalyticsRead();
         const now = new Date();
         const rows = await prisma.purchaseInvoice.findMany({
             where: {
@@ -359,6 +365,7 @@ export const getOverdueAPLines = withTenant(async function getOverdueAPLines(
 export const getPurchasingAnalytics = withTenant(
     async function getPurchasingAnalytics(dateRange?: DateRange) {
         return safeAction(async () => {
+            await requirePurchasingAnalyticsRead();
             const today = new Date();
             const startOfCurrentMonth = new Date(
                 today.getFullYear(),

@@ -11,10 +11,59 @@ Server actions for purchase orders, goods receipt, purchase invoices, returns, s
 | `purchasing.ts`           | Purchase order CRUD, receiving, invoicing |
 | `purchase-returns.ts`     | Purchase return processing                |
 | `supplier.ts`             | Supplier management                       |
-| `supplier-360.ts`         | 36° supplier view                         |
+| `supplier-360.ts`         | 360° supplier view                        |
 | `supplier-product.ts`     | Supplier-product mapping                  |
 | `purchasing-analytics.ts` | Purchasing analytics                      |
 | `purchasing-dashboard.ts` | Dashboard data                            |
+| `mobile-dashboard.ts`     | Mobile dashboard                          |
+
+## Authorization Matrix
+
+All exported actions use typed helpers from `src/lib/auth/purchasing-access.ts`.
+Bare `requireAuth()` is NOT allowed at action boundaries — use the specific helper.
+
+| Helper                        | Roles                           | Used for                                      |
+| ----------------------------- | ------------------------------- | --------------------------------------------- |
+| `requirePurchasingAccess`     | ADMIN, PROCUREMENT, PLANNING    | Read PO/invoice/GR/returns, supplier list     |
+| `requirePurchasingApprover`   | ADMIN, PROCUREMENT              | Supplier CRUD, approve/reject/consolidate PR  |
+| `requirePurchasingFinance`    | ADMIN, FINANCE                  | Create invoice, record payment, due date edit |
+| `requirePurchasingCreator`    | ADMIN, PROCUREMENT, PLANNING, WAREHOUSE, PRODUCTION | Create purchase request |
+| `requirePurchasingAnalyticsRead` | ADMIN, PROCUREMENT, PLANNING, FINANCE | Analytics read-only (spend, ranking) |
+
+### Per-action guard map
+
+**supplier.ts**
+- `getSuppliers`, `getSupplierById`, `getNextSupplierCode` → `requirePurchasingAccess`
+- `createSupplier`, `updateSupplier`, `deleteSupplier` → `requirePurchasingApprover`
+
+**supplier-360.ts**
+- All 5 actions → `requirePurchasingAccess`
+
+**purchase-returns.ts**
+- `getPurchaseReturns`, `getPurchaseReturnById` → `requirePurchasingAccess`
+- `createPurchaseReturnAction`, `updatePurchaseReturnAction`, `confirmPurchaseReturnAction`, `shipPurchaseReturnAction`, `completePurchaseReturnAction`, `cancelPurchaseReturnAction` → `requirePurchasingAccess`
+
+**purchasing.ts**
+- `createPurchaseOrder`, `updatePurchaseOrder`, `updatePurchaseOrderStatus`, `deletePurchaseOrder` → `requirePurchasingAccess`
+- `getPurchaseOrders`, `getPurchaseOrderById`, `getGoodsReceiptById`, `getGoodsReceipts`, `getPurchaseInvoiceById`, `getPurchaseInvoices` → `requirePurchasingAccess`
+- `getPurchaseRequests` → `requireAuth` + inline role-based ownership (ADMIN/PROCUREMENT see all; PLANNING/WAREHOUSE/PRODUCTION see own only)
+- `createManualPurchaseRequest` → `requirePurchasingCreator`
+- `consolidatePurchaseRequests`, `approvePurchaseRequest`, `rejectPurchaseRequest` → `requirePurchasingApprover`
+- `createPurchaseInvoice`, `recordPurchasePayment` → `requirePurchasingFinance`
+- `updatePurchaseInvoiceDueDate`, `approveWalkInPurchaseInvoice`, `rejectWalkInPurchaseInvoice` → `requirePurchasingFinance`
+- `createGoodsReceipt`, `createWalkInGoodsReceipt` → `requireWarehouseResourcePermission('/warehouse/incoming')` — DO NOT CHANGE
+
+**purchasing-dashboard.ts**
+- `getPurchasingShiftBoard`, `getPurchasingDashboardStats`, `getSuggestedReorderForPurchasing` → `requirePurchasingAccess`
+
+**mobile-dashboard.ts**
+- `getPurchasingMobileOverview` → `requirePurchasingAccess`
+
+### Cross-portal exceptions
+
+- **Finance opening-balance page** (`src/app/finance/opening-balance/page.tsx`) imports `getSuppliers` → allowed via `requirePurchasingAccess` (ADMIN, PROCUREMENT, PLANNING). Finance users with only FINANCE role are blocked; if this becomes a real issue, consider `requirePurchasingAnalyticsRead` for `getSuppliers`.
+- **Warehouse incoming pages** import `createGoodsReceipt` / `createWalkInGoodsReceipt` → guarded by `requireWarehouseResourcePermission`, not purchasing roles. DO NOT CHANGE.
+- **Production order detail** imports `createManualPurchaseRequest` → guarded by `requirePurchasingCreator` (includes PRODUCTION).
 
 ## Patterns
 
@@ -23,16 +72,12 @@ Server actions for purchase orders, goods receipt, purchase invoices, returns, s
 ```typescript
 'use server';
 import { withTenant } from '@/lib/core/tenant';
-import {
-    safeAction,
-    BusinessRuleError,
-    NotFoundError,
-} from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { safeAction } from '@/lib/errors/errors';
+import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 
 export const myAction = withTenant(async function myAction(data: InputType) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requirePurchasingAccess();
         // ... business logic
         revalidatePath('/purchasing');
         return result;
