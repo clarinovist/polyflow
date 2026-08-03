@@ -304,6 +304,9 @@ export async function getOrderById(id: string) {
             createdBy: {
                 select: { name: true },
             },
+            salesRep: {
+                select: { id: true, name: true },
+            },
         },
     });
 }

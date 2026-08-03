@@ -41,6 +41,10 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
     const initialData = {
         id: order.id,
         customerId: order.customerId || undefined,
+        salesRepId:
+            ((order as Record<string, unknown>).salesRepId as
+                | string
+                | null) ?? null,
         sourceLocationId: order.sourceLocationId || '',
         orderDate: order.orderDate,
         expectedDate: order.expectedDate || undefined,
