@@ -11,12 +11,13 @@ import {
     NotFoundError,
     BusinessRuleError,
 } from '@/lib/errors/errors';
-import { hasAnyRole } from '@/lib/auth/roles';
+import { requireFinanceAccess, requireFinanceMutation, requireFinanceApprover } from '@/lib/auth/finance-access';
 
 export const getFiscalPeriods = withTenant(async function getFiscalPeriods(
     year?: number,
 ) {
     return safeAction(async () => {
+        await requireFinanceAccess();
         const currentYear = year || new Date().getFullYear();
 
         return await prisma.fiscalPeriod.findMany({
@@ -29,6 +30,7 @@ export const getFiscalPeriods = withTenant(async function getFiscalPeriods(
 export const getIncomeStatementSummary = withTenant(
     async function getIncomeStatementSummary(id: string) {
         return safeAction(async () => {
+            await requireFinanceAccess();
             const period = await prisma.fiscalPeriod.findUnique({
                 where: { id },
             });
@@ -51,6 +53,7 @@ export const getIncomeStatementSummary = withTenant(
 export const generatePeriodsForYear = withTenant(
     async function generatePeriodsForYear(year: number) {
         return safeAction(async () => {
+            await requireFinanceMutation();
             // Check if periods exist
             const existing = await prisma.fiscalPeriod.count({
                 where: { year },
@@ -99,15 +102,9 @@ export const generatePeriodsForYear = withTenant(
 
 export const closePeriod = withTenant(async function closePeriod(id: string) {
     return safeAction(async () => {
-        const { requireAuth } = await import('@/lib/tools/auth-checks');
-        const { logActivity } = await import('@/lib/tools/audit');
+                const { logActivity } = await import('@/lib/tools/audit');
 
-        const session = await requireAuth();
-        if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-            throw new BusinessRuleError(
-                'Only ADMIN or FINANCE roles can close fiscal periods',
-            );
-        }
+        const session = await requireFinanceApprover();
 
         const period = await prisma.fiscalPeriod.findUnique({ where: { id } });
         if (!period) throw new NotFoundError('Fiscal Period', id);
@@ -148,15 +145,9 @@ export const closePeriod = withTenant(async function closePeriod(id: string) {
 
 export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
     return safeAction(async () => {
-        const { requireAuth } = await import('@/lib/tools/auth-checks');
-        const { logActivity } = await import('@/lib/tools/audit');
+                const { logActivity } = await import('@/lib/tools/audit');
 
-        const session = await requireAuth();
-        if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-            throw new BusinessRuleError(
-                'Only ADMIN or FINANCE roles can reopen fiscal periods',
-            );
-        }
+        const session = await requireFinanceApprover();
 
         const period = await prisma.fiscalPeriod.findUnique({ where: { id } });
         if (!period) throw new NotFoundError('Fiscal Period', id);

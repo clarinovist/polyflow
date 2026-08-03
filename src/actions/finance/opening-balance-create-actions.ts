@@ -6,7 +6,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError, safeAction } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation } from '@/lib/auth/finance-access';
 
 import {
     CreateOpeningBalanceInput,
@@ -24,7 +24,7 @@ import {
 export const getAccountsForOpeningBalance = withTenant(
     async function getAccountsForOpeningBalance() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             // Resolve the opening balance equity account to exclude it
             const { resolveAccount } =
                 await import('@/services/accounting/account-resolver');
@@ -52,7 +52,7 @@ export const saveUnifiedOpeningBalance = withTenant(
         data: UnifiedMakeOpeningBalanceInput,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             await assertNoDuplicateOpeningBalanceEntries(data);
 
@@ -123,7 +123,7 @@ export const saveUnifiedOpeningBalance = withTenant(
 export const createOpeningBalance = withTenant(
     async function createOpeningBalance(data: CreateOpeningBalanceInput) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             try {
                 const equityAccount =

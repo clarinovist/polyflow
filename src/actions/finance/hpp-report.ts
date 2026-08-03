@@ -2,8 +2,8 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { safeAction, AuthenticationError } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { safeAction } from '@/lib/errors/errors';
+import { requireFinanceAccess, requireFinanceApprover } from '@/lib/auth/finance-access';
 import { CostingService } from '@/services/accounting/costing-service';
 import {
     aggregateHppReport,
@@ -17,8 +17,7 @@ export const getHppReportData = withTenant(async function getHppReportData(
     endDate?: Date,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
-        if (!session) throw new AuthenticationError();
+        await requireFinanceAccess();
 
         const now = new Date();
         const start = startDate ?? startOfMonth(now);
@@ -104,8 +103,7 @@ export const lockPeriod = withTenant(async function lockPeriod(
     notes?: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
-        if (!session) throw new AuthenticationError();
+        const session = await requireFinanceApprover();
 
         await prisma.periodLock.upsert({
             where: { year_month: { year, month } },
@@ -125,8 +123,7 @@ export const unlockPeriod = withTenant(async function unlockPeriod(
     month: number,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
-        if (!session) throw new AuthenticationError();
+        await requireFinanceApprover();
 
         await prisma.periodLock.deleteMany({ where: { year, month } });
         return { success: true };
@@ -138,8 +135,7 @@ export const getPeriodLock = withTenant(async function getPeriodLock(
     month: number,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
-        if (!session) throw new AuthenticationError();
+        await requireFinanceAccess();
 
         return prisma.periodLock.findUnique({
             where: { year_month: { year, month } },

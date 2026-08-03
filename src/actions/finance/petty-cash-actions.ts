@@ -5,7 +5,7 @@ import {
     PettyCashService,
     CreatePettyCashValues,
 } from '@/services/finance/petty-cash-service';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction } from '@/lib/errors/errors';
 import { revalidatePath } from 'next/cache';
@@ -13,7 +13,7 @@ import { revalidatePath } from 'next/cache';
 export const getPettyCashTransactions = withTenant(
     async function getPettyCashTransactions() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const data = await PettyCashService.getTransactions();
             return serializeData(data);
         });
@@ -23,7 +23,7 @@ export const getPettyCashTransactions = withTenant(
 export const getPettyCashBalance = withTenant(
     async function getPettyCashBalance() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const balance = await PettyCashService.getBalance();
             return serializeData(balance);
         });
@@ -33,7 +33,7 @@ export const getPettyCashBalance = withTenant(
 export const createPettyCashExpense = withTenant(
     async function createPettyCashExpense(data: CreatePettyCashValues) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
             const result = await PettyCashService.createExpense(
                 data,
                 session.user.id,
@@ -47,7 +47,7 @@ export const createPettyCashExpense = withTenant(
 export const approvePettyCashExpense = withTenant(
     async function approvePettyCashExpense(id: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
             const result = await PettyCashService.approveExpense(
                 id,
                 session.user.id,
@@ -63,7 +63,7 @@ export const replenishPettyCash = withTenant(async function replenishPettyCash(
     bankAccountId: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceMutation();
         const result = await PettyCashService.replenish(
             amount,
             bankAccountId,

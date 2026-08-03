@@ -3,7 +3,7 @@
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { safeAction } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 
 export interface MobileFinanceOverview {
@@ -30,7 +30,7 @@ export interface MobileFinanceOverview {
 export const getFinanceMobileOverview = withTenant(
     async function getFinanceMobileOverview() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
 
             const now = new Date();
 

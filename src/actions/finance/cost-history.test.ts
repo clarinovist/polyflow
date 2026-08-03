@@ -5,7 +5,15 @@ vi.mock('@/lib/core/tenant', () => ({
 }));
 
 vi.mock('@/lib/tools/auth-checks', () => ({
-    requireAuth: vi.fn(async () => ({ user: { id: 'user-1' } })),
+    requireAuth: vi.fn(async () => ({ user: { id: 'user-1', role: 'ADMIN' } })),
+}));
+
+vi.mock('@/lib/auth/finance-access', () => ({
+    requireFinanceAccess: vi.fn(async () => ({ user: { id: 'user-1', role: 'ADMIN' } })),
+    requireFinanceMutation: vi.fn(async () => ({ user: { id: 'user-1', role: 'ADMIN' } })),
+    requireFinanceApprover: vi.fn(async () => ({ user: { id: 'user-1', role: 'ADMIN' } })),
+    requireFinanceAdmin: vi.fn(async () => ({ user: { id: 'user-1', role: 'ADMIN' } })),
+    requireFinanceReadCrossPortal: vi.fn(async () => ({ user: { id: 'user-1', role: 'ADMIN' } })),
 }));
 
 vi.mock('@/services/production/bom-cost-cascade-service', () => ({

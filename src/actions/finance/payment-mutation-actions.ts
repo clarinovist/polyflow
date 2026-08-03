@@ -15,8 +15,7 @@ import {
     NotFoundError,
     safeAction,
 } from '@/lib/errors/errors';
-import { hasAnyRole } from '@/lib/auth/roles';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceMutation } from '@/lib/auth/finance-access';
 import { logActivity } from '@/lib/tools/audit';
 import { formatRupiah } from '@/lib/utils/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
@@ -34,7 +33,7 @@ export const recordCustomerPayment = withTenant(
         destinationBank?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             try {
                 let paymentFields;
@@ -223,7 +222,7 @@ export const recordSupplierPayment = withTenant(
         destinationBank?: string;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             try {
                 let paymentFields;
@@ -372,12 +371,7 @@ export const deletePayment = withTenant(async function deletePayment(
     id: string,
 ) {
     return safeAction(async () => {
-        const authSession = await requireAuth();
-        if (!hasAnyRole(authSession.user, ['ADMIN', 'FINANCE'])) {
-            throw new BusinessRuleError(
-                'Only ADMIN or FINANCE roles can delete payments',
-            );
-        }
+        const authSession = await requireFinanceMutation();
 
         try {
             await prisma.$transaction(async (tx) => {

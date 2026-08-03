@@ -5,7 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { CostReportingService } from '@/services/finance/cost-reporting-service';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation, requireFinanceReadCrossPortal } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
@@ -50,6 +50,7 @@ export async function deletePayment(
 export const updateOverdueStatuses = withTenant(
     async function updateOverdueStatuses() {
         return safeAction(async () => {
+            await requireFinanceMutation();
             const now = new Date();
 
             try {
@@ -111,7 +112,7 @@ export const getProductionCostReport = withTenant(
         endDate?: Date | string,
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
 
             // Normalize dates if passed as strings (from JSON/Client)
             const start = startDate ? new Date(startDate) : undefined;
@@ -128,7 +129,7 @@ export const getProductionCostReport = withTenant(
 
 export const getWipValuation = withTenant(async function getWipValuation() {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceReadCrossPortal(['PRODUCTION']);
         const data = await CostReportingService.getWipValuation();
         return serializeData(data);
     });
@@ -138,7 +139,7 @@ export const getOrderCosting = withTenant(async function getOrderCosting(
     orderId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceReadCrossPortal(['PRODUCTION']);
         const data = await CostReportingService.getOrderCosting(orderId);
         return serializeData(data);
     });

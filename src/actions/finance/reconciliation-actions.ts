@@ -5,7 +5,7 @@ import {
     ReconciliationService,
     BankStatementRow,
 } from '@/services/finance/reconciliation-service';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation, requireFinanceApprover } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction } from '@/lib/errors/errors';
 import { AdjustmentSide, AdjustmentType } from '@prisma/client';
@@ -22,7 +22,7 @@ export const createReconciliation = withTenant(
         statements: BankStatementRow[],
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
             const result = await ReconciliationService.createReconciliation(
                 accountId,
                 periodStart,
@@ -39,7 +39,7 @@ export const getReconciliation = withTenant(async function getReconciliation(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const result = await ReconciliationService.getReconciliation(id);
         return serializeData(result);
     });
@@ -48,7 +48,7 @@ export const getReconciliation = withTenant(async function getReconciliation(
 export const listReconciliations = withTenant(
     async function listReconciliations(accountId?: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const result =
                 await ReconciliationService.listReconciliations(accountId);
             return serializeData(result);
@@ -64,7 +64,7 @@ export const autoMatchAndSave = withTenant(async function autoMatchAndSave(
     reconciliationId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         const result =
             await ReconciliationService.autoMatchAndSave(reconciliationId);
         return serializeData(result);
@@ -76,7 +76,7 @@ export const manualMatch = withTenant(async function manualMatch(
     journalLineId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         const result = await ReconciliationService.manualMatch(
             itemId,
             journalLineId,
@@ -97,7 +97,7 @@ export const addAdjustment = withTenant(async function addAdjustment(
     amount: number,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         const result = await ReconciliationService.addAdjustment(
             reconciliationId,
             { side, type, description, amount },
@@ -110,7 +110,7 @@ export const removeAdjustment = withTenant(async function removeAdjustment(
     adjustmentId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         const result =
             await ReconciliationService.removeAdjustment(adjustmentId);
         return serializeData(result);
@@ -120,7 +120,7 @@ export const removeAdjustment = withTenant(async function removeAdjustment(
 export const calculateAdjustedBalances = withTenant(
     async function calculateAdjustedBalances(reconciliationId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const result =
                 await ReconciliationService.calculateAdjustedBalances(
                     reconciliationId,
@@ -137,7 +137,7 @@ export const calculateAdjustedBalances = withTenant(
 export const completeReconciliation = withTenant(
     async function completeReconciliation(reconciliationId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const result =
                 await ReconciliationService.completeReconciliation(
                     reconciliationId,
@@ -154,7 +154,7 @@ export const completeReconciliation = withTenant(
 export const createAdjustmentJournals = withTenant(
     async function createAdjustmentJournals(reconciliationId: string) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceApprover();
             const result = await ReconciliationService.createAdjustmentJournals(
                 reconciliationId,
                 session.user.id,
@@ -174,7 +174,7 @@ export const getGLEntries = withTenant(async function getGLEntries(
     endDate: Date,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const result = await ReconciliationService.getGLEntries(
             accountId,
             startDate,
@@ -191,7 +191,7 @@ export const getUnreconciledEntries = withTenant(
         endDate: Date,
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const result = await ReconciliationService.getUnreconciledEntries(
                 accountId,
                 startDate,
@@ -214,7 +214,7 @@ export const autoMatchReconciliation = withTenant(
         statements: BankStatementRow[],
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceMutation();
             const results = await ReconciliationService.autoMatch(
                 accountId,
                 startDate,
@@ -229,7 +229,7 @@ export const autoMatchReconciliation = withTenant(
 export const confirmReconciliation = withTenant(
     async function confirmReconciliation(matchedLineIds: string[]) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceMutation();
             const result =
                 await ReconciliationService.confirmReconciliation(
                     matchedLineIds,

@@ -2,7 +2,7 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation, requireFinanceAdmin } from '@/lib/auth/finance-access';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import {
@@ -16,7 +16,7 @@ import { revalidatePath } from 'next/cache';
 /** Get all role mappings for the current tenant. */
 export const getRoleMappings = withTenant(async function getRoleMappings() {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const tenantId = getTenantIdFromContext();
         if (!tenantId) throw new BusinessRuleError('No tenant context');
 
@@ -31,7 +31,7 @@ export const updateRoleMapping = withTenant(async function updateRoleMapping(
     accountId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         const tenantId = getTenantIdFromContext();
         if (!tenantId) throw new BusinessRuleError('No tenant context');
 
@@ -55,7 +55,7 @@ export const updateRoleMapping = withTenant(async function updateRoleMapping(
 export const seedMissingMappings = withTenant(
     async function seedMissingMappings() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceMutation();
             const tenantId = getTenantIdFromContext();
             if (!tenantId) throw new BusinessRuleError('No tenant context');
 
@@ -73,7 +73,7 @@ export const seedMissingMappings = withTenant(
 /** Reset all mappings to pattern defaults (force mode, requires confirmation). */
 export const resetAllMappings = withTenant(async function resetAllMappings() {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAdmin();
         const tenantId = getTenantIdFromContext();
         if (!tenantId) throw new BusinessRuleError('No tenant context');
 

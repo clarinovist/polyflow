@@ -11,9 +11,8 @@ import {
 } from '@/lib/schemas/journal';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { ReferenceType, JournalStatus } from '@prisma/client';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation, requireFinanceApprover } from '@/lib/auth/finance-access';
 import { revalidatePath } from 'next/cache';
-import { hasAnyRole } from '@/lib/auth/roles';
 import { logActivity } from '@/lib/tools/audit';
 import {
     safeAction,
@@ -36,7 +35,7 @@ export const createBulkJournals = withTenant(async function createBulkJournals(
     }[],
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceMutation();
 
         try {
             await AccountingService.createBulkJournalEntries(
@@ -62,7 +61,7 @@ export const createManualJournal = withTenant(
         post: boolean = false,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             // Validate Input
             const validation = manualJournalSchema.safeParse(data);
@@ -128,7 +127,7 @@ export const getJournals = withTenant(async function getJournals(params?: {
     limit?: number;
 }) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         return await AccountingService.getJournals(params);
     });
 });
@@ -137,14 +136,14 @@ export const getJournalById = withTenant(async function getJournalById(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         return await AccountingService.getJournalById(id);
     });
 });
 
 export const postJournal = withTenant(async function postJournal(id: string) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceApprover();
         try {
             await AccountingService.postJournal(id, session.user.id);
 
@@ -171,12 +170,7 @@ export const postJournal = withTenant(async function postJournal(id: string) {
 
 export const voidJournal = withTenant(async function voidJournal(id: string) {
     return safeAction(async () => {
-        const session = await requireAuth();
-        if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-            throw new BusinessRuleError(
-                'Only ADMIN or FINANCE roles can void journal entries',
-            );
-        }
+        const session = await requireFinanceApprover();
         try {
             await AccountingService.voidJournal(id, session.user.id);
 
@@ -205,12 +199,7 @@ export const reverseJournal = withTenant(async function reverseJournal(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
-        if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-            throw new BusinessRuleError(
-                'Only ADMIN or FINANCE roles can reverse journal entries',
-            );
-        }
+        const session = await requireFinanceApprover();
         try {
             await AccountingService.reverseJournal(id, session.user.id);
 
@@ -241,7 +230,7 @@ export const updateManualJournal = withTenant(
         post: boolean = false,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             // Validate Input
             const validation = manualJournalSchema.safeParse(data);
@@ -310,7 +299,7 @@ export const createDirectLaborJournalAction = withTenant(
         post: boolean = false,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             // Validate Input
             const validation = directLaborJournalSchema.safeParse(data);
@@ -374,7 +363,7 @@ export const updateDirectLaborJournalAction = withTenant(
         post: boolean = false,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             // Validate Input
             const validation = directLaborJournalSchema.safeParse(data);
@@ -440,7 +429,7 @@ export const createDetailJournalAction = withTenant(
         post: boolean = false,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             // Validate Input
             const validation = detailJournalSchema.safeParse(data);
@@ -506,7 +495,7 @@ export const updateDetailJournalAction = withTenant(
         post: boolean = false,
     ) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             // Validate Input
             const validation = detailJournalSchema.safeParse(data);
@@ -570,12 +559,7 @@ export const closePeriod = withTenant(async function closePeriod(
     periodEndDate: Date,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
-        if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-            throw new BusinessRuleError(
-                'Only ADMIN or FINANCE roles can close fiscal periods',
-            );
-        }
+        const session = await requireFinanceApprover();
         try {
             const result = await AccountingService.closePeriod(
                 periodEndDate,

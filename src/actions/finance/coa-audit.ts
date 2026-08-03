@@ -4,7 +4,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { AccountType, AccountCategory } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceApprover } from '@/lib/auth/finance-access';
 import { safeAction } from '@/lib/errors/errors';
 
 export interface RequiredAccount {
@@ -112,7 +112,7 @@ const REQUIRED_ACCOUNTS: RequiredAccount[] = [
 export const auditRequiredAccounts = withTenant(
     async function auditRequiredAccounts() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
 
             const existingAccounts = await prisma.account.findMany({
                 where: {
@@ -139,7 +139,7 @@ export const auditRequiredAccounts = withTenant(
 export const fixMissingAccounts = withTenant(
     async function fixMissingAccounts() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceApprover();
 
             // Need to call the actual function logic
             const existingAccounts = await prisma.account.findMany({

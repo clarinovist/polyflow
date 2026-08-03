@@ -2,7 +2,7 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation } from '@/lib/auth/finance-access';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import { getTenantIdFromContext } from '@/lib/core/prisma';
@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache';
 /** Get all revenue rules for the current tenant. */
 export const getRevenueRules = withTenant(async function getRevenueRules() {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const tenantId = getTenantIdFromContext();
         if (!tenantId) throw new BusinessRuleError('No tenant context');
 
@@ -32,7 +32,7 @@ export const createRevenueRule = withTenant(
         priority?: number;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceMutation();
             const tenantId = getTenantIdFromContext();
             if (!tenantId) throw new BusinessRuleError('No tenant context');
 
@@ -74,7 +74,7 @@ export const updateRevenueRule = withTenant(async function updateRevenueRule(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
 
         const updateData: Record<string, unknown> = { ...data };
 
@@ -105,7 +105,7 @@ export const deleteRevenueRule = withTenant(async function deleteRevenueRule(
     ruleId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         await prisma.tenantRevenueRule.delete({ where: { id: ruleId } });
         revalidatePath('/finance/coa/revenue-rules');
         return { success: true };

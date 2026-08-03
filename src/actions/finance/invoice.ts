@@ -3,7 +3,7 @@
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation, requireFinanceReadCrossPortal } from '@/lib/auth/finance-access';
 import { InvoiceService } from '@/services/finance/invoice-service';
 import {
     createInvoiceSchema,
@@ -24,7 +24,7 @@ export const getInvoices = withTenant(async function getInvoices(
     demandType?: 'customer' | 'legacy-internal',
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const where: Prisma.InvoiceWhereInput = {};
         if (dateRange?.startDate && dateRange?.endDate) {
             where.invoiceDate = {
@@ -63,7 +63,7 @@ export const getInvoiceById = withTenant(async function getInvoiceById(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const invoice = await prisma.invoice.findUnique({
             where: { id },
             include: {
@@ -89,7 +89,7 @@ export const createInvoice = withTenant(async function createInvoice(
     data: CreateInvoiceValues,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceMutation();
         const result = createInvoiceSchema.safeParse(data);
 
         if (!result.success) {
@@ -132,7 +132,7 @@ export const updateInvoiceStatus = withTenant(
         paidAmount?: number;
     }) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
             const result = updateInvoiceStatusSchema.safeParse(data);
 
             if (!result.success) {
@@ -168,7 +168,7 @@ export const updateInvoiceStatus = withTenant(
 export const getOutstandingInvoicesByCustomerId = withTenant(
     async function getOutstandingInvoicesByCustomerId(customerId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceReadCrossPortal(['SALES', 'FIELD_SALES']);
             const invoices = await prisma.invoice.findMany({
                 where: {
                     salesOrder: {
@@ -201,7 +201,7 @@ export const getOutstandingInvoicesByCustomerId = withTenant(
 export const getOutstandingInvoices = withTenant(
     async function getOutstandingInvoices() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const invoices = await prisma.invoice.findMany({
                 where: {
                     status: {

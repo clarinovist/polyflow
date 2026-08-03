@@ -10,12 +10,12 @@ import {
     BusinessRuleError,
     ValidationError,
 } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation } from '@/lib/auth/finance-access';
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
 
 export const getAssets = withTenant(async function getAssets() {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         try {
             const assets = await db.fixedAsset.findMany({
                 include: {
@@ -91,7 +91,7 @@ export const createAsset = withTenant(async function createAsset(
     data: AssetFormValues,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             const result = assetSchema.safeParse(data);
             if (!result.success) {
@@ -126,7 +126,7 @@ export const updateAsset = withTenant(async function updateAsset(
     data: Partial<AssetFormValues>,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             await db.fixedAsset.update({
                 where: { id },
@@ -152,7 +152,7 @@ export const updateAsset = withTenant(async function updateAsset(
 
 export const deleteAsset = withTenant(async function deleteAsset(id: string) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             await db.fixedAsset.delete({
                 where: { id },
@@ -172,7 +172,7 @@ export const deleteAsset = withTenant(async function deleteAsset(id: string) {
 
 export const runDepreciation = withTenant(async function runDepreciation() {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceMutation();
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth() + 1;

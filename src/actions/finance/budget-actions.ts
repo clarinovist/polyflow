@@ -10,9 +10,11 @@ import {
     BusinessRuleError,
     ValidationError,
 } from '@/lib/errors/errors';
+import { requireFinanceAccess, requireFinanceMutation } from '@/lib/auth/finance-access';
 
 export const getBudgets = withTenant(async function getBudgets(year: number) {
     return safeAction(async () => {
+            await requireFinanceAccess();
         try {
             const budgets = await db.budget.findMany({
                 where: { year },
@@ -41,6 +43,7 @@ export const upsertBudget = withTenant(async function upsertBudget(
     data: BudgetFormValues,
 ) {
     return safeAction(async () => {
+            await requireFinanceMutation();
         try {
             const result = budgetSchema.safeParse(data);
             if (!result.success) {

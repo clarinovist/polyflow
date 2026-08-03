@@ -9,7 +9,7 @@ import {
     BusinessRuleError,
     NotFoundError,
 } from '@/lib/errors/errors';
-import { hasAnyRole } from '@/lib/auth/roles';
+import { requireFinanceMutation, requireFinanceReadCrossPortal } from '@/lib/auth/finance-access';
 
 export const getSalesInvoices = withTenant(
     async function getSalesInvoices(dateRange?: {
@@ -17,6 +17,7 @@ export const getSalesInvoices = withTenant(
         endDate?: Date;
     }) {
         return safeAction(async () => {
+            await requireFinanceReadCrossPortal(['SALES']);
             const where: Prisma.InvoiceWhereInput = {};
             if (dateRange?.startDate && dateRange?.endDate) {
                 where.invoiceDate = {
@@ -52,6 +53,7 @@ export const getSalesInvoices = withTenant(
 export const getPurchaseInvoices = withTenant(
     async function getPurchaseInvoices() {
         return safeAction(async () => {
+            await requireFinanceReadCrossPortal(['PROCUREMENT']);
             const invoices = await prisma.purchaseInvoice.findMany({
                 orderBy: {
                     createdAt: 'desc',
@@ -83,6 +85,7 @@ export const getPurchaseInvoices = withTenant(
 export const getOutstandingPurchaseInvoices = withTenant(
     async function getOutstandingPurchaseInvoices() {
         return safeAction(async () => {
+            await requireFinanceReadCrossPortal(['PROCUREMENT']);
             const { getOutstandingPurchaseInvoices: fetchOutstanding } =
                 await import('@/services/purchasing/invoices-service');
             const { serializeData } = await import('@/lib/utils/utils');
@@ -155,19 +158,13 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
     type: 'AR' | 'AP',
 ) {
     return safeAction(async () => {
-        const { requireAuth } = await import('@/lib/tools/auth-checks');
         const { revalidatePath } = await import('next/cache');
         const { ReferenceType } = await import('@prisma/client');
         const { isPeriodOpen } =
             await import('@/services/accounting/periods-service');
         const { logActivity } = await import('@/lib/tools/audit');
 
-        const session = await requireAuth();
-        if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE'])) {
-            throw new BusinessRuleError(
-                'Only ADMIN or FINANCE roles can delete invoices',
-            );
-        }
+        const session = await requireFinanceMutation();
 
         try {
             await prisma.$transaction(async (tx) => {

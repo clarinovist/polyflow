@@ -1,7 +1,8 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { requireAuth, requireRole } from '@/lib/tools/auth-checks';
+import { requireRole } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { revalidatePath } from 'next/cache';
@@ -22,7 +23,7 @@ const SIGNATURE_KEYS: Record<string, string> = {
 
 export const getCashOpnameSignaturesAction = withTenant(async function () {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const rows = await prisma.appSetting.findMany({
             where: { key: { in: Object.values(SIGNATURE_KEYS) } },
             select: { key: true, value: true },
@@ -77,7 +78,7 @@ function validateDateStr(dateStr: string): string {
 export const getDailyPettyCashReportAction = withTenant(
     async function getDailyPettyCashReportAction(dateStr: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const date = validateDateStr(dateStr);
             const report = await PettyCashReportService.getDailyReport(date);
             return serializeData(report);

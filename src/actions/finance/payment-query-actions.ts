@@ -6,7 +6,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess } from '@/lib/auth/finance-access';
 
 export const getReceivedPayments = withTenant(
     async function getReceivedPayments(
@@ -14,7 +14,7 @@ export const getReceivedPayments = withTenant(
         demandType?: 'customer' | 'legacy-internal',
     ) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
 
             const where: Prisma.PaymentWhereInput = {
                 invoiceId: { not: null },
@@ -84,7 +84,7 @@ export const getSentPayments = withTenant(
         endDate?: Date;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
 
             const where: Prisma.PaymentWhereInput = {
                 purchaseInvoiceId: { not: null },

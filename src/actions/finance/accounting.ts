@@ -5,7 +5,7 @@ import {
     AccountingService,
     CreateJournalEntryInput,
 } from '@/services/accounting/accounting-service';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation, requireFinanceApprover } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
@@ -18,7 +18,7 @@ import { BudgetService } from '@/services/finance/budget-service';
 export const getChartOfAccounts = withTenant(
     async function getChartOfAccounts() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const accounts = await AccountingService.getChartOfAccounts();
             return serializeData(accounts);
         });
@@ -33,7 +33,7 @@ export const createAccount = withTenant(async function createAccount(data: {
     description?: string;
 }) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             const account = await AccountingService.createAccount(data);
             revalidatePath('/finance/coa');
@@ -55,7 +55,7 @@ export const updateAccount = withTenant(async function updateAccount(
     },
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             const account = await AccountingService.updateAccount(id, data);
             revalidatePath('/finance/coa');
@@ -70,7 +70,7 @@ export const deleteAccount = withTenant(async function deleteAccount(
     id: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             await AccountingService.deleteAccount(id);
             revalidatePath('/finance/coa');
@@ -83,7 +83,7 @@ export const deleteAccount = withTenant(async function deleteAccount(
 export const createManualJournalEntry = withTenant(
     async function createManualJournalEntry(data: CreateJournalEntryInput) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceMutation();
 
             try {
                 const entry = await AccountingService.createJournalEntry({
@@ -111,7 +111,7 @@ export const getAccountBalance = withTenant(async function getAccountBalance(
     endDate?: Date,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const balance = await AccountingService.getAccountBalance(
             accountId,
             startDate,
@@ -126,7 +126,7 @@ export const getTrialBalance = withTenant(async function getTrialBalance(
     endDate?: Date,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const data = await AccountingService.getTrialBalance(
             startDate,
             endDate,
@@ -140,7 +140,7 @@ export const getIncomeStatement = withTenant(async function getIncomeStatement(
     endDate: Date,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         // Ensure dates are dates (serialization might make them strings if passed from client directly differently)
         const start = new Date(startDate);
         const end = new Date(endDate);
@@ -152,7 +152,7 @@ export const getIncomeStatement = withTenant(async function getIncomeStatement(
 export const getCashFlowStatement = withTenant(
     async function getCashFlowStatement(startDate: Date, endDate: Date) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const start = new Date(startDate);
             const end = new Date(endDate);
             const data = await AccountingService.getCashFlowStatement(
@@ -168,7 +168,7 @@ export const getBalanceSheet = withTenant(async function getBalanceSheet(
     asOfDate: Date,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const date = new Date(asOfDate);
         const data = await AccountingService.getBalanceSheet(date);
         return serializeData(data);
@@ -180,7 +180,7 @@ export const getGeneralLedger = withTenant(async function getGeneralLedger(
     endDate?: Date,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const data = await AccountingService.getGeneralLedger(
             startDate ? new Date(startDate) : undefined,
             endDate ? new Date(endDate) : undefined,
@@ -191,7 +191,7 @@ export const getGeneralLedger = withTenant(async function getGeneralLedger(
 
 export const getFiscalPeriods = withTenant(async function getFiscalPeriods() {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const periods = await AccountingService.getFiscalPeriods();
         return serializeData(periods);
     });
@@ -202,7 +202,7 @@ export const createFiscalPeriod = withTenant(async function createFiscalPeriod(
     month: number,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             const period = await AccountingService.createFiscalPeriod(
                 year,
@@ -220,7 +220,7 @@ export const closeFiscalPeriod = withTenant(async function closeFiscalPeriod(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceApprover();
         try {
             const period = await AccountingService.closeFiscalPeriod(
                 id,
@@ -238,7 +238,7 @@ export const closeFiscalPeriod = withTenant(async function closeFiscalPeriod(
 export const createYearEndClosingEntry = withTenant(
     async function createYearEndClosingEntry(year: number) {
         return safeAction(async () => {
-            const session = await requireAuth();
+            const session = await requireFinanceApprover();
             try {
                 await AccountingService.createYearEndClosingEntry(
                     year,
@@ -257,7 +257,7 @@ export const createYearEndClosingEntry = withTenant(
 
 export const getFixedAssets = withTenant(async function getFixedAssets() {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const assets = await FixedAssetService.getAssets();
         return serializeData(assets);
     });
@@ -276,7 +276,7 @@ export const createFixedAsset = withTenant(
         accumulatedDepreciationAccountId: string;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceMutation();
             try {
                 const asset = await FixedAssetService.createAsset(data);
                 revalidatePath('/finance/assets');
@@ -295,7 +295,7 @@ export const runDepreciation = withTenant(async function runDepreciation(
     month: number,
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceMutation();
         try {
             const results = await FixedAssetService.runDepreciation(
                 year,
@@ -316,7 +316,7 @@ export const getBudgets = withTenant(async function getBudgets(
     month: number,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const data = await BudgetService.getBudgets(year, month);
         return serializeData(data);
     });
@@ -329,7 +329,7 @@ export const setBudget = withTenant(async function setBudget(data: {
     amount: number;
 }) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceMutation();
         try {
             const budget = await BudgetService.setBudget(data);
             revalidatePath('/finance/budgeting/input');
@@ -345,7 +345,7 @@ export const getBudgetVariance = withTenant(async function getBudgetVariance(
     month: number,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const data = await BudgetService.getVarianceReport(year, month);
         return serializeData(data);
     });
@@ -354,7 +354,7 @@ export const getBudgetVariance = withTenant(async function getBudgetVariance(
 export const getAccountingDashboardData = withTenant(
     async function getAccountingDashboardData() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
 
             // 1. Get today, start of month, etc.
             const now = new Date();

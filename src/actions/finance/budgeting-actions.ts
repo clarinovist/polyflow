@@ -1,7 +1,7 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction } from '@/lib/errors/errors';
 import { prisma } from '@/lib/core/prisma';
@@ -11,7 +11,7 @@ export const getBudgetVsActuals = withTenant(async function getBudgetVsActuals(
     month: number,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
 
         // Get all budgets for the given year/month
         const budgets = await prisma.budget.findMany({

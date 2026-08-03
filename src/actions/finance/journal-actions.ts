@@ -6,7 +6,7 @@ import { Prisma, JournalStatus, ReferenceType } from '@prisma/client';
 import { postBulkJournals } from '@/services/accounting/journals-service';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceApprover } from '@/lib/auth/finance-access';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 
 export interface JournalFilterParams {
@@ -23,6 +23,7 @@ export const getJournalEntries = withTenant(async function getJournalEntries(
     params: JournalFilterParams,
 ) {
     return safeAction(async () => {
+        await requireFinanceAccess();
         const {
             page = 1,
             limit = 10,
@@ -113,7 +114,7 @@ export const batchPostJournals = withTenant(async function batchPostJournals(
     ids: string[],
 ) {
     return safeAction(async () => {
-        const session = await requireAuth();
+        const session = await requireFinanceApprover();
         try {
             await postBulkJournals(ids, session.user.id);
             revalidatePath('/finance/journals');

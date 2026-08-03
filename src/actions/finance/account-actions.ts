@@ -9,9 +9,21 @@ import {
     BusinessRuleError,
     NotFoundError,
 } from '@/lib/errors/errors';
+import {
+    requireFinanceAccess,
+    requireFinanceMutation,
+    requireFinanceReadCrossPortal,
+} from '@/lib/auth/finance-access';
 
 export const getAccounts = withTenant(async function getAccounts() {
     return safeAction(async () => {
+        await requireFinanceReadCrossPortal([
+            'SALES',
+            'PROCUREMENT',
+            'PRODUCTION',
+            'PLANNING',
+            'MARKETING',
+        ]);
         return await prisma.account.findMany({
             orderBy: { code: 'asc' },
             include: {
@@ -55,6 +67,7 @@ export const upsertAccount = withTenant(async function upsertAccount(
     data: UpsertAccountInput,
 ) {
     return safeAction(async () => {
+        await requireFinanceMutation();
         const { id, ...rest } = data;
 
         // Hardening: ONLY for Melindo tenant, block Kiyowo 5-digit ghost codes from being re-created.
@@ -104,6 +117,7 @@ export const deleteAccount = withTenant(async function deleteAccount(
     id: string,
 ) {
     return safeAction(async () => {
+        await requireFinanceMutation();
         // Check for journal entries
         const usageCount = await prisma.journalLine.count({
             where: { accountId: id },
@@ -135,6 +149,7 @@ export const getAccountLedger = withTenant(async function getAccountLedger(
     endDate?: Date,
 ) {
     return safeAction(async () => {
+        await requireFinanceAccess();
         // Get account details
         const account = await prisma.account.findUnique({
             where: { id: accountId },

@@ -1,7 +1,7 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction } from '@/lib/errors/errors';
 import { FOHAllocationService } from '@/services/finance/foh-service';
@@ -13,7 +13,7 @@ export const getFOHAllocation = withTenant(async function getFOHAllocation(
     accountId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        await requireFinanceAccess();
         const data = await FOHAllocationService.calculateAllocation(
             year,
             month,
@@ -26,7 +26,7 @@ export const getFOHAllocation = withTenant(async function getFOHAllocation(
 export const getExpenseAccounts = withTenant(
     async function getExpenseAccounts() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const accounts = await prisma.account.findMany({
                 where: {
                     category: {

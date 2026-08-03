@@ -12,12 +12,12 @@ import {
     safeAction,
 } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess, requireFinanceMutation } from '@/lib/auth/finance-access';
 
 export const getRecentOpeningBalances = withTenant(
     async function getRecentOpeningBalances() {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
 
             try {
                 const [arInvoices, apInvoices] = await Promise.all([
@@ -95,7 +95,7 @@ export const getRecentOpeningBalances = withTenant(
 export const deleteOpeningBalance = withTenant(
     async function deleteOpeningBalance(id: string, type: 'AR' | 'AP') {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceMutation();
 
             try {
                 await prisma.$transaction(async (tx) => {
