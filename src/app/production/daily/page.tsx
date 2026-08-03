@@ -2,11 +2,7 @@ import { auth } from '@/auth';
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getBoms } from '@/actions/production/boms';
 import { getMachines } from '@/actions/production/machines';
-import { prisma } from '@/lib/core/prisma';
-import {
-    MACHINE_STAGE_MAP_SETTING_KEY,
-    parseMachineStageMap,
-} from '@/lib/production/machine-compatibility';
+import { getMachineStageMap } from '@/actions/production/machine-stage-settings';
 import { ProductionStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils/utils';
 import Link from 'next/link';
@@ -48,11 +44,9 @@ export default async function DailyProductionPage() {
     const machines = allMachines.filter((m) => m.status === 'ACTIVE');
 
     // Fetch per-tenant machine stage map (may be empty → default behavior)
-    const stageSetting = await prisma.appSetting.findUnique({
-        where: { key: MACHINE_STAGE_MAP_SETTING_KEY },
-        select: { value: true },
-    });
-    const machineStageMap = parseMachineStageMap(stageSetting?.value);
+    const stageMapRes = await getMachineStageMap();
+    const machineStageMap =
+        stageMapRes.success && stageMapRes.data ? stageMapRes.data : {};
 
     return (
         <div className="flex flex-col gap-6">

@@ -66,7 +66,6 @@ export const saveMachineStageSettings = withTenant(
                     'Format setup stage tidak valid. Pilih minimal satu tipe mesin per stage.',
                 );
             }
-            // Ensure every stage has at least one type; empty list rejected above via schema
             const value = JSON.stringify(parsed.data);
             try {
                 await prisma.appSetting.upsert({
@@ -90,6 +89,22 @@ export const saveMachineStageSettings = withTenant(
                     'Gagal menyimpan setup stage. Silakan coba lagi.',
                 );
             }
+        });
+    },
+);
+
+/**
+ * Read-only fetch of machine stage map for the current tenant.
+ * No admin guard — any authenticated user can read (needed for form dropdowns).
+ */
+export const getMachineStageMap = withTenant(
+    async function getMachineStageMap() {
+        return safeAction(async () => {
+            const row = await prisma.appSetting.findUnique({
+                where: { key: MACHINE_STAGE_MAP_SETTING_KEY },
+                select: { value: true },
+            });
+            return parseMachineStageMap(row?.value);
         });
     },
 );
