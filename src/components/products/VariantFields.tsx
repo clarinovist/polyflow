@@ -304,11 +304,25 @@ export function VariantFields({
                                         step="0.0001"
                                         placeholder="1"
                                         {...field}
-                                        onChange={(e) =>
-                                            field.onChange(
-                                                parseFloat(e.target.value) || 1,
-                                            )
-                                        }
+                                        value={field.value || ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === '' || val === '-') {
+                                                field.onChange(0);
+                                            } else {
+                                                const num = parseFloat(val);
+                                                if (!isNaN(num)) {
+                                                    field.onChange(
+                                                        Math.max(0.0001, num),
+                                                    );
+                                                }
+                                            }
+                                        }}
+                                        onBlur={() => {
+                                            if (!field.value || field.value < 0.0001) {
+                                                field.onChange(1);
+                                            }
+                                        }}
                                     />
                                 </FormControl>
                                 <FormMessage />

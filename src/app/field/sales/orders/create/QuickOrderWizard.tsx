@@ -651,16 +651,47 @@ export function QuickOrderWizard({
                                                     type="number"
                                                     min="1"
                                                     step="1"
-                                                    value={item.quantity}
-                                                    onChange={(e) =>
-                                                        updateItem(
-                                                            item.productVariantId,
-                                                            'quantity',
-                                                            Number(
-                                                                e.target.value,
-                                                            ) || 1,
-                                                        )
-                                                    }
+                                                    value={item.quantity || ''}
+                                                    onChange={(e) => {
+                                                        const val =
+                                                            e.target.value;
+                                                        if (
+                                                            val === '' ||
+                                                            val === '-'
+                                                        ) {
+                                                            updateItem(
+                                                                item.productVariantId,
+                                                                'quantity',
+                                                                0,
+                                                            );
+                                                        } else {
+                                                            const num =
+                                                                Number(val);
+                                                            if (
+                                                                !isNaN(num)
+                                                            ) {
+                                                                updateItem(
+                                                                    item.productVariantId,
+                                                                    'quantity',
+                                                                    Math.max(
+                                                                        1,
+                                                                        num,
+                                                                    ),
+                                                                );
+                                                            }
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (
+                                                            item.quantity < 1
+                                                        ) {
+                                                            updateItem(
+                                                                item.productVariantId,
+                                                                'quantity',
+                                                                1,
+                                                            );
+                                                        }
+                                                    }}
                                                     className="h-9 text-sm"
                                                 />
                                             </div>
