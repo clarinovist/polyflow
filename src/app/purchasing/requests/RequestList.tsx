@@ -40,10 +40,16 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
-import { consolidatePurchaseRequests } from '@/actions/purchasing/purchasing';
+import {
+    consolidatePurchaseRequests,
+    approvePurchaseRequest,
+    rejectPurchaseRequest,
+} from '@/actions/purchasing/purchasing';
 import { toast } from 'sonner';
-import { Loader2, Merge } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, Merge, CheckCircle, XCircle } from 'lucide-react';
 import {
     getStatusLabel,
     purchasingLabels,
@@ -59,6 +65,7 @@ type RequestWithRelations = PurchaseRequest & {
     })[];
     salesOrder?: { orderNumber: string } | null;
     createdBy: { name: string | null };
+    reviewedBy?: { id: string; name: string | null } | null;
 };
 
 type Supplier = {
@@ -69,16 +76,43 @@ type Supplier = {
 interface RequestListProps {
     requests: RequestWithRelations[];
     suppliers: Supplier[];
+    canApprove?: boolean;
 }
 
-export function RequestList({ requests, suppliers }: RequestListProps) {
+const STATUS_BADGE_VARIANT: Record<
+    string,
+    'default' | 'secondary' | 'destructive' | 'outline'
+> = {
+    OPEN: 'default',
+    APPROVED: 'outline',
+    REJECTED: 'destructive',
+    CONVERTED: 'secondary',
+};
+
+export function RequestList({
+    requests,
+    suppliers,
+    canApprove = false,
+}: RequestListProps) {
+    const router = useRouter();
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isConvertOpen, setIsConvertOpen] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState('');
     const [isConverting, setIsConverting] = useState(false);
 
-    // Filter only OPEN requests for selection
-    const openRequests = requests.filter((r) => r.status === 'OPEN');
+    // Reject dialog state
+    const [isRejectOpen, setIsRejectOpen] = useState(false);
+    const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+    const [rejectReason, setRejectReason] = useState('');
+    const [isRejecting, setIsRejecting] = useState(false);
+
+    // Approve loading
+    const [approvingId, setApprovingId] = useState<string | null>(null);
+
+    // Filter only APPROVED requests for selection (consolidation)
+    const approvedRequests = requests.filter(
+        (r) => r.status === 'APPROVED',
+    );
 
     // Toggle single selection
     const handleSelect = (id: string, checked: boolean) => {
@@ -89,10 +123,10 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
         }
     };
 
-    // Toggle all
+    // Toggle all APPROVED
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
-            setSelectedIds(openRequests.map((r) => r.id));
+            setSelectedIds(approvedRequests.map((r) => r.id));
         } else {
             setSelectedIds([]);
         }
@@ -125,6 +159,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                 );
                 setIsConvertOpen(false);
                 setSelectedIds([]);
+                router.refresh();
             } else {
                 toast.error(result.error);
             }
@@ -135,6 +170,56 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
             console.error(error);
         } finally {
             setIsConverting(false);
+        }
+    };
+
+    const handleApprove = async (id: string) => {
+        setApprovingId(id);
+        try {
+            const result = await approvePurchaseRequest(id);
+            if (result.success) {
+                toast.success('Permintaan pembelian berhasil Disetujui');
+                router.refresh();
+            } else {
+                toast.error(result.error);
+            }
+        } catch (error) {
+            toast.error('Gagal menyetujui permintaan. Silakan coba lagi.');
+            console.error(error);
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleOpenReject = (id: string) => {
+        setRejectTargetId(id);
+        setRejectReason('');
+        setIsRejectOpen(true);
+    };
+
+    const handleConfirmReject = async () => {
+        if (!rejectTargetId || !rejectReason.trim()) return;
+
+        setIsRejecting(true);
+        try {
+            const result = await rejectPurchaseRequest(
+                rejectTargetId,
+                rejectReason.trim(),
+            );
+            if (result.success) {
+                toast.success('Permintaan pembelian berhasil ditolak');
+                setIsRejectOpen(false);
+                setRejectTargetId(null);
+                setRejectReason('');
+                router.refresh();
+            } else {
+                toast.error(result.error);
+            }
+        } catch (error) {
+            toast.error('Gagal menolak permintaan. Silakan coba lagi.');
+            console.error(error);
+        } finally {
+            setIsRejecting(false);
         }
     };
 
@@ -170,13 +255,15 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                     <Checkbox
                                         checked={
                                             selectedIds.length ===
-                                                openRequests.length &&
-                                            openRequests.length > 0
+                                                approvedRequests.length &&
+                                            approvedRequests.length > 0
                                         }
                                         onCheckedChange={(checked) =>
                                             handleSelectAll(checked as boolean)
                                         }
-                                        disabled={openRequests.length === 0}
+                                        disabled={
+                                            approvedRequests.length === 0
+                                        }
                                     />
                                 </TableHead>
                                 <TableHead>
@@ -208,7 +295,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                                     checked as boolean,
                                                 )
                                             }
-                                            disabled={req.status !== 'OPEN'}
+                                            disabled={req.status !== 'APPROVED'}
                                         />
                                     </TableCell>
                                     <TableCell className="font-medium">
@@ -245,18 +332,44 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge
-                                            variant={
-                                                req.status === 'OPEN'
-                                                    ? 'default'
-                                                    : 'secondary'
-                                            }
-                                        >
-                                            {getStatusLabel(
-                                                req.status,
-                                                'purchasing',
-                                            )}
-                                        </Badge>
+                                        <div className="flex flex-col gap-1">
+                                            <Badge
+                                                variant={
+                                                    STATUS_BADGE_VARIANT[
+                                                        req.status
+                                                    ] ?? 'secondary'
+                                                }
+                                            >
+                                                {getStatusLabel(
+                                                    req.status,
+                                                    'purchasing',
+                                                )}
+                                            </Badge>
+                                            {req.status === 'REJECTED' &&
+                                                req.rejectionReason && (
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        <span className="font-medium">
+                                                            Alasan:
+                                                        </span>{' '}
+                                                        {req.rejectionReason}
+                                                    </div>
+                                                )}
+                                            {req.status === 'REJECTED' &&
+                                                req.reviewedBy && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        oleh{' '}
+                                                        {req.reviewedBy.name ??
+                                                            'Unknown'}
+                                                        {req.reviewedAt &&
+                                                            ` · ${format(
+                                                                new Date(
+                                                                    req.reviewedAt,
+                                                                ),
+                                                                'dd MMM yyyy HH:mm',
+                                                            )}`}
+                                                    </div>
+                                                )}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         {req.priority === 'URGENT' && (
@@ -266,29 +379,73 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        {req.status === 'OPEN' && (
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    handleActionClick(req.id)
-                                                }
-                                            >
-                                                Konversi
-                                            </Button>
-                                        )}
-                                        {req.status === 'CONVERTED' && (
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                disabled
-                                            >
-                                                {getStatusLabel(
-                                                    'CONVERTED',
-                                                    'purchasing',
+                                        <div className="flex items-center justify-end gap-1">
+                                            {req.status === 'OPEN' &&
+                                                canApprove && (
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                            onClick={() =>
+                                                                handleApprove(
+                                                                    req.id,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                approvingId ===
+                                                                req.id
+                                                            }
+                                                        >
+                                                            {approvingId ===
+                                                            req.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <CheckCircle className="h-4 w-4 mr-1" />
+                                                            )}
+                                                            Setujui
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                            onClick={() =>
+                                                                handleOpenReject(
+                                                                    req.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            <XCircle className="h-4 w-4 mr-1" />
+                                                            Tolak
+                                                        </Button>
+                                                    </>
                                                 )}
-                                            </Button>
-                                        )}
+                                            {req.status === 'APPROVED' && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() =>
+                                                        handleActionClick(
+                                                            req.id,
+                                                        )
+                                                    }
+                                                >
+                                                    Konsolidasi
+                                                </Button>
+                                            )}
+                                            {req.status === 'CONVERTED' && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    disabled
+                                                >
+                                                    {getStatusLabel(
+                                                        'CONVERTED',
+                                                        'purchasing',
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -307,6 +464,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                 </CardContent>
             </Card>
 
+            {/* Consolidate Dialog */}
             <Dialog open={isConvertOpen} onOpenChange={setIsConvertOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -358,6 +516,48 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             )}
                             Buat Draft PO
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reject Reason Dialog */}
+            <Dialog open={isRejectOpen} onOpenChange={setIsRejectOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Tolak Permintaan</DialogTitle>
+                        <DialogDescription>
+                            Berikan alasan penolakan permintaan pembelian ini.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <Textarea
+                            placeholder="Alasan penolakan (wajib diisi)..."
+                            value={rejectReason}
+                            onChange={(e) =>
+                                setRejectReason(e.target.value)
+                            }
+                            rows={3}
+                        />
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsRejectOpen(false)}
+                        >
+                            {actionLabels.cancel}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmReject}
+                            disabled={!rejectReason.trim() || isRejecting}
+                        >
+                            {isRejecting && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            Tolak Permintaan
                         </Button>
                     </DialogFooter>
                 </DialogContent>

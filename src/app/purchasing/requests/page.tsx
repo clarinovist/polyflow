@@ -5,6 +5,8 @@ import { RequestList } from './RequestList';
 import { Metadata } from 'next';
 import { purchasingLabels } from '@/lib/labels';
 import { PurchaseRequestStatus } from '@prisma/client';
+import { auth } from '@/auth';
+import { getUserRoles } from '@/lib/auth/roles';
 
 export const metadata: Metadata = {
     title: 'Permintaan Pembelian',
@@ -27,6 +29,19 @@ export default async function PurchaseRequestsPage(props: {
         statusParam && VALID_PR_STATUS.has(statusParam as PurchaseRequestStatus)
             ? (statusParam as PurchaseRequestStatus)
             : undefined;
+
+    // Determine canApprove from session roles — fail-closed on error
+    let canApprove = false;
+    try {
+        const session = await auth();
+        if (session?.user) {
+            const roles = getUserRoles(session.user);
+            canApprove =
+                roles.includes('ADMIN') || roles.includes('PROCUREMENT');
+        }
+    } catch {
+        canApprove = false;
+    }
 
     const [requestsRes, suppliersRes] = await Promise.all([
         getPurchaseRequests(
@@ -61,6 +76,7 @@ export default async function PurchaseRequestsPage(props: {
                     >['requests']
                 }
                 suppliers={suppliers}
+                canApprove={canApprove}
             />
         </div>
     );
