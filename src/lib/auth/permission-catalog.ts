@@ -157,7 +157,11 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
         key: '/finance',
         label: 'Finance',
         children: [
-            { key: '/finance/petty-cash', label: 'Petty Cash' },
+            { key: '/finance/petty-cash', label: 'Petty Cash', children: [
+                    { key: '/finance/petty-cash/reports/daily', label: 'Laporan Harian Kas' },
+                    { key: '/finance/petty-cash/reports/cash-opname', label: 'Cash Opname' },
+                    { key: '/finance/petty-cash/reports/rekap', label: 'Rekap Kas' },
+                ], },
             { key: '/finance/bank-reconciliation', label: 'Rekonsiliasi Bank' },
             { key: '/finance/aging', label: 'Aging AR/AP' },
             { key: '/finance/quick-entry', label: 'Quick Entry' },
@@ -168,7 +172,10 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/finance/journals', label: 'Jurnal' },
             { key: '/finance/assets', label: 'Aset Tetap' },
             { key: '/finance/foh-allocation', label: 'Alokasi FOH' },
-            { key: '/finance/budgeting', label: 'Budgeting' },
+            { key: '/finance/budgeting', label: 'Budgeting', children: [
+                    { key: '/finance/budgeting/input', label: 'Input Anggaran' },
+                    { key: '/finance/budgeting/variance', label: 'Varians Anggaran' },
+                ], },
             {
                 key: '/finance/reports',
                 label: 'Semua Laporan',
@@ -200,6 +207,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                 label: 'COA',
                 children: [
                     { key: '/finance/coa/roles', label: 'Role Mapping COA' },
+                    { key: '/finance/coa/revenue-rules', label: 'Revenue Rules' },
                 ],
             },
             { key: '/finance/periods', label: 'Periode Fiskal' },

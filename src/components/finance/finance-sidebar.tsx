@@ -32,7 +32,7 @@ interface FinanceSidebarProps {
     permissions?: string[] | 'ALL';
 }
 
-const financeLinks = [
+export const financeLinks = [
     {
         heading: 'Hari Ini',
         items: [
@@ -176,6 +176,11 @@ const financeLinks = [
                         href: '/finance/coa/roles',
                         icon: Settings2,
                         label: 'Role Mapping',
+                    },
+                    {
+                        href: '/finance/coa/revenue-rules',
+                        icon: Settings2,
+                        label: financeSidebarLabels.revenueRules,
                     },
                 ],
             },

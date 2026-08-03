@@ -120,6 +120,7 @@ export const financeSidebarLabels = {
     openingBalance: 'Saldo Awal',
     paymentBanks: 'Bank Pembayaran',
     reportsHub: 'Laporan',
+    revenueRules: 'Revenue Rules',
 } as const;
 
 export const salesSidebarLabels = {
