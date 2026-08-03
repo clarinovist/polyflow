@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma, StockMovement, JournalStatus } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
-import { updateStandardCost } from '@/actions/finance/cost-history';
+import { updateStandardCostInternal } from '@/actions/finance/cost-history';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { resolveAccountCode } from './account-mapping-policy';
 
@@ -162,7 +162,7 @@ export async function recordInventoryMovement(
                         : receiptPrice;
 
                 // 3. Update Standard Cost & Log History
-                await updateStandardCost(
+                await updateStandardCostInternal(
                     movement.productVariantId,
                     newWeightedAvg,
                     'PURCHASE_GR',

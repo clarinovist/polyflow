@@ -46,7 +46,8 @@ vi.mock("@/services/accounting/journals-service", () => ({
 }));
 
 vi.mock("@/actions/finance/cost-history", () => ({
-  updateStandardCost: (...args: unknown[]) => mockUpdateStandardCost(...args),
+  updateStandardCostInternal: (...args: unknown[]) =>
+    mockUpdateStandardCost(...args),
 }));
 
 vi.mock("@/lib/errors/errors", () => ({

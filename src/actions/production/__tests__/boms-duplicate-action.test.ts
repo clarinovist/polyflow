@@ -42,7 +42,7 @@ vi.mock('@/services/production/bom-cost-cascade-service', () => ({
 }));
 
 vi.mock('@/actions/finance/cost-history', () => ({
-    updateStandardCost: vi.fn().mockResolvedValue({ success: true }),
+    updateStandardCostInternal: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 vi.mock('@/lib/tools/audit', () => ({

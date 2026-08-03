@@ -13,7 +13,7 @@ import {
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { calculateBomCost } from '@/lib/utils/production-utils';
-import { updateStandardCost } from '@/actions/finance/cost-history';
+import { updateStandardCostInternal } from '@/actions/finance/cost-history';
 import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from '@/lib/tools/audit';
@@ -240,15 +240,15 @@ export const createBom = withTenant(async function createBom(
                 const unitCost =
                     totalCost / Number(createdBom.outputQuantity || 1);
 
-                const rootCostUpdate = await updateStandardCost(
+                await updateStandardCostInternal(
                     validated.productVariantId,
                     unitCost,
                     'BOM_UPDATE',
                     bom.id,
+                    undefined,
+                    undefined,
+                    session.user.id,
                 );
-                if (!rootCostUpdate.success) {
-                    throw new BusinessRuleError(rootCostUpdate.error);
-                }
 
                 await BomCostCascadeService.cascadeFromVariants({
                     rootVariantIds: [validated.productVariantId],
@@ -395,16 +395,15 @@ export const updateBom = withTenant(async function updateBom(
                 const unitCost =
                     totalCost / Number(updatedBom.outputQuantity || 1);
 
-                const rootCostUpdate = await updateStandardCost(
+                await updateStandardCostInternal(
                     validated.productVariantId,
                     unitCost,
                     'BOM_UPDATE',
                     id,
                     tx,
+                    undefined,
+                    session.user.id,
                 );
-                if (!rootCostUpdate.success) {
-                    throw new BusinessRuleError(rootCostUpdate.error);
-                }
 
                 return updatedBom;
             });
@@ -471,18 +470,15 @@ export const recalculateBomCostChain = withTenant(
             const totalCost = calculateBomCost(bom.items);
             const unitCost = totalCost / Number(bom.outputQuantity || 1);
 
-            const rootCostUpdate = await updateStandardCost(
+            await updateStandardCostInternal(
                 bom.productVariantId,
                 unitCost,
                 'BOM_UPDATE',
                 `manual-recalc:${id}`,
                 undefined,
                 { skipCascade: true },
+                session.user.id,
             );
-
-            if (!rootCostUpdate.success) {
-                throw new BusinessRuleError(rootCostUpdate.error);
-            }
 
             const cascadeResult =
                 await BomCostCascadeService.cascadeFromVariants({
@@ -816,15 +812,15 @@ export const duplicateBom = withTenant(async function duplicateBom(
                 const unitCost =
                     totalCost / Number(createdBom.outputQuantity || 1);
 
-                const rootCostUpdate = await updateStandardCost(
+                await updateStandardCostInternal(
                     validated.productVariantId,
                     unitCost,
                     'BOM_UPDATE',
                     newBom.id,
+                    undefined,
+                    undefined,
+                    session.user.id,
                 );
-                if (!rootCostUpdate.success) {
-                    throw new BusinessRuleError(rootCostUpdate.error);
-                }
 
                 await BomCostCascadeService.cascadeFromVariants({
                     rootVariantIds: [validated.productVariantId],
