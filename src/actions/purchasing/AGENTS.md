@@ -88,10 +88,16 @@ export const myAction = withTenant(async function myAction(data: InputType) {
 ### Purchase Order Lifecycle
 
 ```
-DRAFT → APPROVED → ORDERED → RECEIVED → INVOICED → CLOSED
+PR: OPEN → APPROVED (wajib) / REJECTED (wajib alasan) → CONVERTED
+PO: DRAFT → SENT → PARTIAL_RECEIVED → RECEIVED
                   ↓
               CANCELLED
 ```
+
+- Purchase Request WAJIB di-approve (ADMIN/PROCUREMENT) sebelum dikonversi ke PO. Tidak ada approval PO terpisah.
+- Approver metadata: `reviewedById`, `reviewedAt`, `rejectionReason` (wajib untuk REJECTED).
+- Warehouse boleh membuat Goods Receipt dari PO DRAFT, SENT, atau PARTIAL_RECEIVED.
+- Purchase Invoice boleh dibuat sebelum full receipt — dibatasi kuantitas diterima yang belum ditagihkan.
 
 ### Receiving Flow
 
@@ -111,7 +117,9 @@ For immediate purchases without PO:
 
 | Issue                            | Solution                                       |
 | -------------------------------- | ---------------------------------------------- |
-| PO won't approve                 | Check approval permissions                     |
+| PR tidak bisa approve            | Hanya ADMIN/PROCUREMENT; self-approval PROCUREMENT dilarang |
+| PR reject tanpa alasan           | `rejectionReason` wajib non-kosong (service invariant) |
+| PR tidak bisa convert ke PO      | PR harus status APPROVED dulu; konsolidasi hanya APPROVED |
 | Partial receipt mismatch         | Use `receipts-service.ts` for partial handling |
 | Invoice not linking              | Ensure invoice references correct PO           |
 | Supplier product mapping         | Use `supplier-product.ts` for mapping          |
