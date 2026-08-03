@@ -33,6 +33,10 @@ import {
 } from '@/actions/inventory/deliveries';
 import { toast } from 'sonner';
 import {
+    getEnteredQuantityDisplay,
+    type EnteredQuantitySnapshot,
+} from '@/lib/utils/production-units';
+import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
 } from '@/components/warehouse/WarehouseAttachmentPanel';
@@ -41,6 +45,9 @@ type OrderItem = {
     id: string;
     quantity: number;
     verifiedQuantity?: number | null;
+    enteredQuantity?: number | null;
+    enteredUnit?: string | null;
+    conversionFactorSnapshot?: number | null;
     productVariant?: {
         name: string;
         skuCode: string;
@@ -65,13 +72,39 @@ type Order = {
 
 type LoadingAction = 'starting' | 'saving' | 'locking' | 'correcting' | 'shipping' | null;
 
+function getDisplayUnit(item: OrderItem): string {
+    const enteredUnit = item.enteredUnit;
+    const primaryUnit = item.productVariant?.primaryUnit || 'KG';
+    return enteredUnit && enteredUnit !== primaryUnit ? enteredUnit : primaryUnit;
+}
+
+function getPlannedQtyInDisplayUnit(item: OrderItem): number {
+    if (
+        item.enteredQuantity != null &&
+        item.enteredUnit &&
+        item.enteredUnit !== item.productVariant?.primaryUnit
+    ) {
+        return Number(item.enteredQuantity);
+    }
+    return Number(item.quantity);
+}
+
+function getPlannedDisplay(item: OrderItem): string {
+    return getEnteredQuantityDisplay({
+        quantity: item.quantity,
+        enteredQuantity: item.enteredQuantity,
+        enteredUnit: item.enteredUnit,
+        primaryUnit: item.productVariant?.primaryUnit,
+    } as EnteredQuantitySnapshot);
+}
+
 function getItemStatus(
     draft: Record<string, string>,
     item: OrderItem,
 ): 'pending' | 'match' | 'mismatch' {
     const verified = draft[item.id];
     if (verified === '' || verified === undefined) return 'pending';
-    const planned = Number(item.quantity);
+    const planned = getPlannedQtyInDisplayUnit(item);
     const physical = Number(verified);
     if (Math.abs(planned - physical) < 0.0001) return 'match';
     return 'mismatch';
@@ -106,7 +139,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
     const allItemsMatch = order.items.every((item) => {
         const verified = verifyDraft[item.id];
         if (verified === '' || verified === undefined) return false;
-        const planned = Number(item.quantity);
+        const planned = getPlannedQtyInDisplayUnit(item);
         const physical = Number(verified);
         return Math.abs(planned - physical) < 0.0001;
     });
@@ -134,7 +167,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
     const handleMatchAll = () => {
         const draft: Record<string, string> = {};
         for (const item of order.items) {
-            draft[item.id] = String(Number(item.quantity));
+            draft[item.id] = String(getPlannedQtyInDisplayUnit(item));
         }
         setVerifyDraft(draft);
     };
@@ -142,10 +175,22 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
     const handleSave = async () => {
         const payload = Object.entries(verifyDraft)
             .filter(([, v]) => v !== '' && v !== undefined)
-            .map(([id, v]) => ({
-                id,
-                verifiedQuantity: Number(v),
-            }));
+            .map(([id, v]) => {
+                const item = order.items.find((i) => i.id === id);
+                const enteredValue = Number(v);
+                let verifiedQuantity = enteredValue;
+                if (
+                    item?.enteredUnit &&
+                    item.enteredUnit !== item.productVariant?.primaryUnit &&
+                    item.conversionFactorSnapshot &&
+                    item.conversionFactorSnapshot > 0
+                ) {
+                    verifiedQuantity = Math.round(
+                        enteredValue * item.conversionFactorSnapshot * 10000,
+                    ) / 10000;
+                }
+                return { id, verifiedQuantity };
+            });
 
         if (payload.length === 0) {
             toast.error('Isi minimal satu qty verifikasi');
@@ -181,10 +226,22 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
         try {
             const payload = Object.entries(verifyDraft)
                 .filter(([, v]) => v !== '' && v !== undefined)
-                .map(([id, v]) => ({
-                    id,
-                    verifiedQuantity: Number(v),
-                }));
+                .map(([id, v]) => {
+                    const item = order.items.find((i) => i.id === id);
+                    const enteredValue = Number(v);
+                    let verifiedQuantity = enteredValue;
+                    if (
+                        item?.enteredUnit &&
+                        item.enteredUnit !== item.productVariant?.primaryUnit &&
+                        item.conversionFactorSnapshot &&
+                        item.conversionFactorSnapshot > 0
+                    ) {
+                        verifiedQuantity = Math.round(
+                            enteredValue * item.conversionFactorSnapshot * 10000,
+                        ) / 10000;
+                    }
+                    return { id, verifiedQuantity };
+                });
 
             const saveResult = await saveDeliveryLoadVerification({
                 deliveryOrderId: order.id,
@@ -215,10 +272,22 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
         try {
             const payload = Object.entries(verifyDraft)
                 .filter(([, v]) => v !== '' && v !== undefined)
-                .map(([id, v]) => ({
-                    id,
-                    verifiedQuantity: Number(v),
-                }));
+                .map(([id, v]) => {
+                    const item = order.items.find((i) => i.id === id);
+                    const enteredValue = Number(v);
+                    let verifiedQuantity = enteredValue;
+                    if (
+                        item?.enteredUnit &&
+                        item.enteredUnit !== item.productVariant?.primaryUnit &&
+                        item.conversionFactorSnapshot &&
+                        item.conversionFactorSnapshot > 0
+                    ) {
+                        verifiedQuantity = Math.round(
+                            enteredValue * item.conversionFactorSnapshot * 10000,
+                        ) / 10000;
+                    }
+                    return { id, verifiedQuantity };
+                });
 
             if (payload.length === 0) {
                 toast.error('Isi minimal satu qty verifikasi sebelum koreksi');
@@ -375,12 +444,12 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                                     </p>
                                     <p className="text-[10px] text-muted-foreground">
                                         {item.productVariant?.skuCode} •{' '}
-                                        {item.productVariant?.primaryUnit}
+                                        {getDisplayUnit(item)}
                                     </p>
                                 </div>
                                 <div className="text-right shrink-0">
                                     <p className="text-sm font-bold">
-                                        {item.quantity}
+                                        {getPlannedDisplay(item)}
                                     </p>
                                     <p className="text-[10px] text-muted-foreground">
                                         dipesan
@@ -399,7 +468,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                                         inputMode="decimal"
                                         min="0"
                                         step="0.01"
-                                        placeholder={String(item.quantity)}
+                                        placeholder={String(getPlannedQtyInDisplayUnit(item))}
                                         value={verifyDraft[item.id] || ''}
                                         onChange={(e) =>
                                             setVerifyDraft((prev) => ({
@@ -411,7 +480,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                                         className="h-9 text-sm"
                                     />
                                     <span className="text-[10px] text-muted-foreground shrink-0">
-                                        {item.productVariant?.primaryUnit}
+                                        {getDisplayUnit(item)}
                                     </span>
                                 </div>
                             )}

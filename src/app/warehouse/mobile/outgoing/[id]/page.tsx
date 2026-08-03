@@ -37,6 +37,9 @@ export default async function WarehouseMobileOutgoingDetailPage({
             id: string;
             quantity: number;
             verifiedQuantity?: number | null;
+            enteredQuantity?: number | null;
+            enteredUnit?: string | null;
+            conversionFactorSnapshot?: number | null;
             productVariant?: {
                 name: string;
                 skuCode: string;
