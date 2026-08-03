@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Loader2, Factory } from 'lucide-react';
 import { quickCreateProductionOrder } from '@/actions/production/production';
-import { getCompatibleMachineTypes } from '@/lib/production/machine-compatibility';
+import { getCompatibleMachineTypes, MachineStageMap } from '@/lib/production/machine-compatibility';
 
 type Bom = {
     id: string;
@@ -51,11 +51,13 @@ export function QuickProduceDialog({
     onOpenChange,
     boms,
     machines,
+    machineStageMap,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     boms: Bom[];
     machines: Machine[];
+    machineStageMap?: MachineStageMap | null;
 }) {
     const router = useRouter();
     const [selectedBomId, setSelectedBomId] = useState('');
@@ -72,9 +74,12 @@ export function QuickProduceDialog({
     // Filter compatible machines based on BOM category
     const compatibleMachines = useMemo(() => {
         if (!selectedBom) return [];
-        const allowedTypes = getCompatibleMachineTypes(selectedBom.category);
+        const allowedTypes = getCompatibleMachineTypes(
+            selectedBom.category,
+            machineStageMap,
+        );
         return machines.filter((m) => allowedTypes.includes(m.type));
-    }, [selectedBom, machines]);
+    }, [selectedBom, machines, machineStageMap]);
 
     // Reset machine when BOM changes
     const handleBomChange = (bomId: string) => {

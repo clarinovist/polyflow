@@ -34,6 +34,10 @@ import {
     ensureRoutedOrderWipReservation,
     syncProductionRunStatusFromOrders,
 } from './routing-execution-guard';
+import {
+    MACHINE_STAGE_MAP_SETTING_KEY,
+    parseMachineStageMap,
+} from '@/lib/production/machine-compatibility';
 
 export class ProductionOrderService {
     /**
@@ -49,6 +53,7 @@ export class ProductionOrderService {
             workShifts,
             rawMaterials,
             customers,
+            machineStageSetting,
         ] = await Promise.all([
             prisma.bom.findMany({
                 where: { isActive: true },
@@ -83,6 +88,9 @@ export class ProductionOrderService {
             prisma.customer.findMany({
                 orderBy: { name: 'asc' },
             }),
+            prisma.appSetting.findUnique({
+                where: { key: MACHINE_STAGE_MAP_SETTING_KEY },
+            }),
         ]);
 
         // Filter employees by role
@@ -100,6 +108,7 @@ export class ProductionOrderService {
             workShifts,
             rawMaterials,
             customers,
+            machineStageMap: parseMachineStageMap(machineStageSetting?.value),
         };
     }
 

@@ -193,10 +193,12 @@ export function DailyProductionDashboard({
     orders,
     boms,
     machines,
+    machineStageMap,
 }: {
     orders: Order[];
     boms: Bom[];
     machines: Machine[];
+    machineStageMap?: Record<string, readonly string[]> | null;
     /** @deprecated unused — process board replaces status KPI cards */
     stats?: {
         total: number;
@@ -335,6 +337,7 @@ export function DailyProductionDashboard({
                 onOpenChange={setDialogOpen}
                 boms={boms}
                 machines={machines}
+                machineStageMap={machineStageMap}
             />
         </div>
     );

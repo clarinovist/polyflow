@@ -38,6 +38,10 @@ vi.mock("@/lib/core/prisma", () => ({
     customer: {
       findMany: vi.fn(),
     },
+    appSetting: {
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+    },
     inventory: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -120,6 +124,7 @@ const activeBom = (overrides: Record<string, unknown> = {}) =>
 describe("ProductionOrderService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.appSetting.findUnique).mockResolvedValue(null as any);
   });
 
   describe("getInitData", () => {

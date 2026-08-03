@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
-import { filterMachinesByStage } from '@/lib/production/machine-compatibility';
+import {
+    filterMachinesByStage,
+    MachineStageMap,
+} from '@/lib/production/machine-compatibility';
 
 type ProductionStage = 'mixing' | 'extrusion' | 'packing' | 'rework';
 
@@ -11,14 +14,15 @@ interface Machine {
 
 /**
  * Filter machines compatible with a production stage.
- * Uses shared machine-compatibility utility.
+ * Uses shared machine-compatibility utility with optional per-tenant override.
  */
 export function useCompatibleMachines(
     machines: Machine[],
     stage: ProductionStage,
+    overrideMap?: MachineStageMap | null,
 ): Machine[] {
     return useMemo(
-        () => filterMachinesByStage(machines, stage),
-        [machines, stage],
+        () => filterMachinesByStage(machines, stage, overrideMap),
+        [machines, stage, overrideMap],
     );
 }

@@ -32,7 +32,7 @@ export default async function CreateProductionOrderPage({
                   rawMaterials: [],
               };
     // Only destructure what we need
-    const { boms, locations, machines, customers, rawMaterials } =
+    const { boms, locations, machines, customers, rawMaterials, machineStageMap } =
         serializeData(rawData) as unknown as ProductionOrderFormProps & {
             customers: unknown[];
             rawMaterials: unknown[];
@@ -79,6 +79,7 @@ export default async function CreateProductionOrderPage({
                 boms={boms}
                 locations={locations}
                 machines={machines}
+                machineStageMap={machineStageMap}
                 customers={customers || []}
                 rawMaterials={
                     (rawMaterials ||

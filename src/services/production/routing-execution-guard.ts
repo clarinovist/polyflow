@@ -1,7 +1,12 @@
 import { Prisma, ReservationStatus, ReservationType } from '@prisma/client';
 import { BusinessRuleError } from '@/lib/errors/errors';
 import { computeReadiness } from './routing-readiness-policy';
-import { getFallbackMachineTypesForProcess, isMachineCompatibleWithCategory } from '@/lib/production/machine-compatibility';
+import {
+    MACHINE_STAGE_MAP_SETTING_KEY,
+    getFallbackMachineTypesForProcess,
+    isMachineCompatibleWithCategory,
+    parseMachineStageMap,
+} from '@/lib/production/machine-compatibility';
 import { createStockReservation } from '@/services/inventory/reservation-service';
 
 /**
@@ -281,7 +286,12 @@ export async function assertMachineCapableForOrder(
 
   // Final fallback: BomCategory × MachineType (legacy)
   if (step.bom?.category) {
-    if (!isMachineCompatibleWithCategory(machine.type, step.bom.category)) {
+    const setting = await tx.appSetting.findUnique({
+      where: { key: MACHINE_STAGE_MAP_SETTING_KEY },
+      select: { value: true },
+    });
+    const stageMap = parseMachineStageMap(setting?.value);
+    if (!isMachineCompatibleWithCategory(machine.type, step.bom.category, stageMap)) {
       throw new BusinessRuleError(
         `Mesin type ${machine.type} tidak compatible dengan stage ${step.bom.category}`,
         { machineType: machine.type, bomCategory: step.bom.category },

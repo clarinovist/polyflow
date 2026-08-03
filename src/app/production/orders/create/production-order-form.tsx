@@ -51,6 +51,7 @@ export interface ProductionOrderFormProps {
         locationPurpose?: string | null;
     }[];
     machines: { id: string; name: string; type: string }[];
+    machineStageMap?: Record<string, readonly string[]> | null;
     boms: {
         id: string;
         name: string;
@@ -110,6 +111,7 @@ function buildRawMaterialMeta(
 export function ProductionOrderForm({
     boms,
     machines,
+    machineStageMap,
     locations,
     customers = [],
     rawMaterials = [],
@@ -221,7 +223,11 @@ export function ProductionOrderForm({
         debounceMs: 500,
     });
 
-    const compatibleMachines = useCompatibleMachines(machines, stage);
+    const compatibleMachines = useCompatibleMachines(
+        machines,
+        stage,
+        machineStageMap,
+    );
 
     // Derived
     const products = useMemo(() => {
