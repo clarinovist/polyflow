@@ -85,7 +85,8 @@ export function CreateSpkFromDemandDialog({
             (l) =>
                 l.locationPurpose === 'FINISHED_GOOD' ||
                 l.locationPurpose === 'GENERAL_PURPOSE' ||
-                l.locationPurpose === 'WIP',
+                l.locationPurpose === 'WIP' ||
+                l.locationPurpose === 'PACKING',
         );
     }, [locations]);
 
