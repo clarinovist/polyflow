@@ -31,6 +31,8 @@ import {
 } from './invoices-service';
 import {
     createPurchaseRequest,
+    approveRequest,
+    rejectRequest,
     convertRequestToOrder,
     consolidateRequestsToOrder,
 } from './requests-service';
@@ -175,6 +177,23 @@ export class PurchaseService {
         tx?: Prisma.TransactionClient,
     ) {
         return createPurchaseRequest(data, userId, tx);
+    }
+
+    static async approveRequest(
+        requestId: string,
+        actorId: string,
+        actorRole: string,
+    ) {
+        return approveRequest(requestId, actorId, actorRole);
+    }
+
+    static async rejectRequest(
+        requestId: string,
+        actorId: string,
+        actorRole: string,
+        reason: string,
+    ) {
+        return rejectRequest(requestId, actorId, actorRole, reason);
     }
 
     static async convertRequestToOrder(

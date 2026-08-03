@@ -36,7 +36,7 @@ export async function createPurchaseRequest(
 
     const requestNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
-    return await prisma.purchaseRequest.create({
+    return await client.purchaseRequest.create({
         data: {
             requestNumber,
             salesOrderId: data.salesOrderId,
@@ -56,6 +56,139 @@ export async function createPurchaseRequest(
     });
 }
 
+export async function approveRequest(
+    requestId: string,
+    actorId: string,
+    actorRole: string,
+) {
+    return await prisma.$transaction(async (tx) => {
+        const pr = await tx.purchaseRequest.findUnique({
+            where: { id: requestId },
+        });
+
+        if (!pr) throw new NotFoundError('Purchase Request', requestId);
+
+        if (pr.status !== PurchaseRequestStatus.OPEN) {
+            throw new BusinessRuleError(
+                `Hanya request dengan status OPEN yang dapat disetujui. Status saat ini: ${pr.status}`,
+                { status: pr.status, requestId },
+                'INVALID_PURCHASE_REQUEST_STATUS',
+            );
+        }
+
+        // PROCURMENT cannot self-approve; ADMIN can
+        if (actorRole === 'PROCUREMENT' && pr.createdById === actorId) {
+            throw new BusinessRuleError(
+                'PROCUREMENT tidak boleh menyetujui request yang dibuat sendiri',
+                { requestId, actorId, actorRole },
+                'SELF_APPROVAL_NOT_ALLOWED',
+            );
+        }
+
+        // CAS: only update if still OPEN — prevents TOCTOU race
+        const { count } = await tx.purchaseRequest.updateMany({
+            where: { id: requestId, status: PurchaseRequestStatus.OPEN },
+            data: {
+                status: PurchaseRequestStatus.APPROVED,
+                reviewedById: actorId,
+                reviewedAt: new Date(),
+                rejectionReason: null,
+            },
+        });
+
+        if (count !== 1) {
+            throw new BusinessRuleError(
+                `Request ${requestId} sudah berubah status, silakan refresh`,
+                { requestId, count },
+                'STALE_STATUS',
+            );
+        }
+
+        const updated = await tx.purchaseRequest.findUnique({
+            where: { id: requestId },
+        });
+
+        await logActivity({
+            userId: actorId,
+            action: 'APPROVE_PR',
+            entityType: 'PurchaseRequest',
+            entityId: requestId,
+            details: `Approved PR ${pr.requestNumber || requestId}`,
+            fromStatus: 'OPEN',
+            toStatus: 'APPROVED',
+            tx,
+        });
+
+        return updated;
+    });
+}
+
+export async function rejectRequest(
+    requestId: string,
+    actorId: string,
+    actorRole: string,
+    reason: string,
+) {
+    const trimmedReason = reason?.trim();
+    if (!trimmedReason) {
+        throw new ValidationError(
+            'Alasan penolakan wajib diisi dan tidak boleh kosong',
+        );
+    }
+
+    return await prisma.$transaction(async (tx) => {
+        const pr = await tx.purchaseRequest.findUnique({
+            where: { id: requestId },
+        });
+
+        if (!pr) throw new NotFoundError('Purchase Request', requestId);
+
+        if (pr.status !== PurchaseRequestStatus.OPEN) {
+            throw new BusinessRuleError(
+                `Hanya request dengan status OPEN yang dapat ditolak. Status saat ini: ${pr.status}`,
+                { status: pr.status, requestId },
+                'INVALID_PURCHASE_REQUEST_STATUS',
+            );
+        }
+
+        // CAS: only update if still OPEN — prevents TOCTOU race
+        const { count } = await tx.purchaseRequest.updateMany({
+            where: { id: requestId, status: PurchaseRequestStatus.OPEN },
+            data: {
+                status: PurchaseRequestStatus.REJECTED,
+                reviewedById: actorId,
+                reviewedAt: new Date(),
+                rejectionReason: trimmedReason,
+            },
+        });
+
+        if (count !== 1) {
+            throw new BusinessRuleError(
+                `Request ${requestId} sudah berubah status, silakan refresh`,
+                { requestId, count },
+                'STALE_STATUS',
+            );
+        }
+
+        const updated = await tx.purchaseRequest.findUnique({
+            where: { id: requestId },
+        });
+
+        await logActivity({
+            userId: actorId,
+            action: 'REJECT_PR',
+            entityType: 'PurchaseRequest',
+            entityId: requestId,
+            details: `Rejected PR ${pr.requestNumber || requestId}: ${trimmedReason}`,
+            fromStatus: 'OPEN',
+            toStatus: 'REJECTED',
+            tx,
+        });
+
+        return updated;
+    });
+}
+
 export async function convertRequestToOrder(
     requestId: string,
     supplierId: string,
@@ -68,9 +201,10 @@ export async function convertRequestToOrder(
         });
 
         if (!pr) throw new NotFoundError('Purchase Request', requestId);
-        if (pr.status === PurchaseRequestStatus.CONVERTED)
+
+        if (pr.status !== PurchaseRequestStatus.APPROVED)
             throw new BusinessRuleError(
-                'Request already converted',
+                `Hanya request yang sudah APPROVED yang dapat dikonversi ke PO. Status saat ini: ${pr.status}`,
                 { status: pr.status, requestId },
                 'INVALID_PURCHASE_REQUEST_STATUS',
             );
@@ -127,13 +261,22 @@ export async function convertRequestToOrder(
             },
         });
 
-        await tx.purchaseRequest.update({
-            where: { id: requestId },
+        // CAS: only convert if still APPROVED — prevents TOCTOU race
+        const { count } = await tx.purchaseRequest.updateMany({
+            where: { id: requestId, status: PurchaseRequestStatus.APPROVED },
             data: {
                 status: PurchaseRequestStatus.CONVERTED,
                 convertedToPoId: po.id,
             },
         });
+
+        if (count !== 1) {
+            throw new BusinessRuleError(
+                `Request ${requestId} sudah berubah status, silakan refresh`,
+                { requestId, count },
+                'STALE_STATUS',
+            );
+        }
 
         await logActivity({
             userId,
@@ -175,6 +318,20 @@ export async function consolidateRequestsToOrder(
                 {
                     requestNumber: alreadyConverted.requestNumber,
                     status: alreadyConverted.status,
+                },
+                'INVALID_PURCHASE_REQUEST_STATUS',
+            );
+
+        // All requests must be APPROVED
+        const notApproved = prs.find(
+            (pr) => pr.status !== PurchaseRequestStatus.APPROVED,
+        );
+        if (notApproved)
+            throw new BusinessRuleError(
+                `Hanya request yang sudah APPROVED yang dapat dikonsolidasi ke PO. Request ${notApproved.requestNumber} berstatus ${notApproved.status}`,
+                {
+                    requestNumber: notApproved.requestNumber,
+                    status: notApproved.status,
                 },
                 'INVALID_PURCHASE_REQUEST_STATUS',
             );
@@ -260,13 +417,25 @@ export async function consolidateRequestsToOrder(
             },
         });
 
-        await tx.purchaseRequest.updateMany({
-            where: { id: { in: requestIds } },
+        // CAS: only convert if all still APPROVED — prevents TOCTOU race
+        const { count } = await tx.purchaseRequest.updateMany({
+            where: {
+                id: { in: requestIds },
+                status: PurchaseRequestStatus.APPROVED,
+            },
             data: {
                 status: PurchaseRequestStatus.CONVERTED,
                 convertedToPoId: po.id,
             },
         });
+
+        if (count !== requestIds.length) {
+            throw new BusinessRuleError(
+                `Hanya ${count} dari ${requestIds.length} request yang berhasil dikonversi, silakan refresh`,
+                { expected: requestIds.length, actual: count },
+                'STALE_STATUS',
+            );
+        }
 
         await logActivity({
             userId,
