@@ -42,7 +42,7 @@ interface Employee {
 interface KioskHubProps {
     employees: Employee[];
     machines: Array<{ id: string; name: string }>;
-    /** Film-bag tenants only (e.g. kiyowo). Melindo raffia = false. */
+    /** Enables the HD / Potong-Plong Proses Khusus tile and direct links. */
     hasProsesKhusus?: boolean;
 }
 
@@ -327,7 +327,7 @@ export function KioskHub({
                 </p>
             </div>
 
-            {/* Melindo (3 tiles): Status Saya spans full width on tablet. Kiyowo (4): 2×2. */}
+            {/* 3 tiles: Status Saya spans full width on tablet. 4 tiles: 2×2. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
                 <HubTile
                     href="/kiosk/jobs"

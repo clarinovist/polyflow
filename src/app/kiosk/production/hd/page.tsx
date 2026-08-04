@@ -1,12 +1,11 @@
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getMachines } from '@/actions/production/machines';
 import { getEmployees } from '@/actions/admin/employees';
 import { ProductionStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils/utils';
-import { extractSubdomain } from '@/lib/core/subdomain';
-import { tenantHasProsesKhusus } from '@/lib/kiosk/tenant-features';
+import { withTenantPage } from '@/lib/core/tenant';
+import { readKioskFeatureSettings } from '@/services/settings/kiosk-feature-service';
 import HdProductionForm from './HdProductionForm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,18 +15,13 @@ export const metadata = {
     title: 'Mesin HD - Polyflow Kiosk',
 };
 
-export default async function HdKioskPage() {
-    const h = await headers();
-    const subdomain =
-        h.get('x-tenant-subdomain') ||
-        extractSubdomain(h.get('host') || '') ||
-        null;
-    if (!tenantHasProsesKhusus(subdomain)) {
+const getData = withTenantPage(async function getData() {
+    const hasProsesKhusus = await readKioskFeatureSettings();
+    if (!hasProsesKhusus) {
         redirect('/kiosk');
     }
 
-    const ordersRes = await getProductionOrders();
-    const allOrders = ordersRes;
+    const allOrders = await getProductionOrders();
     const orders = allOrders.filter((o) =>
         (
             [
@@ -46,9 +40,15 @@ export default async function HdKioskPage() {
         employeesRes.success && employeesRes.data ? employeesRes.data : [];
     const employees = allEmployees.filter((e) => e.status === 'ACTIVE');
 
-    const serializedOrders = serializeData(orders);
-    const serializedMachines = serializeData(machines);
-    const serializedEmployees = serializeData(employees);
+    return {
+        orders: serializeData(orders),
+        machines: serializeData(machines),
+        employees: serializeData(employees),
+    };
+});
+
+export default async function HdKioskPage() {
+    const { orders, machines, employees } = await getData();
 
     return (
         <div className="min-h-screen bg-background p-4 md:p-6 max-w-7xl mx-auto space-y-4">
@@ -67,9 +67,9 @@ export default async function HdKioskPage() {
                     Laporan Harian Mesin HD
                 </h1>
                 <HdProductionForm
-                    orders={serializedOrders}
-                    machines={serializedMachines}
-                    employees={serializedEmployees}
+                    orders={orders}
+                    machines={machines}
+                    employees={employees}
                 />
             </div>
         </div>

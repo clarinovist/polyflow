@@ -1,16 +1,29 @@
 /**
  * Per-tenant kiosk feature flags.
  *
- * HD / Potong-Plong are film-bag processes (Kiyowo). Melindo raffia does not
- * use those floor forms — hide the hub tile and block direct routes.
+ * HD / Potong-Plong are film-bag processes. Whether a tenant uses them is a
+ * tenant-owned operational preference stored in AppSetting — not derived from
+ * the tenant name or subdomain. Default is off (fail-closed).
  */
 
-/** Tenants that show Proses Khusus (HD + Potong/Plong) on the kiosk hub. */
-const PROSES_KHUSUS_TENANTS = new Set(['kiyowo']);
+/** AppSetting key storing per-tenant Proses Khusus toggle (plain boolean string). */
+export const KIOSK_PROSES_KHUSUS_SETTING_KEY = 'kiosk.prosesKhususEnabled';
 
-export function tenantHasProsesKhusus(
-    subdomain: string | null | undefined,
+/**
+ * Parse the stored AppSetting value into an explicit boolean.
+ * Never throws — missing/malformed values fail closed to `false`.
+ */
+export function isProsesKhususEnabled(
+    raw: string | null | undefined,
 ): boolean {
-    if (!subdomain) return false;
-    return PROSES_KHUSUS_TENANTS.has(subdomain.toLowerCase());
+    return raw === 'true';
+}
+
+/**
+ * Structured parser for the kiosk tenant feature set.
+ */
+export function parseKioskTenantFeatures(
+    raw: string | null | undefined,
+): { hasProsesKhusus: boolean } {
+    return { hasProsesKhusus: isProsesKhususEnabled(raw) };
 }

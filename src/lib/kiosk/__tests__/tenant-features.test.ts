@@ -1,20 +1,50 @@
 import { describe, it, expect } from 'vitest';
-import { tenantHasProsesKhusus } from '../tenant-features';
+import {
+    KIOSK_PROSES_KHUSUS_SETTING_KEY,
+    isProsesKhususEnabled,
+    parseKioskTenantFeatures,
+} from '../tenant-features';
 
-describe('tenantHasProsesKhusus', () => {
-  it('enables HD / Potong-Plong for kiyowo', () => {
-    expect(tenantHasProsesKhusus('kiyowo')).toBe(true);
-    expect(tenantHasProsesKhusus('Kiyowo')).toBe(true);
-  });
+describe('kiosk tenant feature setting parser', () => {
+    it('exposes the AppSetting key constant', () => {
+        expect(KIOSK_PROSES_KHUSUS_SETTING_KEY).toBe(
+            'kiosk.prosesKhususEnabled',
+        );
+    });
 
-  it('disables Proses Khusus for melindo raffia', () => {
-    expect(tenantHasProsesKhusus('melindo')).toBe(false);
-  });
+    it('parses explicit true string as enabled', () => {
+        expect(isProsesKhususEnabled('true')).toBe(true);
+    });
 
-  it('defaults to off for unknown / empty tenant', () => {
-    expect(tenantHasProsesKhusus(null)).toBe(false);
-    expect(tenantHasProsesKhusus(undefined)).toBe(false);
-    expect(tenantHasProsesKhusus('')).toBe(false);
-    expect(tenantHasProsesKhusus('other')).toBe(false);
-  });
+    it('parses explicit false string as disabled', () => {
+        expect(isProsesKhususEnabled('false')).toBe(false);
+    });
+
+    it('fails closed on missing / null / empty values', () => {
+        expect(isProsesKhususEnabled(null)).toBe(false);
+        expect(isProsesKhususEnabled(undefined)).toBe(false);
+        expect(isProsesKhususEnabled('')).toBe(false);
+    });
+
+    it('rejects malformed values', () => {
+        expect(isProsesKhususEnabled('yes')).toBe(false);
+        expect(isProsesKhususEnabled('TRUE')).toBe(false);
+        expect(isProsesKhususEnabled('1')).toBe(false);
+        expect(isProsesKhususEnabled('true ')).toBe(false);
+    });
+
+    it('parseKioskTenantFeatures returns a structured result', () => {
+        expect(parseKioskTenantFeatures('true')).toEqual({
+            hasProsesKhusus: true,
+        });
+        expect(parseKioskTenantFeatures('false')).toEqual({
+            hasProsesKhusus: false,
+        });
+        expect(parseKioskTenantFeatures(null)).toEqual({
+            hasProsesKhusus: false,
+        });
+        expect(parseKioskTenantFeatures('garbage')).toEqual({
+            hasProsesKhusus: false,
+        });
+    });
 });

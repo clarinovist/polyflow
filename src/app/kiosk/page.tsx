@@ -1,11 +1,11 @@
-import { headers } from 'next/headers';
 import { prisma } from '@/lib/core/prisma';
 import { withTenantPage } from '@/lib/core/tenant';
-import { extractSubdomain } from '@/lib/core/subdomain';
-import { tenantHasProsesKhusus } from '@/lib/kiosk/tenant-features';
+import { readKioskFeatureSettings } from '@/services/settings/kiosk-feature-service';
 import { KioskHub } from '@/components/kiosk/KioskHub';
 
 const getData = withTenantPage(async function getData() {
+    const hasProsesKhusus = await readKioskFeatureSettings();
+
     const employees = await prisma.employee.findMany({
         where: {
             status: 'ACTIVE',
@@ -58,18 +58,12 @@ const getData = withTenantPage(async function getData() {
         }
     }
 
-    return { employees, machines, machinesByOperator };
+    return { employees, machines, machinesByOperator, hasProsesKhusus };
 });
 
 export default async function KioskPage() {
-    const { employees, machines, machinesByOperator } = await getData();
-
-    const h = await headers();
-    const subdomain =
-        h.get('x-tenant-subdomain') ||
-        extractSubdomain(h.get('host') || '') ||
-        null;
-    const hasProsesKhusus = tenantHasProsesKhusus(subdomain);
+    const { employees, machines, machinesByOperator, hasProsesKhusus } =
+        await getData();
 
     return (
         <KioskHub

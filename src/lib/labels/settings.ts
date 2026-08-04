@@ -13,6 +13,8 @@ export const settingsLabels = {
     accessControlDesc: 'Konfigurasi izin untuk setiap role',
     attendance: 'Absensi',
     attendanceDesc: 'Konfigurasi self-service & geofence absensi',
+    kioskProduksi: 'Kiosk Produksi',
+    kioskProduksiDesc: 'Konfigurasi fitur kiosk produksi',
     system: 'Sistem',
     systemDesc: 'Lihat kesehatan sistem dan versi',
 

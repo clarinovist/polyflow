@@ -7,6 +7,7 @@ import { GeneralSettings } from './GeneralSettings';
 import { UsersTab } from './UsersTab';
 import { AccessControlTab } from './AccessControlTab';
 import { CompanySettings } from './CompanySettings';
+import { KioskFeatureSettings } from './KioskFeatureSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -18,6 +19,7 @@ import {
     Building2,
     Bell,
     CalendarCheck,
+    Wrench,
     LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
@@ -54,6 +56,7 @@ type TabValue =
     | 'users'
     | 'access'
     | 'attendance'
+    | 'kiosk'
     | 'system';
 
 interface TabItem {
@@ -132,6 +135,12 @@ export function SettingsTabs({
                       icon: CalendarCheck,
                       description: settingsLabels.attendanceDesc,
                   } as TabItem,
+                  {
+                      value: 'kiosk',
+                      label: settingsLabels.kioskProduksi,
+                      icon: Wrench,
+                      description: settingsLabels.kioskProduksiDesc,
+                  } as TabItem,
               ]
             : []),
         {
@@ -166,6 +175,8 @@ export function SettingsTabs({
                 return isAdmin ? <AccessControlTab activeModules={activeModules} /> : null;
             case 'attendance':
                 return isAdmin ? <AttendanceSettingsPanel /> : null;
+            case 'kiosk':
+                return isAdmin ? <KioskFeatureSettings /> : null;
             case 'system':
                 return (
                     <Card className="max-w-2xl">
