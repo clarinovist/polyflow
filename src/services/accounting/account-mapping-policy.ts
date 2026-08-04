@@ -38,8 +38,9 @@ function productTypeToAccountRole(
         case 'FINISHED_GOOD':
             return 'finished-goods';
         case 'WIP':
-        case 'INTERMEDIATE':
             return 'wip';
+        case 'INTERMEDIATE':
+            return 'intermediate';
         case 'SCRAP':
             return 'scrap';
         case 'PACKAGING':

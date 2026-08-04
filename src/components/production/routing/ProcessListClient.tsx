@@ -102,7 +102,20 @@ export function ProcessListClient({ initialProcesses, initialCapabilities }: { i
                 </div>
                 {p.description && <div className="text-xs text-muted-foreground">{p.description}</div>}
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 items-center">
+                <select
+                  value={p.executionMode ?? 'GENERIC'}
+                  onChange={async (e) => {
+                    const res = await updateProcess({ id: p.id, executionMode: e.target.value as 'GENERIC' | 'INDIVIDUAL_OUTPUT' | 'MATERIAL_CONVERSION' });
+                    if (res.success) { toast.success('Mode updated'); window.location.reload(); } else toast.error(res.error || 'Gagal');
+                  }}
+                  className="h-8 rounded-md border border-input bg-transparent px-2 text-xs"
+                  title="Execution Mode"
+                >
+                  <option value="GENERIC">Generic</option>
+                  <option value="INDIVIDUAL_OUTPUT">Hasil Individu</option>
+                  <option value="MATERIAL_CONVERSION">Konversi Material</option>
+                </select>
                 <Button size="sm" variant="outline" onClick={() => handleToggleActive(p)}>{p.isActive ? 'Nonaktifkan' : 'Aktifkan'}</Button>
                 <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)}>Hapus</Button>
               </div>

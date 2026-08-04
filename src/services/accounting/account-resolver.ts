@@ -54,7 +54,8 @@ export type AccountRole =
     | 'interest-income'
     | 'suspense-clearing'
     // Phase 3: Direct labor
-    | 'direct-labor';
+    | 'direct-labor'
+    | 'intermediate';
 
 interface AccountPattern {
     code?: string;
@@ -151,6 +152,13 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
         { code: '11320' },
         { nameContains: 'Work in Progress' },
         { nameContains: 'Dalam Proses' },
+    ],
+    intermediate: [
+        { code: '1-129' },
+        { code: '11325' },
+        { nameContains: 'Barang Setengah Jadi' },
+        { nameContains: 'Semi-Finished' },
+        { nameContains: 'Intermediate' },
     ],
     'finished-goods': [
         { code: '1-128' },

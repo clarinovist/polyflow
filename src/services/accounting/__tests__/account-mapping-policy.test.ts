@@ -8,6 +8,7 @@ vi.mock('../account-resolver', () => ({
             'raw-material': { id: 'acc-1', code: '11310', name: 'Raw Materials' },
             'finished-goods': { id: 'acc-2', code: '11330', name: 'Finished Goods' },
             'wip': { id: 'acc-3', code: '11320', name: 'Work in Progress' },
+            'intermediate': { id: 'acc-13', code: '11325', name: 'Semi-Finished Goods' },
             'scrap': { id: 'acc-4', code: '11350', name: 'Scrap' },
             'packaging': { id: 'acc-5', code: '11340', name: 'Packaging' },
             'inventory': { id: 'acc-6', code: '11300', name: 'Inventory' },
@@ -34,7 +35,7 @@ describe('account-mapping-policy', () => {
         expect(wip.code).toBe(GL_ACCOUNT_CODES.INVENTORY_WIP);
 
         const inter = await getInventoryAccount('INTERMEDIATE');
-        expect(inter.code).toBe(GL_ACCOUNT_CODES.INVENTORY_WIP);
+        expect(inter.code).toBe(GL_ACCOUNT_CODES.INVENTORY_INTERMEDIATE);
 
         const scrap = await getInventoryAccount('SCRAP');
         expect(scrap.code).toBe(GL_ACCOUNT_CODES.INVENTORY_SCRAP);
