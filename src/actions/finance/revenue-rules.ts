@@ -1,7 +1,5 @@
 'use server';
 
-import { z } from 'zod';
-
 import { withTenant } from '@/lib/core/tenant';
 import {
     prisma,
@@ -17,31 +15,10 @@ import {
 } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
-
-/**
- * Shared match-type contract. Must mirror RevenueMatchType in
- * tenant-revenue-rule-service so admin input matches runtime exactly.
- */
-export const REVENUE_MATCH_TYPES = [
-    'VARIANT_NAME_CONTAINS',
-    'PRODUCT_NAME',
-    'SKU_PREFIX',
-] as const;
-
-export const revenueRuleCreateSchema = z.object({
-    matchType: z.enum(REVENUE_MATCH_TYPES),
-    matchValue: z.string().trim().min(1, 'Match value wajib diisi'),
-    accountCode: z.string().trim().min(1, 'Akun wajib dipilih'),
-    priority: z.number().int().min(0).max(10000).default(100),
-});
-
-export const revenueRuleUpdateSchema = z.object({
-    matchType: z.enum(REVENUE_MATCH_TYPES).optional(),
-    matchValue: z.string().trim().min(1, 'Match value wajib diisi').optional(),
-    accountCode: z.string().trim().min(1, 'Akun wajib dipilih').optional(),
-    priority: z.number().int().min(0).max(10000).optional(),
-    isActive: z.boolean().optional(),
-});
+import {
+    revenueRuleCreateSchema,
+    revenueRuleUpdateSchema,
+} from '@/lib/finance/revenue-rule-schemas';
 
 /** Validate target account exists, is active, and is a REVENUE account. */
 async function assertActiveRevenueAccount(code: string) {
