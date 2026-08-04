@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getDailyPettyCashReportAction } from '@/actions/finance/petty-cash-report-actions';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Printer, CalendarIcon } from 'lucide-react';
@@ -58,6 +58,8 @@ export default function RekapKasPage() {
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
     const [date, setDate] = useState<Date>(new Date());
+    const printWrapperRef = useRef<HTMLDivElement>(null);
+    const printContentRef = useRef<HTMLDivElement>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -84,6 +86,63 @@ export default function RekapKasPage() {
     const handlePrint = () => {
         window.print();
     };
+
+    // A4 (297mm) minus 2x10mm @page margin, converted to px @96dpi, minus a
+    // small rounding buffer so the scaled content never spills onto page 2.
+    const PRINT_PAGE_HEIGHT_PX = 1030;
+
+    useEffect(() => {
+        const applyPrintScale = () => {
+            const content = printContentRef.current;
+            const wrapper = printWrapperRef.current;
+            if (!content || !wrapper) return;
+
+            // Reset before measuring so we always measure natural height.
+            content.style.removeProperty('transform');
+            content.style.removeProperty('width');
+            wrapper.style.removeProperty('height');
+            wrapper.style.removeProperty('overflow');
+
+            const naturalHeight = content.scrollHeight;
+            const scale = Math.min(1, PRINT_PAGE_HEIGHT_PX / naturalHeight);
+            if (scale >= 1) return;
+
+            // .print-container already has `max-width: 100% !important` for
+            // print. `max-width` caps the used `width` in the box model
+            // regardless of `!important` on `width` itself (they're
+            // different properties, so cascade importance doesn't help) —
+            // it must be neutralized too, or the width compensation below
+            // gets clamped and the scaled result only fills a small corner
+            // of the page instead of its full width.
+            content.style.setProperty('max-width', 'none', 'important');
+            content.style.setProperty('width', `${100 / scale}%`, 'important');
+            content.style.setProperty(
+                'transform',
+                `scale(${scale})`,
+                'important',
+            );
+            content.style.transformOrigin = 'top left';
+            wrapper.style.height = `${naturalHeight * scale}px`;
+            wrapper.style.overflow = 'hidden';
+        };
+
+        const resetPrintScale = () => {
+            const content = printContentRef.current;
+            const wrapper = printWrapperRef.current;
+            content?.style.removeProperty('transform');
+            content?.style.removeProperty('max-width');
+            content?.style.removeProperty('width');
+            wrapper?.style.removeProperty('height');
+            wrapper?.style.removeProperty('overflow');
+        };
+
+        window.addEventListener('beforeprint', applyPrintScale);
+        window.addEventListener('afterprint', resetPrintScale);
+        return () => {
+            window.removeEventListener('beforeprint', applyPrintScale);
+            window.removeEventListener('afterprint', resetPrintScale);
+        };
+    }, []);
 
     // Previous day for opening balance reference
     const prevDate = subDays(date, 1);
@@ -156,6 +215,10 @@ export default function RekapKasPage() {
             <style
                 dangerouslySetInnerHTML={{
                     __html: `
+                @page {
+                    size: A4;
+                    margin: 10mm;
+                }
                 @media print {
                     aside, header, .h-16.lg\\\\\\\\:hidden, .print\\\\\\\\:hidden, button, .no-print, nav {
                         display: none !important;
@@ -253,163 +316,172 @@ export default function RekapKasPage() {
                     Tidak ada data untuk tanggal ini.
                 </div>
             ) : (
-                <div className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm">
-                    {/* ===== HEADER ===== */}
-                    <div className="text-center mb-2">
-                        <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
-                            REKAP PEMASUKAN & PENGELUARAN KAS
-                        </h1>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Cash Opname : Kas Kecil
-                        </p>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Tanggal : {dayName}, {dateFormatted}
-                        </p>
-                    </div>
-                    <hr className="border-black dark:border-gray-600 mb-3" />
-
-                    {/* ===== TOTAL DEBIT / KREDIT SUMMARY ===== */}
-                    <div className="flex justify-between text-sm font-semibold mb-4 px-2">
-                        <div className="text-gray-900 dark:text-gray-100">
-                            Total Pemasukan (Debit) :{' '}
-                            <span className="font-mono">
-                                {formatNumber(data.totalIn)}
-                            </span>
+                <div ref={printWrapperRef}>
+                    <div
+                        ref={printContentRef}
+                        className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm"
+                    >
+                        {/* ===== HEADER ===== */}
+                        <div className="text-center mb-2">
+                            <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
+                                REKAP PEMASUKAN & PENGELUARAN KAS
+                            </h1>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">
+                                Cash Opname : Kas Kecil
+                            </p>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">
+                                Tanggal : {dayName}, {dateFormatted}
+                            </p>
                         </div>
-                        <div className="text-gray-900 dark:text-gray-100">
-                            Total Pengeluaran (Kredit) :{' '}
-                            <span className="font-mono">
-                                {formatNumber(data.totalOut)}
-                            </span>
-                        </div>
-                    </div>
+                        <hr className="border-black dark:border-gray-600 mb-3" />
 
-                    {/* ===== LEDGER TABLE ===== */}
-                    <div className="mb-6">
-                        <table className="w-full border-collapse text-sm">
-                            <thead>
-                                <tr className="border border-black dark:border-gray-600">
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-24 text-gray-900 dark:text-gray-100">
-                                        TANGGAL
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-28 text-gray-900 dark:text-gray-100">
-                                        NO INV/ NO PO
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-32 text-gray-900 dark:text-gray-100">
-                                        NOMOR BUKTI TRANSAKSI
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">
-                                        MEMO
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
-                                        DEBIT
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
-                                        KREDIT
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-36 text-gray-900 dark:text-gray-100">
-                                        SALDO
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {ledgerRows.map((row, i) => {
-                                    const isOpening = i === 0;
-                                    return (
-                                        <tr
-                                            key={i}
-                                            className={cn(
-                                                'border border-black dark:border-gray-600',
-                                                isOpening &&
-                                                    'bg-gray-50 dark:bg-gray-800 font-semibold',
-                                            )}
-                                        >
-                                            <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                                                {row.date}
-                                            </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-1 text-xs text-gray-800 dark:text-gray-200">
-                                                {row.noInv}
-                                            </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
-                                                {row.id !== 'opening' &&
-                                                row.voucherNumber ? (
-                                                    <Link
-                                                        href="/finance/petty-cash"
-                                                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                                                        title="Lihat detail transaksi"
-                                                    >
-                                                        {row.voucherNumber}
-                                                    </Link>
-                                                ) : (
-                                                    row.voucherNumber
+                        {/* ===== TOTAL DEBIT / KREDIT SUMMARY ===== */}
+                        <div className="flex justify-between text-sm font-semibold mb-4 px-2">
+                            <div className="text-gray-900 dark:text-gray-100">
+                                Total Pemasukan (Debit) :{' '}
+                                <span className="font-mono">
+                                    {formatNumber(data.totalIn)}
+                                </span>
+                            </div>
+                            <div className="text-gray-900 dark:text-gray-100">
+                                Total Pengeluaran (Kredit) :{' '}
+                                <span className="font-mono">
+                                    {formatNumber(data.totalOut)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* ===== LEDGER TABLE ===== */}
+                        <div className="mb-6">
+                            <table className="w-full border-collapse text-sm">
+                                <thead>
+                                    <tr className="border border-black dark:border-gray-600">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-24 text-gray-900 dark:text-gray-100">
+                                            TANGGAL
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-28 text-gray-900 dark:text-gray-100">
+                                            NO INV/ NO PO
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-32 text-gray-900 dark:text-gray-100">
+                                            NOMOR BUKTI TRANSAKSI
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">
+                                            MEMO
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
+                                            DEBIT
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
+                                            KREDIT
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-36 text-gray-900 dark:text-gray-100">
+                                            SALDO
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {ledgerRows.map((row, i) => {
+                                        const isOpening = i === 0;
+                                        return (
+                                            <tr
+                                                key={i}
+                                                className={cn(
+                                                    'border border-black dark:border-gray-600',
+                                                    isOpening &&
+                                                        'bg-gray-50 dark:bg-gray-800 font-semibold',
                                                 )}
-                                            </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                                                {row.memo}
-                                            </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                                                {row.debit > 0
-                                                    ? formatNumber(row.debit)
-                                                    : ''}
-                                            </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                                                {row.credit > 0
-                                                    ? formatNumber(row.credit)
-                                                    : ''}
-                                            </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono font-semibold text-gray-800 dark:text-gray-200">
-                                                {formatNumber(
-                                                    row.runningBalance,
-                                                )}
+                                            >
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
+                                                    {row.date}
+                                                </td>
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-xs text-gray-800 dark:text-gray-200">
+                                                    {row.noInv}
+                                                </td>
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
+                                                    {row.id !== 'opening' &&
+                                                    row.voucherNumber ? (
+                                                        <Link
+                                                            href="/finance/petty-cash"
+                                                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                                                            title="Lihat detail transaksi"
+                                                        >
+                                                            {row.voucherNumber}
+                                                        </Link>
+                                                    ) : (
+                                                        row.voucherNumber
+                                                    )}
+                                                </td>
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
+                                                    {row.memo}
+                                                </td>
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
+                                                    {row.debit > 0
+                                                        ? formatNumber(
+                                                              row.debit,
+                                                          )
+                                                        : ''}
+                                                </td>
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
+                                                    {row.credit > 0
+                                                        ? formatNumber(
+                                                              row.credit,
+                                                          )
+                                                        : ''}
+                                                </td>
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono font-semibold text-gray-800 dark:text-gray-200">
+                                                    {formatNumber(
+                                                        row.runningBalance,
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+
+                                    {ledgerRows.length <= 1 && (
+                                        <tr className="border border-black dark:border-gray-600">
+                                            <td
+                                                colSpan={7}
+                                                className="border border-black dark:border-gray-600 px-2 py-3 text-center text-muted-foreground italic"
+                                            >
+                                                Tidak ada transaksi terposting
+                                                pada tanggal ini
                                             </td>
                                         </tr>
-                                    );
-                                })}
+                                    )}
 
-                                {ledgerRows.length <= 1 && (
-                                    <tr className="border border-black dark:border-gray-600">
+                                    {/* Summary row */}
+                                    <tr className="border border-black dark:border-gray-600 font-bold bg-gray-50 dark:bg-gray-800">
                                         <td
-                                            colSpan={7}
-                                            className="border border-black dark:border-gray-600 px-2 py-3 text-center text-muted-foreground italic"
+                                            colSpan={4}
+                                            className="border border-black dark:border-gray-600 px-2 py-1.5 text-right text-gray-900 dark:text-gray-100"
                                         >
-                                            Tidak ada transaksi terposting pada
-                                            tanggal ini
+                                            TOTAL :
+                                        </td>
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1.5 text-right font-mono text-gray-900 dark:text-gray-100">
+                                            {formatNumber(data.totalIn)}
+                                        </td>
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1.5 text-right font-mono text-gray-900 dark:text-gray-100">
+                                            {formatNumber(data.totalOut)}
+                                        </td>
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1.5 text-right font-mono text-gray-900 dark:text-gray-100">
+                                            {formatNumber(data.closingBalance)}
                                         </td>
                                     </tr>
-                                )}
+                                </tbody>
+                            </table>
+                        </div>
 
-                                {/* Summary row */}
-                                <tr className="border border-black dark:border-gray-600 font-bold bg-gray-50 dark:bg-gray-800">
-                                    <td
-                                        colSpan={4}
-                                        className="border border-black dark:border-gray-600 px-2 py-1.5 text-right text-gray-900 dark:text-gray-100"
-                                    >
-                                        TOTAL :
-                                    </td>
-                                    <td className="border border-black dark:border-gray-600 px-2 py-1.5 text-right font-mono text-gray-900 dark:text-gray-100">
-                                        {formatNumber(data.totalIn)}
-                                    </td>
-                                    <td className="border border-black dark:border-gray-600 px-2 py-1.5 text-right font-mono text-gray-900 dark:text-gray-100">
-                                        {formatNumber(data.totalOut)}
-                                    </td>
-                                    <td className="border border-black dark:border-gray-600 px-2 py-1.5 text-right font-mono text-gray-900 dark:text-gray-100">
-                                        {formatNumber(data.closingBalance)}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* ===== VERIFICATION FORMULA ===== */}
-                    <div className="mb-8 text-sm text-gray-700 dark:text-gray-300">
-                        <p>
-                            Saldo Awal ({formatNumber(data.openingBalance)}) +
-                            Total Debit ({formatNumber(data.totalIn)}) - Total
-                            Kredit ({formatNumber(data.totalOut)}) ={' '}
-                            <strong className="font-mono">
-                                {formatNumber(data.closingBalance)}
-                            </strong>
-                        </p>
+                        {/* ===== VERIFICATION FORMULA ===== */}
+                        <div className="mb-8 text-sm text-gray-700 dark:text-gray-300">
+                            <p>
+                                Saldo Awal ({formatNumber(data.openingBalance)})
+                                + Total Debit ({formatNumber(data.totalIn)}) -
+                                Total Kredit ({formatNumber(data.totalOut)}) ={' '}
+                                <strong className="font-mono">
+                                    {formatNumber(data.closingBalance)}
+                                </strong>
+                            </p>
+                        </div>
                     </div>
                 </div>
             )}
