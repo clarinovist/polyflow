@@ -782,3 +782,106 @@ export async function reverseAllGoodsReceiptsForPO(
     }
     return prisma.$transaction(run);
 }
+
+/**
+ * Close a PARTIAL_RECEIVED PO with small discrepancy.
+ * Sets receivedQty = quantity for all items, marks PO as RECEIVED.
+ * Used when remaining qty is negligible (tolerance/rounding).
+ */
+export async function closePurchaseOrderWithDiscrepancy(
+    purchaseOrderId: string,
+    userId: string,
+) {
+    const po = await prisma.purchaseOrder.findUnique({
+        where: { id: purchaseOrderId },
+        include: {
+            items: {
+                select: {
+                    id: true,
+                    quantity: true,
+                    receivedQty: true,
+                    productVariant: {
+                        select: { name: true, skuCode: true, primaryUnit: true },
+                    },
+                },
+            },
+        },
+    });
+
+    if (!po) {
+        throw new BusinessRuleError(
+            'Purchase Order tidak ditemukan.',
+            { purchaseOrderId },
+            'PO_NOT_FOUND',
+        );
+    }
+
+    if (po.status !== PurchaseOrderStatus.PARTIAL_RECEIVED) {
+        throw new BusinessRuleError(
+            `PO ${po.orderNumber} tidak bisa ditutup (status: ${po.status}). Hanya PO PARTIAL_RECEIVED yang bisa ditutup.`,
+            { purchaseOrderId, status: po.status },
+            'INVALID_PO_STATUS',
+        );
+    }
+
+    // Calculate discrepancies for audit log
+    const discrepancies = po.items
+        .map((item) => {
+            const remaining =
+                Number(item.quantity) - Number(item.receivedQty);
+            return remaining > 0
+                ? {
+                      sku: item.productVariant.skuCode,
+                      name: item.productVariant.name,
+                      unit: item.productVariant.primaryUnit,
+                      ordered: Number(item.quantity),
+                      received: Number(item.receivedQty),
+                      remaining,
+                  }
+                : null;
+        })
+        .filter(Boolean);
+
+    if (discrepancies.length === 0) {
+        // No actual discrepancy — just mark as RECEIVED
+        await prisma.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: PurchaseOrderStatus.RECEIVED },
+        });
+        return { success: true, discrepancies: [] };
+    }
+
+    // Close: set receivedQty = quantity for all items with remaining
+    await prisma.$transaction(async (tx) => {
+        for (const item of po.items) {
+            const remaining =
+                Number(item.quantity) - Number(item.receivedQty);
+            if (remaining > 0) {
+                await tx.purchaseOrderItem.update({
+                    where: { id: item.id },
+                    data: { receivedQty: item.quantity },
+                });
+            }
+        }
+
+        await tx.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: PurchaseOrderStatus.RECEIVED },
+        });
+
+        const detailLines = discrepancies.map(
+            (d) =>
+                `${d!.sku} (${d!.name}): selisih ${d!.remaining} ${d!.unit}`,
+        );
+        await logActivity({
+            userId,
+            action: 'CLOSE_PURCHASE_DISCREPANCY',
+            entityType: 'PurchaseOrder',
+            entityId: purchaseOrderId,
+            details: `PO ${po.orderNumber} ditutup dengan selisih kecil:\n${detailLines.join('\n')}`,
+            tx,
+        });
+    });
+
+    return { success: true, discrepancies };
+}

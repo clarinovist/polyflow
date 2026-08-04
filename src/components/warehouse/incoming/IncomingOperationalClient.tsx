@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,16 @@ import {
     CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import {
     Truck,
@@ -21,9 +31,12 @@ import {
     Building2,
     Calendar,
     ShoppingCart,
+    XCircle,
 } from 'lucide-react';
 import { getStatusLabel } from '@/lib/labels';
 import { isWalkInPurchaseOrderNotes } from '@/lib/purchasing/walk-in';
+import { closePartialPurchaseOrder } from '@/actions/purchasing/purchasing';
+import { toast } from 'sonner';
 
 type ReceivablePO = {
     id: string;
@@ -59,6 +72,32 @@ type TodayGR = {
     } | null;
 };
 
+/**
+ * Check if a PO's remaining qty is small enough to close.
+ * Threshold: remaining < 5% of ordered qty, OR remaining < 3 units absolute.
+ * Whichever is more permissive (i.e., allows closing more easily).
+ */
+function isCloseable(items: ReceivablePO['items']): boolean {
+    const totalRemaining = items.reduce(
+        (sum, item) => sum + (Number(item.quantity) - Number(item.receivedQty)),
+        0,
+    );
+    const totalOrdered = items.reduce(
+        (sum, item) => sum + Number(item.quantity),
+        0,
+    );
+
+    if (totalRemaining <= 0) return false;
+
+    // < 3 units absolute (for rounding / weighing tolerance)
+    if (totalRemaining < 3) return true;
+
+    // < 5% of ordered qty
+    if (totalOrdered > 0 && totalRemaining / totalOrdered < 0.05) return true;
+
+    return false;
+}
+
 export function IncomingOperationalClient({
     receivablePOs,
     todayReceipts,
@@ -66,6 +105,27 @@ export function IncomingOperationalClient({
     receivablePOs: ReceivablePO[];
     todayReceipts: TodayGR[];
 }) {
+    const [closingPO, setClosingPO] = useState<ReceivablePO | null>(null);
+    const [isPending, startTransition] = useTransition();
+
+    function handleClosePO(po: ReceivablePO) {
+        startTransition(async () => {
+            try {
+                const result = await closePartialPurchaseOrder(po.id);
+                if (result.success) {
+                    toast.success(
+                        `${po.orderNumber} ditutup. Selisih kecil tercatat di audit log.`,
+                    );
+                    setClosingPO(null);
+                } else {
+                    toast.error(result.error || 'Gagal menutup PO.');
+                }
+            } catch {
+                toast.error('Gagal menutup PO. Silakan coba lagi.');
+            }
+        });
+    }
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -144,6 +204,9 @@ export function IncomingOperationalClient({
                                 const isWalkIn = isWalkInPurchaseOrderNotes(
                                     po.notes,
                                 );
+                                const canClose =
+                                    isPartial && isCloseable(po.items);
+
                                 return (
                                     <div
                                         key={po.id}
@@ -203,20 +266,35 @@ export function IncomingOperationalClient({
                                                 </div>
                                             )}
                                         </div>
-                                        <Link
-                                            href={`/warehouse/incoming/create-receipt?poId=${po.id}`}
-                                            passHref
-                                        >
-                                            <Button
-                                                size="sm"
-                                                className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 gap-1"
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {canClose && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="gap-1 text-muted-foreground border-dashed"
+                                                    onClick={() =>
+                                                        setClosingPO(po)
+                                                    }
+                                                >
+                                                    <XCircle className="h-3 w-3" />{' '}
+                                                    Tutup PO
+                                                </Button>
+                                            )}
+                                            <Link
+                                                href={`/warehouse/incoming/create-receipt?poId=${po.id}`}
+                                                passHref
                                             >
-                                                {isPartial
-                                                    ? 'Terima Sisa'
-                                                    : 'Terima'}{' '}
-                                                <ArrowRight className="h-3 w-3" />
-                                            </Button>
-                                        </Link>
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 gap-1"
+                                                >
+                                                    {isPartial
+                                                        ? 'Terima Sisa'
+                                                        : 'Terima'}{' '}
+                                                    <ArrowRight className="h-3 w-3" />
+                                                </Button>
+                                            </Link>
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -269,6 +347,80 @@ export function IncomingOperationalClient({
                     </CardContent>
                 </Card>
             )}
+
+            {/* Close PO Confirmation Dialog */}
+            <AlertDialog
+                open={!!closingPO}
+                onOpenChange={(open) => !open && setClosingPO(null)}
+            >
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Tutup PO dengan Selisih Kecil?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2">
+                                <p>
+                                    PO <strong>{closingPO?.orderNumber}</strong>{' '}
+                                    akan ditandai selesai (RECEIVED). Selisih
+                                    kecil akan dicatat di audit log.
+                                </p>
+                                {closingPO && (
+                                    <div className="text-sm bg-muted p-2 rounded">
+                                        <p className="font-medium">
+                                            Detail selisih:
+                                        </p>
+                                        {closingPO.items
+                                            .filter(
+                                                (item) =>
+                                                    Number(item.quantity) -
+                                                        Number(
+                                                            item.receivedQty,
+                                                        ) >
+                                                    0,
+                                            )
+                                            .map((item) => (
+                                                <p
+                                                    key={item.id}
+                                                    className="text-muted-foreground"
+                                                >
+                                                    {item.productVariant.skuCode}{' '}
+                                                    — sisa{' '}
+                                                    {(
+                                                        Number(item.quantity) -
+                                                        Number(
+                                                            item.receivedQty,
+                                                        )
+                                                    ).toFixed(2)}{' '}
+                                                    {
+                                                        item.productVariant
+                                                            .primaryUnit
+                                                    }
+                                                </p>
+                                            ))}
+                                    </div>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                    Tidak ada koreksi stok — selisih terlalu
+                                    kecil untuk disesuaikan.
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-4">
+                        <AlertDialogCancel disabled={isPending}>
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isPending}
+                            onClick={() => closingPO && handleClosePO(closingPO)}
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                        >
+                            {isPending ? 'Menutup...' : 'Ya, Tutup PO'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

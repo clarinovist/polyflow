@@ -38,6 +38,7 @@ import {
     approveWalkInInvoice,
     rejectWalkInInvoice,
 } from '@/services/purchasing/walk-in-receipt-service';
+import { closePurchaseOrderWithDiscrepancy } from '@/services/purchasing/receipts-service';
 
 function resolvePurchasingApproverRole(
     user: Parameters<typeof getUserRoles>[0],
@@ -591,6 +592,30 @@ export const rejectWalkInPurchaseInvoice = withTenant(
             revalidatePath(`/finance/invoices/purchase/${invoiceId}`);
             revalidatePath('/purchasing/orders');
             return serializeData(invoice);
+        });
+    },
+);
+
+/**
+ * Close a PARTIAL_RECEIVED PO with small discrepancy.
+ * Warehouse action — sets PO to RECEIVED, logs discrepancy.
+ */
+export const closePartialPurchaseOrder = withTenant(
+    async function closePartialPurchaseOrder(purchaseOrderId: string) {
+        return safeAction(async () => {
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/incoming',
+            );
+
+            const result = await closePurchaseOrderWithDiscrepancy(
+                purchaseOrderId,
+                session.user.id,
+            );
+
+            revalidatePath('/warehouse/incoming');
+            revalidatePath('/purchasing/orders');
+            revalidatePath(`/purchasing/orders/${purchaseOrderId}`);
+            return result;
         });
     },
 );
