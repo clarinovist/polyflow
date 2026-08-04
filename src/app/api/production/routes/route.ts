@@ -9,20 +9,34 @@ export const GET = withTenantRoute(async function GET(req: Request) {
 
   const url = new URL(req.url);
   const q = url.searchParams.get('q')?.trim() ?? '';
+  const onlyDefault = url.searchParams.get('onlyDefault')?.trim() === 'true';
   const routes = await prisma.productionRoute.findMany({
-    where: q
-      ? {
-          status: 'ACTIVE',
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { code: { contains: q, mode: 'insensitive' } },
-            { productVariant: { skuCode: { contains: q, mode: 'insensitive' } } },
-          ],
-        }
-      : { status: 'ACTIVE' },
+    where: {
+      status: 'ACTIVE',
+      ...(onlyDefault ? { isDefault: true } : {}),
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { code: { contains: q, mode: 'insensitive' } },
+              { productVariant: { skuCode: { contains: q, mode: 'insensitive' } } },
+              { productVariant: { name: { contains: q, mode: 'insensitive' } } },
+              { productVariant: { product: { name: { contains: q, mode: 'insensitive' } } } },
+            ],
+          }
+        : {}),
+    },
     orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
-    take: 30,
-    select: { id: true, code: true, name: true, version: true, isDefault: true, productVariant: { select: { skuCode: true, name: true, product: { select: { name: true } } } } },
+    take: 50,
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      version: true,
+      isDefault: true,
+      _count: { select: { steps: true } },
+      productVariant: { select: { skuCode: true, name: true, primaryUnit: true, product: { select: { name: true, productType: true } } } },
+    },
   });
   return NextResponse.json(routes);
 });

@@ -95,11 +95,16 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
           <div>Produk: {run.productVariant?.product?.name} {run.productVariant?.name} ({run.productVariant?.skuCode}) · Target {String(run.plannedQuantity)}</div>
 
           {rmCheck && (
-            <div className={`p-2 rounded text-xs border ${rmCheck.ready ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-              {rmCheck.ready ? '✓ RM tersedia untuk tahap pertama' : `⚠ RM shortage: ${rmCheck.shortages.length} item kurang`}
-              {!rmCheck.ready && rmCheck.shortages.slice(0, 3).map((s, i) => (
-                <div key={i} className="font-mono">{s.skuCode || s.productVariantId.slice(0, 8)} — {s.name || '?'} need {s.needed} have {s.available} short {s.shortage}</div>
+            <div className={`p-2.5 rounded text-xs border ${rmCheck.ready ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+              {rmCheck.ready ? '✓ RM tersedia untuk tahap pertama' : `⚠ RM shortage: ${rmCheck.shortages.length} item kurang — belanja/catat stok dulu`}
+              {!rmCheck.ready && rmCheck.shortages.slice(0, 5).map((s, i) => (
+                <div key={i} className="mt-1 flex flex-wrap gap-1.5 items-center">
+                  <Badge variant="outline" className="text-[10px] font-mono h-4">{s.skuCode || '?'}</Badge>
+                  <span>{s.name || 'Bahan baku'}</span>
+                  <span className="text-[11px]">butuh {s.needed} · ada {s.available} · kurang {s.shortage}</span>
+                </div>
               ))}
+              {!rmCheck.ready && rmCheck.shortages.length > 5 && <div className="mt-1 text-[11px]">+{rmCheck.shortages.length - 5} lagi...</div>}
             </div>
           )}
 
