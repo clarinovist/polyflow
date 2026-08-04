@@ -16,13 +16,20 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { OperatorProductivityItem } from '@/types/analytics';
 import { analyticsLabels } from '@/lib/labels';
+import {
+    isScrapWarning,
+    resolveProductionAlertThresholds,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
 import { Trophy, Award, Medal } from 'lucide-react';
 
 interface Props {
     data: OperatorProductivityItem[];
+    thresholds?: ProductionAlertThresholds;
 }
 
-export function OperatorLeaderboard({ data }: Props) {
+export function OperatorLeaderboard({ data, thresholds }: Props) {
+    const th = resolveProductionAlertThresholds(thresholds);
     // Sort by output descending (usually handled by backend, but ensuring here)
     const sortedData = [...data].sort(
         (a, b) => b.totalQuantityProduced - a.totalQuantityProduced,
@@ -205,7 +212,7 @@ export function OperatorLeaderboard({ data }: Props) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <span
-                                            className={`text-xs font-medium px-2 py-1 rounded-full ${item.scrapRate > 2 ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'}`}
+                                            className={`text-xs font-medium px-2 py-1 rounded-full ${isScrapWarning(th, item.scrapRate) ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'}`}
                                         >
                                             {item.scrapRate}%
                                         </span>

@@ -1,18 +1,41 @@
 import React from 'react';
 import { getProductionSupervisorOverview } from '@/actions/production/mobile-supervisor';
+import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
+import {
+    DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
+    isDowntimeCritical,
+    isScrapQuantityCritical,
+} from '@/lib/production/alert-thresholds';
 import { MobileSectionHeader, MobileInsightCard } from '@/components/mobile';
 
 export default async function ProductionInsightsPage() {
-    const response = await getProductionSupervisorOverview();
-    const overview = response.success ? response.data : null;
+    const [overviewRes, thresholdsRes] = await Promise.all([
+        getProductionSupervisorOverview(),
+        getProductionAlertThresholdsForPage(),
+    ]);
+    const overview = overviewRes.success ? overviewRes.data : null;
+    const thresholds = thresholdsRes.success
+        ? thresholdsRes.data
+        : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
+
     const highlights = overview?.highlights ?? {
         activeOrdersCount: 0,
         outputToday: 0,
-        targetToday: 1000,
+        targetToday: null,
+        targetUnitMode: 'NONE' as const,
+        targetUnit: null,
         downtimeMinutesToday: 0,
         scrapToday: 0,
         qcPendingCount: 0,
     };
+
+    const target = highlights.targetToday;
+    const efficiencyAvailable =
+        target !== null && target > 0 && highlights.targetUnitMode !== 'MIXED';
+    const efficiency =
+        efficiencyAvailable && target !== null
+            ? Math.round((highlights.outputToday / target) * 100)
+            : null;
 
     return (
         <div className="space-y-6">
@@ -24,21 +47,21 @@ export default async function ProductionInsightsPage() {
                         key: 'afval-scrap',
                         label: 'Total Scrapped (Afval)',
                         value: highlights.scrapToday,
-                        unit: 'kg',
-                        severity: highlights.scrapToday > 50 ? 'CRITICAL' : 'INFO',
+                        unit: 'unit',
+                        severity: isScrapQuantityCritical(
+                            thresholds,
+                            highlights.scrapToday,
+                        )
+                            ? 'CRITICAL'
+                            : 'INFO',
                     }}
                 />
                 <MobileInsightCard
                     insight={{
                         key: 'efficiency-target',
                         label: 'Efisiensi Output Target',
-                        value:
-                            highlights.targetToday > 0
-                                ? Math.round(
-                                      (highlights.outputToday / highlights.targetToday) * 100,
-                                  )
-                                : 0,
-                        unit: '%',
+                        value: efficiency === null ? '—' : efficiency,
+                        unit: efficiency === null ? undefined : '%',
                         severity: 'SUCCESS',
                     }}
                 />
@@ -57,11 +80,24 @@ export default async function ProductionInsightsPage() {
                         label: 'Total Durasi Downtime',
                         value: highlights.downtimeMinutesToday,
                         unit: 'menit',
-                        severity:
-                            highlights.downtimeMinutesToday > 30 ? 'CRITICAL' : 'SUCCESS',
+                        severity: isDowntimeCritical(
+                            thresholds,
+                            highlights.downtimeMinutesToday,
+                        )
+                            ? 'CRITICAL'
+                            : 'SUCCESS',
                     }}
                 />
             </div>
+
+            {!efficiencyAvailable && (
+                <p className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2">
+                    Efisiensi output tidak dapat dihitung:{' '}
+                    {highlights.targetToday === null
+                        ? 'target hari ini tidak tersedia.'
+                        : 'rencana produksi hari ini memakai satuan yang berbeda-beda.'}
+                </p>
+            )}
         </div>
     );
 }

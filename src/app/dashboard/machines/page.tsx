@@ -15,6 +15,7 @@ import {
 import Link from 'next/link';
 import { MachineActions } from '@/components/production/MachineActions';
 import { MachineStageSetup } from '@/components/production/MachineStageSetup';
+import { ProductionAlertSettings } from '@/components/production/ProductionAlertSettings';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MachineStatus } from '@prisma/client';
 
@@ -197,6 +198,7 @@ export default async function MachinesPage({
             </Tabs>
 
             <MachineStageSetup />
+            <ProductionAlertSettings />
         </div>
     );
 }

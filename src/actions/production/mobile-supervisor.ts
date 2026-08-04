@@ -5,13 +5,21 @@ import { prisma } from '@/lib/core/prisma';
 import { safeAction } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
+
+export type TargetUnitMode = 'MIXED' | 'SINGLE' | 'NONE';
 
 export interface MobileSupervisorOverview {
     generatedAt: string;
     highlights: {
         activeOrdersCount: number;
         outputToday: number;
-        targetToday: number;
+        /** Sum of plannedQuantity for non-cancelled SPKs planned today; null when unavailable. */
+        targetToday: number | null;
+        /** Unit comparability of the daily target aggregate. */
+        targetUnitMode: TargetUnitMode;
+        /** Output unit when all planned SPKs share one unit, else null. */
+        targetUnit: string | null;
         downtimeMinutesToday: number;
         scrapToday: number;
         qcPendingCount: number;
@@ -37,46 +45,111 @@ export const getProductionSupervisorOverview = withTenant(
         return safeAction(async () => {
             await requireAuth();
 
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
+            const todayStr = toBusinessDateString(new Date());
+            const { startOfDay, endOfDay } = getWibDayBounds(todayStr);
 
-            const [orders, executions, downtimes, qcPending] = await Promise.all([
-                prisma.productionOrder
-                    ? prisma.productionOrder.findMany({
-                          where: {
-                              status: { in: ['IN_PROGRESS', 'RELEASED', 'DRAFT'] },
-                          },
-                          take: 10,
-                          orderBy: { updatedAt: 'desc' },
-                          include: {
-                              bom: { select: { name: true } },
-                          },
-                      }).catch(() => [])
-                    : Promise.resolve([]),
-                prisma.productionExecution
-                    ? prisma.productionExecution.aggregate({
-                          where: { createdAt: { gte: todayStart } },
-                          _sum: { quantityProduced: true, scrapQuantity: true },
-                      }).catch(() => ({ _sum: { quantityProduced: null, scrapQuantity: null } }))
-                    : Promise.resolve({ _sum: { quantityProduced: null, scrapQuantity: null } }),
-                prisma.machineDowntime
-                    ? prisma.machineDowntime.findMany({
-                          where: { createdAt: { gte: todayStart } },
-                          take: 5,
-                          orderBy: { createdAt: 'desc' },
-                          include: { machine: { select: { name: true } } },
-                      }).catch(() => [])
-                    : Promise.resolve([]),
-                prisma.qualityInspection
-                    ? prisma.qualityInspection.count({
-                          where: { result: 'QUARANTINE' },
-                      }).catch(() => 0)
-                    : Promise.resolve(0),
-            ]);
+            const [orders, executions, downtimes, qcPending, targetOrders] =
+                await Promise.all([
+                    prisma.productionOrder
+                        ? prisma.productionOrder.findMany({
+                              where: {
+                                  status: {
+                                      in: ['IN_PROGRESS', 'RELEASED', 'DRAFT'],
+                                  },
+                              },
+                              take: 10,
+                              orderBy: { updatedAt: 'desc' },
+                              include: {
+                                  bom: { select: { name: true } },
+                              },
+                          }).catch(() => [])
+                        : Promise.resolve([]),
+                    prisma.productionExecution
+                        ? prisma.productionExecution.aggregate({
+                              where: { createdAt: { gte: startOfDay } },
+                              _sum: {
+                                  quantityProduced: true,
+                                  scrapQuantity: true,
+                              },
+                          }).catch(() => ({
+                              _sum: {
+                                  quantityProduced: null,
+                                  scrapQuantity: null,
+                              },
+                          }))
+                        : Promise.resolve({
+                              _sum: {
+                                  quantityProduced: null,
+                                  scrapQuantity: null,
+                              },
+                          }),
+                    prisma.machineDowntime
+                        ? prisma.machineDowntime.findMany({
+                              where: { createdAt: { gte: startOfDay } },
+                              take: 5,
+                              orderBy: { createdAt: 'desc' },
+                              include: { machine: { select: { name: true } } },
+                          }).catch(() => [])
+                        : Promise.resolve([]),
+                    prisma.qualityInspection
+                        ? prisma.qualityInspection.count({
+                              where: { result: 'QUARANTINE' },
+                          }).catch(() => 0)
+                        : Promise.resolve(0),
+                    // Daily target aggregate — separate from the recent-order
+                    // list so take:10 never truncates the planned-day total.
+                    prisma.productionOrder
+                        ? prisma.productionOrder
+                              .findMany({
+                                  where: {
+                                      status: { not: 'CANCELLED' },
+                                      plannedStartDate: {
+                                          gte: startOfDay,
+                                          lte: endOfDay,
+                                      },
+                                  },
+                                  select: {
+                                      plannedQuantity: true,
+                                      bom: {
+                                          select: {
+                                              productVariant: {
+                                                  select: {
+                                                      primaryUnit: true,
+                                                  },
+                                              },
+                                          },
+                                      },
+                                  },
+                              })
+                              .catch(() => null)
+                        : Promise.resolve([]),
+                ]);
 
             const activeOrdersCount = orders.filter((o) => o.status === 'IN_PROGRESS').length;
             const outputToday = Number(executions._sum?.quantityProduced ?? 0);
             const scrapToday = Number(executions._sum?.scrapQuantity ?? 0);
+
+            let targetToday: number | null = null;
+            let targetUnitMode: TargetUnitMode = 'NONE';
+            let targetUnit: string | null = null;
+            if (targetOrders) {
+                const units = new Set<string>(
+                    targetOrders
+                        .map((o) => o.bom?.productVariant?.primaryUnit)
+                        .filter((u): u is NonNullable<typeof u> => u != null)
+                        .map(String),
+                );
+                targetToday = targetOrders.reduce(
+                    (sum, o) => sum + Number(o.plannedQuantity),
+                    0,
+                );
+                if (units.size > 1) {
+                    targetUnitMode = 'MIXED';
+                } else if (units.size === 1) {
+                    targetUnitMode = 'SINGLE';
+                    targetUnit = units.values().next().value ?? null;
+                }
+            }
 
             const getDowntimeMinutes = (d: { startTime: Date; endTime: Date | null }) => {
                 if (!d.endTime) return 15;
@@ -126,7 +199,9 @@ export const getProductionSupervisorOverview = withTenant(
                 highlights: {
                     activeOrdersCount,
                     outputToday,
-                    targetToday: 1000,
+                    targetToday,
+                    targetUnitMode,
+                    targetUnit,
                     downtimeMinutesToday: totalDowntimeMinutes,
                     scrapToday,
                     qcPendingCount: qcPending,

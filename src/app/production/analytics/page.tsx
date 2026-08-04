@@ -1,4 +1,12 @@
 import { getProductionAnalytics } from '@/actions/core/analytics';
+import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
+import {
+    DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
+    isLowThroughput,
+    isScrapAnomaly,
+    isScrapWarning,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
 import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import { ProductionRealizationChart } from '@/components/analytics/ProductionRealizationChart';
 import { MachinePerformanceCard } from '@/components/analytics/MachinePerformanceCard';
@@ -41,7 +49,13 @@ export default async function ProductionAnalyticsPage(props: {
 
     const dateRange = from && to ? { from, to } : undefined;
 
-    const dataRes = await getProductionAnalytics(dateRange);
+    const [dataRes, thresholdsRes] = await Promise.all([
+        getProductionAnalytics(dateRange),
+        getProductionAlertThresholdsForPage(),
+    ]);
+    const thresholds: ProductionAlertThresholds = thresholdsRes.success
+        ? thresholdsRes.data
+        : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
     const data =
         dataRes.success && dataRes.data
             ? dataRes.data
@@ -357,7 +371,12 @@ export default async function ProductionAnalyticsPage(props: {
 
                         <TabsContent value="machine">
                             {data.machinePerformance.filter(
-                                (m) => m.scrapRate > 2 || m.unitsPerHour < 50,
+                                (m) =>
+                                    isScrapWarning(thresholds, m.scrapRate) ||
+                                    isLowThroughput(
+                                        thresholds,
+                                        m.unitsPerHour,
+                                    ),
                             ).length === 0 ? (
                                 <p className="text-sm text-muted-foreground py-4 text-center">
                                     Semua mesin dalam batas normal.
@@ -383,8 +402,14 @@ export default async function ProductionAnalyticsPage(props: {
                                             {data.machinePerformance
                                                 .filter(
                                                     (m) =>
-                                                        m.scrapRate > 2 ||
-                                                        m.unitsPerHour < 50,
+                                                        isScrapWarning(
+                                                            thresholds,
+                                                            m.scrapRate,
+                                                        ) ||
+                                                        isLowThroughput(
+                                                            thresholds,
+                                                            m.unitsPerHour,
+                                                        ),
                                                 )
                                                 .sort(
                                                     (a, b) =>
@@ -407,8 +432,10 @@ export default async function ProductionAnalyticsPage(props: {
                                                         <TableCell className="text-right">
                                                             <Badge
                                                                 variant={
-                                                                    item.scrapRate >
-                                                                    5
+                                                                    isScrapAnomaly(
+                                                                        thresholds,
+                                                                        item.scrapRate,
+                                                                    )
                                                                         ? 'destructive'
                                                                         : 'secondary'
                                                                 }
@@ -454,7 +481,10 @@ export default async function ProductionAnalyticsPage(props: {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <ScrapAnalysisChart data={data.quality} />
                 <div className="col-span-1 md:col-span-2">
-                    <OperatorLeaderboard data={data.operatorProductivity} />
+                    <OperatorLeaderboard
+                        data={data.operatorProductivity}
+                        thresholds={thresholds}
+                    />
                 </div>
             </div>
         </div>

@@ -27,6 +27,11 @@ import {
     TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
+import {
+    isScrapWarning,
+    resolveProductionAlertThresholds,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
 
 export type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
 export type TabKey = ProcessKey | 'ALL';
@@ -155,11 +160,14 @@ export function emptyOverviewData(): ProductionOverviewData {
 
 interface ProductionOverviewClientProps {
     initialData: ProductionOverviewData;
+    thresholds?: ProductionAlertThresholds;
 }
 
 export function ProductionOverviewClient({
     initialData,
+    thresholds,
 }: ProductionOverviewClientProps) {
+    const th = resolveProductionAlertThresholds(thresholds);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
     const [tab, setTab] = useState<TabKey>('EXTRUSION');
 
@@ -459,7 +467,7 @@ export function ProductionOverviewClient({
                             value={processPulse.scrapRate.toFixed(1)}
                             suffix="%"
                             valueClass={
-                                processPulse.scrapRate > 2
+                                isScrapWarning(th, processPulse.scrapRate)
                                     ? 'text-rose-500'
                                     : undefined
                             }

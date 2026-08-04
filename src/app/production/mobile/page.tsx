@@ -1,15 +1,28 @@
 import React from 'react';
 import { getProductionSupervisorOverview } from '@/actions/production/mobile-supervisor';
+import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
+import {
+    DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
+    isDowntimeCritical,
+} from '@/lib/production/alert-thresholds';
 import { MobileInsightCard, MobileSectionHeader } from '@/components/mobile';
 
 export default async function ProductionMobilePage() {
-    const response = await getProductionSupervisorOverview();
-    const overview = response.success ? response.data : null;
+    const [overviewRes, thresholdsRes] = await Promise.all([
+        getProductionSupervisorOverview(),
+        getProductionAlertThresholdsForPage(),
+    ]);
+    const overview = overviewRes.success ? overviewRes.data : null;
+    const thresholds = thresholdsRes.success
+        ? thresholdsRes.data
+        : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
 
     const highlights = overview?.highlights ?? {
         activeOrdersCount: 0,
         outputToday: 0,
-        targetToday: 1000,
+        targetToday: null,
+        targetUnitMode: 'NONE' as const,
+        targetUnit: null,
         downtimeMinutesToday: 0,
         scrapToday: 0,
         qcPendingCount: 0,
@@ -43,7 +56,12 @@ export default async function ProductionMobilePage() {
                         label: 'Downtime Total',
                         value: highlights.downtimeMinutesToday,
                         unit: 'menit',
-                        severity: highlights.downtimeMinutesToday > 30 ? 'CRITICAL' : 'INFO',
+                        severity: isDowntimeCritical(
+                            thresholds,
+                            highlights.downtimeMinutesToday,
+                        )
+                            ? 'CRITICAL'
+                            : 'INFO',
                     }}
                 />
                 <MobileInsightCard

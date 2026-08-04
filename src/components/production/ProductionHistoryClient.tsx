@@ -29,6 +29,10 @@ import {
 } from 'lucide-react';
 import { formatWIB } from '@/lib/utils/timezone';
 import { cn } from '@/lib/utils/utils';
+import {
+    resolveProductionAlertThresholds,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
 import { PhotoGalleryDialog } from './PhotoGalleryDialog';
 import { VoidExecutionButton } from './VoidExecutionButton';
 
@@ -76,9 +80,8 @@ interface GroupData {
 
 interface ProductionHistoryClientProps {
     groups: GroupData[];
+    thresholds?: ProductionAlertThresholds;
 }
-
-const ANOMALY_SCRAP_THRESHOLD = 5;
 
 type AnomalyType =
     | 'scrap_high'
@@ -102,11 +105,14 @@ function getAnomalies(exec: ExecutionData, hasPhoto: boolean): AnomalyType[] {
     return anomalies;
 }
 
-function getGroupAnomalies(group: GroupData): AnomalyType[] {
+function getGroupAnomalies(
+    group: GroupData,
+    anomalyPercent: number,
+): AnomalyType[] {
     const total = group.totalQuantity + group.totalScrap;
     const scrapPct = total > 0 ? (group.totalScrap / total) * 100 : 0;
     const anomalies: AnomalyType[] = [];
-    if (scrapPct > ANOMALY_SCRAP_THRESHOLD) anomalies.push('scrap_high');
+    if (scrapPct > anomalyPercent) anomalies.push('scrap_high');
     if (group.photoCount === 0) anomalies.push('no_photo');
     return anomalies;
 }
@@ -276,7 +282,10 @@ function exportCsv(groups: GroupData[]) {
 
 export function ProductionHistoryClient({
     groups,
+    thresholds,
 }: ProductionHistoryClientProps) {
+    const th = resolveProductionAlertThresholds(thresholds);
+    const anomalyPercent = th.scrapAnomalyPercent;
     const searchParams = useSearchParams();
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'spk' | 'timeline'>('spk');
@@ -427,7 +436,7 @@ export function ProductionHistoryClient({
                                               100
                                             : null;
                                     const groupAnomalies =
-                                        getGroupAnomalies(group);
+                                        getGroupAnomalies(group, anomalyPercent);
 
                                     return (
                                         <GroupRow
@@ -436,6 +445,7 @@ export function ProductionHistoryClient({
                                             isExpanded={isExpanded}
                                             scrapPct={scrapPct}
                                             groupAnomalies={groupAnomalies}
+                                            anomalyPercent={anomalyPercent}
                                             onToggle={() =>
                                                 setExpandedId(
                                                     isExpanded
@@ -479,6 +489,7 @@ export function ProductionHistoryClient({
                                         key={exec.id}
                                         exec={exec}
                                         group={group}
+                                        anomalyPercent={anomalyPercent}
                                     />
                                 ))}
                             </div>
@@ -497,12 +508,14 @@ function GroupRow({
     isExpanded,
     scrapPct,
     groupAnomalies,
+    anomalyPercent,
     onToggle,
 }: {
     group: GroupData;
     isExpanded: boolean;
     scrapPct: number | null;
     groupAnomalies: AnomalyType[];
+    anomalyPercent: number;
     onToggle: () => void;
 }) {
     const unit = group.productionOrder.bom.productVariant.primaryUnit;
@@ -580,7 +593,7 @@ function GroupRow({
                     {scrapPct !== null ? (
                         <span
                             className={cn(
-                                scrapPct > ANOMALY_SCRAP_THRESHOLD
+                                scrapPct > anomalyPercent
                                     ? 'text-destructive font-bold'
                                     : 'text-muted-foreground',
                             )}
@@ -844,9 +857,11 @@ function ExecutionDetailRow({
 function TimelineRow({
     exec,
     group,
+    anomalyPercent,
 }: {
     exec: ExecutionData;
     group: GroupData;
+    anomalyPercent: number;
 }) {
     const unit = group.productionOrder.bom.productVariant.primaryUnit;
     const hasPhoto = !!exec.photoUrl;
@@ -902,7 +917,7 @@ function TimelineRow({
             {exec.scrapQuantity > 0 && (
                 <span className="text-destructive text-xs shrink-0">
                     -{Number(exec.scrapQuantity).toLocaleString()}
-                    {scrapPct > ANOMALY_SCRAP_THRESHOLD && (
+                    {scrapPct > anomalyPercent && (
                         <span className="text-[9px] ml-0.5">
                             ({scrapPct.toFixed(0)}%)
                         </span>

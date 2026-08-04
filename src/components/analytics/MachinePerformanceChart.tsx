@@ -11,6 +11,11 @@ import {
 import { MachinePerformanceItem } from '@/types/analytics';
 import { analyticsLabels } from '@/lib/labels';
 import {
+    isScrapWarning,
+    resolveProductionAlertThresholds,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
+import {
     BarChart,
     Bar,
     XAxis,
@@ -23,9 +28,11 @@ import {
 
 interface Props {
     data: MachinePerformanceItem[];
+    thresholds?: ProductionAlertThresholds;
 }
 
-export function MachinePerformanceChart({ data }: Props) {
+export function MachinePerformanceChart({ data, thresholds }: Props) {
+    const th = resolveProductionAlertThresholds(thresholds);
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -158,7 +165,7 @@ export function MachinePerformanceChart({ data }: Props) {
                                     Tingkat Scrap
                                 </span>
                                 <span
-                                    className={`font-bold ${machine.scrapRate > 2 ? 'text-red-600' : 'text-green-600'}`}
+                                    className={`font-bold ${isScrapWarning(th, machine.scrapRate) ? 'text-red-600' : 'text-green-600'}`}
                                 >
                                     {machine.scrapRate}%
                                 </span>

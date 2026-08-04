@@ -5,6 +5,11 @@ import {
     type ProductionHistoryFilter,
     type ProductionHistorySummary,
 } from '@/actions/production/production-execution';
+import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
+import {
+    DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
 import { ProductionHistoryClient } from '@/components/production/ProductionHistoryClient';
 import { ProductionHistoryFilters } from '@/components/production/ProductionHistoryFilters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,10 +56,16 @@ export default async function ProductionHistoryPage({
         includeVoided: includeVoided || undefined,
     };
 
-    const [historyResult, filterOptionsResult] = await Promise.all([
-        getProductionHistory(filter),
-        getProductionHistoryFilterOptions(),
-    ]);
+    const [historyResult, filterOptionsResult, thresholdsResult] =
+        await Promise.all([
+            getProductionHistory(filter),
+            getProductionHistoryFilterOptions(),
+            getProductionAlertThresholdsForPage(),
+        ]);
+
+    const thresholds: ProductionAlertThresholds = thresholdsResult.success
+        ? thresholdsResult.data
+        : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
 
     const defaultSummary: ProductionHistorySummary = {
         totalGood: 0,
@@ -216,7 +227,10 @@ export default async function ProductionHistoryPage({
                             </div>
                         }
                     >
-                        <ProductionHistoryClient groups={groups} />
+                        <ProductionHistoryClient
+                            groups={groups}
+                            thresholds={thresholds}
+                        />
                     </Suspense>
                 </CardContent>
             </Card>
