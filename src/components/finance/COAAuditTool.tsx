@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -17,22 +18,34 @@ import {
     Loader2,
     RefreshCcw,
     ShieldCheck,
+    ArrowRight,
 } from 'lucide-react';
 import {
     auditRequiredAccounts,
     fixMissingAccounts,
-    RequiredAccount,
 } from '@/actions/finance/coa-audit';
+import type { RequiredRoleAuditItem } from '@/actions/finance/coa-audit';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/utils';
 
+interface AuditData {
+    total: number;
+    ok: number;
+    items: RequiredRoleAuditItem[];
+    isPerfect: boolean;
+}
+
+const STATUS_STYLES: Record<RequiredRoleAuditItem['status'], string> = {
+    OK: 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400',
+    MISSING:
+        'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400',
+    ORPHAN: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400',
+    INACTIVE:
+        'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+};
+
 export function COAAuditTool() {
-    const [audit, setAudit] = useState<{
-        total: number;
-        existing: number;
-        missing: RequiredAccount[];
-        isPerfect: boolean;
-    } | null>(null);
+    const [audit, setAudit] = useState<AuditData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isFixing, setIsFixing] = useState(false);
 
@@ -60,15 +73,21 @@ export function COAAuditTool() {
         try {
             const result = await fixMissingAccounts();
             if (!result.success) {
-                toast.error(result.error || 'Gagal menginisialisasi akun');
+                toast.error(result.error || 'Gagal memperbaiki mapping akun');
                 return;
             }
-            toast.success(
-                `${result.data?.count} akun berhasil diinisialisasi.`,
-            );
+            if (result.data?.unresolved?.length) {
+                toast.success(
+                    `${result.data.count} mapping dibuat. ${result.data.unresolved.length} role belum terselesaikan — cek Role Mapping.`,
+                );
+            } else {
+                toast.success(
+                    `${result.data?.count ?? 0} mapping akun berhasil dibuat.`,
+                );
+            }
             await runAudit();
         } catch (error) {
-            toast.error('Gagal memperbaiki akun');
+            toast.error('Gagal memperbaiki mapping akun');
             console.error(error);
         } finally {
             setIsFixing(false);
@@ -102,8 +121,9 @@ export function COAAuditTool() {
                     Accounting Integrity Check
                 </CardTitle>
                 <CardDescription>
-                    Verify if all required accounts for automated transactions
-                    exist in your Chart of Accounts.
+                    Verifies semantic role → account mappings required for
+                    automated transactions. Mappings are tenant-independent, not
+                    tied to fixed account codes.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -115,8 +135,8 @@ export function COAAuditTool() {
                         />
                         <AlertTitle>All Good!</AlertTitle>
                         <AlertDescription>
-                            All {audit.total} required accounts are present and
-                            configured correctly.
+                            All {audit.total} required role mappings are present
+                            and point to active accounts.
                         </AlertDescription>
                     </Alert>
                 ) : (
@@ -125,9 +145,11 @@ export function COAAuditTool() {
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>Action Required</AlertTitle>
                             <AlertDescription>
-                                {audit.missing.length} required accounts are
-                                missing from your system. Automated workflows
-                                (Sales, Production, Inventory) may fail.
+                                {audit.items.filter((i) => i.status !== 'OK')
+                                    .length}{' '}
+                                required role mappings are missing, orphaned, or
+                                inactive. Automated workflows (Sales, Production,
+                                Inventory) may fail.
                             </AlertDescription>
                         </Alert>
 
@@ -136,35 +158,65 @@ export function COAAuditTool() {
                                 <thead className="bg-slate-50 dark:bg-slate-800 border-b">
                                     <tr>
                                         <th className="px-4 py-2 text-left font-medium">
-                                            Code
+                                            Role
                                         </th>
                                         <th className="px-4 py-2 text-left font-medium">
-                                            Name
+                                            Mapping
                                         </th>
                                         <th className="px-4 py-2 text-left font-medium">
-                                            Usage
+                                            Status
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {audit.missing.map((acc) => (
+                                    {audit.items.map((item) => (
                                         <tr
-                                            key={acc.code}
+                                            key={item.role}
                                             className="border-b last:border-0"
                                         >
-                                            <td className="px-4 py-2 font-mono text-amber-600 dark:text-amber-400">
-                                                {acc.code}
+                                            <td className="px-4 py-2 font-mono">
+                                                {item.role}
                                             </td>
-                                            <td className="px-4 py-2 font-medium">
-                                                {acc.name}
+                                            <td className="px-4 py-2">
+                                                {item.status === 'OK' ? (
+                                                    <span>
+                                                        <span className="font-mono">
+                                                            {item.liveCode}
+                                                        </span>{' '}
+                                                        {item.liveName}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        {item.mappedCode
+                                                            ? `${item.mappedCode} ${item.mappedName ?? ''}`
+                                                            : 'Belum dipetakan'}
+                                                    </span>
+                                                )}
                                             </td>
-                                            <td className="px-4 py-2 text-xs text-muted-foreground">
-                                                {acc.description}
+                                            <td className="px-4 py-2">
+                                                <span
+                                                    className={cn(
+                                                        'inline-block px-2 py-0.5 rounded-full text-xs font-medium',
+                                                        STATUS_STYLES[item.status],
+                                                    )}
+                                                >
+                                                    {item.status}
+                                                </span>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <Link
+                                href="/finance/coa/roles"
+                                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                            >
+                                Kelola di Role Mapping
+                                <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
                         </div>
                     </div>
                 )}
@@ -197,7 +249,7 @@ export function COAAuditTool() {
                         ) : (
                             <CheckCircle2 className="mr-2 h-4 w-4" />
                         )}
-                        Initialize Missing Accounts
+                        Seed Missing Role Mappings
                     </Button>
                 )}
             </CardFooter>

@@ -268,13 +268,14 @@ describe("reports-service", () => {
   // ========================================================================
 
   describe("getIncomeStatement", () => {
-    it("calculates net income = revenue - COGS - OpEx + other", async () => {
+    it("calculates net income = revenue - COGS - OpEx + other (category-based)", async () => {
       vi.mocked(prisma.account.findMany).mockResolvedValue([
         {
           id: "rev1",
           code: "41100",
           name: "Sales",
           type: "REVENUE",
+          category: "OPERATING_REVENUE",
           journalLines: [{ credit: 10000000, debit: 0 }],
         },
         {
@@ -282,6 +283,7 @@ describe("reports-service", () => {
           code: "51100",
           name: "COGS",
           type: "EXPENSE",
+          category: "COGS",
           journalLines: [{ credit: 0, debit: 4000000 }],
         },
         {
@@ -289,6 +291,7 @@ describe("reports-service", () => {
           code: "62100",
           name: "Salary",
           type: "EXPENSE",
+          category: "OPERATING_EXPENSE",
           journalLines: [{ credit: 0, debit: 2000000 }],
         },
       ] as never);
@@ -306,6 +309,117 @@ describe("reports-service", () => {
       expect(result.netIncome).toBe(4000000);
     });
 
+    it("classifies Melindo codes (4-xxx/5-xxx/7-xxx/8-xxx) identically when categories match", async () => {
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        {
+          id: "m-rev",
+          code: "4-1000",
+          name: "PENDAPATAN USAHA",
+          type: "REVENUE",
+          category: "OPERATING_REVENUE",
+          journalLines: [{ credit: 8000000, debit: 0 }],
+        },
+        {
+          id: "m-cogs",
+          code: "5-001",
+          name: "HPP",
+          type: "EXPENSE",
+          category: "COGS",
+          journalLines: [{ credit: 0, debit: 3000000 }],
+        },
+        {
+          id: "m-other-rev",
+          code: "7-101",
+          name: "Pendapatan Lain-lain",
+          type: "REVENUE",
+          category: "OTHER_REVENUE",
+          journalLines: [{ credit: 500000, debit: 0 }],
+        },
+        {
+          id: "m-other-exp",
+          code: "8-202",
+          name: "Biaya Lain-lain",
+          type: "EXPENSE",
+          category: "OTHER_EXPENSE",
+          journalLines: [{ credit: 0, debit: 200000 }],
+        },
+      ] as never);
+
+      const result = await getIncomeStatement(
+        new Date("2026-06-01"),
+        new Date("2026-06-30"),
+      );
+
+      // 7-xxx other revenue must NOT leak into operating revenue
+      expect(result.totalRevenue).toBe(8000000);
+      expect(result.revenue.map((r) => r.code)).toEqual(["4-1000"]);
+      expect(result.totalCOGS).toBe(3000000);
+      expect(result.cogs.map((c) => c.code)).toEqual(["5-001"]);
+      // other bucket combines other revenue + other expense
+      expect(result.other).toHaveLength(2);
+      expect(result.totalOther).toBe(300000); // 500000 - 200000
+      expect(result.netIncome).toBe(8000000 - 3000000 + 300000);
+    });
+
+    it("classification ignores code shape entirely (category only)", async () => {
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        {
+          id: "odd-rev",
+          code: "9-100",
+          name: "Odd Coded Revenue",
+          type: "REVENUE",
+          category: "OPERATING_REVENUE",
+          journalLines: [{ credit: 3000000, debit: 0 }],
+        },
+        {
+          id: "odd-other",
+          code: "41100",
+          name: "Kiyowo Coded Other",
+          type: "REVENUE",
+          category: "OTHER_REVENUE",
+          journalLines: [{ credit: 100000, debit: 0 }],
+        },
+      ] as never);
+
+      const result = await getIncomeStatement(
+        new Date("2026-06-01"),
+        new Date("2026-06-30"),
+      );
+
+      expect(result.revenue.map((r) => r.code)).toEqual(["9-100"]);
+      expect(result.other.map((o) => o.code)).toEqual(["41100"]);
+      expect(result.totalRevenue).toBe(3000000);
+    });
+
+    it("falls back to account type when category is absent/mislabeled", async () => {
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        {
+          id: "norev",
+          code: "41100",
+          name: "Sales",
+          type: "REVENUE",
+          category: null,
+          journalLines: [{ credit: 2000000, debit: 0 }],
+        },
+        {
+          id: "noexp",
+          code: "62100",
+          name: "Salary",
+          type: "EXPENSE",
+          category: "OTHER_ASSET",
+          journalLines: [{ credit: 0, debit: 500000 }],
+        },
+      ] as never);
+
+      const result = await getIncomeStatement(
+        new Date("2026-06-01"),
+        new Date("2026-06-30"),
+      );
+
+      expect(result.totalRevenue).toBe(2000000);
+      expect(result.totalOpEx).toBe(500000);
+    });
+
     it("excludes closing entries from calculation", async () => {
       vi.mocked(prisma.account.findMany).mockResolvedValue([
         {
@@ -313,6 +427,7 @@ describe("reports-service", () => {
           code: "41100",
           name: "Sales",
           type: "REVENUE",
+          category: "OPERATING_REVENUE",
           journalLines: [],
         },
       ] as never);
@@ -334,41 +449,46 @@ describe("reports-service", () => {
       );
     });
 
-    it("includes other revenue (8xxxx) and other expense (9xxxx) in separate buckets", async () => {
+    it("splits other revenue and other expense into the other bucket only", async () => {
       vi.mocked(prisma.account.findMany).mockResolvedValue([
         {
           id: "rev1",
           code: "41100",
           name: "Sales",
           type: "REVENUE",
+          category: "OPERATING_REVENUE",
           journalLines: [{ credit: 10000000, debit: 0 }],
         },
         {
           id: "otherRev",
-          code: "81100",
+          code: "7-100",
           name: "Interest Income",
           type: "REVENUE",
+          category: "OTHER_REVENUE",
           journalLines: [{ credit: 500000, debit: 0 }],
         },
         {
           id: "otherExp",
-          code: "91100",
-          name: "Loss on Sale",
+          code: "8-200",
+          name: "Bank Charges",
           type: "EXPENSE",
+          category: "OTHER_EXPENSE",
           journalLines: [{ credit: 0, debit: 200000 }],
         },
         {
           id: "cogs1",
-          code: "51100",
+          code: "5-001",
           name: "COGS",
           type: "EXPENSE",
+          category: "COGS",
           journalLines: [{ credit: 0, debit: 3000000 }],
         },
         {
           id: "opex1",
-          code: "62100",
+          code: "6-001",
           name: "Salary",
           type: "EXPENSE",
+          category: "OPERATING_EXPENSE",
           journalLines: [{ credit: 0, debit: 1000000 }],
         },
       ] as never);
@@ -378,46 +498,10 @@ describe("reports-service", () => {
         new Date("2026-06-30"),
       );
 
-      // Other bucket includes 8xxxx and 9xxxx
       expect(result.other).toHaveLength(2);
-      // 8xxxx is revenue type → netBalance = credit - debit = 500000
-      // 9xxxx is expense type → netBalance = -(credit - debit) = -(0 - 200000) = 200000
-      // totalOther = totalOtherRevenue - totalOtherExpense = 500000 - 200000 = 300000
       expect(result.totalOther).toBe(300000);
-
-      // 8xxxx should be excluded from revenueAccounts (code starts with '8')
       expect(result.totalRevenue).toBe(10000000);
-      // 9xxxx should be excluded from opexAccounts (code starts with '9')
       expect(result.totalOpEx).toBe(1000000);
-    });
-
-    it("excludes 8xxxx from revenueAccounts even though type is REVENUE", async () => {
-      vi.mocked(prisma.account.findMany).mockResolvedValue([
-        {
-          id: "rev1",
-          code: "41100",
-          name: "Sales",
-          type: "REVENUE",
-          journalLines: [{ credit: 10000000, debit: 0 }],
-        },
-        {
-          id: "otherRev",
-          code: "81100",
-          name: "Interest",
-          type: "REVENUE",
-          journalLines: [{ credit: 500000, debit: 0 }],
-        },
-      ] as never);
-
-      const result = await getIncomeStatement(
-        new Date("2026-06-01"),
-        new Date("2026-06-30"),
-      );
-
-      // revenueAccounts should only contain 4xxxx, not 8xxxx
-      expect(result.revenue).toHaveLength(1);
-      expect(result.revenue[0].code).toBe("41100");
-      expect(result.totalRevenue).toBe(10000000);
     });
 
     it("returns zero totals when no revenue/expense accounts have balances", async () => {
@@ -427,13 +511,15 @@ describe("reports-service", () => {
           code: "41100",
           name: "Sales",
           type: "REVENUE",
+          category: "OPERATING_REVENUE",
           journalLines: [],
         },
         {
           id: "exp1",
-          code: "61100",
+          code: "62100",
           name: "Rent",
           type: "EXPENSE",
+          category: "OPERATING_EXPENSE",
           journalLines: [],
         },
       ] as never);
@@ -481,35 +567,6 @@ describe("reports-service", () => {
       expect(result.totalManufacturingCosts).toBe(0);
     });
 
-    it("excludes 8xxxx and 9xxxx from OpEx", async () => {
-      vi.mocked(prisma.account.findMany).mockResolvedValue([
-        {
-          id: "opex1",
-          code: "62100",
-          name: "Salary",
-          type: "EXPENSE",
-          journalLines: [{ credit: 0, debit: 2000000 }],
-        },
-        {
-          id: "otherExp",
-          code: "91100",
-          name: "Other Exp",
-          type: "EXPENSE",
-          journalLines: [{ credit: 0, debit: 100000 }],
-        },
-      ] as never);
-
-      const result = await getIncomeStatement(
-        new Date("2026-06-01"),
-        new Date("2026-06-30"),
-      );
-
-      // 9xxxx should not be in opex
-      expect(result.opex).toHaveLength(1);
-      expect(result.opex[0].code).toBe("62100");
-      expect(result.totalOpEx).toBe(2000000);
-    });
-
     it("handles negative net income (loss scenario)", async () => {
       vi.mocked(prisma.account.findMany).mockResolvedValue([
         {
@@ -517,6 +574,7 @@ describe("reports-service", () => {
           code: "41100",
           name: "Sales",
           type: "REVENUE",
+          category: "OPERATING_REVENUE",
           journalLines: [{ credit: 3000000, debit: 0 }],
         },
         {
@@ -524,6 +582,7 @@ describe("reports-service", () => {
           code: "51100",
           name: "COGS",
           type: "EXPENSE",
+          category: "COGS",
           journalLines: [{ credit: 0, debit: 2000000 }],
         },
         {
@@ -531,6 +590,7 @@ describe("reports-service", () => {
           code: "62100",
           name: "Salary",
           type: "EXPENSE",
+          category: "OPERATING_EXPENSE",
           journalLines: [{ credit: 0, debit: 2000000 }],
         },
       ] as never);
@@ -548,6 +608,7 @@ describe("reports-service", () => {
       expect(result.netIncome).toBe(-1000000);
     });
   });
+
 
   // ========================================================================
   // getBalanceSheet

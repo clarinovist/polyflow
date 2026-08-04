@@ -8,7 +8,7 @@
  *   4. null → caller uses resolveAccount('sales-revenue')
  */
 import type { PrismaClient } from '@prisma/client';
-import type { RevenueRule } from './melindo-revenue-rules';
+import type { RevenueRule } from './tenant-revenue-rule-service';
 
 export type RevenueLine = {
     accountId: string;
@@ -114,6 +114,13 @@ async function matchRule(
             matches =
                 variant.product?.name?.toLowerCase() ===
                 rule.matchValue.toLowerCase();
+        } else if (rule.matchType === 'SKU_PREFIX') {
+            // SKU-level: case-insensitive prefix match
+            matches = variant.skuCode
+                ? variant.skuCode
+                      .toLowerCase()
+                      .startsWith(rule.matchValue.toLowerCase())
+                : false;
         }
 
         if (!matches) continue;

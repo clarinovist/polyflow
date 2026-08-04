@@ -23,6 +23,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react';
 import {
     getRevenueRules,
     createRevenueRule,
+    updateRevenueRule,
     deleteRevenueRule,
 } from '@/actions/finance/revenue-rules';
 import { getChartOfAccounts } from '@/actions/finance/accounting';
@@ -117,6 +118,22 @@ export function RevenueRulesClient() {
         }
     }
 
+    async function handleToggle(r: RevenueRule) {
+        try {
+            const result = await updateRevenueRule(r.id, {
+                isActive: !r.isActive,
+            });
+            if (result.success) {
+                toast.success(r.isActive ? 'Rule disabled' : 'Rule enabled');
+                await loadData();
+            } else {
+                toast.error(result.error || 'Failed to update');
+            }
+        } catch {
+            toast.error('Failed to update rule');
+        }
+    }
+
     if (loading)
         return (
             <Card>
@@ -148,7 +165,10 @@ export function RevenueRulesClient() {
                                     Variant Name Contains
                                 </SelectItem>
                                 <SelectItem value="PRODUCT_NAME">
-                                    Product Name Contains
+                                    Product Name (Exact)
+                                </SelectItem>
+                                <SelectItem value="SKU_PREFIX">
+                                    SKU Prefix
                                 </SelectItem>
                             </SelectContent>
                         </Select>
@@ -216,7 +236,7 @@ export function RevenueRulesClient() {
                         {rules.map((r) => (
                             <div
                                 key={r.id}
-                                className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                                className={`flex items-center gap-3 p-3 rounded-lg border bg-card ${!r.isActive ? 'opacity-60' : ''}`}
                             >
                                 <Badge
                                     variant={
@@ -228,7 +248,9 @@ export function RevenueRulesClient() {
                                 <Badge variant="outline">
                                     {r.matchType === 'VARIANT_NAME_CONTAINS'
                                         ? 'Variant'
-                                        : 'Product'}
+                                        : r.matchType === 'SKU_PREFIX'
+                                          ? 'SKU'
+                                          : 'Product'}
                                 </Badge>
                                 <span className="flex-1 font-mono text-sm">
                                     {r.matchValue}
@@ -236,6 +258,13 @@ export function RevenueRulesClient() {
                                 <span className="text-sm text-muted-foreground">
                                     → {r.accountCode} {r.accountName}
                                 </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleToggle(r)}
+                                >
+                                    {r.isActive ? 'Disable' : 'Enable'}
+                                </Button>
                                 <Button
                                     variant="ghost"
                                     size="sm"

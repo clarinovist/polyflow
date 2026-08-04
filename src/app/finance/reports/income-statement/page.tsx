@@ -41,6 +41,7 @@ interface IncomeStatementItem {
     id: string;
     code: string;
     name: string;
+    type: string;
     netBalance: number;
 }
 
@@ -100,39 +101,6 @@ export default function IncomeStatementPage() {
         fetchData();
     }, [fetchData]);
 
-    // Helper to group COGS items
-    const getGroupedCOGS = (items: IncomeStatementItem[]) => {
-        const materials = items
-            .filter((i) => i.code.startsWith('51'))
-            .reduce((sum, i) => sum + i.netBalance, 0);
-        const labor = items
-            .filter((i) => i.code.startsWith('52'))
-            .reduce((sum, i) => sum + i.netBalance, 0);
-        const overhead = items
-            .filter((i) => i.code.startsWith('53'))
-            .reduce((sum, i) => sum + i.netBalance, 0);
-        return { materials, labor, overhead };
-    };
-
-    const groupedCOGS = data
-        ? getGroupedCOGS(data.cogs)
-        : { materials: 0, labor: 0, overhead: 0 };
-
-    // Helper to group OpEx items
-    const getGroupedOpEx = (items: IncomeStatementItem[]) => {
-        const selling = items
-            .filter((i) => i.code.startsWith('61'))
-            .reduce((sum, i) => sum + i.netBalance, 0);
-        const general = items
-            .filter((i) => i.code.startsWith('62'))
-            .reduce((sum, i) => sum + i.netBalance, 0);
-        return { selling, general };
-    };
-
-    const groupedOpEx = data
-        ? getGroupedOpEx(data.opex)
-        : { selling: 0, general: 0 };
-
     const handleDownload = () => {
         if (!data) return;
         const headers = ['Keterangan', 'Kode', 'Jumlah (IDR)'];
@@ -150,26 +118,11 @@ export default function IncomeStatementPage() {
         // COGS
         rows.push(['', '', '']);
         rows.push(['', 'II. HARGA POKOK PENJUALAN (COGS)', '']);
-        rows.push([
-            'Bahan Baku Langsung',
-            '51000',
-            rupiahForCsv(groupedCOGS.materials),
-        ]);
-        rows.push([
-            'Tenaga Kerja Langsung',
-            '52000',
-            rupiahForCsv(groupedCOGS.labor),
-        ]);
-        rows.push([
-            'Overhead Pabrik',
-            '53000',
-            rupiahForCsv(groupedCOGS.overhead),
-        ]);
-        rows.push([
-            'Total Biaya Produksi',
-            '',
-            rupiahForCsv(data.totalManufacturingCosts),
-        ]);
+        for (const item of data.cogs.filter(
+            (i) => !hideZero || Math.abs(i.netBalance) > 0.01,
+        )) {
+            rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
+        }
         rows.push(['Total HPP', '', rupiahForCsv(data.totalCOGS)]);
         rows.push(['', '', '']);
         rows.push([
@@ -181,16 +134,11 @@ export default function IncomeStatementPage() {
         // OpEx
         rows.push(['', '', '']);
         rows.push(['', 'III. BEBAN OPERASIONAL', '']);
-        rows.push([
-            'Beban Penjualan & Pemasaran',
-            '61000',
-            rupiahForCsv(groupedOpEx.selling),
-        ]);
-        rows.push([
-            'Beban Umum & Administrasi',
-            '62000',
-            rupiahForCsv(groupedOpEx.general),
-        ]);
+        for (const item of data.opex.filter(
+            (i) => !hideZero || Math.abs(i.netBalance) > 0.01,
+        )) {
+            rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
+        }
         rows.push([
             'Total Beban Operasional',
             '',
@@ -209,7 +157,7 @@ export default function IncomeStatementPage() {
         for (const item of data.other.filter(
             (i) => !hideZero || Math.abs(i.netBalance) > 0.01,
         )) {
-            const isExpense = item.code.startsWith('9');
+            const isExpense = item.type === 'EXPENSE';
             rows.push([
                 item.name,
                 item.code,
@@ -448,62 +396,29 @@ export default function IncomeStatementPage() {
                                             </TableCell>
                                         </TableRow>
 
-                                        {/* Simplified Categories */}
-                                        <TableRow>
-                                            <TableCell className="pl-8">
-                                                {
-                                                    reportLabels.directMaterialsUsed
-                                                }
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">
-                                                51000
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {formatRupiah(
-                                                    groupedCOGS.materials,
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="pl-8">
-                                                {reportLabels.directLabor}
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">
-                                                52000
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {formatRupiah(
-                                                    groupedCOGS.labor,
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="pl-8">
-                                                {reportLabels.factoryOverhead}
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">
-                                                53000
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {formatRupiah(
-                                                    groupedCOGS.overhead,
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-
-                                        <TableRow className="border-t border-dashed">
-                                            <TableCell
-                                                colSpan={2}
-                                                className="pl-8 italic text-muted-foreground"
-                                            >
-                                                Total Biaya Produksi
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-muted-foreground">
-                                                {formatRupiah(
-                                                    data.totalManufacturingCosts,
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
+                                        {/* Individual COGS accounts (category-backed) */}
+                                        {data.cogs
+                                            .filter(
+                                                (item) =>
+                                                    !hideZero ||
+                                                    Math.abs(item.netBalance) >
+                                                        0.01,
+                                            )
+                                            .map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="pl-8">
+                                                        {item.name}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-sm text-muted-foreground">
+                                                        {item.code}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {formatRupiah(
+                                                            item.netBalance,
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
 
                                         <TableRow className="font-semibold border-t">
                                             <TableCell colSpan={2}>
@@ -534,40 +449,31 @@ export default function IncomeStatementPage() {
                                             </TableCell>
                                         </TableRow>
 
-                                        <TableRow>
-                                            <TableCell className="pl-8">
-                                                {
-                                                    reportLabels.sellingMarketingExpenses
-                                                }
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">
-                                                61000
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                (
-                                                {formatRupiah(
-                                                    groupedOpEx.selling,
-                                                )}
-                                                )
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="pl-8">
-                                                {
-                                                    reportLabels.generalAdminExpenses
-                                                }
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">
-                                                62000
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                (
-                                                {formatRupiah(
-                                                    groupedOpEx.general,
-                                                )}
-                                                )
-                                            </TableCell>
-                                        </TableRow>
+                                        {/* Individual OpEx accounts (category-backed) */}
+                                        {data.opex
+                                            .filter(
+                                                (item) =>
+                                                    !hideZero ||
+                                                    Math.abs(item.netBalance) >
+                                                        0.01,
+                                            )
+                                            .map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="pl-8">
+                                                        {item.name}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-sm text-muted-foreground">
+                                                        {item.code}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        (
+                                                        {formatRupiah(
+                                                            item.netBalance,
+                                                        )}
+                                                        )
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
 
                                         <TableRow className="font-semibold border-t">
                                             <TableCell colSpan={2}>
@@ -607,9 +513,9 @@ export default function IncomeStatementPage() {
                                                         0.01,
                                             )
                                             .map((item) => {
-                                                // Account 9xxxx = expense/loss, should reduce income
+                                                // Expense-type other accounts reduce income
                                                 const isExpense =
-                                                    item.code.startsWith('9');
+                                                    item.type === 'EXPENSE';
                                                 return (
                                                     <TableRow key={item.id}>
                                                         <TableCell className="pl-8">

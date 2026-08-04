@@ -1,44 +1,35 @@
 import { JournalStatus, ReferenceType } from '@prisma/client';
 
-import {
-    prisma,
-    getTenantIdFromContext,
-    getMainPrisma,
-} from '@/lib/core/prisma';
+import { prisma, getTenantIdFromContext } from '@/lib/core/prisma';
 import { NotFoundError } from '@/lib/errors/errors';
 import { AccountingService } from '../accounting/accounting-service';
 import { resolveAccount } from '@/services/accounting/account-resolver';
 import { resolveRevenueAccount } from '@/services/accounting/revenue-account-resolver';
-import {
-    MELINDO_REVENUE_RULES,
-    type RevenueRule,
-} from '@/services/accounting/melindo-revenue-rules';
+import { loadActiveTenantRevenueRules } from '@/services/accounting/tenant-revenue-rule-service';
+import type { RevenueRule } from '@/services/accounting/tenant-revenue-rule-service';
 
 /**
- * Revenue name-rules only for Melindo. Kiyowo and others get empty rules
- * and fall through to TenantAccountRole `sales-revenue`.
+ * Load active tenant revenue rules from the main DB, once per invoice.
+ * Fail-safe: loader errors log a warning and fall back to the default
+ * semantic role (`sales-revenue`) — never a guessed account.
  */
-export function getRevenueRulesForTenant(
-    subdomain?: string | null,
-): RevenueRule[] {
-    if (subdomain === 'melindo') return MELINDO_REVENUE_RULES;
-    return [];
-}
-
-/**
- * Resolve active tenant subdomain from dual-ALS tenantId (main DB lookup).
- */
-async function resolveTenantSubdomain(): Promise<string | undefined> {
-    const tenantId = getTenantIdFromContext();
-    if (!tenantId) return undefined;
+async function loadRulesForInvoice(
+    invoiceId: string,
+    tenantId: string | undefined,
+): Promise<RevenueRule[]> {
     try {
-        const tenant = await getMainPrisma().tenant.findUnique({
-            where: { id: tenantId },
-            select: { subdomain: true },
-        });
-        return tenant?.subdomain;
+        return await loadActiveTenantRevenueRules(tenantId);
     } catch {
-        return undefined;
+        const { logger } = await import('@/lib/config/logger');
+        logger.warn(
+            'Revenue rule loader failed; falling back to default role',
+            {
+                module: 'auto-journal-invoice-handlers',
+                invoiceId,
+                tenantId,
+            },
+        );
+        return [];
     }
 }
 
@@ -83,9 +74,9 @@ export async function handleSalesInvoiceCreated(invoiceId: string) {
         invoice.status === 'DRAFT' ? JournalStatus.DRAFT : JournalStatus.POSTED;
 
     const items = invoice.salesOrder.items;
-    const subdomain = await resolveTenantSubdomain();
-    const rules = getRevenueRulesForTenant(subdomain);
-    const cacheKey = subdomain ?? getTenantIdFromContext() ?? 'default';
+    const tenantId = getTenantIdFromContext();
+    const rules = await loadRulesForInvoice(invoiceId, tenantId);
+    const cacheKey = tenantId ?? 'default';
 
     // Default revenue (role) — resolved once when needed
     let defaultRevenueId: string | null = null;

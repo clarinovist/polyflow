@@ -89,32 +89,42 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
             code: a.code,
             name: a.name,
             type: a.type,
+            category: a.category,
             netBalance,
         };
     });
 
-    // Correct Account Classification
-    const revenueAccounts = accountData.filter(
-        (a) =>
-            (a.type === 'REVENUE' || a.code.startsWith('4')) &&
-            !a.code.startsWith('8'),
-    );
-    const cogsAccounts = accountData.filter((a) => a.code.startsWith('5'));
+    // Classify by schema semantics (AccountCategory) — never by code prefix,
+    // so Kiyowo (5-digit) and Melindo (4-xxx) charts produce identical output.
+    const revenueAccounts: typeof accountData = [];
+    const cogsAccounts: typeof accountData = [];
+    const opexAccounts: typeof accountData = [];
+    const otherRevenueAccounts: typeof accountData = [];
+    const otherExpenseAccounts: typeof accountData = [];
 
-    // OpEx should NOT include 8xxxx (Other Rev) or 9xxxx (Other Exp)
-    const opexAccounts = accountData.filter(
-        (a) =>
-            (a.code.startsWith('6') || a.code.startsWith('7')) &&
-            !a.code.startsWith('8') &&
-            !a.code.startsWith('9'),
-    );
-
-    const otherRevenueAccounts = accountData.filter((a) =>
-        a.code.startsWith('8'),
-    ); // Other Income (8xxxx)
-    const otherExpenseAccounts = accountData.filter((a) =>
-        a.code.startsWith('9'),
-    ); // Other Expenses (9xxxx)
+    for (const a of accountData) {
+        switch (a.category) {
+            case 'OPERATING_REVENUE':
+                revenueAccounts.push(a);
+                break;
+            case 'COGS':
+                cogsAccounts.push(a);
+                break;
+            case 'OPERATING_EXPENSE':
+                opexAccounts.push(a);
+                break;
+            case 'OTHER_REVENUE':
+                otherRevenueAccounts.push(a);
+                break;
+            case 'OTHER_EXPENSE':
+                otherExpenseAccounts.push(a);
+                break;
+            default:
+                // Missing/mislabeled category — fall back to account type.
+                if (a.type === 'REVENUE') revenueAccounts.push(a);
+                else opexAccounts.push(a);
+        }
+    }
 
     const totalRevenue = revenueAccounts.reduce(
         (sum, a) => sum + a.netBalance,

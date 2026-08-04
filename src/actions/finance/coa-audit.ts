@@ -1,175 +1,60 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
-import { AccountType, AccountCategory } from '@prisma/client';
+import {
+    prisma,
+    getTenantDbFromContext,
+    getTenantIdFromContext,
+} from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { requireFinanceAccess, requireFinanceApprover } from '@/lib/auth/finance-access';
-import { safeAction } from '@/lib/errors/errors';
+import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import * as CoAIntegrityService from '@/services/accounting/coa-integrity-service';
 
-export interface RequiredAccount {
-    code: string;
-    name: string;
-    type: AccountType;
-    category: AccountCategory;
-    description: string;
+export type { RequiredRoleAuditItem } from '@/services/accounting/coa-integrity-service';
+
+function tenantDbForAction() {
+    return getTenantDbFromContext() ?? prisma;
 }
-
-const REQUIRED_ACCOUNTS: RequiredAccount[] = [
-    {
-        code: '11120',
-        name: 'Bank Accounts',
-        type: 'ASSET',
-        category: 'CURRENT_ASSET',
-        description: 'Default account for payments and receipts',
-    },
-    {
-        code: '11210',
-        name: 'Accounts Receivable',
-        type: 'ASSET',
-        category: 'CURRENT_ASSET',
-        description: 'Main account for customer invoices',
-    },
-    {
-        code: '11310',
-        name: 'Raw Material Inventory',
-        type: 'ASSET',
-        category: 'CURRENT_ASSET',
-        description: 'Inventory account for raw materials',
-    },
-    {
-        code: '11320',
-        name: 'Work in Progress (WIP)',
-        type: 'ASSET',
-        category: 'CURRENT_ASSET',
-        description: 'WIP account for manufacturing',
-    },
-    {
-        code: '11330',
-        name: 'Finished Goods Inventory',
-        type: 'ASSET',
-        category: 'CURRENT_ASSET',
-        description: 'Inventory account for finished goods',
-    },
-    {
-        code: '11340',
-        name: 'Packaging Materials Inventory',
-        type: 'ASSET',
-        category: 'CURRENT_ASSET',
-        description: 'Inventory account for packaging materials',
-    },
-    {
-        code: '11390',
-        name: 'Scrap Inventory',
-        type: 'ASSET',
-        category: 'CURRENT_ASSET',
-        description: 'Inventory account for scrap/afval',
-    },
-    {
-        code: '21110',
-        name: 'Accounts Payable',
-        type: 'LIABILITY',
-        category: 'CURRENT_LIABILITY',
-        description: 'Main account for supplier invoices',
-    },
-    {
-        code: '21310',
-        name: 'VAT Output',
-        type: 'LIABILITY',
-        category: 'CURRENT_LIABILITY',
-        description: 'Taxes on sales',
-    },
-    {
-        code: '21320',
-        name: 'VAT Input',
-        type: 'LIABILITY',
-        category: 'CURRENT_LIABILITY',
-        description: 'Taxes on purchases',
-    },
-    {
-        code: '41100',
-        name: 'Sales Revenue',
-        type: 'REVENUE',
-        category: 'OPERATING_REVENUE',
-        description: 'Revenue from finished goods sales',
-    },
-    {
-        code: '53300',
-        name: 'Inventory Adjustment Loss/Gain',
-        type: 'EXPENSE',
-        category: 'OPERATING_EXPENSE',
-        description: 'Account for stock adjustments',
-    },
-    {
-        code: '54000',
-        name: 'Scrap Cost Recovery',
-        type: 'REVENUE',
-        category: 'OTHER_REVENUE',
-        description: 'Revenue from recycling or selling scrap',
-    },
-];
 
 export const auditRequiredAccounts = withTenant(
     async function auditRequiredAccounts() {
         return safeAction(async () => {
             await requireFinanceAccess();
+            const tenantId = getTenantIdFromContext();
+            if (!tenantId) throw new BusinessRuleError('No tenant context');
 
-            const existingAccounts = await prisma.account.findMany({
-                where: {
-                    code: { in: REQUIRED_ACCOUNTS.map((a) => a.code) },
-                },
-                select: { code: true },
-            });
-
-            const existingCodes = new Set(existingAccounts.map((a) => a.code));
-            const missing = REQUIRED_ACCOUNTS.filter(
-                (a) => !existingCodes.has(a.code),
+            const items = await CoAIntegrityService.auditRequiredAccounts(
+                tenantId,
+                tenantDbForAction(),
             );
 
             return {
-                total: REQUIRED_ACCOUNTS.length,
-                existing: existingCodes.size,
-                missing: missing,
-                isPerfect: missing.length === 0,
+                total: items.length,
+                ok: items.filter((i) => i.status === 'OK').length,
+                items,
+                isPerfect: items.every((i) => i.status === 'OK'),
             };
         });
     },
 );
 
-export const fixMissingAccounts = withTenant(
-    async function fixMissingAccounts() {
-        return safeAction(async () => {
-            await requireFinanceApprover();
+export const fixMissingAccounts = withTenant(async function fixMissingAccounts() {
+    return safeAction(async () => {
+        await requireFinanceApprover();
+        const tenantId = getTenantIdFromContext();
+        if (!tenantId) throw new BusinessRuleError('No tenant context');
 
-            // Need to call the actual function logic
-            const existingAccounts = await prisma.account.findMany({
-                where: {
-                    code: { in: REQUIRED_ACCOUNTS.map((a) => a.code) },
-                },
-                select: { code: true },
-            });
+        const result = await CoAIntegrityService.fixMissingAccounts(
+            tenantId,
+            tenantDbForAction(),
+        );
 
-            const existingCodes = new Set(existingAccounts.map((a) => a.code));
-            const missing = REQUIRED_ACCOUNTS.filter(
-                (a) => !existingCodes.has(a.code),
-            );
+        revalidatePath('/finance/settings');
 
-            const isPerfect = missing.length === 0;
-
-            if (isPerfect) return { count: 0 };
-
-            const result = await prisma.account.createMany({
-                data: missing.map((account) => ({
-                    code: account.code,
-                    name: account.name,
-                    type: account.type,
-                    category: account.category,
-                    description: account.description,
-                })),
-            });
-
-            revalidatePath('/finance/settings'); // Assuming this is where it will be managed
-            return { count: result.count };
-        });
-    },
-);
+        return {
+            count: result.created,
+            unresolved: result.unresolved,
+        };
+    });
+});

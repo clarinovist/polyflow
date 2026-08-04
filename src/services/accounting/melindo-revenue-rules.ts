@@ -3,15 +3,13 @@
  * Maps variant/product names to GL revenue accounts.
  * Priority: lower number = higher priority. First match wins.
  *
- * Only loaded when tenant subdomain = 'melindo'.
- * Kiyowo: empty rules → default sales-revenue role.
+ * LEGACY data artifact. Runtime no longer reads this file; tenant rules are
+ * loaded from TenantRevenueRule via tenant-revenue-rule-service. Kept only as
+ * migration source until scripts/migrate-melindo-revenue-rules.ts is applied.
  */
-export interface RevenueRule {
-    matchType: 'VARIANT_NAME_CONTAINS' | 'PRODUCT_NAME';
-    matchValue: string;
-    accountCode: string;
-    priority: number;
-}
+import type { RevenueRule } from './tenant-revenue-rule-service';
+
+export type { RevenueRule };
 
 export const MELINDO_REVENUE_RULES: RevenueRule[] = [
     // === Rafia family (priority top-down) ===
