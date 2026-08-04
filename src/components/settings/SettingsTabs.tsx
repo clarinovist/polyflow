@@ -8,6 +8,7 @@ import { UsersTab } from './UsersTab';
 import { AccessControlTab } from './AccessControlTab';
 import { CompanySettings } from './CompanySettings';
 import { KioskFeatureSettings } from './KioskFeatureSettings';
+import { RoutingFeatureSettings } from './RoutingFeatureSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -172,11 +173,18 @@ export function SettingsTabs({
                     <UsersTab currentUserId={currentUserId} />
                 ) : null;
             case 'access':
-                return isAdmin ? <AccessControlTab activeModules={activeModules} /> : null;
+                return isAdmin ? (
+                    <AccessControlTab activeModules={activeModules} />
+                ) : null;
             case 'attendance':
                 return isAdmin ? <AttendanceSettingsPanel /> : null;
             case 'kiosk':
-                return isAdmin ? <KioskFeatureSettings /> : null;
+                return isAdmin ? (
+                    <div className="space-y-4">
+                        <KioskFeatureSettings />
+                        <RoutingFeatureSettings />
+                    </div>
+                ) : null;
             case 'system':
                 return (
                     <Card className="max-w-2xl">
