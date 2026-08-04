@@ -290,6 +290,35 @@ export class ProductionOrderService {
                         'RISKY_OUTPUT_LOCATION',
                     );
                 }
+
+                // Validate location purpose matches product type
+                const bomWithProduct = await transaction.bom.findUnique({
+                    where: { id: bomId },
+                    select: {
+                        productVariant: {
+                            select: {
+                                product: { select: { productType: true } },
+                            },
+                        },
+                    },
+                });
+                if (bomWithProduct?.productVariant?.product?.productType) {
+                    const productType = bomWithProduct.productVariant.product.productType;
+                    const purpose = targetLoc.locationPurpose;
+                    const isValidCombo =
+                        (productType === 'FINISHED_GOOD' && purpose === 'FINISHED_GOOD') ||
+                        (productType === 'INTERMEDIATE' && purpose === 'WIP') ||
+                        (productType === 'WIP' && purpose === 'WIP') ||
+                        (productType === 'SCRAP' && purpose === 'SCRAP') ||
+                        purpose === 'GENERAL_PURPOSE';
+                    if (!isValidCombo) {
+                        throw new BusinessRuleError(
+                            `Lokasi output "${targetLoc.name}" (${purpose}) tidak cocok untuk produk tipe ${productType}. Produk ${productType} seharusnya diproduksi di lokasi dengan purpose ${productType === 'FINISHED_GOOD' ? 'FINISHED_GOOD' : 'WIP'}.`,
+                            { locationId, locationPurpose: purpose, productType },
+                            'LOCATION_PRODUCT_MISMATCH',
+                        );
+                    }
+                }
             }
 
             // 1. Validate Machine Type against BOM Category if machineId is provided
