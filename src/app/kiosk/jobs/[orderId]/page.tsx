@@ -11,12 +11,27 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
             bom: {
                 include: {
                     productVariant: true,
+                    items: {
+                        include: {
+                            productVariant: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    skuCode: true,
+                                    primaryUnit: true,
+                                },
+                            },
+                        },
+                    },
                 },
             },
             machine: true,
             executions: {
                 orderBy: { startTime: 'desc' },
-                take: 5,
+                include: {
+                    operator: { select: { name: true } },
+                    shift: { select: { shiftName: true } },
+                },
             },
             helpers: {
                 select: {

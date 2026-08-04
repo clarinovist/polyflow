@@ -272,7 +272,7 @@ describe("ProductionService", () => {
           call[0].data.actualQuantity !== undefined,
       );
       expect(quantityCall).toBeDefined();
-      expect(quantityCall[0].data.actualQuantity).toBe(20);
+      expect(quantityCall[0].data.actualQuantity).toEqual({ increment: 20 });
     });
   });
 

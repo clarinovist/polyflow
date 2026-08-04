@@ -46,13 +46,17 @@ vi.mock('@/lib/core/prisma', () => ({
   prisma: mockPrisma,
 }));
 
-vi.mock('../order-number-service', () => ({
+const mockOrderNumber = vi.hoisted(() => ({
   createProductionOrderWithGeneratedNumber: vi.fn(async (_tx: unknown, data: Record<string, unknown>) => ({
     id: `order-${Math.random().toString(36).slice(2, 8)}`,
     orderNumber: `WO-123-${Math.random().toString(36).slice(2, 4)}`,
     ...data,
     plannedQuantity: data.plannedQuantity,
   })),
+}));
+
+vi.mock('../order-number-service', () => ({
+  createProductionOrderWithGeneratedNumber: mockOrderNumber.createProductionOrderWithGeneratedNumber,
 }));
 
 vi.mock('../routing-service', () => ({
@@ -74,7 +78,7 @@ vi.mock('../routing-service', () => ({
           materialSourceLocationId: null,
           outputLocationId: 'loc-1',
           bom: { id: 'bom-1', outputQuantity: 1, items: [{ productVariantId: 'raw-1', quantity: 1, scrapPercentage: 2 }] },
-          process: { id: 'proc-1', code: 'INNER_PACKING', name: 'Inner Packing' },
+          process: { id: 'proc-1', code: 'INNER_PACKING', name: 'Inner Packing', executionMode: 'INDIVIDUAL_OUTPUT' },
         },
         {
           id: 'step-2',
@@ -86,7 +90,7 @@ vi.mock('../routing-service', () => ({
           materialSourceLocationId: 'loc-1',
           outputLocationId: 'loc-2',
           bom: { id: 'bom-2', outputQuantity: 1, items: [{ productVariantId: 'wip-1', quantity: 1 }] },
-          process: { id: 'proc-2', code: 'STERILIZATION', name: 'Sterilization' },
+          process: { id: 'proc-2', code: 'STERILIZATION', name: 'Sterilization', executionMode: 'MATERIAL_CONVERSION' },
         },
       ],
       productVariant: { skuCode: 'FG' },
@@ -197,6 +201,55 @@ describe('ProductionRoutingRunService', () => {
     } as never);
     expect(result).toBeDefined();
     expect((result as { runNumber: string }).runNumber).toBeDefined();
+  });
+
+  it('createRun copies INDIVIDUAL_OUTPUT from process to order snapshot', async () => {
+    await ProductionRoutingRunService.createRun({ routeId: 'route-1', plannedQuantity: 10000 } as never);
+    const orderData = mockOrderNumber.createProductionOrderWithGeneratedNumber.mock.calls.map(
+      ([, data]) => data as Record<string, unknown>,
+    );
+    const packing = orderData.find((o) => o.processCodeSnapshot === 'INNER_PACKING');
+    expect(packing?.executionModeSnapshot).toBe('INDIVIDUAL_OUTPUT');
+  });
+
+  it('createRun copies MATERIAL_CONVERSION from process to order snapshot', async () => {
+    await ProductionRoutingRunService.createRun({ routeId: 'route-1', plannedQuantity: 10000 } as never);
+    const orderData = mockOrderNumber.createProductionOrderWithGeneratedNumber.mock.calls.map(
+      ([, data]) => data as Record<string, unknown>,
+    );
+    const steril = orderData.find((o) => o.processCodeSnapshot === 'STERILIZATION');
+    expect(steril?.executionModeSnapshot).toBe('MATERIAL_CONVERSION');
+  });
+
+  it('createRun defaults snapshot to GENERIC when process has no explicit mode', async () => {
+    const routing = await import('../routing-service');
+    (routing.ProductionRoutingService.getRouteById as MockFn).mockResolvedValueOnce({
+      id: 'route-legacy',
+      status: 'ACTIVE',
+      version: 1,
+      name: 'Legacy Route',
+      productVariantId: 'fg-id',
+      steps: [
+        {
+          id: 'step-legacy',
+          sequence: 0,
+          stepCode: 'LEGACY',
+          label: 'Legacy Step',
+          processId: 'proc-legacy',
+          bomId: 'bom-1',
+          materialSourceLocationId: null,
+          outputLocationId: 'loc-1',
+          bom: { id: 'bom-1', outputQuantity: 1, items: [{ productVariantId: 'raw-1', quantity: 1 }] },
+          process: { id: 'proc-legacy', code: 'LEGACY', name: 'Legacy' },
+        },
+      ],
+      productVariant: { skuCode: 'FG' },
+    } as never);
+    await ProductionRoutingRunService.createRun({ routeId: 'route-legacy', plannedQuantity: 100 } as never);
+    const orderData = mockOrderNumber.createProductionOrderWithGeneratedNumber.mock.calls.map(
+      ([, data]) => data as Record<string, unknown>,
+    );
+    expect(orderData[0].executionModeSnapshot).toBeUndefined();
   });
 
   it('getRunById not found throws', async () => {

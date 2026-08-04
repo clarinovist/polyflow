@@ -201,18 +201,9 @@ async function processOutputAndBackflush(params: {
         additionalScrapQty = 0,
     } = params;
 
-    const currentOrder = await tx.productionOrder.findUniqueOrThrow({
-        where: { id: productionOrderId },
-    });
-
-    const newTotal =
-        (currentOrder.actualQuantity
-            ? Number(currentOrder.actualQuantity)
-            : 0) + resolvedBaseQty;
-
     const order = await tx.productionOrder.update({
         where: { id: productionOrderId },
-        data: { actualQuantity: newTotal },
+        data: { actualQuantity: { increment: resolvedBaseQty } },
         include: {
             bom: {
                 include: {

@@ -851,3 +851,236 @@ describe('ProductionExecutionService.addProductionOutput', () => {
         expect(tx.productionExecution.create).toHaveBeenCalled();
     });
 });
+
+describe('ProductionExecutionService.logRunningOutput - multi-operator attribution and atomic totals', () => {
+    const shellExecution = {
+        id: 'exec-shell',
+        productionOrderId: 'po-1',
+        machineId: 'machine-1',
+        operatorId: 'op-shell',
+        shiftId: 'shift-1',
+        enteredQuantity: null,
+        enteredUnit: null,
+        notes: null,
+    };
+    const fullOrder = {
+        id: 'po-1',
+        orderNumber: 'WO-001',
+        actualQuantity: 100,
+        plannedQuantity: 200,
+        isMaklon: false,
+        locationId: 'loc-1',
+        bom: { productVariantId: 'pv-1', items: [], outputQuantity: 1 },
+        plannedMaterials: [],
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue(shellExecution as never);
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue(null);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue(fullOrder as never);
+        vi.mocked(tx.productionOrder.findUnique).mockResolvedValue({
+            id: 'po-1',
+            productionRunId: null,
+        } as never);
+    });
+
+    it('records each operator output as a separate execution with its own operatorId on the same SPK', async () => {
+        vi.mocked(tx.productionExecution.create)
+            .mockResolvedValueOnce({ id: 'exec-a' } as never)
+            .mockResolvedValueOnce({ id: 'exec-b' } as never);
+
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-shell',
+            quantityProduced: 55,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            shiftId: undefined,
+            operatorId: 'op-abrar',
+            userId: 'user-1',
+        });
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-shell',
+            quantityProduced: 48,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            shiftId: undefined,
+            operatorId: 'op-idris',
+            userId: 'user-1',
+        });
+
+        expect(tx.productionExecution.create).toHaveBeenCalledTimes(2);
+        expect(tx.productionExecution.create).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    operatorId: 'op-abrar',
+                    status: 'COMPLETED',
+                }),
+            }),
+        );
+        expect(tx.productionExecution.create).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    operatorId: 'op-idris',
+                    status: 'COMPLETED',
+                }),
+            }),
+        );
+    });
+
+    it('adds actualQuantity atomically via increment, not by overwriting a stale total', async () => {
+        // Both submits read the same stale actualQuantity (100) — simulates two
+        // operators writing near-simultaneously. Read-then-set would write 150
+        // twice (lost update, final 150). Atomic increment must yield 200.
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            ...fullOrder,
+            actualQuantity: 100,
+        } as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-a' } as never);
+
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-shell',
+            quantityProduced: 50,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            shiftId: undefined,
+            operatorId: 'op-abrar',
+            userId: 'user-1',
+        });
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-shell',
+            quantityProduced: 50,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            shiftId: undefined,
+            operatorId: 'op-idris',
+            userId: 'user-1',
+        });
+
+        expect(tx.productionOrder.update).toHaveBeenCalledTimes(2);
+        expect(tx.productionOrder.update).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                where: { id: 'po-1' },
+                data: { actualQuantity: { increment: 50 } },
+            }),
+        );
+        expect(tx.productionOrder.update).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                where: { id: 'po-1' },
+                data: { actualQuantity: { increment: 50 } },
+            }),
+        );
+    });
+
+    it('keeps backflush and FG output to exactly once per execution under concurrent submits', async () => {
+        const { backflushMaterials, recordFinishedGoodsOutput } = await import('../execution-helpers');
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-a' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            ...fullOrder,
+            actualQuantity: 100,
+        } as never);
+
+        await Promise.all([
+            ProductionExecutionService.logRunningOutput({
+                executionId: 'exec-shell',
+                quantityProduced: 25,
+                scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
+                notes: '',
+                shiftId: undefined,
+                operatorId: 'op-a',
+                userId: 'user-1',
+            }),
+            ProductionExecutionService.logRunningOutput({
+                executionId: 'exec-shell',
+                quantityProduced: 30,
+                scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
+                notes: '',
+                shiftId: undefined,
+                operatorId: 'op-b',
+                userId: 'user-1',
+            }),
+        ]);
+
+        expect(tx.productionExecution.create).toHaveBeenCalledTimes(2);
+        expect(backflushMaterials).toHaveBeenCalledTimes(2);
+        expect(recordFinishedGoodsOutput).toHaveBeenCalledTimes(2);
+    });
+
+    // Phase 1.2 — running shell is NOT an output attribution source.
+    // Completed executions carry the kiosk operatorId; shell sync (line ~560)
+    // is metadata only and must never mutate a completed execution's qty or operator.
+    it('does not let shell sync overwrite a completed execution output', async () => {
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-shell',
+            productionOrderId: 'po-1',
+            machineId: 'machine-1',
+            operatorId: 'op-original',
+            shiftId: 'shift-1',
+            enteredQuantity: null,
+            enteredUnit: null,
+            notes: null,
+        } as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            ...fullOrder,
+            actualQuantity: 100,
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        // Operator B submits on a shell that originally had op-original.
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-shell',
+            quantityProduced: 25,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            shiftId: undefined,
+            operatorId: 'op-b',
+            userId: 'user-1',
+        });
+
+        // New execution carries kiosk operator (op-b), qty 25.
+        const newExecCall = vi.mocked(tx.productionExecution.create).mock.calls[0][0] as {
+            data: { operatorId: string; quantityProduced: number; status: string };
+        };
+        expect(newExecCall.data.operatorId).toBe('op-b');
+        expect(newExecCall.data.quantityProduced).toBe(25);
+
+        // Shell update is metadata-only (operatorId/shiftId) and must NOT set
+        // quantityProduced/status on the running shell.
+        const shellUpdateCall = vi.mocked(tx.productionExecution.update).mock.calls.find(
+            (c: { 0: { where: { id: string } } }) => c[0].where.id === 'exec-shell',
+        );
+        if (shellUpdateCall) {
+            const data = (shellUpdateCall[0] as { data: Record<string, unknown> }).data;
+            expect(data.quantityProduced).toBeUndefined();
+            expect(data.status).toBeUndefined();
+        }
+
+        // Final order qty is result of atomic increment from op-b's submit only (100 + 25 = 125).
+        expect(tx.productionOrder.update).toHaveBeenNthCalledWith(
+            vi.mocked(tx.productionOrder.update).mock.calls.length,
+            expect.objectContaining({
+                where: { id: 'po-1' },
+                data: { actualQuantity: { increment: 25 } },
+            }),
+        );
+    });
+});

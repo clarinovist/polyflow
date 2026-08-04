@@ -33,6 +33,10 @@ import { Unit } from '@prisma/client';
 import { kioskLabels } from '@/lib/labels';
 import { CameraCapture } from '@/components/ui/camera-capture';
 import { KioskStepHeader } from '@/components/kiosk/KioskStepHeader';
+import {
+    resolveKioskMode,
+    computeMaterialPreview,
+} from '@/lib/production/rewinder-workflow';
 
 interface ShiftInfo {
     id: string;
@@ -53,6 +57,19 @@ interface KioskLogOutputDialogProps {
     operatorId?: string;
     orderHelpers?: Array<{ id: string; name: string }>;
     shifts?: ShiftInfo[];
+    executionModeSnapshot?: string | null;
+    processNameSnapshot?: string | null;
+    bomOutputQuantity?: unknown;
+    bomItems?: Array<{
+        id: string;
+        quantity: number;
+        productVariant: {
+            id: string;
+            name: string;
+            skuCode: string;
+            primaryUnit?: string | null;
+        };
+    }>;
     onSuccess?: () => void;
 }
 
@@ -92,6 +109,10 @@ export function KioskLogOutputDialog({
     operatorId,
     orderHelpers = [],
     shifts = [],
+    executionModeSnapshot = null,
+    processNameSnapshot = null,
+    bomOutputQuantity,
+    bomItems = [],
     onSuccess,
 }: KioskLogOutputDialogProps) {
     const [step, setStep] = useState(0);
@@ -156,11 +177,46 @@ export function KioskLogOutputDialog({
         conversionFactor,
     });
 
-    const helperIds = orderHelpers
-        .filter((h) => h.id !== operatorId)
-        .map((h) => h.id);
+    const mode = resolveKioskMode(executionModeSnapshot);
 
+    // GENERIC keeps legacy behavior (auto-fill order helpers except the kiosk
+    // operator). Individual/conversion modes record operator-attributed output,
+    // so helpers stay empty unless explicitly chosen.
+    const helperIds =
+        mode === 'GENERIC'
+            ? orderHelpers
+                  .filter((h) => h.id !== operatorId)
+                  .map((h) => h.id)
+            : [];
+
+    // ── BOM ratio preview (MATERIAL_CONVERSION only) ──
+    // Pick the single BOM item whose input unit differs from the output unit.
+    // Ambiguous (none or several) → null → submit blocked, no ratio-1 fallback.
     const qtyNum = parseFloat(quantity) || 0;
+    const outputUnit = unitMeta.displayUnit;
+    const ratioItem = (() => {
+        if (mode !== 'MATERIAL_CONVERSION' || bomItems.length === 0) return null;
+        const outQty = Number(bomOutputQuantity);
+        const candidates = bomItems.filter((it) => {
+            const itemQty = Number(it.quantity);
+            return (
+                itemQty > 0 &&
+                outQty > 0 &&
+                it.productVariant.primaryUnit !== outputUnit
+            );
+        });
+        return candidates.length === 1 ? candidates[0] : null;
+    })();
+    const materialPreview =
+        mode === 'MATERIAL_CONVERSION' && ratioItem
+            ? computeMaterialPreview(
+                  qtyNum,
+                  Number(bomOutputQuantity),
+                  Number(ratioItem.quantity),
+                  ratioItem.productVariant.primaryUnit || 'PCS',
+              )
+            : null;
+
     const prongkolNum = parseFloat(scrapProngkol) || 0;
     const daunNum = parseFloat(scrapDaun) || 0;
     const totalScrap = prongkolNum + daunNum;
@@ -214,6 +270,18 @@ export function KioskLogOutputDialog({
             : qtyNum;
 
         const effectiveShiftId = selectedShiftId || autoSelectedShift?.id;
+
+        // Shift wajib untuk mode non-generik (individual/conversion)
+        if (mode !== 'GENERIC' && !effectiveShiftId) {
+            toast.error(kioskLabels.shiftWajibMessage);
+            return;
+        }
+
+        // MATERIAL_CONVERSION: BOM ambigu/invalid → block, no ratio-1 fallback
+        if (mode === 'MATERIAL_CONVERSION' && qtyNum > 0 && !materialPreview) {
+            toast.error(kioskLabels.bomInvalidMessage);
+            return;
+        }
 
         setIsLoading(true);
         try {
@@ -425,7 +493,11 @@ export function KioskLogOutputDialog({
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-xl">
-                        {kioskLabels.logOutput}: {productName}
+                        {mode === 'GENERIC'
+                            ? `${kioskLabels.logOutput}: ${productName}`
+                            : `${kioskLabels.logOutputModeTitle} ${
+                                  processNameSnapshot || productName
+                              }`}
                     </DialogTitle>
                     <DialogDescription className="sr-only">
                         Wizard catat hasil produksi
@@ -450,8 +522,11 @@ export function KioskLogOutputDialog({
                                     htmlFor="log-quantity"
                                     className="text-base font-semibold"
                                 >
-                                    {kioskLabels.wizardQtyLabel} (
-                                    {unitMeta.displayUnit})
+                                    {mode === 'GENERIC'
+                                        ? `${kioskLabels.wizardQtyLabel} (${unitMeta.displayUnit})`
+                                        : mode === 'MATERIAL_CONVERSION'
+                                          ? `${kioskLabels.logOutput} (${unitMeta.displayUnit})`
+                                          : `${kioskLabels.qtyIndividualLabel} (${unitMeta.displayUnit})`}
                                 </Label>
                                 <Input
                                     id="log-quantity"
@@ -472,6 +547,36 @@ export function KioskLogOutputDialog({
                                         {unitMeta.primaryUnit}
                                     </p>
                                 )}
+                                {mode === 'MATERIAL_CONVERSION' && ratioItem && (
+                                    <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-1">
+                                        <p className="text-xs font-semibold text-violet-800">
+                                            {kioskLabels.bomStandardLabel}:{' '}
+                                            {Number(
+                                                ratioItem.quantity,
+                                            ).toLocaleString('id-ID')}{' '}
+                                            {
+                                                ratioItem.productVariant
+                                                    .primaryUnit
+                                            }{' '}
+                                            / {Number(bomOutputQuantity)} {outputUnit}
+                                        </p>
+                                        {materialPreview && (
+                                            <p className="text-sm font-bold text-violet-900">
+                                                {kioskLabels.bomWipPreviewLabel}:{' '}
+                                                {materialPreview.requiredQty.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                {materialPreview.unit}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                {mode === 'MATERIAL_CONVERSION' &&
+                                    !ratioItem && (
+                                        <p className="text-xs text-amber-600 font-medium">
+                                            {kioskLabels.bomInvalidMessage}
+                                        </p>
+                                    )}
                             </div>
                         </div>
                     )}
@@ -698,6 +803,53 @@ export function KioskLogOutputDialog({
                                         {notes}
                                     </div>
                                 )}
+                                {mode === 'INDIVIDUAL_OUTPUT' && (
+                                    <div className="text-sm text-blue-800">
+                                        <span className="font-bold">
+                                            {
+                                                kioskLabels
+                                                    .wizardSummaryIndividualTitle
+                                            }
+                                            :
+                                        </span>{' '}
+                                        {qtyNum.toLocaleString('id-ID')}{' '}
+                                        {unitMeta.displayUnit}{' '}
+                                        {
+                                            kioskLabels
+                                                .wizardSummaryIndividualDesc
+                                        }
+                                    </div>
+                                )}
+                                {mode === 'MATERIAL_CONVERSION' && ratioItem && (
+                                    <div className="text-sm space-y-1">
+                                        <p>
+                                            <span className="font-semibold">
+                                                {kioskLabels.bomStandardLabel}:
+                                            </span>{' '}
+                                            {Number(
+                                                ratioItem.quantity,
+                                            ).toLocaleString('id-ID')}{' '}
+                                            {
+                                                ratioItem.productVariant
+                                                    .primaryUnit
+                                            }{' '}
+                                            / {Number(bomOutputQuantity)}{' '}
+                                            {outputUnit}
+                                        </p>
+                                        {materialPreview && (
+                                            <p>
+                                                <span className="font-semibold">
+                                                    {kioskLabels.bomWipPreviewLabel}
+                                                    :
+                                                </span>{' '}
+                                                {materialPreview.requiredQty.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                {materialPreview.unit}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Shift picker — shown when shifts exist */}
@@ -757,8 +909,8 @@ export function KioskLogOutputDialog({
                                 </div>
                             )}
 
-                            {/* Helpers */}
-                            {orderHelpers.length > 0 && (
+                            {/* Helpers — legacy generic mode only */}
+                            {mode === 'GENERIC' && orderHelpers.length > 0 && (
                                 <div className="space-y-2">
                                     <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                                         <Users className="h-4 w-4" />

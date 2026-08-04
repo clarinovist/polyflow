@@ -749,6 +749,7 @@ model ProductionOrder {
   routeSequenceSnapshot           Int?
   processCodeSnapshot             String?
   processNameSnapshot             String?
+  executionModeSnapshot           ProductionExecutionMode? @default(GENERIC)
   materialSourceLocationId        String?
   maklonCustomer                  Customer?             @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   maklonCostItems                 MaklonCostItem[]
@@ -787,9 +788,10 @@ model ProductionProcess {
   code                String   @unique
   name                String
   description         String?
-  requiresMachine     Boolean  @default(false)
-  requiresQualityGate Boolean  @default(false)
-  isActive            Boolean  @default(true)
+  requiresMachine     Boolean                  @default(false)
+  requiresQualityGate Boolean                  @default(false)
+  executionMode       ProductionExecutionMode  @default(GENERIC)
+  isActive            Boolean                  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -2079,6 +2081,12 @@ enum ProductionPriority {
   URGENT
   NORMAL
   LOW
+}
+
+enum ProductionExecutionMode {
+  GENERIC
+  INDIVIDUAL_OUTPUT
+  MATERIAL_CONVERSION
 }
 
 enum InspectionResult {

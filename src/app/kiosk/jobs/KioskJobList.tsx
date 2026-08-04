@@ -17,6 +17,8 @@ export interface Order {
     plannedQuantity: number;
     actualQuantity: number | null;
     status: string;
+    executionModeSnapshot?: string | null;
+    processNameSnapshot?: string | null;
     bom: {
         productVariant: {
             name: string;
@@ -142,15 +144,19 @@ export default function KioskJobList({
     const getFilteredOrders = () => {
         let filtered = initialOrders;
 
+        // Operator machine assignment auto-filter — but SPK tanpa mesin
+        // (manual process seperti baling) tetap tampil untuk operator yang sah.
         if (selectedOperatorId && operatorMachineIds.length > 0) {
             filtered = filtered.filter(
                 (order) =>
-                    order.machine &&
+                    !order.machine ||
                     operatorMachineIds.includes(order.machine.id),
             );
         }
 
-        if (selectedMachineId && selectedMachineId !== 'ALL') {
+        if (selectedMachineId === 'MANUAL') {
+            filtered = filtered.filter((order) => !order.machine);
+        } else if (selectedMachineId && selectedMachineId !== 'ALL') {
             filtered = filtered.filter(
                 (order) => order.machine?.id === selectedMachineId,
             );
@@ -294,7 +300,8 @@ export default function KioskJobList({
                                 setSelectedMachineId(e.target.value)
                             }
                         >
-                            <option value="ALL">-- SEMUA MESIN --</option>
+                            <option value="ALL">-- SEMUA SPK --</option>
+                            <option value="MANUAL">-- PROSES MANUAL --</option>
                             {availableMachines.map((m) => (
                                 <option key={m.id} value={m.id}>
                                     {m.name}

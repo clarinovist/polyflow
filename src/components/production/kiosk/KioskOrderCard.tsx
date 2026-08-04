@@ -14,6 +14,7 @@ import {
 } from '@/lib/utils/production-units';
 import { kioskLabels } from '@/lib/labels';
 import { getStatusLabel } from '@/lib/labels/helpers';
+import { resolveKioskMode } from '@/lib/production/rewinder-workflow';
 
 interface ProductionOrder {
     id: string;
@@ -24,6 +25,8 @@ interface ProductionOrder {
     plannedConversionFactorSnapshot?: number | null;
     actualQuantity: number | null;
     status: string;
+    executionModeSnapshot?: string | null;
+    processNameSnapshot?: string | null;
     bom: {
         productVariant: {
             name: string;
@@ -64,6 +67,13 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
 
     const activeExecution = order.executions.find((e) => !e.endTime);
     const isRunning = !!activeExecution;
+    const mode = resolveKioskMode(order.executionModeSnapshot);
+    const modeBadge =
+        mode === 'INDIVIDUAL_OUTPUT'
+            ? { label: kioskLabels.modeIndividualBadge, cls: 'text-blue-700 border-blue-300 bg-blue-50' }
+            : mode === 'MATERIAL_CONVERSION'
+              ? { label: kioskLabels.modeMaterialBadge, cls: 'text-violet-700 border-violet-300 bg-violet-50' }
+              : null;
 
     const handleStart = async (e: React.MouseEvent) => {
         e.preventDefault();
@@ -111,14 +121,24 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
         >
             <div className="p-3 md:p-4 pb-2 border-b-0 space-y-2">
                 <div className="flex justify-between items-start">
-                    <Badge
-                        variant={isRunning ? 'default' : 'secondary'}
-                        className={`${isRunning ? 'bg-emerald-600 animate-pulse' : ''} text-[10px] md:text-sm`}
-                    >
-                        {isRunning
-                            ? kioskLabels.running.toUpperCase()
-                            : getStatusLabel(order.status, 'production')}
-                    </Badge>
+                    <div className="flex items-center gap-1 flex-wrap">
+                        <Badge
+                            variant={isRunning ? 'default' : 'secondary'}
+                            className={`${isRunning ? 'bg-emerald-600 animate-pulse' : ''} text-[10px] md:text-sm`}
+                        >
+                            {isRunning
+                                ? kioskLabels.running.toUpperCase()
+                                : getStatusLabel(order.status, 'production')}
+                        </Badge>
+                        {modeBadge && (
+                            <Badge
+                                variant="outline"
+                                className={`text-[10px] md:text-xs ${modeBadge.cls}`}
+                            >
+                                {modeBadge.label.toUpperCase()}
+                            </Badge>
+                        )}
+                    </div>
                     <span className="text-xs text-muted-foreground font-mono">
                         {order.orderNumber}
                     </span>

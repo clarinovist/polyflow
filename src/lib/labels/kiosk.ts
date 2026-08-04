@@ -49,6 +49,24 @@ export const kioskLabels = {
     focusStop: 'Hentikan',
     focusLogTerakhir: 'Log Terakhir',
 
+    // Execution mode (capability-driven kiosk behavior)
+    modeIndividualBadge: 'Hasil Individu',
+    modeMaterialBadge: 'Konversi Material',
+    process: 'Proses',
+    shiftRekapTitle: 'Rekap Shift',
+    shiftMyTotal: 'Hasil Saya',
+    shiftOrderTotal: 'Total SPK',
+    shiftRecentLogs: '3 Log Terakhir',
+    logOutputModeTitle: 'Catat Hasil',
+    qtyIndividualLabel: 'Hasil Saya',
+    bomStandardLabel: 'Standar BOM',
+    bomWipPreviewLabel: 'Perkiraan WIP Terpakai',
+    bomInvalidMessage:
+        'BOM tidak valid — periksa standar BOM SPK sebelum menyimpan',
+    shiftWajibMessage: 'Shift wajib dipilih sebelum menyimpan hasil',
+    wizardSummaryIndividualTitle: 'Hasil Saya',
+    wizardSummaryIndividualDesc: 'akan ditambahkan sebagai hasil Anda',
+
     // Wizard catat hasil
     wizardStepQty: 'Qty Bagus',
     wizardStepScrap: 'Scrap',

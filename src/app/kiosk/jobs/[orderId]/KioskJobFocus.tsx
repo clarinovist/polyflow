@@ -24,6 +24,10 @@ import {
 } from '@/lib/utils/production-units';
 import { kioskLabels } from '@/lib/labels';
 import { getStatusLabel } from '@/lib/labels/helpers';
+import {
+    resolveKioskMode,
+    type ProductionExecutionMode,
+} from '@/lib/production/rewinder-workflow';
 
 export interface Order {
     id: string;
@@ -34,7 +38,11 @@ export interface Order {
     plannedConversionFactorSnapshot?: number | null;
     actualQuantity: number | null;
     status: string;
+    executionModeSnapshot?: string | null;
+    processCodeSnapshot?: string | null;
+    processNameSnapshot?: string | null;
     bom: {
+        outputQuantity?: unknown;
         productVariant: {
             name: string;
             skuCode: string;
@@ -42,6 +50,16 @@ export interface Order {
             salesUnit?: string | null;
             conversionFactor?: unknown;
         };
+        items?: Array<{
+            id: string;
+            quantity: number;
+            productVariant: {
+                id: string;
+                name: string;
+                skuCode: string;
+                primaryUnit?: string | null;
+            };
+        }>;
     };
     machine?: {
         id: string;
@@ -51,6 +69,14 @@ export interface Order {
         id: string;
         startTime: Date;
         endTime: Date | null;
+        createdAt?: string;
+        status?: string;
+        quantityProduced?: number | null;
+        enteredUnit?: string | null;
+        operatorId?: string | null;
+        shiftId?: string | null;
+        operator?: { name: string } | null;
+        shift?: { shiftName: string } | null;
     }>;
     outputLogs?: Array<{
         id: string;
@@ -103,6 +129,11 @@ export default function KioskJobFocus({
             : undefined);
     const isRunning = !!activeExecution;
     const unitMeta = getProductionUnitMeta(order.bom.productVariant);
+
+    const mode: ProductionExecutionMode = resolveKioskMode(
+        order.executionModeSnapshot,
+    );
+    const processName = order.processNameSnapshot || null;
 
     // Hydrate operator from sessionStorage
     useEffect(() => {
@@ -178,6 +209,41 @@ export default function KioskJobFocus({
 
     const recentLogs = (order.outputLogs || []).slice(0, 3);
 
+    // ── Rekap shift: aggregate completed executions of the selected shift ──
+    const selectedShift =
+        shifts.length === 0
+            ? null
+            : (() => {
+                  const now = Date.now();
+                  const isActive = (s: Shift) => {
+                      const start = new Date(s.startTime).getTime();
+                      const end = new Date(s.endTime).getTime();
+                      return now >= start && now <= end;
+                  };
+                  const byOperator = shifts.find(
+                      (s) => s.operatorId === operatorId && isActive(s),
+                  );
+                  if (byOperator) return byOperator;
+                  const anyActive = shifts.find(isActive);
+                  if (anyActive) return anyActive;
+                  return shifts[shifts.length - 1];
+              })();
+
+    const shiftExecutions = (order.executions || []).filter(
+        (e) =>
+            e.endTime &&
+            e.status !== 'VOIDED' &&
+            e.shiftId === selectedShift?.id,
+    );
+    const myShiftTotal = shiftExecutions
+        .filter((e) => e.operatorId === operatorId)
+        .reduce((sum, e) => sum + Number(e.quantityProduced || 0), 0);
+    const orderShiftTotal = shiftExecutions.reduce(
+        (sum, e) => sum + Number(e.quantityProduced || 0),
+        0,
+    );
+    const shiftLogs = shiftExecutions.slice(0, 3);
+
     // Progress numbers must match displayUnit (convert base → sales when alternate unit)
     const actualBase = order.actualQuantity || 0;
     const targetBase = order.plannedQuantity;
@@ -232,6 +298,22 @@ export default function KioskJobFocus({
                                 ? kioskLabels.running.toUpperCase()
                                 : getStatusLabel(order.status, 'production')}
                         </Badge>
+                        {mode === 'INDIVIDUAL_OUTPUT' && (
+                            <Badge
+                                variant="outline"
+                                className="text-[10px] text-blue-700 border-blue-300 bg-blue-50"
+                            >
+                                {kioskLabels.modeIndividualBadge.toUpperCase()}
+                            </Badge>
+                        )}
+                        {mode === 'MATERIAL_CONVERSION' && (
+                            <Badge
+                                variant="outline"
+                                className="text-[10px] text-violet-700 border-violet-300 bg-violet-50"
+                            >
+                                {kioskLabels.modeMaterialBadge.toUpperCase()}
+                            </Badge>
+                        )}
                     </div>
                 </div>
             </div>
@@ -245,6 +327,14 @@ export default function KioskJobFocus({
                 </h1>
 
                 <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-6">
+                    {processName && (
+                        <span className="flex items-center gap-1">
+                            <span className="font-semibold">
+                                {kioskLabels.process}:
+                            </span>{' '}
+                            {processName}
+                        </span>
+                    )}
                     {order.machine && (
                         <span className="flex items-center gap-1">
                             <span className="font-semibold">
@@ -258,6 +348,10 @@ export default function KioskJobFocus({
                             {kioskLabels.operator}:
                         </span>{' '}
                         {operatorId ? 'Anda' : '-'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <span className="font-semibold">Satuan:</span>{' '}
+                        {unitMeta.displayUnit}
                     </span>
                 </div>
 
@@ -322,6 +416,75 @@ export default function KioskJobFocus({
                 )}
             </div>
 
+            {/* Rekap shift */}
+            {selectedShift && (
+                <div className="bg-muted/30 border rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                            {kioskLabels.shiftRekapTitle} ·{' '}
+                            {selectedShift.shiftName}
+                        </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-background rounded-lg border p-3">
+                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                {kioskLabels.shiftMyTotal}
+                            </span>
+                            <span className="font-black text-lg text-blue-700">
+                                {myShiftTotal.toLocaleString('id-ID')}{' '}
+                                {unitMeta.displayUnit}
+                            </span>
+                        </div>
+                        <div className="bg-background rounded-lg border p-3">
+                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                {kioskLabels.shiftOrderTotal}
+                            </span>
+                            <span className="font-black text-lg text-emerald-600">
+                                {orderShiftTotal.toLocaleString('id-ID')}{' '}
+                                {unitMeta.displayUnit}
+                            </span>
+                        </div>
+                    </div>
+                    {shiftLogs.length > 0 && (
+                        <div className="space-y-2">
+                            <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
+                                {kioskLabels.shiftRecentLogs}
+                            </span>
+                            {shiftLogs.map((log) => (
+                                <div
+                                    key={log.id}
+                                    className="flex items-center justify-between p-2 bg-background rounded-lg text-sm"
+                                >
+                                    <div className="min-w-0">
+                                        <span className="font-bold text-emerald-600">
+                                            +{Number(
+                                                log.quantityProduced || 0,
+                                            ).toLocaleString('id-ID')}{' '}
+                                            {log.enteredUnit ||
+                                                unitMeta.displayUnit}
+                                        </span>
+                                        <span className="ml-2 text-xs text-muted-foreground">
+                                            {log.operator?.name || '-'}
+                                            {log.shift?.shiftName &&
+                                                ` · ${log.shift.shiftName}`}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground font-mono shrink-0">
+                                        {new Date(
+                                            log.createdAt ||
+                                                log.startTime,
+                                        ).toLocaleTimeString('id-ID', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Recent logs */}
             {recentLogs.length > 0 && (
                 <div className="bg-muted/30 border rounded-xl p-4">
@@ -378,6 +541,14 @@ export default function KioskJobFocus({
                         operatorId={operatorId || undefined}
                         orderHelpers={order.helpers}
                         shifts={shifts}
+                        executionModeSnapshot={
+                            order.executionModeSnapshot ?? null
+                        }
+                        processNameSnapshot={
+                            order.processNameSnapshot ?? null
+                        }
+                        bomOutputQuantity={order.bom.outputQuantity}
+                        bomItems={order.bom.items || []}
                         onSuccess={() => router.refresh()}
                     />
                 </>

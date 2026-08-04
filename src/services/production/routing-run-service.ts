@@ -252,6 +252,7 @@ export class ProductionRoutingRunService {
                 routeSequenceSnapshot: step.sequence,
                 processCodeSnapshot: step.process.code,
                 processNameSnapshot: step.process.name,
+                executionModeSnapshot: step.process.executionMode,
                 ...(step.materialSourceLocationId ? { sourceLocation: { connect: { id: step.materialSourceLocationId } } } : {}),
                 ...(data.salesOrderId ? { salesOrder: { connect: { id: data.salesOrderId } } } : {}),
                 ...(data.createdById ? { createdBy: { connect: { id: data.createdById } } } : {}),
