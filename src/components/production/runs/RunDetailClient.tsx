@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { cancelProductionRun, getRunCost, getRunReadiness, checkRunRmAvailability } from '@/actions/production/production-runs';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
+import { RouteFlowChain, type RouteFlowChainStep } from '@/components/production/routing/RouteFlowChain';
 
 type RunDetail = {
   id: string;
@@ -124,34 +125,26 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Timeline Route + Readiness</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {run.route?.steps?.map((s, idx) => {
-              const order = run.orders.find((o) => o.routeSequenceSnapshot === idx || o.processCodeSnapshot === s.stepCode);
-              const r = order ? readinessMap.get(order.id) : undefined;
-              const statusColor = order?.status === 'COMPLETED' ? 'bg-green-100 text-green-800 border-green-200' : order?.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800 border-blue-200' : order?.status === 'CANCELLED' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-600 border-gray-200';
-              const readinessLabel = r ? (r.canStart ? (r.status === 'FIRST_STEP' ? 'FIRST' : r.status === 'READY' ? 'SIAP' : 'PARTIAL') : r.status) : '—';
-              return (
-                <div key={idx} className={`p-3 rounded border min-w-[200px] ${statusColor}`}>
-                  <div className="font-semibold text-sm">{idx + 1}. {s.label}</div>
-                  <div className="text-xs">{s.stepCode} · {s.process?.code ?? ''}</div>
-                  {order && (
-                    <div className="text-xs mt-1 space-y-0.5">
-                      <div>{order.orderNumber} · {order.status}</div>
-                      <div>{String(order.plannedQuantity)} → {order.actualQuantity ? String(order.actualQuantity) : '-'}</div>
-                      <div>Readiness: <Badge variant="outline" className="text-[10px]">{readinessLabel}</Badge> avail {r?.available ?? '-'}</div>
-                      {r?.reason && <div className="text-[10px] text-amber-700">{r.reason}</div>}
-                      {order.machine && <div>Mesin: {order.machine.name}</div>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      {run.route?.steps && run.route.steps.length > 0 && (
+        <RouteFlowChain
+          title="Timeline Route + Readiness"
+          steps={(run.route.steps.map((s, idx) => {
+            const order = run.orders.find((o) => o.routeSequenceSnapshot === idx || o.processCodeSnapshot === s.stepCode);
+            const r = order ? readinessMap.get(order.id) : undefined;
+            const readinessLabel = r ? (r.canStart ? (r.status === 'FIRST_STEP' ? 'FIRST' : r.status === 'READY' ? 'SIAP' : 'PARTIAL') : r.status) : '—';
+            return {
+              label: s.label,
+              stepCode: s.stepCode,
+              processCode: s.process?.code ?? '',
+              outputSkuLabel: order ? `${order.orderNumber} · ${String(order.plannedQuantity)}→${order.actualQuantity ? String(order.actualQuantity) : '-'}` : s.stepCode,
+              outputLocationName: order?.location?.name ?? undefined,
+              status: (order?.status ?? r?.status ?? undefined) as RouteFlowChainStep['status'],
+              readinessLabel: order ? `${readinessLabel} avail ${r?.available ?? '-'}${r?.reason ? ` · ${r.reason}` : ''}${order.machine ? ` · Mesin ${order.machine.name}` : ''}` : undefined,
+              extraLine: undefined,
+            } as RouteFlowChainStep;
+          }) as RouteFlowChainStep[])}
+        />
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">SPK Tahapan</CardTitle></CardHeader>

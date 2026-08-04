@@ -100,6 +100,7 @@ vi.mock('../routing-service', () => ({
 }));
 
 import { ProductionRoutingRunService } from '../routing-run-service';
+import { ProductionRoutingService } from '../routing-service';
 
 describe('ProductionRoutingRunService', () => {
   beforeEach(() => {
@@ -183,6 +184,50 @@ describe('ProductionRoutingRunService', () => {
     // step 0: upstream BOM item qty=2, scrap=5% → 100 * (2/1) * 1.05 = 210
     expect(map.get(1)).toBe(100);
     expect(map.get(0)).toBe(210);
+  });
+
+  it('previewRunQuantities returns per-step qty scaled from final FG qty', async () => {
+    (ProductionRoutingService.getRouteById as MockFn).mockResolvedValueOnce({
+      id: 'route-preview',
+      status: 'ACTIVE',
+      steps: [
+        {
+          sequence: 0,
+          label: 'Mix',
+          stepCode: 'MIX',
+          process: { code: 'MIX' },
+          bom: { name: 'BOM WIP', outputQuantity: 1, productVariantId: 'wip', items: [{ productVariantId: 'rm' }] },
+        },
+        {
+          sequence: 1,
+          label: 'Extrude',
+          stepCode: 'EXTRUDE',
+          process: { code: 'EXTRUDE' },
+          bom: { name: 'BOM FG', outputQuantity: 1, productVariantId: 'fg', items: [{ productVariantId: 'wip' }] },
+        },
+      ],
+    } as never);
+
+    const preview = await ProductionRoutingRunService.previewRunQuantities('route-preview', 100);
+
+    expect(preview).toHaveLength(2);
+    expect(preview[0]).toMatchObject({ sequence: 0, stepCode: 'MIX', processCode: 'MIX', bomName: 'BOM WIP', stepOutputQty: 100, recipeRuns: 100 });
+    expect(preview[1]).toMatchObject({ sequence: 1, stepCode: 'EXTRUDE', processCode: 'EXTRUDE', bomName: 'BOM FG', stepOutputQty: 100, recipeRuns: 100 });
+  });
+
+  it('previewRunQuantities rejects zero/negative qty', async () => {
+    await expect(ProductionRoutingRunService.previewRunQuantities('route-preview', 0)).rejects.toThrow();
+    expect(ProductionRoutingService.getRouteById as MockFn).not.toHaveBeenCalled();
+  });
+
+  it('previewRunQuantities rejects non-ACTIVE route', async () => {
+    (ProductionRoutingService.getRouteById as MockFn).mockResolvedValueOnce({ id: 'route-draft', status: 'DRAFT', steps: [] } as never);
+    await expect(ProductionRoutingRunService.previewRunQuantities('route-draft', 10)).rejects.toThrow('Hanya ACTIVE route yang bisa di-preview');
+  });
+
+  it('previewRunQuantities rejects route without steps', async () => {
+    (ProductionRoutingService.getRouteById as MockFn).mockResolvedValueOnce({ id: 'route-empty', status: 'ACTIVE', steps: [] } as never);
+    await expect(ProductionRoutingRunService.previewRunQuantities('route-empty', 10)).rejects.toThrow('Route tidak punya steps');
   });
 
   it('generateRunNumber collision-safe', async () => {

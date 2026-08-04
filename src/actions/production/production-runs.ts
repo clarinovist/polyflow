@@ -33,6 +33,20 @@ export const getProductionRun = withTenant(async function getProductionRun(id: s
   });
 });
 
+export const previewProductionRun = withTenant(async function previewProductionRun(raw: { routeId: string; plannedQuantity: number }) {
+  return safeAction(async () => {
+    if (!(await isRoutingEnabled())) {
+      throw new BusinessRuleError('Fitur routing belum diaktifkan untuk tenant ini.', undefined, 'ROUTING_DISABLED');
+    }
+    await requirePlanningRole();
+    const { z } = await import('zod');
+    const schema = z.object({ routeId: z.string().uuid(), plannedQuantity: z.number().positive() });
+    const parsed = schema.parse(raw);
+    const data = await ProductionRoutingRunService.previewRunQuantities(parsed.routeId, parsed.plannedQuantity);
+    return serializeData(data);
+  });
+});
+
 export const createProductionRun = withTenant(async function createProductionRun(raw: CreateProductionRunValues) {
   return safeAction(async () => {
     if (!(await isRoutingEnabled())) {

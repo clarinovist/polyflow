@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
-import { createProductionRun } from '@/actions/production/production-runs';
+import { createProductionRun, previewProductionRun } from '@/actions/production/production-runs';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -43,6 +43,9 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
   const [routeOptions, setRouteOptions] = useState<RouteOption[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [preview, setPreview] = useState<Array<{ sequence: number; label: string; stepCode: string; processCode: string; bomName: string; stepOutputQty: number; recipeRuns: number }> | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const idempotencyKeyRef = useRef(`run-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
@@ -70,6 +73,41 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
       return true;
     });
   }, [runs, statusFilter, search]);
+
+  const fetchPreview = useCallback(async (routeId: string, qty: number) => {
+    if (!routeId || !qty || qty <= 0) {
+      setPreview(null);
+      setPreviewError(null);
+      return;
+    }
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const res = await previewProductionRun({ routeId, plannedQuantity: qty });
+      if (res.success) {
+        setPreview((res.data as never) ?? null);
+      } else {
+        setPreview(null);
+        setPreviewError((res as { success: false; error: string }).error || 'Gagal preview');
+      }
+    } catch {
+      setPreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, []);
+
+  // Debounced preview when route + qty valid
+  useEffect(() => {
+    const qty = Number(formQty);
+    if (!showCreate || !formRouteId || !qty || qty <= 0) {
+      setPreview(null);
+      setPreviewError(null);
+      return;
+    }
+    const t = setTimeout(() => fetchPreview(formRouteId, qty), 450);
+    return () => clearTimeout(t);
+  }, [formRouteId, formQty, showCreate, fetchPreview]);
 
   async function handleCreate() {
     const qty = Number(formQty);
@@ -170,6 +208,27 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
                 Kuantitas akan di-scaling mundur lewat BoM tiap tahap (termasuk scrap). Contoh: jika target FG 1000 dan BOM tahap 1 output 500, maka tahap 1 butuh 2x.
               </p>
             </div>
+
+            {(previewLoading || preview || previewError) && (
+              <div className="rounded border bg-muted/30 p-3 space-y-2">
+                <div className="text-xs font-semibold">Preview SPK yang akan dibuat {previewLoading ? '(memuat...)' : ''}</div>
+                {previewError && <div className="text-[11px] text-amber-700">{previewError} — lanjut tetap bisa buat run, preview hanya informatif.</div>}
+                {preview && preview.length > 0 && (
+                  <div className="space-y-1">
+                    {preview.map((p) => (
+                      <div key={p.sequence} className="text-xs flex gap-2 items-center flex-wrap">
+                        <span className="font-mono text-[10px] w-5">#{p.sequence + 1}</span>
+                        <span className="font-medium">{p.label}</span>
+                        <Badge variant="outline" className="text-[10px] h-4 font-mono">{p.processCode}</Badge>
+                        <span className="text-muted-foreground text-[11px] truncate">{p.bomName}</span>
+                        <Badge variant="secondary" className="text-[10px] h-4">{p.stepOutputQty} out · {p.recipeRuns}x run</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {preview && <p className="text-[10px] text-muted-foreground">Preview read-only — tidak blocking. Angka final di SPK ikut logika yang sama (computeStepQuantities).</p>}
+              </div>
+            )}
 
             <Button onClick={handleCreate} disabled={submitting || !formRouteId || !formQty}>
               {submitting ? 'Membuat...' : 'Buat Production Run'}

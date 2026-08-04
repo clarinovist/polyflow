@@ -163,6 +163,44 @@ export class ProductionRoutingRunService {
   }
 
   /**
+   * Dry-run preview — same query as createRun but read-only, reuses computeStepQuantities.
+   * Returns per-step qty that would be generated. No DB write, no transaction.
+   */
+  static async previewRunQuantities(
+    routeId: string,
+    finalQty: number,
+  ): Promise<Array<{ sequence: number; label: string; stepCode: string; processCode: string; bomName: string; stepOutputQty: number; recipeRuns: number }>> {
+    if (finalQty <= 0) throw new ValidationError('plannedQuantity harus > 0');
+    const route = await ProductionRoutingService.getRouteById(routeId);
+    if (route.status !== 'ACTIVE') throw new BusinessRuleError('Hanya ACTIVE route yang bisa di-preview', undefined, 'ROUTE_NOT_ACTIVE');
+    if (route.steps.length === 0) throw new BusinessRuleError('Route tidak punya steps', undefined, 'ROUTE_NO_STEPS');
+
+    const stepQtyMap = ProductionRoutingRunService.computeStepQuantities(
+      route.steps.map((s) => ({
+        bom: { outputQuantity: s.bom.outputQuantity, productVariantId: s.bom.productVariantId, items: s.bom.items as never },
+        sequence: s.sequence,
+      })),
+      finalQty,
+    );
+
+    const sortedAsc = [...route.steps].sort((a, b) => a.sequence - b.sequence);
+    return sortedAsc.map((step) => {
+      const stepOutputQty = stepQtyMap.get(step.sequence) ?? finalQty;
+      const outputQty = Number(step.bom.outputQuantity ?? 1) || 1;
+      const recipeRuns = Math.ceil(stepOutputQty / outputQty - 1e-9);
+      return {
+        sequence: step.sequence,
+        label: step.label,
+        stepCode: step.stepCode,
+        processCode: step.process.code,
+        bomName: step.bom.name,
+        stepOutputQty,
+        recipeRuns,
+      };
+    });
+  }
+
+  /**
    * Create a production run from an ACTIVE route + create N ProductionOrders
    * Atomically — if any step fails, whole run is rolled back.
    * Quantity scaling: backwards from FG using BOM outputQuantity + scrap.

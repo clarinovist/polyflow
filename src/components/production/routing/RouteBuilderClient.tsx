@@ -16,6 +16,7 @@ import {
   archiveRoute,
 } from '@/actions/production/production-routings';
 import { toast } from 'sonner';
+import { RouteFlowChain } from '@/components/production/routing/RouteFlowChain';
 
 type RouteType = {
   id: string;
@@ -61,7 +62,7 @@ type NewStepForm = {
   requiresQualityGate: boolean;
 };
 
-type Option = { id: string; name: string; code?: string; skuCode?: string; slug?: string; subtitle?: string };
+type Option = { id: string; name: string; code?: string; skuCode?: string; slug?: string; subtitle?: string; isChainMatch?: boolean };
 
 export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }) {
   const [route] = useState(initialRoute);
@@ -78,14 +79,20 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
   const [validationIssues, setValidationIssues] = useState<Array<{ code: string; severity: string; message: string; stepCode?: string; field?: string }>>([]);
   const [processes, setProcesses] = useState<Option[]>([]);
   const [boms, setBoms] = useState<Option[]>([]);
-  const [locs, setLocs] = useState<Option[]>([]);
+  const [srcLocs, setSrcLocs] = useState<Option[]>([]);
+  const [outLocs, setOutLocs] = useState<Option[]>([]);
   const [procSearch, setProcSearch] = useState('');
   const [bomSearch, setBomSearch] = useState('');
-  const [locSearch, setLocSearch] = useState('');
+  const [srcLocSearch, setSrcLocSearch] = useState('');
+  const [outLocSearch, setOutLocSearch] = useState('');
   const [selectedProcess, setSelectedProcess] = useState<Option | null>(null);
   const [selectedBom, setSelectedBom] = useState<Option | null>(null);
   const [selectedSrcLoc, setSelectedSrcLoc] = useState<Option | null>(null);
   const [selectedOutLoc, setSelectedOutLoc] = useState<Option | null>(null);
+
+  const isDraft = route.status === 'DRAFT';
+  const sortedSteps = useMemo(() => [...route.steps].sort((a, b) => a.sequence - b.sequence), [route.steps]);
+  const lastOutputVariantId = useMemo(() => sortedSteps[sortedSteps.length - 1]?.bom?.productVariantId ?? null, [sortedSteps]);
 
   useEffect(() => {
     fetch('/api/production/processes?q=' + encodeURIComponent(procSearch))
@@ -99,33 +106,41 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
   useEffect(() => {
     const params = new URLSearchParams();
     if (bomSearch) params.set('q', bomSearch);
-    // scope to final variant's product family if search empty? Show all but prefer same product family — for now show all active
+    if (lastOutputVariantId) params.set('continuesFromVariantId', lastOutputVariantId);
     fetch('/api/boms?' + params.toString())
       .then((r) => r.json())
       .then((j) => {
-        if (Array.isArray(j)) setBoms(j.slice(0, 30).map((b: { id: string; name: string; productVariant?: { skuCode?: string; name?: string; product?: { name?: string } }; isDefault?: boolean }) => ({
+        const raw: Array<{ id: string; name: string; productVariant?: { skuCode?: string; name?: string; product?: { name?: string } }; isDefault?: boolean; isChainMatch?: boolean; chainMatch?: boolean }> = Array.isArray(j) ? j : (j && Array.isArray(j.data) ? j.data : []);
+        setBoms(raw.slice(0, 40).map((b) => ({
           id: b.id,
           name: b.name,
           skuCode: b.productVariant?.skuCode ?? '',
           subtitle: `${b.productVariant?.product?.name ?? ''} ${b.productVariant?.name ?? ''}`.trim() + (b.isDefault ? ' • default' : ''),
+          isChainMatch: !!(b as { isChainMatch?: boolean; chainMatch?: boolean }).isChainMatch || !!(b as { chainMatch?: boolean }).chainMatch,
         })));
-        else if (j && Array.isArray(j.data)) setBoms(j.data.slice(0, 30).map((b: { id: string; name: string }) => ({ id: b.id, name: b.name })));
       })
       .catch(() => {});
-  }, [bomSearch]);
+  }, [bomSearch, lastOutputVariantId]);
 
   useEffect(() => {
-    fetch('/api/locations?q=' + encodeURIComponent(locSearch))
+    fetch('/api/locations?q=' + encodeURIComponent(srcLocSearch))
       .then((r) => r.json())
       .then((j) => {
-        if (Array.isArray(j)) setLocs(j.slice(0, 30).map((l: { id: string; name: string; slug: string }) => ({ id: l.id, name: l.name, slug: l.slug })));
-        else if (j && Array.isArray(j.data)) setLocs(j.data.slice(0, 30).map((l: { id: string; name: string; slug: string }) => ({ id: l.id, name: l.name, slug: l.slug })));
+        if (Array.isArray(j)) setSrcLocs(j.slice(0, 30).map((l: { id: string; name: string; slug: string }) => ({ id: l.id, name: l.name, slug: l.slug })));
+        else if (j && Array.isArray(j.data)) setSrcLocs(j.data.slice(0, 30).map((l: { id: string; name: string; slug: string }) => ({ id: l.id, name: l.name, slug: l.slug })));
       })
       .catch(() => {});
-  }, [locSearch]);
+  }, [srcLocSearch]);
 
-  const isDraft = route.status === 'DRAFT';
-  const sortedSteps = useMemo(() => [...route.steps].sort((a, b) => a.sequence - b.sequence), [route.steps]);
+  useEffect(() => {
+    fetch('/api/locations?q=' + encodeURIComponent(outLocSearch))
+      .then((r) => r.json())
+      .then((j) => {
+        if (Array.isArray(j)) setOutLocs(j.slice(0, 30).map((l: { id: string; name: string; slug: string }) => ({ id: l.id, name: l.name, slug: l.slug })));
+        else if (j && Array.isArray(j.data)) setOutLocs(j.data.slice(0, 30).map((l: { id: string; name: string; slug: string }) => ({ id: l.id, name: l.name, slug: l.slug })));
+      })
+      .catch(() => {});
+  }, [outLocSearch]);
 
   async function handleAddStep() {
     if (!form.stepCode || !form.label || !form.processId || !form.bomId) {
@@ -327,27 +342,21 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
           )}
 
           {sortedSteps.length > 0 && (
-            <Card className="bg-muted/30">
-              <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold">Pratinjau Alur</CardTitle></CardHeader>
-              <CardContent className="text-xs space-y-1 font-mono">
-                {sortedSteps.map((s, i) => {
+            <>
+              <RouteFlowChain
+                steps={sortedSteps.map((s) => {
                   const bomPv = (s.bom as unknown as { productVariant?: { skuCode?: string; name?: string } })?.productVariant;
-                  return (
-                    <div key={s.id} className="flex gap-1 items-center flex-wrap">
-                      <span className="text-muted-foreground">{i + 1}.</span>
-                      <span className="font-semibold">{s.label}</span>
-                      <span className="text-muted-foreground">[{s.process.code}]</span>
-                      <span>→</span>
-                      <span className="px-1 py-0.5 bg-background rounded border text-[11px]">{bomPv?.skuCode ?? s.bom.name} {bomPv?.name ? `— ${bomPv.name}` : ''}</span>
-                      <span className="text-muted-foreground">→ {s.outputLocation?.name ?? '??'}</span>
-                    </div>
-                  );
+                  return {
+                    label: s.label,
+                    stepCode: s.stepCode,
+                    processCode: s.process.code,
+                    outputSkuLabel: bomPv?.skuCode ?? s.bom.name,
+                    outputLocationName: s.outputLocation?.name ?? null,
+                  };
                 })}
-                <div className="pt-2 text-[11px] text-muted-foreground">
-                  Final harus: {route.productVariant?.skuCode} — {finalVariantLabel}
-                </div>
-              </CardContent>
-            </Card>
+              />
+              <div className="text-[11px] text-muted-foreground px-1">Final harus: {route.productVariant?.skuCode} — {finalVariantLabel}</div>
+            </>
           )}
         </div>
 
@@ -393,10 +402,10 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">BoM — output tahap ini</Label>
+                  <Label className="text-xs">BoM — output tahap ini {lastOutputVariantId ? <span className="font-normal text-muted-foreground">(✓ Nyambung disortir ke atas)</span> : null}</Label>
                   {selectedBom && (
                     <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between gap-2">
-                      <div className="min-w-0"><div className="font-medium truncate">{selectedBom.name}</div><div className="text-[11px] text-muted-foreground truncate">{selectedBom.skuCode} {selectedBom.subtitle ? `— ${selectedBom.subtitle}` : ''}</div></div>
+                      <div className="min-w-0"><div className="font-medium truncate flex items-center gap-1">{selectedBom.name} {selectedBom.isChainMatch && <Badge className="text-[9px] h-3.5">✓ Nyambung</Badge>}</div><div className="text-[11px] text-muted-foreground truncate">{selectedBom.skuCode} {selectedBom.subtitle ? `— ${selectedBom.subtitle}` : ''}</div></div>
                       <Button variant="ghost" size="sm" className="h-6 text-[11px] shrink-0" onClick={() => { setSelectedBom(null); setForm({ ...form, bomId: '' }); }}>Ganti</Button>
                     </div>
                   )}
@@ -404,22 +413,22 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
                   {!selectedBom && (
                     <div className="border rounded max-h-40 overflow-auto divide-y">
                       {boms.map((b) => (
-                        <button key={b.id} type="button" onClick={() => { setForm({ ...form, bomId: b.id }); setSelectedBom(b); }} className={`w-full text-left px-2.5 py-2 text-xs hover:bg-muted ${form.bomId === b.id ? 'bg-muted font-medium' : ''}`}>
-                          <div className="truncate font-medium">{b.name}</div>
+                        <button key={b.id} type="button" onClick={() => { setForm({ ...form, bomId: b.id }); setSelectedBom(b); }} className={`w-full text-left px-2.5 py-2 text-xs hover:bg-muted ${form.bomId === b.id ? 'bg-muted font-medium' : ''} ${b.isChainMatch ? 'bg-green-50/50' : ''}`}>
+                          <div className="truncate font-medium flex items-center gap-1.5">{b.name} {b.isChainMatch && <Badge variant="secondary" className="text-[9px] h-4 bg-green-100 text-green-800 border-green-200">✓ Nyambung</Badge>}</div>
                           <div className="text-[11px] text-muted-foreground truncate">{b.skuCode}{b.subtitle ? ` — ${b.subtitle}` : ''}</div>
                         </button>
                       ))}
                       {boms.length === 0 && <div className="text-[11px] text-muted-foreground p-2 text-center">Tidak ada BoM. Buat BoM dulu.</div>}
                     </div>
                   )}
-                  <p className="text-[10px] text-muted-foreground">Pilih BoM yang output-nya = hasil tahap ini (bisa WIP/Intermediate). Tahap terakhir harus BoM dari {route.productVariant?.skuCode}.</p>
+                  <p className="text-[10px] text-muted-foreground">Pilih BoM yang output-nya = hasil tahap ini (bisa WIP/Intermediate). Tahap terakhir harus BoM dari {route.productVariant?.skuCode}. {lastOutputVariantId ? 'BOM yang inputnya dari output tahap sebelumnya ditandai ✓ Nyambung.' : ''}</p>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3 rounded border p-2.5 bg-muted/10">
                   <Label className="text-xs">Lokasi</Label>
                   <div className="space-y-2">
-                    <div>
-                      <div className="text-[11px] text-muted-foreground mb-1">Ambil bahan dari (opsional):</div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-medium">Ambil bahan dari (opsional)</div>
                       {selectedSrcLoc ? (
                         <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between items-center">
                           <span>{selectedSrcLoc.name} <span className="text-muted-foreground">({selectedSrcLoc.slug})</span></span>
@@ -428,9 +437,16 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
                       ) : (
                         <Badge variant="outline" className="text-[11px] font-normal">Stok umum (tidak spesifik lokasi)</Badge>
                       )}
+                      <Input value={srcLocSearch} onChange={(e) => setSrcLocSearch(e.target.value)} placeholder="Cari lokasi sumber..." className="text-xs h-8" />
+                      <div className="border rounded max-h-24 overflow-auto divide-y bg-background">
+                        {srcLocs.map((l) => (
+                          <button key={l.id} type="button" onClick={() => { setForm({ ...form, materialSourceLocationId: l.id }); setSelectedSrcLoc(l); }} className={`w-full text-left px-2.5 py-1.5 text-xs hover:bg-muted ${form.materialSourceLocationId === l.id ? 'bg-muted font-medium' : ''}`}>{l.name} <span className="text-muted-foreground">({l.slug})</span></button>
+                        ))}
+                        {srcLocs.length === 0 && <div className="text-[10px] text-muted-foreground p-1.5 text-center">Tidak ada lokasi</div>}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-[11px] text-muted-foreground mb-1">Hasil tahap ditaruh ke (wajib):</div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-medium">Hasil tahap ditaruh ke (wajib)</div>
                       {selectedOutLoc ? (
                         <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between items-center">
                           <span>{selectedOutLoc.name} <span className="text-muted-foreground">({selectedOutLoc.slug})</span></span>
@@ -439,33 +455,15 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
                       ) : (
                         <div className="text-[11px] text-red-600 font-medium px-2 py-1 rounded border border-red-200 bg-red-50">Belum dipilih — wajib sebelum publish</div>
                       )}
+                      <Input value={outLocSearch} onChange={(e) => setOutLocSearch(e.target.value)} placeholder="Cari lokasi output..." className="text-xs h-8" />
+                      <div className="border rounded max-h-24 overflow-auto divide-y bg-background">
+                        {outLocs.map((l) => (
+                          <button key={l.id} type="button" onClick={() => { setForm({ ...form, outputLocationId: l.id }); setSelectedOutLoc(l); }} className={`w-full text-left px-2.5 py-1.5 text-xs hover:bg-muted ${form.outputLocationId === l.id ? 'bg-muted font-medium' : ''}`}>{l.name} <span className="text-muted-foreground">({l.slug})</span></button>
+                        ))}
+                        {outLocs.length === 0 && <div className="text-[10px] text-muted-foreground p-1.5 text-center">Tidak ada lokasi</div>}
+                      </div>
                     </div>
                   </div>
-
-                  <Input value={locSearch} onChange={(e) => setLocSearch(e.target.value)} placeholder="Cari lokasi (gudang WIP, FG...)" className="text-xs h-8" />
-                  <div className="border rounded max-h-28 overflow-auto divide-y">
-                    {locs.map((l) => (
-                      <button key={l.id} type="button"
-                        onClick={() => {
-                          // first click without output selected -> pick as output (wajib). Second as source? Simpler: toggle selector mode
-                          if (!form.outputLocationId) {
-                            setForm({ ...form, outputLocationId: l.id });
-                            setSelectedOutLoc(l);
-                          } else if (!form.materialSourceLocationId) {
-                            setForm({ ...form, materialSourceLocationId: l.id });
-                            setSelectedSrcLoc(l);
-                          } else {
-                            // cycle: if clicking same list, overwrite output
-                            setForm({ ...form, outputLocationId: l.id });
-                            setSelectedOutLoc(l);
-                          }
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-muted">
-                        {l.name} <span className="text-muted-foreground">({l.slug})</span>
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">Klik lokasi: pertama jadi output, kedua jadi source. Untuk ganti output, klik lokasi lain di list.</p>
                 </div>
 
                 <div className="flex gap-4 pt-1">
