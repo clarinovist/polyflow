@@ -63,6 +63,7 @@ import {
     NEXT_STEP_LABELS,
     getDeliveryStatusLabel,
 } from '@/lib/sales/delivery-status';
+import { canAttachDeliveryPhoto } from '@/lib/sales/delivery-photo-policy';
 import { EditDeliveryPricingDialog } from '@/components/sales/EditDeliveryPricingDialog';
 import { LoadVerifyPanel } from '@/components/warehouse/outgoing/LoadVerifyPanel';
 import { toast } from 'sonner';
@@ -254,15 +255,11 @@ export function DeliveryOrderDetail({
 
     const nextStep = NEXT_STEP_LABELS[order.status];
 
-    const VEHICLE_PHOTO_STATUSES = ['PENDING', 'LOADING', 'SHIPPED'];
-    const POD_PHOTO_STATUSES = [
-        'SHIPPED',
-        'IN_TRANSIT',
-        'ARRIVED',
-        'DELIVERED',
-    ];
-    const canUploadVehicle = VEHICLE_PHOTO_STATUSES.includes(order.status);
-    const canUploadPOD = POD_PHOTO_STATUSES.includes(order.status);
+    const canUploadVehicle = canAttachDeliveryPhoto(order.status, 'vehicle');
+    const canUploadPOD = canAttachDeliveryPhoto(
+        order.status,
+        'proof_of_delivery',
+    );
 
     const handlePhotoUpload = async (
         file: File,

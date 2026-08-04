@@ -42,6 +42,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatRupiah } from '@/lib/utils/utils';
+import { buildYearOptions } from '@/lib/finance/year-options';
 
 interface PeriodManagementClientProps {
     initialPeriods: FiscalPeriod[];
@@ -55,6 +56,14 @@ export function PeriodManagementClient({
     const [year, setYear] = useState(currentYear.toString());
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
+
+    // Dynamic range + years present in DB, so historic periods never disappear.
+    const yearOptions = Array.from(
+        new Set([
+            ...buildYearOptions(currentYear),
+            ...initialPeriods.map((p) => p.year),
+        ]),
+    ).sort((a, b) => a - b);
 
     // Sync state if prop changes from external (e.g. URL)
     useEffect(() => {
@@ -177,10 +186,11 @@ export function PeriodManagementClient({
                             )}
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="2024">2024</SelectItem>
-                            <SelectItem value="2025">2025</SelectItem>
-                            <SelectItem value="2026">2026</SelectItem>
-                            <SelectItem value="2027">2027</SelectItem>
+                            {yearOptions.map((y) => (
+                                <SelectItem key={y} value={String(y)}>
+                                    {y}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>

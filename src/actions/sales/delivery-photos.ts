@@ -6,9 +6,10 @@ import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { logActivity } from '@/lib/tools/audit';
 import { revalidatePath } from 'next/cache';
-
-const VEHICLE_ALLOWED_STATUSES = ['PENDING', 'LOADING', 'SHIPPED'];
-const POD_ALLOWED_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED'];
+import {
+    canAttachDeliveryPhoto,
+    getDeliveryPhotoStatusErrorMessage,
+} from '@/lib/sales/delivery-photo-policy';
 
 /**
  * Attach a photo URL to a delivery order.
@@ -37,25 +38,24 @@ export const attachDeliveryPhoto = withTenant(
             if (!doRecord)
                 throw new BusinessRuleError('Delivery Order tidak ditemukan.');
 
-            if (data.photoType === 'vehicle') {
-                if (!VEHICLE_ALLOWED_STATUSES.includes(doRecord.status)) {
-                    throw new BusinessRuleError(
-                        `Foto truk hanya bisa diupload saat status ${VEHICLE_ALLOWED_STATUSES.join('/')}. Status saat ini: ${doRecord.status}`,
-                    );
-                }
+            if (
+                !canAttachDeliveryPhoto(doRecord.status, data.photoType)
+            ) {
+                throw new BusinessRuleError(
+                    getDeliveryPhotoStatusErrorMessage(
+                        doRecord.status,
+                        data.photoType,
+                    ),
+                );
+            }
 
+            if (data.photoType === 'vehicle') {
                 await prisma.deliveryOrder.update({
                     where: { id: data.deliveryOrderId },
                     data: { vehiclePhotoUrl: data.publicUrl },
                 });
             } else {
                 // proof_of_delivery
-                if (!POD_ALLOWED_STATUSES.includes(doRecord.status)) {
-                    throw new BusinessRuleError(
-                        `Bukti terima hanya bisa diupload saat status ${POD_ALLOWED_STATUSES.join('/')}. Status saat ini: ${doRecord.status}`,
-                    );
-                }
-
                 if (!data.receivedBy?.trim()) {
                     throw new BusinessRuleError(
                         'Nama penerima wajib diisi untuk bukti terima.',

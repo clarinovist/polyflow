@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { reportLabels } from '@/lib/labels';
+import { buildYearOptions } from '@/lib/finance/year-options';
 import { BudgetingTabs } from '@/components/finance/budget/BudgetingTabs';
 
 interface VarianceItem {
@@ -139,9 +140,11 @@ export default function BudgetVariancePage() {
                             <SelectValue placeholder="Tahun" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="2024">2024</SelectItem>
-                            <SelectItem value="2025">2025</SelectItem>
-                            <SelectItem value="2026">2026</SelectItem>
+                            {buildYearOptions().map((y) => (
+                                <SelectItem key={y} value={String(y)}>
+                                    {y}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                     <Select value={month} onValueChange={setMonth}>
