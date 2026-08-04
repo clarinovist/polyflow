@@ -26,6 +26,7 @@ export interface CompanyConfig {
     logoUrl: string | null;
     address: string;
     phone: string;
+    whatsapp: string;
     email: string;
     bankAccountsNonPPN: BankAccount[];
     bankAccountsPPN: BankAccount[];
@@ -73,6 +74,7 @@ export function getCompanyConfig(): CompanyConfig {
         logoUrl: process.env.COMPANY_LOGO_URL || null,
         address: process.env.COMPANY_ADDRESS || '',
         phone: process.env.COMPANY_PHONE || '',
+        whatsapp: process.env.COMPANY_WHATSAPP || '',
         email: process.env.COMPANY_EMAIL || '',
         bankAccountsNonPPN:
             parseBankAccounts(process.env.BANK_ACCOUNTS_NON_PPN) || [],

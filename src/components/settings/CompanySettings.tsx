@@ -31,6 +31,7 @@ interface CompanyForm {
     name: string;
     address: string;
     phone: string;
+    whatsapp: string;
     email: string;
     footerNote: string;
     signerName: string;
@@ -40,6 +41,7 @@ const EMPTY: CompanyForm = {
     name: '',
     address: '',
     phone: '',
+    whatsapp: '',
     email: '',
     footerNote: '',
     signerName: '',
@@ -182,6 +184,7 @@ export function CompanySettings() {
                     name: res.data.name || '',
                     address: res.data.address || '',
                     phone: res.data.phone || '',
+                    whatsapp: res.data.whatsapp || '',
                     email: res.data.email || '',
                     footerNote: res.data.footerNote || '',
                     signerName: res.data.signerName || '',
@@ -331,13 +334,22 @@ export function CompanySettings() {
                         rows={3}
                     />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="companyPhone">Telepon</Label>
                         <Input
                             id="companyPhone"
                             value={form.phone}
                             onChange={setField('phone')}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="companyWhatsapp">WhatsApp</Label>
+                        <Input
+                            id="companyWhatsapp"
+                            value={form.whatsapp}
+                            onChange={setField('whatsapp')}
+                            placeholder="mis. 0812xxxxxxxx"
                         />
                     </div>
                     <div className="grid gap-2">

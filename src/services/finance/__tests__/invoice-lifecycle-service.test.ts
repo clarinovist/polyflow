@@ -63,7 +63,7 @@ describe("invoice-lifecycle-service", () => {
   });
 
   describe("generateInvoiceNumber", () => {
-    it("should generate invoice number with sequence 0001 when no prior invoices exist", async () => {
+    it("should generate invoice number with sequence 1 when no prior invoices exist", async () => {
       // Arrange
       vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null);
 
@@ -71,50 +71,50 @@ describe("invoice-lifecycle-service", () => {
       const result = await generateInvoiceNumber();
 
       // Assert
-      expect(result).toBe("INV-20260624-0001");
+      expect(result).toBe("1/INV/VI/2026");
       expect(prisma.invoice.findFirst).toHaveBeenCalledWith({
-        where: { invoiceNumber: { startsWith: "INV-20260624-" } },
-        orderBy: { invoiceNumber: "desc" },
+        where: { invoiceNumber: { endsWith: "/INV/VI/2026" } },
+        orderBy: { createdAt: "desc" },
       });
     });
 
     it("should increment sequence when last invoice exists", async () => {
       // Arrange
       vi.mocked(prisma.invoice.findFirst).mockResolvedValue({
-        invoiceNumber: "INV-20260624-0005",
+        invoiceNumber: "5/INV/VI/2026",
       } as any);
 
       // Act
       const result = await generateInvoiceNumber();
 
       // Assert
-      expect(result).toBe("INV-20260624-0006");
+      expect(result).toBe("6/INV/VI/2026");
     });
 
-    it("should handle large sequence numbers (padded to 4 digits)", async () => {
+    it("should handle large sequence numbers without zero-padding", async () => {
       // Arrange
       vi.mocked(prisma.invoice.findFirst).mockResolvedValue({
-        invoiceNumber: "INV-20260624-0099",
+        invoiceNumber: "99/INV/VI/2026",
       } as any);
 
       // Act
       const result = await generateInvoiceNumber();
 
       // Assert
-      expect(result).toBe("INV-20260624-0100");
+      expect(result).toBe("100/INV/VI/2026");
     });
 
     it("should fall back to sequence 1 when last invoice number part is non-numeric", async () => {
-      // Arrange - parts[2] is non-numeric so parseInt returns NaN
+      // Arrange - part before first "/" is non-numeric so parseInt returns NaN
       vi.mocked(prisma.invoice.findFirst).mockResolvedValue({
-        invoiceNumber: "INV-20260624-abc",
+        invoiceNumber: "abc/INV/VI/2026",
       } as any);
 
       // Act
       const result = await generateInvoiceNumber();
 
       // Assert
-      expect(result).toBe("INV-20260624-0001");
+      expect(result).toBe("1/INV/VI/2026");
     });
   });
 

@@ -160,6 +160,11 @@ export function InvoiceDotMatrixPrint({
                         <div className="company-contact">
                             Telp : {COMPANY.phone}
                         </div>
+                        {COMPANY.whatsapp && (
+                            <div className="company-contact">
+                                Wa : {COMPANY.whatsapp}
+                            </div>
+                        )}
                         <div className="company-contact">
                             Email : {COMPANY.email}
                         </div>
@@ -396,7 +401,7 @@ export function InvoiceDotMatrixPrint({
                 dangerouslySetInnerHTML={{
                     __html: `
         @page {
-          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm landscape;
+          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
           margin: ${paperSize.marginMm}mm;
         }
 

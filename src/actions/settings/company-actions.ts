@@ -62,6 +62,7 @@ const UpdateCompanySchema = z.object({
     name: z.string().max(200).optional(),
     address: z.string().max(500).optional(),
     phone: z.string().max(100).optional(),
+    whatsapp: z.string().max(100).optional(),
     email: z.string().max(200).optional(),
     footerNote: z.string().max(500).optional(),
     signerName: z.string().max(200).optional(),

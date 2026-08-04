@@ -93,6 +93,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             companyName: company.name,
             companyAddress: company.address.replace(/\n/g, ', '),
             companyPhone: company.phone,
+            companyWhatsapp: company.whatsapp,
             companyEmail: company.email,
             customerName: customer?.name || '-',
             customerAddress: customer?.billingAddress || '-',
@@ -125,6 +126,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             isPPN,
             footerNote: company.footerNote,
             signerName: company.signerName,
+            paperHeightCm: company.paperSize.heightCm,
         };
 
         const escpBytes = generateEscpInvoice(escpData);

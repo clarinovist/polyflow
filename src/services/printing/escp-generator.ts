@@ -57,6 +57,16 @@ function setCPI(pitch: 10 | 12 | 17): number[] {
     }
 }
 
+/** Set line spacing to 1/6 inch */
+function setLineSpacing1_6(): number[] {
+    return [ESC, 0x32]; // ESC 2
+}
+
+/** Set page length in lines (1-127). ESC C n */
+function setPageLengthLines(n: number): number[] {
+    return [ESC, 0x43, Math.max(1, Math.min(127, Math.round(n)))]; // ESC C n
+}
+
 /** Turn condensed mode on/off */
 function _setCondensed(on: boolean): number[] {
     return on ? [0x0f] : [0x12]; // SI on, DC2 off
@@ -183,6 +193,7 @@ interface EscpInvoiceData {
     companyName: string;
     companyAddress: string;
     companyPhone: string;
+    companyWhatsapp: string;
     companyEmail: string;
 
     // Customer
@@ -218,6 +229,9 @@ interface EscpInvoiceData {
     // Footer
     footerNote: string;
     signerName: string;
+
+    // Paper
+    paperHeightCm: number;
 }
 
 // ─── Main Generator ───────────────────────────────────────────────────
@@ -235,6 +249,10 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...init());
     bytes.push(...setQuality(1)); // NLQ mode
     bytes.push(...setCPI(12)); // 12 CPI for main body
+    bytes.push(...setLineSpacing1_6());
+    bytes.push(
+        ...setPageLengthLines((data.paperHeightCm / 2.54) * 6), // 1/6" lines per form height
+    );
 
     // ── Set explicit margins (at 12 CPI) ──
     // LX-300+II on 9.5" paper: 9.5 × 12 = 114 columns
@@ -255,14 +273,10 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...setCPI(12));
     bytes.push(...str(pad(data.companyAddress, LINE_WIDTH)));
     bytes.push(...newline());
-    bytes.push(
-        ...str(
-            pad(
-                `Telp: ${data.companyPhone}  Email: ${data.companyEmail}`,
-                LINE_WIDTH,
-            ),
-        ),
-    );
+    const contactParts = [`Telp: ${data.companyPhone}`];
+    if (data.companyWhatsapp) contactParts.push(`Wa: ${data.companyWhatsapp}`);
+    contactParts.push(`Email: ${data.companyEmail}`);
+    bytes.push(...str(pad(contactParts.join('  '), LINE_WIDTH)));
     bytes.push(...newline());
     bytes.push(...str(dashLine()));
     bytes.push(...newline());

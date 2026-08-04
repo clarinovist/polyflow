@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/services/finance/invoice-lifecycle-service", () => ({
-  generateInvoiceNumber: vi.fn().mockResolvedValue("INV-2026-00001"),
+  generateInvoiceNumber: vi.fn().mockResolvedValue("1/INV/VI/2026"),
   createInvoice: vi.fn().mockResolvedValue({ id: "inv-1" }),
   updateInvoiceStatus: vi.fn().mockResolvedValue({ id: "inv-1" }),
   createDraftInvoiceFromOrder: vi.fn().mockResolvedValue({ id: "inv-2" }),
@@ -28,7 +28,7 @@ describe("InvoiceService", () => {
   it("delegates generateInvoiceNumber", async () => {
     const result = await InvoiceService.generateInvoiceNumber();
     expect(generateInvoiceNumber).toHaveBeenCalled();
-    expect(result).toBe("INV-2026-00001");
+    expect(result).toBe("1/INV/VI/2026");
   });
 
   it("delegates createInvoice", async () => {

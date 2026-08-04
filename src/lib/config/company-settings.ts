@@ -13,6 +13,7 @@ export interface CompanySettings {
     name: string;
     address: string;
     phone: string;
+    whatsapp: string;
     email: string;
     footerNote: string;
     signerName: string;
@@ -25,6 +26,7 @@ export const COMPANY_SETTING_KEYS: Record<keyof CompanySettings, string> = {
     name: 'company.name',
     address: 'company.address',
     phone: 'company.phone',
+    whatsapp: 'company.whatsapp',
     email: 'company.email',
     footerNote: 'company.footerNote',
     signerName: 'company.signerName',
@@ -81,6 +83,7 @@ export async function getCompanyConfigWithOverridesAsync() {
         name: overrides.name ?? base.name,
         address: overrides.address ?? base.address,
         phone: overrides.phone ?? base.phone,
+        whatsapp: overrides.whatsapp ?? base.whatsapp,
         email: overrides.email ?? base.email,
         footerNote: overrides.footerNote ?? base.footerNote,
         signerName: overrides.signerName ?? base.signerName,

@@ -1,4 +1,4 @@
-import { addDays, format } from 'date-fns';
+import { addDays } from 'date-fns';
 import { InvoiceStatus, JournalStatus, SalesOrderStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
@@ -122,25 +122,44 @@ export async function calculateSalesInvoiceTotalFromDelivered(
     return Math.round((totalGoods + shipping) * 100) / 100;
 }
 
+const ROMAN_MONTHS = [
+    'I',
+    'II',
+    'III',
+    'IV',
+    'V',
+    'VI',
+    'VII',
+    'VIII',
+    'IX',
+    'X',
+    'XI',
+    'XII',
+];
+
+function monthToRoman(month: number): string {
+    return ROMAN_MONTHS[month - 1];
+}
+
 export async function generateInvoiceNumber(): Promise<string> {
-    const dateStr = format(new Date(), 'yyyyMMdd');
-    const prefix = `INV-${dateStr}-`;
+    const now = new Date();
+    const suffix = `/INV/${monthToRoman(now.getMonth() + 1)}/${now.getFullYear()}`;
 
     const lastInvoice = await prisma.invoice.findFirst({
-        where: { invoiceNumber: { startsWith: prefix } },
-        orderBy: { invoiceNumber: 'desc' },
+        where: { invoiceNumber: { endsWith: suffix } },
+        orderBy: { createdAt: 'desc' },
     });
 
     let nextSequence = 1;
     if (lastInvoice) {
-        const parts = lastInvoice.invoiceNumber.split('-');
-        const lastSeq = parseInt(parts[2]);
+        const seqStr = lastInvoice.invoiceNumber.split('/')[0];
+        const lastSeq = parseInt(seqStr);
         if (!isNaN(lastSeq)) {
             nextSequence = lastSeq + 1;
         }
     }
 
-    return `${prefix}${nextSequence.toString().padStart(4, '0')}`;
+    return `${nextSequence}${suffix}`;
 }
 
 export async function createInvoice(data: CreateInvoiceValues, userId: string) {
