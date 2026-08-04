@@ -9,18 +9,27 @@ export const GET = withTenantRoute(async function GET(req: Request) {
 
   const url = new URL(req.url);
   const q = url.searchParams.get('q')?.trim() ?? '';
+  const typeParam = url.searchParams.get('type')?.trim() ?? '';
+  const allowedTypes = typeParam
+    ? typeParam.split(',').map((t) => t.trim()).filter(Boolean)
+    : [];
+
+  const where: Record<string, unknown> = {};
+  if (q) {
+    where.OR = [
+      { skuCode: { contains: q, mode: 'insensitive' } },
+      { name: { contains: q, mode: 'insensitive' } },
+    ];
+  }
+  if (allowedTypes.length > 0) {
+    where.product = { productType: { in: allowedTypes } };
+  }
+
   const variants = await prisma.productVariant.findMany({
-    where: q
-      ? {
-          OR: [
-            { skuCode: { contains: q, mode: 'insensitive' } },
-            { name: { contains: q, mode: 'insensitive' } },
-          ],
-        }
-      : {},
+    where,
     orderBy: { skuCode: 'asc' },
     take: 30,
-    select: { id: true, skuCode: true, name: true, product: { select: { name: true } } },
+    select: { id: true, skuCode: true, name: true, product: { select: { name: true, productType: true } } },
   });
   return NextResponse.json(variants);
 });

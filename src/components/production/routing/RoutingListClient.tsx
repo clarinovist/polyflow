@@ -63,7 +63,7 @@ export function RoutingListClient({
 
     useEffect(() => {
         if (!showCreate) return;
-        fetch('/api/products/variants?q=' + encodeURIComponent(variantSearch))
+        fetch('/api/products/variants?q=' + encodeURIComponent(variantSearch) + '&type=FINISHED_GOOD,WIP')
             .then((r) => r.json())
             .then((j) => {
                 if (Array.isArray(j))
