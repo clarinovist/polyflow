@@ -55,6 +55,7 @@ export class ProductionRoutingService {
     description?: string | null;
     requiresMachine?: boolean;
     requiresQualityGate?: boolean;
+    executionMode?: 'GENERIC' | 'INDIVIDUAL_OUTPUT' | 'MATERIAL_CONVERSION';
   }) {
     const exists = await prisma.productionProcess.findUnique({ where: { code: data.code } });
     if (exists) throw new BusinessRuleError(`Process code ${data.code} sudah ada`, undefined, 'ROUTE_DUPLICATE_CODE');
@@ -63,7 +64,7 @@ export class ProductionRoutingService {
 
   static async updateProcess(
     id: string,
-    data: Partial<{ code: string; name: string; description: string | null; requiresMachine: boolean; requiresQualityGate: boolean; isActive: boolean }>,
+    data: Partial<{ code: string; name: string; description: string | null; requiresMachine: boolean; requiresQualityGate: boolean; isActive: boolean; executionMode: 'GENERIC' | 'INDIVIDUAL_OUTPUT' | 'MATERIAL_CONVERSION' }>,
   ) {
     await this.getProcessById(id);
     if (data.code) {

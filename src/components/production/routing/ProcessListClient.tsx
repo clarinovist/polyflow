@@ -16,6 +16,7 @@ type Proc = {
   description?: string | null;
   requiresMachine: boolean;
   requiresQualityGate: boolean;
+  executionMode?: string | null;
   isActive: boolean;
   _count?: { capabilities: number; routeSteps: number };
 };
@@ -25,12 +26,12 @@ type Cap = { id: string; machineId: string; processId: string; machine?: { name:
 export function ProcessListClient({ initialProcesses, initialCapabilities }: { initialProcesses: Proc[]; initialCapabilities: Cap[] }) {
   const [processes] = useState(initialProcesses);
   const [caps] = useState(initialCapabilities);
-  const [form, setForm] = useState({ code: '', name: '', description: '', requiresMachine: false, requiresQualityGate: false });
+  const [form, setForm] = useState({ code: '', name: '', description: '', requiresMachine: false, requiresQualityGate: false, executionMode: 'GENERIC' as 'GENERIC' | 'INDIVIDUAL_OUTPUT' | 'MATERIAL_CONVERSION' });
   const [capForm, setCapForm] = useState({ machineId: '', processId: '' });
 
   async function handleCreate() {
     if (!form.code || !form.name) { toast.error('Code & name wajib'); return; }
-    const res = await createProcess({ code: form.code.toUpperCase(), name: form.name, description: form.description || null, requiresMachine: form.requiresMachine, requiresQualityGate: form.requiresQualityGate });
+    const res = await createProcess({ code: form.code.toUpperCase(), name: form.name, description: form.description || null, requiresMachine: form.requiresMachine, requiresQualityGate: form.requiresQualityGate, executionMode: form.executionMode });
     if (res.success) { toast.success('Process dibuat'); window.location.reload(); } else toast.error(res.error || 'Gagal');
   }
 
@@ -70,6 +71,15 @@ export function ProcessListClient({ initialProcesses, initialCapabilities }: { i
             <label className="text-sm flex gap-1 items-center"><input type="checkbox" checked={form.requiresMachine} onChange={(e) => setForm({ ...form, requiresMachine: e.target.checked })} /> Requires Machine</label>
             <label className="text-sm flex gap-1 items-center"><input type="checkbox" checked={form.requiresQualityGate} onChange={(e) => setForm({ ...form, requiresQualityGate: e.target.checked })} /> QC Gate</label>
           </div>
+          <div>
+            <Label>Execution Mode</Label>
+            <select value={form.executionMode} onChange={(e) => setForm({ ...form, executionMode: e.target.value as 'GENERIC' | 'INDIVIDUAL_OUTPUT' | 'MATERIAL_CONVERSION' })} className="w-full md:w-72 h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+              <option value="GENERIC">Generic (kiosk normal)</option>
+              <option value="INDIVIDUAL_OUTPUT">Hasil Individu (per operator)</option>
+              <option value="MATERIAL_CONVERSION">Konversi Material (BOM preview)</option>
+            </select>
+            <p className="text-xs text-muted-foreground">Hasil Individu: output melekat ke operator kiosk. Konversi Material: output + preview konsumsi WIP dari BOM.</p>
+          </div>
           <Button onClick={handleCreate}>Buat Process</Button>
           <p className="text-xs text-muted-foreground">Contoh: MIXING, EXTRUSION, INNER_PACKING, STERILIZATION, CARTON_PACKING, INJECTION, WINDING</p>
         </CardContent>
@@ -86,6 +96,8 @@ export function ProcessListClient({ initialProcesses, initialCapabilities }: { i
                   <Badge variant={p.isActive ? 'default' : 'secondary'}>{p.isActive ? 'Aktif' : 'Nonaktif'}</Badge>
                   {p.requiresMachine && <Badge variant="outline">needs machine</Badge>}
                   {p.requiresQualityGate && <Badge variant="outline">QC</Badge>}
+                  {p.executionMode === 'INDIVIDUAL_OUTPUT' && <Badge variant="secondary">Hasil Individu</Badge>}
+                  {p.executionMode === 'MATERIAL_CONVERSION' && <Badge variant="secondary">Konversi Material</Badge>}
                   <span className="text-xs text-muted-foreground">{p._count?.capabilities ?? 0} mesin · {p._count?.routeSteps ?? 0} steps</span>
                 </div>
                 {p.description && <div className="text-xs text-muted-foreground">{p.description}</div>}

@@ -13,6 +13,7 @@ export const createProductionProcessSchema = z.object({
   description: z.string().trim().max(500).optional().nullable(),
   requiresMachine: z.boolean().default(false),
   requiresQualityGate: z.boolean().default(false),
+  executionMode: z.enum(['GENERIC', 'INDIVIDUAL_OUTPUT', 'MATERIAL_CONVERSION']).default('GENERIC'),
 });
 
 export const updateProductionProcessSchema = z.object({
@@ -22,6 +23,7 @@ export const updateProductionProcessSchema = z.object({
   description: z.string().trim().max(500).optional().nullable(),
   requiresMachine: z.boolean().optional(),
   requiresQualityGate: z.boolean().optional(),
+  executionMode: z.enum(['GENERIC', 'INDIVIDUAL_OUTPUT', 'MATERIAL_CONVERSION']).optional(),
   isActive: z.boolean().optional(),
 });
 
