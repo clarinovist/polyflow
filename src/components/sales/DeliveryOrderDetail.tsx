@@ -88,6 +88,7 @@ interface DeliveryOrderItemData {
     quantity?: number | string;
     enteredQuantity?: number | string | null;
     enteredUnit?: string | null;
+    conversionFactorSnapshot?: number | string | null;
     verifiedQuantity?: number | string | null;
     productVariantId?: string;
     productVariant?: {
@@ -285,16 +286,26 @@ export function DeliveryOrderDetail({
                 method: 'POST',
                 body: formData,
             });
-            let uploadData: { success?: boolean; url?: string; key?: string; error?: string };
+            let uploadData: {
+                success?: boolean;
+                url?: string;
+                key?: string;
+                error?: string;
+            };
             try {
                 uploadData = await uploadRes.json();
             } catch {
-                toast.error(`Upload gagal (HTTP ${uploadRes.status}). Cek koneksi / R2.`);
+                toast.error(
+                    `Upload gagal (HTTP ${uploadRes.status}). Cek koneksi / R2.`,
+                );
                 return;
             }
 
             if (!uploadRes.ok || !uploadData.success) {
-                toast.error(uploadData.error || `Gagal upload foto (HTTP ${uploadRes.status})`);
+                toast.error(
+                    uploadData.error ||
+                        `Gagal upload foto (HTTP ${uploadRes.status})`,
+                );
                 return;
             }
 
@@ -322,7 +333,11 @@ export function DeliveryOrderDetail({
             }
         } catch (err) {
             const msg = err instanceof Error ? err.message : '';
-            toast.error(msg ? `Gagal upload foto: ${msg}` : 'Gagal upload foto. Cek koneksi.');
+            toast.error(
+                msg
+                    ? `Gagal upload foto: ${msg}`
+                    : 'Gagal upload foto. Cek koneksi.',
+            );
         } finally {
             setUploading(false);
         }
@@ -764,6 +779,8 @@ export function DeliveryOrderDetail({
                                 verifiedQuantity: item.verifiedQuantity,
                                 enteredQuantity: item.enteredQuantity,
                                 enteredUnit: item.enteredUnit,
+                                conversionFactorSnapshot:
+                                    item.conversionFactorSnapshot,
                                 productVariant: item.productVariant,
                             }))}
                             isVerified={isLoadVerified}
@@ -1255,9 +1272,12 @@ export function DeliveryOrderDetail({
                 order.status === 'DELIVERED') && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Bukti Operasional</CardTitle>
+                        <CardTitle className="text-base">
+                            Bukti Operasional
+                        </CardTitle>
                         <CardDescription>
-                            Foto dan dokumen opsional terkait proses muat/bongkar
+                            Foto dan dokumen opsional terkait proses
+                            muat/bongkar
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -1267,7 +1287,9 @@ export function DeliveryOrderDetail({
                                 entityLabel={order.orderNumber}
                                 entityType="deliveryOrderId"
                                 checkpoint="LOAD"
-                                attachments={safeAttachments.filter((a) => a.checkpoint === 'LOAD')}
+                                attachments={safeAttachments.filter(
+                                    (a) => a.checkpoint === 'LOAD',
+                                )}
                                 disabled={
                                     order.status === 'DELIVERED' ||
                                     order.status === 'CANCELLED' ||
@@ -1280,7 +1302,9 @@ export function DeliveryOrderDetail({
                                 entityLabel={order.orderNumber}
                                 entityType="deliveryOrderId"
                                 checkpoint="DAMAGE"
-                                attachments={safeAttachments.filter((a) => a.checkpoint === 'DAMAGE')}
+                                attachments={safeAttachments.filter(
+                                    (a) => a.checkpoint === 'DAMAGE',
+                                )}
                                 disabled={
                                     order.status === 'DELIVERED' ||
                                     order.status === 'CANCELLED' ||

@@ -21,6 +21,7 @@ import {
 } from '@/actions/inventory/deliveries';
 import {
     getEnteredQuantityDisplay,
+    formatQuantity,
     type EnteredQuantitySnapshot,
 } from '@/lib/utils/production-units';
 
@@ -30,6 +31,7 @@ interface LoadVerifyItem {
     verifiedQuantity?: number | string | null;
     enteredQuantity?: number | string | null;
     enteredUnit?: string | null;
+    conversionFactorSnapshot?: number | string | null;
     productVariant?: {
         name?: string;
         skuCode?: string;
@@ -45,6 +47,72 @@ interface LoadVerifyPanelProps {
     canEdit: boolean;
 }
 
+function getDisplayUnit(item: LoadVerifyItem): string {
+    const enteredUnit = item.enteredUnit;
+    const primaryUnit = item.productVariant?.primaryUnit || 'KG';
+    return enteredUnit && enteredUnit !== primaryUnit
+        ? enteredUnit
+        : primaryUnit;
+}
+
+function hasUnitConversion(item: LoadVerifyItem): boolean {
+    const factor = item.conversionFactorSnapshot
+        ? Number(item.conversionFactorSnapshot)
+        : null;
+    return Boolean(
+        item.enteredUnit &&
+        item.enteredUnit !== item.productVariant?.primaryUnit &&
+        factor &&
+        factor > 0,
+    );
+}
+
+function getPlannedQtyInDisplayUnit(item: LoadVerifyItem): number {
+    if (item.enteredQuantity != null && hasUnitConversion(item)) {
+        return Number(item.enteredQuantity);
+    }
+    return Number(item.quantity);
+}
+
+function getPlannedDisplay(item: LoadVerifyItem): string {
+    return getEnteredQuantityDisplay({
+        quantity: item.quantity,
+        enteredQuantity: item.enteredQuantity,
+        enteredUnit: item.enteredUnit,
+        primaryUnit: item.productVariant?.primaryUnit,
+    } as EnteredQuantitySnapshot);
+}
+
+// Convert a value entered in the display unit (e.g. BAL) to primaryUnit (e.g. KG)
+// for persistence — server compares verifiedQuantity against item.quantity in primaryUnit.
+function toPrimaryUnitQty(item: LoadVerifyItem, displayValue: number): number {
+    if (!hasUnitConversion(item)) return displayValue;
+    const factor = Number(item.conversionFactorSnapshot);
+    return Math.round(displayValue * factor * 10000) / 10000;
+}
+
+// Convert a primaryUnit quantity (e.g. verifiedQuantity stored in KG) back to the
+// display unit (e.g. BAL) for showing in the input / read-only verified column.
+function fromPrimaryUnitQty(
+    item: LoadVerifyItem,
+    primaryValue: number,
+): number {
+    if (!hasUnitConversion(item)) return primaryValue;
+    const factor = Number(item.conversionFactorSnapshot);
+    return Math.round((primaryValue / factor) * 10000) / 10000;
+}
+
+function getVerifiedDisplay(item: LoadVerifyItem): string {
+    if (item.verifiedQuantity == null) return '-';
+    const baseQty = Number(item.verifiedQuantity);
+    const primaryUnit = item.productVariant?.primaryUnit || 'KG';
+    if (!hasUnitConversion(item)) {
+        return `${formatQuantity(baseQty)} ${primaryUnit}`;
+    }
+    const displayQty = fromPrimaryUnitQty(item, baseQty);
+    return `${formatQuantity(displayQty)} ${getDisplayUnit(item)} (${formatQuantity(baseQty)} ${primaryUnit})`;
+}
+
 export function LoadVerifyPanel({
     deliveryOrderId,
     items,
@@ -57,7 +125,12 @@ export function LoadVerifyPanel({
             for (const item of items) {
                 draft[item.id] =
                     item.verifiedQuantity != null
-                        ? String(item.verifiedQuantity)
+                        ? String(
+                              fromPrimaryUnitQty(
+                                  item,
+                                  Number(item.verifiedQuantity),
+                              ),
+                          )
                         : '';
             }
             return draft;
@@ -68,13 +141,21 @@ export function LoadVerifyPanel({
     const [correcting, setCorrecting] = useState(false);
     const router = useRouter();
 
-    const handleSave = async () => {
-        const payload = Object.entries(verifyDraft)
+    const buildVerifiedPayload = () =>
+        Object.entries(verifyDraft)
             .filter(([, v]) => v !== '')
-            .map(([id, v]) => ({
-                id,
-                verifiedQuantity: Number(v),
-            }));
+            .map(([id, v]) => {
+                const item = items.find((i) => i.id === id);
+                return {
+                    id,
+                    verifiedQuantity: item
+                        ? toPrimaryUnitQty(item, Number(v))
+                        : Number(v),
+                };
+            });
+
+    const handleSave = async () => {
+        const payload = buildVerifiedPayload();
 
         if (payload.length === 0) {
             toast.error('Isi minimal satu qty verifikasi');
@@ -108,10 +189,7 @@ export function LoadVerifyPanel({
         setConfirming(true);
         try {
             // Persist draft first — confirm reads from DB
-            const payload = Object.entries(verifyDraft).map(([id, v]) => ({
-                id,
-                verifiedQuantity: Number(v),
-            }));
+            const payload = buildVerifiedPayload();
             const saveResult = await saveDeliveryLoadVerification({
                 deliveryOrderId,
                 items: payload,
@@ -138,7 +216,7 @@ export function LoadVerifyPanel({
     const handleMatchAll = () => {
         const draft: Record<string, string> = {};
         for (const item of items) {
-            draft[item.id] = String(Number(item.quantity));
+            draft[item.id] = String(getPlannedQtyInDisplayUnit(item));
         }
         setVerifyDraft(draft);
     };
@@ -147,12 +225,7 @@ export function LoadVerifyPanel({
         setCorrecting(true);
         try {
             // Save current verified quantities first
-            const payload = Object.entries(verifyDraft)
-                .filter(([, v]) => v !== '')
-                .map(([id, v]) => ({
-                    id,
-                    verifiedQuantity: Number(v),
-                }));
+            const payload = buildVerifiedPayload();
 
             if (payload.length === 0) {
                 toast.error('Isi minimal satu qty verifikasi sebelum koreksi');
@@ -190,7 +263,7 @@ export function LoadVerifyPanel({
     const getItemStatus = (item: LoadVerifyItem) => {
         const verified = verifyDraft[item.id];
         if (verified === '') return 'pending';
-        const planned = Number(item.quantity);
+        const planned = getPlannedQtyInDisplayUnit(item);
         const physical = Number(verified);
         if (Math.abs(planned - physical) < 0.0001) return 'match';
         return 'mismatch';
@@ -200,7 +273,7 @@ export function LoadVerifyPanel({
     const allItemsMatch = items.every((item) => {
         const verified = verifyDraft[item.id];
         if (verified === '') return false;
-        const planned = Number(item.quantity);
+        const planned = getPlannedQtyInDisplayUnit(item);
         const physical = Number(verified);
         return Math.abs(planned - physical) < 0.0001;
     });
@@ -266,13 +339,7 @@ export function LoadVerifyPanel({
                                             </div>
                                         </td>
                                         <td className="p-4 text-right font-medium">
-                                            {getEnteredQuantityDisplay({
-                                                quantity: item.quantity,
-                                                enteredUnit: item.enteredUnit,
-                                                primaryUnit:
-                                                    item.productVariant
-                                                        ?.primaryUnit,
-                                            } as EnteredQuantitySnapshot)}
+                                            {getPlannedDisplay(item)}
                                         </td>
                                         <td className="p-4 text-right">
                                             {canEdit ? (
@@ -300,29 +367,12 @@ export function LoadVerifyPanel({
                                                         placeholder="0"
                                                     />
                                                     <span className="text-xs text-muted-foreground">
-                                                        {item.enteredUnit ||
-                                                            item.productVariant
-                                                                ?.primaryUnit ||
-                                                            ''}
+                                                        {getDisplayUnit(item)}
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <span className="font-medium">
-                                                    {item.verifiedQuantity !=
-                                                    null
-                                                        ? getEnteredQuantityDisplay(
-                                                              {
-                                                                  quantity:
-                                                                      item.verifiedQuantity,
-                                                                  enteredUnit:
-                                                                      item.enteredUnit,
-                                                                  primaryUnit:
-                                                                      item
-                                                                          .productVariant
-                                                                          ?.primaryUnit,
-                                                              } as EnteredQuantitySnapshot,
-                                                          )
-                                                        : '-'}
+                                                    {getVerifiedDisplay(item)}
                                                 </span>
                                             )}
                                         </td>
