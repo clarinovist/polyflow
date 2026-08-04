@@ -9,14 +9,32 @@ export const GET = withTenantRoute(async function GET(req: Request) {
 
   const url = new URL(req.url);
   const q = url.searchParams.get('q')?.trim() ?? '';
+  const productVariantId = url.searchParams.get('productVariantId')?.trim() ?? '';
   const boms = await prisma.bom.findMany({
     where: {
       isActive: true,
-      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      archivedAt: null,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { productVariant: { skuCode: { contains: q, mode: 'insensitive' } } },
+              { productVariant: { name: { contains: q, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+      ...(productVariantId ? { productVariantId } : {}),
     },
-    orderBy: { updatedAt: 'desc' },
-    take: 30,
-    select: { id: true, name: true, productVariantId: true, productVariant: { select: { skuCode: true, name: true } } },
+    orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+    take: 40,
+    select: {
+      id: true,
+      name: true,
+      outputQuantity: true,
+      isDefault: true,
+      productVariantId: true,
+      productVariant: { select: { skuCode: true, name: true, product: { select: { name: true } } } },
+    },
   });
   return NextResponse.json(boms);
 });

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,13 @@ type RouteType = {
     processId: string;
     process: { id: string; code: string; name: string; requiresMachine: boolean };
     bomId: string;
-    bom: { id: string; name: string; productVariantId: string };
+    bom: {
+      id: string;
+      name: string;
+      productVariantId: string;
+      productVariant?: { skuCode?: string; name?: string; product?: { name?: string } };
+      outputQuantity?: number | string;
+    };
     materialSourceLocationId: string | null;
     outputLocationId: string | null;
     materialSourceLocation?: { id: string; name: string; slug: string } | null;
@@ -55,7 +61,7 @@ type NewStepForm = {
   requiresQualityGate: boolean;
 };
 
-type Option = { id: string; name: string; code?: string; skuCode?: string; slug?: string };
+type Option = { id: string; name: string; code?: string; skuCode?: string; slug?: string; subtitle?: string };
 
 export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }) {
   const [route] = useState(initialRoute);
@@ -76,21 +82,33 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
   const [procSearch, setProcSearch] = useState('');
   const [bomSearch, setBomSearch] = useState('');
   const [locSearch, setLocSearch] = useState('');
+  const [selectedProcess, setSelectedProcess] = useState<Option | null>(null);
+  const [selectedBom, setSelectedBom] = useState<Option | null>(null);
+  const [selectedSrcLoc, setSelectedSrcLoc] = useState<Option | null>(null);
+  const [selectedOutLoc, setSelectedOutLoc] = useState<Option | null>(null);
 
   useEffect(() => {
     fetch('/api/production/processes?q=' + encodeURIComponent(procSearch))
       .then((r) => r.json())
       .then((j) => {
-        if (Array.isArray(j)) setProcesses(j.slice(0, 30).map((p: { id: string; name: string; code: string }) => ({ id: p.id, name: p.name, code: p.code })));
+        if (Array.isArray(j)) setProcesses(j.slice(0, 30).map((p: { id: string; name: string; code: string; requiresMachine?: boolean }) => ({ id: p.id, name: p.name, code: p.code, subtitle: p.requiresMachine ? 'butuh mesin' : undefined })));
       })
       .catch(() => {});
   }, [procSearch]);
 
   useEffect(() => {
-    fetch('/api/boms?q=' + encodeURIComponent(bomSearch))
+    const params = new URLSearchParams();
+    if (bomSearch) params.set('q', bomSearch);
+    // scope to final variant's product family if search empty? Show all but prefer same product family — for now show all active
+    fetch('/api/boms?' + params.toString())
       .then((r) => r.json())
       .then((j) => {
-        if (Array.isArray(j)) setBoms(j.slice(0, 30).map((b: { id: string; name: string; productVariant?: { skuCode?: string } }) => ({ id: b.id, name: b.name, skuCode: b.productVariant?.skuCode ?? '' })));
+        if (Array.isArray(j)) setBoms(j.slice(0, 30).map((b: { id: string; name: string; productVariant?: { skuCode?: string; name?: string; product?: { name?: string } }; isDefault?: boolean }) => ({
+          id: b.id,
+          name: b.name,
+          skuCode: b.productVariant?.skuCode ?? '',
+          subtitle: `${b.productVariant?.product?.name ?? ''} ${b.productVariant?.name ?? ''}`.trim() + (b.isDefault ? ' • default' : ''),
+        })));
         else if (j && Array.isArray(j.data)) setBoms(j.data.slice(0, 30).map((b: { id: string; name: string }) => ({ id: b.id, name: b.name })));
       })
       .catch(() => {});
@@ -107,15 +125,16 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
   }, [locSearch]);
 
   const isDraft = route.status === 'DRAFT';
+  const sortedSteps = useMemo(() => [...route.steps].sort((a, b) => a.sequence - b.sequence), [route.steps]);
 
   async function handleAddStep() {
     if (!form.stepCode || !form.label || !form.processId || !form.bomId) {
-      toast.error('stepCode, label, processId, bomId wajib');
+      toast.error('Lengkapi: kode tahap, label, process, dan BOM');
       return;
     }
     if (!form.outputLocationId) {
-      toast.error('Output location wajib sebelum publish — isi sekarang');
-      // tetap lanjut, server akan validasi
+      toast.error('Output location wajib — pilih lokasi output');
+      return;
     }
     const res = await addRouteStep({
       routeId: route.id,
@@ -129,21 +148,21 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
       requiresQualityGate: form.requiresQualityGate,
     });
     if (res.success) {
-      toast.success('Step ditambah');
+      toast.success('Tahap ditambah');
       window.location.reload();
-    } else toast.error(res.error || 'Gagal');
+    } else toast.error(res.error || 'Gagal tambah tahap');
   }
 
   async function handleDeleteStep(stepId: string) {
-    if (!confirm('Hapus step ini? Chain output/input akan putus jika tidak hati-hati.')) return;
+    if (!confirm('Hapus tahap ini? Chain output/input bisa putus.')) return;
     const res = await deleteRouteStep(stepId);
-    if (res.success) { toast.success('Step dihapus'); window.location.reload(); } else toast.error(res.error || 'Gagal');
+    if (res.success) { toast.success('Tahap dihapus'); window.location.reload(); } else toast.error(res.error || 'Gagal hapus');
   }
 
   async function handleMove(idx: number, dir: -1 | 1) {
     const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= route.steps.length) return;
-    const ordered = [...route.steps].sort((a, b) => a.sequence - b.sequence);
+    if (newIdx < 0 || newIdx >= sortedSteps.length) return;
+    const ordered = [...sortedSteps];
     const tmp = ordered[idx];
     ordered[idx] = ordered[newIdx];
     ordered[newIdx] = tmp;
@@ -157,9 +176,9 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
     if (res.success) {
       const v = res.data as { valid: boolean; issues: typeof validationIssues };
       setValidationIssues(v.issues);
-      if (v.valid) toast.success('Route valid — siap publish');
-      else toast.warning(`${v.issues.length} issue blocking`);
-    } else toast.error(res.error || 'Gagal');
+      if (v.valid) toast.success('Routing valid — siap publish');
+      else toast.warning(`${v.issues.filter(i => i.severity === 'BLOCKING').length} blocking issue — cek di bawah`);
+    } else toast.error(res.error || 'Gagal validasi');
   }
 
   async function handlePublish() {
@@ -168,49 +187,56 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
   }
 
   async function handleArchive() {
-    if (!confirm('Archive route ini? Run baru tidak bisa pakai route ini.')) return;
+    if (!confirm('Arsipkan routing ini? Run baru tidak bisa pakai routing ini.')) return;
     const res = await archiveRoute(route.id);
-    if (res.success) { toast.success('Archived'); window.location.reload(); } else toast.error(res.error || 'Gagal');
+    if (res.success) { toast.success('Diarsipkan'); window.location.reload(); } else toast.error(res.error || 'Gagal arsip');
   }
 
   const blockingIssues = validationIssues.filter((i) => i.severity === 'BLOCKING');
   const warningIssues = validationIssues.filter((i) => i.severity === 'WARNING');
 
+  const finalVariantLabel = `${route.productVariant?.product?.name ?? ''} ${route.productVariant?.name ?? ''}`.trim() + ` (${route.productVariant?.skuCode ?? '-'})`;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm">
-        <Link href="/production/routings" className="text-muted-foreground hover:underline">Routing</Link>
-        <span>/</span><span className="font-semibold">{route.name}</span>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/production/routings" className="hover:underline">Routing Produksi</Link>
+        <span>/</span><span className="font-semibold text-foreground">{route.name}</span>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle className="text-lg">{route.name} · v{route.version} · {route.code}</CardTitle>
-          <div className="flex gap-1 flex-wrap items-center">
-            <Badge>{route.status}</Badge>
-            {route.isDefault && <Badge variant="outline">Default</Badge>}
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
+              {route.name}
+              <Badge variant={route.status === 'ACTIVE' ? 'default' : route.status === 'DRAFT' ? 'secondary' : 'outline'}>{route.status === 'ACTIVE' ? 'Published' : route.status}</Badge>
+              {route.isDefault && <Badge variant="outline">Default</Badge>}
+              <span className="text-xs font-normal text-muted-foreground">v{route.version} · {route.code}</span>
+            </CardTitle>
+            <CardDescription>
+              Produk akhir: <strong>{finalVariantLabel}</strong>. Urutan tahap harus nyambung: output tahap N jadi input BoM tahap N+1. Tahap terakhir wajib menghasilkan {route.productVariant?.skuCode}.
+            </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div>Produk: {route.productVariant?.product?.name} {route.productVariant?.name} ({route.productVariant?.skuCode})</div>
-          <div className="text-xs text-muted-foreground">
-            {route.steps.length} tahap · Input → Process → Output · BOM chain validation sebelum publish
-          </div>
+        <CardContent className="space-y-3">
           <div className="flex gap-2 flex-wrap">
             <Button size="sm" variant="outline" onClick={handleValidate}>Validasi</Button>
             {isDraft && <Button size="sm" onClick={handlePublish}>Publish</Button>}
-            {route.status !== 'ARCHIVED' && <Button size="sm" variant="ghost" onClick={handleArchive}>Archive</Button>}
-            <Button size="sm" variant="outline" asChild><Link href="/production/routings/processes">Kelola Process</Link></Button>
+            {route.status !== 'ARCHIVED' && <Button size="sm" variant="ghost" onClick={handleArchive}>Arsipkan</Button>}
+            <Button size="sm" variant="outline" asChild><Link href="/production/routings/processes">Kelola Proses</Link></Button>
+            <Button size="sm" variant="outline" asChild><Link href="/production/boms">Lihat BoM</Link></Button>
           </div>
           {validationIssues.length > 0 && (
             <div className="mt-3 space-y-2">
               {blockingIssues.length > 0 && (
                 <div>
                   <div className="text-xs font-semibold text-red-700">Blocking ({blockingIssues.length}) — publish dilarang:</div>
-                  <div className="space-y-1 mt-1">
+                  <div className="space-y-1 mt-1.5">
                     {blockingIssues.map((iss, i) => (
-                      <div key={i} className="text-xs p-2 rounded bg-red-50 text-red-800 border border-red-200 flex gap-1">
-                        <span className="font-mono">{iss.code}</span><span>{iss.message}</span>{iss.stepCode && <Badge variant="outline" className="ml-auto text-[10px]">{iss.stepCode}</Badge>}
+                      <div key={i} className="text-xs p-2.5 rounded bg-red-50 text-red-800 border border-red-200 flex gap-2 items-start">
+                        <span className="font-mono text-[10px] shrink-0 pt-0.5">{iss.code}</span>
+                        <span className="flex-1">{iss.message}</span>
+                        {iss.stepCode && <Badge variant="outline" className="ml-auto text-[10px] shrink-0">{iss.stepCode}</Badge>}
                       </div>
                     ))}
                   </div>
@@ -218,54 +244,80 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
               )}
               {warningIssues.length > 0 && (
                 <div>
-                  <div className="text-xs font-semibold text-amber-700">Warning ({warningIssues.length}):</div>
-                  <div className="space-y-1 mt-1">
+                  <div className="text-xs font-semibold text-amber-700">Peringatan ({warningIssues.length}):</div>
+                  <div className="space-y-1 mt-1.5">
                     {warningIssues.map((iss, i) => (
-                      <div key={i} className="text-xs p-2 rounded bg-amber-50 text-amber-800 border border-amber-200">{iss.code}: {iss.message}</div>
+                      <div key={i} className="text-xs p-2.5 rounded bg-amber-50 text-amber-800 border border-amber-200">{iss.code}: {iss.message}</div>
                     ))}
                   </div>
                 </div>
               )}
-              {blockingIssues.length === 0 && <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">✓ Valid — siap publish</div>}
+              {blockingIssues.length === 0 && <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2.5">✓ Valid — siap publish</div>}
+            </div>
+          )}
+          {isDraft && route.steps.length === 0 && (
+            <div className="text-xs p-3 rounded bg-blue-50 border border-blue-200 text-blue-800">
+              <strong>Cara isi:</strong> Tambah tahap di panel kanan. 1) Pilih <em>Process</em> (REWINDING, BALING, dsb) → 2) Pilih <em>BOM</em> yang outputnya = WIP/Intermediate tahap ini → 3) Pilih <em>Source lokasi</em> (ambil bahan) & <em>Output lokasi</em> (hasil tahap ditaruh) → Simpan. Ulang sampai tahap terakhir BOM-nya menghasilkan <strong>{route.productVariant?.skuCode}</strong>.
             </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-3">
-          <h3 className="font-semibold">Ordered Steps ({route.steps.length}) — sortable list</h3>
-          {route.steps.length === 0 ? (
-            <div className="text-sm text-muted-foreground p-6 border rounded text-center">Belum ada step. Tambah di panel kanan. Output location wajib untuk publish.</div>
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-3">
+          <h3 className="font-semibold text-sm">Urutan Tahap ({sortedSteps.length})</h3>
+          {sortedSteps.length === 0 ? (
+            <div className="text-sm text-muted-foreground p-8 border rounded text-center bg-muted/20">
+              Belum ada tahap. Tahap = satu proses produksi + satu BOM + lokasi.<br />
+              Contoh: Step 1 = MIX (BOM Campuran Rafia Hijau Tampar → stok WIP), Step 2 = EXTRUDE (BOM Rafia Hijau Super → FG).<br />
+              Output location wajib untuk publish.
+            </div>
           ) : (
-            [...route.steps].sort((a, b) => a.sequence - b.sequence).map((step, idx) => {
+            sortedSteps.map((step, idx) => {
               const hasIssue = validationIssues.some((iss) => iss.stepCode === step.stepCode && iss.severity === 'BLOCKING');
+              const bomPv = (step.bom as unknown as { productVariant?: { skuCode?: string; name?: string; product?: { name?: string } } })?.productVariant;
               return (
                 <Card key={step.id} className={hasIssue ? 'border-red-300 bg-red-50/30' : ''}>
-                  <CardContent className="p-3 flex gap-3">
-                    <div className="font-mono font-bold text-lg w-6 shrink-0">{idx + 1}</div>
-                    <div className="flex-1 space-y-1">
+                  <CardContent className="p-3.5 flex gap-3">
+                    <div className="font-bold text-lg w-7 shrink-0 text-muted-foreground">#{idx + 1}</div>
+                    <div className="flex-1 space-y-2 min-w-0">
                       <div className="flex gap-2 items-center flex-wrap">
-                        <span className="font-semibold">{step.label}</span>
-                        <Badge variant="outline" className="text-xs">{step.stepCode}</Badge>
-                        <Badge variant="secondary" className="text-xs">{step.process.code}</Badge>
-                        {step.process.requiresMachine && <Badge variant="outline" className="text-[10px]">needs machine</Badge>}
-                        {hasIssue && <Badge variant="destructive" className="text-[10px]">issue</Badge>}
+                        <span className="font-semibold truncate">{step.label}</span>
+                        <Badge variant="outline" className="text-[11px] font-mono shrink-0">{step.stepCode}</Badge>
+                        <Badge variant="secondary" className="text-[11px] shrink-0">{step.process.code}</Badge>
+                        {step.process.requiresMachine && <Badge variant="outline" className="text-[10px] shrink-0">butuh mesin</Badge>}
+                        {hasIssue && <Badge variant="destructive" className="text-[10px] shrink-0">issue</Badge>}
                       </div>
-                      <div className="text-xs text-muted-foreground">Process: {step.process.name} · BOM: {step.bom.name} · {step.bom.productVariantId.slice(0, 8)}</div>
-                      <div className="text-xs">
-                        Source: {step.materialSourceLocation?.name ?? step.materialSourceLocationId?.slice(0, 8) ?? '—'} → Output: {step.outputLocation?.name ?? step.outputLocationId?.slice(0, 8) ?? <span className="text-red-600 font-semibold">Wajib isi</span>}
-                      </div>
-                      <div className="flex gap-2 text-xs">
-                        {step.allowsPartialHandoff && <Badge variant="outline" className="text-[10px]">Partial handoff aktif</Badge>}
-                        {step.requiresQualityGate && <Badge variant="outline" className="text-[10px]">QC gate</Badge>}
+                      <div className="text-xs space-y-1">
+                        <div className="flex gap-1.5 flex-wrap">
+                          <span className="text-muted-foreground">Proses:</span> <span className="font-medium">{step.process.name}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-muted-foreground">BOM:</span>
+                          <span className="font-medium truncate">{step.bom.name}</span>
+                          {bomPv && <span className="text-muted-foreground">({bomPv.skuCode} — {bomPv.product?.name ?? ''} {bomPv.name ?? ''})</span>}
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap items-center">
+                          <span className="text-muted-foreground">Ambil dari:</span>
+                          <Badge variant="outline" className="text-[11px] font-normal">{step.materialSourceLocation?.name ?? '— (stok umum)'}</Badge>
+                          <span>→</span>
+                          <span className="text-muted-foreground">Hasil ke:</span>
+                          {step.outputLocation ? (
+                            <Badge variant="outline" className="text-[11px]">{step.outputLocation.name}</Badge>
+                          ) : (
+                            <span className="text-red-600 font-semibold text-[11px] border border-red-200 rounded px-1.5 py-0.5 bg-red-50">Wajib pilih output</span>
+                          )}
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {step.allowsPartialHandoff && <Badge variant="outline" className="text-[10px]">Boleh estafet sebagian</Badge>}
+                          {step.requiresQualityGate && <Badge variant="outline" className="text-[10px]">Butuh QC</Badge>}
+                        </div>
                       </div>
                     </div>
                     {isDraft && (
-                      <div className="flex flex-col gap-1">
-                        <Button size="sm" variant="outline" disabled={idx === 0} onClick={() => handleMove(idx, -1)}>↑ Naik</Button>
-                        <Button size="sm" variant="outline" disabled={idx === route.steps.length - 1} onClick={() => handleMove(idx, 1)}>↓ Turun</Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleDeleteStep(step.id)}>Hapus</Button>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={idx === 0} onClick={() => handleMove(idx, -1)}>↑</Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={idx === sortedSteps.length - 1} onClick={() => handleMove(idx, 1)}>↓</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => handleDeleteStep(step.id)}>Hapus</Button>
                       </div>
                     )}
                   </CardContent>
@@ -273,78 +325,155 @@ export function RouteBuilderClient({ initialRoute }: { initialRoute: RouteType }
               );
             })
           )}
+
+          {sortedSteps.length > 0 && (
+            <Card className="bg-muted/30">
+              <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold">Pratinjau Alur</CardTitle></CardHeader>
+              <CardContent className="text-xs space-y-1 font-mono">
+                {sortedSteps.map((s, i) => {
+                  const bomPv = (s.bom as unknown as { productVariant?: { skuCode?: string; name?: string } })?.productVariant;
+                  return (
+                    <div key={s.id} className="flex gap-1 items-center flex-wrap">
+                      <span className="text-muted-foreground">{i + 1}.</span>
+                      <span className="font-semibold">{s.label}</span>
+                      <span className="text-muted-foreground">[{s.process.code}]</span>
+                      <span>→</span>
+                      <span className="px-1 py-0.5 bg-background rounded border text-[11px]">{bomPv?.skuCode ?? s.bom.name} {bomPv?.name ? `— ${bomPv.name}` : ''}</span>
+                      <span className="text-muted-foreground">→ {s.outputLocation?.name ?? '??'}</span>
+                    </div>
+                  );
+                })}
+                <div className="pt-2 text-[11px] text-muted-foreground">
+                  Final harus: {route.productVariant?.skuCode} — {finalVariantLabel}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {isDraft && (
           <div className="space-y-4">
             <Card className="sticky top-4">
-              <CardHeader><CardTitle className="text-base">Tambah Tahap</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div><Label>Step Code (UPPER_SNAKE)</Label><Input value={form.stepCode} onChange={(e) => setForm({ ...form, stepCode: e.target.value })} placeholder="PACK_PRIMER, STERIL, CARTON" /></div>
-                <div><Label>Label Tahap</Label><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Packing Primer / Sterilization" /></div>
-
-                <div>
-                  <Label>Process</Label>
-                  <Input value={procSearch} onChange={(e) => setProcSearch(e.target.value)} placeholder="Cari process code/nama" className="text-xs" />
-                  <div className="border rounded max-h-32 overflow-auto mt-1 divide-y">
-                    {processes.map((p) => (
-                      <button key={p.id} type="button" onClick={() => setForm({ ...form, processId: p.id })} className={`w-full text-left px-2 py-1 text-xs hover:bg-muted ${form.processId === p.id ? 'bg-muted font-semibold' : ''}`}>
-                        {p.code} — {p.name}
-                      </button>
-                    ))}
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Tambah Tahap</CardTitle>
+                <CardDescription className="text-[11px]">Tahap = Proses + BoM output + Lokasi. Output lokasi wajib.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Kode Tahap (huruf besar, _)</Label>
+                    <Input value={form.stepCode} onChange={(e) => setForm({ ...form, stepCode: e.target.value.toUpperCase() })} placeholder="MIX, EXTRUDE, REWIND, BALING" className="h-8 text-sm" />
                   </div>
-                  <Input value={form.processId} onChange={(e) => setForm({ ...form, processId: e.target.value })} placeholder="Atau paste process UUID" className="text-[10px] font-mono mt-1" />
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nama Tahap</Label>
+                    <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Mix Bahan / Extrusi Sedotan" className="h-8 text-sm" />
+                  </div>
                 </div>
 
-                <div>
-                  <Label>BOM (output = WIP/FG tahap ini)</Label>
-                  <Input value={bomSearch} onChange={(e) => setBomSearch(e.target.value)} placeholder="Cari BOM name" className="text-xs" />
-                  <div className="border rounded max-h-32 overflow-auto mt-1 divide-y">
-                    {boms.map((b) => (
-                      <button key={b.id} type="button" onClick={() => setForm({ ...form, bomId: b.id })} className={`w-full text-left px-2 py-1 text-xs hover:bg-muted ${form.bomId === b.id ? 'bg-muted font-semibold' : ''}`}>
-                        <span className="font-mono">{b.skuCode}</span> {b.name}
-                      </button>
-                    ))}
-                  </div>
-                  <Input value={form.bomId} onChange={(e) => setForm({ ...form, bomId: e.target.value })} placeholder="Atau paste BOM UUID" className="text-[10px] font-mono mt-1" />
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Proses</Label>
+                  {selectedProcess && (
+                    <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between items-center">
+                      <span><strong>{selectedProcess.code}</strong> — {selectedProcess.name} {selectedProcess.subtitle ? `(${selectedProcess.subtitle})` : ''}</span>
+                      <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={() => { setSelectedProcess(null); setForm({ ...form, processId: '' }); }}>Ganti</Button>
+                    </div>
+                  )}
+                  <Input value={procSearch} onChange={(e) => setProcSearch(e.target.value)} placeholder="Cari proses..." className="text-xs h-8" />
+                  {!selectedProcess && (
+                    <div className="border rounded max-h-36 overflow-auto divide-y">
+                      {processes.map((p) => (
+                        <button key={p.id} type="button" onClick={() => { setForm({ ...form, processId: p.id }); setSelectedProcess(p); }} className={`w-full text-left px-2.5 py-2 text-xs hover:bg-muted flex justify-between gap-2 ${form.processId === p.id ? 'bg-muted font-medium' : ''}`}>
+                          <span><span className="font-mono font-semibold">{p.code}</span> — {p.name}</span>
+                          {p.subtitle && <span className="text-[10px] text-muted-foreground">{p.subtitle}</span>}
+                        </button>
+                      ))}
+                      {processes.length === 0 && <div className="text-[11px] text-muted-foreground p-2 text-center">Tidak ada proses. Tambah di Kelola Proses.</div>}
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <Label>Source Location</Label>
-                  <Input value={locSearch} onChange={(e) => setLocSearch(e.target.value)} placeholder="Cari lokasi" className="text-xs" />
-                  <div className="border rounded max-h-28 overflow-auto mt-1 divide-y">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">BoM — output tahap ini</Label>
+                  {selectedBom && (
+                    <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between gap-2">
+                      <div className="min-w-0"><div className="font-medium truncate">{selectedBom.name}</div><div className="text-[11px] text-muted-foreground truncate">{selectedBom.skuCode} {selectedBom.subtitle ? `— ${selectedBom.subtitle}` : ''}</div></div>
+                      <Button variant="ghost" size="sm" className="h-6 text-[11px] shrink-0" onClick={() => { setSelectedBom(null); setForm({ ...form, bomId: '' }); }}>Ganti</Button>
+                    </div>
+                  )}
+                  <Input value={bomSearch} onChange={(e) => setBomSearch(e.target.value)} placeholder="Cari BoM..." className="text-xs h-8" />
+                  {!selectedBom && (
+                    <div className="border rounded max-h-40 overflow-auto divide-y">
+                      {boms.map((b) => (
+                        <button key={b.id} type="button" onClick={() => { setForm({ ...form, bomId: b.id }); setSelectedBom(b); }} className={`w-full text-left px-2.5 py-2 text-xs hover:bg-muted ${form.bomId === b.id ? 'bg-muted font-medium' : ''}`}>
+                          <div className="truncate font-medium">{b.name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">{b.skuCode}{b.subtitle ? ` — ${b.subtitle}` : ''}</div>
+                        </button>
+                      ))}
+                      {boms.length === 0 && <div className="text-[11px] text-muted-foreground p-2 text-center">Tidak ada BoM. Buat BoM dulu.</div>}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">Pilih BoM yang output-nya = hasil tahap ini (bisa WIP/Intermediate). Tahap terakhir harus BoM dari {route.productVariant?.skuCode}.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Lokasi</Label>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="text-[11px] text-muted-foreground mb-1">Ambil bahan dari (opsional):</div>
+                      {selectedSrcLoc ? (
+                        <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between items-center">
+                          <span>{selectedSrcLoc.name} <span className="text-muted-foreground">({selectedSrcLoc.slug})</span></span>
+                          <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={() => { setSelectedSrcLoc(null); setForm({ ...form, materialSourceLocationId: '' }); }}>Hapus</Button>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-[11px] font-normal">Stok umum (tidak spesifik lokasi)</Badge>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-[11px] text-muted-foreground mb-1">Hasil tahap ditaruh ke (wajib):</div>
+                      {selectedOutLoc ? (
+                        <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between items-center">
+                          <span>{selectedOutLoc.name} <span className="text-muted-foreground">({selectedOutLoc.slug})</span></span>
+                          <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={() => { setSelectedOutLoc(null); setForm({ ...form, outputLocationId: '' }); }}>Ganti</Button>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-red-600 font-medium px-2 py-1 rounded border border-red-200 bg-red-50">Belum dipilih — wajib sebelum publish</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Input value={locSearch} onChange={(e) => setLocSearch(e.target.value)} placeholder="Cari lokasi (gudang WIP, FG...)" className="text-xs h-8" />
+                  <div className="border rounded max-h-28 overflow-auto divide-y">
                     {locs.map((l) => (
-                      <button key={l.id} type="button" onClick={() => { if (form.materialSourceLocationId === '') setForm({ ...form, materialSourceLocationId: l.id }); else if (form.outputLocationId === '') setForm({ ...form, outputLocationId: l.id }); }} className="w-full text-left px-2 py-1 text-xs hover:bg-muted">
+                      <button key={l.id} type="button"
+                        onClick={() => {
+                          // first click without output selected -> pick as output (wajib). Second as source? Simpler: toggle selector mode
+                          if (!form.outputLocationId) {
+                            setForm({ ...form, outputLocationId: l.id });
+                            setSelectedOutLoc(l);
+                          } else if (!form.materialSourceLocationId) {
+                            setForm({ ...form, materialSourceLocationId: l.id });
+                            setSelectedSrcLoc(l);
+                          } else {
+                            // cycle: if clicking same list, overwrite output
+                            setForm({ ...form, outputLocationId: l.id });
+                            setSelectedOutLoc(l);
+                          }
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-muted">
                         {l.name} <span className="text-muted-foreground">({l.slug})</span>
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-1 mt-1">
-                    <Input value={form.materialSourceLocationId} onChange={(e) => setForm({ ...form, materialSourceLocationId: e.target.value })} placeholder="Source loc UUID" className="text-[10px] font-mono" />
-                    <Input value={form.outputLocationId} onChange={(e) => setForm({ ...form, outputLocationId: e.target.value })} placeholder="Output loc UUID (wajib)" className="text-[10px] font-mono" />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Klik lokasi di list: pertama → source, kedua → output. Output wajib untuk publish.</p>
+                  <p className="text-[10px] text-muted-foreground">Klik lokasi: pertama jadi output, kedua jadi source. Untuk ganti output, klik lokasi lain di list.</p>
                 </div>
 
-                <div className="flex gap-4">
-                  <label className="text-xs flex gap-1 items-center"><input type="checkbox" checked={form.allowsPartialHandoff} onChange={(e) => setForm({ ...form, allowsPartialHandoff: e.target.checked })} /> Partial handoff</label>
-                  <label className="text-xs flex gap-1 items-center"><input type="checkbox" checked={form.requiresQualityGate} onChange={(e) => setForm({ ...form, requiresQualityGate: e.target.checked })} /> QC gate</label>
+                <div className="flex gap-4 pt-1">
+                  <label className="text-xs flex gap-1.5 items-center cursor-pointer"><input type="checkbox" checked={form.allowsPartialHandoff} onChange={(e) => setForm({ ...form, allowsPartialHandoff: e.target.checked })} /> Boleh estafet sebagian</label>
+                  <label className="text-xs flex gap-1.5 items-center cursor-pointer"><input type="checkbox" checked={form.requiresQualityGate} onChange={(e) => setForm({ ...form, requiresQualityGate: e.target.checked })} /> Butuh QC</label>
                 </div>
-                <Button onClick={handleAddStep} className="w-full">Tambah Step</Button>
-                <p className="text-[10px] text-muted-foreground">Validator cek: output chain, last=FG, risky location, capability.</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Route Flow Preview</CardTitle></CardHeader>
-              <CardContent className="text-xs space-y-1">
-                {route.steps.length === 0 ? <span className="text-muted-foreground">—</span> :
-                  [...route.steps].sort((a, b) => a.sequence - b.sequence).map((s, i) => (
-                    <div key={s.id} className="flex gap-1">
-                      <span className="font-mono">{i + 1}.</span><span>{s.bom.productVariantId.slice(0, 6)}</span><span className="text-muted-foreground">→ {s.process.code} →</span><span className="font-semibold">{s.label}</span>
-                    </div>
-                  ))
-                }
+                <Button onClick={handleAddStep} className="w-full" disabled={!form.stepCode || !form.label || !form.processId || !form.bomId || !form.outputLocationId}>Tambah Tahap</Button>
+                <p className="text-[10px] text-muted-foreground">Sistem cek: chain output-input, lokasi aktif/tidak risky, mesin capable.</p>
               </CardContent>
             </Card>
           </div>
