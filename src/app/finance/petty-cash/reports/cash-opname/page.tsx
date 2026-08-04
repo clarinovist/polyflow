@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     getDailyPettyCashReportAction,
     getCashOpnameSignaturesAction,
@@ -79,6 +79,8 @@ export default function CashOpnamePage() {
     // ponytail: defaults now generic empty; persist/load from AppSetting via server actions.
     const [signatures, setSignatures] = useState({ ...EMPTY_SIGNATURES });
     const [sigLoaded, setSigLoaded] = useState(false);
+    const printWrapperRef = useRef<HTMLDivElement>(null);
+    const printContentRef = useRef<HTMLDivElement>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -141,6 +143,64 @@ export default function CashOpnamePage() {
         window.print();
     };
 
+    // A4 (297mm) minus 2x10mm @page margin, converted to px @96dpi, minus a
+    // small rounding buffer so the scaled content never spills onto page 2.
+    const PRINT_PAGE_HEIGHT_PX = 1030;
+
+    useEffect(() => {
+        const applyPrintScale = () => {
+            const content = printContentRef.current;
+            const wrapper = printWrapperRef.current;
+            if (!content || !wrapper) return;
+
+            // Reset before measuring so we always measure natural height.
+            content.style.removeProperty('transform');
+            content.style.removeProperty('max-width');
+            content.style.removeProperty('width');
+            wrapper.style.removeProperty('height');
+            wrapper.style.removeProperty('overflow');
+
+            const naturalHeight = content.scrollHeight;
+            const scale = Math.min(1, PRINT_PAGE_HEIGHT_PX / naturalHeight);
+            if (scale >= 1) return;
+
+            // .print-container already has `max-width: 100% !important` for
+            // print. `max-width` caps the used `width` in the box model
+            // regardless of `!important` on `width` itself (they're
+            // different properties, so cascade importance doesn't help) —
+            // it must be neutralized too, or the width compensation below
+            // gets clamped and the scaled result only fills a small corner
+            // of the page instead of its full width.
+            content.style.setProperty('max-width', 'none', 'important');
+            content.style.setProperty('width', `${100 / scale}%`, 'important');
+            content.style.setProperty(
+                'transform',
+                `scale(${scale})`,
+                'important',
+            );
+            content.style.transformOrigin = 'top left';
+            wrapper.style.height = `${naturalHeight * scale}px`;
+            wrapper.style.overflow = 'hidden';
+        };
+
+        const resetPrintScale = () => {
+            const content = printContentRef.current;
+            const wrapper = printWrapperRef.current;
+            content?.style.removeProperty('transform');
+            content?.style.removeProperty('max-width');
+            content?.style.removeProperty('width');
+            wrapper?.style.removeProperty('height');
+            wrapper?.style.removeProperty('overflow');
+        };
+
+        window.addEventListener('beforeprint', applyPrintScale);
+        window.addEventListener('afterprint', resetPrintScale);
+        return () => {
+            window.removeEventListener('beforeprint', applyPrintScale);
+            window.removeEventListener('afterprint', resetPrintScale);
+        };
+    }, []);
+
     const updateDenomination = (index: number, count: number) => {
         const updated = [...denominations];
         updated[index] = Math.max(0, count);
@@ -174,6 +234,10 @@ export default function CashOpnamePage() {
             <style
                 dangerouslySetInnerHTML={{
                     __html: `
+                @page {
+                    size: A4;
+                    margin: 10mm;
+                }
                 @media print {
                     aside, header, .h-16.lg\\\\:hidden, .print\\\\:hidden, button, .no-print, nav {
                         display: none !important;
@@ -344,289 +408,294 @@ export default function CashOpnamePage() {
                     Tidak ada data untuk tanggal ini.
                 </div>
             ) : (
-                <div className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm">
-                    {/* ===== HEADER ===== */}
-                    <div className="text-center mb-2">
-                        <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
-                            BERITA ACARA
-                        </h1>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Cash Opname : Kas Kecil
-                        </p>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Tanggal : {dayName}, {dateFormatted}
-                        </p>
-                    </div>
-                    <hr className="border-black dark:border-gray-600 mb-4" />
+                <div ref={printWrapperRef}>
+                    <div
+                        ref={printContentRef}
+                        className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm"
+                    >
+                        {/* ===== HEADER ===== */}
+                        <div className="text-center mb-2">
+                            <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
+                                BERITA ACARA
+                            </h1>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">
+                                Cash Opname : Kas Kecil
+                            </p>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">
+                                Tanggal : {dayName}, {dateFormatted}
+                            </p>
+                        </div>
+                        <hr className="border-black dark:border-gray-600 mb-4" />
 
-                    {/* ===== OPENING BALANCE & SUMMARY ===== */}
-                    <div className="space-y-1 text-sm mb-4">
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                Saldo Awal tgl{' '}
-                                {format(prevDate, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">
-                                {formatNumber(openingBalance)}
-                            </span>
-                        </div>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100">
-                            KAS KECIL
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                Pengeluaran yg bernota tgl{' '}
-                                {format(date, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">
-                                {formatNumber(totalOut)}
-                            </span>
-                        </div>
-                        <div className="text-gray-700 dark:text-gray-300">
-                            sampai tgl
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                KAS BON s/d tgl{' '}
-                                {format(date, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span>&nbsp;</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                Uang Masuk Kas Kecil tgl{' '}
-                                {format(date, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">
-                                {formatNumber(totalIn)}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* ===== FINANCIAL SUMMARY ===== */}
-                    <div className="space-y-1 text-sm mb-6">
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                TOTAL PENGELUARAN Kas Kecil tgl{' '}
-                                {format(date, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">
-                                {formatNumber(totalOut)} -
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                UANG MASUK Kas Kecil tgl{' '}
-                                {format(date, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">
-                                {formatNumber(totalIn)} +
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                PENGEMBALIAN KAS BON tgl{' '}
-                                {format(date, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">
-                                {formatNumber(0)} -
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">
-                                SALDO AKHIR Kas Kecil tgl{' '}
-                                {format(date, 'd MMM yyyy', {
-                                    locale: localeID,
-                                })}{' '}
-                                :
-                            </span>
-                            <span>&nbsp;</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-base border-t border-black dark:border-gray-600 pt-1">
-                            <span className="text-gray-900 dark:text-gray-100">
+                        {/* ===== OPENING BALANCE & SUMMARY ===== */}
+                        <div className="space-y-1 text-sm mb-4">
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    Saldo Awal tgl{' '}
+                                    {format(prevDate, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span className="font-mono text-gray-800 dark:text-gray-200">
+                                    {formatNumber(openingBalance)}
+                                </span>
+                            </div>
+                            <div className="font-semibold text-gray-900 dark:text-gray-100">
                                 KAS KECIL
-                            </span>
-                            <span className="font-mono text-gray-900 dark:text-gray-100">
-                                {formatNumber(closingBalance)}
-                            </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    Pengeluaran yg bernota tgl{' '}
+                                    {format(date, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span className="font-mono text-gray-800 dark:text-gray-200">
+                                    {formatNumber(totalOut)}
+                                </span>
+                            </div>
+                            <div className="text-gray-700 dark:text-gray-300">
+                                sampai tgl
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    KAS BON s/d tgl{' '}
+                                    {format(date, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span>&nbsp;</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    Uang Masuk Kas Kecil tgl{' '}
+                                    {format(date, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span className="font-mono text-gray-800 dark:text-gray-200">
+                                    {formatNumber(totalIn)}
+                                </span>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* ===== DENOMINASI ===== */}
-                    <div className="mb-4">
-                        <p className="text-sm mb-2 text-gray-800 dark:text-gray-200">
-                            Jumlah fisik uang kontan yang dihitung terdiri dari
-                            :
-                        </p>
-                        <table className="w-full border-collapse text-sm">
-                            <thead>
-                                <tr className="border border-black dark:border-gray-600">
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">
-                                        Pecahan
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
-                                        X
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-20 text-gray-900 dark:text-gray-100">
-                                        Jumlah
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
-                                        :
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
-                                        Total
-                                    </th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-16 text-gray-900 dark:text-gray-100">
-                                        Ket
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {denominationRows.map((row, i) => (
-                                    <tr
-                                        key={i}
-                                        className="border border-black dark:border-gray-600"
-                                    >
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
-                                            {row.label}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                        {/* ===== FINANCIAL SUMMARY ===== */}
+                        <div className="space-y-1 text-sm mb-6">
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    TOTAL PENGELUARAN Kas Kecil tgl{' '}
+                                    {format(date, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span className="font-mono text-gray-800 dark:text-gray-200">
+                                    {formatNumber(totalOut)} -
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    UANG MASUK Kas Kecil tgl{' '}
+                                    {format(date, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span className="font-mono text-gray-800 dark:text-gray-200">
+                                    {formatNumber(totalIn)} +
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    PENGEMBALIAN KAS BON tgl{' '}
+                                    {format(date, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span className="font-mono text-gray-800 dark:text-gray-200">
+                                    {formatNumber(0)} -
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-800 dark:text-gray-200">
+                                    SALDO AKHIR Kas Kecil tgl{' '}
+                                    {format(date, 'd MMM yyyy', {
+                                        locale: localeID,
+                                    })}{' '}
+                                    :
+                                </span>
+                                <span>&nbsp;</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-base border-t border-black dark:border-gray-600 pt-1">
+                                <span className="text-gray-900 dark:text-gray-100">
+                                    KAS KECIL
+                                </span>
+                                <span className="font-mono text-gray-900 dark:text-gray-100">
+                                    {formatNumber(closingBalance)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* ===== DENOMINASI ===== */}
+                        <div className="mb-4">
+                            <p className="text-sm mb-2 text-gray-800 dark:text-gray-200">
+                                Jumlah fisik uang kontan yang dihitung terdiri
+                                dari :
+                            </p>
+                            <table className="w-full border-collapse text-sm">
+                                <thead>
+                                    <tr className="border border-black dark:border-gray-600">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">
+                                            Pecahan
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
                                             X
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center">
-                                            <Input
-                                                type="number"
-                                                className="h-6 text-center border-0 p-0 text-sm font-mono bg-transparent text-gray-800 dark:text-gray-200"
-                                                value={row.count || ''}
-                                                onChange={(e) =>
-                                                    updateDenomination(
-                                                        i,
-                                                        parseInt(
-                                                            e.target.value,
-                                                        ) || 0,
-                                                    )
-                                                }
-                                                min={0}
-                                            />
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-20 text-gray-900 dark:text-gray-100">
+                                            Jumlah
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
                                             :
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
-                                            {row.total > 0
-                                                ? formatNumber(row.total)
-                                                : ''}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-xs text-muted-foreground">
-                                            {row.type || ''}
-                                        </td>
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
+                                            Total
+                                        </th>
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-16 text-gray-900 dark:text-gray-100">
+                                            Ket
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {denominationRows.map((row, i) => (
+                                        <tr
+                                            key={i}
+                                            className="border border-black dark:border-gray-600"
+                                        >
+                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
+                                                {row.label}
+                                            </td>
+                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                                                X
+                                            </td>
+                                            <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center">
+                                                <Input
+                                                    type="number"
+                                                    className="h-6 text-center border-0 p-0 text-sm font-mono bg-transparent text-gray-800 dark:text-gray-200"
+                                                    value={row.count || ''}
+                                                    onChange={(e) =>
+                                                        updateDenomination(
+                                                            i,
+                                                            parseInt(
+                                                                e.target.value,
+                                                            ) || 0,
+                                                        )
+                                                    }
+                                                    min={0}
+                                                />
+                                            </td>
+                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                                                :
+                                            </td>
+                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
+                                                {row.total > 0
+                                                    ? formatNumber(row.total)
+                                                    : ''}
+                                            </td>
+                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-xs text-muted-foreground">
+                                                {row.type || ''}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                    {/* ===== REKONSILIASI ===== */}
-                    <div className="mb-6">
-                        <hr className="border-black dark:border-gray-600 mb-2" />
-                        <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-800 dark:text-gray-200">
-                                    Total fisik uang :
-                                </span>
-                                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">
-                                    {formatNumber(totalFisik)}
-                                </span>
+                        {/* ===== REKONSILIASI ===== */}
+                        <div className="mb-6">
+                            <hr className="border-black dark:border-gray-600 mb-2" />
+                            <div className="space-y-1 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-800 dark:text-gray-200">
+                                        Total fisik uang :
+                                    </span>
+                                    <span className="font-mono font-bold text-gray-800 dark:text-gray-200">
+                                        {formatNumber(totalFisik)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-800 dark:text-gray-200">
+                                        Selisih Lebih / Kurang :
+                                    </span>
+                                    <span
+                                        className={cn(
+                                            'font-mono font-bold',
+                                            selisih !== 0
+                                                ? 'text-red-600 dark:text-red-400'
+                                                : 'text-gray-800 dark:text-gray-200',
+                                        )}
+                                    >
+                                        {selisih !== 0
+                                            ? formatNumber(selisih)
+                                            : '0'}
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-800 dark:text-gray-200">
-                                    Selisih Lebih / Kurang :
-                                </span>
-                                <span
-                                    className={cn(
-                                        'font-mono font-bold',
-                                        selisih !== 0
-                                            ? 'text-red-600 dark:text-red-400'
-                                            : 'text-gray-800 dark:text-gray-200',
-                                    )}
-                                >
-                                    {selisih !== 0
-                                        ? formatNumber(selisih)
-                                        : '0'}
-                                </span>
+                        </div>
+
+                        {/* ===== CLOSING STATEMENT ===== */}
+                        <div className="mb-8">
+                            <p className="text-sm text-gray-800 dark:text-gray-200">
+                                Demikian berita acara ini dibuat dengan
+                                sesungguhnya, Terima kasih.
+                            </p>
+                            <p className="text-sm mt-1 text-gray-800 dark:text-gray-200">
+                                Karanganyar, {dayName}, {dateFormatted}
+                            </p>
+                        </div>
+
+                        {/* ===== SIGNATURES ===== */}
+                        <div className="grid grid-cols-4 gap-6 text-center text-sm">
+                            <div>
+                                <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                    Kasir
+                                </p>
+                                <div className="h-16" />
+                                <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                                    ( {signatures.kasir} )
+                                </p>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* ===== CLOSING STATEMENT ===== */}
-                    <div className="mb-8">
-                        <p className="text-sm text-gray-800 dark:text-gray-200">
-                            Demikian berita acara ini dibuat dengan
-                            sesungguhnya, Terima kasih.
-                        </p>
-                        <p className="text-sm mt-1 text-gray-800 dark:text-gray-200">
-                            Karanganyar, {dayName}, {dateFormatted}
-                        </p>
-                    </div>
-
-                    {/* ===== SIGNATURES ===== */}
-                    <div className="grid grid-cols-4 gap-6 text-center text-sm">
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">
-                                Kasir
-                            </p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
-                                ( {signatures.kasir} )
-                            </p>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">
-                                Akuntansi
-                            </p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
-                                ( {signatures.akuntansi} )
-                            </p>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">
-                                Direktur
-                            </p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
-                                ( {signatures.direktur} )
-                            </p>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">
-                                Komisaris
-                            </p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
-                                ( {signatures.komisaris} )
-                            </p>
+                            <div>
+                                <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                    Akuntansi
+                                </p>
+                                <div className="h-16" />
+                                <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                                    ( {signatures.akuntansi} )
+                                </p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                    Direktur
+                                </p>
+                                <div className="h-16" />
+                                <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                                    ( {signatures.direktur} )
+                                </p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                    Komisaris
+                                </p>
+                                <div className="h-16" />
+                                <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                                    ( {signatures.komisaris} )
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
