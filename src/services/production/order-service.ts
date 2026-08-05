@@ -306,9 +306,16 @@ export class ProductionOrderService {
                     const productType = bomWithProduct.productVariant.product.productType;
                     const purpose = targetLoc.locationPurpose;
                     const isValidCombo =
-                        (productType === 'FINISHED_GOOD' && purpose === 'FINISHED_GOOD') ||
-                        (productType === 'INTERMEDIATE' && purpose === 'WIP') ||
-                        (productType === 'WIP' && purpose === 'WIP') ||
+                        // FINISHED_GOOD can land in FG or Kiyowo packing floor (PACKING, not supplies — risky check already blocks supplies)
+                        (productType === 'FINISHED_GOOD' &&
+                            (purpose === 'FINISHED_GOOD' || purpose === 'PACKING')) ||
+                        // INTERMEDIATE/WIP: MIXING is alias of WIP per resolve-location.ts
+                        (productType === 'INTERMEDIATE' &&
+                            (purpose === 'WIP' || purpose === 'MIXING')) ||
+                        (productType === 'WIP' && (purpose === 'WIP' || purpose === 'MIXING')) ||
+                        // PACKAGING products (Kiyowo bag output) land in packing_area; Melindo fallback FG
+                        (productType === 'PACKAGING' &&
+                            (purpose === 'PACKING' || purpose === 'FINISHED_GOOD')) ||
                         (productType === 'SCRAP' && purpose === 'SCRAP') ||
                         purpose === 'GENERAL_PURPOSE';
                     if (!isValidCombo) {

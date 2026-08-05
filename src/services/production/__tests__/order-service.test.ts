@@ -123,8 +123,50 @@ const activeBom = (overrides: Record<string, unknown> = {}) =>
 
 describe("ProductionOrderService", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.mocked(prisma.appSetting.findUnique).mockResolvedValue(null as any);
+    // Default safe location for createOrder paths — FINISHED_GOOD non-risky.
+    // Individual tests override this when testing location validation.
+    vi.mocked(prisma.location.findUnique).mockResolvedValue({
+      id: "loc-1",
+      name: "Finished Goods WH",
+      slug: "fg_warehouse",
+      locationPurpose: "FINISHED_GOOD",
+    } as any);
+    vi.mocked(prisma.location.findMany).mockResolvedValue([
+      {
+        id: "rm-1",
+        name: "RM WH",
+        slug: "rm_warehouse",
+        locationPurpose: "RAW_MATERIAL",
+      },
+      {
+        id: "mix-1",
+        name: "Mixing Area",
+        slug: "mixing_area",
+        locationPurpose: "MIXING",
+      },
+      {
+        id: "loc-1",
+        name: "Finished Goods WH",
+        slug: "fg_warehouse",
+        locationPurpose: "FINISHED_GOOD",
+      },
+      {
+        id: "wip-1",
+        name: "WIP Storage",
+        slug: "wip_storage",
+        locationPurpose: "WIP",
+      },
+    ] as any);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.inventory.findFirst).mockResolvedValue(null as any);
+    vi.mocked(prisma.location.findUnique as any).mockResolvedValue({
+      id: "loc-1",
+      name: "Finished Goods WH",
+      slug: "fg_warehouse",
+      locationPurpose: "FINISHED_GOOD",
+    } as any);
   });
 
   describe("getInitData", () => {
@@ -990,6 +1032,157 @@ describe("ProductionOrderService", () => {
         locationId: "loc-fg",
       });
       expect(res).toBeDefined();
+    });
+
+    // ── Location purpose vs product type guard (fix for Kiyowo mixing + packing) ──
+    const withProductType = (pt: string) =>
+      ({
+        productVariant: { product: { productType: pt } },
+      }) as any;
+
+    it("should allow INTERMEDIATE product to MIXING location (Kiyowo mixing_area)", async () => {
+      const mod = await import("../order-number-service");
+      vi.mocked(prisma.bom.findUnique)
+        .mockResolvedValueOnce(activeBom())
+        .mockResolvedValueOnce(withProductType("INTERMEDIATE"));
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-mix",
+        name: "Mixing Area",
+        slug: "mixing_area",
+        locationPurpose: "MIXING",
+      } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue({
+        id: "po-1",
+      } as any);
+
+      const res = await ProductionOrderService.createOrder({
+        ...base,
+        locationId: "loc-mix",
+      });
+      expect(res).toBeDefined();
+    });
+
+    it("should allow WIP product to MIXING location", async () => {
+      const mod = await import("../order-number-service");
+      vi.mocked(prisma.bom.findUnique)
+        .mockResolvedValueOnce(activeBom())
+        .mockResolvedValueOnce(withProductType("WIP"));
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-mix",
+        name: "Mixing Area",
+        slug: "mixing_area",
+        locationPurpose: "MIXING",
+      } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue({
+        id: "po-1",
+      } as any);
+
+      const res = await ProductionOrderService.createOrder({
+        ...base,
+        locationId: "loc-mix",
+      });
+      expect(res).toBeDefined();
+    });
+
+    it("should allow INTERMEDIATE product to WIP location (Melindo)", async () => {
+      const mod = await import("../order-number-service");
+      vi.mocked(prisma.bom.findUnique)
+        .mockResolvedValueOnce(activeBom())
+        .mockResolvedValueOnce(withProductType("INTERMEDIATE"));
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-wip",
+        name: "Gudang WIP Intermediate",
+        slug: "gudang-wip-intermediate",
+        locationPurpose: "WIP",
+      } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue({
+        id: "po-1",
+      } as any);
+
+      const res = await ProductionOrderService.createOrder({
+        ...base,
+        locationId: "loc-wip",
+      });
+      expect(res).toBeDefined();
+    });
+
+    it("should allow PACKAGING product to PACKING location (Kiyowo packing_area)", async () => {
+      const mod = await import("../order-number-service");
+      vi.mocked(prisma.bom.findUnique)
+        .mockResolvedValueOnce(activeBom())
+        .mockResolvedValueOnce(withProductType("PACKAGING"));
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-pack",
+        name: "Packing Area",
+        slug: "packing_area",
+        locationPurpose: "PACKING",
+      } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue({
+        id: "po-1",
+      } as any);
+
+      const res = await ProductionOrderService.createOrder({
+        ...base,
+        locationId: "loc-pack",
+      });
+      expect(res).toBeDefined();
+    });
+
+    it("should allow PACKAGING product to FINISHED_GOOD location (Melindo fallback)", async () => {
+      const mod = await import("../order-number-service");
+      vi.mocked(prisma.bom.findUnique)
+        .mockResolvedValueOnce(activeBom())
+        .mockResolvedValueOnce(withProductType("PACKAGING"));
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-fg",
+        name: "Gudang Barang Jadi",
+        slug: "gudang-barang-jadi",
+        locationPurpose: "FINISHED_GOOD",
+      } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue({
+        id: "po-1",
+      } as any);
+
+      const res = await ProductionOrderService.createOrder({
+        ...base,
+        locationId: "loc-fg",
+      });
+      expect(res).toBeDefined();
+    });
+
+    it("should still reject INTERMEDIATE product to FINISHED_GOOD location", async () => {
+      vi.mocked(prisma.bom.findUnique)
+        .mockResolvedValueOnce(activeBom())
+        .mockResolvedValueOnce(withProductType("INTERMEDIATE"));
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-fg",
+        name: "Gudang Barang Jadi",
+        slug: "gudang-barang-jadi",
+        locationPurpose: "FINISHED_GOOD",
+      } as any);
+
+      await expect(
+        ProductionOrderService.createOrder({ ...base, locationId: "loc-fg" }),
+      ).rejects.toThrow("tidak cocok untuk produk tipe INTERMEDIATE");
+    });
+
+    it("should still block packaging supplies warehouse via risky guard (Melindo gudang-packaging)", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.location.findUnique).mockResolvedValue({
+        id: "loc-supplies",
+        name: "Gudang Bahan Pembantu & Pengemas",
+        slug: "gudang-packaging",
+        locationPurpose: "PACKING",
+      } as any);
+
+      await expect(
+        ProductionOrderService.createOrder({ ...base, locationId: "loc-supplies" }),
+      ).rejects.toThrow("Lokasi output tidak valid untuk SPK");
     });
   });
 
