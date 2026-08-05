@@ -186,6 +186,17 @@ export default function DailyPettyCashReportPage() {
                         --muted: oklch(0.97 0 0);
                         --muted-foreground: oklch(0.556 0 0);
                     }
+                    .print-report-container [data-slot="card"] {
+                        padding-top: 0.5rem !important;
+                        padding-bottom: 0.5rem !important;
+                        gap: 0.25rem !important;
+                    }
+                    .print-report-container [data-slot="card-header"] {
+                        padding-bottom: 0 !important;
+                    }
+                    .print-report-container [data-slot="card-content"] {
+                        padding-top: 0 !important;
+                    }
                 }
             `,
                 }}
@@ -453,7 +464,7 @@ export default function DailyPettyCashReportPage() {
                     lagi.
                 </div>
             ) : (
-                <div className="space-y-6 print-report-container">
+                <div className="space-y-6 print:space-y-2 print-report-container">
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-4">
                         <Card className="shadow-sm">
@@ -464,7 +475,7 @@ export default function DailyPettyCashReportPage() {
                                 <Wallet className="h-4 w-4 text-muted-foreground print:hidden" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold font-mono tracking-tight text-gray-800 dark:text-gray-200">
+                                <div className="text-2xl print:text-lg font-bold font-mono tracking-tight text-gray-800 dark:text-gray-200">
                                     {formatRupiah(data.openingBalance)}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1">
@@ -481,7 +492,7 @@ export default function DailyPettyCashReportPage() {
                                 <ArrowUpRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400 print:hidden" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold font-mono tracking-tight text-emerald-700 dark:text-emerald-400 print:text-card-foreground">
+                                <div className="text-2xl print:text-lg font-bold font-mono tracking-tight text-emerald-700 dark:text-emerald-400 print:text-card-foreground">
                                     {formatRupiah(data.totalIn)}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1">
@@ -498,7 +509,7 @@ export default function DailyPettyCashReportPage() {
                                 <ArrowDownRight className="h-4 w-4 text-rose-600 dark:text-rose-400 print:hidden" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold font-mono tracking-tight text-rose-700 dark:text-rose-400 print:text-card-foreground">
+                                <div className="text-2xl print:text-lg font-bold font-mono tracking-tight text-rose-700 dark:text-rose-400 print:text-card-foreground">
                                     {formatRupiah(data.totalOut)}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1">
@@ -515,7 +526,7 @@ export default function DailyPettyCashReportPage() {
                                 <Wallet className="h-4 w-4 text-purple-600 dark:text-purple-400 print:hidden" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold font-mono tracking-tight text-purple-700 dark:text-purple-400 print:text-card-foreground">
+                                <div className="text-2xl print:text-lg font-bold font-mono tracking-tight text-purple-700 dark:text-purple-400 print:text-card-foreground">
                                     {formatRupiah(data.closingBalance)}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1">
@@ -583,7 +594,7 @@ export default function DailyPettyCashReportPage() {
                                                     <TableCell>
                                                         <span
                                                             className={cn(
-                                                                'px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider print:border print:bg-white',
+                                                                'px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider print:border print:bg-white print:text-black print:border-black',
                                                                 t.type ===
                                                                     'EXPENSE'
                                                                     ? 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50'
@@ -698,13 +709,13 @@ export default function DailyPettyCashReportPage() {
                     </Card>
 
                     {/* Manual Signature Section for Audit Signoff */}
-                    <div className="mt-10 pt-4 border-t border-dashed border-gray-300 dark:border-gray-600 print:border-none print:mt-12">
-                        <p className="text-xs text-muted-foreground mb-4 text-center print:text-left print:mb-6">
+                    <div className="mt-10 pt-4 border-t border-dashed border-gray-300 dark:border-gray-600 print:border-none print:mt-4">
+                        <p className="text-xs text-muted-foreground mb-4 text-center print:text-left print:mb-2">
                             Laporan kas kecil harian ini dicetak secara otomatis
                             dari sistem ERP PolyFlow.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center text-xs print:grid-cols-3 print:gap-4 print:text-left">
-                            <div className="space-y-16">
+                            <div className="space-y-16 print:space-y-8">
                                 <div className="space-y-1">
                                     <p className="font-semibold text-gray-700 dark:text-gray-300">
                                         Dibuat Oleh,
@@ -723,7 +734,7 @@ export default function DailyPettyCashReportPage() {
                                 </div>
                             </div>
 
-                            <div className="space-y-16">
+                            <div className="space-y-16 print:space-y-8">
                                 <div className="space-y-1">
                                     <p className="font-semibold text-gray-700 dark:text-gray-300">
                                         Disetujui Oleh,
@@ -742,7 +753,7 @@ export default function DailyPettyCashReportPage() {
                                 </div>
                             </div>
 
-                            <div className="space-y-16">
+                            <div className="space-y-16 print:space-y-8">
                                 <div className="space-y-1">
                                     <p className="font-semibold text-gray-700 dark:text-gray-300">
                                         Mengetahui,

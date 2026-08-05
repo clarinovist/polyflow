@@ -75,7 +75,7 @@ export default async function FinanceLayout({
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background print:bg-white">
             <FinanceSidebar user={session.user} permissions={permissions} />
             <SidebarSpacer>
                 <main className="min-h-screen">
