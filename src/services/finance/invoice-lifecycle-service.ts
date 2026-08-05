@@ -262,15 +262,18 @@ export async function updateInvoiceStatus(
 
     const invoice = await prisma.invoice.findUnique({
         where: { id },
+        include: { salesOrder: { select: { entrySource: true } } },
     });
 
     if (!invoice) {
         throw new NotFoundError('Invoice', id);
     }
 
-    // Prevent direct status change from DRAFT to payment states
+    // Prevent direct status change from DRAFT to payment states only for emergency dispatch invoices
+    // STANDARD invoices (majority case, including "Konfirmasi Invoice" UI button) must not be blocked
     if (
         invoice.status === 'DRAFT' &&
+        invoice.salesOrder.entrySource === 'EMERGENCY_DISPATCH' &&
         (status === 'UNPAID' || status === 'PARTIAL' || status === 'PAID')
     ) {
         throw new BusinessRuleError(

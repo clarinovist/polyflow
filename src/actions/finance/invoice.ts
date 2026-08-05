@@ -3,7 +3,11 @@
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
-import { requireFinanceAccess, requireFinanceMutation, requireFinanceReadCrossPortal } from '@/lib/auth/finance-access';
+import {
+    requireFinanceAccess,
+    requireFinanceMutation,
+    requireFinanceReadCrossPortal,
+} from '@/lib/auth/finance-access';
 import { InvoiceService } from '@/services/finance/invoice-service';
 import {
     createInvoiceSchema,
@@ -139,28 +143,17 @@ export const updateInvoiceStatus = withTenant(
                 throw new ValidationError(result.error.issues[0].message);
             }
 
-            try {
-                await InvoiceService.updateStatus(result.data, session.user.id);
-                revalidatePath('/sales'); // If there were an invoice list page, verify path
-                const invoice = await prisma.invoice.findUnique({
-                    where: { id: data.id },
-                    select: { salesOrderId: true },
-                });
-                if (invoice) {
-                    revalidatePath(`/sales/orders/${invoice.salesOrderId}`);
-                }
-
-                return { success: true };
-            } catch (error) {
-                logger.error('Failed to update invoice status', {
-                    error,
-                    invoiceId: data.id,
-                    module: 'InvoiceActions',
-                });
-                throw new BusinessRuleError(
-                    'Failed to update invoice. Please try again.',
-                );
+            await InvoiceService.updateStatus(result.data, session.user.id);
+            revalidatePath('/sales');
+            const invoice = await prisma.invoice.findUnique({
+                where: { id: data.id },
+                select: { salesOrderId: true },
+            });
+            if (invoice) {
+                revalidatePath(`/sales/orders/${invoice.salesOrderId}`);
             }
+
+            return { success: true };
         });
     },
 );

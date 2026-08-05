@@ -580,6 +580,98 @@ describe("invoice-lifecycle-service", () => {
         ),
       ).rejects.toThrow("Invoice");
     });
+
+    it("should allow DRAFT -> UNPAID for STANDARD SO (Konfirmasi Invoice)", async () => {
+      // Arrange: STANDARD entrySource — must NOT be blocked by guard
+      vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+        id: "inv-1",
+        invoiceNumber: "INV-001",
+        status: InvoiceStatus.DRAFT,
+        salesOrder: { entrySource: "STANDARD" },
+      } as any);
+      vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
+
+      // Act
+      await updateInvoiceStatus(
+        { id: "inv-1", status: InvoiceStatus.UNPAID },
+        "user-1",
+      );
+
+      // Assert: status change succeeds
+      expect(prisma.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "inv-1" },
+          data: expect.objectContaining({ status: InvoiceStatus.UNPAID }),
+        }),
+      );
+    });
+
+    it("should block DRAFT -> UNPAID for EMERGENCY_DISPATCH SO", async () => {
+      // Arrange: EMERGENCY_DISPATCH — must still be blocked
+      vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+        id: "inv-2",
+        invoiceNumber: "INV-002",
+        status: InvoiceStatus.DRAFT,
+        salesOrder: { entrySource: "EMERGENCY_DISPATCH" },
+      } as any);
+
+      // Act & Assert
+      await expect(
+        updateInvoiceStatus(
+          { id: "inv-2", status: InvoiceStatus.UNPAID },
+          "user-1",
+        ),
+      ).rejects.toThrow(
+        "Invoice masih DRAFT. Finance harus approve terlebih dahulu sebelum bisa dibayar.",
+      );
+    });
+
+    it("should block DRAFT -> PAID for EMERGENCY_DISPATCH and keep INVOICE_DRAFT code", async () => {
+      // Arrange
+      vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+        id: "inv-3",
+        invoiceNumber: "INV-003",
+        status: InvoiceStatus.DRAFT,
+        salesOrder: { entrySource: "EMERGENCY_DISPATCH" },
+      } as any);
+
+      // Act & Assert
+      try {
+        await updateInvoiceStatus(
+          { id: "inv-3", status: InvoiceStatus.PAID },
+          "user-1",
+        );
+        expect.fail("should have thrown BusinessRuleError");
+      } catch (error: any) {
+        expect(error.message).toBe(
+          "Invoice masih DRAFT. Finance harus approve terlebih dahulu sebelum bisa dibayar.",
+        );
+        expect(error.code).toBe("INVOICE_DRAFT");
+      }
+    });
+
+    it("should allow DRAFT -> UNPAID when salesOrder entrySource undefined (fallback)", async () => {
+      // Arrange: old invoices or mock without entrySource — treat as non-emergency
+      // prisma returns salesOrder with undefined entrySource
+      vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+        id: "inv-4",
+        invoiceNumber: "INV-004",
+        status: InvoiceStatus.DRAFT,
+        salesOrder: { entrySource: undefined },
+      } as any);
+      vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
+
+      // Act — should NOT throw
+      await updateInvoiceStatus(
+        { id: "inv-4", status: InvoiceStatus.UNPAID },
+        "user-1",
+      );
+
+      // Assert
+      expect(prisma.invoice.update).toHaveBeenCalled();
+    });
   });
 
   describe("createDraftInvoiceFromOrder", () => {
