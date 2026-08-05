@@ -9,7 +9,10 @@ import {
     BusinessRuleError,
     NotFoundError,
 } from '@/lib/errors/errors';
-import { requireFinanceMutation, requireFinanceReadCrossPortal } from '@/lib/auth/finance-access';
+import {
+    requireFinanceMutation,
+    requireFinanceReadCrossPortal,
+} from '@/lib/auth/finance-access';
 
 export const getSalesInvoices = withTenant(
     async function getSalesInvoices(dateRange?: {
@@ -17,7 +20,7 @@ export const getSalesInvoices = withTenant(
         endDate?: Date;
     }) {
         return safeAction(async () => {
-            await requireFinanceReadCrossPortal(['SALES']);
+            await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
             const where: Prisma.InvoiceWhereInput = {};
             if (dateRange?.startDate && dateRange?.endDate) {
                 where.invoiceDate = {

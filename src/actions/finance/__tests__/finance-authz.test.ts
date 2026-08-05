@@ -563,6 +563,12 @@ describe('Pass 2: invoice.ts', () => {
         await expectAllowed(() => getOutstandingInvoicesByCustomerId('c1'));
     });
 
+    it('getOutstandingInvoicesByCustomerId: MARKETING allowed (cross-portal)', async () => {
+        setupAuth('MARKETING');
+        const { getOutstandingInvoicesByCustomerId } = await import('../invoice');
+        await expectAllowed(() => getOutstandingInvoicesByCustomerId('c1'));
+    });
+
     it('getOutstandingInvoicesByCustomerId: PRODUCTION denied', async () => {
         setupAuth('PRODUCTION');
         const { getOutstandingInvoicesByCustomerId } = await import('../invoice');
@@ -575,6 +581,12 @@ describe('Pass 2: invoices.ts', () => {
 
     it('getSalesInvoices: SALES allowed (cross-portal)', async () => {
         setupAuth('SALES');
+        const { getSalesInvoices } = await import('../invoices');
+        await expectAllowed(() => getSalesInvoices());
+    });
+
+    it('getSalesInvoices: MARKETING allowed (cross-portal)', async () => {
+        setupAuth('MARKETING');
         const { getSalesInvoices } = await import('../invoices');
         await expectAllowed(() => getSalesInvoices());
     });

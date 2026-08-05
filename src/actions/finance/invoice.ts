@@ -168,7 +168,11 @@ export const updateInvoiceStatus = withTenant(
 export const getOutstandingInvoicesByCustomerId = withTenant(
     async function getOutstandingInvoicesByCustomerId(customerId: string) {
         return safeAction(async () => {
-            await requireFinanceReadCrossPortal(['SALES', 'FIELD_SALES']);
+            await requireFinanceReadCrossPortal([
+                'SALES',
+                'MARKETING',
+                'FIELD_SALES',
+            ]);
             const invoices = await prisma.invoice.findMany({
                 where: {
                     salesOrder: {
