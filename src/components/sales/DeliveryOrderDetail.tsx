@@ -169,6 +169,11 @@ export function DeliveryOrderDetail({
     const [editingQty, setEditingQty] = useState(false);
     const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
     const [savingQty, setSavingQty] = useState(false);
+    const [qtyMismatchNotice, setQtyMismatchNotice] = useState<{
+        requested: number;
+        maxAllowed: number;
+        soNumber: string;
+    } | null>(null);
     const vehicleInputRef = useRef<HTMLInputElement>(null);
     const podInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
@@ -221,7 +226,19 @@ export function DeliveryOrderDetail({
                 items,
             });
             if (!result.success) {
-                toast.error(result.error || 'Gagal menyimpan qty');
+                if (
+                    result.code === 'DO_QTY_EXCEEDS_SO_RESIDUAL' &&
+                    result.details
+                ) {
+                    setQtyMismatchNotice({
+                        requested: Number(result.details.requested),
+                        maxAllowed: Number(result.details.maxAllowed),
+                        soNumber:
+                            order.salesOrder?.orderNumber ?? order.orderNumber,
+                    });
+                } else {
+                    toast.error(result.error || 'Gagal menyimpan qty');
+                }
                 return;
             }
             toast.success(salesLabels.sjQtyUpdated);
@@ -383,6 +400,62 @@ export function DeliveryOrderDetail({
 
     return (
         <div className="space-y-6">
+            {/* Qty exceeds SO residual — guided notification dialog */}
+            <AlertDialog
+                open={!!qtyMismatchNotice}
+                onOpenChange={(open) => {
+                    if (!open) setQtyMismatchNotice(null);
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Qty melebihi sisa SO
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2 text-sm">
+                                <p>
+                                    Qty yang diminta{' '}
+                                    <strong>
+                                        {qtyMismatchNotice?.requested}
+                                    </strong>{' '}
+                                    melebihi sisa SO yang belum terkirim{' '}
+                                    <strong>
+                                        {qtyMismatchNotice?.maxAllowed}
+                                    </strong>{' '}
+                                    pada{' '}
+                                    <strong>
+                                        {qtyMismatchNotice?.soNumber}
+                                    </strong>
+                                    .
+                                </p>
+                                <p>
+                                    {warehouseMode
+                                        ? 'Hubungi sales untuk mengubah qty di Sales Order terlebih dahulu, lalu ulangi pengisian qty di Surat Jalan.'
+                                        : 'Ubah qty di Sales Order terlebih dahulu, lalu ulangi pengisian qty di Surat Jalan.'}
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Tutup</AlertDialogCancel>
+                        <AlertDialogAction asChild>
+                            <Link
+                                href={
+                                    warehouseMode
+                                        ? `/warehouse/outgoing/orders/${order.salesOrderId}`
+                                        : `/sales/orders/${order.salesOrderId}`
+                                }
+                                onClick={() => setQtyMismatchNotice(null)}
+                            >
+                                {warehouseMode
+                                    ? 'Lihat Sales Order'
+                                    : 'Buka Sales Order'}
+                            </Link>
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="sm" asChild>
                     <Link href={basePath}>

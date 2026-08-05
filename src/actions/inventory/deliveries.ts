@@ -696,6 +696,7 @@ export const updateDeliveryItemQuantities = withTenant(
                             soQty,
                             delivered,
                         },
+                        'DO_QTY_EXCEEDS_SO_RESIDUAL',
                     );
                 }
             }
