@@ -58,6 +58,7 @@ interface SalesOrder {
     id: string;
     orderNumber: string;
     customer?: {
+        id?: string;
         name: string;
         shippingAddress?: string | null;
         billingAddress?: string | null;
@@ -127,6 +128,9 @@ export function CreateDeliveryOrderDialog({
     const [tariffRateType, setTariffRateType] = useState('');
     const [overrideCostRate, setOverrideCostRate] = useState('');
     const [overrideChargeRate, setOverrideChargeRate] = useState('');
+    const [selectedCustomerId, setSelectedCustomerId] = useState<
+        string | null | undefined
+    >(undefined);
     /** When default SO already has open DO — block create and show link */
     const [blockedOpenDo, setBlockedOpenDo] =
         useState<OpenDeliveryOrder | null>(null);
@@ -207,6 +211,9 @@ export function CreateDeliveryOrderDialog({
             if (res.success && res.data) {
                 const so = res.data as SalesOrder;
                 setSelectedSoDetail(so);
+                setSelectedCustomerId(
+                    so.customer?.id ?? null,
+                );
 
                 // Auto-fill destination address from customer (always override on SO change)
                 const addr =
@@ -272,13 +279,18 @@ export function CreateDeliveryOrderDialog({
         setRouteOptions(routes);
 
         // Load active tariff (default: Semua Rute)
-        await loadTariffForRoute(vehicleId, '');
+        await loadTariffForRoute(vehicleId, '', selectedCustomerId);
     };
 
-    const loadTariffForRoute = async (vehicleId: string, routeName: string) => {
+    const loadTariffForRoute = async (
+        vehicleId: string,
+        routeName: string,
+        customerId?: string | null,
+    ) => {
         const tariffRes = await fetchActiveTariff(
             vehicleId,
             routeName || undefined,
+            customerId,
         );
         if (tariffRes.success && tariffRes.data) {
             const t = tariffRes.data as ActiveTariff;
@@ -296,7 +308,11 @@ export function CreateDeliveryOrderDialog({
         const resolved = routeName === '__all__' ? '' : routeName;
         setSelectedRouteName(resolved);
         if (selectedVehicleId) {
-            await loadTariffForRoute(selectedVehicleId, resolved);
+            await loadTariffForRoute(
+                selectedVehicleId,
+                resolved,
+                selectedCustomerId,
+            );
         }
     };
 
@@ -315,6 +331,7 @@ export function CreateDeliveryOrderDialog({
         setDestinationAddress('');
         setSelectedRouteName('');
         setRouteOptions([]);
+        setSelectedCustomerId(undefined);
     };
 
     const handleSubmit = async () => {

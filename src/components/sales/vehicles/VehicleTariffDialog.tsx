@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +12,7 @@ import {
     createVehicleTariff,
     updateVehicleTariff,
 } from '@/actions/sales/vehicle-tariffs';
+import { getCustomers } from '@/actions/sales/customer';
 import { VehicleTariff, RateType } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +44,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, Plus, DollarSign } from 'lucide-react';
 import { salesLabels } from '@/lib/labels';
+import {
+    CustomerCombobox,
+    type CustomerComboboxOption,
+} from '@/components/customers/CustomerCombobox';
 
 interface VehicleTariffDialogProps {
     mode: 'create' | 'edit';
@@ -65,12 +70,31 @@ export function VehicleTariffDialog({
     const open = externalOpen ?? internalOpen;
     const setOpen = onOpenChange ?? setInternalOpen;
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [customers, setCustomers] = useState<CustomerComboboxOption[]>([]);
     const router = useRouter();
+
+    const loadCustomers = useCallback(async () => {
+        const res = await getCustomers();
+        if (res.success && res.data) {
+            setCustomers(
+                (res.data as Array<{ id: string; name: string; code?: string | null }>).map(
+                    (c) => ({ id: c.id, name: c.name, code: c.code }),
+                ),
+            );
+        }
+    }, []);
+
+    useEffect(() => {
+        if (open) {
+            loadCustomers();
+        }
+    }, [open, loadCustomers]);
 
     const getDefaultValues = (): CreateVehicleTariffValues => {
         const now = new Date().toISOString().split('T')[0];
         return {
             vehicleId,
+            customerId: initialData?.customerId || undefined,
             rateType: (initialData?.rateType as RateType) || 'PER_KG',
             costRate: initialData?.costRate ? Number(initialData.costRate) : 0,
             chargeRate: initialData?.chargeRate
@@ -280,6 +304,33 @@ export function VehicleTariffDialog({
                                             placeholder="Contoh: Solo - Boyolali (Kosongkan untuk semua rute)"
                                         />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="customerId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Customer</FormLabel>
+                                    <FormControl>
+                                        <CustomerCombobox
+                                            customers={customers}
+                                            value={field.value ?? ''}
+                                            onChange={(val) =>
+                                                field.onChange(val || undefined)
+                                            }
+                                            placeholder="Semua Customer"
+                                            searchPlaceholder="Cari customer..."
+                                            emptyText="Customer tidak ditemukan."
+                                        />
+                                    </FormControl>
+                                    <p className="text-xs text-muted-foreground">
+                                        Kosongkan untuk tarif berlaku bagi semua
+                                        customer.
+                                    </p>
                                     <FormMessage />
                                 </FormItem>
                             )}

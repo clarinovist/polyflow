@@ -15,8 +15,9 @@ import {
     createVehicleTariffSchema,
     CreateVehicleTariffValues,
 } from '@/lib/schemas/sales';
-import { routesMatch, normalizeRouteKey } from '@/lib/sales/delivery-pricing';
-import { RateType } from '@prisma/client';
+import { routesMatch, customersMatch } from '@/lib/sales/delivery-pricing';
+import { findApplicableVehicleTariff } from '@/lib/sales/vehicle-tariff-resolver';
+import { Prisma, RateType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -36,51 +37,22 @@ export const getTariffsByVehicle = withTenant(
 );
 
 /**
- * Get the currently valid tariff for a vehicle, optionally filtered by route.
- *
- * Resolution priority:
- * 1. Exact match routeName (normalized, case-insensitive) + valid dates
- * 2. Fallback: routeName null/empty ("Semua Rute") + valid dates
- * 3. null (no tariff found)
+ * Get the currently valid tariff for a vehicle, optionally filtered by route
+ * and customer. Delegates to findApplicableVehicleTariff for precedence logic.
  */
 export const getActiveTariff = withTenant(async function getActiveTariff(
     vehicleId: string,
     routeName?: string | null,
+    customerId?: string | null,
 ) {
     return safeAction(async () => {
         await requireSalesAccess();
 
-        const now = new Date();
-        const dateFilter = {
-            validFrom: { lte: now },
-            OR: [{ validUntil: null }, { validUntil: { gte: now } }],
-        };
-
-        // 1) Try exact route match
-        const requestedKey = normalizeRouteKey(routeName);
-        if (requestedKey != null) {
-            const candidates = await prisma.vehicleTariff.findMany({
-                where: { vehicleId, ...dateFilter },
-                orderBy: { validFrom: 'desc' },
-            });
-            const exactMatch = candidates.find(
-                (t) => normalizeRouteKey(t.routeName) === requestedKey,
-            );
-            if (exactMatch) return exactMatch;
-        }
-
-        // 2) Fallback: "Semua Rute" (routeName null/empty)
-        const candidates = await prisma.vehicleTariff.findMany({
-            where: { vehicleId, ...dateFilter },
-            orderBy: { validFrom: 'desc' },
+        return findApplicableVehicleTariff({
+            vehicleId,
+            routeName,
+            customerId,
         });
-        const allRoutesMatch = candidates.find(
-            (t) => normalizeRouteKey(t.routeName) === null,
-        );
-        if (allRoutesMatch) return allRoutesMatch;
-
-        // 3) No tariff found
-        return null;
     });
 });
 
@@ -138,8 +110,7 @@ export const createVehicleTariff = withTenant(
                 );
             }
 
-            // Check for overlapping tariff on same vehicle AND same route
-            // Multi-route (different routeName) overlapping dates is allowed.
+            // Check for overlapping tariff on same vehicle AND same route AND same customer scope
             const newValidFrom = result.data.validFrom;
             const newValidUntil = result.data.validUntil;
             const candidates = await prisma.vehicleTariff.findMany({
@@ -160,8 +131,10 @@ export const createVehicleTariff = withTenant(
                     ],
                 },
             });
-            const overlapping = candidates.find((t) =>
-                routesMatch(t.routeName, result.data.routeName),
+            const overlapping = candidates.find(
+                (t) =>
+                    routesMatch(t.routeName, result.data.routeName) &&
+                    customersMatch(t.customerId, result.data.customerId),
             );
             if (overlapping) {
                 const routeLabel = overlapping.routeName || 'Semua Rute';
@@ -173,6 +146,7 @@ export const createVehicleTariff = withTenant(
             const tariff = await prisma.vehicleTariff.create({
                 data: {
                     vehicleId: result.data.vehicleId,
+                    customerId: result.data.customerId || null,
                     rateType: result.data.rateType as RateType,
                     costRate: result.data.costRate,
                     chargeRate: result.data.chargeRate,
@@ -220,7 +194,7 @@ export const updateVehicleTariff = withTenant(
                 );
             }
 
-            // Check for overlapping tariff on same vehicle AND same route (exclude self)
+            // Check for overlapping tariff on same vehicle AND same route AND same customer scope (exclude self)
             const newValidFrom = result.data.validFrom;
             const newValidUntil = result.data.validUntil;
             const candidates = await prisma.vehicleTariff.findMany({
@@ -242,8 +216,10 @@ export const updateVehicleTariff = withTenant(
                     ],
                 },
             });
-            const overlapping = candidates.find((t) =>
-                routesMatch(t.routeName, result.data.routeName),
+            const overlapping = candidates.find(
+                (t) =>
+                    routesMatch(t.routeName, result.data.routeName) &&
+                    customersMatch(t.customerId, result.data.customerId),
             );
             if (overlapping) {
                 const routeLabel = overlapping.routeName || 'Semua Rute';
@@ -256,6 +232,7 @@ export const updateVehicleTariff = withTenant(
                 where: { id },
                 data: {
                     vehicleId: result.data.vehicleId,
+                    customerId: result.data.customerId || null,
                     rateType: result.data.rateType as RateType,
                     costRate: result.data.costRate,
                     chargeRate: result.data.chargeRate,
@@ -269,6 +246,40 @@ export const updateVehicleTariff = withTenant(
 
             revalidatePath(`/sales/vehicles/${result.data.vehicleId}`);
             return tariff;
+        });
+    },
+);
+
+/**
+ * List all vehicle tariffs across all vehicles, with optional filters.
+ * Joins vehicle (plateNumber, name) and customer (name).
+ * Ordered by validFrom desc. Capped at 200 rows as safety guard.
+ */
+export const getAllVehicleTariffs = withTenant(
+    async function getAllVehicleTariffs(
+        filters?: {
+            customerId?: string;
+            vehicleId?: string;
+            routeName?: string;
+        },
+    ) {
+        return safeAction(async () => {
+            await requireSalesAccess();
+
+            const where: Prisma.VehicleTariffWhereInput = {};
+            if (filters?.customerId) where.customerId = filters.customerId;
+            if (filters?.vehicleId) where.vehicleId = filters.vehicleId;
+            if (filters?.routeName) where.routeName = filters.routeName;
+
+            return prisma.vehicleTariff.findMany({
+                where,
+                include: {
+                    vehicle: { select: { plateNumber: true, name: true } },
+                    customer: { select: { id: true, name: true } },
+                },
+                orderBy: { validFrom: 'desc' },
+                take: 200,
+            });
         });
     },
 );

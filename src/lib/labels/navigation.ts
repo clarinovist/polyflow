@@ -130,6 +130,7 @@ export const salesSidebarLabels = {
     deliveryTracking: 'Surat Jalan',
     deliverySchedules: 'Jadwal Kirim',
     vehicles: 'Armada',
+    shippingTariffs: 'Tarif Pengiriman',
     shippingCostReport: 'Biaya Pengiriman',
     salesPerformance: 'Performa Penjualan',
     salesReturns: 'Retur Penjualan',

@@ -59,10 +59,12 @@ interface EditDeliveryPricingDialogProps {
         totalCost?: { toNumber: () => number } | number | null;
         totalCharge?: { toNumber: () => number } | number | null;
     };
+    customerId?: string | null;
 }
 
 export function EditDeliveryPricingDialog({
     order,
+    customerId,
 }: EditDeliveryPricingDialogProps) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -122,6 +124,7 @@ export function EditDeliveryPricingDialog({
             const tariffRes = await fetchActiveTariff(
                 vehicleId,
                 routeName || undefined,
+                customerId,
             );
             if (tariffRes.success && tariffRes.data) {
                 const t = tariffRes.data as ActiveTariff;
@@ -134,7 +137,7 @@ export function EditDeliveryPricingDialog({
                 setOverrideChargeRate('');
             }
         },
-        [],
+        [customerId],
     );
 
     useEffect(() => {

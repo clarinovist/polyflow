@@ -431,6 +431,7 @@ export const updateDeliveryPricing = withTenant(
                     estimatedWeightKg: true,
                     totalCost: true,
                     totalCharge: true,
+                    salesOrder: { select: { customerId: true } },
                 },
             });
             if (!doRecord)
@@ -494,6 +495,7 @@ export const updateDeliveryPricing = withTenant(
                 const tariffResult = await getActiveTariff(
                     vehicleId,
                     routeName,
+                    doRecord.salesOrder?.customerId,
                 );
                 const tariff = tariffResult?.success ? tariffResult.data : null;
                 if (tariff) {

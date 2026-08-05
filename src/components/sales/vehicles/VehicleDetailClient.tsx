@@ -56,6 +56,8 @@ interface Tariff {
     validFrom: string; // ISO string
     validUntil: string | null; // ISO string
     notes: string | null;
+    customerId: string | null;
+    customerName: string | null;
 }
 
 interface Vehicle {
@@ -345,6 +347,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                                     <TableRow>
                                         <TableHead>Tipe Tarif</TableHead>
                                         <TableHead>Rute</TableHead>
+                                        <TableHead>Customer</TableHead>
                                         <TableHead className="text-right">
                                             Biaya Oper.
                                         </TableHead>
@@ -377,6 +380,17 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                                             </TableCell>
                                             <TableCell>
                                                 {t.routeName || 'Semua Rute'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {t.customerName ? (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {t.customerName}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-xs">
+                                                        Semua Customer
+                                                    </span>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 {formatRupiah(t.costRate)}

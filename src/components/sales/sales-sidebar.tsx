@@ -21,6 +21,7 @@ import {
     Tag,
     HandCoins,
     Kanban,
+    Receipt,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -95,6 +96,11 @@ export const salesLinks = [
                 href: '/sales/vehicles',
                 icon: Car,
                 label: salesSidebarLabels.vehicles,
+            },
+            {
+                href: '/sales/tariffs',
+                icon: Receipt,
+                label: salesSidebarLabels.shippingTariffs,
             },
         ],
     },

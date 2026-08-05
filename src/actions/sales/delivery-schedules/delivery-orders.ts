@@ -11,9 +11,9 @@ import {
     isDOAlreadyAssigned,
     canGenerateSJ,
     RateType,
-    Prisma,
     revalidatePath,
 } from './shared';
+import { findApplicableVehicleTariff } from '@/lib/sales/vehicle-tariff-resolver';
 
 // ============================================
 // Stop Actions — DO linkage & generation
@@ -61,38 +61,12 @@ export const assignOrderToSchedule = withTenant(
                 );
             }
 
-            // Auto-apply tariff from VehicleTariff (route-aware)
-            const now = new Date();
-            const routeKey = doRecord.appliedRouteName?.trim() || null;
-
-            const tariffWhere: Prisma.VehicleTariffWhereInput = {
-                validFrom: { lte: now },
-                OR: [{ validUntil: null }, { validUntil: { gte: now } }],
-            };
-            if (sv.vehicleId) {
-                tariffWhere.vehicleId = sv.vehicleId;
-            }
-            const candidates = await prisma.vehicleTariff.findMany({
-                where: tariffWhere,
-                orderBy: { validFrom: 'desc' },
+            // Auto-apply tariff from VehicleTariff (route + customer-aware)
+            const tariff = await findApplicableVehicleTariff({
+                vehicleId: sv.vehicleId,
+                routeName: doRecord.appliedRouteName,
+                customerId: doRecord.salesOrder?.customerId,
             });
-
-            let tariff = null;
-            if (routeKey) {
-                tariff = candidates.find(
-                    (t) =>
-                        t.routeName?.trim().toLowerCase() ===
-                        routeKey.toLowerCase(),
-                );
-            }
-            if (!tariff) {
-                tariff = candidates.find(
-                    (t) => !t.routeName || t.routeName.trim() === '',
-                );
-            }
-            if (!tariff) {
-                tariff = candidates[0] ?? null;
-            }
 
             // Default sequence
             const maxSeq = await prisma.deliveryScheduleOrder.aggregate({
@@ -249,34 +223,11 @@ export const linkDeliveryOrderToStop = withTenant(
 
             // Apply tariff + sync (same as assignOrderToSchedule)
             const sv = stop.scheduleVehicle;
-            const now = new Date();
-            const routeKey = doRecord.appliedRouteName?.trim() || null;
-
-            const tariffWhere: Prisma.VehicleTariffWhereInput = {
-                validFrom: { lte: now },
-                OR: [{ validUntil: null }, { validUntil: { gte: now } }],
-            };
-            if (sv.vehicleId) {
-                tariffWhere.vehicleId = sv.vehicleId;
-            }
-            const candidates = await prisma.vehicleTariff.findMany({
-                where: tariffWhere,
-                orderBy: { validFrom: 'desc' },
+            const tariff = await findApplicableVehicleTariff({
+                vehicleId: sv.vehicleId,
+                routeName: doRecord.appliedRouteName,
+                customerId: doRecord.salesOrder?.customerId,
             });
-
-            let tariff = null;
-            if (routeKey) {
-                tariff = candidates.find(
-                    (t) =>
-                        t.routeName?.trim().toLowerCase() ===
-                        routeKey.toLowerCase(),
-                );
-            }
-            if (!tariff)
-                tariff = candidates.find(
-                    (t) => !t.routeName || t.routeName.trim() === '',
-                );
-            if (!tariff) tariff = candidates[0] ?? null;
 
             if (tariff) {
                 const weight = doRecord.estimatedWeightKg
@@ -421,35 +372,12 @@ export const generateDeliveryOrderFromStop = withTenant(
                         : undefined,
             });
 
-            // Apply tariff snapshot (same logic as assignOrderToSchedule)
-            const now = new Date();
-            const routeKey = trip.routeName?.trim() || null;
-
-            const tripTariffWhere: Prisma.VehicleTariffWhereInput = {
-                validFrom: { lte: now },
-                OR: [{ validUntil: null }, { validUntil: { gte: now } }],
-            };
-            if (trip.vehicleId) {
-                tripTariffWhere.vehicleId = trip.vehicleId;
-            }
-            const candidates = await prisma.vehicleTariff.findMany({
-                where: tripTariffWhere,
-                orderBy: { validFrom: 'desc' },
+            // Apply tariff snapshot (route + customer-aware)
+            const tariff = await findApplicableVehicleTariff({
+                vehicleId: trip.vehicleId,
+                routeName: trip.routeName,
+                customerId: so?.customerId,
             });
-
-            let tariff = null;
-            if (routeKey) {
-                tariff = candidates.find(
-                    (t) =>
-                        t.routeName?.trim().toLowerCase() ===
-                        routeKey.toLowerCase(),
-                );
-            }
-            if (!tariff)
-                tariff = candidates.find(
-                    (t) => !t.routeName || t.routeName.trim() === '',
-                );
-            if (!tariff) tariff = candidates[0] ?? null;
 
             if (tariff) {
                 const weight = stop.plannedWeightKg

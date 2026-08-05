@@ -62,7 +62,10 @@ export const getVehicle = withTenant(async function getVehicle(id: string) {
         const vehicle = await prisma.vehicle.findUnique({
             where: { id },
             include: {
-                tariffs: { orderBy: { validFrom: 'desc' } },
+                tariffs: {
+                    orderBy: { validFrom: 'desc' },
+                    include: { customer: { select: { id: true, name: true } } },
+                },
                 _count: { select: { deliveryOrders: true } },
             },
         });

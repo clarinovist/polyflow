@@ -379,6 +379,7 @@ model Customer {
   salesVisits        SalesVisit[]
   routePlanItems     SalesRoutePlanItem[]
   salesAssignments   CustomerSalesAssignment[]
+  vehicleTariffs     VehicleTariff[]
 }
 
 model ApiKey {
@@ -1731,6 +1732,7 @@ model Vehicle {
 model VehicleTariff {
   id         String    @id @default(uuid())
   vehicleId  String
+  customerId String?
   rateType   RateType  @default(PER_KG)
   costRate   Decimal   @db.Decimal(15, 2)
   chargeRate Decimal   @db.Decimal(15, 2)
@@ -1742,9 +1744,11 @@ model VehicleTariff {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle  Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   @@index([vehicleId])
+  @@index([customerId])
 }
 
 model DeliverySchedule {

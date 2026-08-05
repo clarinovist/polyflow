@@ -31,6 +31,8 @@ export default async function VehicleDetailPage({
                 validUntil: Date | null;
                 routeName: string | null;
                 notes: string | null;
+                customerId: string | null;
+                customer?: { id: string; name: string } | null;
             }) => ({
                 id: t.id,
                 rateType: t.rateType,
@@ -41,6 +43,8 @@ export default async function VehicleDetailPage({
                 validUntil: t.validUntil?.toISOString() || null,
                 routeName: t.routeName,
                 notes: t.notes,
+                customerId: t.customerId,
+                customerName: t.customer?.name ?? null,
             }),
         ),
         _count: result.data._count,

@@ -247,6 +247,7 @@ export const updateVehicleSchema = createVehicleSchema;
 
 export const createVehicleTariffSchema = z.object({
     vehicleId: z.string().min(1, 'Kendaraan harus dipilih'),
+    customerId: z.string().optional().nullable(),
     rateType: z.enum(['PER_KG', 'FLAT_RATE']),
     costRate: z.coerce.number().min(0, 'Biaya operasional tidak boleh negatif'),
     chargeRate: z.coerce

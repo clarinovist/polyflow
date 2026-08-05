@@ -129,7 +129,9 @@ export interface DeliveryOrderDetailData {
     vehicle?: DeliveryOrderVehicle | null;
     salesOrder?: {
         orderNumber?: string;
+        customerId?: string | null;
         customer?: {
+            id?: string;
             name?: string;
             shippingAddress?: string | null;
             billingAddress?: string | null;
@@ -1016,6 +1018,11 @@ export function DeliveryOrderDetail({
                                     order.status !== 'CANCELLED' && (
                                         <EditDeliveryPricingDialog
                                             order={order}
+                                            customerId={
+                                                order.salesOrder?.customerId ??
+                                                order.salesOrder?.customer?.id ??
+                                                null
+                                            }
                                         />
                                     )}
                             </div>

@@ -19,10 +19,10 @@ import {
     validateTransportMode,
     TripStatus,
     RateType,
-    Prisma,
     TransportMode,
     revalidatePath,
 } from './shared';
+import { findApplicableVehicleTariff } from '@/lib/sales/vehicle-tariff-resolver';
 
 // ============================================
 // Trip Actions
@@ -587,37 +587,12 @@ export const generateDeliveryOrdersForTrip = withTenant(
                                     : undefined,
                         });
 
-                    // Tariff snapshot
-                    const now = new Date();
-                    const routeKey = sv.routeName?.trim() || null;
-                    const batchTariffWhere: Prisma.VehicleTariffWhereInput = {
-                        validFrom: { lte: now },
-                        OR: [
-                            { validUntil: null },
-                            { validUntil: { gte: now } },
-                        ],
-                    };
-                    if (sv.vehicleId) {
-                        batchTariffWhere.vehicleId = sv.vehicleId;
-                    }
-                    const candidates = await prisma.vehicleTariff.findMany({
-                        where: batchTariffWhere,
-                        orderBy: { validFrom: 'desc' },
+                    // Tariff snapshot (route + customer-aware)
+                    const tariff = await findApplicableVehicleTariff({
+                        vehicleId: sv.vehicleId,
+                        routeName: sv.routeName,
+                        customerId: so?.customerId,
                     });
-
-                    let tariff = null;
-                    if (routeKey) {
-                        tariff = candidates.find(
-                            (t) =>
-                                t.routeName?.trim().toLowerCase() ===
-                                routeKey.toLowerCase(),
-                        );
-                    }
-                    if (!tariff)
-                        tariff = candidates.find(
-                            (t) => !t.routeName || t.routeName.trim() === '',
-                        );
-                    if (!tariff) tariff = candidates[0] ?? null;
 
                     if (tariff) {
                         const weight = fullStop.plannedWeightKg
