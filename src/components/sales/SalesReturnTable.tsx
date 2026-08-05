@@ -78,7 +78,7 @@ export function SalesReturnTable({
                         </div>
                         {row.original.salesOrder?.orderNumber && (
                             <div className="text-[11px] text-muted-foreground mt-0.5 ml-6">
-                                SO: {row.original.salesOrder.orderNumber}
+                                {row.original.salesOrder.orderNumber}
                             </div>
                         )}
                     </div>
@@ -206,7 +206,6 @@ export function SalesReturnTable({
                                             variant="outline"
                                             className="h-4 px-1 rounded-sm text-[9px] font-normal"
                                         >
-                                            SO:{' '}
                                             {sr.salesOrder?.orderNumber || '-'}
                                         </Badge>
                                         <span>

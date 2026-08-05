@@ -93,7 +93,7 @@ export function DeliveryOrderTable({
                                     className="text-[11px] text-blue-600 hover:underline font-mono"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    SO: {row.original.salesOrder.orderNumber}
+                                    {row.original.salesOrder.orderNumber}
                                 </Link>
                             </div>
                         )}
