@@ -51,7 +51,7 @@ interface LedgerRow {
 }
 
 function formatNumber(n: number): string {
-    return n.toLocaleString('id-ID').replace(/,/g, '.');
+    return Math.round(n).toLocaleString('id-ID');
 }
 
 export default function RekapKasPage() {
@@ -220,10 +220,10 @@ export default function RekapKasPage() {
                     margin: 10mm;
                 }
                 @media print {
-                    aside, header, .h-16.lg\\\\\\\\:hidden, .print\\\\\\\\:hidden, button, .no-print, nav {
+                    aside, header, .h-16.lg\\:hidden, .print\\:hidden, button, .no-print, nav {
                         display: none !important;
                     }
-                    main, .lg\\\\\\\\:ml-64, .p-4, .md\\\\\\\\:p-6, .lg\\\\\\\\:p-8 {
+                    main, .lg\\:ml-64, .p-4, .md\\:p-6, .lg\\:p-8 {
                         margin-left: 0 !important;
                         padding: 0 !important;
                     }
@@ -240,6 +240,18 @@ export default function RekapKasPage() {
                         padding: 0 !important;
                         margin: 0 !important;
                         max-width: 100% !important;
+                        background-color: white !important;
+                    }
+                    .print-container .dark\\:text-gray-100,
+                    .print-container .dark\\:text-gray-200,
+                    .print-container .dark\\:text-gray-300 {
+                        color: black !important;
+                    }
+                    .print-container .dark\\:border-gray-600 {
+                        border-color: black !important;
+                    }
+                    .print-container .dark\\:bg-gray-800 {
+                        background-color: #f9fafb !important;
                     }
                 }
             `,

@@ -157,7 +157,8 @@ export default function DailyPettyCashReportPage() {
                     .h-16.lg\\:hidden,
                     .print\\:hidden,
                     button,
-                    .no-print {
+                    .no-print,
+                    nav {
                         display: none !important;
                     }
                     main,
@@ -179,6 +180,11 @@ export default function DailyPettyCashReportPage() {
                         box-shadow: none !important;
                         padding: 0 !important;
                         margin: 0 !important;
+                        --card: oklch(0.99 0 0);
+                        --card-foreground: oklch(0.145 0 0);
+                        --border: oklch(0.922 0 0);
+                        --muted: oklch(0.97 0 0);
+                        --muted-foreground: oklch(0.556 0 0);
                     }
                 }
             `,
