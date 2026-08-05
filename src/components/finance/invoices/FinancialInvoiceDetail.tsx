@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -11,11 +12,36 @@ import {
 } from '@/lib/utils/production-units';
 import { InvoiceStatus, Invoice } from '@prisma/client';
 import { format } from 'date-fns';
-import { AlertCircle, Printer } from 'lucide-react';
+import {
+    AlertCircle,
+    Printer,
+    CheckCircle,
+    CreditCard,
+} from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { type CompanyConfig } from '@/lib/config/company';
+import { toast } from 'sonner';
+import { updateInvoiceStatus } from '@/actions/finance/invoice';
+import { recordCustomerPayment } from '@/actions/finance/finance';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { PaymentMethodFields } from '@/components/finance/payments/PaymentMethodFields';
+import {
+    DEFAULT_PAYMENT_METHOD,
+    type PaymentBankKey,
+    type PaymentMethod,
+    type TenantPaymentBanks,
+} from '@/lib/finance/payment-methods';
 
 type InvoiceLineItem = {
     id?: string;
@@ -50,15 +76,112 @@ interface FinancialInvoiceDetailProps {
         } | null;
     };
     companyConfig?: CompanyConfig;
+    paymentBanks?: TenantPaymentBanks;
 }
 
 export function FinancialInvoiceDetail({
     invoice,
     companyConfig,
+    paymentBanks = {},
 }: FinancialInvoiceDetailProps) {
+    const router = useRouter();
     const [showPreview, setShowPreview] = React.useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+    const [paymentAmount, setPaymentAmount] = useState(() =>
+        Math.max(
+            0,
+            Number(invoice.totalAmount) - Number(invoice.paidAmount),
+        ),
+    );
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+        DEFAULT_PAYMENT_METHOD,
+    );
+    const [referenceNumber, setReferenceNumber] = useState('');
+    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>(
+        '',
+    );
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
+    const remainingAmount =
+        Number(invoice.totalAmount) - Number(invoice.paidAmount);
+
+    const handleConfirmInvoice = async () => {
+        setIsUpdating(true);
+        try {
+            const result = await updateInvoiceStatus({
+                id: invoice.id,
+                status: 'UNPAID' as InvoiceStatus,
+            });
+            if (result.success) {
+                toast.success(
+                    `Invoice ${invoice.invoiceNumber} dikonfirmasi. Siap ditagih.`,
+                );
+                router.refresh();
+            } else {
+                toast.error(
+                    result.error ||
+                        'Gagal mengonfirmasi invoice. Silakan coba lagi.',
+                );
+            }
+        } catch {
+            toast.error('Gagal memproses invoice. Silakan coba lagi.');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handlePayment = async () => {
+        if (paymentMethod === 'Check') {
+            if (!referenceNumber.trim()) {
+                toast.error('Nomor Cek / Giro wajib diisi.');
+                return;
+            }
+            if (!destinationBank) {
+                toast.error('Pilih bank tujuan clearing.');
+                return;
+            }
+        }
+
+        setIsUpdating(true);
+        try {
+            const result = await recordCustomerPayment({
+                invoiceId: invoice.id,
+                amount: paymentAmount,
+                paymentDate: new Date(),
+                method: paymentMethod,
+                notes: 'Recorded from financial invoice detail',
+                referenceNumber:
+                    paymentMethod === 'Check'
+                        ? referenceNumber.trim()
+                        : undefined,
+                destinationBank:
+                    paymentMethod === 'Check'
+                        ? destinationBank
+                        : undefined,
+            });
+
+            if (result.success) {
+                toast.success(
+                    `Pembayaran ${formatRupiah(paymentAmount)} berhasil dicatat.`,
+                );
+                setIsPaymentDialogOpen(false);
+                setPaymentMethod(DEFAULT_PAYMENT_METHOD);
+                setReferenceNumber('');
+                setDestinationBank('');
+                router.refresh();
+            } else {
+                toast.error(
+                    result.error ||
+                        'Gagal mencatat pembayaran. Silakan coba lagi.',
+                );
+            }
+        } catch {
+            toast.error('Gagal memproses pembayaran. Silakan coba lagi.');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
 
     const getStatusBadge = (status: InvoiceStatus) => {
         const styles: Record<string, string> = {
@@ -80,7 +203,27 @@ export function FinancialInvoiceDetail({
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end flex-wrap gap-2">
+                {invoice.status === 'DRAFT' && (
+                    <button
+                        onClick={handleConfirmInvoice}
+                        disabled={isUpdating}
+                        className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                        <CheckCircle className="h-4 w-4" />
+                        {isUpdating ? 'Memproses...' : 'Konfirmasi Invoice'}
+                    </button>
+                )}
+                {invoice.status !== 'PAID' &&
+                    invoice.status !== 'CANCELLED' && (
+                        <button
+                            onClick={() => setIsPaymentDialogOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors"
+                        >
+                            <CreditCard className="h-4 w-4" />
+                            Catat Pembayaran
+                        </button>
+                    )}
                 <button
                     onClick={() => setShowPreview(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors"
@@ -96,6 +239,73 @@ export function FinancialInvoiceDetail({
                     ESC/P (Dot Matrix)
                 </a>
             </div>
+
+            {/* Payment Dialog */}
+            <Dialog
+                open={isPaymentDialogOpen}
+                onOpenChange={setIsPaymentDialogOpen}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Catat Pembayaran</DialogTitle>
+                        <DialogDescription>
+                            Masukkan jumlah pembayaran yang diterima untuk invoice
+                            ini.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="payment-amount" className="text-right">
+                                Jumlah
+                            </Label>
+                            <Input
+                                id="payment-amount"
+                                type="number"
+                                value={paymentAmount}
+                                onChange={(e) => {
+                                    const normalized = e.target.value.replace(',', '.');
+                                    const num = Number(normalized);
+                                    setPaymentAmount(isNaN(num) ? 0 : num);
+                                }}
+                                className="col-span-3"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Sisa Tagihan</Label>
+                            <div className="col-span-3 font-medium">
+                                {formatRupiah(remainingAmount)}
+                            </div>
+                        </div>
+                        <PaymentMethodFields
+                            method={paymentMethod}
+                            onMethodChange={setPaymentMethod}
+                            referenceNumber={referenceNumber}
+                            onReferenceNumberChange={setReferenceNumber}
+                            destinationBank={destinationBank}
+                            onDestinationBankChange={setDestinationBank}
+                            paymentBanks={paymentBanks}
+                            methodId="financial-invoice-method"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <button
+                            onClick={() => setIsPaymentDialogOpen(false)}
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            onClick={handlePayment}
+                            disabled={isUpdating || paymentAmount <= 0}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                            {isUpdating
+                                ? 'Menyimpan...'
+                                : 'Konfirmasi Pembayaran'}
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader className="pb-2">
@@ -319,8 +529,9 @@ export function FinancialInvoiceDetail({
             <div className="flex items-center gap-2 p-4 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <p>
-                    This is a read-only financial view. To manage delivery or
-                    edit items, switch to the Sales module.
+                    Status invoice dan pembayaran sudah bisa dikelola dari halaman
+                    ini. Untuk edit item atau mengelola pengiriman, switch ke Sales
+                    module.
                 </p>
             </div>
 
