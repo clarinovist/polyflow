@@ -9,6 +9,8 @@
  * At 10 CPI: ~95 characters per line
  */
 
+import type { EscpLogoBitmap } from './logo-bitmap';
+
 // ─── ESC/P Control Codes ──────────────────────────────────────────────
 
 const ESC = 0x1b; // Escape
@@ -65,6 +67,22 @@ function setLineSpacing1_6(): number[] {
 /** Set page length in lines (1-127). ESC C n */
 function setPageLengthLines(n: number): number[] {
     return [ESC, 0x43, Math.max(1, Math.min(127, Math.round(n)))]; // ESC C n
+}
+
+/**
+ * Select 8-dot bit image, double density (120 DPI horizontal), mode 1.
+ * `columnBytes` has one byte per column (bit 7 = top dot, bit 0 = bottom).
+ * ESC * 1 nL nH d1..dk
+ */
+function bitImage(widthDots: number, columnBytes: number[]): number[] {
+    const lo = widthDots % 256;
+    const hi = Math.floor(widthDots / 256);
+    return [ESC, 0x2a, 1, lo, hi, ...columnBytes];
+}
+
+/** One-shot fine feed, n/180 inch. Does not change persistent line spacing. ESC J n */
+function fineLineFeed(n: number): number[] {
+    return [ESC, 0x4a, Math.max(0, Math.min(255, n))]; // ESC J n
 }
 
 /** Turn condensed mode on/off */
@@ -232,6 +250,10 @@ interface EscpInvoiceData {
 
     // Paper
     paperHeightCm: number;
+
+    // Logo — pre-built ESC/P bitmap (see logo-bitmap.ts). null/undefined
+    // falls back to printing the company name as bold text.
+    logoBitmap?: EscpLogoBitmap | null;
 }
 
 // ─── Main Generator ───────────────────────────────────────────────────
@@ -262,15 +284,25 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...setRightMargin(112));
 
     // ── HEADER ──
-    // Company name in 10 CPI (larger)
-    bytes.push(...setCPI(10));
-    bytes.push(...setBold(true));
-    bytes.push(...str(data.companyName));
-    bytes.push(...setBold(false));
-    bytes.push(...newline());
+    // Company name: logo bitmap if available, otherwise bold text (was
+    // always text before logo support was added). CPI stays at 12 (set
+    // above) in the logo case since there's no text line to switch for.
+    if (data.logoBitmap) {
+        for (const band of data.logoBitmap.bands) {
+            bytes.push(CR);
+            bytes.push(...bitImage(data.logoBitmap.widthDots, band));
+            bytes.push(...fineLineFeed(20)); // 8 dots @ 1/72" = 20/180"
+        }
+    } else {
+        bytes.push(...setCPI(10));
+        bytes.push(...setBold(true));
+        bytes.push(...str(data.companyName));
+        bytes.push(...setBold(false));
+        bytes.push(...newline());
+        bytes.push(...setCPI(12));
+    }
 
     // Company details in 12 CPI
-    bytes.push(...setCPI(12));
     bytes.push(...str(pad(data.companyAddress, LINE_WIDTH)));
     bytes.push(...newline());
     const contactParts = [`Telp: ${data.companyPhone}`];
@@ -278,10 +310,11 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     contactParts.push(`Email: ${data.companyEmail}`);
     bytes.push(...str(pad(contactParts.join('  '), LINE_WIDTH)));
     bytes.push(...newline());
-    bytes.push(...str(dashLine()));
-    bytes.push(...newline());
 
     // ── INVOICE TITLE ──
+    // (No dashline separator above the title — it already has bold + center
+    // + letter-spacing plus a dashline below, and every line here counts
+    // against the 5.5" page length budget.)
     bytes.push(...setCPI(10));
     bytes.push(...setBold(true));
     bytes.push(...str(pad('INVOICE', LINE_WIDTH, 'center')));
@@ -355,9 +388,6 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
         }
     }
 
-    bytes.push(...str(dashLine()));
-    bytes.push(...newline());
-
     // ── TOTAL ROW ──
     bytes.push(...setBold(true));
     bytes.push(
@@ -373,11 +403,10 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...str(dashLine()));
     bytes.push(...newline());
 
-    // ── TERBILANG ──
-    // We skip terbilang in ESC/P to keep it simple — the number is clear enough
-    bytes.push(...newline());
-
     // ── FINANCIAL SUMMARY (right-aligned) ──
+    // (Terbilang skipped in ESC/P — the number is clear enough. Dashline
+    // above doubles as the separator before the summary box, so no extra
+    // doubleLine() here — keeps content within the 5.5" page length.)
     const summaryLines: [string, string][] = [
         ['SUBTOTAL :', formatRupiah(data.subtotal)],
     ];
@@ -398,8 +427,6 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     summaryLines.push(['SISA TAGIHAN :', formatRupiah(data.remainingBalance)]);
 
     // Print summary in a box-like format
-    bytes.push(...str(doubleLine()));
-    bytes.push(...newline());
     for (const [label, value] of summaryLines) {
         const isTotal = label === 'TOTAL :' || label === 'SISA TAGIHAN :';
         if (isTotal) bytes.push(...setBold(true));
@@ -415,27 +442,26 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...newline());
 
     // ── FOOTER ──
-    bytes.push(...newline());
-
-    // Bank info (left) and signature (right)
+    // Bank info (left) and signature (right). Label+type and holder+account
+    // are merged onto one line each (was 4 lines) to keep the invoice within
+    // the 5.5" page length even with diskon/PPN/ongkir added above.
     bytes.push(...setBold(true));
-    bytes.push(...str('KETERANGAN BANK :'));
+    bytes.push(
+        ...str(
+            `KETERANGAN BANK : (${data.isPPN ? 'Penjualan PPN' : 'Penjualan Non PPN'})`,
+        ),
+    );
     bytes.push(...setBold(false));
     bytes.push(...newline());
     bytes.push(
-        ...str(`(${data.isPPN ? 'Penjualan PPN' : 'Penjualan Non PPN'})`),
+        ...str(
+            `A/N ${data.bankHolder} - ${data.bankName} : ${data.bankAccount}`,
+        ),
     );
     bytes.push(...newline());
-    bytes.push(...str(`A/N ${data.bankHolder}`));
-    bytes.push(...newline());
-    bytes.push(...str(`${data.bankName} : ${data.bankAccount}`));
-    bytes.push(...newline());
-    bytes.push(...newline());
-    bytes.push(...newline());
 
-    // Signature line (right side)
+    // Signature line (right side) — 2 blank lines left for a pen signature
     bytes.push(...str(pad('Hormat kami,', LINE_WIDTH, 'right')));
-    bytes.push(...newline());
     bytes.push(...newline());
     bytes.push(...newline());
     bytes.push(...newline());

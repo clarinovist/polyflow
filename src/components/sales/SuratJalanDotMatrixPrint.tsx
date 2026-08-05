@@ -245,7 +245,7 @@ export function SuratJalanDotMatrixPrint({
                 dangerouslySetInnerHTML={{
                     __html: `
         @page {
-          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm landscape;
+          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
           margin: ${paperSize.marginMm}mm;
         }
 

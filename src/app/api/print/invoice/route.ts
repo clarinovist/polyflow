@@ -8,6 +8,7 @@ import {
     toUint8Array,
     type EscpInvoiceData,
 } from '@/services/printing/escp-generator';
+import { buildEscpLogoBitmap } from '@/services/printing/logo-bitmap';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 function toSafeDownloadFilename(value: string): string {
@@ -89,6 +90,18 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             : company.bankAccountsNonPPN;
         const bankAcc = bankAccounts[0];
 
+        // Logo is optional and best-effort — a fetch/decode failure must
+        // never fail the invoice print, so buildEscpLogoBitmap already
+        // catches internally; this try/catch is defense in depth.
+        let logoBitmap = null;
+        if (company.logoUrl) {
+            try {
+                logoBitmap = await buildEscpLogoBitmap(company.logoUrl);
+            } catch (error) {
+                console.error('[ESC/P Download] Logo bitmap failed:', error);
+            }
+        }
+
         const escpData: EscpInvoiceData = {
             companyName: company.name,
             companyAddress: company.address.replace(/\n/g, ', '),
@@ -127,6 +140,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             footerNote: company.footerNote,
             signerName: company.signerName,
             paperHeightCm: company.paperSize.heightCm,
+            logoBitmap,
         };
 
         const escpBytes = generateEscpInvoice(escpData);
