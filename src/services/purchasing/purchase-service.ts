@@ -108,7 +108,7 @@ export class PurchaseService {
 
     static async getPurchaseOrders(filters?: {
         supplierId?: string;
-        status?: PurchaseOrderStatus;
+        status?: PurchaseOrderStatus | PurchaseOrderStatus[];
     }) {
         return getPurchaseOrders(filters);
     }

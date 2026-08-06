@@ -9,7 +9,7 @@ import { PurchaseOrderStatus } from '@prisma/client';
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 const getOrdersData = withTenantPage(
-    async (statusFilter?: PurchaseOrderStatus) => {
+    async (statusFilter?: PurchaseOrderStatus | PurchaseOrderStatus[]) => {
         const filters = statusFilter ? { status: statusFilter } : undefined;
         const orders = await PurchaseService.getPurchaseOrders(filters);
         const stats = await PurchaseService.getPurchaseStats();
@@ -30,13 +30,21 @@ export default async function PurchaseOrdersPage(props: {
         typeof searchParams.status === 'string'
             ? searchParams.status
             : undefined;
-    const statusFilter =
-        statusParam &&
-        Object.values(PurchaseOrderStatus).includes(
-            statusParam as PurchaseOrderStatus,
-        )
-            ? (statusParam as PurchaseOrderStatus)
-            : undefined;
+    const validStatuses = (statusParam?.split(',') ?? []).filter(
+        (s): s is PurchaseOrderStatus =>
+            Object.values(PurchaseOrderStatus).includes(
+                s as PurchaseOrderStatus,
+            ),
+    );
+    const statusFilter:
+        | PurchaseOrderStatus
+        | PurchaseOrderStatus[]
+        | undefined =
+        validStatuses.length === 0
+            ? undefined
+            : validStatuses.length === 1
+              ? validStatuses[0]
+              : validStatuses;
 
     const { orders } = await getOrdersData(statusFilter);
 

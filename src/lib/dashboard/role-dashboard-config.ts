@@ -388,7 +388,7 @@ export function buildAttentionItems(
             id: 'pending-po',
             label: 'PO tertunda (draft/sent)',
             count: stats.purchasing.pendingPOs,
-            href: '/purchasing/orders?status=DRAFT',
+            href: '/purchasing/orders?status=DRAFT,SENT',
             severity: 'warning',
             resourceHint: '/purchasing',
         },

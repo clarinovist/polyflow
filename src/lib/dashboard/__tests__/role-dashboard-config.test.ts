@@ -92,7 +92,7 @@ describe('role-dashboard-config', () => {
     expect(find('overdue-ar')).toBe('/finance/invoices/sales?status=OVERDUE');
     expect(find('overdue-ap')).toBe('/finance/invoices/purchase?status=OVERDUE');
     expect(find('pending-invoices')).toBe('/sales/invoices?status=PENDING');
-    expect(find('pending-po')).toBe('/purchasing/orders?status=DRAFT');
+    expect(find('pending-po')).toBe('/purchasing/orders?status=DRAFT,SENT');
     expect(find('low-stock')).toBe('/warehouse/inventory?lowStock=true');
     // due-week has no meaningful due-date filter in InvoiceTable - keep plain link (Gap 3)
     expect(find('due-week')).toBe('/finance/invoices/sales');
