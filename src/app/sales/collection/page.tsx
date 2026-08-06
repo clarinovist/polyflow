@@ -5,15 +5,29 @@ import {
     getSalesArAgingAction,
     getMyOverduePromisesAction,
     getInvoicesWithoutCollectionActivityAction,
+    listRemittancesAction,
 } from '@/actions/sales/collection';
 import { getSalesTeamAction } from '@/actions/sales/sales-team';
+import { getSalesInvoices } from '@/actions/finance/invoices';
+import { getPaymentBanks } from '@/actions/finance/payment-banks-actions';
 
 export default async function SalesCollectionPage() {
-    const [agingRes, overdueRes, noActivityRes, teamRes] = await Promise.all([
+    const [
+        agingRes,
+        overdueRes,
+        noActivityRes,
+        teamRes,
+        remittanceRes,
+        invoicesRes,
+        paymentBanksRes,
+    ] = await Promise.all([
         getSalesArAgingAction({}),
         getMyOverduePromisesAction(),
         getInvoicesWithoutCollectionActivityAction({}),
         getSalesTeamAction().catch(() => null),
+        listRemittancesAction({}).catch(() => null),
+        getSalesInvoices().catch(() => null),
+        getPaymentBanks().catch(() => null),
     ]);
 
     type ActionRes<T = unknown> = { success?: boolean; data?: T };
@@ -34,6 +48,35 @@ export default async function SalesCollectionPage() {
     const team =
         teamRaw?.success && teamRaw.data ? serializeData(teamRaw.data) : [];
 
+    const remittanceRaw = remittanceRes as ActionRes | null;
+    const remittances =
+        remittanceRaw?.success && remittanceRaw.data
+            ? serializeData(remittanceRaw.data)
+            : [];
+
+    const invoicesRaw = invoicesRes as ActionRes<
+        Array<{
+            id: string;
+            invoiceNumber: string;
+            totalAmount: unknown;
+            paidAmount: unknown;
+            salesOrder: {
+                orderNumber: string;
+                customer: { name: string } | null;
+            } | null;
+        }>
+    > | null;
+    const allInvoices = invoicesRaw?.success ? (invoicesRaw.data ?? []) : [];
+    const unpaidInvoices = allInvoices.filter(
+        (inv) => Number(inv.totalAmount) - Number(inv.paidAmount) > 0,
+    );
+
+    const paymentBanksRaw = paymentBanksRes as ActionRes | null;
+    const paymentBanks =
+        paymentBanksRaw?.success && paymentBanksRaw.data
+            ? paymentBanksRaw.data
+            : {};
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -45,6 +88,9 @@ export default async function SalesCollectionPage() {
                 initialOverdue={overdue as never}
                 initialNoActivity={noActivity as never}
                 initialTeam={team as never}
+                initialRemittances={remittances as never}
+                unpaidInvoices={serializeData(unpaidInvoices) as never}
+                paymentBanks={paymentBanks as never}
             />
         </div>
     );

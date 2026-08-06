@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { getReceivedPayments } from '@/actions/finance/finance';
 import { ReceivedPaymentsClient } from '@/components/finance/payments/ReceivedPaymentsClient';
 import { getSalesInvoices } from '@/actions/finance/invoices';
+import { listRemittancesForVerificationAction } from '@/actions/sales/collection';
 import { serializeData } from '@/lib/utils/utils';
 import { getPaymentBanksSetting } from '@/services/settings/app-settings-service';
 import { withTenantPage } from '@/lib/core/tenant';
@@ -96,6 +97,14 @@ export default async function ReceivedPaymentsPage({
         paymentBanks = {};
     }
 
+    const pendingRemittancesRes = await listRemittancesForVerificationAction({
+        status: 'PENDING',
+    }).catch(() => null);
+    const pendingRemittances =
+        pendingRemittancesRes?.success && pendingRemittancesRes.data
+            ? serializeData(pendingRemittancesRes.data)
+            : [];
+
     return (
         <div className="p-6">
             <div className="mb-6">
@@ -135,6 +144,7 @@ export default async function ReceivedPaymentsPage({
                 }
                 demandType={demand}
                 paymentBanks={paymentBanks}
+                pendingRemittances={pendingRemittances as never}
             />
         </div>
     );

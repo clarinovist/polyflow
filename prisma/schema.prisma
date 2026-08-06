@@ -1356,15 +1356,20 @@ model SalesRemittance {
 }
 
 model SalesRemittanceItem {
-  id              String          @id @default(cuid())
-  remittanceId    String
-  remittance      SalesRemittance @relation(fields: [remittanceId], references: [id], onDelete: Cascade)
-  invoiceId       String
-  invoice         Invoice         @relation(fields: [invoiceId], references: [id])
-  amount          Decimal         @db.Decimal(15, 2)
-  method          String
-  referenceNumber String?
-  paymentId       String?         @unique
+  id                String          @id @default(cuid())
+  remittanceId      String
+  remittance        SalesRemittance @relation(fields: [remittanceId], references: [id], onDelete: Cascade)
+  invoiceId         String
+  invoice           Invoice         @relation(fields: [invoiceId], references: [id])
+  amount            Decimal         @db.Decimal(15, 2)
+  method            String
+  referenceNumber   String?
+  paymentId         String?         @unique
+  proofUrl          String?
+  proofStorageKey   String?
+  proofOriginalName String?
+  proofMimeType     String?
+  proofSizeBytes    Int?
 }
 
 enum RemittanceStatus {
@@ -2593,6 +2598,7 @@ enum NotificationType {
   SYSTEM
   HRD_PROBATION_ENDING
   HRD_CONTRACT_EXPIRING
+  REMITTANCE_PENDING
 }
 
 model Notification {

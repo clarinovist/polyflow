@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import { SharedPaymentTable } from '@/components/finance/SharedPaymentTable';
 import { RecordCustomerPaymentDialog } from '@/components/finance/payments/RecordCustomerPaymentDialog';
+import {
+    RemittanceVerificationQueue,
+    type RemittanceQueueRow,
+} from '@/components/finance/payments/RemittanceVerificationQueue';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
@@ -36,6 +42,7 @@ interface ReceivedPaymentsClientProps {
     unpaidInvoices: Invoice[];
     demandType: 'customer' | 'legacy-internal';
     paymentBanks?: TenantPaymentBanks;
+    pendingRemittances?: RemittanceQueueRow[];
 }
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
@@ -45,6 +52,7 @@ export function ReceivedPaymentsClient({
     unpaidInvoices,
     demandType,
     paymentBanks = {},
+    pendingRemittances = [],
 }: ReceivedPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const canRecordPayment = unpaidInvoices.length > 0;
@@ -76,12 +84,37 @@ export function ReceivedPaymentsClient({
                 </div>
             </div>
 
-            <SharedPaymentTable
-                title="Transaksi Masuk"
-                description="Daftar pembayaran pelanggan yang telah terverifikasi."
-                payments={payments}
-                type="received"
-            />
+            <Tabs defaultValue="transactions">
+                <TabsList>
+                    <TabsTrigger value="transactions">
+                        Transaksi Masuk
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="remittance"
+                        className="flex items-center gap-1.5"
+                    >
+                        Setoran Menunggu Verifikasi
+                        {pendingRemittances.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px]">
+                                {pendingRemittances.length}
+                            </Badge>
+                        )}
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="transactions" className="mt-4">
+                    <SharedPaymentTable
+                        title="Transaksi Masuk"
+                        description="Daftar pembayaran pelanggan yang telah terverifikasi."
+                        payments={payments}
+                        type="received"
+                    />
+                </TabsContent>
+                <TabsContent value="remittance" className="mt-4">
+                    <RemittanceVerificationQueue
+                        initialRemittances={pendingRemittances}
+                    />
+                </TabsContent>
+            </Tabs>
 
             {canRecordPayment && (
                 <RecordCustomerPaymentDialog

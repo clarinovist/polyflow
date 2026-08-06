@@ -111,6 +111,7 @@ import {
     rejectRemittanceAction,
     listRemittancesAction,
     getRemittanceByIdAction,
+    listRemittancesForVerificationAction,
 } from '../collection';
 
 describe('collection actions — guard + scoping', () => {
@@ -524,6 +525,38 @@ describe('collection actions — guard + scoping', () => {
 
             const res = await getRemittanceByIdAction('rem-2' as any);
             expect(res.success).toBe(true);
+        });
+    });
+
+    describe('listRemittancesForVerificationAction — FINANCE-only, unscoped', () => {
+        it('FINANCE bisa list semua remittance PENDING tanpa userId filter', async () => {
+            vi.mocked(requireSalesFinance).mockResolvedValue({
+                user: { id: 'fin-1', role: 'FINANCE', roles: ['FINANCE'] },
+            } as any);
+
+            const res = await listRemittancesForVerificationAction({
+                status: 'PENDING',
+            } as any);
+
+            expect(res.success).toBe(true);
+            expect(listRemittances).toHaveBeenCalledWith(
+                expect.objectContaining({ status: 'PENDING' }),
+            );
+            // Must NOT force userId — finance sees everyone's remittances
+            expect(listRemittances).not.toHaveBeenCalledWith(
+                expect.objectContaining({ userId: expect.anything() }),
+            );
+        });
+
+        it('SALES ditolak requireSalesFinance guard', async () => {
+            vi.mocked(requireSalesFinance).mockRejectedValue(
+                new Error(
+                    'Unauthorized: Akses finance sales hanya untuk admin atau finance.',
+                ),
+            );
+
+            const res = await listRemittancesForVerificationAction({} as any);
+            expect(res.success).toBe(false);
         });
     });
 });

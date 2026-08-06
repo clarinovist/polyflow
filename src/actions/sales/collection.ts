@@ -333,3 +333,22 @@ export const getRemittanceByIdAction = withTenant(
         });
     },
 );
+
+/**
+ * List remittances for the FINANCE verification queue — always unscoped
+ * (finance must see every submitter's remittances, not just their own).
+ * Guard: requireSalesFinance (ADMIN|FINANCE). Deliberately separate from
+ * listRemittancesAction, which guards with requireSalesAccess
+ * (ADMIN|SALES|MARKETING) and would reject a plain FINANCE user outright.
+ */
+export const listRemittancesForVerificationAction = withTenant(
+    async function listRemittancesForVerificationAction(
+        filters: Omit<ListRemittancesFilter, 'userId'> = {},
+    ) {
+        return safeAction(async () => {
+            await requireSalesFinance();
+            const rows = await listRemittancesService(filters);
+            return serializeData(rows);
+        });
+    },
+);

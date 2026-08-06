@@ -173,3 +173,19 @@ export function buildWarehouseAttachmentKey(
     const timestamp = Date.now();
     return `${tenant}/warehouse/${entityType}/${entityId}/${checkpoint}/${timestamp}.${ext}`;
 }
+
+/**
+ * Build R2 key for sales remittance proof-of-payment photos.
+ * Format: {tenant}/remittance-proof/{userId}/{timestamp}.{ext}
+ * remittanceId isn't known yet at upload time (upload happens before create), so
+ * we namespace by the uploading user instead — consistent with buildCustomerPhotoKey.
+ */
+export function buildRemittanceProofKey(
+    tenant: string,
+    userId: string,
+    filename: string,
+): string {
+    const ext = filename.split('.').pop() || 'jpg';
+    const timestamp = Date.now();
+    return `${tenant}/remittance-proof/${userId}/${timestamp}.${ext}`;
+}

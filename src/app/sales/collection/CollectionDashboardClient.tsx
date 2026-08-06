@@ -17,7 +17,10 @@ import { formatRupiah, toDecimalNumber } from '@/lib/utils/utils';
 import {
     getSalesArAgingAction,
     getInvoicesWithoutCollectionActivityAction,
+    listRemittancesAction,
 } from '@/actions/sales/collection';
+import { CreateRemittanceDialog } from '@/components/sales/collection/CreateRemittanceDialog';
+import type { TenantPaymentBanks } from '@/lib/finance/payment-methods';
 import { toast } from 'sonner';
 import {
     Loader2,
@@ -26,6 +29,7 @@ import {
     Clock,
     Calendar,
     User,
+    Plus,
 } from 'lucide-react';
 
 // ── Normalized types (serialized Decimal/Date) ──
@@ -76,6 +80,37 @@ type NoActivityRow = {
 };
 
 type TeamMember = { id: string; name?: string | null };
+
+type RemittanceItemRow = {
+    id: string;
+    invoiceId: string;
+    amount: number | string | { toNumber?: () => number };
+    method: string;
+    proofUrl?: string | null;
+    invoice?: { invoiceNumber?: string } | null;
+};
+
+type RemittanceRow = {
+    id: string;
+    remittanceNumber: string;
+    collectedAt: string | Date;
+    totalAmount: number | string | { toNumber?: () => number };
+    status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+    notes?: string | null;
+    user?: { id: string; name?: string | null } | null;
+    items: RemittanceItemRow[];
+};
+
+type UnpaidInvoice = {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: number;
+    paidAmount: number;
+    salesOrder: {
+        orderNumber: string;
+        customer: { name: string } | null;
+    };
+};
 
 function num(v: unknown): number {
     return toDecimalNumber(v);
@@ -139,22 +174,57 @@ function bucketBadge(bucket: string) {
     );
 }
 
+function remittanceStatusBadge(status: RemittanceRow['status']) {
+    const map: Record<
+        RemittanceRow['status'],
+        { label: string; className: string }
+    > = {
+        PENDING: {
+            label: 'Menunggu Verifikasi',
+            className: 'bg-amber-50 text-amber-700 border-amber-200',
+        },
+        VERIFIED: {
+            label: 'Terverifikasi',
+            className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        },
+        REJECTED: {
+            label: 'Ditolak',
+            className: 'bg-red-50 text-red-700 border-red-200',
+        },
+    };
+    const m = map[status];
+    return (
+        <Badge variant="outline" className={`text-[10px] ${m.className}`}>
+            {m.label}
+        </Badge>
+    );
+}
+
 export function CollectionDashboardClient({
     initialAging,
     initialOverdue,
     initialNoActivity,
     initialTeam,
+    initialRemittances = [],
+    unpaidInvoices = [],
+    paymentBanks = {},
 }: {
     initialAging: AgingRow[];
     initialOverdue: OverduePromiseRow[];
     initialNoActivity: NoActivityRow[];
     initialTeam: TeamMember[];
+    initialRemittances?: RemittanceRow[];
+    unpaidInvoices?: UnpaidInvoice[];
+    paymentBanks?: TenantPaymentBanks;
 }) {
     const [tab, setTab] = useState('aging');
     const [aging, setAging] = useState<AgingRow[]>(initialAging);
     const [overdue] = useState<OverduePromiseRow[]>(initialOverdue);
     const [noActivity, setNoActivity] =
         useState<NoActivityRow[]>(initialNoActivity);
+    const [remittances, setRemittances] =
+        useState<RemittanceRow[]>(initialRemittances);
+    const [remittanceDialogOpen, setRemittanceDialogOpen] = useState(false);
     const [filterSales, setFilterSales] = useState<string>('all');
     const [search, setSearch] = useState('');
     const [asOf, setAsOf] = useState(
@@ -272,6 +342,17 @@ export function CollectionDashboardClient({
         }
     }, [asOf, filterSales]);
 
+    const refreshRemittances = useCallback(async () => {
+        try {
+            const res = await listRemittancesAction({});
+            if (res?.success && res.data) {
+                setRemittances(res.data as unknown as RemittanceRow[]);
+            }
+        } catch {
+            toast.error('Gagal memuat daftar setoran');
+        }
+    }, []);
+
     const totalOutstanding = filteredAging.reduce(
         (s, r) => s + num(r.total),
         0,
@@ -377,12 +458,8 @@ export function CollectionDashboardClient({
                     <TabsTrigger value="overdue-promise" className="text-xs">
                         Janji Bayar Lewat ({filteredOverdue.length})
                     </TabsTrigger>
-                    <TabsTrigger
-                        value="remittance"
-                        disabled
-                        className="text-xs opacity-60"
-                    >
-                        Setoran (segera)
+                    <TabsTrigger value="remittance" className="text-xs">
+                        Setoran Saya ({remittances.length})
                     </TabsTrigger>
                 </TabsList>
 
@@ -763,15 +840,107 @@ export function CollectionDashboardClient({
                     </Card>
                 </TabsContent>
 
-                <TabsContent value="remittance" className="mt-4">
+                <TabsContent value="remittance" className="mt-4 space-y-3">
+                    <div className="flex justify-end">
+                        <Button
+                            size="sm"
+                            onClick={() => setRemittanceDialogOpen(true)}
+                        >
+                            <Plus className="mr-2 h-3.5 w-3.5" />
+                            Ajukan Setoran
+                        </Button>
+                    </div>
                     <Card>
-                        <CardContent className="p-8 text-center text-sm text-muted-foreground">
-                            Antrian setoran menunggu verifikasi akan tampil di
-                            sini (Step 4 — remittance).
+                        <CardHeader className="p-4 pb-2">
+                            <CardTitle className="text-sm">
+                                Setoran Saya
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {remittances.length === 0 ? (
+                                <div className="p-8 text-center text-sm text-muted-foreground">
+                                    Belum ada setoran diajukan. Klik
+                                    &quot;Ajukan Setoran&quot; untuk mencatat
+                                    bukti pembayaran yang diterima dari
+                                    customer.
+                                </div>
+                            ) : (
+                                <div className="divide-y">
+                                    {remittances.map((r) => (
+                                        <div
+                                            key={r.id}
+                                            className="p-4 space-y-2"
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div>
+                                                    <p className="text-sm font-medium">
+                                                        {r.remittanceNumber}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {fmtDate(r.collectedAt)}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {remittanceStatusBadge(
+                                                        r.status,
+                                                    )}
+                                                    <span className="text-sm font-semibold">
+                                                        {formatRupiah(
+                                                            num(r.totalAmount),
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {r.items.map((it) => (
+                                                    <Badge
+                                                        key={it.id}
+                                                        variant="secondary"
+                                                        className="text-[10px] font-normal"
+                                                    >
+                                                        {it.invoice
+                                                            ?.invoiceNumber ??
+                                                            it.invoiceId}{' '}
+                                                        —{' '}
+                                                        {formatRupiah(
+                                                            num(it.amount),
+                                                        )}
+                                                        {it.proofUrl && (
+                                                            <a
+                                                                href={
+                                                                    it.proofUrl
+                                                                }
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="ml-1 underline"
+                                                            >
+                                                                bukti
+                                                            </a>
+                                                        )}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                            {r.notes && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    {r.notes}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            <CreateRemittanceDialog
+                open={remittanceDialogOpen}
+                onOpenChange={setRemittanceDialogOpen}
+                invoices={unpaidInvoices}
+                paymentBanks={paymentBanks}
+                onCreated={() => void refreshRemittances()}
+            />
         </div>
     );
 }

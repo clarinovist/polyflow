@@ -20,6 +20,9 @@ vi.mock('@/lib/core/prisma', () => ({
         payment: {
             findFirst: vi.fn(),
         },
+        user: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
         auditLog: {
             create: vi.fn(),
         },
@@ -57,8 +60,15 @@ vi.mock('@/actions/finance/payment-mutation-actions', () => ({
     }),
 }));
 
+vi.mock('@/services/core/notification-service', () => ({
+    NotificationService: {
+        createBulkNotificationsThrottled: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+}));
+
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
+import { NotificationService } from '@/services/core/notification-service';
 import {
     generateRemittanceNumber,
     createRemittance,
@@ -276,6 +286,164 @@ describe('remittance-service', () => {
                     action: 'SALES_REMITTANCE_CREATED',
                 }),
             );
+        });
+
+        it('menyimpan field proof (foto bukti transfer) pada item', async () => {
+            vi.mocked(prisma.salesRemittance.findFirst).mockResolvedValue(null as never);
+            vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
+                makeInvoiceRow({ id: 'inv-1', totalAmount: 1000, paidAmount: 0 }) as never,
+            );
+            vi.mocked(prisma.salesRemittance.create).mockResolvedValue({
+                id: 'rem-1',
+                remittanceNumber: 'REM-2026-08-0001',
+                status: 'PENDING',
+                totalAmount: dec(200),
+                items: [{ id: 'ri-1', invoiceId: 'inv-1', amount: dec(200) }],
+            } as never);
+
+            await createRemittance({
+                userId: 'u1',
+                collectedAt: new Date('2026-08-02T00:00:00Z'),
+                items: [
+                    {
+                        invoiceId: 'inv-1',
+                        amount: 200,
+                        method: 'Transfer',
+                        proofUrl: '/api/images/tenant/remittance-proof/u1/123.jpg',
+                        proofStorageKey: 'tenant/remittance-proof/u1/123.jpg',
+                        proofOriginalName: 'bukti-transfer.jpg',
+                        proofMimeType: 'image/jpeg',
+                        proofSizeBytes: 45678,
+                    },
+                ],
+            });
+
+            expect(prisma.salesRemittance.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        items: {
+                            create: [
+                                expect.objectContaining({
+                                    proofUrl:
+                                        '/api/images/tenant/remittance-proof/u1/123.jpg',
+                                    proofStorageKey:
+                                        'tenant/remittance-proof/u1/123.jpg',
+                                    proofOriginalName: 'bukti-transfer.jpg',
+                                    proofMimeType: 'image/jpeg',
+                                    proofSizeBytes: 45678,
+                                }),
+                            ],
+                        },
+                    }),
+                }),
+            );
+        });
+
+        it('proof fields null ketika tidak ada foto diupload', async () => {
+            vi.mocked(prisma.salesRemittance.findFirst).mockResolvedValue(null as never);
+            vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
+                makeInvoiceRow({ id: 'inv-1', totalAmount: 1000, paidAmount: 0 }) as never,
+            );
+            vi.mocked(prisma.salesRemittance.create).mockResolvedValue({
+                id: 'rem-1',
+                remittanceNumber: 'REM-2026-08-0001',
+                status: 'PENDING',
+                totalAmount: dec(200),
+                items: [{ id: 'ri-1', invoiceId: 'inv-1', amount: dec(200) }],
+            } as never);
+
+            await createRemittance({
+                userId: 'u1',
+                collectedAt: new Date('2026-08-02T00:00:00Z'),
+                items: [{ invoiceId: 'inv-1', amount: 200, method: 'Cash' }],
+            });
+
+            expect(prisma.salesRemittance.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        items: {
+                            create: [
+                                expect.objectContaining({
+                                    proofUrl: null,
+                                    proofStorageKey: null,
+                                    proofOriginalName: null,
+                                    proofMimeType: null,
+                                    proofSizeBytes: null,
+                                }),
+                            ],
+                        },
+                    }),
+                }),
+            );
+        });
+
+        it('notifikasi FINANCE dikirim setelah remittance dibuat', async () => {
+            vi.mocked(prisma.salesRemittance.findFirst).mockResolvedValue(null as never);
+            vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
+                makeInvoiceRow({ id: 'inv-1', totalAmount: 1000, paidAmount: 0 }) as never,
+            );
+            vi.mocked(prisma.salesRemittance.create).mockResolvedValue({
+                id: 'rem-1',
+                remittanceNumber: 'REM-2026-08-0001',
+                status: 'PENDING',
+                totalAmount: dec(200),
+                items: [{ id: 'ri-1', invoiceId: 'inv-1', amount: dec(200) }],
+            } as never);
+            vi.mocked(prisma.user.findMany).mockResolvedValue([
+                { id: 'fin-1' },
+                { id: 'fin-2' },
+            ] as never);
+
+            await createRemittance({
+                userId: 'u1',
+                collectedAt: new Date('2026-08-02T00:00:00Z'),
+                items: [{ invoiceId: 'inv-1', amount: 200, method: 'Cash' }],
+            });
+
+            expect(prisma.user.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({ where: { role: 'FINANCE' } }),
+            );
+            expect(
+                NotificationService.createBulkNotificationsThrottled,
+            ).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        userId: 'fin-1',
+                        type: 'REMITTANCE_PENDING',
+                        entityId: 'rem-1',
+                    }),
+                    expect.objectContaining({
+                        userId: 'fin-2',
+                        type: 'REMITTANCE_PENDING',
+                        entityId: 'rem-1',
+                    }),
+                ]),
+            );
+        });
+
+        it('createRemittance tetap sukses walau notifikasi FINANCE gagal (best-effort)', async () => {
+            vi.mocked(prisma.salesRemittance.findFirst).mockResolvedValue(null as never);
+            vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
+                makeInvoiceRow({ id: 'inv-1', totalAmount: 1000, paidAmount: 0 }) as never,
+            );
+            vi.mocked(prisma.salesRemittance.create).mockResolvedValue({
+                id: 'rem-1',
+                remittanceNumber: 'REM-2026-08-0001',
+                status: 'PENDING',
+                totalAmount: dec(200),
+                items: [{ id: 'ri-1', invoiceId: 'inv-1', amount: dec(200) }],
+            } as never);
+            vi.mocked(prisma.user.findMany).mockRejectedValue(
+                new Error('DB down'),
+            );
+
+            const res = await createRemittance({
+                userId: 'u1',
+                collectedAt: new Date('2026-08-02T00:00:00Z'),
+                items: [{ invoiceId: 'inv-1', amount: 200, method: 'Cash' }],
+            });
+
+            expect(res).toBeDefined();
         });
 
         it('agregasi amount per invoiceId dalam validasi (dua item invoice sama)', async () => {

@@ -14,6 +14,11 @@ export interface RemittanceItemInput {
     amount: number;
     method: string;
     referenceNumber?: string;
+    proofUrl?: string;
+    proofStorageKey?: string;
+    proofOriginalName?: string;
+    proofMimeType?: string;
+    proofSizeBytes?: number;
 }
 
 export interface CreateRemittanceInput {
@@ -182,6 +187,11 @@ export async function createRemittance(input: CreateRemittanceInput) {
                         amount: it.amount,
                         method: it.method,
                         referenceNumber: it.referenceNumber ?? null,
+                        proofUrl: it.proofUrl ?? null,
+                        proofStorageKey: it.proofStorageKey ?? null,
+                        proofOriginalName: it.proofOriginalName ?? null,
+                        proofMimeType: it.proofMimeType ?? null,
+                        proofSizeBytes: it.proofSizeBytes ?? null,
                     })),
                 },
             },
@@ -199,7 +209,50 @@ export async function createRemittance(input: CreateRemittanceInput) {
         details: `Setoran ${remittanceNumber} dibuat oleh ${input.userId}: ${input.items.length} item, total ${totalAmount}`,
     });
 
+    await notifyFinanceOfPendingRemittance(
+        created.id,
+        remittanceNumber,
+        totalAmount,
+    );
+
     return created;
+}
+
+// Notify FINANCE users a new remittance is waiting for verification.
+// Best-effort: failure here must not roll back the already-created remittance.
+async function notifyFinanceOfPendingRemittance(
+    remittanceId: string,
+    remittanceNumber: string,
+    totalAmount: number,
+) {
+    try {
+        const { NotificationService } =
+            await import('@/services/core/notification-service');
+
+        const financeUsers = await prisma.user.findMany({
+            where: { role: 'FINANCE' },
+            select: { id: true },
+        });
+
+        if (financeUsers.length === 0) return;
+
+        await NotificationService.createBulkNotificationsThrottled(
+            financeUsers.map((u) => ({
+                userId: u.id,
+                type: 'REMITTANCE_PENDING' as const,
+                title: 'Setoran baru menunggu verifikasi',
+                message: `Setoran ${remittanceNumber} (${totalAmount}) menunggu verifikasi.`,
+                link: `/finance/payments/received?tab=remittance`,
+                entityType: 'SalesRemittance',
+                entityId: remittanceId,
+            })),
+        );
+    } catch (err) {
+        logger.warn('[RemittanceService] Failed to notify FINANCE users', {
+            remittanceId,
+            error: err instanceof Error ? err.message : String(err),
+        });
+    }
 }
 
 // ── verifyRemittance ───────────────────────────────────────────────
