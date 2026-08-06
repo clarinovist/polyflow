@@ -7,6 +7,7 @@ import {
     deleteCustomer,
 } from '@/actions/sales/customer';
 import { CustomerDialog } from '@/components/customers/CustomerDialog';
+import { CustomerActiveToggle } from '@/components/customers/CustomerActiveToggle';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import {
     Table,
@@ -45,9 +46,7 @@ type FullCustomerForEdit = Omit<
     longitude: Prisma.Decimal | number | null;
 };
 
-function toNum(
-    v: Prisma.Decimal | number | null | undefined,
-): number | null {
+function toNum(v: Prisma.Decimal | number | null | undefined): number | null {
     if (v == null) return null;
     if (typeof v === 'number') return v;
     if (typeof v === 'object' && 'toNumber' in v) {
@@ -318,18 +317,27 @@ export default function CustomersPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1.5">
-                                                <Badge
-                                                    variant={
-                                                        customer.isActive
-                                                            ? 'default'
-                                                            : 'secondary'
+                                                <CustomerActiveToggle
+                                                    id={customer.id}
+                                                    isActive={customer.isActive}
+                                                    onToggled={(
+                                                        toggledId,
+                                                        nextIsActive,
+                                                    ) =>
+                                                        setCustomers((prev) =>
+                                                            prev.map((c) =>
+                                                                c.id ===
+                                                                toggledId
+                                                                    ? {
+                                                                          ...c,
+                                                                          isActive:
+                                                                              nextIsActive,
+                                                                      }
+                                                                    : c,
+                                                            ),
+                                                        )
                                                     }
-                                                    className="text-[10px]"
-                                                >
-                                                    {customer.isActive
-                                                        ? 'Aktif'
-                                                        : 'Nonaktif'}
-                                                </Badge>
+                                                />
                                                 {customer.exposureStatus ===
                                                     'over' && (
                                                     <Badge
@@ -377,6 +385,14 @@ export default function CustomersPage() {
                                                     id={customer.id}
                                                     onDelete={deleteCustomer}
                                                     entityName="Customer"
+                                                    onDeleted={(id) =>
+                                                        setCustomers((prev) =>
+                                                            prev.filter(
+                                                                (c) =>
+                                                                    c.id !== id,
+                                                            ),
+                                                        )
+                                                    }
                                                 />
                                             </div>
                                         </TableCell>
@@ -486,27 +502,29 @@ export default function CustomersPage() {
             {editingCustomer && (
                 <CustomerDialog
                     mode="edit"
-                    trigger={
-                        <span className="hidden" aria-hidden="true" />
+                    trigger={<span className="hidden" aria-hidden="true" />}
+                    initialData={
+                        {
+                            ...editingCustomer,
+                            creditLimit: toNum(editingCustomer.creditLimit),
+                            discountPercent: toNum(
+                                editingCustomer.discountPercent,
+                            ),
+                            maxDiscountPercent: toNum(
+                                editingCustomer.maxDiscountPercent,
+                            ),
+                            latitude: toNum(editingCustomer.latitude),
+                            longitude: toNum(editingCustomer.longitude),
+                            createdAt: new Date(
+                                editingCustomer.createdAt as string | Date,
+                            ),
+                            updatedAt: new Date(
+                                editingCustomer.updatedAt as string | Date,
+                            ),
+                        } as unknown as Parameters<
+                            typeof CustomerDialog
+                        >[0]['initialData']
                     }
-                    initialData={{
-                        ...editingCustomer,
-                        creditLimit: toNum(editingCustomer.creditLimit),
-                        discountPercent: toNum(editingCustomer.discountPercent),
-                        maxDiscountPercent: toNum(
-                            editingCustomer.maxDiscountPercent,
-                        ),
-                        latitude: toNum(editingCustomer.latitude),
-                        longitude: toNum(editingCustomer.longitude),
-                        createdAt: new Date(
-                            editingCustomer.createdAt as string | Date,
-                        ),
-                        updatedAt: new Date(
-                            editingCustomer.updatedAt as string | Date,
-                        ),
-                    } as unknown as Parameters<
-                        typeof CustomerDialog
-                    >[0]['initialData']}
                     open={editDialogOpen}
                     onOpenChange={(v) => {
                         setEditDialogOpen(v);

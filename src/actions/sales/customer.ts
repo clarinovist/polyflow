@@ -203,6 +203,35 @@ export const quickCreateCustomer = withTenant(
     },
 );
 
+export const toggleCustomerActive = withTenant(
+    async function toggleCustomerActive(data: {
+        id: string;
+        isActive: boolean;
+    }) {
+        return safeAction(async () => {
+            await requireSalesAccess();
+
+            try {
+                await prisma.customer.update({
+                    where: { id: data.id },
+                    data: { isActive: data.isActive },
+                });
+
+                revalidatePath('/sales/customers');
+                revalidatePath(`/sales/customers/${data.id}`);
+                return null;
+            } catch (error) {
+                logger.error('Failed to toggle customer active status', {
+                    error,
+                    customerId: data.id,
+                    module: 'CustomerActions',
+                });
+                throw new BusinessRuleError('Failed to update customer status');
+            }
+        });
+    },
+);
+
 export const deleteCustomer = withTenant(async function deleteCustomer(
     id: string,
 ) {

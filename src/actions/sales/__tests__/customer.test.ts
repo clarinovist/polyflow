@@ -6,6 +6,7 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  toggleCustomerActive,
 } from "../customer";
 import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
@@ -688,6 +689,100 @@ describe("customer actions", () => {
           notes: "Updated notes",
         },
       });
+    });
+  });
+
+  // ── toggleCustomerActive ──────────────────────────────────────────
+
+  describe("toggleCustomerActive", () => {
+    it("sets isActive to false and returns success", async () => {
+      // Arrange
+      vi.mocked(prisma.customer.update).mockResolvedValue({
+        id: "cust-1",
+        isActive: false,
+      } as never);
+
+      // Act
+      const result = await toggleCustomerActive({
+        id: "cust-1",
+        isActive: false,
+      });
+
+      // Assert
+      expect(result).toEqual({ success: true, data: null });
+      expect(prisma.customer.update).toHaveBeenCalledWith({
+        where: { id: "cust-1" },
+        data: { isActive: false },
+      });
+      expect(requireSalesAccess).toHaveBeenCalled();
+    });
+
+    it("sets isActive to true and returns success", async () => {
+      // Arrange
+      vi.mocked(prisma.customer.update).mockResolvedValue({
+        id: "cust-1",
+        isActive: true,
+      } as never);
+
+      // Act
+      const result = await toggleCustomerActive({
+        id: "cust-1",
+        isActive: true,
+      });
+
+      // Assert
+      expect(result).toEqual({ success: true, data: null });
+      expect(prisma.customer.update).toHaveBeenCalledWith({
+        where: { id: "cust-1" },
+        data: { isActive: true },
+      });
+    });
+
+    it("rejects when requireSalesAccess guard fails (e.g. WAREHOUSE role)", async () => {
+      const { BusinessRuleError } = await import("@/lib/errors/errors");
+      vi.mocked(requireSalesAccess).mockRejectedValue(
+        new BusinessRuleError(
+          "Unauthorized: Akses sales hanya untuk admin atau sales.",
+        ),
+      );
+
+      // Act
+      const result = (await toggleCustomerActive({
+        id: "cust-1",
+        isActive: false,
+      })) as any;
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/Unauthorized/);
+      expect(prisma.customer.update).not.toHaveBeenCalled();
+    });
+
+    it("returns error when database update fails", async () => {
+      // Arrange
+      vi.mocked(prisma.customer.update).mockRejectedValue(
+        new Error("Record not found"),
+      );
+
+      // Act
+      const result = await toggleCustomerActive({
+        id: "nonexistent",
+        isActive: true,
+      });
+
+      // Assert
+      expect(result).toEqual({
+        success: false,
+        error: "Failed to update customer status",
+        code: "BUSINESS_RULE_VIOLATION",
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        "Failed to toggle customer active status",
+        expect.objectContaining({
+          customerId: "nonexistent",
+          module: "CustomerActions",
+        }),
+      );
     });
   });
 

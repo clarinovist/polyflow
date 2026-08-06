@@ -21,12 +21,14 @@ interface DeleteButtonProps {
     id: string;
     onDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
     entityName?: string;
+    onDeleted?: (id: string) => void;
 }
 
 export function DeleteButton({
     id,
     onDelete,
     entityName = 'Item',
+    onDeleted,
 }: DeleteButtonProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [open, setOpen] = useState(false);
@@ -40,6 +42,7 @@ export function DeleteButton({
                 toast.success(`${entityName} berhasil dihapus`);
                 setOpen(false);
                 router.refresh();
+                onDeleted?.(id);
             } else {
                 toast.error(result.error || `Gagal menghapus ${entityName}.`);
             }
