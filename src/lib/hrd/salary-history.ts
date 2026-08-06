@@ -5,7 +5,7 @@
 
 import type { PrismaClient, Prisma } from '@prisma/client';
 
-const SALARY_FIELDS = [
+export const SALARY_FIELDS = [
     'payType',
     'dailyRate',
     'monthlySalary',

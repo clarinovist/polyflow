@@ -6,6 +6,7 @@ import { PayrollService } from '@/services/hrd/payroll-service';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { logger } from '@/lib/config/logger';
+import { requireHrdFinance } from '@/lib/auth/hrd-access';
 
 export const getEmployeeWeeklyPayroll = withTenant(
     async function getEmployeeWeeklyPayroll(
@@ -14,6 +15,7 @@ export const getEmployeeWeeklyPayroll = withTenant(
     ) {
         return safeAction(async () => {
             try {
+                await requireHrdFinance();
                 const baseDate = dateInWeek ? new Date(dateInWeek) : new Date();
                 const weekStart = startOfWeek(baseDate);
                 const weekEnd = endOfWeek(baseDate);
@@ -42,6 +44,7 @@ export const getAllWeeklyPayroll = withTenant(
     async function getAllWeeklyPayroll(dateInWeek?: string) {
         return safeAction(async () => {
             try {
+                await requireHrdFinance();
                 const baseDate = dateInWeek ? new Date(dateInWeek) : new Date();
                 const weekStart = startOfWeek(baseDate);
                 const weekEnd = endOfWeek(baseDate);

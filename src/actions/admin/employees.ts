@@ -11,19 +11,15 @@ import { logActivity } from '@/lib/tools/audit';
 import {
     buildSalaryChanges,
     createSalaryHistory,
+    SALARY_FIELDS,
 } from '@/lib/hrd/salary-history';
+import { hasHrdFinanceAccess } from '@/lib/auth/hrd-access';
 
-// Fields whose change is compliance-critical (gaji/payType/BPJS) — old/new captured in audit log.
-const SALARY_FIELDS = [
-    'dailyRate',
-    'overtimeHourlyRate',
-    'standardDayHours',
-    'payType',
-    'monthlySalary',
-    'bpjsParticipant',
-    'bpjsEmployeeDeduction',
-    'bpjsEmployerCost',
-] as const;
+// Strip salary/BPJS fields (and pinHash) for actors without HRD/Finance/Admin access.
+function redactSalaryFields<T extends Record<string, unknown>>(employee: T): T {
+    const redacted = Object.fromEntries(SALARY_FIELDS.map((f) => [f, null]));
+    return { ...employee, ...redacted, pinHash: null };
+}
 
 // Fase 2: optional personal/HR master data block. All fields optional.
 export interface EmployeePersonalData {
@@ -91,6 +87,9 @@ export const getEmployees = withTenant(async function getEmployees() {
             const employees = await prisma.employee.findMany({
                 orderBy: { createdAt: 'desc' },
             });
+            if (!(await hasHrdFinanceAccess())) {
+                return employees.map((e) => redactSalaryFields(e));
+            }
             return employees;
         } catch (error) {
             logger.error('Failed to get employees', {
@@ -113,7 +112,8 @@ export const getEmployeeById = withTenant(async function getEmployeeById(
             if (!employee) {
                 throw new BusinessRuleError('Karyawan tidak ditemukan');
             }
-            return employee;
+            const canViewSalary = await hasHrdFinanceAccess();
+            return canViewSalary ? employee : redactSalaryFields(employee);
         } catch (error) {
             if (error instanceof BusinessRuleError) throw error;
             logger.error('Failed to get employee', {
@@ -148,27 +148,43 @@ export const createEmployee = withTenant(async function createEmployee(data: {
     return safeAction(async () => {
         try {
             const session = await requireAuth();
+            const canEditSalary = await hasHrdFinanceAccess();
+            // Actors without HRD/Finance/Admin access get schema defaults for
+            // salary/BPJS fields — client-supplied values are ignored, not trusted.
+            const salaryCreateFields = canEditSalary
+                ? {
+                      payType: data.payType || 'DAILY',
+                      dailyRate: data.dailyRate || 0,
+                      overtimeHourlyRate: data.overtimeHourlyRate
+                          ? data.overtimeHourlyRate
+                          : null,
+                      standardDayHours: data.standardDayHours ?? 8,
+                      ...(data.payType === 'MONTHLY'
+                          ? {
+                                monthlySalary: data.monthlySalary ?? null,
+                            }
+                          : {}),
+                      bpjsParticipant: data.bpjsParticipant ?? false,
+                      bpjsEmployeeDeduction: data.bpjsEmployeeDeduction ?? null,
+                      bpjsEmployerCost: data.bpjsEmployerCost ?? null,
+                  }
+                : {
+                      payType: 'DAILY' as const,
+                      dailyRate: 0,
+                      overtimeHourlyRate: null,
+                      standardDayHours: 8,
+                      bpjsParticipant: false,
+                      bpjsEmployeeDeduction: null,
+                      bpjsEmployerCost: null,
+                  };
             const employee = await prisma.employee.create({
                 data: {
                     name: data.name,
                     code: data.code,
                     role: data.role,
                     status: data.status || 'ACTIVE',
-                    payType: data.payType || 'DAILY',
-                    dailyRate: data.dailyRate || 0,
-                    overtimeHourlyRate: data.overtimeHourlyRate
-                        ? data.overtimeHourlyRate
-                        : null,
-                    standardDayHours: data.standardDayHours ?? 8,
-                    ...(data.payType === 'MONTHLY'
-                        ? {
-                              monthlySalary: data.monthlySalary ?? null,
-                          }
-                        : {}),
-                    // BPJS tersedia untuk semua skema (DAILY / PIECE / MONTHLY)
-                    bpjsParticipant: data.bpjsParticipant ?? false,
-                    bpjsEmployeeDeduction: data.bpjsEmployeeDeduction ?? null,
-                    bpjsEmployerCost: data.bpjsEmployerCost ?? null,
+                    ...salaryCreateFields,
+                    // BPJS ID numbers — not salary-critical, settable by anyone.
                     bpjsKesehatanNo: data.bpjsKesehatanNo ?? null,
                     bpjsKetenagakerjaanNo: data.bpjsKetenagakerjaanNo ?? null,
                     ...toPersonalDb(data.personal),
@@ -217,6 +233,7 @@ export const updateEmployee = withTenant(async function updateEmployee(
     return safeAction(async () => {
         try {
             const session = await requireAuth();
+            const canEditSalary = await hasHrdFinanceAccess();
             // Snapshot old values for salary-critical fields (compliance audit).
             const before = await prisma.employee.findUnique({
                 where: { id },
@@ -240,29 +257,49 @@ export const updateEmployee = withTenant(async function updateEmployee(
                 throw new BusinessRuleError('Karyawan tidak ditemukan');
             }
             const { personal: _p1, ...coreData } = data;
+            // Salary/BPJS-amount fields are handled separately below (gated by
+            // canEditSalary) so they must not leak in through the plain spread.
+            const salaryKeys = new Set<string>(SALARY_FIELDS);
+            const nonSalaryCore = Object.fromEntries(
+                Object.entries(coreData).filter(([k]) => !salaryKeys.has(k)),
+            );
+            // Actors without HRD/Finance/Admin access must not touch salary
+            // fields at all — omit them so Prisma leaves existing DB values as-is
+            // (setting them to a fallback here would silently wipe real data).
+            const salaryUpdate: Record<string, unknown> = {};
+            if (canEditSalary) {
+                salaryUpdate.overtimeHourlyRate = data.overtimeHourlyRate
+                    ? data.overtimeHourlyRate
+                    : null;
+                salaryUpdate.standardDayHours =
+                    data.standardDayHours && data.standardDayHours > 0
+                        ? data.standardDayHours
+                        : 8;
+                if (data.payType !== undefined) {
+                    salaryUpdate.payType = data.payType;
+                }
+                if (data.dailyRate !== undefined) {
+                    salaryUpdate.dailyRate = data.dailyRate;
+                }
+                if (data.monthlySalary !== undefined) {
+                    salaryUpdate.monthlySalary = data.monthlySalary;
+                }
+                if (data.bpjsParticipant !== undefined) {
+                    salaryUpdate.bpjsParticipant = data.bpjsParticipant;
+                }
+                if (data.bpjsEmployeeDeduction !== undefined) {
+                    salaryUpdate.bpjsEmployeeDeduction =
+                        data.bpjsEmployeeDeduction;
+                }
+                if (data.bpjsEmployerCost !== undefined) {
+                    salaryUpdate.bpjsEmployerCost = data.bpjsEmployerCost;
+                }
+            }
             const employee = await prisma.employee.update({
                 where: { id },
                 data: {
-                    ...coreData,
-                    overtimeHourlyRate: data.overtimeHourlyRate
-                        ? data.overtimeHourlyRate
-                        : null,
-                    standardDayHours:
-                        data.standardDayHours && data.standardDayHours > 0
-                            ? data.standardDayHours
-                            : 8,
-                    ...(data.monthlySalary !== undefined
-                        ? { monthlySalary: data.monthlySalary }
-                        : {}),
-                    ...(data.bpjsParticipant !== undefined
-                        ? { bpjsParticipant: data.bpjsParticipant }
-                        : {}),
-                    ...(data.bpjsEmployeeDeduction !== undefined
-                        ? { bpjsEmployeeDeduction: data.bpjsEmployeeDeduction }
-                        : {}),
-                    ...(data.bpjsEmployerCost !== undefined
-                        ? { bpjsEmployerCost: data.bpjsEmployerCost }
-                        : {}),
+                    ...nonSalaryCore,
+                    ...salaryUpdate,
                     ...(data.bpjsKesehatanNo !== undefined
                         ? { bpjsKesehatanNo: data.bpjsKesehatanNo || null }
                         : {}),

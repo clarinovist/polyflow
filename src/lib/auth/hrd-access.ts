@@ -12,6 +12,7 @@
  *   const session = await requireHrdFinance();    // admin, finance, or hrd
  */
 
+import { auth } from '@/auth';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { hasAnyRole } from '@/lib/auth/roles';
 import { BusinessRuleError } from '@/lib/errors/errors';
@@ -36,4 +37,11 @@ export async function requireHrdFinance() {
         );
     }
     return session;
+}
+
+/** Non-throwing variant of requireHrdFinance — for redaction/filtering, not hard blocks. */
+export async function hasHrdFinanceAccess(): Promise<boolean> {
+    const session = await auth();
+    if (!session?.user) return false;
+    return hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD']);
 }

@@ -4,6 +4,7 @@ import { EmployeeHrHistory } from '@/components/hrd/EmployeeHrHistory';
 import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
 import { Employee } from '@prisma/client';
+import { hasHrdFinanceAccess } from '@/lib/auth/hrd-access';
 
 interface EditEmployeePageProps {
     params: Promise<{ id: string }>;
@@ -13,6 +14,7 @@ export default async function EditEmployeePage({
     params,
 }: EditEmployeePageProps) {
     const { id } = await params;
+    const canEditSalary = await hasHrdFinanceAccess();
     const result = await getEmployeeById(id);
 
     if (!result.success || !result.data) {
@@ -52,6 +54,7 @@ export default async function EditEmployeePage({
                     <EmployeeForm
                         initialData={formData as unknown as Employee}
                         hasPin={hasPin}
+                        canEditSalary={canEditSalary}
                     />
                 </CardContent>
             </Card>

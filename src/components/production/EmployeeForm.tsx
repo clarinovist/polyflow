@@ -67,6 +67,7 @@ type AllowanceRow = {
 interface EmployeeFormProps {
     initialData?: Employee;
     hasPin?: boolean;
+    canEditSalary?: boolean;
 }
 
 type PersonalData = {
@@ -181,6 +182,7 @@ function toPersonalPayload(p: PersonalData) {
 export function EmployeeForm({
     initialData,
     hasPin: initialHasPin,
+    canEditSalary = true,
 }: EmployeeFormProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -539,457 +541,502 @@ export function EmployeeForm({
                     </Popover>
                 </div>
 
-                <div className="space-y-2">
-                    <Label className="text-sm font-semibold tracking-tight">
-                        Skema Gaji
-                    </Label>
-                    <RadioGroup
-                        value={formData.payType}
-                        onValueChange={(v) =>
-                            setFormData({
-                                ...formData,
-                                payType: v as EmployeePayType,
-                            })
-                        }
-                        className="grid grid-cols-3 gap-2"
-                    >
-                        <label
-                            htmlFor="pay-daily"
-                            className={cn(
-                                'flex items-center gap-2 rounded-lg border p-3 cursor-pointer',
-                                formData.payType === 'DAILY'
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-border',
-                            )}
-                        >
-                            <RadioGroupItem value="DAILY" id="pay-daily" />
-                            <div>
-                                <div className="text-sm font-medium">
-                                    Harian
-                                </div>
-                                <div className="text-[11px] text-muted-foreground">
-                                    Upah per hari + OT
-                                </div>
-                            </div>
-                        </label>
-                        <label
-                            htmlFor="pay-piece"
-                            className={cn(
-                                'flex items-center gap-2 rounded-lg border p-3 cursor-pointer',
-                                formData.payType === 'PIECE'
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-border',
-                            )}
-                        >
-                            <RadioGroupItem value="PIECE" id="pay-piece" />
-                            <div>
-                                <div className="text-sm font-medium">
-                                    Borongan /kg
-                                </div>
-                                <div className="text-[11px] text-muted-foreground">
-                                    Tarif per proses mesin
-                                </div>
-                            </div>
-                        </label>
-                        <label
-                            htmlFor="pay-monthly"
-                            className={cn(
-                                'flex items-center gap-2 rounded-lg border p-3 cursor-pointer',
-                                formData.payType ===
-                                    ('MONTHLY' as EmployeePayType)
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-border',
-                            )}
-                        >
-                            <RadioGroupItem value="MONTHLY" id="pay-monthly" />
-                            <div>
-                                <div className="text-sm font-medium">
-                                    Bulanan
-                                </div>
-                                <div className="text-[11px] text-muted-foreground">
-                                    Karyawan kantor
-                                </div>
-                            </div>
-                        </label>
-                    </RadioGroup>
-                </div>
-
-                {formData.payType === ('MONTHLY' as EmployeePayType) ? (
-                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
-                        <p className="text-sm font-semibold">
-                            Gaji Bulanan — Karyawan Kantor
-                        </p>
+                {canEditSalary ? (
+                    <>
                         <div className="space-y-2">
-                            <Label
-                                htmlFor="monthlySalary"
-                                className="text-xs font-semibold"
-                            >
-                                Gaji Pokok Bulanan (IDR)
+                            <Label className="text-sm font-semibold tracking-tight">
+                                Skema Gaji
                             </Label>
-                            <Input
-                                id="monthlySalary"
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={formData.monthlySalary}
-                                onChange={(e) => {
-                                    const num = Number(
-                                        e.target.value.replace(',', '.'),
-                                    );
+                            <RadioGroup
+                                value={formData.payType}
+                                onValueChange={(v) =>
                                     setFormData({
                                         ...formData,
-                                        monthlySalary: isNaN(num) ? 0 : num,
-                                    });
-                                }}
-                                placeholder="e.g. 2750000"
-                                className="bg-background/50"
-                            />
+                                        payType: v as EmployeePayType,
+                                    })
+                                }
+                                className="grid grid-cols-3 gap-2"
+                            >
+                                <label
+                                    htmlFor="pay-daily"
+                                    className={cn(
+                                        'flex items-center gap-2 rounded-lg border p-3 cursor-pointer',
+                                        formData.payType === 'DAILY'
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-border',
+                                    )}
+                                >
+                                    <RadioGroupItem
+                                        value="DAILY"
+                                        id="pay-daily"
+                                    />
+                                    <div>
+                                        <div className="text-sm font-medium">
+                                            Harian
+                                        </div>
+                                        <div className="text-[11px] text-muted-foreground">
+                                            Upah per hari + OT
+                                        </div>
+                                    </div>
+                                </label>
+                                <label
+                                    htmlFor="pay-piece"
+                                    className={cn(
+                                        'flex items-center gap-2 rounded-lg border p-3 cursor-pointer',
+                                        formData.payType === 'PIECE'
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-border',
+                                    )}
+                                >
+                                    <RadioGroupItem
+                                        value="PIECE"
+                                        id="pay-piece"
+                                    />
+                                    <div>
+                                        <div className="text-sm font-medium">
+                                            Borongan /kg
+                                        </div>
+                                        <div className="text-[11px] text-muted-foreground">
+                                            Tarif per proses mesin
+                                        </div>
+                                    </div>
+                                </label>
+                                <label
+                                    htmlFor="pay-monthly"
+                                    className={cn(
+                                        'flex items-center gap-2 rounded-lg border p-3 cursor-pointer',
+                                        formData.payType ===
+                                            ('MONTHLY' as EmployeePayType)
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-border',
+                                    )}
+                                >
+                                    <RadioGroupItem
+                                        value="MONTHLY"
+                                        id="pay-monthly"
+                                    />
+                                    <div>
+                                        <div className="text-sm font-medium">
+                                            Bulanan
+                                        </div>
+                                        <div className="text-[11px] text-muted-foreground">
+                                            Karyawan kantor
+                                        </div>
+                                    </div>
+                                </label>
+                            </RadioGroup>
                         </div>
-                        <div className="space-y-2 border-t border-white/10 pt-3">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-semibold">
-                                        Tunjangan tetap
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        {initialData
-                                            ? 'Transport, makan, dll — ikut snapshot ke payslip saat generate.'
-                                            : 'Simpan karyawan dulu, lalu edit ulang untuk menambah tunjangan.'}
+
+                        {formData.payType === ('MONTHLY' as EmployeePayType) ? (
+                            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                                <p className="text-sm font-semibold">
+                                    Gaji Bulanan — Karyawan Kantor
+                                </p>
+                                <div className="space-y-2">
+                                    <Label
+                                        htmlFor="monthlySalary"
+                                        className="text-xs font-semibold"
+                                    >
+                                        Gaji Pokok Bulanan (IDR)
+                                    </Label>
+                                    <Input
+                                        id="monthlySalary"
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={formData.monthlySalary}
+                                        onChange={(e) => {
+                                            const num = Number(
+                                                e.target.value.replace(
+                                                    ',',
+                                                    '.',
+                                                ),
+                                            );
+                                            setFormData({
+                                                ...formData,
+                                                monthlySalary: isNaN(num)
+                                                    ? 0
+                                                    : num,
+                                            });
+                                        }}
+                                        placeholder="e.g. 2750000"
+                                        className="bg-background/50"
+                                    />
+                                </div>
+                                <div className="space-y-2 border-t border-white/10 pt-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-semibold">
+                                                Tunjangan tetap
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {initialData
+                                                    ? 'Transport, makan, dll — ikut snapshot ke payslip saat generate.'
+                                                    : 'Simpan karyawan dulu, lalu edit ulang untuk menambah tunjangan.'}
+                                            </p>
+                                        </div>
+                                        {initialData && (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs"
+                                                onClick={() =>
+                                                    setAllowances((rows) => [
+                                                        ...rows,
+                                                        {
+                                                            name: '',
+                                                            amount: '',
+                                                            isActive: true,
+                                                        },
+                                                    ])
+                                                }
+                                            >
+                                                <Plus className="h-3 w-3 mr-1" />{' '}
+                                                Tambah
+                                            </Button>
+                                        )}
+                                    </div>
+                                    {initialData && allowancesLoading && (
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Memuat tunjangan…
+                                        </p>
+                                    )}
+                                    {initialData &&
+                                        allowances.map((row, idx) => (
+                                            <div
+                                                key={row.id ?? `new-${idx}`}
+                                                className="grid grid-cols-[1fr_120px_auto] gap-2 items-end"
+                                            >
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px]">
+                                                        Nama
+                                                    </Label>
+                                                    <Input
+                                                        className="h-8 text-xs bg-background/50"
+                                                        value={row.name}
+                                                        placeholder="Tunjangan Transport"
+                                                        onChange={(e) => {
+                                                            const next = [
+                                                                ...allowances,
+                                                            ];
+                                                            next[idx] = {
+                                                                ...row,
+                                                                name: e.target
+                                                                    .value,
+                                                            };
+                                                            setAllowances(next);
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px]">
+                                                        Nominal
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="any"
+                                                        className="h-8 text-xs bg-background/50"
+                                                        value={row.amount}
+                                                        onChange={(e) => {
+                                                            const next = [
+                                                                ...allowances,
+                                                            ];
+                                                            next[idx] = {
+                                                                ...row,
+                                                                amount: e.target
+                                                                    .value,
+                                                            };
+                                                            setAllowances(next);
+                                                        }}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0 text-red-600"
+                                                    onClick={() =>
+                                                        setAllowances(
+                                                            allowances.filter(
+                                                                (_, i) =>
+                                                                    i !== idx,
+                                                            ),
+                                                        )
+                                                    }
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    {initialData &&
+                                        !allowancesLoading &&
+                                        allowances.length === 0 && (
+                                            <p className="text-[11px] text-muted-foreground italic">
+                                                Belum ada tunjangan.
+                                            </p>
+                                        )}
+                                </div>
+                            </div>
+                        ) : formData.payType === 'DAILY' ? (
+                            <>
+                                <div className="space-y-2">
+                                    <Label
+                                        htmlFor="dailyRate"
+                                        className="text-sm font-semibold tracking-tight"
+                                    >
+                                        Upah Harian / Daily Rate (IDR)
+                                    </Label>
+                                    <Input
+                                        id="dailyRate"
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={formData.dailyRate}
+                                        onChange={(e) => {
+                                            const normalized =
+                                                e.target.value.replace(
+                                                    ',',
+                                                    '.',
+                                                );
+                                            const num = Number(normalized);
+                                            setFormData({
+                                                ...formData,
+                                                dailyRate: isNaN(num) ? 0 : num,
+                                            });
+                                        }}
+                                        placeholder="e.g. 100000"
+                                        className="bg-background/50"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground italic">
+                                        Upah standar untuk 1 hari kerja, dipakai
+                                        untuk perhitungan gaji dan costing.
                                     </p>
                                 </div>
-                                {initialData && (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 text-xs"
-                                        onClick={() =>
-                                            setAllowances((rows) => [
-                                                ...rows,
-                                                {
-                                                    name: '',
-                                                    amount: '',
-                                                    isActive: true,
-                                                },
-                                            ])
-                                        }
+
+                                <div className="space-y-2">
+                                    <Label
+                                        htmlFor="overtimeHourlyRate"
+                                        className="text-sm font-semibold tracking-tight"
                                     >
-                                        <Plus className="h-3 w-3 mr-1" /> Tambah
-                                    </Button>
-                                )}
-                            </div>
-                            {initialData && allowancesLoading && (
-                                <p className="text-[11px] text-muted-foreground">
-                                    Memuat tunjangan…
+                                        Tarif Lembur per Jam (IDR) — Opsional
+                                    </Label>
+                                    <Input
+                                        id="overtimeHourlyRate"
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={formData.overtimeHourlyRate}
+                                        onChange={(e) => {
+                                            const normalized =
+                                                e.target.value.replace(
+                                                    ',',
+                                                    '.',
+                                                );
+                                            const num = Number(normalized);
+                                            setFormData({
+                                                ...formData,
+                                                overtimeHourlyRate: isNaN(num)
+                                                    ? 0
+                                                    : num,
+                                            });
+                                        }}
+                                        placeholder="e.g. 187500"
+                                        className="bg-background/50"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground italic">
+                                        Kosongkan untuk otomatis = dailyRate ÷
+                                        jam kerja standar × 1,5.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label
+                                        htmlFor="standardDayHours"
+                                        className="text-sm font-semibold tracking-tight"
+                                    >
+                                        Jam Kerja Standar per Hari
+                                    </Label>
+                                    <Input
+                                        id="standardDayHours"
+                                        type="number"
+                                        min="1"
+                                        max="24"
+                                        step="0.5"
+                                        value={formData.standardDayHours}
+                                        onChange={(e) => {
+                                            const normalized =
+                                                e.target.value.replace(
+                                                    ',',
+                                                    '.',
+                                                );
+                                            const num = Number(normalized);
+                                            setFormData({
+                                                ...formData,
+                                                standardDayHours:
+                                                    isNaN(num) || num <= 0
+                                                        ? 8
+                                                        : num,
+                                            });
+                                        }}
+                                        placeholder="8"
+                                        className="bg-background/50"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground italic">
+                                        Dasar perhitungan proporsional upah
+                                        harian (biasanya 8 jam).
+                                    </p>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="rounded-lg border border-dashed p-3 space-y-1 bg-muted/20">
+                                <p className="text-sm font-medium">
+                                    Borongan mengikuti tarif proses mesin
                                 </p>
-                            )}
-                            {initialData &&
-                                allowances.map((row, idx) => (
-                                    <div
-                                        key={row.id ?? `new-${idx}`}
-                                        className="grid grid-cols-[1fr_120px_auto] gap-2 items-end"
-                                    >
+                                <p className="text-[11px] text-muted-foreground">
+                                    Rate /kg diatur di menu HRD → Tarif Borongan
+                                    (per tipe mesin). Absensi kiosk tetap wajib
+                                    — tanpa absen, output tidak dibayar. Tidak
+                                    ada OT.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* BPJS — tersedia untuk semua skema gaji */}
+                        <div className="rounded-md border border-white/10 bg-muted/20 p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <div>
+                                    <Label className="text-xs font-semibold">
+                                        Peserta BPJS
+                                    </Label>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {formData.payType ===
+                                        ('MONTHLY' as EmployeePayType)
+                                            ? 'Dipotong di payslip bulanan.'
+                                            : 'Dipotong sekali sebulan di payroll minggu terakhir bulan berjalan.'}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={formData.bpjsParticipant}
+                                    onCheckedChange={(v) =>
+                                        setFormData({
+                                            ...formData,
+                                            bpjsParticipant: v,
+                                        })
+                                    }
+                                />
+                            </div>
+                            {formData.bpjsParticipant && (
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
-                                            <Label className="text-[10px]">
-                                                Nama
-                                            </Label>
-                                            <Input
-                                                className="h-8 text-xs bg-background/50"
-                                                value={row.name}
-                                                placeholder="Tunjangan Transport"
-                                                onChange={(e) => {
-                                                    const next = [
-                                                        ...allowances,
-                                                    ];
-                                                    next[idx] = {
-                                                        ...row,
-                                                        name: e.target.value,
-                                                    };
-                                                    setAllowances(next);
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px]">
-                                                Nominal
+                                            <Label className="text-xs font-semibold">
+                                                Potongan Karyawan /bln (IDR)
                                             </Label>
                                             <Input
                                                 type="number"
                                                 min="0"
                                                 step="any"
-                                                className="h-8 text-xs bg-background/50"
-                                                value={row.amount}
+                                                value={
+                                                    formData.bpjsEmployeeDeduction
+                                                }
                                                 onChange={(e) => {
-                                                    const next = [
-                                                        ...allowances,
-                                                    ];
-                                                    next[idx] = {
-                                                        ...row,
-                                                        amount: e.target.value,
-                                                    };
-                                                    setAllowances(next);
+                                                    const num = Number(
+                                                        e.target.value.replace(
+                                                            ',',
+                                                            '.',
+                                                        ),
+                                                    );
+                                                    setFormData({
+                                                        ...formData,
+                                                        bpjsEmployeeDeduction:
+                                                            isNaN(num)
+                                                                ? 0
+                                                                : num,
+                                                    });
                                                 }}
+                                                className="h-9 bg-background/50"
                                             />
                                         </div>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-8 w-8 p-0 text-red-600"
-                                            onClick={() =>
-                                                setAllowances(
-                                                    allowances.filter(
-                                                        (_, i) => i !== idx,
-                                                    ),
-                                                )
-                                            }
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-semibold">
+                                                Beban Perusahaan /bln (IDR)
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="any"
+                                                value={
+                                                    formData.bpjsEmployerCost
+                                                }
+                                                onChange={(e) => {
+                                                    const num = Number(
+                                                        e.target.value.replace(
+                                                            ',',
+                                                            '.',
+                                                        ),
+                                                    );
+                                                    setFormData({
+                                                        ...formData,
+                                                        bpjsEmployerCost: isNaN(
+                                                            num,
+                                                        )
+                                                            ? 0
+                                                            : num,
+                                                    });
+                                                }}
+                                                className="h-9 bg-background/50"
+                                            />
+                                        </div>
                                     </div>
-                                ))}
-                            {initialData &&
-                                !allowancesLoading &&
-                                allowances.length === 0 && (
-                                    <p className="text-[11px] text-muted-foreground italic">
-                                        Belum ada tunjangan.
-                                    </p>
-                                )}
-                        </div>
-                    </div>
-                ) : formData.payType === 'DAILY' ? (
-                    <>
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="dailyRate"
-                                className="text-sm font-semibold tracking-tight"
-                            >
-                                Upah Harian / Daily Rate (IDR)
-                            </Label>
-                            <Input
-                                id="dailyRate"
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={formData.dailyRate}
-                                onChange={(e) => {
-                                    const normalized = e.target.value.replace(
-                                        ',',
-                                        '.',
-                                    );
-                                    const num = Number(normalized);
-                                    setFormData({
-                                        ...formData,
-                                        dailyRate: isNaN(num) ? 0 : num,
-                                    });
-                                }}
-                                placeholder="e.g. 100000"
-                                className="bg-background/50"
-                            />
-                            <p className="text-[11px] text-muted-foreground italic">
-                                Upah standar untuk 1 hari kerja, dipakai untuk
-                                perhitungan gaji dan costing.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="overtimeHourlyRate"
-                                className="text-sm font-semibold tracking-tight"
-                            >
-                                Tarif Lembur per Jam (IDR) — Opsional
-                            </Label>
-                            <Input
-                                id="overtimeHourlyRate"
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={formData.overtimeHourlyRate}
-                                onChange={(e) => {
-                                    const normalized = e.target.value.replace(
-                                        ',',
-                                        '.',
-                                    );
-                                    const num = Number(normalized);
-                                    setFormData({
-                                        ...formData,
-                                        overtimeHourlyRate: isNaN(num)
-                                            ? 0
-                                            : num,
-                                    });
-                                }}
-                                placeholder="e.g. 187500"
-                                className="bg-background/50"
-                            />
-                            <p className="text-[11px] text-muted-foreground italic">
-                                Kosongkan untuk otomatis = dailyRate ÷ jam kerja
-                                standar × 1,5.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="standardDayHours"
-                                className="text-sm font-semibold tracking-tight"
-                            >
-                                Jam Kerja Standar per Hari
-                            </Label>
-                            <Input
-                                id="standardDayHours"
-                                type="number"
-                                min="1"
-                                max="24"
-                                step="0.5"
-                                value={formData.standardDayHours}
-                                onChange={(e) => {
-                                    const normalized = e.target.value.replace(
-                                        ',',
-                                        '.',
-                                    );
-                                    const num = Number(normalized);
-                                    setFormData({
-                                        ...formData,
-                                        standardDayHours:
-                                            isNaN(num) || num <= 0 ? 8 : num,
-                                    });
-                                }}
-                                placeholder="8"
-                                className="bg-background/50"
-                            />
-                            <p className="text-[11px] text-muted-foreground italic">
-                                Dasar perhitungan proporsional upah harian
-                                (biasanya 8 jam).
-                            </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-semibold">
+                                                No. Kartu BPJS Kesehatan
+                                            </Label>
+                                            <Input
+                                                value={formData.bpjsKesehatanNo}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        bpjsKesehatanNo:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                                className="h-9 bg-background/50"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-semibold">
+                                                No. BPJS Ketenagakerjaan
+                                            </Label>
+                                            <Input
+                                                value={
+                                                    formData.bpjsKetenagakerjaanNo
+                                                }
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        bpjsKetenagakerjaanNo:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                                className="h-9 bg-background/50"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </>
                 ) : (
-                    <div className="rounded-lg border border-dashed p-3 space-y-1 bg-muted/20">
-                        <p className="text-sm font-medium">
-                            Borongan mengikuti tarif proses mesin
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                            Rate /kg diatur di menu HRD → Tarif Borongan (per
-                            tipe mesin). Absensi kiosk tetap wajib — tanpa
-                            absen, output tidak dibayar. Tidak ada OT.
-                        </p>
+                    <div className="rounded-lg border border-dashed p-4 bg-muted/10 text-sm text-muted-foreground">
+                        Data gaji &amp; BPJS dikelola oleh HRD/Finance. Anda
+                        tidak memiliki akses untuk melihat atau mengubah
+                        kompensasi karyawan ini.
                     </div>
                 )}
-
-                {/* BPJS — tersedia untuk semua skema gaji */}
-                <div className="rounded-md border border-white/10 bg-muted/20 p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                        <div>
-                            <Label className="text-xs font-semibold">
-                                Peserta BPJS
-                            </Label>
-                            <p className="text-[10px] text-muted-foreground">
-                                {formData.payType ===
-                                ('MONTHLY' as EmployeePayType)
-                                    ? 'Dipotong di payslip bulanan.'
-                                    : 'Dipotong sekali sebulan di payroll minggu terakhir bulan berjalan.'}
-                            </p>
-                        </div>
-                        <Switch
-                            checked={formData.bpjsParticipant}
-                            onCheckedChange={(v) =>
-                                setFormData({ ...formData, bpjsParticipant: v })
-                            }
-                        />
-                    </div>
-                    {formData.bpjsParticipant && (
-                        <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <Label className="text-xs font-semibold">
-                                        Potongan Karyawan /bln (IDR)
-                                    </Label>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        step="any"
-                                        value={formData.bpjsEmployeeDeduction}
-                                        onChange={(e) => {
-                                            const num = Number(
-                                                e.target.value.replace(
-                                                    ',',
-                                                    '.',
-                                                ),
-                                            );
-                                            setFormData({
-                                                ...formData,
-                                                bpjsEmployeeDeduction: isNaN(
-                                                    num,
-                                                )
-                                                    ? 0
-                                                    : num,
-                                            });
-                                        }}
-                                        className="h-9 bg-background/50"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs font-semibold">
-                                        Beban Perusahaan /bln (IDR)
-                                    </Label>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        step="any"
-                                        value={formData.bpjsEmployerCost}
-                                        onChange={(e) => {
-                                            const num = Number(
-                                                e.target.value.replace(
-                                                    ',',
-                                                    '.',
-                                                ),
-                                            );
-                                            setFormData({
-                                                ...formData,
-                                                bpjsEmployerCost: isNaN(num)
-                                                    ? 0
-                                                    : num,
-                                            });
-                                        }}
-                                        className="h-9 bg-background/50"
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <Label className="text-xs font-semibold">
-                                        No. Kartu BPJS Kesehatan
-                                    </Label>
-                                    <Input
-                                        value={formData.bpjsKesehatanNo}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                bpjsKesehatanNo: e.target.value,
-                                            })
-                                        }
-                                        className="h-9 bg-background/50"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs font-semibold">
-                                        No. BPJS Ketenagakerjaan
-                                    </Label>
-                                    <Input
-                                        value={formData.bpjsKetenagakerjaanNo}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                bpjsKetenagakerjaanNo:
-                                                    e.target.value,
-                                            })
-                                        }
-                                        className="h-9 bg-background/50"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
 
                 <div className="flex items-center space-x-3 bg-muted/30 p-3 rounded-lg border border-white/5">
                     <Switch

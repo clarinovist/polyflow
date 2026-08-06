@@ -6,8 +6,10 @@ import {
     CardTitle,
     CardDescription,
 } from '@/components/ui/card';
+import { hasHrdFinanceAccess } from '@/lib/auth/hrd-access';
 
-export default function CreateEmployeePage() {
+export default async function CreateEmployeePage() {
+    const canEditSalary = await hasHrdFinanceAccess();
     return (
         <div className="space-y-6">
             <div>
@@ -27,7 +29,7 @@ export default function CreateEmployeePage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <EmployeeForm />
+                    <EmployeeForm canEditSalary={canEditSalary} />
                 </CardContent>
             </Card>
         </div>
