@@ -20,6 +20,8 @@ export interface CompanySettings {
     logoUrl: string;
     bankAccountsNonPPN: string; // JSON: BankAccount[]
     bankAccountsPPN: string; // JSON: BankAccount[]
+    paperWidthCm: string; // numeric string, cm
+    paperHeightCm: string; // numeric string, cm
 }
 
 export const COMPANY_SETTING_KEYS: Record<keyof CompanySettings, string> = {
@@ -33,7 +35,27 @@ export const COMPANY_SETTING_KEYS: Record<keyof CompanySettings, string> = {
     logoUrl: 'company.logoUrl',
     bankAccountsNonPPN: 'company.bankAccountsNonPPN',
     bankAccountsPPN: 'company.bankAccountsPPN',
+    paperWidthCm: 'company.paperWidthCm',
+    paperHeightCm: 'company.paperHeightCm',
 };
+
+/** Roughly 4"–18" — covers every continuous form in practice. */
+export const MIN_PAPER_CM = 10;
+export const MAX_PAPER_CM = 45;
+
+/**
+ * Parse a stored paper dimension. Returns null for anything that is not a
+ * sane form size so callers fall back to the env/default paper — a bad value
+ * here would otherwise produce an unprintable ESC/P layout.
+ */
+export function parsePaperCm(value: string | undefined): number | null {
+    if (!value) return null;
+    const n = parseFloat(value);
+    if (!Number.isFinite(n) || n < MIN_PAPER_CM || n > MAX_PAPER_CM) {
+        return null;
+    }
+    return n;
+}
 
 /**
  * Read company overrides from AppSetting via the tenant-scoped prisma proxy.
@@ -88,6 +110,14 @@ export async function getCompanyConfigWithOverridesAsync() {
         footerNote: overrides.footerNote ?? base.footerNote,
         signerName: overrides.signerName ?? base.signerName,
         logoUrl: overrides.logoUrl ?? base.logoUrl,
+        paperSize: {
+            ...base.paperSize,
+            widthCm:
+                parsePaperCm(overrides.paperWidthCm) ?? base.paperSize.widthCm,
+            heightCm:
+                parsePaperCm(overrides.paperHeightCm) ??
+                base.paperSize.heightCm,
+        },
     };
     type BankAccount = { holder: string; bank: string; account: string };
     // Bank accounts: JSON stored in AppSetting; merge over env/base.

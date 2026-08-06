@@ -35,6 +35,8 @@ interface CompanyForm {
     email: string;
     footerNote: string;
     signerName: string;
+    paperWidthCm: string;
+    paperHeightCm: string;
 }
 
 const EMPTY: CompanyForm = {
@@ -45,6 +47,8 @@ const EMPTY: CompanyForm = {
     email: '',
     footerNote: '',
     signerName: '',
+    paperWidthCm: '',
+    paperHeightCm: '',
 };
 
 function parseBankJson(raw: string | undefined): BankRow[] {
@@ -188,6 +192,8 @@ export function CompanySettings() {
                     email: res.data.email || '',
                     footerNote: res.data.footerNote || '',
                     signerName: res.data.signerName || '',
+                    paperWidthCm: res.data.paperWidthCm || '',
+                    paperHeightCm: res.data.paperHeightCm || '',
                 });
                 setLogoUrl(res.data.logoUrl || null);
                 setBanksNonPPN(parseBankJson(res.data.bankAccountsNonPPN));
@@ -379,6 +385,44 @@ export function CompanySettings() {
                         onChange={setField('footerNote')}
                         rows={2}
                     />
+                </div>
+
+                <div className="space-y-3 pt-2 border-t">
+                    <div>
+                        <h3 className="font-medium">Ukuran Kertas Cetak</h3>
+                        <p className="text-xs text-muted-foreground">
+                            Continuous form dot matrix. Menentukan lebar baris
+                            ESC/P dan tinggi halaman. Umum: 9,5&quot; &times;
+                            5,5&quot; = 24,13 &times; 13,97 cm. Kosongkan untuk
+                            memakai default.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="companyPaperWidth">
+                                Lebar (cm)
+                            </Label>
+                            <Input
+                                id="companyPaperWidth"
+                                value={form.paperWidthCm}
+                                onChange={setField('paperWidthCm')}
+                                inputMode="decimal"
+                                placeholder="24.13"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="companyPaperHeight">
+                                Tinggi (cm)
+                            </Label>
+                            <Input
+                                id="companyPaperHeight"
+                                value={form.paperHeightCm}
+                                onChange={setField('paperHeightCm')}
+                                inputMode="decimal"
+                                placeholder="13.97"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-4 pt-2 border-t">

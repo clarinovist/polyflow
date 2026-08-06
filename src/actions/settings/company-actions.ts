@@ -14,6 +14,8 @@ import { logActivity } from '@/lib/tools/audit';
 import { isTenantAdmin } from '@/lib/auth/roles';
 import {
     COMPANY_SETTING_KEYS,
+    MAX_PAPER_CM,
+    MIN_PAPER_CM,
     type CompanySettings,
 } from '@/lib/config/company-settings';
 
@@ -58,6 +60,18 @@ export const getCompanySettings = withTenant(
     },
 );
 
+/**
+ * Paper dimensions are stored as strings in AppSetting. An empty string means
+ * "clear the override and fall back to the env default", so it stays valid.
+ */
+function paperDimension(label: string) {
+    return z.string().refine((v) => {
+        if (v.trim() === '') return true;
+        const n = parseFloat(v);
+        return Number.isFinite(n) && n >= MIN_PAPER_CM && n <= MAX_PAPER_CM;
+    }, `${label} harus antara ${MIN_PAPER_CM} dan ${MAX_PAPER_CM} cm.`);
+}
+
 const UpdateCompanySchema = z.object({
     name: z.string().max(200).optional(),
     address: z.string().max(500).optional(),
@@ -69,6 +83,8 @@ const UpdateCompanySchema = z.object({
     logoUrl: z.string().max(500).optional(),
     bankAccountsNonPPN: z.string().max(10000).optional(),
     bankAccountsPPN: z.string().max(10000).optional(),
+    paperWidthCm: paperDimension('Lebar kertas').optional(),
+    paperHeightCm: paperDimension('Tinggi kertas').optional(),
 });
 
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;

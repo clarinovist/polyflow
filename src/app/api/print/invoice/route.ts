@@ -140,6 +140,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             footerNote: company.footerNote,
             signerName: company.signerName,
             paperHeightCm: company.paperSize.heightCm,
+            paperWidthCm: company.paperSize.widthCm,
             logoBitmap,
         };
 

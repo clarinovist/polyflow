@@ -9,6 +9,7 @@
  * At 10 CPI: ~95 characters per line
  */
 
+import { terbilang } from '@/lib/utils/terbilang';
 import type { EscpLogoBitmap } from './logo-bitmap';
 
 // ─── ESC/P Control Codes ──────────────────────────────────────────────
@@ -47,16 +48,32 @@ function setQuality(mode: 0 | 1): number[] {
     return [ESC, 0x78, mode]; // ESC x n
 }
 
-/** Set character pitch: 10=CPI, 12=CPI, 17=Condensed */
-function setCPI(pitch: 10 | 12 | 17): number[] {
-    switch (pitch) {
-        case 10:
-            return [ESC, 0x50]; // ESC P
-        case 12:
-            return [ESC, 0x4d]; // ESC M
-        case 17:
-            return [0x0f]; // SI (Shift In) = condensed
-    }
+/**
+ * Set character pitch via Master Select (ESC ! n).
+ *
+ * ESC P / ESC M only select the *pitch*; condensed and proportional are
+ * separate attributes that survive them. Several Epson models restore a
+ * panel default of "condensed" on ESC @, which then stacks on top of the
+ * pitch — 12 CPI + condensed = 20 CPI, so a 108-column line shrinks from
+ * 9" to 5.4" and leaves the right half of the paper blank. ESC ! sets the
+ * pitch and clears every attribute bit in one command, so the printed
+ * width is deterministic regardless of panel defaults.
+ *
+ * bit0 12 CPI · bit1 proportional · bit2 condensed · bit3 bold
+ * bit4 double-strike · bit5 double-width · bit6 italic · bit7 underline
+ */
+function setCPI(pitch: 10 | 12): number[] {
+    return [ESC, 0x21, pitch === 12 ? 0x01 : 0x00]; // ESC ! n
+}
+
+/** Cancel condensed mode (DC2) — belt and braces alongside ESC !. */
+function cancelCondensed(): number[] {
+    return [0x12];
+}
+
+/** Cancel proportional spacing. ESC p 0 */
+function cancelProportional(): number[] {
+    return [ESC, 0x70, 0];
 }
 
 /** Set line spacing to 1/6 inch */
@@ -83,11 +100,6 @@ function bitImage(widthDots: number, columnBytes: number[]): number[] {
 /** One-shot fine feed, n/180 inch. Does not change persistent line spacing. ESC J n */
 function fineLineFeed(n: number): number[] {
     return [ESC, 0x4a, Math.max(0, Math.min(255, n))]; // ESC J n
-}
-
-/** Turn condensed mode on/off */
-function _setCondensed(on: boolean): number[] {
-    return on ? [0x0f] : [0x12]; // SI on, DC2 off
 }
 
 /** Bold on/off */
@@ -138,7 +150,91 @@ function _lines(n: number): number[] {
 
 // ─── Layout Helpers ───────────────────────────────────────────────────
 
-const LINE_WIDTH = 108; // characters at 12 CPI on 9.5" paper (with 2-col margins)
+const CM_PER_INCH = 2.54;
+const BODY_CPI = 12;
+/** Mechanical print-width ceiling of Epson wide-carriage models. */
+const MAX_PRINTABLE_INCHES = 13.6;
+/** Columns skipped on the left so text clears the sprocket strip. */
+const LEFT_MARGIN_COLS = 2;
+/** Columns kept clear of the right sprocket strip. */
+const RIGHT_MARGIN_INSET_COLS = 2;
+/** Extra slack so a full-width line never touches the right margin (wrap). */
+const WRAP_SAFETY_COLS = 2;
+/** Floor so a nonsense paperWidthCm can never produce a negative layout. */
+const MIN_LINE_WIDTH = 60;
+/** 9.5" continuous form — the default in company config. */
+const DEFAULT_PAPER_WIDTH_CM = 24.13;
+
+interface EscpColumns {
+    name: number;
+    qty: number;
+    unit: number;
+    price: number;
+    disc: number;
+    total: number;
+}
+
+interface EscpLayout {
+    /** Printable characters per line at BODY_CPI. */
+    lineWidth: number;
+    leftMargin: number;
+    rightMargin: number;
+    cols: EscpColumns;
+    /** Column where the right-hand block of the header starts. */
+    infoSplit: number;
+    /** Column where the right-hand summary block starts. */
+    bottomSplit: number;
+}
+
+/**
+ * Derive the whole layout from the physical paper width.
+ *
+ * On the default 9.5" form this yields exactly the constants the layout used
+ * to hardcode: 114 total columns → 108 printable, 42/8/10/18/10/20 table
+ * columns. Wider paper widens every column proportionally, capped at the
+ * printer's mechanical limit.
+ */
+function buildLayout(paperWidthCm: number): EscpLayout {
+    const widthCm =
+        Number.isFinite(paperWidthCm) && paperWidthCm > 0
+            ? paperWidthCm
+            : DEFAULT_PAPER_WIDTH_CM;
+    const inches = Math.min(widthCm / CM_PER_INCH, MAX_PRINTABLE_INCHES);
+    const totalCols = Math.floor(inches * BODY_CPI);
+    const lineWidth = Math.max(
+        MIN_LINE_WIDTH,
+        totalCols -
+            LEFT_MARGIN_COLS -
+            RIGHT_MARGIN_INSET_COLS -
+            WRAP_SAFETY_COLS,
+    );
+
+    // Proportional with a minimum: at lineWidth 108 every minimum wins, so
+    // the 9.5" output is byte-identical to the previous hardcoded layout.
+    const qty = Math.max(8, Math.round(lineWidth * 0.07));
+    const unit = Math.max(10, Math.round(lineWidth * 0.09));
+    const price = Math.max(18, Math.round(lineWidth * 0.16));
+    const disc = Math.max(10, Math.round(lineWidth * 0.09));
+    const total = Math.max(20, Math.round(lineWidth * 0.18));
+
+    return {
+        lineWidth,
+        leftMargin: LEFT_MARGIN_COLS,
+        rightMargin: Math.min(255, totalCols - RIGHT_MARGIN_INSET_COLS),
+        cols: {
+            name: lineWidth - (qty + unit + price + disc + total),
+            qty,
+            unit,
+            price,
+            disc,
+            total,
+        },
+        infoSplit: Math.round(lineWidth * 0.54),
+        // Wider than half: the summary labels are short ("SISA TAGIHAN :"),
+        // so the spare columns are worth more to terbilang and the note.
+        bottomSplit: Math.round(lineWidth * 0.55),
+    };
+}
 
 /** Pad string to fixed width */
 function pad(
@@ -156,13 +252,55 @@ function pad(
     return s + ' '.repeat(padLen);
 }
 
+/**
+ * Centre `text` inside a line that is `bodyWidth` columns wide at BODY_CPI,
+ * while the text itself prints at `pitch` CPI. Emits leading spaces only —
+ * trailing padding at a coarser pitch would run past the right margin.
+ */
+function centerAtPitch(text: string, bodyWidth: number, pitch: number): string {
+    const columnsAtPitch = Math.floor((bodyWidth * pitch) / BODY_CPI);
+    const lead = Math.max(0, Math.floor((columnsAtPitch - text.length) / 2));
+    return ' '.repeat(lead) + text;
+}
+
+/**
+ * Greedy word wrap. Words longer than `width` are hard-split so a single
+ * long token (a URL, a run-on product code) can never overflow the column
+ * and push the line past the right margin.
+ */
+function wrapText(text: string, width: number): string[] {
+    if (width <= 0) return [];
+    const lines: string[] = [];
+    let current = '';
+    for (const word of text.split(/\s+/).filter(Boolean)) {
+        let token = word;
+        while (token.length > width) {
+            if (current) {
+                lines.push(current);
+                current = '';
+            }
+            lines.push(token.substring(0, width));
+            token = token.substring(width);
+        }
+        const candidate = current ? `${current} ${token}` : token;
+        if (candidate.length > width) {
+            if (current) lines.push(current);
+            current = token;
+        } else {
+            current = candidate;
+        }
+    }
+    if (current) lines.push(current);
+    return lines;
+}
+
 /** Create a horizontal line of dashes */
-function dashLine(width: number = LINE_WIDTH): string {
+function dashLine(width: number): string {
     return '-'.repeat(width);
 }
 
 /** Create a horizontal line of equals */
-function doubleLine(width: number = LINE_WIDTH): string {
+function doubleLine(width: number): string {
     return '='.repeat(width);
 }
 
@@ -250,6 +388,8 @@ interface EscpInvoiceData {
 
     // Paper
     paperHeightCm: number;
+    /** Physical form width. Drives line width, margins and column widths. */
+    paperWidthCm: number;
 
     // Logo — pre-built ESC/P bitmap (see logo-bitmap.ts). null/undefined
     // falls back to printing the company name as bold text.
@@ -260,28 +400,28 @@ interface EscpInvoiceData {
 
 export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     const bytes: number[] = [];
-    const COL_NAME = 42; // width for item name column
-    const COL_QTY = 8;
-    const COL_UNIT = 10;
-    const COL_PRICE = 18;
-    const COL_DISC = 10;
-    const COL_TOTAL = 20;
+    const layout = buildLayout(data.paperWidthCm);
+    const { lineWidth: W, cols } = layout;
 
     // ── Initialize printer ──
     bytes.push(...init());
+    // ESC @ restores the printer's *panel* defaults, which on many Epson
+    // models include condensed. Cancel it explicitly before setting pitch,
+    // otherwise every line prints at 20 CPI and only fills half the form.
+    bytes.push(...cancelCondensed());
+    bytes.push(...cancelProportional());
     bytes.push(...setQuality(1)); // NLQ mode
-    bytes.push(...setCPI(12)); // 12 CPI for main body
+    bytes.push(...setCPI(BODY_CPI)); // 12 CPI for main body
     bytes.push(...setLineSpacing1_6());
     bytes.push(
-        ...setPageLengthLines((data.paperHeightCm / 2.54) * 6), // 1/6" lines per form height
+        ...setPageLengthLines((data.paperHeightCm / CM_PER_INCH) * 6), // 1/6" lines per form height
     );
 
     // ── Set explicit margins (at 12 CPI) ──
-    // LX-300+II on 9.5" paper: 9.5 × 12 = 114 columns
-    // Left margin col 2 (clear sprocket holes), right margin col 112
-    // Printable width = 110 chars, we use 108 for safety
-    bytes.push(...setLeftMargin(2));
-    bytes.push(...setRightMargin(112));
+    // Derived from the physical form width — on the default 9.5" paper this
+    // is 114 total columns, left margin 2, right margin 112, 108 printable.
+    bytes.push(...setLeftMargin(layout.leftMargin));
+    bytes.push(...setRightMargin(layout.rightMargin));
 
     // ── HEADER ──
     // Company name: logo bitmap if available, otherwise bold text (was
@@ -299,83 +439,94 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
         bytes.push(...str(data.companyName));
         bytes.push(...setBold(false));
         bytes.push(...newline());
-        bytes.push(...setCPI(12));
+        bytes.push(...setCPI(BODY_CPI));
     }
-
-    // Company details in 12 CPI
-    bytes.push(...str(pad(data.companyAddress, LINE_WIDTH)));
-    bytes.push(...newline());
-    const contactParts = [`Telp: ${data.companyPhone}`];
-    if (data.companyWhatsapp) contactParts.push(`Wa: ${data.companyWhatsapp}`);
-    contactParts.push(`Email: ${data.companyEmail}`);
-    bytes.push(...str(pad(contactParts.join('  '), LINE_WIDTH)));
-    bytes.push(...newline());
 
     // ── INVOICE TITLE ──
     // (No dashline separator above the title — it already has bold + center
     // + letter-spacing plus a dashline below, and every line here counts
     // against the 5.5" page length budget.)
+    // Centred with leading spaces only. Padding it out to W would be W chars
+    // at 10 CPI — i.e. 20% past the right margin, which makes the printer
+    // wrap and burn an extra line out of the page budget.
     bytes.push(...setCPI(10));
     bytes.push(...setBold(true));
-    bytes.push(...str(pad('INVOICE', LINE_WIDTH, 'center')));
+    bytes.push(...str(centerAtPitch('INVOICE', W, 10)));
     bytes.push(...setBold(false));
-    bytes.push(...setCPI(12));
+    // Terminate the line before restoring the body pitch, so the whole line
+    // is unambiguously a 10 CPI line.
     bytes.push(...newline());
-    bytes.push(...str(dashLine()));
+    bytes.push(...setCPI(BODY_CPI));
+    bytes.push(...str(dashLine(W)));
     bytes.push(...newline());
 
-    // ── CUSTOMER & INVOICE INFO (two columns) ──
+    // ── COMPANY / CUSTOMER (left) vs INVOICE META (right) ──
+    // Paired into one two-column block instead of two stacked blocks: the
+    // company details used to occupy only the left third of their lines,
+    // leaving most of the form blank. Address and contact are wrapped (not
+    // truncated) so a long address grows downward rather than getting cut.
+    const infoLeftWidth = layout.infoSplit;
+    const infoRightWidth = W - layout.infoSplit;
+    // Skip labels with nothing behind them — an unset phone used to print a
+    // bare "Telp:" on the invoice.
+    const contactParts: string[] = [];
+    if (data.companyPhone) contactParts.push(`Telp: ${data.companyPhone}`);
+    if (data.companyWhatsapp) contactParts.push(`Wa: ${data.companyWhatsapp}`);
+    if (data.companyEmail) contactParts.push(`Email: ${data.companyEmail}`);
+
     const leftCol = [
-        `NAMA PELANGGAN : ${data.customerName}`,
-        `ALAMAT         : ${data.customerAddress}`,
-        `NPWP           : ${data.customerTaxId || '-'}`,
+        ...wrapText(data.companyAddress, infoLeftWidth - 1),
+        ...wrapText(contactParts.join('  '), infoLeftWidth - 1),
+        `NAMA PELANGGAN  : ${data.customerName}`,
+        `ALAMAT          : ${data.customerAddress}`,
     ];
     const rightCol = [
-        `NO INVOICE     : ${data.invoiceNumber}`,
-        `TGL INVOICE    : ${formatDate(data.invoiceDate)}`,
-        `TGL JATUH TEMPO: ${data.dueDate ? formatDate(data.dueDate) : '-'}`,
+        `NO INVOICE      : ${data.invoiceNumber}`,
+        `TGL INVOICE     : ${formatDate(data.invoiceDate)}`,
+        `TGL JATUH TEMPO : ${data.dueDate ? formatDate(data.dueDate) : '-'}`,
+        `NPWP            : ${data.customerTaxId || '-'}`,
     ];
 
     for (let i = 0; i < Math.max(leftCol.length, rightCol.length); i++) {
-        const left = leftCol[i] || '';
-        const right = rightCol[i] || '';
-        // Split line: left side takes 55 chars, right side takes the rest
-        const leftPart = pad(left, 55);
-        const rightPart = pad(right, LINE_WIDTH - 55, 'left');
-        bytes.push(...str(leftPart + rightPart));
+        bytes.push(
+            ...str(
+                pad(leftCol[i] || '', infoLeftWidth) +
+                    pad(rightCol[i] || '', infoRightWidth),
+            ),
+        );
         bytes.push(...newline());
     }
 
-    bytes.push(...str(dashLine()));
+    bytes.push(...str(dashLine(W)));
     bytes.push(...newline());
 
     // ── ITEMS TABLE HEADER ──
     bytes.push(...setBold(true));
     bytes.push(
         ...str(
-            pad('Nama Barang', COL_NAME) +
-                pad('Qty', COL_QTY, 'right') +
-                pad('Satuan', COL_UNIT, 'center') +
-                pad('Harga @', COL_PRICE, 'right') +
-                pad('Diskon', COL_DISC, 'right') +
-                pad('Jumlah (Rp)', COL_TOTAL, 'right'),
+            pad('Nama Barang', cols.name) +
+                pad('Qty', cols.qty, 'right') +
+                pad('Satuan', cols.unit, 'center') +
+                pad('Harga @', cols.price, 'right') +
+                pad('Diskon', cols.disc, 'right') +
+                pad('Jumlah (Rp)', cols.total, 'right'),
         ),
     );
     bytes.push(...setBold(false));
     bytes.push(...newline());
-    bytes.push(...str(dashLine()));
+    bytes.push(...str(dashLine(W)));
     bytes.push(...newline());
 
     // ── ITEMS TABLE BODY ──
     for (const item of data.items) {
         bytes.push(
             ...str(
-                pad(item.name, COL_NAME) +
-                    pad(item.qty.toString(), COL_QTY, 'right') +
-                    pad(item.unit, COL_UNIT, 'center') +
-                    pad(formatRupiah(item.unitPrice), COL_PRICE, 'right') +
-                    pad('0', COL_DISC, 'right') +
-                    pad(formatRupiah(item.lineTotal), COL_TOTAL, 'right'),
+                pad(item.name, cols.name) +
+                    pad(item.qty.toString(), cols.qty, 'right') +
+                    pad(item.unit, cols.unit, 'center') +
+                    pad(formatRupiah(item.unitPrice), cols.price, 'right') +
+                    pad('0', cols.disc, 'right') +
+                    pad(formatRupiah(item.lineTotal), cols.total, 'right'),
             ),
         );
         bytes.push(...newline());
@@ -389,24 +540,26 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     }
 
     // ── TOTAL ROW ──
+    // The qty total sits directly under the Qty column. It used to be padded
+    // to COL_PRICE, which parked it under the "Harga @" heading instead.
     bytes.push(...setBold(true));
     bytes.push(
         ...str(
-            pad('TOTAL :', COL_NAME + COL_QTY + COL_UNIT, 'right') +
-                pad(data.totalQty.toString(), COL_PRICE, 'right') +
-                pad('', COL_DISC) +
-                pad('', COL_TOTAL),
+            pad('TOTAL :', cols.name, 'right') +
+                pad(data.totalQty.toString(), cols.qty, 'right') +
+                pad('', W - cols.name - cols.qty),
         ),
     );
     bytes.push(...setBold(false));
     bytes.push(...newline());
-    bytes.push(...str(dashLine()));
+    bytes.push(...str(dashLine(W)));
     bytes.push(...newline());
 
-    // ── FINANCIAL SUMMARY (right-aligned) ──
-    // (Terbilang skipped in ESC/P — the number is clear enough. Dashline
-    // above doubles as the separator before the summary box, so no extra
-    // doubleLine() here — keeps content within the 5.5" page length.)
+    // ── FINANCIAL SUMMARY (right) alongside TERBILANG + BANK (left) ──
+    // Both blocks used to be stacked, so the summary left a 65-column blank
+    // rectangle beside it and terbilang had to be dropped entirely to fit
+    // the 5.5" page. Zipped side by side the block is max(left, right) tall
+    // instead of left + right, which pays for terbilang and then some.
     const summaryLines: [string, string][] = [
         ['SUBTOTAL :', formatRupiah(data.subtotal)],
     ];
@@ -426,55 +579,69 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     summaryLines.push(['TOTAL :', formatRupiah(data.grandTotal)]);
     summaryLines.push(['SISA TAGIHAN :', formatRupiah(data.remainingBalance)]);
 
-    // Print summary in a box-like format
-    for (const [label, value] of summaryLines) {
-        const isTotal = label === 'TOTAL :' || label === 'SISA TAGIHAN :';
-        if (isTotal) bytes.push(...setBold(true));
-        bytes.push(
-            ...str(
-                pad('', 65) + pad(label, 23, 'right') + pad(value, 20, 'right'),
-            ),
-        );
-        if (isTotal) bytes.push(...setBold(false));
+    const bottomLeftWidth = layout.bottomSplit;
+    const summaryLabelWidth = W - bottomLeftWidth - cols.total;
+
+    const bankLabel = `KETERANGAN BANK : (${data.isPPN ? 'Penjualan PPN' : 'Penjualan Non PPN'})`;
+    const bottomLeft = [
+        ...wrapText(
+            `Terbilang : ${terbilang(data.grandTotal)}`,
+            bottomLeftWidth - 1,
+        ),
+        '',
+        bankLabel,
+        `A/N ${data.bankHolder} - ${data.bankName} : ${data.bankAccount}`,
+    ];
+
+    const bottomRows = Math.max(bottomLeft.length, summaryLines.length);
+    for (let i = 0; i < bottomRows; i++) {
+        const leftText = bottomLeft[i] || '';
+        const isBankLabel = leftText === bankLabel;
+        if (isBankLabel) bytes.push(...setBold(true));
+        bytes.push(...str(pad(leftText, bottomLeftWidth)));
+        if (isBankLabel) bytes.push(...setBold(false));
+
+        const summary = summaryLines[i];
+        if (summary) {
+            const [label, value] = summary;
+            const isTotal = label === 'TOTAL :' || label === 'SISA TAGIHAN :';
+            if (isTotal) bytes.push(...setBold(true));
+            bytes.push(
+                ...str(
+                    pad(label, summaryLabelWidth, 'right') +
+                        pad(value, cols.total, 'right'),
+                ),
+            );
+            if (isTotal) bytes.push(...setBold(false));
+        } else {
+            bytes.push(...str(pad('', W - bottomLeftWidth)));
+        }
         bytes.push(...newline());
     }
-    bytes.push(...str(doubleLine()));
+    bytes.push(...str(doubleLine(W)));
     bytes.push(...newline());
 
-    // ── FOOTER ──
-    // Bank info (left) and signature (right). Label+type and holder+account
-    // are merged onto one line each (was 4 lines) to keep the invoice within
-    // the 5.5" page length even with diskon/PPN/ongkir added above.
-    bytes.push(...setBold(true));
-    bytes.push(
-        ...str(
-            `KETERANGAN BANK : (${data.isPPN ? 'Penjualan PPN' : 'Penjualan Non PPN'})`,
-        ),
+    // ── FOOTER: NOTE (left) alongside the signature block (right) ──
+    // The signature needs blank rows for a pen stroke; the note fills the
+    // left of those same rows instead of claiming a dashline + line of
+    // its own below them.
+    const signatureLines = ['Hormat kami,', '', '', `( ${data.signerName} )`];
+    const noteLines = wrapText(
+        `NOTE : ${data.footerNote}`,
+        bottomLeftWidth - 1,
     );
-    bytes.push(...setBold(false));
-    bytes.push(...newline());
-    bytes.push(
-        ...str(
-            `A/N ${data.bankHolder} - ${data.bankName} : ${data.bankAccount}`,
-        ),
-    );
-    bytes.push(...newline());
-
-    // Signature line (right side) — 2 blank lines left for a pen signature
-    bytes.push(...str(pad('Hormat kami,', LINE_WIDTH, 'right')));
-    bytes.push(...newline());
-    bytes.push(...newline());
-    bytes.push(...newline());
-    bytes.push(...str(pad(`( ${data.signerName} )`, LINE_WIDTH, 'right')));
-    bytes.push(...newline());
-
-    // ── NOTE ──
-    bytes.push(...str(dashLine()));
-    bytes.push(...newline());
-    bytes.push(...setBold(true));
-    bytes.push(...str(`NOTE : ${data.footerNote}`));
-    bytes.push(...setBold(false));
-    bytes.push(...newline());
+    const footerRows = Math.max(signatureLines.length, noteLines.length + 1);
+    for (let i = 0; i < footerRows; i++) {
+        // Offset by one so the note starts below the "Hormat kami," line.
+        const noteText = noteLines[i - 1] || '';
+        if (noteText) bytes.push(...setBold(true));
+        bytes.push(...str(pad(noteText, bottomLeftWidth)));
+        if (noteText) bytes.push(...setBold(false));
+        bytes.push(
+            ...str(pad(signatureLines[i] || '', W - bottomLeftWidth, 'right')),
+        );
+        bytes.push(...newline());
+    }
 
     // ── Form Feed ──
     bytes.push(...formFeed());
