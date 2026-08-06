@@ -80,6 +80,7 @@ model User {
   salesTargets                   SalesTarget[]
   collectionActivities           CollectionActivity[]
   salesRemittances               SalesRemittance[]
+  purchaseRemittances            PurchaseRemittance[]
 }
 
 model UserRole {
@@ -1477,6 +1478,7 @@ model PurchaseInvoice {
   purchaseOrder     PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
   payments          Payment[]
   purchasePayments  PurchasePayment[]
+  remittanceItems   PurchaseRemittanceItem[]
 }
 
 model PurchasePayment {
@@ -1493,6 +1495,43 @@ model PurchasePayment {
   purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
 
   @@index([purchaseInvoiceId])
+}
+
+// ── Purchasing Remittance (mirror SalesRemittance — Gap: PO payment proof) ──
+
+model PurchaseRemittance {
+  id               String                   @id @default(cuid())
+  remittanceNumber String                   @unique
+  userId           String
+  user             User                     @relation(fields: [userId], references: [id])
+  paidAt           DateTime
+  totalAmount      Decimal                  @db.Decimal(15, 2)
+  status           RemittanceStatus         @default(PENDING)
+  verifiedById     String?
+  verifiedAt       DateTime?
+  notes            String?                  @db.Text
+  items            PurchaseRemittanceItem[]
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([userId, status])
+}
+
+model PurchaseRemittanceItem {
+  id                String             @id @default(cuid())
+  remittanceId      String
+  remittance        PurchaseRemittance @relation(fields: [remittanceId], references: [id], onDelete: Cascade)
+  purchaseInvoiceId String
+  purchaseInvoice   PurchaseInvoice    @relation(fields: [purchaseInvoiceId], references: [id])
+  amount            Decimal            @db.Decimal(15, 2)
+  method            String
+  referenceNumber   String?
+  paymentId         String?            @unique
+  proofUrl          String?
+  proofStorageKey   String?
+  proofOriginalName String?
+  proofMimeType     String?
+  proofSizeBytes    Int?
 }
 
 // ==========================================

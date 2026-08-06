@@ -12,9 +12,10 @@
  * - Cross-portal read             → action-specific exceptions only
  *
  * Usage:
- *   const session = await requirePurchasingAccess();     // ADMIN | PROCUREMENT | PLANNING
- *   const session = await requirePurchasingApprover();   // ADMIN | PROCUREMENT
- *   const session = await requirePurchasingFinance();    // ADMIN | FINANCE
+ *   const session = await requirePurchasingAccess();             // ADMIN | PROCUREMENT | PLANNING
+ *   const session = await requirePurchasingApprover();           // ADMIN | PROCUREMENT
+ *   const session = await requirePurchasingFinance();            // ADMIN | FINANCE
+ *   const session = await requirePurchasingRemittanceCreator();  // ADMIN | PROCUREMENT | WAREHOUSE
  */
 
 import { requireAuth } from '@/lib/tools/auth-checks';
@@ -35,6 +36,17 @@ export async function requirePurchasingCreator() {
     ) {
         throw new BusinessRuleError(
             'Unauthorized: Hanya role berikut yang dapat membuat purchase request: ADMIN, PROCUREMENT, PLANNING, WAREHOUSE, PRODUCTION',
+        );
+    }
+    return session;
+}
+
+/** ADMIN, PROCUREMENT, or WAREHOUSE — ajukan PurchaseRemittance (bukti bayar supplier). */
+export async function requirePurchasingRemittanceCreator() {
+    const session = await requireAuth();
+    if (!hasAnyRole(session.user, ['ADMIN', 'PROCUREMENT', 'WAREHOUSE'])) {
+        throw new BusinessRuleError(
+            'Unauthorized: Hanya admin, procurement, atau warehouse yang dapat mengajukan setoran pembayaran supplier.',
         );
     }
     return session;
@@ -76,7 +88,14 @@ export async function requirePurchasingFinance() {
 /** ADMIN, PROCUREMENT, PLANNING, or FINANCE — read-only analytics (spend, ranking, AP aging). */
 export async function requirePurchasingAnalyticsRead() {
     const session = await requireAuth();
-    if (!hasAnyRole(session.user, ['ADMIN', 'PROCUREMENT', 'PLANNING', 'FINANCE'])) {
+    if (
+        !hasAnyRole(session.user, [
+            'ADMIN',
+            'PROCUREMENT',
+            'PLANNING',
+            'FINANCE',
+        ])
+    ) {
         throw new BusinessRuleError(
             'Unauthorized: Akses analytics purchasing hanya untuk admin, procurement, planning, atau finance.',
         );

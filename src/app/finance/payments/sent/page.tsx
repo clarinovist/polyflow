@@ -1,7 +1,9 @@
 import { getSentPayments } from '@/actions/finance/finance';
 import { SentPaymentsClient } from '@/components/finance/payments/SentPaymentsClient';
 import { getOutstandingPurchaseInvoices } from '@/actions/finance/invoices';
+import { listPurchaseRemittancesForVerificationAction } from '@/actions/purchasing/purchase-remittance';
 import { getPaymentBanksSetting } from '@/services/settings/app-settings-service';
+import { serializeData } from '@/lib/utils/utils';
 import { withTenantPage } from '@/lib/core/tenant';
 
 export const dynamic = 'force-dynamic';
@@ -53,12 +55,23 @@ export default async function SentPaymentsPage({
         paymentBanks = {};
     }
 
+    const pendingPurchaseRemittancesRes =
+        await listPurchaseRemittancesForVerificationAction({
+            status: 'PENDING',
+        }).catch(() => null);
+    const pendingPurchaseRemittances =
+        pendingPurchaseRemittancesRes?.success &&
+        pendingPurchaseRemittancesRes.data
+            ? serializeData(pendingPurchaseRemittancesRes.data)
+            : [];
+
     return (
         <div className="p-6">
             <SentPaymentsClient
                 payments={payments.data}
                 unpaidInvoices={unpaidInvoices}
                 paymentBanks={paymentBanks}
+                pendingPurchaseRemittances={pendingPurchaseRemittances as never}
             />
         </div>
     );
