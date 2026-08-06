@@ -269,6 +269,12 @@ export function SalesInvoicesShell({
                                 typeof InvoiceTable
                             >['invoices']
                         }
+                        // SalesInvoicesShell already filtered `invoices` above (including
+                        // the synthetic 'PENDING' bucket) — force InvoiceTable to show all
+                        // of it instead of re-reading the raw ?status= URL param and
+                        // double-filtering by literal equality (breaks on non-enum values
+                        // like 'PENDING').
+                        initialStatus="ALL"
                     />
                 </CardContent>
             </Card>
