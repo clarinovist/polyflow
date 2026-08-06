@@ -201,12 +201,18 @@ export async function recordPayment(
         const { getNextSequence } = await import('@/lib/utils/sequence');
         const { normalizePaymentMethodFields } =
             await import('@/lib/finance/payment-methods');
+        const { getPaymentBanksSetting } =
+            await import('@/services/settings/app-settings-service');
 
-        const paymentFields = normalizePaymentMethodFields({
-            method: options?.method || 'Transfer BCA',
-            referenceNumber: options?.referenceNumber,
-            destinationBank: options?.destinationBank,
-        });
+        const banks = await getPaymentBanksSetting();
+        const paymentFields = normalizePaymentMethodFields(
+            {
+                method: options?.method || 'Transfer BCA',
+                referenceNumber: options?.referenceNumber,
+                destinationBank: options?.destinationBank,
+            },
+            banks,
+        );
 
         const newPaidAmount = invoice.paidAmount.toNumber() + amount;
         let status: PurchaseInvoiceStatus = PurchaseInvoiceStatus.PARTIAL;
@@ -505,11 +511,14 @@ export async function createDraftBillFromPo(
     const dueDate = addDays(invoiceDate, termOfPaymentDays);
 
     // Set status: walk-in always DRAFT (Finance must approve), standard follows PO status
-    const isWalkIn = po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED';
-    const isWalkInSource = await prisma.purchaseOrder.findUnique({
-        where: { id: purchaseOrderId },
-        select: { entrySource: true },
-    }).then((o) => o?.entrySource === 'WALK_IN_RECEIPT');
+    const isWalkIn =
+        po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED';
+    const isWalkInSource = await prisma.purchaseOrder
+        .findUnique({
+            where: { id: purchaseOrderId },
+            select: { entrySource: true },
+        })
+        .then((o) => o?.entrySource === 'WALK_IN_RECEIPT');
 
     const status =
         isWalkIn && isWalkInSource

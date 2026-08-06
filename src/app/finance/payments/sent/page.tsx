@@ -3,6 +3,7 @@ import { SentPaymentsClient } from '@/components/finance/payments/SentPaymentsCl
 import { getOutstandingPurchaseInvoices } from '@/actions/finance/invoices';
 import { listPurchaseRemittancesForVerificationAction } from '@/actions/purchasing/purchase-remittance';
 import { getPaymentBanksSetting } from '@/services/settings/app-settings-service';
+import type { TenantPaymentBanks } from '@/lib/finance/payment-methods';
 import { serializeData } from '@/lib/utils/utils';
 import { withTenantPage } from '@/lib/core/tenant';
 
@@ -48,11 +49,11 @@ export default async function SentPaymentsPage({
     // Already filtered (outstanding > 0) and serialized by the action
     const unpaidInvoices = unpaidInvoicesRes.data ?? [];
 
-    let paymentBanks = {};
+    let paymentBanks: TenantPaymentBanks = [];
     try {
         paymentBanks = await loadPaymentBanks();
     } catch {
-        paymentBanks = {};
+        paymentBanks = [];
     }
 
     const pendingPurchaseRemittancesRes =

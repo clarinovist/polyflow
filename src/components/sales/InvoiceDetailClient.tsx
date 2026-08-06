@@ -92,7 +92,7 @@ interface InvoiceDetailClientProps {
 
 export function InvoiceDetailClient({
     invoice,
-    paymentBanks = {},
+    paymentBanks = [],
 }: InvoiceDetailClientProps) {
     const router = useRouter();
     const [isUpdating, setIsUpdating] = useState(false);

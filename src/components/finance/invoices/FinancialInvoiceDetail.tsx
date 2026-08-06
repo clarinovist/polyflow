@@ -84,7 +84,7 @@ interface FinancialInvoiceDetailProps {
 export function FinancialInvoiceDetail({
     invoice,
     companyConfig,
-    paymentBanks = {},
+    paymentBanks = [],
 }: FinancialInvoiceDetailProps) {
     const router = useRouter();
     const [showPreview, setShowPreview] = React.useState(false);

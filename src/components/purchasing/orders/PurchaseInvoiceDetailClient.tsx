@@ -75,7 +75,7 @@ interface PurchaseInvoiceDetailProps {
 
 export function PurchaseInvoiceDetailClient({
     invoice,
-    paymentBanks = {},
+    paymentBanks = [],
 }: PurchaseInvoiceDetailProps & { paymentBanks?: TenantPaymentBanks }) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);

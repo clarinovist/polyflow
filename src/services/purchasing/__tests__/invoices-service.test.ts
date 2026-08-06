@@ -15,6 +15,9 @@ vi.mock('@/lib/core/prisma', () => ({
         payment: {
             create: vi.fn(),
         },
+        appSetting: {
+            findUnique: vi.fn().mockResolvedValue(null),
+        },
         $transaction: vi.fn(async (callback) => callback({
             purchaseInvoice: {
                 findUnique: vi.fn(),

@@ -48,7 +48,7 @@ import { UrlTransactionDateFilter } from '@/components/common/url-transaction-da
 export function SentPaymentsClient({
     payments,
     unpaidInvoices,
-    paymentBanks = {},
+    paymentBanks = [],
     pendingPurchaseRemittances = [],
 }: SentPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);

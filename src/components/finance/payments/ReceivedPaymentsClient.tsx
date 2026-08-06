@@ -51,7 +51,7 @@ export function ReceivedPaymentsClient({
     payments,
     unpaidInvoices,
     demandType,
-    paymentBanks = {},
+    paymentBanks = [],
     pendingRemittances = [],
 }: ReceivedPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);

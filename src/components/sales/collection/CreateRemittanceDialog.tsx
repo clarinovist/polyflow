@@ -77,7 +77,7 @@ export function CreateRemittanceDialog({
     open,
     onOpenChange,
     invoices,
-    paymentBanks = {},
+    paymentBanks = [],
     onCreated,
 }: CreateRemittanceDialogProps) {
     const { toast } = useToast();

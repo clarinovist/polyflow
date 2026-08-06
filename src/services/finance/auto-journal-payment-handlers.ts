@@ -3,7 +3,10 @@ import { JournalStatus, ReferenceType } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { AccountingService } from '../accounting/accounting-service';
 
-import { getAccountByRole, getPaymentAccountRole } from './auto-journal-shared';
+import {
+    getAccountByRole,
+    resolvePaymentBankAccount,
+} from './auto-journal-shared';
 
 export async function handleSalesPayment(
     paymentId: string,
@@ -31,8 +34,9 @@ export async function handleSalesPayment(
     }
 
     const paymentMethod = payment.method || method;
-    const paymentAcc = await getAccountByRole(
-        getPaymentAccountRole(paymentMethod, payment.destinationBank),
+    const paymentAcc = await resolvePaymentBankAccount(
+        paymentMethod,
+        payment.destinationBank,
     );
     const arAcc = await getAccountByRole('accounts-receivable');
 
@@ -87,8 +91,9 @@ export async function handlePurchasePayment(
     }
 
     const paymentMethod = payment.method || method;
-    const paymentAcc = await getAccountByRole(
-        getPaymentAccountRole(paymentMethod, payment.destinationBank),
+    const paymentAcc = await resolvePaymentBankAccount(
+        paymentMethod,
+        payment.destinationBank,
     );
     const apAcc = await getAccountByRole('accounts-payable');
 

@@ -1,54 +1,92 @@
 import { prisma } from '@/lib/core/prisma';
 import type {
-    PaymentBankKey,
+    TenantPaymentBank,
     TenantPaymentBanks,
 } from '@/lib/finance/payment-methods';
 import { ValidationError } from '@/lib/errors/errors';
 
 export const PAYMENT_BANKS_SETTING_KEY = 'payment.banks';
 
-function isPaymentBankKey(value: string): value is PaymentBankKey {
-    return value === 'BCA' || value === 'MANDIRI';
+const LEGACY_BANK_NAMES: Record<string, string> = {
+    BCA: 'BCA',
+    MANDIRI: 'Mandiri',
+};
+
+function isLegacyBankKey(key: string): boolean {
+    return key === 'BCA' || key === 'MANDIRI';
 }
+
+const BANK_KEY_PATTERN = /^[A-Z0-9_]{2,20}$/;
+const MAX_BANKS = 8;
 
 /**
  * Parse and sanitize payment banks JSON from storage.
- * Unknown keys and incomplete entries are dropped.
+ * Accepts both the legacy shape ({"BCA": {...}, "MANDIRI": {...}}) and the
+ * current array shape ([{key, name, holder, account, glAccountId}, ...]) —
+ * legacy rows already persisted in AppSetting upgrade transparently on read,
+ * no data migration needed.
  */
 export function parsePaymentBanksJson(
     raw: string | null | undefined,
 ): TenantPaymentBanks {
-    if (!raw) return {};
+    if (!raw) return [];
     try {
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            return {};
-        }
+        const parsed: unknown = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return [];
 
-        const result: TenantPaymentBanks = {};
-        for (const [key, value] of Object.entries(parsed)) {
-            if (!isPaymentBankKey(key)) continue;
-            if (!value || typeof value !== 'object') continue;
-            const row = value as { holder?: unknown; account?: unknown };
-            const holder =
-                typeof row.holder === 'string' ? row.holder.trim() : '';
+        const rows: unknown[] = Array.isArray(parsed)
+            ? parsed
+            : Object.entries(parsed as Record<string, unknown>).map(
+                  ([key, value]) => ({
+                      key,
+                      ...(value && typeof value === 'object' ? value : {}),
+                  }),
+              );
+
+        const result: TenantPaymentBanks = [];
+        const seenKeys = new Set<string>();
+        for (const row of rows) {
+            if (!row || typeof row !== 'object') continue;
+            const r = row as Record<string, unknown>;
+            const key =
+                typeof r.key === 'string' ? r.key.trim().toUpperCase() : '';
+            if (!key || !BANK_KEY_PATTERN.test(key)) continue;
+            if (seenKeys.has(key)) continue;
+
+            const holder = typeof r.holder === 'string' ? r.holder.trim() : '';
             const account =
-                typeof row.account === 'string' ? row.account.trim() : '';
+                typeof r.account === 'string' ? r.account.trim() : '';
             if (!account) continue;
-            result[key] = {
-                holder: holder || (key === 'BCA' ? 'BCA' : 'Mandiri'),
+
+            const name =
+                typeof r.name === 'string' && r.name.trim()
+                    ? r.name.trim()
+                    : (LEGACY_BANK_NAMES[key] ?? key);
+            const glAccountId =
+                typeof r.glAccountId === 'string' && r.glAccountId.trim()
+                    ? r.glAccountId.trim()
+                    : undefined;
+
+            seenKeys.add(key);
+            result.push({
+                key,
+                name: isLegacyBankKey(key)
+                    ? (LEGACY_BANK_NAMES[key] ?? name)
+                    : name,
+                holder: holder || (LEGACY_BANK_NAMES[key] ?? name),
                 account,
-            };
+                ...(glAccountId ? { glAccountId } : {}),
+            });
         }
         return result;
     } catch {
-        return {};
+        return [];
     }
 }
 
 /**
  * Load payment banks for the current tenant DB.
- * Empty object when not configured yet (labels show without norek).
+ * Empty array when not configured yet (labels show without norek).
  */
 export async function getPaymentBanksSetting(): Promise<TenantPaymentBanks> {
     const row = await prisma.appSetting.findUnique({
@@ -59,6 +97,9 @@ export async function getPaymentBanksSetting(): Promise<TenantPaymentBanks> {
 
 /**
  * Validate and save payment banks for the current tenant DB.
+ * Non-legacy banks (anything beyond BCA/MANDIRI) must have a glAccountId
+ * pointing at an active cash/bank account in the tenant's chart of accounts —
+ * otherwise auto-journal posting for that bank has nowhere to resolve to.
  */
 export async function savePaymentBanksSetting(
     banks: TenantPaymentBanks,
@@ -66,15 +107,36 @@ export async function savePaymentBanksSetting(
 ): Promise<TenantPaymentBanks> {
     const sanitized = parsePaymentBanksJson(JSON.stringify(banks));
 
-    // Require at least one digit in account when provided
-    for (const [key, bank] of Object.entries(sanitized) as [
-        PaymentBankKey,
-        { holder: string; account: string },
-    ][]) {
+    if (sanitized.length > MAX_BANKS) {
+        throw new ValidationError(
+            `Maksimal ${MAX_BANKS} rekening bank per tenant.`,
+        );
+    }
+
+    for (const bank of sanitized as TenantPaymentBank[]) {
         if (bank.account && !/^\d[\d\s-]*$/.test(bank.account)) {
             throw new ValidationError(
-                `Nomor rekening ${key} tidak valid. Gunakan angka (boleh spasi/strip).`,
-                { bankKey: key },
+                `Nomor rekening ${bank.name} tidak valid. Gunakan angka (boleh spasi/strip).`,
+                { bankKey: bank.key },
+            );
+        }
+
+        if (isLegacyBankKey(bank.key)) continue;
+
+        if (!bank.glAccountId) {
+            throw new ValidationError(
+                `Pilih akun COA untuk bank ${bank.name} agar jurnal otomatis bisa memposting ke akun yang benar.`,
+                { bankKey: bank.key },
+            );
+        }
+
+        const account = await prisma.account.findUnique({
+            where: { id: bank.glAccountId },
+        });
+        if (!account || account.isActive === false) {
+            throw new ValidationError(
+                `Akun COA untuk bank ${bank.name} tidak ditemukan atau tidak aktif.`,
+                { bankKey: bank.key, glAccountId: bank.glAccountId },
             );
         }
     }

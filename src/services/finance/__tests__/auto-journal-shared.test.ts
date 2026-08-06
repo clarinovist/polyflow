@@ -13,12 +13,18 @@ vi.mock("@/services/accounting/account-resolver", () => ({
   AccountRole: {},
 }));
 
+vi.mock("@/services/settings/app-settings-service", () => ({
+  getPaymentBanksSetting: vi.fn(),
+}));
+
 import { prisma } from "@/lib/core/prisma";
 import { resolveAccount } from "@/services/accounting/account-resolver";
+import { getPaymentBanksSetting } from "@/services/settings/app-settings-service";
 import {
   getAccountByCode,
   getAccountByRole,
   getPaymentAccountRole,
+  resolvePaymentBankAccount,
 } from "@/services/finance/auto-journal-shared";
 
 describe("auto-journal-shared", () => {
@@ -92,6 +98,88 @@ describe("auto-journal-shared", () => {
 
     it("returns bank-bca for unknown method", () => {
       expect(getPaymentAccountRole("unknown")).toBe("bank-bca");
+    });
+  });
+
+  describe("resolvePaymentBankAccount", () => {
+    it("resolves BCA via the legacy AccountRole path, ignoring tenant banks", async () => {
+      const mockAccount = { id: "acc-bca", code: "11120" };
+      vi.mocked(resolveAccount).mockResolvedValue(mockAccount as never);
+
+      const result = await resolvePaymentBankAccount("Transfer BCA", "BCA");
+
+      expect(getPaymentBanksSetting).not.toHaveBeenCalled();
+      expect(resolveAccount).toHaveBeenCalledWith("bank-bca");
+      expect(result).toEqual(mockAccount);
+    });
+
+    it("resolves a tenant-configured third bank directly via glAccountId", async () => {
+      vi.mocked(getPaymentBanksSetting).mockResolvedValue([
+        {
+          key: "BRI",
+          name: "BRI",
+          holder: "PT ACME",
+          account: "333",
+          glAccountId: "acc-bri-1",
+        },
+      ] as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "acc-bri-1",
+        code: "11140",
+        name: "Bank BRI",
+        isActive: true,
+      } as never);
+
+      const result = await resolvePaymentBankAccount("Transfer BRI", "BRI");
+
+      expect(prisma.account.findUnique).toHaveBeenCalledWith({
+        where: { id: "acc-bri-1" },
+      });
+      expect(resolveAccount).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        id: "acc-bri-1",
+        code: "11140",
+        name: "Bank BRI",
+        isActive: true,
+      });
+    });
+
+    it("falls back to the AccountRole path when the third bank has no glAccountId mapped", async () => {
+      vi.mocked(getPaymentBanksSetting).mockResolvedValue([
+        { key: "BRI", name: "BRI", holder: "PT ACME", account: "333" },
+      ] as never);
+      const mockAccount = { id: "acc-bca", code: "11120" };
+      vi.mocked(resolveAccount).mockResolvedValue(mockAccount as never);
+
+      const result = await resolvePaymentBankAccount("Transfer BRI", "BRI");
+
+      expect(resolveAccount).toHaveBeenCalledWith("bank-bca");
+      expect(result).toEqual(mockAccount);
+    });
+
+    it("falls back to the AccountRole path when the mapped GL account is inactive", async () => {
+      vi.mocked(getPaymentBanksSetting).mockResolvedValue([
+        {
+          key: "BRI",
+          name: "BRI",
+          holder: "PT ACME",
+          account: "333",
+          glAccountId: "acc-bri-1",
+        },
+      ] as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "acc-bri-1",
+        code: "11140",
+        name: "Bank BRI",
+        isActive: false,
+      } as never);
+      const mockAccount = { id: "acc-bca", code: "11120" };
+      vi.mocked(resolveAccount).mockResolvedValue(mockAccount as never);
+
+      const result = await resolvePaymentBankAccount("Transfer BRI", "BRI");
+
+      expect(resolveAccount).toHaveBeenCalledWith("bank-bca");
+      expect(result).toEqual(mockAccount);
     });
   });
 });

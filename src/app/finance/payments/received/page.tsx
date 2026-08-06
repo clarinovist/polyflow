@@ -6,6 +6,7 @@ import { getSalesInvoices } from '@/actions/finance/invoices';
 import { listRemittancesForVerificationAction } from '@/actions/sales/collection';
 import { serializeData } from '@/lib/utils/utils';
 import { getPaymentBanksSetting } from '@/services/settings/app-settings-service';
+import type { TenantPaymentBanks } from '@/lib/finance/payment-methods';
 import { withTenantPage } from '@/lib/core/tenant';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -90,11 +91,11 @@ export default async function ReceivedPaymentsPage({
         },
     );
 
-    let paymentBanks = {};
+    let paymentBanks: TenantPaymentBanks = [];
     try {
         paymentBanks = await loadPaymentBanks();
     } catch {
-        paymentBanks = {};
+        paymentBanks = [];
     }
 
     const pendingRemittancesRes = await listRemittancesForVerificationAction({

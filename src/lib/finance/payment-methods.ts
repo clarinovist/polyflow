@@ -2,9 +2,29 @@
  * Canonical payment methods, labels, and validation.
  * Bank account numbers are stored per-tenant in AppSetting (Settings UI),
  * not hardcoded in source.
+ *
+ * BCA and MANDIRI are "legacy" banks: always selectable even when
+ * unconfigured (historical behavior, tied to hardcoded GL account roles
+ * 'bank-bca'/'bank-mandiri' in account-resolver.ts). Any additional bank a
+ * tenant configures beyond these two only becomes selectable once it has an
+ * account number AND a linked GL account (glAccountId) — see
+ * app-settings-service.ts validation and auto-journal-shared.ts
+ * resolvePaymentBankAccount().
  */
 
 import { ValidationError } from '@/lib/errors/errors';
+
+const LEGACY_BANK_KEYS = ['BCA', 'MANDIRI'] as const;
+type LegacyBankKey = (typeof LEGACY_BANK_KEYS)[number];
+
+const LEGACY_BANK_NAMES: Record<LegacyBankKey, string> = {
+    BCA: 'BCA',
+    MANDIRI: 'Mandiri',
+};
+
+function isLegacyBankKey(key: string): key is LegacyBankKey {
+    return (LEGACY_BANK_KEYS as readonly string[]).includes(key);
+}
 
 export const PAYMENT_METHODS = [
     'Transfer BCA',
@@ -13,20 +33,71 @@ export const PAYMENT_METHODS = [
     'Check',
 ] as const;
 
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+/** Widened: dynamic tenant banks produce methods like 'Transfer BRI' that don't fit a static union. */
+export type PaymentMethod = string;
 
 export const DEFAULT_PAYMENT_METHOD: PaymentMethod = 'Transfer BCA';
 
-export type PaymentBankKey = 'BCA' | 'MANDIRI';
+/** Bank key: 'BCA' | 'MANDIRI' (legacy, always available) or a tenant-defined slug (e.g. 'BRI'). */
+export type PaymentBankKey = string;
 
-export interface PaymentBankAccount {
+export interface TenantPaymentBank {
+    /** Uppercase slug, stable identity. Never changes after creation. */
+    key: string;
+    /** Display name (e.g. 'BCA', 'Mandiri', 'BRI'). Locked after creation to keep historical "Transfer <name>" labels stable. */
+    name: string;
     holder: string;
     account: string;
+    /** GL account id for auto-journal posting. Required for non-legacy banks. */
+    glAccountId?: string;
 }
 
-export type TenantPaymentBanks = Partial<
-    Record<PaymentBankKey, PaymentBankAccount>
->;
+export type TenantPaymentBanks = TenantPaymentBank[];
+
+function findBank(
+    banks: TenantPaymentBanks,
+    key: string,
+): TenantPaymentBank | undefined {
+    return banks.find((b) => b.key === key);
+}
+
+function findExtraBankByMethod(
+    banks: TenantPaymentBanks,
+    method: string,
+): TenantPaymentBank | undefined {
+    return banks.find(
+        (b) => !isLegacyBankKey(b.key) && `Transfer ${b.name}` === method,
+    );
+}
+
+/** All methods selectable in the payment dropdown for this tenant's configured banks. */
+export function getSelectablePaymentMethods(
+    banks: TenantPaymentBanks = [],
+): string[] {
+    const extraBanks = banks.filter((b) => !isLegacyBankKey(b.key));
+    return [
+        'Transfer BCA',
+        'Transfer Mandiri',
+        ...extraBanks.map((b) => `Transfer ${b.name}`),
+        'Cash',
+        'Check',
+    ];
+}
+
+/** Bank options for the Check/Giro clearing-bank selector. */
+export function getClearingBankOptions(
+    banks: TenantPaymentBanks = [],
+): { key: string; label: string }[] {
+    const extra = banks.filter((b) => !isLegacyBankKey(b.key));
+    return [
+        { key: 'BCA', label: getClearingBankLabel('BCA', banks) },
+        { key: 'MANDIRI', label: getClearingBankLabel('MANDIRI', banks) },
+        ...extra.map((b) => ({
+            key: b.key,
+            label: getClearingBankLabel(b.key, banks),
+        })),
+    ];
+}
 
 /** Base labels (without account numbers). */
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -39,39 +110,43 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
     'Credit Card': 'Kartu Kredit (lama)',
 };
 
-const DESTINATION_FROM_METHOD: Partial<Record<string, PaymentBankKey>> = {
-    'Transfer BCA': 'BCA',
-    'Transfer Mandiri': 'MANDIRI',
-    'Bank Transfer': 'BCA',
-    'Credit Card': 'BCA',
-};
-
 export function getPaymentMethodLabel(
     method: string,
-    banks?: TenantPaymentBanks,
+    banks: TenantPaymentBanks = [],
 ): string {
     if (method === 'Transfer BCA') {
-        const acc = banks?.BCA?.account;
+        const acc = findBank(banks, 'BCA')?.account;
         return acc
             ? `Transfer BCA — ${acc}`
             : PAYMENT_METHOD_LABELS['Transfer BCA'];
     }
     if (method === 'Transfer Mandiri') {
-        const acc = banks?.MANDIRI?.account;
+        const acc = findBank(banks, 'MANDIRI')?.account;
         return acc
             ? `Transfer Mandiri — ${acc}`
             : PAYMENT_METHOD_LABELS['Transfer Mandiri'];
+    }
+    const extra = findExtraBankByMethod(banks, method);
+    if (extra) {
+        return extra.account
+            ? `Transfer ${extra.name} — ${extra.account}`
+            : `Transfer ${extra.name}`;
     }
     return PAYMENT_METHOD_LABELS[method] ?? method;
 }
 
 export function getClearingBankLabel(
-    bank: PaymentBankKey,
-    banks?: TenantPaymentBanks,
+    bankKey: string,
+    banks: TenantPaymentBanks = [],
 ): string {
-    const acc = banks?.[bank]?.account;
-    const name = bank === 'BCA' ? 'BCA' : 'Mandiri';
-    return acc ? `${name} — ${acc}` : name;
+    if (isLegacyBankKey(bankKey)) {
+        const acc = findBank(banks, bankKey)?.account;
+        const name = LEGACY_BANK_NAMES[bankKey];
+        return acc ? `${name} — ${acc}` : name;
+    }
+    const bank = findBank(banks, bankKey);
+    if (!bank) return bankKey;
+    return bank.account ? `${bank.name} — ${bank.account}` : bank.name;
 }
 
 /**
@@ -81,17 +156,35 @@ export function getClearingBankLabel(
 export function deriveDestinationBank(
     method: string,
     destinationBank?: string | null,
-): PaymentBankKey | null {
-    if (destinationBank === 'BCA' || destinationBank === 'MANDIRI') {
-        return destinationBank;
+    banks: TenantPaymentBanks = [],
+): string | null {
+    if (destinationBank) {
+        if (
+            isLegacyBankKey(destinationBank) ||
+            findBank(banks, destinationBank)
+        ) {
+            return destinationBank;
+        }
     }
-    return DESTINATION_FROM_METHOD[method] ?? null;
+    if (
+        method === 'Transfer BCA' ||
+        method === 'Bank Transfer' ||
+        method === 'Credit Card'
+    ) {
+        return 'BCA';
+    }
+    if (method === 'Transfer Mandiri') {
+        return 'MANDIRI';
+    }
+    const extra = findExtraBankByMethod(banks, method);
+    return extra ? extra.key : null;
 }
 
 export function isSelectablePaymentMethod(
     method: string,
-): method is PaymentMethod {
-    return (PAYMENT_METHODS as readonly string[]).includes(method);
+    banks: TenantPaymentBanks = [],
+): boolean {
+    return getSelectablePaymentMethods(banks).includes(method);
 }
 
 export interface PaymentMethodFields {
@@ -103,7 +196,7 @@ export interface PaymentMethodFields {
 export interface NormalizedPaymentFields {
     method: string;
     referenceNumber: string | null;
-    destinationBank: PaymentBankKey | null;
+    destinationBank: string | null;
 }
 
 /**
@@ -112,6 +205,7 @@ export interface NormalizedPaymentFields {
  */
 export function normalizePaymentMethodFields(
     input: PaymentMethodFields,
+    banks: TenantPaymentBanks = [],
 ): NormalizedPaymentFields {
     const method = (input.method || '').trim();
     if (!method) {
@@ -121,7 +215,7 @@ export function normalizePaymentMethodFields(
     // Allow legacy methods only if already stored — new forms should use selectable methods.
     // Still accept them if submitted so old clients don't break hard.
     const isKnown =
-        isSelectablePaymentMethod(method) ||
+        isSelectablePaymentMethod(method, banks) ||
         method === 'Bank Transfer' ||
         method === 'Credit Card';
 
@@ -139,10 +233,14 @@ export function normalizePaymentMethodFields(
         if (!ref) {
             throw new ValidationError('Nomor Cek / Giro wajib diisi.');
         }
-        const bank = deriveDestinationBank(method, input.destinationBank);
+        const bank = deriveDestinationBank(
+            method,
+            input.destinationBank,
+            banks,
+        );
         if (!bank) {
             throw new ValidationError(
-                'Pilih bank tujuan clearing (BCA atau Mandiri) untuk Cek / Giro.',
+                'Pilih bank tujuan clearing untuk Cek / Giro.',
             );
         }
         return {
@@ -161,7 +259,7 @@ export function normalizePaymentMethodFields(
     }
 
     // Transfer / legacy bank methods
-    const bank = deriveDestinationBank(method, input.destinationBank);
+    const bank = deriveDestinationBank(method, input.destinationBank, banks);
     const ref = (input.referenceNumber || '').trim() || null;
     return {
         method,

@@ -60,7 +60,7 @@ export function RecordCustomerPaymentDialog({
     open,
     onOpenChange,
     invoices,
-    paymentBanks = {},
+    paymentBanks = [],
 }: RecordCustomerPaymentDialogProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);

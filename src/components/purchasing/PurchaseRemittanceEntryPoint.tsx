@@ -90,7 +90,7 @@ interface PurchaseRemittanceEntryPointProps {
 
 export function PurchaseRemittanceEntryPoint({
     invoices,
-    paymentBanks = {},
+    paymentBanks = [],
     initialRemittances = [],
 }: PurchaseRemittanceEntryPointProps) {
     const [dialogOpen, setDialogOpen] = useState(false);

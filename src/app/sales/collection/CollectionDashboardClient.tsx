@@ -207,7 +207,7 @@ export function CollectionDashboardClient({
     initialTeam,
     initialRemittances = [],
     unpaidInvoices = [],
-    paymentBanks = {},
+    paymentBanks = [],
 }: {
     initialAging: AgingRow[];
     initialOverdue: OverduePromiseRow[];

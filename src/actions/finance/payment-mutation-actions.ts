@@ -21,6 +21,7 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { normalizePaymentMethodFields } from '@/lib/finance/payment-methods';
+import { getPaymentBanksSetting } from '@/services/settings/app-settings-service';
 
 export const recordCustomerPayment = withTenant(
     async function recordCustomerPayment(data: {
@@ -38,11 +39,15 @@ export const recordCustomerPayment = withTenant(
             try {
                 let paymentFields;
                 try {
-                    paymentFields = normalizePaymentMethodFields({
-                        method: data.method,
-                        referenceNumber: data.referenceNumber,
-                        destinationBank: data.destinationBank,
-                    });
+                    const banks = await getPaymentBanksSetting();
+                    paymentFields = normalizePaymentMethodFields(
+                        {
+                            method: data.method,
+                            referenceNumber: data.referenceNumber,
+                            destinationBank: data.destinationBank,
+                        },
+                        banks,
+                    );
                 } catch (validationError) {
                     throw new BusinessRuleError(
                         validationError instanceof Error
@@ -227,11 +232,15 @@ export const recordSupplierPayment = withTenant(
             try {
                 let paymentFields;
                 try {
-                    paymentFields = normalizePaymentMethodFields({
-                        method: data.method,
-                        referenceNumber: data.referenceNumber,
-                        destinationBank: data.destinationBank,
-                    });
+                    const banks = await getPaymentBanksSetting();
+                    paymentFields = normalizePaymentMethodFields(
+                        {
+                            method: data.method,
+                            referenceNumber: data.referenceNumber,
+                            destinationBank: data.destinationBank,
+                        },
+                        banks,
+                    );
                 } catch (validationError) {
                     throw new BusinessRuleError(
                         validationError instanceof Error

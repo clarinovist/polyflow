@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/select';
 import {
     DEFAULT_PAYMENT_METHOD,
-    PAYMENT_METHODS,
     type PaymentBankKey,
     type PaymentMethod,
     type TenantPaymentBanks,
-    getClearingBankLabel,
+    getClearingBankOptions,
     getPaymentMethodLabel,
+    getSelectablePaymentMethods,
 } from '@/lib/finance/payment-methods';
 
 export interface PaymentMethodFieldsProps {
@@ -37,10 +37,12 @@ export function PaymentMethodFields({
     onReferenceNumberChange,
     destinationBank,
     onDestinationBankChange,
-    paymentBanks = {},
+    paymentBanks = [],
     methodId = 'method',
 }: PaymentMethodFieldsProps) {
     const isCheck = method === 'Check';
+    const selectableMethods = getSelectablePaymentMethods(paymentBanks);
+    const clearingBankOptions = getClearingBankOptions(paymentBanks);
 
     return (
         <>
@@ -61,7 +63,7 @@ export function PaymentMethodFields({
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {PAYMENT_METHODS.map((m) => (
+                        {selectableMethods.map((m) => (
                             <SelectItem key={m} value={m}>
                                 {getPaymentMethodLabel(m, paymentBanks)}
                             </SelectItem>
@@ -98,18 +100,14 @@ export function PaymentMethodFields({
                             required
                         >
                             <SelectTrigger id={`${methodId}-clearing-bank`}>
-                                <SelectValue placeholder="Pilih BCA atau Mandiri" />
+                                <SelectValue placeholder="Pilih bank tujuan" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="BCA">
-                                    {getClearingBankLabel('BCA', paymentBanks)}
-                                </SelectItem>
-                                <SelectItem value="MANDIRI">
-                                    {getClearingBankLabel(
-                                        'MANDIRI',
-                                        paymentBanks,
-                                    )}
-                                </SelectItem>
+                                {clearingBankOptions.map((opt) => (
+                                    <SelectItem key={opt.key} value={opt.key}>
+                                        {opt.label}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
