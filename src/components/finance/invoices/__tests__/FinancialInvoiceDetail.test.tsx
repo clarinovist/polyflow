@@ -271,6 +271,48 @@ describe('FinancialInvoiceDetail — Catat Pembayaran button', () => {
         expect(callArg.method).toBeDefined();
     });
 
+    it('defaults payment date to today and sends chosen date to recordCustomerPayment', async () => {
+        render(
+            <FinancialInvoiceDetail invoice={makeInvoice({ status: 'UNPAID' })} />,
+        );
+
+        fireEvent.click(
+            screen.getByRole('button', { name: /Catat Pembayaran/i }),
+        );
+
+        const dateInput = (await screen.findByLabelText(
+            /Tanggal Pembayaran/i,
+        )) as HTMLInputElement;
+        expect(dateInput.value).toBe(
+            new Date().toISOString().split('T')[0],
+        );
+
+        fireEvent.change(dateInput, { target: { value: '2026-08-01' } });
+
+        const confirmButtons = screen.getAllByRole('button', {
+            name: /Konfirmasi Pembayaran/i,
+        });
+        const dialogConfirm =
+            confirmButtons.find(
+                (b) =>
+                    !b.hasAttribute('disabled') ||
+                    b.getAttribute('disabled') === null,
+            ) ?? confirmButtons[0];
+
+        fireEvent.click(dialogConfirm);
+
+        await waitFor(() => {
+            expect(mockRecordCustomerPayment).toHaveBeenCalled();
+        });
+
+        const callArg = mockRecordCustomerPayment.mock.calls[0]?.[0] as Record<
+            string,
+            unknown
+        >;
+        const sentDate = callArg.paymentDate as Date;
+        expect(sentDate.toISOString().split('T')[0]).toBe('2026-08-01');
+    });
+
     it('updated note says status & pembayaran bisa dari halaman ini, not read-only only', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'UNPAID' })} />);
         expect(

@@ -91,10 +91,7 @@ export function FinancialInvoiceDetail({
     const [isUpdating, setIsUpdating] = useState(false);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState(() =>
-        Math.max(
-            0,
-            Number(invoice.totalAmount) - Number(invoice.paidAmount),
-        ),
+        Math.max(0, Number(invoice.totalAmount) - Number(invoice.paidAmount)),
     );
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
         DEFAULT_PAYMENT_METHOD,
@@ -102,6 +99,9 @@ export function FinancialInvoiceDetail({
     const [referenceNumber, setReferenceNumber] = useState('');
     const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>(
         '',
+    );
+    const [paymentDate, setPaymentDate] = useState(
+        () => new Date().toISOString().split('T')[0],
     );
     const [isDueDateDialogOpen, setIsDueDateDialogOpen] = useState(false);
     const salesOrder = invoice.salesOrder ?? null;
@@ -151,7 +151,7 @@ export function FinancialInvoiceDetail({
             const result = await recordCustomerPayment({
                 invoiceId: invoice.id,
                 amount: paymentAmount,
-                paymentDate: new Date(),
+                paymentDate: new Date(paymentDate),
                 method: paymentMethod,
                 notes: 'Recorded from financial invoice detail',
                 referenceNumber:
@@ -159,9 +159,7 @@ export function FinancialInvoiceDetail({
                         ? referenceNumber.trim()
                         : undefined,
                 destinationBank:
-                    paymentMethod === 'Check'
-                        ? destinationBank
-                        : undefined,
+                    paymentMethod === 'Check' ? destinationBank : undefined,
             });
 
             if (result.success) {
@@ -172,6 +170,7 @@ export function FinancialInvoiceDetail({
                 setPaymentMethod(DEFAULT_PAYMENT_METHOD);
                 setReferenceNumber('');
                 setDestinationBank('');
+                setPaymentDate(new Date().toISOString().split('T')[0]);
                 router.refresh();
             } else {
                 toast.error(
@@ -261,13 +260,16 @@ export function FinancialInvoiceDetail({
                     <DialogHeader>
                         <DialogTitle>Catat Pembayaran</DialogTitle>
                         <DialogDescription>
-                            Masukkan jumlah pembayaran yang diterima untuk invoice
-                            ini.
+                            Masukkan jumlah pembayaran yang diterima untuk
+                            invoice ini.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="payment-amount" className="text-right">
+                            <Label
+                                htmlFor="payment-amount"
+                                className="text-right"
+                            >
                                 Jumlah
                             </Label>
                             <Input
@@ -275,10 +277,28 @@ export function FinancialInvoiceDetail({
                                 type="number"
                                 value={paymentAmount}
                                 onChange={(e) => {
-                                    const normalized = e.target.value.replace(',', '.');
+                                    const normalized = e.target.value.replace(
+                                        ',',
+                                        '.',
+                                    );
                                     const num = Number(normalized);
                                     setPaymentAmount(isNaN(num) ? 0 : num);
                                 }}
+                                className="col-span-3"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label
+                                htmlFor="payment-date"
+                                className="text-right"
+                            >
+                                Tanggal Pembayaran
+                            </Label>
+                            <Input
+                                id="payment-date"
+                                type="date"
+                                value={paymentDate}
+                                onChange={(e) => setPaymentDate(e.target.value)}
                                 className="col-span-3"
                             />
                         </div>
@@ -339,7 +359,8 @@ export function FinancialInvoiceDetail({
                                         Maklon Service
                                     </Badge>
                                 )}
-                                {salesOrder?.entrySource === 'EMERGENCY_DISPATCH' && (
+                                {salesOrder?.entrySource ===
+                                    'EMERGENCY_DISPATCH' && (
                                     <Badge
                                         variant="outline"
                                         className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30"
@@ -541,9 +562,9 @@ export function FinancialInvoiceDetail({
             <div className="flex items-center gap-2 p-4 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <p>
-                    Status invoice dan pembayaran sudah bisa dikelola dari halaman
-                    ini. Untuk edit item atau mengelola pengiriman, switch ke Sales
-                    module.
+                    Status invoice dan pembayaran sudah bisa dikelola dari
+                    halaman ini. Untuk edit item atau mengelola pengiriman,
+                    switch ke Sales module.
                 </p>
             </div>
 
