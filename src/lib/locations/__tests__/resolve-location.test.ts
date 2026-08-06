@@ -5,6 +5,7 @@ import {
   isRiskyOutputLocation,
   locationMatchesRole,
   resolveLocationByRole,
+  resolveLocationIdByRole,
   resolveOutputLocationId,
   resolvePackagingSuppliesLocationId,
   resolvePackingProcessLocation,
@@ -140,6 +141,39 @@ describe("resolveTransferSourceLocationId", () => {
   it("maps BOM category to source role", () => {
     expect(resolveTransferSourceLocationId(melindo, "MIXING")).toBe("rm-m");
     expect(resolveTransferSourceLocationId(melindo, "EXTRUSION")).toBe("wip-m");
+  });
+});
+
+// Mirrors tenant melindo_rafia production data (7 locations, exact slugs).
+// bahan_baku_maklon is locationType CUSTOMER_OWNED / locationPurpose RAW_MATERIAL —
+// locationType isn't part of LocationLike (resolver only sees slug + purpose),
+// which is exactly why the tenant's alias slug must be whitelisted explicitly.
+const melindoRafia: LocationLike[] = [
+  { id: "maklon-m", name: "Bahan Baku Maklon", slug: "bahan_baku_maklon", locationPurpose: "RAW_MATERIAL" },
+  { id: "atk-m", name: "Gudang ATK Kantor", slug: "gudang-atk-kantor", locationPurpose: "OPERATIONAL" },
+  { id: "rm-m2", name: "Gudang Bahan Baku", slug: "gudang-bahan-baku", locationPurpose: "RAW_MATERIAL" },
+  { id: "fg-m2", name: "Gudang Barang Jadi", slug: "gudang-barang-jadi", locationPurpose: "FINISHED_GOOD" },
+  { id: "pack-m2", name: "Gudang Packaging", slug: "gudang-packaging", locationPurpose: "PACKING" },
+  { id: "scrap-m2", name: "Gudang Scrap", slug: "gudang-scrap", locationPurpose: "SCRAP" },
+  { id: "wip-m2", name: "Gudang WIP Intermediate", slug: "gudang-wip-intermediate", locationPurpose: "WIP" },
+];
+
+describe("resolveSourceLocationId / resolveLocationIdByRole — melindo_rafia CUSTOMER_OWNED alias", () => {
+  it("maklon mixing source resolves to bahan_baku_maklon, not the internal RM warehouse", () => {
+    expect(resolveSourceLocationId(melindoRafia, "mixing", true)).toBe("maklon-m");
+    expect(resolveSourceLocationId(melindoRafia, "mixing", true)).not.toBe("rm-m2");
+  });
+
+  it("non-maklon mixing source is unaffected and still resolves to the internal RM warehouse", () => {
+    expect(resolveSourceLocationId(melindoRafia, "mixing", false)).toBe("rm-m2");
+  });
+
+  it("resolveLocationIdByRole CUSTOMER_OWNED resolves to bahan_baku_maklon", () => {
+    expect(resolveLocationIdByRole(melindoRafia, "CUSTOMER_OWNED")).toBe("maklon-m");
+  });
+
+  it("resolveLocationIdByRole RAW_MATERIAL still prefers the internal warehouse over the maklon location (slug wins before purpose)", () => {
+    expect(resolveLocationIdByRole(melindoRafia, "RAW_MATERIAL")).toBe("rm-m2");
   });
 });
 

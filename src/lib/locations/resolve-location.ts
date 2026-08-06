@@ -59,7 +59,7 @@ const ROLE_SLUGS: Record<LocationRole, readonly string[]> = {
         'gudang-packing',
     ],
     SCRAP: [WAREHOUSE_SLUGS.SCRAP, 'gudang-scrap'],
-    CUSTOMER_OWNED: [WAREHOUSE_SLUGS.CUSTOMER_OWNED],
+    CUSTOMER_OWNED: [WAREHOUSE_SLUGS.CUSTOMER_OWNED, 'bahan_baku_maklon'],
     OPERATIONAL: ['gudang-atk-kantor', 'office_supplies', 'atk_warehouse'],
 };
 

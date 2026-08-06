@@ -107,7 +107,8 @@ export async function createGoodsReceipt(
                                 ri.purchaseOrderItemId ===
                                     item.purchaseOrderItemId) ||
                                 (!item.purchaseOrderItemId &&
-                                    ri.productVariantId === item.productVariantId)) &&
+                                    ri.productVariantId ===
+                                        item.productVariantId)) &&
                             Number(ri.receivedQty) === Number(item.receivedQty),
                     ),
                 );
@@ -147,7 +148,12 @@ export async function createGoodsReceipt(
                       locationPurpose: true,
                   },
               })
-            : { id: data.locationId, name: 'Target', locationType: 'INTERNAL' as const, locationPurpose: 'GENERAL_PURPOSE' as const };
+            : {
+                  id: data.locationId,
+                  name: 'Target',
+                  locationType: 'INTERNAL' as const,
+                  locationPurpose: 'GENERAL_PURPOSE' as const,
+              };
 
         if (!targetLocation) {
             throw new BusinessRuleError(
@@ -157,10 +163,12 @@ export async function createGoodsReceipt(
             );
         }
 
-        if (
-            targetLocation.locationPurpose === 'SCRAP' ||
-            (targetLocation.locationType as string) === 'CUSTOMER_OWNED'
-        ) {
+        const isMaklonReceipt = data.isMaklon === true;
+        const isCustomerOwnedTarget =
+            (targetLocation.locationType as string) === 'CUSTOMER_OWNED';
+        const isScrapTarget = targetLocation.locationPurpose === 'SCRAP';
+
+        if (isScrapTarget) {
             throw new BusinessRuleError(
                 'Lokasi penerimaan tidak valid (Tujuan lokasi tidak boleh SCRAP atau CUSTOMER_OWNED untuk penerimaan barang).',
                 {
@@ -169,6 +177,30 @@ export async function createGoodsReceipt(
                     locationType: targetLocation.locationType,
                 },
                 'INVALID_LOCATION_PURPOSE',
+            );
+        }
+
+        if (isCustomerOwnedTarget && !isMaklonReceipt) {
+            throw new BusinessRuleError(
+                'Lokasi penerimaan tidak valid (Tujuan lokasi tidak boleh SCRAP atau CUSTOMER_OWNED untuk penerimaan barang).',
+                {
+                    locationId: data.locationId,
+                    locationPurpose: targetLocation.locationPurpose,
+                    locationType: targetLocation.locationType,
+                },
+                'INVALID_LOCATION_PURPOSE',
+            );
+        }
+
+        if (isMaklonReceipt && !isCustomerOwnedTarget) {
+            throw new BusinessRuleError(
+                'Penerimaan maklon wajib ke lokasi CUSTOMER_OWNED.',
+                {
+                    locationId: data.locationId,
+                    locationPurpose: targetLocation.locationPurpose,
+                    locationType: targetLocation.locationType,
+                },
+                'MAKLON_LOCATION_REQUIRED',
             );
         }
 
@@ -193,7 +225,10 @@ export async function createGoodsReceipt(
             ) {
                 throw new BusinessRuleError(
                     `PO ${po.orderNumber} tidak dapat diterima (status: ${po.status}). Hanya PO SENT atau PARTIAL_RECEIVED yang bisa diterima.`,
-                    { purchaseOrderId: data.purchaseOrderId, status: po.status },
+                    {
+                        purchaseOrderId: data.purchaseOrderId,
+                        status: po.status,
+                    },
                     'INVALID_PO_STATUS',
                 );
             }
@@ -225,8 +260,7 @@ export async function createGoodsReceipt(
                 resolvedItems.push({
                     productVariantId: poItem.productVariantId,
                     receivedQty: item.receivedQty,
-                    unitCost:
-                        data.isMaklon ? 0 : Number(poItem.unitPrice),
+                    unitCost: data.isMaklon ? 0 : Number(poItem.unitPrice),
                     purchaseOrderItemId: item.purchaseOrderItemId,
                 });
             }
@@ -322,8 +356,7 @@ export async function createGoodsReceipt(
 
             // Update PO item receivedQty (both paths)
             if (data.purchaseOrderId) {
-                const poItemId =
-                    resolvedItems[idx].purchaseOrderItemId;
+                const poItemId = resolvedItems[idx].purchaseOrderItemId;
                 if (poItemId) {
                     const poItem = poItems.find((pi) => pi.id === poItemId);
                     if (poItem) {
@@ -665,8 +698,7 @@ export async function reverseGoodsReceipt(
                 );
                 if (!poItem) {
                     poItem = gr.purchaseOrder.items.find(
-                        (pi) =>
-                            pi.productVariantId === grItem.productVariantId,
+                        (pi) => pi.productVariantId === grItem.productVariantId,
                     );
                 }
                 if (poItem) {
@@ -801,7 +833,11 @@ export async function closePurchaseOrderWithDiscrepancy(
                     quantity: true,
                     receivedQty: true,
                     productVariant: {
-                        select: { name: true, skuCode: true, primaryUnit: true },
+                        select: {
+                            name: true,
+                            skuCode: true,
+                            primaryUnit: true,
+                        },
                     },
                 },
             },
@@ -827,8 +863,7 @@ export async function closePurchaseOrderWithDiscrepancy(
     // Calculate discrepancies for audit log
     const discrepancies = po.items
         .map((item) => {
-            const remaining =
-                Number(item.quantity) - Number(item.receivedQty);
+            const remaining = Number(item.quantity) - Number(item.receivedQty);
             return remaining > 0
                 ? {
                       sku: item.productVariant.skuCode,
@@ -854,8 +889,7 @@ export async function closePurchaseOrderWithDiscrepancy(
     // Close: set receivedQty = quantity for all items with remaining
     await prisma.$transaction(async (tx) => {
         for (const item of po.items) {
-            const remaining =
-                Number(item.quantity) - Number(item.receivedQty);
+            const remaining = Number(item.quantity) - Number(item.receivedQty);
             if (remaining > 0) {
                 await tx.purchaseOrderItem.update({
                     where: { id: item.id },
@@ -870,8 +904,7 @@ export async function closePurchaseOrderWithDiscrepancy(
         });
 
         const detailLines = discrepancies.map(
-            (d) =>
-                `${d!.sku} (${d!.name}): selisih ${d!.remaining} ${d!.unit}`,
+            (d) => `${d!.sku} (${d!.name}): selisih ${d!.remaining} ${d!.unit}`,
         );
         await logActivity({
             userId,

@@ -688,6 +688,14 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          location: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: locationId,
+              name: "Bahan Baku Maklon",
+              locationType: "CUSTOMER_OWNED",
+              locationPurpose: "RAW_MATERIAL",
+            }),
+          },
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
@@ -728,6 +736,14 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          location: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: locationId,
+              name: "Bahan Baku Maklon",
+              locationType: "CUSTOMER_OWNED",
+              locationPurpose: "RAW_MATERIAL",
+            }),
+          },
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
@@ -1207,6 +1223,14 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          location: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: locationId,
+              name: "Bahan Baku Maklon",
+              locationType: "CUSTOMER_OWNED",
+              locationPurpose: "RAW_MATERIAL",
+            }),
+          },
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
@@ -1287,6 +1311,14 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          location: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: locationId,
+              name: "Bahan Baku Maklon",
+              locationType: "CUSTOMER_OWNED",
+              locationPurpose: "RAW_MATERIAL",
+            }),
+          },
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
@@ -1440,6 +1472,14 @@ describe("receipts-service", () => {
       let createdReceipt: any;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          location: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: locationId,
+              name: "Bahan Baku Maklon",
+              locationType: "CUSTOMER_OWNED",
+              locationPurpose: "RAW_MATERIAL",
+            }),
+          },
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
@@ -1746,6 +1786,142 @@ describe("receipts-service", () => {
       }] as any);
 
       await expect(createGoodsReceipt(data, userId)).rejects.toThrow(/sudah dibuat|input ganda/i);
+    });
+
+    describe("location purpose validation", () => {
+      it("should create GR with isMaklon true when target location is CUSTOMER_OWNED", async () => {
+        // Arrange
+        const data = {
+          ...baseData,
+          isMaklon: true,
+          customerId: "cust-1",
+          purchaseOrderId: null,
+        };
+        vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+        let createdReceiptData: any;
+        vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+          const tx = {
+            location: {
+              findUnique: vi.fn().mockResolvedValue({
+                id: locationId,
+                name: "Bahan Baku Maklon",
+                locationType: "CUSTOMER_OWNED",
+                locationPurpose: "RAW_MATERIAL",
+              }),
+            },
+            productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+            fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
+            goodsReceipt: {
+              findMany: vi.fn().mockResolvedValue([]),
+              create: vi.fn().mockImplementation((args: any) => {
+                createdReceiptData = args.data;
+                return { id: "gr-1", receiptNumber: "GR-2026-0001", items: args.data.items.create };
+              }),
+            },
+            stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
+            purchaseOrderItem: {
+              findFirst: vi.fn(),
+              update: vi.fn(),
+              findMany: vi.fn(),
+            },
+            purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
+          };
+          return cb(tx);
+        });
+
+        // Act
+        const result = await createGoodsReceipt(data, userId);
+
+        // Assert
+        expect(result.id).toBe("gr-1");
+        expect(createdReceiptData.isMaklon).toBe(true);
+      });
+
+      it("should throw INVALID_LOCATION_PURPOSE when target is CUSTOMER_OWNED but isMaklon is false", async () => {
+        // Arrange
+        const data = {
+          ...baseData,
+          isMaklon: false,
+          purchaseOrderId: null,
+        };
+        vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+          const tx = {
+            location: {
+              findUnique: vi.fn().mockResolvedValue({
+                id: locationId,
+                name: "Bahan Baku Maklon",
+                locationType: "CUSTOMER_OWNED",
+                locationPurpose: "RAW_MATERIAL",
+              }),
+            },
+          };
+          return cb(tx);
+        });
+
+        // Act & Assert
+        await expect(createGoodsReceipt(data, userId)).rejects.toMatchObject({
+          code: "INVALID_LOCATION_PURPOSE",
+        });
+      });
+
+      it("should throw INVALID_LOCATION_PURPOSE for SCRAP target even when isMaklon is true", async () => {
+        // Arrange
+        const data = {
+          ...baseData,
+          isMaklon: true,
+          customerId: "cust-1",
+          purchaseOrderId: null,
+        };
+        vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+          const tx = {
+            location: {
+              findUnique: vi.fn().mockResolvedValue({
+                id: locationId,
+                name: "Gudang Scrap",
+                locationType: "CUSTOMER_OWNED",
+                locationPurpose: "SCRAP",
+              }),
+            },
+          };
+          return cb(tx);
+        });
+
+        // Act & Assert
+        await expect(createGoodsReceipt(data, userId)).rejects.toMatchObject({
+          code: "INVALID_LOCATION_PURPOSE",
+        });
+      });
+
+      it("should throw MAKLON_LOCATION_REQUIRED when isMaklon is true but target is INTERNAL", async () => {
+        // Arrange
+        const data = {
+          ...baseData,
+          isMaklon: true,
+          customerId: "cust-1",
+          purchaseOrderId: null,
+        };
+        vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+          const tx = {
+            location: {
+              findUnique: vi.fn().mockResolvedValue({
+                id: locationId,
+                name: "Gudang Bahan Baku",
+                locationType: "INTERNAL",
+                locationPurpose: "RAW_MATERIAL",
+              }),
+            },
+          };
+          return cb(tx);
+        });
+
+        // Act & Assert
+        await expect(createGoodsReceipt(data, userId)).rejects.toMatchObject({
+          code: "MAKLON_LOCATION_REQUIRED",
+        });
+      });
     });
   });
 
