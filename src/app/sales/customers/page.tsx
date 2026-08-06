@@ -17,10 +17,25 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Users, Phone, Search, X, Loader2, Pencil } from 'lucide-react';
+import {
+    Users,
+    Phone,
+    Search,
+    X,
+    Loader2,
+    Pencil,
+    MoreHorizontal,
+    Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { salesLabels } from '@/lib/labels';
 import { formatRupiah } from '@/lib/utils/utils';
@@ -70,6 +85,7 @@ export default function CustomersPage() {
         useState<FullCustomerForEdit | null>(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [fetchingId, setFetchingId] = useState<string | null>(null);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     useEffect(() => {
         getCustomersWithCreditSummaryAction()
@@ -288,14 +304,14 @@ export default function CustomersPage() {
                                                 ? `${customer.paymentTermDays} hari`
                                                 : '-'}
                                         </TableCell>
-                                        <TableCell className="text-right text-sm">
+                                        <TableCell className="text-right text-sm whitespace-nowrap">
                                             {customer.creditLimit != null
                                                 ? formatRupiah(
                                                       customer.creditLimit,
                                                   )
                                                 : '-'}
                                         </TableCell>
-                                        <TableCell className="text-right text-sm">
+                                        <TableCell className="text-right text-sm whitespace-nowrap">
                                             {customer.headroom != null ? (
                                                 <span
                                                     className={cn(
@@ -359,42 +375,72 @@ export default function CustomersPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    disabled={
-                                                        fetchingId ===
-                                                        customer.id
-                                                    }
-                                                    onClick={() =>
-                                                        handleEditClick(
-                                                            customer.id,
-                                                        )
-                                                    }
-                                                    title="Edit customer"
-                                                >
-                                                    {fetchingId ===
-                                                    customer.id ? (
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                    ) : (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        disabled={
+                                                            fetchingId ===
+                                                            customer.id
+                                                        }
+                                                        title="Aksi"
+                                                    >
+                                                        {fetchingId ===
+                                                        customer.id ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                        onSelect={() =>
+                                                            handleEditClick(
+                                                                customer.id,
+                                                            )
+                                                        }
+                                                    >
                                                         <Pencil className="h-4 w-4" />
-                                                    )}
-                                                </Button>
-                                                <DeleteButton
-                                                    id={customer.id}
-                                                    onDelete={deleteCustomer}
-                                                    entityName="Customer"
-                                                    onDeleted={(id) =>
-                                                        setCustomers((prev) =>
-                                                            prev.filter(
-                                                                (c) =>
-                                                                    c.id !== id,
-                                                            ),
-                                                        )
-                                                    }
-                                                />
-                                            </div>
+                                                        Edit
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                            setDeleteTargetId(
+                                                                customer.id,
+                                                            );
+                                                        }}
+                                                        className="text-red-600 focus:text-red-600"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        Hapus
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                            <DeleteButton
+                                                id={customer.id}
+                                                onDelete={deleteCustomer}
+                                                entityName="Customer"
+                                                hideTrigger
+                                                open={
+                                                    deleteTargetId ===
+                                                    customer.id
+                                                }
+                                                onOpenChange={(v) =>
+                                                    !v &&
+                                                    setDeleteTargetId(null)
+                                                }
+                                                onDeleted={(id) => {
+                                                    setCustomers((prev) =>
+                                                        prev.filter(
+                                                            (c) => c.id !== id,
+                                                        ),
+                                                    );
+                                                    setDeleteTargetId(null);
+                                                }}
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 ))

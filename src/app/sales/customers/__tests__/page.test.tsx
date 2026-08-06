@@ -12,6 +12,8 @@ vi.stubGlobal(
     },
 );
 Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+Element.prototype.releasePointerCapture = vi.fn();
 
 const { mockToast, mockSummaryAction, mockGetCustomerByIdAction, mockGetVehicles } = vi.hoisted(
     () => ({
@@ -109,13 +111,25 @@ beforeEach(() => {
 });
 
 describe('customers/page.tsx lazy-fetch edit (GAP6b)', () => {
-    it('calls getCustomerById when edit button clicked before opening dialog', async () => {
+    function openActionsMenu() {
+        const trigger = screen.getByTitle('Aksi');
+        // jsdom needs an explicit pointerdown before click for Radix
+        // DropdownMenu to open — a plain fireEvent.click alone is a no-op.
+        fireEvent.pointerDown(trigger, { button: 0 });
+        fireEvent.click(trigger);
+    }
+
+    async function openActionsMenuAndClickEdit() {
+        openActionsMenu();
+        fireEvent.click(await screen.findByText('Edit'));
+    }
+
+    it('calls getCustomerById when edit action clicked before opening dialog', async () => {
         render(<CustomersPage />);
 
         await screen.findAllByText('Ade Hidayat');
 
-        const editBtn = screen.getByTitle('Edit customer');
-        fireEvent.click(editBtn);
+        await openActionsMenuAndClickEdit();
 
         await waitFor(() => {
             expect(mockGetCustomerByIdAction).toHaveBeenCalledWith('cust-1');
@@ -127,7 +141,7 @@ describe('customers/page.tsx lazy-fetch edit (GAP6b)', () => {
 
         await screen.findAllByText('Ade Hidayat');
 
-        fireEvent.click(screen.getByTitle('Edit customer'));
+        await openActionsMenuAndClickEdit();
 
         await screen.findByText('Edit Customer');
 
@@ -140,19 +154,18 @@ describe('customers/page.tsx lazy-fetch edit (GAP6b)', () => {
         });
     });
 
-    it('does NOT render stray duplicate pencil button when editing (GAP1 check)', async () => {
+    it('does NOT render duplicate Aksi trigger per row when editing (GAP1 check)', async () => {
         render(<CustomersPage />);
 
         await screen.findAllByText('Ade Hidayat');
 
-        expect(screen.getAllByTitle('Edit customer').length).toBe(1);
+        expect(screen.getAllByTitle('Aksi').length).toBe(1);
 
-        fireEvent.click(screen.getByTitle('Edit customer'));
+        await openActionsMenuAndClickEdit();
 
         await screen.findByText('Edit Customer');
 
-        const editButtons = screen.getAllByTitle('Edit customer');
-        expect(editButtons.length).toBe(1);
+        expect(screen.getAllByTitle('Aksi').length).toBe(1);
     });
 
     it('shows Loader2 while fetching full data', async () => {
@@ -167,10 +180,10 @@ describe('customers/page.tsx lazy-fetch edit (GAP6b)', () => {
 
         await screen.findAllByText('Ade Hidayat');
 
-        fireEvent.click(screen.getByTitle('Edit customer'));
+        await openActionsMenuAndClickEdit();
 
         await waitFor(() => {
-            const btn = screen.getByTitle('Edit customer') as HTMLButtonElement;
+            const btn = screen.getByTitle('Aksi') as HTMLButtonElement;
             expect(btn.disabled).toBe(true);
         });
 
@@ -179,15 +192,16 @@ describe('customers/page.tsx lazy-fetch edit (GAP6b)', () => {
         await screen.findByText('Edit Customer');
     });
 
-    it('renders Pencil icon (not unicode span) for edit button', async () => {
+    it('renders Pencil icon (not unicode span) for edit action', async () => {
         render(<CustomersPage />);
 
         await screen.findAllByText('Ade Hidayat');
 
         expect(screen.queryByText('✎')).toBeNull();
 
-        const editBtn = screen.getByTitle('Edit customer');
-        const svg = editBtn.querySelector('svg');
+        openActionsMenu();
+        const editItem = await screen.findByText('Edit');
+        const svg = editItem.closest('[role="menuitem"]')?.querySelector('svg');
         expect(svg).toBeTruthy();
     });
 });

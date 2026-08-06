@@ -22,6 +22,11 @@ interface DeleteButtonProps {
     onDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
     entityName?: string;
     onDeleted?: (id: string) => void;
+    /** Controlled open state — when provided, the confirm dialog is controlled externally (e.g. triggered from a dropdown menu item). */
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    /** When true, don't render the default trash-icon trigger button — the caller controls `open` externally instead. */
+    hideTrigger?: boolean;
 }
 
 export function DeleteButton({
@@ -29,9 +34,14 @@ export function DeleteButton({
     onDelete,
     entityName = 'Item',
     onDeleted,
+    open: externalOpen,
+    onOpenChange: externalOnOpenChange,
+    hideTrigger = false,
 }: DeleteButtonProps) {
     const [isDeleting, setIsDeleting] = useState(false);
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = externalOpen ?? internalOpen;
+    const setOpen = externalOnOpenChange ?? setInternalOpen;
     const router = useRouter();
 
     async function handleDelete() {
@@ -55,15 +65,17 @@ export function DeleteButton({
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Button>
-            </AlertDialogTrigger>
+            {!hideTrigger && (
+                <AlertDialogTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </AlertDialogTrigger>
+            )}
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
