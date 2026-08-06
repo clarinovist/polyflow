@@ -84,27 +84,27 @@ dan keputusan commit/push.
 2. Pastikan runtime tersedia dengan `command -v opencode`; jangan berasumsi
    instalasi atau konfigurasi model/provider selalu sama di setiap environment.
 3. Berikan prompt worker yang menyebutkan:
-   - root/module `AGENTS.md` dan plan yang harus dibaca;
-   - file/scope yang boleh disentuh;
-   - acceptance criteria dan test scope;
-   - larangan commit, push, deploy, dan operasi database production.
+    - root/module `AGENTS.md` dan plan yang harus dibaca;
+    - file/scope yang boleh disentuh;
+    - acceptance criteria dan test scope;
+    - larangan commit, push, deploy, dan operasi database production.
 4. Jalankan worker. Mode headless adalah default:
 
-   ```bash
-   opencode run \
-     --dir "$PWD" \
-     --format json \
-     "Baca AGENTS.md dan docs/plan/<plan>.md. Implementasikan hanya scope plan. Jangan commit, push, atau deploy."
-   ```
+    ```bash
+    opencode run \
+      --dir "$PWD" \
+      --format json \
+      "Baca AGENTS.md dan docs/plan/<plan>.md. Implementasikan hanya scope plan. Jangan commit, push, atau deploy."
+    ```
 
 5. Untuk proses panjang, boleh jalankan melalui `tmux` dan simpan log di `/tmp`
    agar root repo tetap bersih:
 
-   ```bash
-   tmux new-session -d -s opencode-worker \
-     "cd '$PWD' && opencode run --dir '$PWD' '...task bounded...' 2>&1 | tee /tmp/opencode-worker.log"
-   tail -f /tmp/opencode-worker.log
-   ```
+    ```bash
+    tmux new-session -d -s opencode-worker \
+      "cd '$PWD' && opencode run --dir '$PWD' '...task bounded...' 2>&1 | tee /tmp/opencode-worker.log"
+    tail -f /tmp/opencode-worker.log
+    ```
 
 6. Setelah worker selesai, orchestrator **wajib** memeriksa workspace nyata dengan
    `git status --short`, `git diff --stat`, dan `git diff`. Jangan percaya summary
@@ -116,8 +116,13 @@ dan keputusan commit/push.
 
 ### Guardrail
 
-- Jangan memakai `--auto` secara default. Auto-approve hanya boleh dipertimbangkan
-  dengan persetujuan eksplisit user, scope terisolasi, dan risiko sudah dipahami.
+- **Mode headless/tmux wajib pakai `--auto`.** Worker jalan di background/tmux
+  tanpa ada yang bisa approve permission prompt secara manual — tanpa `--auto`,
+  proses macet permanen di tool call pertama yang butuh izin (dikonfirmasi
+  2026-08-06). Orchestrator tetap wajib minta persetujuan eksplisit user sebelum
+  tiap dispatch (jangan diam-diam diasumsikan boleh), dan syarat lain tetap
+  berlaku tanpa kompromi: scope terisolasi sesuai plan, tanpa commit/push/deploy/
+  operasi database production.
 - Jangan memasukkan secret, credential, production connection string, atau data
   tenant sensitif ke prompt/log worker.
 - Jika worker menyentuh file di luar scope atau hasilnya tidak sesuai plan,
