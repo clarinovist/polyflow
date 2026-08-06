@@ -54,16 +54,17 @@ export const batchIssueMaterials = withTenant(
                 );
                 const session = await requireMaterialPathRole(path);
 
-                await ProductionService.batchIssueMaterials({
-                    ...result.data,
-                    userId: session?.user?.id,
-                });
+                const serviceResult =
+                    await ProductionService.batchIssueMaterials({
+                        ...result.data,
+                        userId: session?.user?.id,
+                    });
 
                 revalidatePath(
                     `/production/orders/${result.data.productionOrderId}`,
                 );
                 revalidatePath('/warehouse');
-                return null;
+                return serviceResult;
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;

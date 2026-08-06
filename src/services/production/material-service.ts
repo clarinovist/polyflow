@@ -19,6 +19,13 @@ import {
     ProductionRuleViolationError,
 } from '@/lib/errors/errors';
 
+export interface CappedIssueItem {
+    productVariantId: string;
+    name: string;
+    requested: number;
+    recorded: number;
+}
+
 async function getIssueUnitCost(
     tx: Prisma.TransactionClient,
     locationId: string,
@@ -60,7 +67,7 @@ export class ProductionMaterialService {
 
     static async batchIssueMaterials(
         data: BatchMaterialIssueValues & { userId?: string },
-    ) {
+    ): Promise<{ cappedItems: CappedIssueItem[] }> {
         const {
             productionOrderId,
             locationId,
@@ -73,6 +80,8 @@ export class ProductionMaterialService {
         const userId = data.userId;
 
         const issueIds: string[] = [];
+        const cappedItems: CappedIssueItem[] = [];
+        const issuedSoFarMap = new Map<string, number>();
 
         await prisma.$transaction(async (tx) => {
             // 1. Idempotency Check (issue path creates PROD-ISSUE movements with REQ:)
@@ -162,6 +171,25 @@ export class ProductionMaterialService {
                 }
             }
 
+            // Re-read effective plan after mutations (removed + added) to avoid stale snapshot capping
+            const effectivePlannedMaterials =
+                await tx.productionMaterial.findMany({
+                    where: { productionOrderId },
+                    include: {
+                        productVariant: { select: { name: true } },
+                    },
+                });
+
+            // Seed issuedSoFarMap from order.materialIssues (skip VOIDED)
+            for (const mi of order.materialIssues) {
+                if (mi.status === 'VOIDED') continue;
+                const key = mi.productVariantId;
+                issuedSoFarMap.set(
+                    key,
+                    (issuedSoFarMap.get(key) || 0) + Number(mi.quantity),
+                );
+            }
+
             // Staging path: stock already moved via transferStockBulk — only record MaterialIssue
             // so warehouse "Issued" progress updates without double stock OUT / premature HPP.
             if (recordAsStaged) {
@@ -171,17 +199,14 @@ export class ProductionMaterialService {
                     if (!stagingLocationId)
                         throw new ValidationError('Lokasi staging wajib diisi');
 
-                    const planItem = order.plannedMaterials.find(
+                    const planItem = effectivePlannedMaterials.find(
                         (p) => p.productVariantId === item.productVariantId,
                     );
-                    const plannedQty = planItem ? Number(planItem.quantity) : 0;
-                    const issuedSoFar = order.materialIssues
-                        .filter(
-                            (mi) =>
-                                mi.productVariantId === item.productVariantId &&
-                                mi.status !== 'VOIDED',
-                        )
-                        .reduce((sum, mi) => sum + Number(mi.quantity), 0);
+                    const plannedQty = planItem
+                        ? Number(planItem.quantity)
+                        : 0;
+                    const issuedSoFar =
+                        issuedSoFarMap.get(item.productVariantId) || 0;
 
                     const remaining = Math.max(0, plannedQty - issuedSoFar);
                     let quantityToStage = item.quantity;
@@ -189,6 +214,12 @@ export class ProductionMaterialService {
                         console.warn(
                             `Capping stage for ${item.productVariantId}: requested ${quantityToStage}, available ${remaining}`,
                         );
+                        cappedItems.push({
+                            productVariantId: item.productVariantId,
+                            name: planItem?.productVariant?.name || '',
+                            requested: item.quantity,
+                            recorded: remaining,
+                        });
                         quantityToStage = remaining;
                     }
                     if (quantityToStage <= 0) continue;
@@ -204,9 +235,10 @@ export class ProductionMaterialService {
                         },
                     });
                     issueIds.push(newIssue.id);
-                    // Keep in-memory totals accurate for multi-line cap within same batch
-                    order.materialIssues.push(
-                        newIssue as (typeof order.materialIssues)[number],
+                    issuedSoFarMap.set(
+                        item.productVariantId,
+                        (issuedSoFarMap.get(item.productVariantId) || 0) +
+                            quantityToStage,
                     );
                 }
                 return;
@@ -221,17 +253,12 @@ export class ProductionMaterialService {
                 if (!itemLocationId)
                     throw new ValidationError('Lokasi sumber wajib diisi');
                 // 2. Server-side Capping
-                const planItem = order.plannedMaterials.find(
+                const planItem = effectivePlannedMaterials.find(
                     (p) => p.productVariantId === item.productVariantId,
                 );
                 const plannedQty = planItem ? Number(planItem.quantity) : 0;
-                const issuedSoFar = order.materialIssues
-                    .filter(
-                        (mi) =>
-                            mi.productVariantId === item.productVariantId &&
-                            mi.status !== 'VOIDED',
-                    )
-                    .reduce((sum, mi) => sum + Number(mi.quantity), 0);
+                const issuedSoFar =
+                    issuedSoFarMap.get(item.productVariantId) || 0;
 
                 const remaining = Math.max(0, plannedQty - issuedSoFar);
 
@@ -240,6 +267,12 @@ export class ProductionMaterialService {
                     console.warn(
                         `Capping issue for ${item.productVariantId}: requested ${quantityToIssue}, available ${remaining}`,
                     );
+                    cappedItems.push({
+                        productVariantId: item.productVariantId,
+                        name: planItem?.productVariant?.name || '',
+                        requested: item.quantity,
+                        recorded: remaining,
+                    });
                     quantityToIssue = remaining;
                 }
 
@@ -289,6 +322,11 @@ export class ProductionMaterialService {
                             },
                         });
                         issueIds.push(newIssue.id);
+                        issuedSoFarMap.set(
+                            item.productVariantId,
+                            (issuedSoFarMap.get(item.productVariantId) || 0) +
+                                remainingToDeduct,
+                        );
 
                         const moveOut = await tx.stockMovement.create({
                             data: {
@@ -353,6 +391,11 @@ export class ProductionMaterialService {
                                 },
                             });
                             issueIds.push(newIssue.id);
+                            issuedSoFarMap.set(
+                                item.productVariantId,
+                                (issuedSoFarMap.get(item.productVariantId) ||
+                                    0) + deductFromBatch,
+                            );
 
                             const moveOut = await tx.stockMovement.create({
                                 data: {
@@ -424,6 +467,11 @@ export class ProductionMaterialService {
                         },
                     });
                     issueIds.push(newIssue.id);
+                    issuedSoFarMap.set(
+                        item.productVariantId,
+                        (issuedSoFarMap.get(item.productVariantId) || 0) +
+                            remainingToDeduct,
+                    );
 
                     const moveOut = await tx.stockMovement.create({
                         data: {
@@ -446,6 +494,8 @@ export class ProductionMaterialService {
                 }
             }
         });
+
+        return { cappedItems };
     }
 
     static async consolidatedBatchIssueMaterials(

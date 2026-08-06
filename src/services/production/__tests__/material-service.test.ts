@@ -12,6 +12,7 @@ vi.mock("@/lib/core/prisma", () => ({
       findMany: vi.fn(),
     },
     productionMaterial: {
+      findMany: vi.fn(),
       deleteMany: vi.fn(),
       update: vi.fn(),
       create: vi.fn(),
@@ -287,6 +288,14 @@ describe("ProductionMaterialService", () => {
           },
         ],
       } as any);
+      vi.mocked(prisma.productionMaterial.findMany).mockResolvedValue([
+        {
+          id: "pm-1",
+          productVariantId: "pv-1",
+          quantity: 100,
+          productVariant: { name: "PP" },
+        },
+      ] as any);
       vi.mocked(prisma.materialIssue.create).mockResolvedValue({
         id: "mi-staged-1",
         productVariantId: "pv-1",
@@ -387,6 +396,15 @@ describe("ProductionMaterialService", () => {
         ],
       } as any);
 
+      vi.mocked(prisma.productionMaterial.findMany).mockResolvedValue([
+        {
+          id: "pm-1",
+          productVariantId: "pv-1",
+          quantity: 100,
+          productVariant: { name: "Raw Material" },
+        },
+      ] as any);
+
       vi.mocked(prisma.batch.findMany).mockResolvedValue([
         {
           id: "batch-1",
@@ -441,6 +459,15 @@ describe("ProductionMaterialService", () => {
         ],
       } as any);
 
+      vi.mocked(prisma.productionMaterial.findMany).mockResolvedValue([
+        {
+          id: "pm-1",
+          productVariantId: "pv-1",
+          quantity: 100,
+          productVariant: { name: "Raw Material" },
+        },
+      ] as any);
+
       vi.mocked(prisma.batch.findMany).mockResolvedValue([]); // No batches
       vi.mocked(prisma.inventory.findUnique).mockResolvedValue({
         averageCost: { toNumber: () => 10 },
@@ -456,6 +483,122 @@ describe("ProductionMaterialService", () => {
 
       // Assert
       expect(prisma.materialIssue.create).toHaveBeenCalled();
+    });
+
+    it("should cap against effective plan after mutation (remove old + add new 400), not stale snapshot", async () => {
+      // Simulate: old plan has PP Karung 376.8382, operator removes it and adds new plan 400
+      // Then items request 400 with recordAsStaged: true
+      // The service should re-read effectivePlan (400) after mutation, so no capping occurs
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        id: "po-1",
+        orderNumber: "WO-001",
+        materialIssues: [],
+        plannedMaterials: [
+          {
+            id: "pm-old",
+            productVariantId: "pv-karung",
+            quantity: 376.8382,
+            productVariant: { name: "PP Karung" },
+          },
+        ],
+      } as any);
+
+      // After mutation: old plan deleted, new plan created with 400
+      vi.mocked(prisma.productionMaterial.findMany).mockResolvedValue([
+        {
+          id: "pm-new",
+          productVariantId: "pv-karung",
+          quantity: 400,
+          productVariant: { name: "PP Karung" },
+        },
+      ] as any);
+
+      vi.mocked(prisma.materialIssue.create).mockResolvedValue({
+        id: "mi-1",
+        productVariantId: "pv-karung",
+        quantity: 400,
+        status: "STAGED",
+      } as any);
+
+      const result = await ProductionMaterialService.batchIssueMaterials({
+        productionOrderId: "po-1",
+        locationId: "loc-wip",
+        items: [{ productVariantId: "pv-karung", quantity: 400 }],
+        removedPlannedMaterialIds: ["pm-old"],
+        addedPlannedMaterials: [
+          { productVariantId: "pv-karung", quantity: 400 },
+        ],
+        recordAsStaged: true,
+        userId: "user-1",
+      });
+
+      // MaterialIssue should be 400 (not capped to 376.8382)
+      expect(prisma.materialIssue.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          productVariantId: "pv-karung",
+          quantity: 400,
+          status: "STAGED",
+        }),
+      });
+      expect(result.cappedItems).toEqual([]);
+    });
+
+    it("should cap qty exceeding effective plan and report via cappedItems", async () => {
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findUniqueOrThrow).mockResolvedValue({
+        id: "po-1",
+        orderNumber: "WO-001",
+        materialIssues: [],
+        plannedMaterials: [
+          {
+            id: "pm-1",
+            productVariantId: "pv-1",
+            quantity: 100,
+            productVariant: { name: "Raw Material" },
+          },
+        ],
+      } as any);
+
+      // Effective plan after mutation: only 80
+      vi.mocked(prisma.productionMaterial.findMany).mockResolvedValue([
+        {
+          id: "pm-new",
+          productVariantId: "pv-1",
+          quantity: 80,
+          productVariant: { name: "Raw Material" },
+        },
+      ] as any);
+
+      vi.mocked(prisma.materialIssue.create).mockResolvedValue({
+        id: "mi-1",
+        productVariantId: "pv-1",
+        quantity: 80,
+        status: "STAGED",
+      } as any);
+
+      const result = await ProductionMaterialService.batchIssueMaterials({
+        productionOrderId: "po-1",
+        locationId: "loc-wip",
+        items: [{ productVariantId: "pv-1", quantity: 100 }],
+        recordAsStaged: true,
+        userId: "user-1",
+      });
+
+      // Should be capped to 80 (effective plan)
+      expect(prisma.materialIssue.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          productVariantId: "pv-1",
+          quantity: 80,
+        }),
+      });
+      expect(result.cappedItems).toHaveLength(1);
+      expect(result.cappedItems[0]).toMatchObject({
+        productVariantId: "pv-1",
+        name: "Raw Material",
+        requested: 100,
+        recorded: 80,
+      });
     });
   });
 

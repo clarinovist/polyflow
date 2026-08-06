@@ -176,6 +176,12 @@ export const productionComponentLabels = {
     nonPlanBlockedInExtrusi:
         'Bahan di luar plan (biasanya dari gudang RM): gunakan Catat Pemakaian Bahan di modul Gudang agar stok & HPP langsung benar. Jangan transfer staging seperti Mixing HD.',
 
+    // Capping warnings
+    cappedItemsTransferWarning:
+        'Beberapa bahan dipangkas ke rencana terbaru. Stok sudah terlanjur pindah — cek selisih di bawah.',
+    cappedItemsIssueWarning:
+        'Beberapa bahan dipangkas ke rencana terbaru. Cek selisih di bawah.',
+
     // Dual-path ownership callouts on production Materials tab
     materialPathFloorTitle: 'Jalur lantai (WIP)',
     materialPathFloorHelp:

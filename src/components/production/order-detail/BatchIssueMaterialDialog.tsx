@@ -39,10 +39,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { productionComponentLabels } from '@/lib/labels';
+import type { CappedIssueItem } from '@/services/production/material-service';
 import {
     resolveTransferSourceLocationId,
     type LocationLike,
 } from '@/lib/locations/resolve-location';
+
+function formatCappedDetails(items: CappedIssueItem[]): string {
+    return items
+        .map((c) => `${c.name}: diminta ${c.requested} → dicatat ${c.recorded}`)
+        .join('; ');
+}
 
 interface BatchItem {
     id: string; // Internal ID for keys (equals to plannedMaterial.id if isPlanned)
@@ -409,9 +416,22 @@ export function BatchIssueMaterialDialog({
                         return;
                     }
 
-                    toast.success(
-                        `Bahan baku berhasil ditransfer ke Gudang ${order.location.name}.`,
-                    );
+                    if (
+                        stageResult.data?.cappedItems &&
+                        stageResult.data.cappedItems.length > 0
+                    ) {
+                        const details = formatCappedDetails(
+                            stageResult.data.cappedItems,
+                        );
+                        toast.warning(
+                            `${productionComponentLabels.cappedItemsTransferWarning}\n${details}`,
+                            { duration: 8000 },
+                        );
+                    } else {
+                        toast.success(
+                            `Bahan baku berhasil ditransfer ke Gudang ${order.location.name}.`,
+                        );
+                    }
                     setOpen(false);
                     router.refresh();
                 } else {
@@ -436,9 +456,22 @@ export function BatchIssueMaterialDialog({
                 });
 
                 if (result.success) {
-                    toast.success(
-                        'Bahan baku berhasil dikeluarkan dan rencana diperbarui.',
-                    );
+                    if (
+                        result.data?.cappedItems &&
+                        result.data.cappedItems.length > 0
+                    ) {
+                        const details = formatCappedDetails(
+                            result.data.cappedItems,
+                        );
+                        toast.warning(
+                            `${productionComponentLabels.cappedItemsIssueWarning}\n${details}`,
+                            { duration: 8000 },
+                        );
+                    } else {
+                        toast.success(
+                            'Bahan baku berhasil dikeluarkan dan rencana diperbarui.',
+                        );
+                    }
                     setOpen(false);
                     router.refresh();
                 } else {
