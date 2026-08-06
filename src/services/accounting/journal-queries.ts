@@ -45,8 +45,24 @@ export async function getJournals(params?: {
     };
 }
 
+/**
+ * A reversal points back to its source via referenceId, so a journal can only
+ * ever carry one active (POSTED) reversal. Used to block reversing or voiding
+ * a journal whose balance has already been neutralised.
+ */
+export async function findActiveReversal(journalId: string) {
+    return await prisma.journalEntry.findFirst({
+        where: {
+            referenceType: 'MANUAL_ENTRY',
+            referenceId: journalId,
+            status: JournalStatus.POSTED,
+        },
+        select: { id: true, entryNumber: true },
+    });
+}
+
 export async function getJournalById(id: string) {
-    return await prisma.journalEntry.findUnique({
+    const journal = await prisma.journalEntry.findUnique({
         where: { id },
         include: {
             lines: {
@@ -59,4 +75,12 @@ export async function getJournalById(id: string) {
             approvedBy: { select: { name: true } },
         },
     });
+
+    if (!journal) return null;
+
+    // A reversed journal stays POSTED, so the detail view needs this to tell
+    // the user why Void/Reverse are no longer available.
+    const reversal = await findActiveReversal(id);
+
+    return { ...journal, reversal };
 }
