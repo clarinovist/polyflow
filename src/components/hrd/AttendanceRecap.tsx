@@ -211,6 +211,11 @@ export function AttendanceRecap({
         clockOutAt: '',
         notes: '',
     });
+    const [correctInitial, setCorrectInitial] = useState({
+        clockInAt: '',
+        clockOutAt: '',
+        notes: '',
+    });
     const [actionLoading, setActionLoading] = useState(false);
     const [photoPreview, setPhotoPreview] = useState<{
         url: string;
@@ -345,22 +350,42 @@ export function AttendanceRecap({
 
     const openCorrect = (r: AttendanceRecord) => {
         setCorrecting(r);
-        setCorrectData({
-            clockInAt: r.clockInAt ? toLocalInput(r.clockInAt) : '',
-            clockOutAt: r.clockOutAt ? toLocalInput(r.clockOutAt) : '',
+        const initial = {
+            clockInAt: r.clockInAt ? toWibInput(r.clockInAt) : '',
+            clockOutAt: r.clockOutAt ? toWibInput(r.clockOutAt) : '',
             notes: '',
-        });
+        };
+        setCorrectData(initial);
+        setCorrectInitial(initial);
     };
 
     const handleCorrect = async () => {
         if (!correcting) return;
         setActionLoading(true);
         try {
-            const res = await correctAttendance(correcting.id, {
-                clockInAt: correctData.clockInAt || undefined,
-                clockOutAt: correctData.clockOutAt || undefined,
-                notes: correctData.notes || undefined,
-            });
+            // Kirim hanya yang benar-benar diubah — field yang lolos apa adanya
+            // akan kehilangan detik dan menimpa jam yang sudah benar.
+            const payload: {
+                clockInAt?: string;
+                clockOutAt?: string;
+                notes?: string;
+            } = {};
+            if (
+                correctData.clockInAt !== correctInitial.clockInAt &&
+                correctData.clockInAt
+            ) {
+                payload.clockInAt = correctData.clockInAt;
+            }
+            if (
+                correctData.clockOutAt !== correctInitial.clockOutAt &&
+                correctData.clockOutAt
+            ) {
+                payload.clockOutAt = correctData.clockOutAt;
+            }
+            if (correctData.notes) {
+                payload.notes = correctData.notes;
+            }
+            const res = await correctAttendance(correcting.id, payload);
             if (res.success) {
                 toast.success('Koreksi tersimpan');
                 setCorrecting(null);
@@ -1012,18 +1037,21 @@ export function AttendanceRecap({
                                                     variant="outline"
                                                     className={`text-xs ${sourceBadgeClass(r.source)}`}
                                                 >
-                                                    {SOURCE_LABELS[r.source] ?? r.source}
+                                                    {SOURCE_LABELS[r.source] ??
+                                                        r.source}
                                                 </Badge>
                                                 {r.clockInDistance != null &&
                                                     r.clockInDistance > 0 && (
                                                         <span className="text-[10px] text-muted-foreground">
-                                                            {r.clockInDistance < 1000
+                                                            {r.clockInDistance <
+                                                            1000
                                                                 ? `${Math.round(r.clockInDistance)}m`
                                                                 : `${(r.clockInDistance / 1000).toFixed(1)}km`}
                                                         </span>
                                                     )}
                                                 {r.clockInLatitude != null &&
-                                                    r.clockInLongitude != null && (
+                                                    r.clockInLongitude !=
+                                                        null && (
                                                         <a
                                                             href={googleMapsUrl(
                                                                 r.clockInLatitude,
@@ -1183,10 +1211,16 @@ export function AttendanceRecap({
     );
 }
 
-function toLocalInput(d: Date | string): string {
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/**
+ * Render a timestamp as a `datetime-local` value in WIB, whatever the device
+ * timezone is. The server reads it back as WIB (parseWibDateTime), so both ends
+ * must agree on Asia/Jakarta — not on how the HRD laptop happens to be set.
+ */
+function toWibInput(d: Date | string): string {
     const date = typeof d === 'string' ? new Date(d) : d;
-    const tzOffset = date.getTimezoneOffset() * 60000;
-    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+    return new Date(date.getTime() + WIB_OFFSET_MS).toISOString().slice(0, 16);
 }
 
 function SummaryCard({

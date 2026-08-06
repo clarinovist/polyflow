@@ -7,6 +7,7 @@ import {
   calcOvertimeHours,
   calcRegularHours,
   getEffectivePlannedHours,
+  parseWibDateTime,
 } from '../shift-window';
 
 describe('shift-window', () => {
@@ -122,6 +123,54 @@ describe('shift-window', () => {
     });
     it('falls back to 8h when times are invalid', () => {
       expect(getEffectivePlannedHours(null, 'invalid', 'invalid')).toBe(8);
+    });
+  });
+
+  describe('parseWibDateTime', () => {
+    it('parses naive datetime (no seconds) as WIB', () => {
+      const result = parseWibDateTime('2026-07-28T16:00');
+      expect(result.toISOString()).toBe('2026-07-28T09:00:00.000Z');
+    });
+
+    it('parses naive datetime with seconds as WIB', () => {
+      const result = parseWibDateTime('2026-07-28T16:00:30');
+      expect(result.toISOString()).toBe('2026-07-28T09:00:30.000Z');
+    });
+
+    it('parses naive datetime with milliseconds as WIB', () => {
+      const result = parseWibDateTime('2026-07-28T16:00:30.123');
+      expect(result.toISOString()).toBe('2026-07-28T09:00:30.123Z');
+    });
+
+    it('honours explicit Z suffix', () => {
+      const result = parseWibDateTime('2026-07-28T09:00:00Z');
+      expect(result.toISOString()).toBe('2026-07-28T09:00:00.000Z');
+    });
+
+    it('honours explicit +07:00 offset', () => {
+      const result = parseWibDateTime('2026-07-28T16:00:00+07:00');
+      expect(result.toISOString()).toBe('2026-07-28T09:00:00.000Z');
+    });
+
+    it('honours explicit -05:00 offset', () => {
+      const result = parseWibDateTime('2026-07-28T04:00:00-05:00');
+      expect(result.toISOString()).toBe('2026-07-28T09:00:00.000Z');
+    });
+
+    it('throws on empty string', () => {
+      expect(() => parseWibDateTime('')).toThrow('Input datetime tidak valid');
+    });
+
+    it('throws on random text', () => {
+      expect(() => parseWibDateTime('bukan tanggal')).toThrow(
+        'Format datetime tidak valid',
+      );
+    });
+
+    it('throws on incomplete date', () => {
+      expect(() => parseWibDateTime('2026-07-28')).toThrow(
+        'Format datetime tidak valid',
+      );
     });
   });
 });

@@ -1,5 +1,9 @@
+import { ValidationError } from '@/lib/errors/errors';
+
 const MINUTES_PER_DAY = 1440;
 const DEFAULT_SHIFT_HOURS = 8;
+const WIB_OFFSET_HOURS = 7;
+const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
 
 /**
  * Shift window utilities for attendance.
@@ -123,4 +127,63 @@ export function getEffectivePlannedHours(
 ): number {
     if (plannedHours != null && plannedHours > 0) return plannedHours;
     return calcPlannedHours(startTime, endTime) ?? DEFAULT_SHIFT_HOURS;
+}
+
+const NAIVE_DATETIME_RE =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
+
+/**
+ * Parse a datetime-local string as WIB (Asia/Jakarta, UTC+7).
+ *
+ * `<input type="datetime-local">` emits naive strings like `2026-07-28T16:00`.
+ * `new Date()` would read those in the *runtime* timezone — UTC inside the
+ * container — silently shifting every HRD correction by 7 hours. Attendance is
+ * always entered in WIB, so pin the offset instead of trusting the runtime.
+ * Strings with an explicit offset (`Z` or `±HH:MM`) are honoured as-is.
+ */
+export function parseWibDateTime(value: string): Date {
+    if (typeof value !== 'string' || !value.trim()) {
+        throw new ValidationError('Input datetime tidak valid');
+    }
+
+    if (value.includes('Z') || /[+-]\d{2}:\d{2}$/.test(value)) {
+        const d = new Date(value);
+        if (isNaN(d.getTime())) {
+            throw new ValidationError(
+                `Format datetime tidak valid: "${value}"`,
+            );
+        }
+        return d;
+    }
+
+    const m = NAIVE_DATETIME_RE.exec(value);
+    if (!m) {
+        throw new ValidationError(`Format datetime tidak valid: "${value}"`);
+    }
+
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    const hour = Number(m[4]);
+    const minute = Number(m[5]);
+    const second = m[6] !== undefined ? Number(m[6]) : 0;
+    const ms = m[7] !== undefined ? Number(m[7].padEnd(3, '0')) : 0;
+
+    if (
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > 31 ||
+        hour > 23 ||
+        minute > 59 ||
+        second > 59
+    ) {
+        throw new ValidationError(`Format datetime tidak valid: "${value}"`);
+    }
+
+    // Construct UTC instant: naive value is WIB (UTC+7), subtract 7 hours.
+    const utcMs =
+        Date.UTC(year, month - 1, day, hour, minute, second, ms) -
+        WIB_OFFSET_MS;
+    return new Date(utcMs);
 }

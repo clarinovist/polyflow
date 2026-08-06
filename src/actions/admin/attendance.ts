@@ -7,6 +7,7 @@ import {
     type ListFilters,
 } from '@/services/hrd/attendance-service';
 import { hashPin, isValidPin } from '@/services/hrd/pin-helpers';
+import { parseWibDateTime } from '@/services/hrd/shift-window';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
@@ -214,13 +215,14 @@ export const correctAttendance = withTenant(async function correctAttendance(
             clockOutAt?: Date;
             notes?: string;
         } = {};
+        // Jam dari form HRD selalu bersemantik WIB — jangan ikut TZ container.
         if (data.clockInAt !== undefined)
             updateData.clockInAt = data.clockInAt
-                ? new Date(data.clockInAt)
+                ? parseWibDateTime(data.clockInAt)
                 : undefined;
         if (data.clockOutAt !== undefined)
             updateData.clockOutAt = data.clockOutAt
-                ? new Date(data.clockOutAt)
+                ? parseWibDateTime(data.clockOutAt)
                 : undefined;
         if (data.notes !== undefined) updateData.notes = data.notes;
 
@@ -401,7 +403,8 @@ const KIOSK_RATE_LIMIT = 5;
 const KIOSK_RATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function mapKioskError(error: unknown): Promise<string> {
-    if (!(error instanceof Error)) return 'Terjadi kesalahan pada sistem absensi';
+    if (!(error instanceof Error))
+        return 'Terjadi kesalahan pada sistem absensi';
     const msg = error.message;
 
     if (msg.startsWith('Masih belum clock-out')) return msg;
@@ -409,9 +412,12 @@ export async function mapKioskError(error: unknown): Promise<string> {
     if (msg === 'Tidak ada sesi absensi yang masih terbuka') return msg;
     if (msg === 'Shift tidak aktif') return 'Shift kerja tidak aktif';
     if (msg === 'PIN salah') return 'PIN yang Anda masukkan salah';
-    if (msg === 'Karyawan tidak aktif') return 'Akun karyawan sedang tidak aktif';
-    if (msg === 'Karyawan tidak ditemukan') return 'Data karyawan tidak ditemukan';
-    if (msg.includes('Tidak ada shift aktif')) return 'Tidak ada shift kerja aktif terdaftar';
+    if (msg === 'Karyawan tidak aktif')
+        return 'Akun karyawan sedang tidak aktif';
+    if (msg === 'Karyawan tidak ditemukan')
+        return 'Data karyawan tidak ditemukan';
+    if (msg.includes('Tidak ada shift aktif'))
+        return 'Tidak ada shift kerja aktif terdaftar';
     if (
         msg === 'Data absensi tidak lengkap' ||
         msg === 'Foto absensi tidak valid'
