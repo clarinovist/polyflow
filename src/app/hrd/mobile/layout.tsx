@@ -32,17 +32,24 @@ export default function HrdMobileLayout({
             <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-white py-2 shadow-lg dark:bg-slate-900 dark:border-slate-800">
                 <Link
                     href="/hrd/mobile"
-                    className="flex flex-1 flex-col items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400"
+                    className="flex flex-1 flex-col items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400"
                 >
                     <Home className="h-5 w-5" />
                     <span>Hari Ini</span>
+                </Link>
+                <Link
+                    href="/hrd/mobile/attendance"
+                    className="flex flex-1 flex-col items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                >
+                    <Users className="h-5 w-5" />
+                    <span>Absensi</span>
                 </Link>
                 <Link
                     href="/hrd/mobile/tasks"
                     className="flex flex-1 flex-col items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400"
                 >
                     <CheckSquare className="h-5 w-5" />
-                    <span>Pengajuan Cuti</span>
+                    <span>Cuti</span>
                 </Link>
                 <Link
                     href="/hrd/mobile/insights"

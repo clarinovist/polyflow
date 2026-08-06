@@ -30,6 +30,21 @@ export default async function ProductionMobilePage() {
 
     return (
         <div className="space-y-6">
+            <div className="flex gap-2">
+                <a
+                    href="/production/mobile/tasks/new"
+                    className="flex-1 rounded-lg bg-indigo-600 px-3 py-2.5 text-center text-sm font-bold text-white"
+                >
+                    + Buat SPK Mendadak
+                </a>
+                <a
+                    href="/production/mobile/attendance"
+                    className="flex-1 rounded-lg border bg-white px-3 py-2.5 text-center text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
+                >
+                    Lihat Absensi Produksi
+                </a>
+            </div>
+
             <MobileSectionHeader title="Pulse Shift Hari Ini" />
 
             <div className="grid grid-cols-2 gap-3">
@@ -38,7 +53,10 @@ export default async function ProductionMobilePage() {
                         key: 'active-spk',
                         label: 'SPK Aktif',
                         value: highlights.activeOrdersCount,
-                        severity: highlights.activeOrdersCount > 0 ? 'SUCCESS' : 'INFO',
+                        severity:
+                            highlights.activeOrdersCount > 0
+                                ? 'SUCCESS'
+                                : 'INFO',
                     }}
                 />
                 <MobileInsightCard
@@ -70,7 +88,10 @@ export default async function ProductionMobilePage() {
                         label: 'QC Pending',
                         value: highlights.qcPendingCount,
                         unit: 'item',
-                        severity: highlights.qcPendingCount > 0 ? 'WARNING' : 'SUCCESS',
+                        severity:
+                            highlights.qcPendingCount > 0
+                                ? 'WARNING'
+                                : 'SUCCESS',
                     }}
                 />
             </div>

@@ -582,6 +582,7 @@ describe("ProductionOrderService", () => {
     it("should allow PACKING+PACKER", async () => {
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.PACKER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique)
         .mockResolvedValueOnce(activeBom({ category: BomCategory.PACKING }))
@@ -642,6 +643,7 @@ describe("ProductionOrderService", () => {
     it("should allow STANDARD+EXTRUDER", async () => {
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.EXTRUDER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique)
         .mockResolvedValueOnce(activeBom({ category: BomCategory.STANDARD }))
@@ -1357,6 +1359,7 @@ describe("ProductionOrderService", () => {
     it("should throw on incompatible machine", async () => {
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.PACKER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(
         activeBom({ category: BomCategory.EXTRUSION }),
@@ -1370,6 +1373,7 @@ describe("ProductionOrderService", () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.EXTRUDER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique)
         .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
@@ -1396,6 +1400,7 @@ describe("ProductionOrderService", () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.EXTRUDER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique)
         .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
@@ -1420,6 +1425,7 @@ describe("ProductionOrderService", () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.EXTRUDER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique)
         .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
@@ -1436,6 +1442,7 @@ describe("ProductionOrderService", () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.EXTRUDER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique)
         .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
@@ -1457,6 +1464,7 @@ describe("ProductionOrderService", () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.EXTRUDER,
+        status: 'ACTIVE',
       } as any);
       vi.mocked(prisma.bom.findUnique)
         .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
@@ -1473,7 +1481,7 @@ describe("ProductionOrderService", () => {
       expect(r).toBeDefined();
     });
 
-    it("should skip machine validation when machine tidak ditemukan", async () => {
+    it("should reject when machine tidak ditemukan", async () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
@@ -1481,7 +1489,9 @@ describe("ProductionOrderService", () => {
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-q", status: ProductionStatus.DRAFT } as any,
       );
-      expect(await ProductionOrderService.quickCreateOrder(qd)).toBeDefined();
+      await expect(ProductionOrderService.quickCreateOrder(qd)).rejects.toThrow(
+        'Mesin produksi tidak ditemukan',
+      );
     });
   });
 

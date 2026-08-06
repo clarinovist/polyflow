@@ -1,5 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { getProductionSupervisorOverview } from '../mobile-supervisor';
+import {
+    getProductionSupervisorOverview,
+    getMobileSupervisorSpkList,
+    getMobileQuickSpkFormData,
+    getMobileTeamAttendance,
+} from '../mobile-supervisor';
 import { prisma } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
@@ -15,6 +20,7 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         productionOrder: {
             findMany: vi.fn(),
+            findFirst: vi.fn(),
         },
         productionExecution: {
             aggregate: vi.fn(),
@@ -24,6 +30,22 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         qualityInspection: {
             count: vi.fn(),
+        },
+        employee: {
+            findMany: vi.fn(),
+        },
+        attendanceRecord: {
+            findMany: vi.fn(),
+            count: vi.fn(),
+        },
+        workShift: {
+            findMany: vi.fn(),
+        },
+        bom: {
+            findMany: vi.fn(),
+        },
+        machine: {
+            findMany: vi.fn(),
         },
     },
 }));
@@ -273,6 +295,172 @@ describe('getProductionSupervisorOverview', () => {
             expect(result.data.highlights.activeOrdersCount).toBe(0);
             expect(result.data.highlights.outputToday).toBe(0);
             expect(result.data.highlights.targetToday).toBeNull();
+        }
+    });
+});
+
+describe('getMobileSupervisorSpkList', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'u1',
+            role: 'PRODUCTION',
+            isActive: true,
+        } as any);
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role: 'PRODUCTION' },
+        } as any);
+    });
+
+    it('returns actionable SPK list with progress', async () => {
+        vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([
+            {
+                id: 'po-1',
+                orderNumber: 'SPK-001',
+                status: 'IN_PROGRESS',
+                priority: 'URGENT',
+                plannedQuantity: 100,
+                actualQuantity: 50,
+                machineId: 'm-1',
+                createdAt: new Date(),
+                plannedStartDate: new Date(),
+                bom: { name: 'BOM A', productVariant: { name: 'Karung', skuCode: 'K001' } },
+                machine: { id: 'm-1', name: 'Extruder 1', code: 'EXT-1' },
+                location: { name: 'FG' },
+            } as any,
+        ]);
+
+        const res = await getMobileSupervisorSpkList({ status: 'IN_PROGRESS' });
+        expect(res.success).toBe(true);
+        if (res.success) {
+            expect(res.data.items.length).toBe(1);
+            expect(res.data.items[0].progressPercent).toBe(50);
+            expect(res.data.items[0].spkNumber).toBe('SPK-001');
+            expect(res.data.items[0].machineCode).toBe('EXT-1');
+        }
+    });
+
+    it('handles empty list', async () => {
+        vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([]);
+        const res = await getMobileSupervisorSpkList();
+        expect(res.success).toBe(true);
+        if (res.success) expect(res.data.items).toEqual([]);
+    });
+});
+
+describe('getMobileQuickSpkFormData', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'u1',
+            role: 'PRODUCTION',
+            isActive: true,
+        } as any);
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role: 'PRODUCTION' },
+        } as any);
+    });
+
+    it('returns filtered boms and machines', async () => {
+        vi.mocked(prisma.bom.findMany).mockResolvedValue([
+            {
+                id: 'bom-1',
+                name: 'BOM Karung',
+                category: 'EXTRUSION',
+                isDefault: true,
+                productVariantId: 'pv-1',
+                productVariant: {
+                    name: 'Karung 50kg',
+                    skuCode: 'KRG-50',
+                    product: { name: 'Karung' },
+                },
+            } as any,
+        ]);
+        vi.mocked(prisma.machine.findMany).mockResolvedValue([
+            { id: 'm-1', name: 'Extruder 1', code: 'EXT-1', type: 'EXTRUDER', status: 'ACTIVE' } as any,
+        ]);
+
+        const res = await getMobileQuickSpkFormData();
+        expect(res.success).toBe(true);
+        if (res.success) {
+            expect(res.data.boms.length).toBe(1);
+            expect(res.data.machines.length).toBe(1);
+            expect(res.data.boms[0].skuCode).toBe('KRG-50');
+        }
+    });
+});
+
+describe('getMobileTeamAttendance', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'u1',
+            role: 'PRODUCTION',
+            isActive: true,
+        } as any);
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role: 'PRODUCTION' },
+        } as any);
+    });
+
+    it('returns team attendance with late indicator', async () => {
+        vi.mocked(prisma.employee.findMany).mockResolvedValue([
+            { id: 'e-1', name: 'Budi', code: 'EMP-1', role: 'OPERATOR' } as any,
+            { id: 'e-2', name: 'Siti', code: 'EMP-2', role: 'HELPER' } as any,
+        ]);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([
+            {
+                id: 'att-1',
+                employeeId: 'e-1',
+                workDate: new Date(),
+                status: 'PRESENT',
+                clockInAt: new Date(),
+                clockOutAt: null,
+                actualHours: null,
+                source: 'KIOSK',
+                employee: { id: 'e-1', name: 'Budi', code: 'EMP-1', role: 'OPERATOR' },
+                workShift: { id: 's-1', name: 'Pagi', startTime: '07:00' },
+            } as any,
+        ]);
+        vi.mocked(prisma.workShift.findMany).mockResolvedValue([
+            { id: 's-1', name: 'Pagi' } as any,
+        ]);
+
+        const res = await getMobileTeamAttendance({ date: '2026-08-06', status: 'ALL' } as any);
+        expect(res.success).toBe(true);
+        if (res.success) {
+            expect(res.data.totalEmployees).toBeGreaterThanOrEqual(1);
+            expect(res.data.records.some((r) => r.employeeCode === 'EMP-1')).toBe(true);
+            const present = res.data.records.find((r) => r.employeeId === 'e-1');
+            expect(present?.status).toBe('PRESENT');
+        }
+    });
+
+    it('filters by search query and handles empty', async () => {
+        vi.mocked(prisma.employee.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.workShift.findMany).mockResolvedValue([]);
+
+        const res = await getMobileTeamAttendance({ date: '2026-08-06', q: 'zzz', status: 'ALL' } as any);
+        expect(res.success).toBe(true);
+        if (res.success) {
+            expect(res.data.records.length).toBe(0);
+            expect(res.data.totalEmployees).toBe(0);
+        }
+    });
+
+    it('marks NO_RECORD for employees without attendance', async () => {
+        vi.mocked(prisma.employee.findMany).mockResolvedValue([
+            { id: 'e-1', name: 'Budi', code: 'EMP-1', role: 'OPERATOR' } as any,
+        ]);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.workShift.findMany).mockResolvedValue([]);
+
+        const res = await getMobileTeamAttendance({ date: '2026-08-06' } as any);
+        expect(res.success).toBe(true);
+        if (res.success) {
+            expect(res.data.records[0].status).toBe('NO_RECORD');
+            expect(res.data.noRecordCount).toBe(1);
         }
     });
 });

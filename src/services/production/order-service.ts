@@ -769,7 +769,13 @@ export class ProductionOrderService {
             priority,
         } = data;
 
-        if (!bomId || plannedQuantity <= 0 || !machineId || !locationId) {
+        if (
+            !bomId ||
+            !Number.isFinite(plannedQuantity) ||
+            plannedQuantity <= 0 ||
+            !machineId ||
+            !locationId
+        ) {
             throw new ValidationError(
                 'BOM, jumlah, mesin, dan lokasi wajib diisi',
             );
@@ -779,13 +785,26 @@ export class ProductionOrderService {
         const [machine, bom] = await Promise.all([
             prisma.machine.findUnique({
                 where: { id: machineId },
-                select: { type: true },
+                select: { type: true, status: true },
             }),
             prisma.bom.findUnique({
                 where: { id: bomId },
                 select: { category: true },
             }),
         ]);
+
+        if (!machine) {
+            throw new NotFoundError('Mesin produksi tidak ditemukan');
+        }
+        if (machine.status !== 'ACTIVE') {
+            throw new ProductionRuleViolationError(
+                'Mesin yang dipilih tidak aktif dan tidak dapat digunakan',
+                { machineId, machineStatus: machine.status },
+            );
+        }
+        if (!bom) {
+            throw new NotFoundError('BOM produksi tidak ditemukan');
+        }
 
         if (machine && bom) {
             const isTypeMatch =

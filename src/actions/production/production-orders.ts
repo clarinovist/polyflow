@@ -9,7 +9,10 @@ import {
     BusinessRuleError,
     isNextControlFlowError,
 } from '@/lib/errors/errors';
-import { requirePlanningRole } from '@/lib/tools/auth-checks';
+import {
+    requirePlanningRole,
+    requireProductionLeaderRole,
+} from '@/lib/tools/auth-checks';
 import {
     createProductionOrderSchema,
     CreateProductionOrderValues,
@@ -106,10 +109,17 @@ export const quickCreateProductionOrder = withTenant(
         bomId: string;
         plannedQuantity: number;
         machineId: string;
+        /**
+         * Optional: client-generated idempotency key.
+         * If provided, duplicate create within 60s returns existing order.
+         */
+        clientRequestId?: string;
+        notes?: string;
+        priority?: 'URGENT' | 'NORMAL' | 'LOW';
     }) {
         return safeAction(async () => {
             try {
-                const session = await requirePlanningRole();
+                const session = await requireProductionLeaderRole();
 
                 const { bomId, plannedQuantity, machineId } = data;
 
@@ -163,17 +173,55 @@ export const quickCreateProductionOrder = withTenant(
                     );
                 }
 
+                // Idempotency guard: if same user created same BOM/machine/qty within 60s, return existing
+                const { clientRequestId, notes, priority } = data as {
+                    clientRequestId?: string;
+                    notes?: string;
+                    priority?: 'URGENT' | 'NORMAL' | 'LOW';
+                };
+                if (clientRequestId) {
+                    const since = new Date(Date.now() - 60_000);
+                    try {
+                        const recent = await prisma.productionOrder.findFirst({
+                            where: {
+                                createdById: session.user.id,
+                                bomId,
+                                machineId,
+                                plannedQuantity: plannedQuantity as unknown as never,
+                                createdAt: { gte: since },
+                                notes: { contains: clientRequestId },
+                            },
+                            orderBy: { createdAt: 'desc' },
+                        });
+                        if (recent) {
+                            return serializeData(recent);
+                        }
+                    } catch {
+                        // best-effort dedup — ignore errors
+                    }
+                }
+
+                const finalNotes = clientRequestId
+                    ? notes
+                        ? `${notes} [req:${clientRequestId}]`
+                        : `Quick SPK mobile [req:${clientRequestId}]`
+                    : notes || 'Quick SPK — supervisor mobile';
+
                 const order = await ProductionService.quickCreateOrder({
                     bomId,
                     plannedQuantity,
                     machineId,
                     locationId,
                     userId: session.user.id,
+                    notes: finalNotes,
+                    priority,
                 });
 
                 revalidatePath('/production');
                 revalidatePath('/production/daily');
-                revalidatePath('/production');
+                revalidatePath('/production/mobile');
+                revalidatePath('/production/mobile/tasks');
+                revalidatePath('/kiosk/jobs');
                 return serializeData(order);
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;

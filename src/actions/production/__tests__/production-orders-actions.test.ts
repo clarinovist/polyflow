@@ -11,7 +11,10 @@ import {
 } from '../production-orders';
 import { prisma } from '@/lib/core/prisma';
 import { ProductionService } from '@/services/production/production-service';
-import { requirePlanningRole } from '@/lib/tools/auth-checks';
+import {
+    requirePlanningRole,
+    requireProductionLeaderRole,
+} from '@/lib/tools/auth-checks';
 import { auth } from '@/auth';
 
 // ── Mocks ──────────────────────────────────────────────────────────────
@@ -25,6 +28,7 @@ vi.mock('@/lib/core/prisma', () => ({
         productionOrder: {
             findMany: vi.fn(),
             findUnique: vi.fn(),
+            findFirst: vi.fn(),
             groupBy: vi.fn(),
             count: vi.fn(),
         },
@@ -37,6 +41,7 @@ vi.mock('@/auth', () => ({ auth: vi.fn() }));
 
 vi.mock('@/lib/tools/auth-checks', () => ({
     requirePlanningRole: vi.fn(),
+    requireProductionLeaderRole: vi.fn(),
 }));
 
 vi.mock('@/services/production/production-service', () => ({
@@ -90,7 +95,9 @@ describe('production order actions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(requirePlanningRole).mockResolvedValue(SESSION as never);
+        vi.mocked(requireProductionLeaderRole).mockResolvedValue(SESSION as never);
         vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([] as never);
+        vi.mocked(prisma.productionOrder.findFirst).mockResolvedValue(null as never);
     });
 
     describe('getInitData', () => {
@@ -249,6 +256,57 @@ describe('production order actions', () => {
             expect(res.success).toBe(false);
             if (!res.success) expect(res.error).toMatch(/lokasi/i);
             expect(ProductionService.quickCreateOrder).not.toHaveBeenCalled();
+        });
+
+        it('returns existing order when duplicate detected via clientRequestId (idempotent)', async () => {
+            locations([
+                {
+                    id: 'loc-prod',
+                    name: 'Gudang Produksi',
+                    slug: 'gudang-produksi',
+                    locationPurpose: 'PRODUCTION_OUTPUT',
+                },
+            ]);
+            vi.mocked(prisma.productionOrder.findFirst).mockResolvedValue({
+                id: 'po-dup',
+                orderNumber: 'WO-DUP',
+            } as never);
+
+            const res = await quickCreateProductionOrder({
+                ...input,
+                clientRequestId: 'req_123',
+            } as any);
+
+            expect(res.success).toBe(true);
+            if (res.success) expect((res.data as any).id).toBe('po-dup');
+            expect(ProductionService.quickCreateOrder).not.toHaveBeenCalled();
+        });
+
+        it('creates with priority and notes and revalidates mobile/kiosk', async () => {
+            locations([
+                {
+                    id: 'loc-prod',
+                    name: 'Gudang Produksi',
+                    slug: 'gudang-produksi',
+                    locationPurpose: 'PRODUCTION_OUTPUT',
+                },
+            ]);
+            vi.mocked(prisma.productionOrder.findFirst).mockResolvedValue(null as never);
+            vi.mocked(ProductionService.quickCreateOrder).mockResolvedValue({
+                id: 'po-new',
+                orderNumber: 'WO-NEW',
+            } as never);
+
+            const res = await quickCreateProductionOrder({
+                ...input,
+                priority: 'URGENT',
+                notes: 'Mendadak dari HP',
+            } as any);
+
+            expect(res.success).toBe(true);
+            expect(ProductionService.quickCreateOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ priority: 'URGENT', notes: expect.stringContaining('Mendadak') }),
+            );
         });
     });
 
