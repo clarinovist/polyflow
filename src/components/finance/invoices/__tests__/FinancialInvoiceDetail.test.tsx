@@ -63,6 +63,14 @@ vi.mock('@/lib/utils/production-units', () => ({
     getEnteredUnitPriceDisplay: () => ({ price: 100000, unit: 'pcs' }),
 }));
 
+vi.mock('../EditSalesInvoiceDueDateDialog', () => ({
+    EditSalesInvoiceDueDateDialog: ({ invoice }: any) => (
+        <div data-testid="edit-due-dialog">
+            Edit Jatuh Tempo Dialog — {invoice.invoiceNumber}
+        </div>
+    ),
+}));
+
 import { FinancialInvoiceDetail } from '../FinancialInvoiceDetail';
 
 type InvoiceStatusType =
@@ -280,5 +288,95 @@ describe('FinancialInvoiceDetail — Catat Pembayaran button', () => {
         ).toBeDefined();
         // ESC/P link containing text
         expect(screen.getByText(/ESC\/P/i)).toBeDefined();
+    });
+});
+
+describe('FinancialInvoiceDetail — Edit Jatuh Tempo button', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockUpdateInvoiceStatus.mockResolvedValue({ success: true });
+        mockRecordCustomerPayment.mockResolvedValue({ success: true });
+    });
+
+    const editableStatuses: InvoiceStatusType[] = [
+        'DRAFT',
+        'UNPAID',
+        'PARTIAL',
+        'OVERDUE',
+    ];
+    const nonEditableStatuses: InvoiceStatusType[] = ['PAID', 'CANCELLED'];
+
+    it.each(editableStatuses)(
+        'shows Edit Jatuh Tempo for status %s',
+        (status) => {
+            render(
+                <FinancialInvoiceDetail
+                    invoice={makeInvoice({ status } as any)}
+                />,
+            );
+            expect(
+                screen.getByRole('button', { name: /Edit Jatuh Tempo/i }),
+            ).toBeDefined();
+        },
+    );
+
+    it.each(nonEditableStatuses)(
+        'does NOT show Edit Jatuh Tempo for status %s',
+        (status) => {
+            render(
+                <FinancialInvoiceDetail
+                    invoice={makeInvoice({ status } as any)}
+                />,
+            );
+            expect(
+                screen.queryByRole('button', { name: /Edit Jatuh Tempo/i }),
+            ).toBeNull();
+        },
+    );
+
+    it('clicking Edit Jatuh Tempo opens EditSalesInvoiceDueDateDialog', async () => {
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({ status: 'UNPAID' })}
+            />,
+        );
+
+        fireEvent.click(
+            screen.getByRole('button', { name: /Edit Jatuh Tempo/i }),
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('edit-due-dialog')).toBeDefined();
+        });
+
+        expect(
+            screen.getByText(/Edit Jatuh Tempo Dialog/),
+        ).toBeDefined();
+        expect(
+            screen.getByTestId('edit-due-dialog').textContent,
+        ).toContain('INV/2026/0001');
+    });
+
+    it('does NOT render dialog until button clicked', () => {
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({ status: 'UNPAID' })}
+            />,
+        );
+        expect(screen.queryByTestId('edit-due-dialog')).toBeNull();
+    });
+
+    it('shows Edit Jatuh Tempo for PARTIALLY_PAID? delegates to non-editable logic if not in allowed list - check DRAFT still works', () => {
+        // PARTIALLY_PAID is legacy naming; component guards PAID/CANCELLED only, so PARTIALLY_PAID should still show button
+        // If product uses PARTIAL enum, we already covered; this checks PARTIALLY_PAID fallback (guard only blocks PAID/CANCELLED)
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({ status: 'PARTIALLY_PAID' } as any)}
+            />,
+        );
+        // Component checks !== 'PAID' && !== 'CANCELLED', so PARTIALLY_PAID shows button
+        expect(
+            screen.getByRole('button', { name: /Edit Jatuh Tempo/i }),
+        ).toBeDefined();
     });
 });

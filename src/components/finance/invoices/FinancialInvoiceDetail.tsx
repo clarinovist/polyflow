@@ -17,6 +17,7 @@ import {
     Printer,
     CheckCircle,
     CreditCard,
+    CalendarClock,
 } from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
@@ -25,6 +26,7 @@ import { type CompanyConfig } from '@/lib/config/company';
 import { toast } from 'sonner';
 import { updateInvoiceStatus } from '@/actions/finance/invoice';
 import { recordCustomerPayment } from '@/actions/finance/finance';
+import { EditSalesInvoiceDueDateDialog } from './EditSalesInvoiceDueDateDialog';
 import {
     Dialog,
     DialogContent,
@@ -101,6 +103,7 @@ export function FinancialInvoiceDetail({
     const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>(
         '',
     );
+    const [isDueDateDialogOpen, setIsDueDateDialogOpen] = useState(false);
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
     const remainingAmount =
@@ -216,13 +219,22 @@ export function FinancialInvoiceDetail({
                 )}
                 {invoice.status !== 'PAID' &&
                     invoice.status !== 'CANCELLED' && (
-                        <button
-                            onClick={() => setIsPaymentDialogOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors"
-                        >
-                            <CreditCard className="h-4 w-4" />
-                            Catat Pembayaran
-                        </button>
+                        <>
+                            <button
+                                onClick={() => setIsPaymentDialogOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors"
+                            >
+                                <CreditCard className="h-4 w-4" />
+                                Catat Pembayaran
+                            </button>
+                            <button
+                                onClick={() => setIsDueDateDialogOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors border"
+                            >
+                                <CalendarClock className="h-4 w-4" />
+                                Edit Jatuh Tempo
+                            </button>
+                        </>
                     )}
                 <button
                     onClick={() => setShowPreview(true)}
@@ -579,6 +591,22 @@ export function FinancialInvoiceDetail({
                     companyConfig={companyConfig}
                 />
             </PrintPreviewModal>
+
+            {isDueDateDialogOpen && (
+                <EditSalesInvoiceDueDateDialog
+                    open={isDueDateDialogOpen}
+                    onOpenChange={setIsDueDateDialogOpen}
+                    invoice={{
+                        id: invoice.id,
+                        invoiceNumber: invoice.invoiceNumber,
+                        invoiceDate: invoice.invoiceDate,
+                        dueDate: invoice.dueDate,
+                        termOfPaymentDays:
+                            (invoice as { termOfPaymentDays?: number | null })
+                                .termOfPaymentDays ?? null,
+                    }}
+                />
+            )}
         </div>
     );
 }

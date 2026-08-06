@@ -49,7 +49,7 @@ import {
     rejectPriceAction,
 } from '@/actions/sales/price-list';
 import { createInvoice } from '@/actions/finance/invoice';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ProductionStatusCard } from './ProductionStatusCard';
@@ -58,6 +58,10 @@ import { ShipmentDialog } from './ShipmentDialog';
 import { CreateDeliveryOrderDialog } from './CreateDeliveryOrderDialog';
 import { AddToScheduleDialog } from './AddToScheduleDialog';
 import { isBillableDeliveryStatus } from '@/lib/sales/delivery-status';
+import {
+    PAYMENT_TERM_OPTIONS,
+    calculateDueDate,
+} from '@/lib/finance/payment-terms';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -117,6 +121,26 @@ export function SalesOrderDetailClient({
     const [isShipDialogOpen, setIsShipDialogOpen] = useState(false);
     const [isFollowUpDialogOpen, setIsFollowUpDialogOpen] = useState(false);
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+    const [invoiceDate, setInvoiceDate] = useState(() =>
+        new Date().toISOString().slice(0, 10),
+    );
+    const [termDays, setTermDays] = useState<number>(
+        () => order.customer?.paymentTermDays ?? 30,
+    );
+    const [customTermDays, setCustomTermDays] = useState<string>('');
+    const [useManualDue, setUseManualDue] = useState(false);
+    const [manualDueDate, setManualDueDate] = useState('');
+
+    const computedDueDate = useMemo(() => {
+        if (useManualDue && manualDueDate) return new Date(manualDueDate);
+        const inv = invoiceDate ? new Date(invoiceDate) : new Date();
+        const t =
+            termDays === -1
+                ? parseInt(customTermDays || '0', 10) || 0
+                : termDays;
+        return calculateDueDate(inv, t);
+    }, [invoiceDate, termDays, customTermDays, useManualDue, manualDueDate]);
     const [lostReasonValue, setLostReasonValue] = useState<string>('');
     const [lostReasonNotes, setLostReasonNotes] = useState<string>('');
     const [followUpDateInput, setFollowUpDateInput] = useState<string>(() => {
@@ -224,15 +248,39 @@ export function SalesOrderDetailClient({
 
         setIsLoading(true);
         try {
-            const result = await createInvoice({
+            const invDate = invoiceDate ? new Date(invoiceDate) : new Date();
+            const finalTerm =
+                termDays === -1
+                    ? parseInt(customTermDays || '0', 10) || 0
+                    : termDays;
+
+            const payload: {
+                salesOrderId: string;
+                invoiceDate: Date;
+                termOfPaymentDays: number;
+                notes: string;
+                dueDate?: Date;
+            } = {
                 salesOrderId: order.id,
-                invoiceDate: new Date(),
-                termOfPaymentDays: order.customer?.paymentTermDays ?? 30,
+                invoiceDate: invDate,
+                termOfPaymentDays: finalTerm,
                 notes: `Invoice for Order ${order.orderNumber}`,
-            });
+            };
+
+            if (useManualDue && manualDueDate) {
+                payload.dueDate = new Date(manualDueDate);
+            } else if (finalTerm !== (order.customer?.paymentTermDays ?? 30)) {
+                // Send computed dueDate so explicit user choice is preserved
+                payload.dueDate = computedDueDate;
+            }
+
+            const result = await createInvoice(payload);
 
             if (result.success) {
-                toast.success('Invoice berhasil dibuat');
+                toast.success(
+                    `Invoice berhasil dibuat. Jatuh tempo: ${format(computedDueDate, 'dd MMM yyyy')}`,
+                );
+                setInvoiceDialogOpen(false);
                 router.refresh();
             } else {
                 toast.error(
@@ -822,16 +870,237 @@ export function SalesOrderDetailClient({
                             )}
 
                             {!warehouseMode && order.invoices.length === 0 && (
-                                <Button
-                                    onClick={handleGenerateInvoice}
-                                    disabled={
-                                        isLoading || isLegacyInternalOrder
-                                    }
-                                    className="bg-sky-600 hover:bg-sky-700 text-white"
-                                >
-                                    <Receipt className="mr-2 h-4 w-4" /> Buat
-                                    Invoice
-                                </Button>
+                                <>
+                                    <Button
+                                        onClick={() => {
+                                            setTermDays(
+                                                order.customer
+                                                    ?.paymentTermDays ?? 30,
+                                            );
+                                            setInvoiceDate(
+                                                new Date()
+                                                    .toISOString()
+                                                    .slice(0, 10),
+                                            );
+                                            setUseManualDue(false);
+                                            setManualDueDate('');
+                                            setCustomTermDays('');
+                                            setInvoiceDialogOpen(true);
+                                        }}
+                                        disabled={
+                                            isLoading || isLegacyInternalOrder
+                                        }
+                                        className="bg-sky-600 hover:bg-sky-700 text-white"
+                                    >
+                                        <Receipt className="mr-2 h-4 w-4" /> Buat
+                                        Invoice
+                                    </Button>
+
+                                    <Dialog
+                                        open={invoiceDialogOpen}
+                                        onOpenChange={setInvoiceDialogOpen}
+                                    >
+                                        <DialogContent className="sm:max-w-[480px]">
+                                            <DialogHeader>
+                                                <DialogTitle>
+                                                    Buat Sales Invoice
+                                                </DialogTitle>
+                                                <DialogDescription>
+                                                    Tentukan tanggal invoice &
+                                                    tempo. Jatuh tempo = Invoice
+                                                    + Tempo (atau manual).
+                                                </DialogDescription>
+                                            </DialogHeader>
+
+                                            <div className="space-y-4 py-2">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1.5">
+                                                        <Label>
+                                                            Tanggal Invoice
+                                                        </Label>
+                                                        <Input
+                                                            type="date"
+                                                            value={invoiceDate}
+                                                            onChange={(e) =>
+                                                                setInvoiceDate(
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label>
+                                                            Tempo Default
+                                                            Customer
+                                                        </Label>
+                                                        <div className="text-sm font-medium py-2">
+                                                            {order.customer
+                                                                ?.paymentTermDays ??
+                                                                30}{' '}
+                                                            hari (dari master
+                                                            customer)
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label>
+                                                        Tempo Pembayaran
+                                                    </Label>
+                                                    <Select
+                                                        value={String(termDays)}
+                                                        onValueChange={(v) =>
+                                                            setTermDays(
+                                                                parseInt(v, 10),
+                                                            )
+                                                        }
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {PAYMENT_TERM_OPTIONS.map(
+                                                                (opt) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            opt.value
+                                                                        }
+                                                                        value={String(
+                                                                            opt.value,
+                                                                        )}
+                                                                    >
+                                                                        {
+                                                                            opt.label
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                            <SelectItem value="-1">
+                                                                Custom...
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                {termDays === -1 && (
+                                                    <div className="space-y-1.5">
+                                                        <Label>
+                                                            Custom Tempo (hari)
+                                                        </Label>
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={365}
+                                                            value={
+                                                                customTermDays
+                                                            }
+                                                            onChange={(e) =>
+                                                                setCustomTermDays(
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            placeholder="Misal 21"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <input
+                                                        id="manual-due-sales"
+                                                        type="checkbox"
+                                                        checked={useManualDue}
+                                                        onChange={(e) =>
+                                                            setUseManualDue(
+                                                                e.target.checked,
+                                                            )
+                                                        }
+                                                        className="h-4 w-4"
+                                                    />
+                                                    <Label
+                                                        htmlFor="manual-due-sales"
+                                                        className="cursor-pointer"
+                                                    >
+                                                        Input tanggal jatuh tempo
+                                                        manual
+                                                    </Label>
+                                                </div>
+
+                                                {useManualDue && (
+                                                    <div className="space-y-1.5">
+                                                        <Label>
+                                                            Tanggal Jatuh Tempo
+                                                            (manual)
+                                                        </Label>
+                                                        <Input
+                                                            type="date"
+                                                            value={
+                                                                manualDueDate
+                                                            }
+                                                            onChange={(e) =>
+                                                                setManualDueDate(
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <div className="rounded-md bg-muted p-3 text-sm">
+                                                    <div className="text-muted-foreground">
+                                                        Preview Jatuh Tempo:
+                                                    </div>
+                                                    <div className="font-bold text-base mt-1">
+                                                        {format(
+                                                            computedDueDate,
+                                                            'dd MMM yyyy',
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        Rumus: Invoice{' '}
+                                                        {invoiceDate
+                                                            ? format(
+                                                                  new Date(
+                                                                      invoiceDate,
+                                                                  ),
+                                                                  'dd MMM yyyy',
+                                                              )
+                                                            : '-'}{' '}
+                                                        +{' '}
+                                                        {useManualDue
+                                                            ? 'Manual'
+                                                            : `${termDays === -1 ? customTermDays || 0 : termDays} hari`}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <DialogFooter>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        setInvoiceDialogOpen(
+                                                            false,
+                                                        )
+                                                    }
+                                                >
+                                                    Batal
+                                                </Button>
+                                                <Button
+                                                    onClick={
+                                                        handleGenerateInvoice
+                                                    }
+                                                    disabled={isLoading}
+                                                >
+                                                    {isLoading
+                                                        ? 'Membuat...'
+                                                        : 'Buat Invoice'}
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                </>
                             )}
                             {!warehouseMode &&
                                 order.invoices.length > 0 &&

@@ -195,6 +195,37 @@ export const getOutstandingInvoicesByCustomerId = withTenant(
     },
 );
 
+export const updateSalesInvoiceDueDate = withTenant(
+    async function updateSalesInvoiceDueDate(
+        id: string,
+        data: {
+            dueDate?: Date | string;
+            termOfPaymentDays?: number;
+            invoiceDate?: Date | string;
+        },
+    ) {
+        return safeAction(async () => {
+            const session = await requireFinanceMutation();
+            const parsed = {
+                dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+                invoiceDate: data.invoiceDate
+                    ? new Date(data.invoiceDate)
+                    : undefined,
+                termOfPaymentDays: data.termOfPaymentDays,
+            };
+            const updated = await InvoiceService.updateSalesInvoiceDueDate(
+                id,
+                parsed,
+                session.user.id,
+            );
+            revalidatePath('/finance/invoices/sales');
+            revalidatePath(`/finance/invoices/sales/${id}`);
+            revalidatePath('/sales/orders');
+            return serializeData(updated);
+        });
+    },
+);
+
 export const getOutstandingInvoices = withTenant(
     async function getOutstandingInvoices() {
         return safeAction(async () => {

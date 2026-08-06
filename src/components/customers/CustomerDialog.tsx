@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -66,6 +66,57 @@ interface CustomerDialogProps {
     onOpenChange?: (open: boolean) => void;
 }
 
+function toEditValues(
+    data: SerializedCustomer,
+): UpdateCustomerValues {
+    return {
+        id: data.id,
+        name: data.name,
+        code: data.code || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        billingAddress: data.billingAddress || '',
+        shippingAddress: data.shippingAddress || '',
+        taxId: data.taxId || '',
+        creditLimit: data.creditLimit ? Number(data.creditLimit) : 0,
+        paymentTermDays: data.paymentTermDays || 0,
+        discountPercent: data.discountPercent ? Number(data.discountPercent) : 0,
+        notes: data.notes || '',
+        latitude: data.latitude ? Number(data.latitude) : null,
+        longitude: data.longitude ? Number(data.longitude) : null,
+        photoUrl: data.photoUrl || null,
+        province: data.province || '',
+        city: data.city || '',
+        district: data.district || '',
+        village: data.village || '',
+        defaultVehicleId: data.defaultVehicleId || null,
+    };
+}
+
+function emptyCreateValues(): CreateCustomerValues {
+    return {
+        name: '',
+        code: '',
+        phone: '',
+        email: '',
+        billingAddress: '',
+        shippingAddress: '',
+        taxId: '',
+        creditLimit: 0,
+        paymentTermDays: 0,
+        discountPercent: 0,
+        notes: '',
+        latitude: null,
+        longitude: null,
+        photoUrl: null,
+        province: '',
+        city: '',
+        district: '',
+        village: '',
+        defaultVehicleId: null,
+    };
+}
+
 export function CustomerDialog({
     mode,
     initialData,
@@ -81,6 +132,17 @@ export function CustomerDialog({
         { id: string; plateNumber: string; name: string }[]
     >([]);
     const router = useRouter();
+    const prevOpenRef = useRef(false);
+
+    const form = useForm<CreateCustomerValues | UpdateCustomerValues>({
+        resolver: zodResolver(
+            mode === 'create' ? createCustomerSchema : updateCustomerSchema,
+        ) as Resolver<CreateCustomerValues | UpdateCustomerValues>,
+        defaultValues:
+            mode === 'edit' && initialData
+                ? toEditValues(initialData)
+                : emptyCreateValues(),
+    });
 
     const reverseGeocode = async (lat: number, lng: number) => {
         try {
@@ -151,64 +213,17 @@ export function CustomerDialog({
         });
     }, [open]);
 
-    const form = useForm<CreateCustomerValues | UpdateCustomerValues>({
-        resolver: zodResolver(
-            mode === 'create' ? createCustomerSchema : updateCustomerSchema,
-        ) as Resolver<CreateCustomerValues | UpdateCustomerValues>,
-        defaultValues:
-            mode === 'edit' && initialData
-                ? {
-                      id: initialData.id,
-                      name: initialData.name,
-                      code: initialData.code || '',
-                      phone: initialData.phone || '',
-                      email: initialData.email || '',
-                      billingAddress: initialData.billingAddress || '',
-                      shippingAddress: initialData.shippingAddress || '',
-                      taxId: initialData.taxId || '',
-                      creditLimit: initialData.creditLimit
-                          ? Number(initialData.creditLimit)
-                          : 0,
-                      paymentTermDays: initialData.paymentTermDays || 0,
-                      discountPercent: initialData.discountPercent
-                          ? Number(initialData.discountPercent)
-                          : 0,
-                      notes: initialData.notes || '',
-                      latitude: initialData.latitude
-                          ? Number(initialData.latitude)
-                          : null,
-                      longitude: initialData.longitude
-                          ? Number(initialData.longitude)
-                          : null,
-                      photoUrl: initialData.photoUrl || null,
-                      province: initialData.province || '',
-                      city: initialData.city || '',
-                      district: initialData.district || '',
-                      village: initialData.village || '',
-                      defaultVehicleId: initialData.defaultVehicleId || null,
-                  }
-                : {
-                      name: '',
-                      code: '',
-                      phone: '',
-                      email: '',
-                      billingAddress: '',
-                      shippingAddress: '',
-                      taxId: '',
-                      creditLimit: 0,
-                      paymentTermDays: 0,
-                      discountPercent: 0,
-                      notes: '',
-                      latitude: null,
-                      longitude: null,
-                      photoUrl: null,
-                      province: '',
-                      city: '',
-                      district: '',
-                      village: '',
-                      defaultVehicleId: null,
-                  },
-    });
+    // Sync form to latest initialData only on transition false -> true (edit mode)
+    useEffect(() => {
+        if (!prevOpenRef.current && open) {
+            if (mode === 'edit' && initialData) {
+                form.reset(toEditValues(initialData));
+            } else if (mode === 'create') {
+                form.reset(emptyCreateValues());
+            }
+        }
+        prevOpenRef.current = open;
+    }, [open, mode, initialData, form]);
 
     async function onSubmit(data: CreateCustomerValues | UpdateCustomerValues) {
         const result =

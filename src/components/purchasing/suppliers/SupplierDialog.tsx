@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -46,15 +46,53 @@ interface SupplierDialogProps {
     mode: 'create' | 'edit';
     initialData?: Supplier;
     trigger?: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}
+
+function toEditValues(data: Supplier): UpdateSupplierValues {
+    return {
+        id: data.id,
+        name: data.name,
+        code: data.code || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        address: data.address || '',
+        taxId: data.taxId || '',
+        paymentTermDays: data.paymentTermDays ?? 30,
+        bankName: data.bankName || '',
+        bankAccount: data.bankAccount || '',
+        notes: data.notes || '',
+    };
+}
+
+function emptyCreateValues(): CreateSupplierValues {
+    return {
+        name: '',
+        code: '',
+        phone: '',
+        email: '',
+        address: '',
+        taxId: '',
+        paymentTermDays: 30,
+        bankName: '',
+        bankAccount: '',
+        notes: '',
+    };
 }
 
 export function SupplierDialog({
     mode,
     initialData,
     trigger,
+    open: externalOpen,
+    onOpenChange: externalOnOpenChange,
 }: SupplierDialogProps) {
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = externalOpen ?? internalOpen;
+    const setOpen = externalOnOpenChange ?? setInternalOpen;
     const router = useRouter();
+    const prevOpenRef = useRef(false);
 
     const form = useForm<CreateSupplierValues | UpdateSupplierValues>({
         resolver: zodResolver(
@@ -62,32 +100,20 @@ export function SupplierDialog({
         ) as Resolver<CreateSupplierValues | UpdateSupplierValues>,
         defaultValues:
             mode === 'edit' && initialData
-                ? {
-                      id: initialData.id,
-                      name: initialData.name,
-                      code: initialData.code || '',
-                      phone: initialData.phone || '',
-                      email: initialData.email || '',
-                      address: initialData.address || '',
-                      taxId: initialData.taxId || '',
-                      paymentTermDays: initialData.paymentTermDays ?? 30,
-                      bankName: initialData.bankName || '',
-                      bankAccount: initialData.bankAccount || '',
-                      notes: initialData.notes || '',
-                  }
-                : {
-                      name: '',
-                      code: '',
-                      phone: '',
-                      email: '',
-                      address: '',
-                      taxId: '',
-                      paymentTermDays: 30,
-                      bankName: '',
-                      bankAccount: '',
-                      notes: '',
-                  },
+                ? toEditValues(initialData)
+                : emptyCreateValues(),
     });
+
+    useEffect(() => {
+        if (!prevOpenRef.current && open) {
+            if (mode === 'edit' && initialData) {
+                form.reset(toEditValues(initialData));
+            } else if (mode === 'create') {
+                form.reset(emptyCreateValues());
+            }
+        }
+        prevOpenRef.current = open;
+    }, [open, mode, initialData, form]);
 
     async function onSubmit(data: CreateSupplierValues | UpdateSupplierValues) {
         const result =

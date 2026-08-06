@@ -37,6 +37,7 @@ vi.mock('@/services/finance/invoice-service', () => ({
     InvoiceService: {
         createInvoice: vi.fn(),
         updateStatus: vi.fn(),
+        updateSalesInvoiceDueDate: vi.fn(),
     },
 }));
 
@@ -122,5 +123,159 @@ describe('updateInvoiceStatus action — error forwarding (regression fix 2026-0
 
         // Assert
         expect(result.success).toBe(true);
+    });
+});
+
+describe('updateSalesInvoiceDueDate action', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireFinanceMutation).mockResolvedValue({
+            user: { id: AUTH_MOCK_ID },
+        } as any);
+    });
+
+    it('parses Date from string, calls InvoiceService.updateSalesInvoiceDueDate with correct params, and returns success', async () => {
+        const updatedInvoice = {
+            id: 'inv-1',
+            invoiceNumber: 'INV/2026/0001',
+            dueDate: new Date('2026-09-01'),
+            termOfPaymentDays: 30,
+        };
+        vi.mocked(InvoiceService.updateSalesInvoiceDueDate).mockResolvedValue(
+            updatedInvoice as any,
+        );
+
+        const { revalidatePath } = await import('next/cache');
+        const { updateSalesInvoiceDueDate } = await import('../invoice');
+
+        const result = await updateSalesInvoiceDueDate(
+            'inv-1',
+            {
+                dueDate: '2026-09-01',
+                termOfPaymentDays: 30,
+                invoiceDate: '2026-08-01',
+            },
+        );
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect((result.data as any).id).toBe('inv-1');
+        }
+
+        // Verify service called with Date objects (parsed from string)
+        expect(InvoiceService.updateSalesInvoiceDueDate).toHaveBeenCalledWith(
+            'inv-1',
+            {
+                dueDate: expect.any(Date),
+                termOfPaymentDays: 30,
+                invoiceDate: expect.any(Date),
+            },
+            AUTH_MOCK_ID,
+        );
+
+        const callArgs = vi.mocked(InvoiceService.updateSalesInvoiceDueDate)
+            .mock.calls[0]?.[1] as any;
+        expect(callArgs.dueDate.toISOString().slice(0, 10)).toBe('2026-09-01');
+        expect(callArgs.invoiceDate.toISOString().slice(0, 10)).toBe('2026-08-01');
+
+        // revalidatePath called 3 times
+        expect(revalidatePath).toHaveBeenCalledWith('/finance/invoices/sales');
+        expect(revalidatePath).toHaveBeenCalledWith(
+            '/finance/invoices/sales/inv-1',
+        );
+        expect(revalidatePath).toHaveBeenCalledWith('/sales/orders');
+    });
+
+    it('handles Date objects directly (not only strings)', async () => {
+        const updatedInvoice = { id: 'inv-2', dueDate: new Date('2026-09-15') };
+        vi.mocked(InvoiceService.updateSalesInvoiceDueDate).mockResolvedValue(
+            updatedInvoice as any,
+        );
+
+        const { updateSalesInvoiceDueDate } = await import('../invoice');
+
+        const result = await updateSalesInvoiceDueDate('inv-2', {
+            dueDate: new Date('2026-09-15'),
+            termOfPaymentDays: 14,
+        });
+
+        expect(result.success).toBe(true);
+        expect(InvoiceService.updateSalesInvoiceDueDate).toHaveBeenCalledWith(
+            'inv-2',
+            {
+                dueDate: expect.any(Date),
+                termOfPaymentDays: 14,
+                invoiceDate: undefined,
+            },
+            AUTH_MOCK_ID,
+        );
+    });
+
+    it('returns success:false with error message when service throws BusinessRuleError (PAID/CANCELLED guard)', async () => {
+        const guardError = new BusinessRuleError(
+            'Tidak dapat mengubah tanggal jatuh tempo invoice yang sudah LUNAS atau DIBATALKAN',
+        );
+        vi.mocked(InvoiceService.updateSalesInvoiceDueDate).mockRejectedValue(
+            guardError,
+        );
+
+        const { updateSalesInvoiceDueDate } = await import('../invoice');
+
+        const result = await updateSalesInvoiceDueDate('inv-paid', {
+            termOfPaymentDays: 30,
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error).toBe(
+                'Tidak dapat mengubah tanggal jatuh tempo invoice yang sudah LUNAS atau DIBATALKAN',
+            );
+        }
+    });
+
+    it('returns success:false when service throws generic error (safeAction generic message)', async () => {
+        vi.mocked(InvoiceService.updateSalesInvoiceDueDate).mockRejectedValue(
+            new Error('db down'),
+        );
+
+        const { updateSalesInvoiceDueDate } = await import('../invoice');
+
+        const result = await updateSalesInvoiceDueDate('inv-3', {
+            termOfPaymentDays: 7,
+        });
+
+        expect(result.success).toBe(false);
+        // safeAction maps unknown Error to generic message
+        if (!result.success) {
+            expect(result.error).toBeDefined();
+        }
+    });
+
+    it('supports partial payload (only termOfPaymentDays, no dueDate)', async () => {
+        const updatedInvoice = {
+            id: 'inv-4',
+            dueDate: new Date('2026-08-15'),
+            termOfPaymentDays: 60,
+        };
+        vi.mocked(InvoiceService.updateSalesInvoiceDueDate).mockResolvedValue(
+            updatedInvoice as any,
+        );
+
+        const { updateSalesInvoiceDueDate } = await import('../invoice');
+
+        const result = await updateSalesInvoiceDueDate('inv-4', {
+            termOfPaymentDays: 60,
+        });
+
+        expect(result.success).toBe(true);
+        expect(InvoiceService.updateSalesInvoiceDueDate).toHaveBeenCalledWith(
+            'inv-4',
+            {
+                dueDate: undefined,
+                termOfPaymentDays: 60,
+                invoiceDate: undefined,
+            },
+            AUTH_MOCK_ID,
+        );
     });
 });

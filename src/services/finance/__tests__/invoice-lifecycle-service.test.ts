@@ -7,6 +7,7 @@ import {
   updateInvoiceStatus,
   createDraftInvoiceFromOrder,
   calculateSalesInvoiceTotalFromDelivered,
+  updateSalesInvoiceDueDate,
 } from "../invoice-lifecycle-service";
 import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
@@ -925,6 +926,133 @@ describe("invoice-lifecycle-service", () => {
       const expectedDueDate = new Date(2026, 5, 24 + 30);
       expect(createCall.data.dueDate).toEqual(expectedDueDate);
     });
+  });
+});
+
+describe("updateSalesInvoiceDueDate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const baseExisting = {
+    id: "inv-1",
+    status: InvoiceStatus.UNPAID,
+    invoiceDate: new Date(2026, 5, 24),
+    termOfPaymentDays: 30,
+    invoiceNumber: "INV-001",
+  };
+
+  it("should update due date with explicit term", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(baseExisting as any);
+    vi.mocked(prisma.invoice.update).mockResolvedValue({
+      ...baseExisting,
+      termOfPaymentDays: 14,
+    } as any);
+
+    const result = await updateSalesInvoiceDueDate(
+      "inv-1",
+      { termOfPaymentDays: 14 },
+      "user-1",
+    );
+
+    expect(result).toBeDefined();
+    expect(prisma.invoice.update).toHaveBeenCalled();
+  });
+
+  it("should use explicit dueDate when provided", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(baseExisting as any);
+    vi.mocked(prisma.invoice.update).mockResolvedValue(baseExisting as any);
+
+    const explicit = new Date(2026, 6, 20);
+    await updateSalesInvoiceDueDate(
+      "inv-1",
+      { dueDate: explicit },
+      "user-1",
+    );
+
+    const updateCall = vi.mocked(prisma.invoice.update).mock.calls[0][0];
+    expect(updateCall.data.dueDate).toEqual(explicit);
+  });
+
+  it("should calculate dueDate from invoiceDate + term when no explicit dueDate", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(baseExisting as any);
+    vi.mocked(prisma.invoice.update).mockResolvedValue(baseExisting as any);
+
+    await updateSalesInvoiceDueDate(
+      "inv-1",
+      { invoiceDate: new Date(2026, 5, 1), termOfPaymentDays: 30 },
+      "user-1",
+    );
+
+    const call = vi.mocked(prisma.invoice.update).mock.calls[0][0];
+    expect(call.data.dueDate).toBeDefined();
+  });
+
+  it("should guard PAID invoices", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      ...baseExisting,
+      status: InvoiceStatus.PAID,
+    } as any);
+
+    await expect(
+      updateSalesInvoiceDueDate("inv-1", { termOfPaymentDays: 10 }, "user-1"),
+    ).rejects.toThrow();
+  });
+
+  it("should guard CANCELLED invoices", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      ...baseExisting,
+      status: InvoiceStatus.CANCELLED,
+    } as any);
+
+    await expect(
+      updateSalesInvoiceDueDate("inv-1", { termOfPaymentDays: 10 }, "user-1"),
+    ).rejects.toThrow();
+  });
+
+  it("should throw NotFound when invoice missing", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null);
+
+    await expect(
+      updateSalesInvoiceDueDate("inv-missing", { termOfPaymentDays: 10 }, "user-1"),
+    ).rejects.toThrow();
+  });
+
+  it("should log activity on success", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(baseExisting as any);
+    vi.mocked(prisma.invoice.update).mockResolvedValue(baseExisting as any);
+
+    await updateSalesInvoiceDueDate(
+      "inv-1",
+      { termOfPaymentDays: 45 },
+      "user-1",
+    );
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "UPDATE_SALES_INVOICE_DUE_DATE",
+        entityType: "Invoice",
+        entityId: "inv-1",
+      }),
+    );
+  });
+
+  it("should allow DRAFT invoices (auto-draft from delivery)", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      ...baseExisting,
+      status: InvoiceStatus.DRAFT,
+    } as any);
+    vi.mocked(prisma.invoice.update).mockResolvedValue({
+      ...baseExisting,
+      status: InvoiceStatus.DRAFT,
+    } as any);
+
+    const result = await updateSalesInvoiceDueDate(
+      "inv-1",
+      { termOfPaymentDays: 14 },
+      "user-1",
+    );
+    expect(result).toBeDefined();
   });
 });
 

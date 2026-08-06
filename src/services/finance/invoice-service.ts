@@ -8,6 +8,7 @@ import {
     createInvoice,
     generateInvoiceNumber,
     updateInvoiceStatus,
+    updateSalesInvoiceDueDate,
 } from './invoice-lifecycle-service';
 import { checkOverdueSalesInvoices } from './invoice-overdue-service';
 
@@ -22,6 +23,14 @@ export class InvoiceService {
 
     static async updateStatus(data: UpdateInvoiceStatusValues, userId: string) {
         return updateInvoiceStatus(data, userId);
+    }
+
+    static async updateSalesInvoiceDueDate(
+        id: string,
+        data: { dueDate?: Date; termOfPaymentDays?: number; invoiceDate?: Date },
+        userId: string,
+    ) {
+        return updateSalesInvoiceDueDate(id, data, userId);
     }
 
     static async createDraftInvoiceFromOrder(
@@ -42,4 +51,5 @@ export {
     createInvoice,
     generateInvoiceNumber,
     updateInvoiceStatus,
+    updateSalesInvoiceDueDate,
 };

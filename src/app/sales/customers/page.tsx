@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
     getCustomersWithCreditSummaryAction,
+    getCustomerById,
     deleteCustomer,
 } from '@/actions/sales/customer';
 import { CustomerDialog } from '@/components/customers/CustomerDialog';
@@ -18,21 +19,58 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Users, Phone, Search, X } from 'lucide-react';
+import { Users, Phone, Search, X, Loader2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { salesLabels } from '@/lib/labels';
 import { formatRupiah } from '@/lib/utils/utils';
 import { cn } from '@/lib/utils/utils';
 import type { CustomerCreditSummary } from '@/services/sales/credit-service';
-import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import type { Customer, Prisma } from '@prisma/client';
 
 type FilterType = 'all' | 'active' | 'inactive' | 'has_limit' | 'over_limit';
+
+type FullCustomerForEdit = Omit<
+    Customer,
+    | 'creditLimit'
+    | 'discountPercent'
+    | 'maxDiscountPercent'
+    | 'latitude'
+    | 'longitude'
+> & {
+    creditLimit: Prisma.Decimal | number | null;
+    discountPercent: Prisma.Decimal | number | null;
+    maxDiscountPercent: Prisma.Decimal | number | null;
+    latitude: Prisma.Decimal | number | null;
+    longitude: Prisma.Decimal | number | null;
+};
+
+function toNum(
+    v: Prisma.Decimal | number | null | undefined,
+): number | null {
+    if (v == null) return null;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'object' && 'toNumber' in v) {
+        try {
+            return (v as { toNumber(): number }).toNumber();
+        } catch {
+            return Number(String(v));
+        }
+    }
+    return Number(v as unknown as string);
+}
 
 export default function CustomersPage() {
     const [customers, setCustomers] = useState<CustomerCreditSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<FilterType>('all');
+
+    // Lazy-fetch edit state
+    const [editingCustomer, setEditingCustomer] =
+        useState<FullCustomerForEdit | null>(null);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [fetchingId, setFetchingId] = useState<string | null>(null);
 
     useEffect(() => {
         getCustomersWithCreditSummaryAction()
@@ -49,6 +87,24 @@ export default function CustomersPage() {
                 setLoading(false);
             });
     }, []);
+
+    const handleEditClick = async (customerId: string) => {
+        setFetchingId(customerId);
+        try {
+            const res = await getCustomerById(customerId);
+            if (res.success && res.data) {
+                const raw = res.data as FullCustomerForEdit;
+                setEditingCustomer(raw);
+                setEditDialogOpen(true);
+            } else {
+                toast.error('Gagal mengambil data customer lengkap.');
+            }
+        } catch {
+            toast.error('Gagal mengambil data customer.');
+        } finally {
+            setFetchingId(null);
+        }
+    };
 
     const filtered = useMemo(() => {
         let list = customers;
@@ -296,51 +352,27 @@ export default function CustomersPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <CustomerDialog
-                                                    mode="edit"
-                                                    initialData={{
-                                                        id: customer.id,
-                                                        code:
-                                                            customer.code || '',
-                                                        name: customer.name,
-                                                        phone:
-                                                            customer.phone ||
-                                                            '',
-                                                        email: '',
-                                                        billingAddress: '',
-                                                        shippingAddress: '',
-                                                        taxId: '',
-                                                        creditLimit:
-                                                            customer.creditLimit,
-                                                        paymentTermDays:
-                                                            customer.paymentTermDays ||
-                                                            0,
-                                                        discountPercent: null,
-                                                        maxDiscountPercent:
-                                                            null,
-                                                        notes: '',
-                                                        latitude: null,
-                                                        longitude: null,
-                                                        photoUrl: null,
-                                                        province: '',
-                                                        city:
-                                                            customer.city || '',
-                                                        district: '',
-                                                        village: '',
-                                                        defaultVehicleId: null,
-                                                        isActive:
-                                                            customer.isActive,
-                                                        lifecycleStatus:
-                                                            'ACTIVE' as const,
-                                                        createdById: null,
-                                                        verifiedAt: null,
-                                                        verifiedById: null,
-                                                        mergedIntoId: null,
-                                                        source: null,
-                                                        createdAt: new Date(),
-                                                        updatedAt: new Date(),
-                                                    }}
-                                                />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    disabled={
+                                                        fetchingId ===
+                                                        customer.id
+                                                    }
+                                                    onClick={() =>
+                                                        handleEditClick(
+                                                            customer.id,
+                                                        )
+                                                    }
+                                                    title="Edit customer"
+                                                >
+                                                    {fetchingId ===
+                                                    customer.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Pencil className="h-4 w-4" />
+                                                    )}
+                                                </Button>
                                                 <DeleteButton
                                                     id={customer.id}
                                                     onDelete={deleteCustomer}
@@ -450,6 +482,38 @@ export default function CustomersPage() {
                     ))
                 )}
             </div>
+
+            {editingCustomer && (
+                <CustomerDialog
+                    mode="edit"
+                    trigger={
+                        <span className="hidden" aria-hidden="true" />
+                    }
+                    initialData={{
+                        ...editingCustomer,
+                        creditLimit: toNum(editingCustomer.creditLimit),
+                        discountPercent: toNum(editingCustomer.discountPercent),
+                        maxDiscountPercent: toNum(
+                            editingCustomer.maxDiscountPercent,
+                        ),
+                        latitude: toNum(editingCustomer.latitude),
+                        longitude: toNum(editingCustomer.longitude),
+                        createdAt: new Date(
+                            editingCustomer.createdAt as string | Date,
+                        ),
+                        updatedAt: new Date(
+                            editingCustomer.updatedAt as string | Date,
+                        ),
+                    } as unknown as Parameters<
+                        typeof CustomerDialog
+                    >[0]['initialData']}
+                    open={editDialogOpen}
+                    onOpenChange={(v) => {
+                        setEditDialogOpen(v);
+                        if (!v) setEditingCustomer(null);
+                    }}
+                />
+            )}
         </div>
     );
 }
