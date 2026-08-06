@@ -174,7 +174,15 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             },
         });
         expect(mockPrisma.purchaseInvoice.aggregate).toHaveBeenCalledWith({
-            where: { status: 'OVERDUE' as PurchaseInvoiceStatus },
+            where: {
+                OR: [
+                    { status: 'OVERDUE' as PurchaseInvoiceStatus },
+                    {
+                        status: { in: ['UNPAID', 'PARTIAL'] as PurchaseInvoiceStatus[] },
+                        dueDate: { lt: expect.any(Date) },
+                    },
+                ],
+            },
             _sum: { totalAmount: true, paidAmount: true }
         });
         // lowStock uses minStockAlert per variant aggregated across RAW_MATERIAL+FINISHING warehouses

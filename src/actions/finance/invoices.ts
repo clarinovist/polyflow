@@ -118,10 +118,19 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats() {
             (Number(unpaid._sum.totalAmount) || 0) -
             (Number(unpaid._sum.paidAmount) || 0);
 
-        // 2. Overdue Count
+        // 2. Overdue Count (status OVERDUE, or UNPAID/PARTIAL past dueDate —
+        // the status rarely gets flipped to OVERDUE by any running job)
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
         const overdueCount = await prisma.invoice.count({
             where: {
-                status: 'OVERDUE',
+                OR: [
+                    { status: 'OVERDUE' },
+                    {
+                        status: { in: ['UNPAID', 'PARTIAL'] },
+                        dueDate: { lt: startOfToday },
+                    },
+                ],
             },
         });
 

@@ -116,6 +116,8 @@ export function InvoiceTable({
                     return false;
                 }
                 // fall through to search filter
+            } else if (statusFilter === 'OVERDUE') {
+                if (!isInvoiceOverdue(inv.dueDate, inv.status)) return false;
             } else if (statusFilter !== 'ALL' && inv.status !== statusFilter) {
                 return false;
             }

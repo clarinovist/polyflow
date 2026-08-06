@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 
 import { hasAnyRole } from '@/lib/auth/roles';
+import { isInvoiceOverdue } from '@/lib/finance/payment-terms';
 
 type FilterStatus =
     | 'all'
@@ -81,6 +82,14 @@ export function SalesInvoicesShell({
             return initialInvoices.filter((inv) =>
                 PENDING_STATUSES.includes(
                     (inv as { status?: string }).status ?? '',
+                ),
+            );
+        }
+        if (filter === 'OVERDUE') {
+            return initialInvoices.filter((inv) =>
+                isInvoiceOverdue(
+                    (inv as { dueDate?: string | Date | null }).dueDate,
+                    (inv as { status?: string }).status,
                 ),
             );
         }

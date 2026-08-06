@@ -6,7 +6,7 @@ import {
     PurchaseOrderStatus,
     SalesOrderStatus,
 } from '@prisma/client';
-import { endOfMonth, startOfMonth } from 'date-fns';
+import { endOfMonth, startOfDay, startOfMonth } from 'date-fns';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 export interface ExecutiveStats {
@@ -64,6 +64,7 @@ function decimalToNumber(value: unknown): number {
 export class ExecutiveStatsService {
     static async getExecutiveStats(): Promise<ExecutiveStats> {
         const now = new Date();
+        const startOfToday = startOfDay(now);
         const startOfCurrentMonth = startOfMonth(now);
         const endOfCurrentMonth = endOfMonth(now);
 
@@ -300,14 +301,38 @@ export class ExecutiveStatsService {
                 _sum: { price: true },
                 _count: { id: true },
             }),
-            // 17. Overdue Receivables
+            // 17. Overdue Receivables (status OVERDUE, or UNPAID/PARTIAL past dueDate —
+            // the status rarely gets flipped to OVERDUE by any running job)
             prisma.invoice.aggregate({
-                where: { status: 'OVERDUE' as InvoiceStatus },
+                where: {
+                    OR: [
+                        { status: 'OVERDUE' as InvoiceStatus },
+                        {
+                            status: {
+                                in: ['UNPAID', 'PARTIAL'] as InvoiceStatus[],
+                            },
+                            dueDate: { lt: startOfToday },
+                        },
+                    ],
+                },
                 _sum: { totalAmount: true, paidAmount: true },
             }),
-            // 18. Overdue Payables
+            // 18. Overdue Payables (same dynamic definition as Overdue Receivables)
             prisma.purchaseInvoice.aggregate({
-                where: { status: 'OVERDUE' as PurchaseInvoiceStatus },
+                where: {
+                    OR: [
+                        { status: 'OVERDUE' as PurchaseInvoiceStatus },
+                        {
+                            status: {
+                                in: [
+                                    'UNPAID',
+                                    'PARTIAL',
+                                ] as PurchaseInvoiceStatus[],
+                            },
+                            dueDate: { lt: startOfToday },
+                        },
+                    ],
+                },
                 _sum: { totalAmount: true, paidAmount: true },
             }),
             // 19. Invoices Due This Week
