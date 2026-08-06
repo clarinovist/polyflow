@@ -23,7 +23,13 @@ import {
 
 import { hasAnyRole } from '@/lib/auth/roles';
 
-type FilterStatus = 'all' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' | 'PAID';
+type FilterStatus =
+    | 'all'
+    | 'UNPAID'
+    | 'PARTIAL'
+    | 'OVERDUE'
+    | 'PAID'
+    | 'PENDING';
 
 type Stats = {
     totalOutstanding: number;
@@ -33,6 +39,9 @@ type Stats = {
     unpaidCount: number;
 } | null;
 
+/** 'PENDING' = belum lunas (UNPAID + PARTIAL + OVERDUE), dipakai deep-link dari dashboard */
+const PENDING_STATUSES = ['UNPAID', 'PARTIAL', 'OVERDUE'];
+
 function parseStatusFilter(raw?: string | null): FilterStatus {
     if (!raw) return 'all';
     const upper = raw.toUpperCase();
@@ -40,7 +49,8 @@ function parseStatusFilter(raw?: string | null): FilterStatus {
         upper === 'UNPAID' ||
         upper === 'PARTIAL' ||
         upper === 'OVERDUE' ||
-        upper === 'PAID'
+        upper === 'PAID' ||
+        upper === 'PENDING'
     ) {
         return upper;
     }
@@ -67,6 +77,13 @@ export function SalesInvoicesShell({
 
     const filteredInvoices = useMemo(() => {
         if (filter === 'all') return initialInvoices;
+        if (filter === 'PENDING') {
+            return initialInvoices.filter((inv) =>
+                PENDING_STATUSES.includes(
+                    (inv as { status?: string }).status ?? '',
+                ),
+            );
+        }
         return initialInvoices.filter(
             (inv) => (inv as { status?: string }).status === filter,
         );

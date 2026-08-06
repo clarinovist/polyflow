@@ -7,6 +7,7 @@ import {
     SalesOrderStatus,
 } from '@prisma/client';
 import { endOfMonth, startOfMonth } from 'date-fns';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 export interface ExecutiveStats {
     sales: {
@@ -182,9 +183,17 @@ export class ExecutiveStatsService {
                 },
                 select: { status: true },
             }),
-            // 5. Pending Sales Invoices
+            // 5. Pending Sales Invoices (belum lunas = UNPAID + PARTIAL + OVERDUE)
             prisma.invoice.count({
-                where: { status: InvoiceStatus.UNPAID },
+                where: {
+                    status: {
+                        in: [
+                            InvoiceStatus.UNPAID,
+                            InvoiceStatus.PARTIAL,
+                            InvoiceStatus.OVERDUE,
+                        ],
+                    },
+                },
             }),
             // 6. Pending POs
             prisma.purchaseOrder.count({
@@ -384,9 +393,43 @@ export class ExecutiveStatsService {
             );
             return s + Number(i.quantity) * unitCost;
         }, 0);
-        const lowStockCount = await prisma.inventory.count({
-            where: { quantity: { lt: 10 } },
-        });
+
+        // Low stock: mirrors InventoryQueryService.getDashboardStats() —
+        // minStockAlert per variant, aggregated across locations scoped to RAW_MATERIAL + FINISHING
+        const allowedLocationSlugs = new Set<string>([
+            WAREHOUSE_SLUGS.RAW_MATERIAL,
+            WAREHOUSE_SLUGS.FINISHING,
+        ]);
+        const [lowStockVariants, inventoryForAlert] = await Promise.all([
+            prisma.productVariant.findMany({
+                where: { minStockAlert: { not: null } },
+                select: { id: true, minStockAlert: true },
+            }),
+            prisma.inventory.findMany({
+                select: {
+                    quantity: true,
+                    productVariantId: true,
+                    location: { select: { slug: true } },
+                },
+            }),
+        ]);
+        const variantQuantitiesForAlerts = inventoryForAlert.reduce(
+            (acc, item) => {
+                const slug = item.location?.slug;
+                if (slug && allowedLocationSlugs.has(slug)) {
+                    acc[item.productVariantId] =
+                        (acc[item.productVariantId] || 0) +
+                        Number(item.quantity);
+                }
+                return acc;
+            },
+            {} as Record<string, number>,
+        );
+        const lowStockCount = lowStockVariants.filter((variant) => {
+            const totalForAlert = variantQuantitiesForAlerts[variant.id] || 0;
+            const threshold = Number(variant.minStockAlert) || 0;
+            return totalForAlert < threshold;
+        }).length;
 
         const overdueReceivables =
             decimalToNumber(overdueReceivablesAgg._sum.totalAmount) -

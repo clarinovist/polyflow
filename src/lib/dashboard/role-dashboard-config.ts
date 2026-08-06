@@ -354,7 +354,7 @@ export function buildAttentionItems(
             id: 'overdue-ar',
             label: 'Piutang overdue',
             count: stats.cashflow.overdueReceivables > 0 ? 1 : 0,
-            href: '/finance/invoices/sales',
+            href: '/finance/invoices/sales?status=OVERDUE',
             severity: 'critical',
             resourceHint: '/finance',
             // Use amount as signal; count 1 if amount > 0. Better: use pending if we only have amount.
@@ -363,7 +363,7 @@ export function buildAttentionItems(
             id: 'overdue-ap',
             label: 'Hutang overdue',
             count: stats.cashflow.overduePayables > 0 ? 1 : 0,
-            href: '/finance/invoices/purchase',
+            href: '/finance/invoices/purchase?status=OVERDUE',
             severity: 'critical',
             resourceHint: '/finance',
         },
@@ -371,6 +371,7 @@ export function buildAttentionItems(
             id: 'due-week',
             label: 'Invoice jatuh tempo minggu ini',
             count: stats.cashflow.invoicesDueThisWeek,
+            // No meaningful filter in InvoiceTable for due-this-week range; leave plain link (known limitation - Gap 3)
             href: '/finance/invoices/sales',
             severity: 'warning',
             resourceHint: '/finance',
@@ -379,7 +380,7 @@ export function buildAttentionItems(
             id: 'pending-invoices',
             label: 'Invoice penjualan belum lunas',
             count: stats.sales.pendingInvoices,
-            href: '/sales/invoices',
+            href: '/sales/invoices?status=PENDING',
             severity: 'warning',
             resourceHint: '/sales',
         },
@@ -387,7 +388,7 @@ export function buildAttentionItems(
             id: 'pending-po',
             label: 'PO tertunda (draft/sent)',
             count: stats.purchasing.pendingPOs,
-            href: '/purchasing/orders',
+            href: '/purchasing/orders?status=DRAFT',
             severity: 'warning',
             resourceHint: '/purchasing',
         },
@@ -411,7 +412,7 @@ export function buildAttentionItems(
             id: 'low-stock',
             label: 'Item stok rendah',
             count: stats.inventory.lowStockCount,
-            href: '/warehouse/inventory',
+            href: '/warehouse/inventory?lowStock=true',
             severity: 'warning',
             resourceHint: '/warehouse',
         },
@@ -786,7 +787,9 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
     return catalog[r] ?? catalog.ADMIN;
 }
 
-export function buildModuleShortcuts(activeModules?: string[]): ModuleShortcut[] {
+export function buildModuleShortcuts(
+    activeModules?: string[],
+): ModuleShortcut[] {
     const all: ModuleShortcut[] = [
         {
             href: '/sales',

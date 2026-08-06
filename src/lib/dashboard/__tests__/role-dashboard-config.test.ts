@@ -81,6 +81,23 @@ describe('role-dashboard-config', () => {
     )).toBe(true);
   });
 
+  it('adds deep-link query params to attention items', () => {
+    const statsWithAll = {
+      ...baseStats,
+      cashflow: { overdueReceivables: 10_000, overduePayables: 5_000, invoicesDueThisWeek: 3 },
+    };
+    const admin = buildAttentionItems('ADMIN', statsWithAll as ExecutiveStats);
+    const find = (id: string) => admin.find((i) => i.id === id)?.href;
+
+    expect(find('overdue-ar')).toBe('/finance/invoices/sales?status=OVERDUE');
+    expect(find('overdue-ap')).toBe('/finance/invoices/purchase?status=OVERDUE');
+    expect(find('pending-invoices')).toBe('/sales/invoices?status=PENDING');
+    expect(find('pending-po')).toBe('/purchasing/orders?status=DRAFT');
+    expect(find('low-stock')).toBe('/warehouse/inventory?lowStock=true');
+    // due-week has no meaningful due-date filter in InvoiceTable - keep plain link (Gap 3)
+    expect(find('due-week')).toBe('/finance/invoices/sales');
+  });
+
   it('returns role-specific quick actions', () => {
     expect(buildQuickActions('FINANCE').some((a) => a.href.includes('/finance'))).toBe(true);
     expect(buildQuickActions('SALES').some((a) => a.href.includes('/sales'))).toBe(true);
