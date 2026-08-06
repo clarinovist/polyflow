@@ -221,7 +221,7 @@ export class ProductionOrderService {
      * Create a new Production Order
      */
     static async createOrder(
-        data: CreateProductionOrderValues & { userId?: string },
+        data: CreateProductionOrderValues & { userId?: string; clientRequestId?: string },
         tx?: Prisma.TransactionClient,
     ) {
         const {
@@ -243,6 +243,7 @@ export class ProductionOrderService {
             plannedEnteredUnit,
             plannedConversionFactorSnapshot,
             materialSourceLocationId,
+            clientRequestId,
         } = data;
 
         const execute = async (transaction: Prisma.TransactionClient) => {
@@ -493,6 +494,7 @@ export class ProductionOrderService {
                     ? { connect: { id: maklonCustomerId } }
                     : undefined,
                 estimatedConversionCost: estimatedConversionCost,
+                clientRequestId: clientRequestId,
             } satisfies Omit<Prisma.ProductionOrderCreateInput, 'orderNumber'>;
 
             const newOrder = orderNumber
@@ -758,6 +760,7 @@ export class ProductionOrderService {
         userId?: string;
         notes?: string;
         priority?: 'URGENT' | 'NORMAL' | 'LOW';
+        clientRequestId?: string;
     }) {
         const {
             bomId,
@@ -767,6 +770,7 @@ export class ProductionOrderService {
             userId,
             notes,
             priority,
+            clientRequestId,
         } = data;
 
         if (
@@ -841,6 +845,7 @@ export class ProductionOrderService {
             priority: priority || 'NORMAL',
             isMaklon: false,
             estimatedConversionCost: 0,
+            clientRequestId,
         });
 
         // Auto-release: if order was created as DRAFT, set to RELEASED

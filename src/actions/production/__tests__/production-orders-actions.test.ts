@@ -16,6 +16,7 @@ import {
     requireProductionLeaderRole,
 } from '@/lib/tools/auth-checks';
 import { auth } from '@/auth';
+import { Prisma } from '@prisma/client';
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
@@ -258,7 +259,7 @@ describe('production order actions', () => {
             expect(ProductionService.quickCreateOrder).not.toHaveBeenCalled();
         });
 
-        it('returns existing order when duplicate detected via clientRequestId (idempotent)', async () => {
+        it('returns existing order when P2002 on clientRequestId is caught (atomic idempotent)', async () => {
             locations([
                 {
                     id: 'loc-prod',
@@ -267,9 +268,18 @@ describe('production order actions', () => {
                     locationPurpose: 'PRODUCTION_OUTPUT',
                 },
             ]);
+
+            const p2002Error = new Prisma.PrismaClientKnownRequestError(
+                'Unique constraint failed',
+                { code: 'P2002', clientVersion: '5.22.0', meta: { target: ['clientRequestId'] } },
+            );
+
+            vi.mocked(ProductionService.quickCreateOrder).mockRejectedValue(
+                p2002Error as never,
+            );
             vi.mocked(prisma.productionOrder.findFirst).mockResolvedValue({
-                id: 'po-dup',
-                orderNumber: 'WO-DUP',
+                id: 'po-exists',
+                orderNumber: 'WO-EXISTS',
             } as never);
 
             const res = await quickCreateProductionOrder({
@@ -278,8 +288,59 @@ describe('production order actions', () => {
             } as any);
 
             expect(res.success).toBe(true);
-            if (res.success) expect((res.data as any).id).toBe('po-dup');
-            expect(ProductionService.quickCreateOrder).not.toHaveBeenCalled();
+            if (res.success) expect((res.data as any).id).toBe('po-exists');
+            expect(prisma.productionOrder.findFirst).toHaveBeenCalledWith({
+                where: { clientRequestId: 'req_123' },
+            });
+        });
+
+        it('creates normally when no clientRequestId is provided', async () => {
+            locations([
+                {
+                    id: 'loc-prod',
+                    name: 'Gudang Produksi',
+                    slug: 'gudang-produksi',
+                    locationPurpose: 'PRODUCTION_OUTPUT',
+                },
+            ]);
+            vi.mocked(ProductionService.quickCreateOrder).mockResolvedValue({
+                id: 'po-new',
+                orderNumber: 'WO-NEW',
+            } as never);
+
+            const res = await quickCreateProductionOrder(input);
+
+            expect(res.success).toBe(true);
+            expect(ProductionService.quickCreateOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ clientRequestId: undefined }),
+            );
+        });
+
+        it('does not treat P2002 on another constraint as duplicate', async () => {
+            locations([
+                {
+                    id: 'loc-prod',
+                    name: 'Gudang Produksi',
+                    slug: 'gudang-produksi',
+                    locationPurpose: 'PRODUCTION_OUTPUT',
+                },
+            ]);
+
+            const p2002Error = new Prisma.PrismaClientKnownRequestError(
+                'Unique constraint failed',
+                { code: 'P2002', clientVersion: '5.22.0', meta: { target: ['orderNumber'] } },
+            );
+
+            vi.mocked(ProductionService.quickCreateOrder).mockRejectedValue(
+                p2002Error as never,
+            );
+
+            const res = await quickCreateProductionOrder({
+                ...input,
+                clientRequestId: 'req_123',
+            } as any);
+
+            expect(res.success).toBe(false);
         });
 
         it('creates with priority and notes and revalidates mobile/kiosk', async () => {
@@ -305,7 +366,7 @@ describe('production order actions', () => {
 
             expect(res.success).toBe(true);
             expect(ProductionService.quickCreateOrder).toHaveBeenCalledWith(
-                expect.objectContaining({ priority: 'URGENT', notes: expect.stringContaining('Mendadak') }),
+                expect.objectContaining({ priority: 'URGENT', notes: 'Mendadak dari HP' }),
             );
         });
     });

@@ -173,49 +173,45 @@ export const quickCreateProductionOrder = withTenant(
                     );
                 }
 
-                // Idempotency guard: if same user created same BOM/machine/qty within 60s, return existing
                 const { clientRequestId, notes, priority } = data as {
                     clientRequestId?: string;
                     notes?: string;
                     priority?: 'URGENT' | 'NORMAL' | 'LOW';
                 };
-                if (clientRequestId) {
-                    const since = new Date(Date.now() - 60_000);
-                    try {
-                        const recent = await prisma.productionOrder.findFirst({
-                            where: {
-                                createdById: session.user.id,
-                                bomId,
-                                machineId,
-                                plannedQuantity: plannedQuantity as unknown as never,
-                                createdAt: { gte: since },
-                                notes: { contains: clientRequestId },
-                            },
-                            orderBy: { createdAt: 'desc' },
-                        });
-                        if (recent) {
-                            return serializeData(recent);
-                        }
-                    } catch {
-                        // best-effort dedup — ignore errors
+
+                const finalNotes =
+                    notes || 'Quick SPK — supervisor mobile';
+
+                let order;
+                try {
+                    order = await ProductionService.quickCreateOrder({
+                        bomId,
+                        plannedQuantity,
+                        machineId,
+                        locationId,
+                        userId: session.user.id,
+                        notes: finalNotes,
+                        priority,
+                        clientRequestId,
+                    });
+                } catch (err) {
+                    if (
+                        err instanceof Prisma.PrismaClientKnownRequestError &&
+                        err.code === 'P2002' &&
+                        Array.isArray(err.meta?.target) &&
+                        (err.meta.target as string[]).includes(
+                            'clientRequestId',
+                        ) &&
+                        clientRequestId
+                    ) {
+                        const existing =
+                            await prisma.productionOrder.findFirst({
+                                where: { clientRequestId },
+                            });
+                        if (existing) return serializeData(existing);
                     }
+                    throw err;
                 }
-
-                const finalNotes = clientRequestId
-                    ? notes
-                        ? `${notes} [req:${clientRequestId}]`
-                        : `Quick SPK mobile [req:${clientRequestId}]`
-                    : notes || 'Quick SPK — supervisor mobile';
-
-                const order = await ProductionService.quickCreateOrder({
-                    bomId,
-                    plannedQuantity,
-                    machineId,
-                    locationId,
-                    userId: session.user.id,
-                    notes: finalNotes,
-                    priority,
-                });
 
                 revalidatePath('/production');
                 revalidatePath('/production/daily');

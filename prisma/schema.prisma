@@ -752,6 +752,7 @@ model ProductionOrder {
   processCodeSnapshot             String?
   processNameSnapshot             String?
   executionModeSnapshot           ProductionExecutionMode? @default(GENERIC)
+  clientRequestId                 String?               @unique
   materialSourceLocationId        String?
   maklonCustomer                  Customer?             @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   maklonCostItems                 MaklonCostItem[]
