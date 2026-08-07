@@ -1,7 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import {
-    ProductionRuleViolationError,
-} from '@/lib/errors/errors';
+import { ProductionRuleViolationError } from '@/lib/errors/errors';
 import {
     StartExecutionValues,
     StopExecutionValues,
@@ -23,14 +21,12 @@ import {
     type ProductionExecutionOrder,
 } from './execution-helpers';
 import { resolveProductionOutputUnit } from './execution-unit-conversion';
+import { buildPieceSnapshotForOperator } from '@/services/hrd/piece-rate-helpers';
 import {
-  buildPieceSnapshotForOperator,
-} from '@/services/hrd/piece-rate-helpers';
-import {
-  assertRoutedOrderCanStart,
-  assertMachineCapableForOrder,
-  ensureRoutedOrderWipReservation,
-  syncProductionRunStatusFromOrders,
+    assertRoutedOrderCanStart,
+    assertMachineCapableForOrder,
+    ensureRoutedOrderWipReservation,
+    syncProductionRunStatusFromOrders,
 } from './routing-execution-guard';
 import { voidProductionExecutionInTransaction } from './execution-void-helper';
 
@@ -275,25 +271,35 @@ export class ProductionExecutionService {
 
             // ── B1: Routed order readiness guard ──
             const routedOrderForGuard = await tx.productionOrder.findUnique({
-              where: { id: productionOrderId },
-              select: {
-                id: true,
-                productionRunId: true,
-                routeStepId: true,
-                routeSequenceSnapshot: true,
-                plannedQuantity: true,
-                status: true,
-                materialSourceLocationId: true,
-                locationId: true,
-                machineId: true,
-                bomId: true,
-                bom: { select: { productVariantId: true } },
-              },
+                where: { id: productionOrderId },
+                select: {
+                    id: true,
+                    productionRunId: true,
+                    routeStepId: true,
+                    routeSequenceSnapshot: true,
+                    plannedQuantity: true,
+                    status: true,
+                    materialSourceLocationId: true,
+                    locationId: true,
+                    machineId: true,
+                    bomId: true,
+                    bom: { select: { productVariantId: true } },
+                },
             });
             if (routedOrderForGuard) {
-              await assertRoutedOrderCanStart(tx, routedOrderForGuard as never);
-              await assertMachineCapableForOrder(tx, routedOrderForGuard as never, machineId ?? routedOrderForGuard.machineId);
-              await ensureRoutedOrderWipReservation(tx, routedOrderForGuard as never);
+                await assertRoutedOrderCanStart(
+                    tx,
+                    routedOrderForGuard as never,
+                );
+                await assertMachineCapableForOrder(
+                    tx,
+                    routedOrderForGuard as never,
+                    machineId ?? routedOrderForGuard.machineId,
+                );
+                await ensureRoutedOrderWipReservation(
+                    tx,
+                    routedOrderForGuard as never,
+                );
             }
 
             // Handover: if SPK still running (paused without full stop), reassign operator/shift
@@ -303,8 +309,16 @@ export class ProductionExecutionService {
             });
             if (existing) {
                 // I1: check capability if new machine assigned during handover
-                if (machineId && machineId !== existing.machineId && routedOrderForGuard) {
-                    await assertMachineCapableForOrder(tx, routedOrderForGuard as never, machineId);
+                if (
+                    machineId &&
+                    machineId !== existing.machineId &&
+                    routedOrderForGuard
+                ) {
+                    await assertMachineCapableForOrder(
+                        tx,
+                        routedOrderForGuard as never,
+                        machineId,
+                    );
                 }
                 return await tx.productionExecution.update({
                     where: { id: existing.id },
@@ -344,7 +358,10 @@ export class ProductionExecutionService {
 
             // B3: sync run status
             if (order?.productionRunId) {
-              await syncProductionRunStatusFromOrders(tx, order.productionRunId);
+                await syncProductionRunStatusFromOrders(
+                    tx,
+                    order.productionRunId,
+                );
             }
 
             return execution;
@@ -466,7 +483,14 @@ export class ProductionExecutionService {
 
             // B3: sync run status and dates on stop + complete
             if (order.productionRunId) {
-              await syncProductionRunStatusFromOrders(tx, order.productionRunId, { triggerOrderId: productionOrderId, completedAt: data.completed ? new Date() : undefined });
+                await syncProductionRunStatusFromOrders(
+                    tx,
+                    order.productionRunId,
+                    {
+                        triggerOrderId: productionOrderId,
+                        completedAt: data.completed ? new Date() : undefined,
+                    },
+                );
             }
         });
 
@@ -640,8 +664,15 @@ export class ProductionExecutionService {
             });
 
             // B3: sync run
-            const runOrder = await tx.productionOrder.findUnique({ where: { id: productionOrderId }, select: { productionRunId: true } });
-            if (runOrder?.productionRunId) await syncProductionRunStatusFromOrders(tx, runOrder.productionRunId);
+            const runOrder = await tx.productionOrder.findUnique({
+                where: { id: productionOrderId },
+                select: { productionRunId: true },
+            });
+            if (runOrder?.productionRunId)
+                await syncProductionRunStatusFromOrders(
+                    tx,
+                    runOrder.productionRunId,
+                );
         });
 
         // DELEGATED: Auto-journal posting is recorded under the transaction via recordFinishedGoodsOutput -> AccountingService.recordInventoryMovement
@@ -710,15 +741,20 @@ export class ProductionExecutionService {
                 }
             }
 
-            // Validate: qty=0 only allowed for REWORK orders
-            if (resolvedBaseQty === 0) {
+            // Validate: qty=0 needs something to record — either scrap (mesin trobel,
+            // hasil bagus 0 tapi affal keluar) or a REWORK order. Blank entries stay blocked.
+            const totalScrapReported =
+                Number(scrapQuantity ?? 0) +
+                Number(scrapProngkolQty ?? 0) +
+                Number(scrapDaunQty ?? 0);
+            if (resolvedBaseQty === 0 && totalScrapReported === 0) {
                 const checkOrder = await tx.productionOrder.findUniqueOrThrow({
                     where: { id: productionOrderId },
                     include: { bom: { select: { category: true } } },
                 });
                 if (checkOrder.bom?.category !== 'REWORK') {
                     throw new ProductionRuleViolationError(
-                        'Output quantity must be greater than 0 for non-Rework orders',
+                        'Hasil produksi 0 hanya bisa dicatat jika ada affal/scrap. Isi jumlah hasil bagus atau jumlah affal.',
                     );
                 }
             }
@@ -808,9 +844,15 @@ export class ProductionExecutionService {
                 userId,
             });
 
-            const batchOrder = await tx.productionOrder.findUnique({ where: { id: productionOrderId }, select: { productionRunId: true } });
+            const batchOrder = await tx.productionOrder.findUnique({
+                where: { id: productionOrderId },
+                select: { productionRunId: true },
+            });
             if (batchOrder?.productionRunId) {
-              await syncProductionRunStatusFromOrders(tx, batchOrder.productionRunId);
+                await syncProductionRunStatusFromOrders(
+                    tx,
+                    batchOrder.productionRunId,
+                );
             }
         });
     }

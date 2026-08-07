@@ -778,7 +778,7 @@ describe('ProductionExecutionService.addProductionOutput', () => {
         expect(tx.productionOrder.update).toHaveBeenCalled();
     });
 
-    it('should throw error when output quantity is 0 for non-rework orders', async () => {
+    it('should throw error when output quantity and scrap are both 0 for non-rework orders', async () => {
         // Arrange
         vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
             id: 'po-1',
@@ -794,7 +794,47 @@ describe('ProductionExecutionService.addProductionOutput', () => {
                 startTime: new Date(),
                 userId: 'user-1',
             } as any)
-        ).rejects.toThrow('Output quantity must be greater than 0');
+        ).rejects.toThrow('Hasil produksi 0 hanya bisa dicatat jika ada affal/scrap');
+    });
+
+    it('should record output when quantity is 0 but scrap exists (mesin trobel, affal only)', async () => {
+        // Arrange
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({
+            id: 'exec-1',
+        } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 100,
+            orderNumber: 'WO-001',
+            isMaklon: false,
+            locationId: 'loc-1',
+            bom: { productVariantId: 'pv-1', category: 'EXTRUSION', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        // Act
+        await ProductionExecutionService.addProductionOutput({
+            productionOrderId: 'po-1',
+            quantityProduced: 0,
+            scrapQuantity: 0,
+            scrapProngkolQty: 5.5,
+            scrapDaunQty: 2,
+            startTime: new Date(),
+            endTime: new Date(),
+            userId: 'user-1',
+        } as any);
+
+        // Assert
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    quantityProduced: 0,
+                    scrapProngkolQty: 5.5,
+                    scrapDaunQty: 2,
+                }),
+            })
+        );
     });
 
     it('should throw when shiftId does not belong to the production order', async () => {

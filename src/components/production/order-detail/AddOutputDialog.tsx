@@ -185,6 +185,7 @@ export function AddOutputDialog({
         const baseQty = useAlternateUnit
             ? enteredQty * conversionFactor
             : enteredQty;
+        const sendConversionPayload = useAlternateUnit && enteredQty > 0;
 
         const data: Record<string, unknown> = {
             productionOrderId: order.id,
@@ -200,10 +201,15 @@ export function AddOutputDialog({
             startTime: new Date(nowIso),
             endTime: new Date(nowIso),
             notes: finalNotes,
-            enteredQuantity: useAlternateUnit ? enteredQty : undefined,
-            enteredUnit: useAlternateUnit ? (displayUnit as string) : undefined,
-            baseQuantityProduced: useAlternateUnit ? baseQty : undefined,
-            conversionFactorSnapshot: useAlternateUnit
+            // Konversi UOM hanya dikirim saat ada hasil bagus — payload dengan
+            // enteredQuantity 0 ditolak schema (.positive()), padahal entri
+            // affal-only (mesin trobel) sah dicatat dengan qty 0.
+            enteredQuantity: sendConversionPayload ? enteredQty : undefined,
+            enteredUnit: sendConversionPayload
+                ? (displayUnit as string)
+                : undefined,
+            baseQuantityProduced: sendConversionPayload ? baseQty : undefined,
+            conversionFactorSnapshot: sendConversionPayload
                 ? conversionFactor
                 : undefined,
         };
