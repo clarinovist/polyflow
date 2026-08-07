@@ -66,10 +66,10 @@ jobs:
       - name: Run Tests with Coverage
         run: npx vitest run --coverage
 
-      - name: Build Next.js
-        run: npm run build
-        env:
-          DATABASE_URL: "postgresql://postgres:***@localhost:5432/polyflow_test"
+      # Next.js build intentionally NOT run here — the Dockerfile builds it anyway
+      # (RUN npm run build), so doing it twice added ~102s to the critical path for
+      # an artifact nobody consumed. A broken build now surfaces in build-and-push,
+      # which runs in parallel with this job, so time-to-failure did not regress.
 
       - name: Validate Nginx configuration
         run: |
@@ -88,10 +88,15 @@ jobs:
 
   # ─────────────────────────────────────────────
   # 3. Build & Push Docker Image
+  #    Deliberately does NOT `needs: test` — the image build consumes no test
+  #    output, so the two run side by side and only `deploy` waits for both.
+  #    The image is published under its commit SHA only. `:latest` is applied
+  #    later, in `deploy`, once tests are green — otherwise a red test run with a
+  #    green build would leave `:latest` pointing at untested code, and the manual
+  #    `docker compose pull` recovery path on the VPS would happily deploy it.
   # ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Image
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -115,7 +120,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.REPO }}:latest
+          tags: ${{ env.REGISTRY }}/${{ env.REPO }}:${{ github.sha }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache,mode=max
 
@@ -124,12 +129,28 @@ jobs:
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
-    needs: build-and-push
+    needs: [test, build-and-push]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
+      # `needs` above is the real gate: this job only starts when the tests are
+      # green AND the image exists. Promoting the tag here is what keeps `:latest`
+      # a "tested" marker rather than merely a "built" one.
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+
+      - name: Promote tested image to :latest
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.REPO }}:latest \
+            ${{ env.REGISTRY }}/${{ env.REPO }}:${{ github.sha }}
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
