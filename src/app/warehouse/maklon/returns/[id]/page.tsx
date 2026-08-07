@@ -5,10 +5,10 @@ import { MaklonReturnDetailClient } from '@/components/production/maklon/MaklonR
 export default async function WarehouseMaklonReturnDetailPage({
     params,
 }: {
-    params: { id: string };
+    params: Promise<{ id: string }>;
 }) {
-    const awaitedParams = await params;
-    const res = await getMaklonReturnByIdAction(awaitedParams.id);
+    const { id } = await params;
+    const res = await getMaklonReturnByIdAction(id);
 
     if (!res.success || !res.data) {
         notFound();
