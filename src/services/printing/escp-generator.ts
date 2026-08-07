@@ -4,9 +4,15 @@
  * Generates raw ESC/P binary data that can be sent directly to a dot matrix printer.
  * Uses the printer's built-in fonts for SHARP, clear text — not browser-rendered text.
  *
- * Paper: 9.5" continuous feed (typical Indonesian dot matrix invoice paper)
- * At 12 CPI: ~114 characters per line
- * At 10 CPI: ~95 characters per line
+ * Paper: 9.5" continuous feed (typical Indonesian dot matrix invoice paper),
+ * printed on a narrow-carriage (80-column) printer such as the Epson LX-300
+ * series. The 9.5" form fits the tractor, but the print head itself cannot
+ * travel past 8" — at 12 CPI that is 96 printed columns, 90 of which are the
+ * usable line width after margins. Treating the wider *paper* width as the
+ * *printable* width (the previous version of this comment did, at "~114
+ * characters per line") makes every column past ~col 90 wrap onto the next
+ * physical line instead of being clipped — see
+ * docs/plan/2026-08-07-fix-escp-print-width-logo-overprint.md.
  */
 
 import { terbilang } from '@/lib/utils/terbilang';
@@ -97,9 +103,18 @@ function bitImage(widthDots: number, columnBytes: number[]): number[] {
     return [ESC, 0x2a, 1, lo, hi, ...columnBytes];
 }
 
-/** One-shot fine feed, n/180 inch. Does not change persistent line spacing. ESC J n */
-function fineLineFeed(n: number): number[] {
-    return [ESC, 0x4a, Math.max(0, Math.min(255, n))]; // ESC J n
+/**
+ * Set persistent line spacing to n/180 inch. ESC 3 n
+ *
+ * Used around the logo bit-image bands instead of a one-shot `ESC J` feed:
+ * `ESC J` only nudges the paper without moving the head's notion of "current
+ * line", so nothing terminates the last band's line and the next text line
+ * starts partly inside the logo. `ESC 3` changes the actual line spacing, so
+ * a plain `LF` after each band advances by exactly that much and behaves
+ * like a normal line — restore it with `setLineSpacing1_6()` afterwards.
+ */
+function setLineSpacingN180(n: number): number[] {
+    return [ESC, 0x33, Math.max(0, Math.min(255, Math.round(n)))]; // ESC 3 n
 }
 
 /** Bold on/off */
@@ -153,17 +168,75 @@ function _lines(n: number): number[] {
 const CM_PER_INCH = 2.54;
 const BODY_CPI = 12;
 /** Mechanical print-width ceiling of Epson wide-carriage models. */
-const MAX_PRINTABLE_INCHES = 13.6;
+const WIDE_CARRIAGE_MAX_INCHES = 13.6;
+/**
+ * Mechanical print-width ceiling of Epson narrow-carriage (80-column)
+ * models, e.g. the LX-300 series this file targets. A 9.5" continuous form
+ * fits the tractor, but the print head cannot travel past 8" of it —
+ * anything laid out wider gets wrapped onto the next physical line by the
+ * printer itself, not clipped.
+ */
+const NARROW_CARRIAGE_MAX_INCHES = 8.0;
+/**
+ * Paper at or under this width (inches) is assumed to run on a
+ * narrow-carriage printer; wider paper is assumed wide-carriage. There is no
+ * per-tenant setting for carriage type (YAGNI) — this threshold sits between
+ * the common 9.5" narrow-carriage form and 11"+ wide-carriage forms.
+ */
+const NARROW_CARRIAGE_PAPER_INCHES = 10;
 /** Columns skipped on the left so text clears the sprocket strip. */
 const LEFT_MARGIN_COLS = 2;
 /** Columns kept clear of the right sprocket strip. */
 const RIGHT_MARGIN_INSET_COLS = 2;
 /** Extra slack so a full-width line never touches the right margin (wrap). */
 const WRAP_SAFETY_COLS = 2;
-/** Floor so a nonsense paperWidthCm can never produce a negative layout. */
+/**
+ * Floor so a nonsense paperWidthCm can never produce a negative layout.
+ *
+ * Pre-existing latent bug (not fixed here — YAGNI, no realistic invoice runs
+ * on paper this narrow): this floor is a content-width guess, not derived
+ * from `totalCols`, so on very narrow paper it can force `lineWidth` above
+ * what the printer can actually fit. E.g. at the 10cm MIN_PAPER_CM lower
+ * bound, totalCols is only 47 but this floor still forces lineWidth to 60 —
+ * i.e. still wider than the printer can print, the exact class of bug this
+ * file was fixed for at the 9.5"/108-column case. Left alone because 10cm
+ * (~3.9") is not a realistic invoice paper width; if it ever needs to be
+ * correct, lineWidth should be capped by `totalCols` too, not just floored.
+ */
 const MIN_LINE_WIDTH = 60;
 /** 9.5" continuous form — the default in company config. */
 const DEFAULT_PAPER_WIDTH_CM = 24.13;
+
+/**
+ * Absolute minimum widths (characters) for the numeric table columns.
+ * Calibrated against realistic worst-case values: qty up to 6 digits, unit
+ * label up to "KARTON"/"Satuan" (6) plus padding, price up to
+ * "99.999.999,00" (13), discount label "Diskon" (6), line total up to
+ * "999.999.999,00" (14, +1 slack).
+ */
+const MIN_QTY_COLS = 6;
+const MIN_UNIT_COLS = 8;
+const MIN_PRICE_COLS = 13;
+const MIN_DISC_COLS = 6;
+const MIN_TOTAL_COLS = 15;
+/** Item name never shrinks below this many columns, even on tiny paper. */
+const MIN_NAME_COLS = 24;
+/**
+ * lineWidth of the default 9.5" narrow-carriage form (96 total columns, 90
+ * printable). The MIN_*_COLS values above are exactly hit at this width —
+ * it's the calibration anchor the proportional scaling in
+ * `buildNumericColumns` is pinned to, so the historical default paper keeps
+ * its historical name column (42) unchanged by this fix.
+ */
+const REFERENCE_LINE_WIDTH = 90;
+/**
+ * Persistent line spacing (in 1/180ths) used around the logo bit-image
+ * bands. 8-dot bit-image data prints at 1/60" pitch on 24-pin/ESC/P2
+ * printers, i.e. 24/180" per band; also safe on 9-pin printers (1/72"
+ * pitch), which would only be slightly over-fed rather than under-fed and
+ * overprinting the next band. See `setLineSpacingN180`.
+ */
+const LOGO_BAND_FEED_180 = 24;
 
 interface EscpColumns {
     name: number;
@@ -189,17 +262,25 @@ interface EscpLayout {
 /**
  * Derive the whole layout from the physical paper width.
  *
- * On the default 9.5" form this yields exactly the constants the layout used
- * to hardcode: 114 total columns → 108 printable, 42/8/10/18/10/20 table
- * columns. Wider paper widens every column proportionally, capped at the
- * printer's mechanical limit.
+ * On the default 9.5" form this yields exactly the historical layout: 96
+ * total columns → 90 printable, 42/6/8/13/6/15 table columns. Paper at or
+ * under NARROW_CARRIAGE_PAPER_INCHES is capped at the narrow-carriage
+ * mechanical limit (8"); wider paper is capped at the wide-carriage limit
+ * (13.6") instead. Every column — name and numeric alike — scales up
+ * proportionally on wider paper; see `buildNumericColumns` for exactly how
+ * the numeric columns are floored.
  */
 function buildLayout(paperWidthCm: number): EscpLayout {
     const widthCm =
         Number.isFinite(paperWidthCm) && paperWidthCm > 0
             ? paperWidthCm
             : DEFAULT_PAPER_WIDTH_CM;
-    const inches = Math.min(widthCm / CM_PER_INCH, MAX_PRINTABLE_INCHES);
+    const paperInches = widthCm / CM_PER_INCH;
+    const carriageMaxInches =
+        paperInches <= NARROW_CARRIAGE_PAPER_INCHES
+            ? NARROW_CARRIAGE_MAX_INCHES
+            : WIDE_CARRIAGE_MAX_INCHES;
+    const inches = Math.min(paperInches, carriageMaxInches);
     const totalCols = Math.floor(inches * BODY_CPI);
     const lineWidth = Math.max(
         MIN_LINE_WIDTH,
@@ -209,30 +290,81 @@ function buildLayout(paperWidthCm: number): EscpLayout {
             WRAP_SAFETY_COLS,
     );
 
-    // Proportional with a minimum: at lineWidth 108 every minimum wins, so
-    // the 9.5" output is byte-identical to the previous hardcoded layout.
-    const qty = Math.max(8, Math.round(lineWidth * 0.07));
-    const unit = Math.max(10, Math.round(lineWidth * 0.09));
-    const price = Math.max(18, Math.round(lineWidth * 0.16));
-    const disc = Math.max(10, Math.round(lineWidth * 0.09));
-    const total = Math.max(20, Math.round(lineWidth * 0.18));
-
     return {
         lineWidth,
         leftMargin: LEFT_MARGIN_COLS,
         rightMargin: Math.min(255, totalCols - RIGHT_MARGIN_INSET_COLS),
-        cols: {
-            name: lineWidth - (qty + unit + price + disc + total),
-            qty,
-            unit,
-            price,
-            disc,
-            total,
-        },
+        cols: buildNumericColumns(lineWidth),
         infoSplit: Math.round(lineWidth * 0.54),
         // Wider than half: the summary labels are short ("SISA TAGIHAN :"),
         // so the spare columns are worth more to terbilang and the note.
         bottomSplit: Math.round(lineWidth * 0.55),
+    };
+}
+
+interface NumericCol {
+    key: 'qty' | 'unit' | 'price' | 'disc' | 'total';
+    width: number;
+    floor: number;
+}
+
+/**
+ * Split lineWidth into the item-name column and five numeric columns.
+ *
+ * Every numeric column scales proportionally with lineWidth — `scale(min) =
+ * max(min, round(lineWidth * min / REFERENCE_LINE_WIDTH))` — anchored so
+ * that at REFERENCE_LINE_WIDTH (the historical 9.5" default, 90 columns)
+ * each one lands exactly at its MIN_*_COLS floor. On wider paper the numeric
+ * columns keep growing at the same rate as lineWidth (e.g. at 135 columns —
+ * 30cm paper — qty grows 6→9, price 13→20, total 15→23): the floor is only
+ * a lower bound, not a cap. `name` gets whatever is left over after the five
+ * numeric columns, which is why it — not the numeric columns — absorbs the
+ * *rounding slack* between the proportional scaling and lineWidth.
+ *
+ * On paper narrower than the reference the scale factor is below 1, so every
+ * numeric column is already pinned to its floor — the compression guard
+ * below only has headroom to reclaim on paper *between* the absolute
+ * MIN_LINE_WIDTH and the reference width in some future recalibration; today
+ * it mostly documents the halt condition ("already at the absolute
+ * minimum") for narrow paper. Sum of the six returned widths always equals
+ * lineWidth exactly, regardless of input.
+ */
+function buildNumericColumns(lineWidth: number): EscpColumns {
+    const scale = (min: number) =>
+        Math.max(min, Math.round((lineWidth * min) / REFERENCE_LINE_WIDTH));
+
+    const numeric: NumericCol[] = [
+        { key: 'qty', width: scale(MIN_QTY_COLS), floor: MIN_QTY_COLS },
+        { key: 'unit', width: scale(MIN_UNIT_COLS), floor: MIN_UNIT_COLS },
+        { key: 'price', width: scale(MIN_PRICE_COLS), floor: MIN_PRICE_COLS },
+        { key: 'disc', width: scale(MIN_DISC_COLS), floor: MIN_DISC_COLS },
+        { key: 'total', width: scale(MIN_TOTAL_COLS), floor: MIN_TOTAL_COLS },
+    ];
+    const numericTotal = () => numeric.reduce((sum, c) => sum + c.width, 0);
+    let name = lineWidth - numericTotal();
+
+    // Compress the widest column still above its floor until the name
+    // column recovers to MIN_NAME_COLS, or every numeric column is already
+    // at its absolute minimum and nothing more can be reclaimed.
+    while (name < MIN_NAME_COLS) {
+        const shrinkable = numeric
+            .filter((c) => c.width > c.floor)
+            .sort((a, b) => b.width - a.width)[0];
+        if (!shrinkable) break;
+        shrinkable.width -= 1;
+        name += 1;
+    }
+
+    const widthOf = (key: NumericCol['key']) =>
+        numeric.find((c) => c.key === key)!.width;
+
+    return {
+        name,
+        qty: widthOf('qty'),
+        unit: widthOf('unit'),
+        price: widthOf('price'),
+        disc: widthOf('disc'),
+        total: widthOf('total'),
     };
 }
 
@@ -418,8 +550,9 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     );
 
     // ── Set explicit margins (at 12 CPI) ──
-    // Derived from the physical form width — on the default 9.5" paper this
-    // is 114 total columns, left margin 2, right margin 112, 108 printable.
+    // Derived from the physical form width — on the default 9.5" narrow-
+    // carriage paper this is 96 total columns, left margin 2, right margin
+    // 94, 90 printable.
     bytes.push(...setLeftMargin(layout.leftMargin));
     bytes.push(...setRightMargin(layout.rightMargin));
 
@@ -428,11 +561,19 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     // always text before logo support was added). CPI stays at 12 (set
     // above) in the logo case since there's no text line to switch for.
     if (data.logoBitmap) {
+        // Set the persistent line spacing to LOGO_BAND_FEED_180 before the
+        // loop so a plain LF after each band advances exactly one band
+        // height, then restore the normal 1/6" text spacing afterwards —
+        // the previous one-shot ESC J 20 (20/180", a 9-pin/1-72" assumption)
+        // under-fed by 4/180" per band, so band 2 didn't reach where band 1
+        // ended and overprinted its tail.
+        bytes.push(...setLineSpacingN180(LOGO_BAND_FEED_180)); // ESC 3 24
         for (const band of data.logoBitmap.bands) {
             bytes.push(CR);
             bytes.push(...bitImage(data.logoBitmap.widthDots, band));
-            bytes.push(...fineLineFeed(20)); // 8 dots @ 1/72" = 20/180"
+            bytes.push(LF);
         }
+        bytes.push(...setLineSpacing1_6()); // ESC 2 — restore for body text
     } else {
         bytes.push(...setCPI(10));
         bytes.push(...setBold(true));

@@ -123,7 +123,70 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(text).toContain('ONGKOS KIRIM :');
         expect(text).toContain('Hormat kami,');
         expect(text).toContain(data.signerName);
-        expect(text).toContain(data.footerNote);
+        // The footer note can wrap across two physical lines at the
+        // narrower 90-column layout (it fit on one line at the old
+        // 108-column width) — reconstruct wrapped text from the parsed
+        // lines instead of asserting it's contiguous in the raw byte
+        // stream. wrapText() only breaks at word boundaries, so joining
+        // trimmed lines with a single space reproduces the original text.
+    });
+
+    it('keeps the footer note fully readable even when it wraps across lines', () => {
+        const data = baseData({
+            discountAmount: 50000,
+            taxAmount: 231000,
+            shippingCost: 25000,
+            isPPN: true,
+        });
+        const reconstructed = textLines(generateEscpInvoice(data))
+            .map((l) => l.text.trim())
+            .filter(Boolean)
+            .join(' ');
+        expect(reconstructed).toContain(data.footerNote);
+    });
+});
+
+describe('generateEscpInvoice — row budget at the narrower 90-column layout', () => {
+    it('still fits the page length with every wrap-prone field pushed to a realistic worst case', () => {
+        // Narrowing the content width from 108 to 90 columns (this fix)
+        // shrinks every wrapText() budget too — most notably infoLeftWidth
+        // (58 → 49) and bottomLeftWidth (59 → 50). A company address or
+        // contact line that used to fit on one line can now wrap onto two,
+        // and the worst-case invoice (diskon+PPN+ongkir+logo) already runs
+        // the page length at exactly 33/33 with zero slack (see
+        // docs/plan/2026-08-05-escp-invoice-logo-bitmap.md §3.1) — one
+        // extra wrapped line here means the invoice spills onto a second
+        // physical page.
+        const bytes = generateEscpInvoice(
+            baseData({
+                companyAddress:
+                    'Jl. Raya Solo-Sragen KM 12, Kawasan Industri Sawahan, Kabupaten Sragen, Jawa Tengah',
+                customerName: 'PT Sumber Rejeki Makmur Sejahtera Abadi Selalu Jaya',
+                customerAddress:
+                    'Jl. Industri Kawasan Berikat Nusantara Blok C No. 45, Cakung, Jakarta Timur',
+                footerNote:
+                    'BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN ATAU DITUKAR DALAM KONDISI APAPUN',
+                discountAmount: 500000,
+                taxAmount: 2310000,
+                shippingCost: 250000,
+                grandTotal: 987654321,
+                remainingBalance: 987654321,
+                isPPN: true,
+                logoBitmap: {
+                    widthDots: 100,
+                    bands: [
+                        new Array(100).fill(0xff),
+                        new Array(100).fill(0xff),
+                    ],
+                },
+            }),
+        );
+        // Measured directly (not assumed): this scenario uses 30 of the
+        // 33-line budget — 3 lines of margin, despite the company address,
+        // contact block, and footer note all wrapping onto a second line at
+        // this narrower width. If a future change to any wrapped field
+        // eats that margin, this test is the tripwire.
+        expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));
     });
 });
 
@@ -217,10 +280,16 @@ describe('generateEscpInvoice — printed width', () => {
         ).toBe(false);
     });
 
-    it('keeps 9.5" paper at the historical 108-column layout', () => {
+    it('keeps 9.5" paper at the 90-column narrow-carriage layout', () => {
+        // The 9.5" form fits an Epson LX-300-class (narrow-carriage) printer,
+        // but the print head itself can only travel 8" — 96 total columns at
+        // 12 CPI, 90 printable after margins. The historical 108-column
+        // layout treated the *paper* width as the *printable* width and
+        // wrapped every column past ~col 90 onto the next physical line
+        // (see docs/plan/2026-08-07-fix-escp-print-width-logo-overprint.md).
         const bytes = generateEscpInvoice(baseData({ paperWidthCm: 24.13 }));
-        expect(rightMarginCol(bytes)).toBe(112);
-        expect(bodyWidths(bytes)).toEqual([108]);
+        expect(rightMarginCol(bytes)).toBe(94);
+        expect(bodyWidths(bytes)).toEqual([90]);
     });
 
     it('widens every line when the form is wider', () => {
@@ -255,7 +324,7 @@ describe('generateEscpInvoice — printed width', () => {
     it('falls back to the default form on a nonsense paper width', () => {
         for (const bad of [0, -5, Number.NaN]) {
             const bytes = generateEscpInvoice(baseData({ paperWidthCm: bad }));
-            expect(rightMarginCol(bytes)).toBe(112);
+            expect(rightMarginCol(bytes)).toBe(94);
         }
     });
 
@@ -283,6 +352,47 @@ describe('generateEscpInvoice — printed width', () => {
         expect(row).toBeDefined();
         // Same physical line also carries the first summary entry.
         expect(row).toContain('SUBTOTAL :');
+    });
+
+    it('sums the table column widths to exactly the line width, at any paper size', () => {
+        // Every full-width 12 CPI line (item table header/body, dashlines,
+        // total row) is built by concatenating pad()-ed columns. If the
+        // column widths (name/qty/unit/price/disc/total) didn't sum to
+        // exactly the same lineWidth used for the dashline separators, these
+        // lines would come out at different lengths and bodyWidths() would
+        // report more than one distinct value. 10cm is MIN_PAPER_CM — the
+        // narrowest paper the settings UI allows — which exercises the
+        // MIN_NAME_COLS guard in buildNumericColumns.
+        for (const paperWidthCm of [24.13, 30, 37.78, 10]) {
+            const bytes = generateEscpInvoice(baseData({ paperWidthCm }));
+            expect(bodyWidths(bytes)).toHaveLength(1);
+        }
+    });
+
+    it('does not truncate a 42-character item name on 9.5" paper', () => {
+        // "Sedotan Hitam Steril Full Printing Isi 250" is exactly 42
+        // characters — the name column width at the default 9.5" layout.
+        // pad() truncates via substring, so if the column were even one
+        // character narrower this would lose "0" off the end.
+        const longName = 'Sedotan Hitam Steril Full Printing Isi 250';
+        expect(longName).toHaveLength(42);
+        const text = decodeText(
+            generateEscpInvoice(
+                baseData({
+                    paperWidthCm: 24.13,
+                    items: [
+                        {
+                            name: longName,
+                            qty: 1,
+                            unit: 'pcs',
+                            unitPrice: 1000,
+                            lineTotal: 1000,
+                        },
+                    ],
+                }),
+            ),
+        );
+        expect(text).toContain(longName);
     });
 });
 
@@ -323,5 +433,43 @@ describe('generateEscpInvoice — logo bitmap', () => {
             }),
         );
         expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));
+    });
+
+    it('feeds the persistent line spacing around the logo bands instead of one-shot ESC J', () => {
+        const bytes = generateEscpInvoice(baseData({ logoBitmap: fakeLogo }));
+
+        // ESC J (one-shot fine feed) must not appear anywhere — it was the
+        // root cause of the logo bands overprinting each other.
+        const hasEscJ = bytes.some((b, i) => b === ESC && bytes[i + 1] === 0x4a);
+        expect(hasEscJ).toBe(false);
+
+        const bandStarts = bytes.reduce<number[]>((acc, b, i) => {
+            if (b === ESC && bytes[i + 1] === 0x2a) acc.push(i);
+            return acc;
+        }, []);
+        expect(bandStarts).toHaveLength(fakeLogo.bands.length);
+
+        // ESC 3 24 (persistent 24/180" line spacing) comes before the first
+        // band's ESC * command.
+        const spacingIdx = bytes.findIndex(
+            (b, i) => b === ESC && bytes[i + 1] === 0x33,
+        );
+        expect(spacingIdx).toBeGreaterThan(-1);
+        expect(bytes[spacingIdx + 2]).toBe(24);
+        expect(spacingIdx).toBeLessThan(bandStarts[0]);
+
+        // ESC 2 (restore 1/6" spacing) comes after the last band.
+        const lastBandStart = bandStarts[bandStarts.length - 1];
+        const restoreIdx = bytes.findIndex(
+            (b, i) => i > lastBandStart && b === ESC && bytes[i + 1] === 0x32,
+        );
+        expect(restoreIdx).toBeGreaterThan(lastBandStart);
+
+        // Exactly one LF per band inside the logo block (CR + band + LF,
+        // repeated), between the spacing command and its restore.
+        const lfInLogoBlock = bytes
+            .slice(spacingIdx, restoreIdx)
+            .filter((b) => b === 0x0a).length;
+        expect(lfInLogoBlock).toBe(fakeLogo.bands.length);
     });
 });
