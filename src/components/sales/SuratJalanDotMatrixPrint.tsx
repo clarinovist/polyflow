@@ -19,6 +19,8 @@ type DeliveryItem = {
 };
 
 export interface SuratJalanPrintData {
+    /** Needed to link the raw ESC/P download; absent in preview-only callers. */
+    id?: string;
     orderNumber: string;
     deliveryDate: Date;
     status?: string;
@@ -94,6 +96,14 @@ export function SuratJalanDotMatrixPrint({
                         >
                             🖨️ Cetak / Simpan PDF
                         </button>
+                        {order.id && (
+                            <a
+                                href={`/api/print/delivery?id=${order.id}`}
+                                className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 font-medium inline-flex items-center gap-1"
+                            >
+                                🖨️ ESC/P (Dot Matrix)
+                            </a>
+                        )}
                     </div>
                 </div>
             )}

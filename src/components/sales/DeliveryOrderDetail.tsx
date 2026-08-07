@@ -136,6 +136,8 @@ export interface DeliveryOrderDetailData {
             shippingAddress?: string | null;
             billingAddress?: string | null;
         } | null;
+        /** Used to offer the combined "SJ + Invoice" ESC/P download. */
+        invoices?: { id: string; invoiceNumber: string }[];
     } | null;
     sourceLocation?: { name?: string } | null;
     createdBy?: { name?: string } | null;
@@ -182,6 +184,11 @@ export function DeliveryOrderDetail({
 
     // Guard: items may be missing if caller passes a partial/wrapped payload
     const items = order.items ?? [];
+
+    // Surat jalan prints first, invoice second — the gudang reads the SJ.
+    const invoices = order.salesOrder?.invoices ?? [];
+    const bundleHref = (invoiceId: string) =>
+        `/api/print/bundle?doc=delivery:${order.id}&doc=invoice:${invoiceId}`;
 
     const canEditQty = order.status === 'PENDING' || order.status === 'LOADING';
     const isLoadVerified = !!order.loadVerifiedAt;
@@ -647,6 +654,43 @@ export function DeliveryOrderDetail({
                             <Printer className="h-3.5 w-3.5" />
                             Cetak Surat Jalan
                         </button>
+                        <a
+                            href={`/api/print/delivery?id=${order.id}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-xs font-medium transition-colors"
+                        >
+                            <Printer className="h-3.5 w-3.5" />
+                            ESC/P (Dot Matrix)
+                        </a>
+                        {invoices.length === 1 && (
+                            <a
+                                href={bundleHref(invoices[0].id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-700 hover:bg-orange-800 text-white rounded-md text-xs font-medium transition-colors"
+                            >
+                                <Printer className="h-3.5 w-3.5" />
+                                ESC/P: SJ + Invoice
+                            </a>
+                        )}
+                        {invoices.length > 1 && (
+                            <select
+                                aria-label="Cetak ESC/P surat jalan bersama invoice"
+                                defaultValue=""
+                                onChange={(e) => {
+                                    if (!e.target.value) return;
+                                    window.location.href = bundleHref(
+                                        e.target.value,
+                                    );
+                                    e.target.value = '';
+                                }}
+                                className="px-3 py-1.5 bg-orange-700 hover:bg-orange-800 text-white rounded-md text-xs font-medium transition-colors"
+                            >
+                                <option value="">ESC/P: SJ + Invoice…</option>
+                                {invoices.map((invoice) => (
+                                    <option key={invoice.id} value={invoice.id}>
+                                        {invoice.invoiceNumber}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1020,7 +1064,8 @@ export function DeliveryOrderDetail({
                                             order={order}
                                             customerId={
                                                 order.salesOrder?.customerId ??
-                                                order.salesOrder?.customer?.id ??
+                                                order.salesOrder?.customer
+                                                    ?.id ??
                                                 null
                                             }
                                         />

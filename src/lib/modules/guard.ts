@@ -63,9 +63,7 @@ export class ModuleNotEntitledError extends BusinessRuleError {
         public readonly moduleKey: ModuleKey,
         public readonly tenantId: string,
     ) {
-        super(
-            `Module "${moduleKey}" tidak tersedia untuk tenant ini.`,
-        );
+        super(`Module "${moduleKey}" tidak tersedia untuk tenant ini.`);
         this.name = 'ModuleNotEntitledError';
     }
 }
@@ -145,6 +143,43 @@ export async function requireModuleOrNextResponse(
     }
 
     return null;
+}
+
+/**
+ * Same as `requireModuleOrNextResponse` but passes when **any** of the given
+ * modules is active.
+ *
+ * For documents reachable from more than one workspace: a delivery note lives
+ * under /sales for a SALES tenant and under /warehouse for an INVENTORY one,
+ * and the OPERATIONS package ships INVENTORY without SALES — a single-key
+ * guard would lock those tenants out of their own surat jalan.
+ *
+ * Usage:
+ *   const deny = await requireAnyModuleOrNextResponse(['SALES', 'INVENTORY']);
+ *   if (deny) return deny;
+ */
+export async function requireAnyModuleOrNextResponse(
+    moduleKeys: ModuleKey[],
+): Promise<NextResponse | null> {
+    if (moduleKeys.length === 0 || moduleKeys.includes('CORE')) return null;
+
+    const denied = NextResponse.json(
+        {
+            error: 'MODULE_NOT_ENTITLED',
+            moduleKey: moduleKeys.join('|'),
+            message: `None of the modules "${moduleKeys.join('", "')}" are available for this tenant.`,
+        },
+        { status: 403 },
+    );
+
+    const tenantId = tenantIdContext.getStore();
+    if (!tenantId) return denied;
+
+    for (const moduleKey of moduleKeys) {
+        if (await isModuleActive(tenantId, moduleKey)) return null;
+    }
+
+    return denied;
 }
 
 /**

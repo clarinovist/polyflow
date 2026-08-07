@@ -145,12 +145,17 @@ export const getOpenDeliveryOrders = withTenant(
             });
 
             // LOADING first, then PENDING
-            const statusOrder = (s: string) => (s === DeliveryStatus.LOADING ? 0 : 1);
+            const statusOrder = (s: string) =>
+                s === DeliveryStatus.LOADING ? 0 : 1;
             deliveryOrders.sort((a, b) => {
                 const diff = statusOrder(a.status) - statusOrder(b.status);
                 if (diff !== 0) return diff;
-                const d1 = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
-                const d2 = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
+                const d1 = a.deliveryDate
+                    ? new Date(a.deliveryDate).getTime()
+                    : 0;
+                const d2 = b.deliveryDate
+                    ? new Date(b.deliveryDate).getTime()
+                    : 0;
                 if (d1 !== d2) return d1 - d2;
                 return a.id.localeCompare(b.id);
             });
@@ -187,6 +192,13 @@ export const getDeliveryOrderById = withTenant(
                     salesOrder: {
                         include: {
                             customer: true,
+                            // Drives the combined "SJ + Invoice" ESC/P button;
+                            // a SO can carry more than one invoice, so the UI
+                            // asks instead of guessing.
+                            invoices: {
+                                select: { id: true, invoiceNumber: true },
+                                orderBy: { invoiceDate: 'asc' },
+                            },
                         },
                     },
                     sourceLocation: true,
