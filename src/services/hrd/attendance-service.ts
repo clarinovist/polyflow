@@ -541,6 +541,7 @@ export const AttendanceService = {
     async clockIn(
         db: PrismaClient,
         input: KioskClockInInput,
+        settings: Record<string, string | null | undefined>,
     ): Promise<AttendanceRecordResult> {
         const employee = await findEmployee(db, input.employeeCode);
         if (!employee) throw new BusinessRuleError('Karyawan tidak ditemukan');
@@ -558,6 +559,30 @@ export const AttendanceService = {
             if (!isValidAttendancePhotoUrl(input.clockInPhotoUrl)) {
                 throw new BusinessRuleError('Foto absensi tidak valid');
             }
+        }
+
+        // Kiosk geofence enforcement — MANUAL (admin) source never carries GPS
+        // and must not be gated. A fence that is active but received no
+        // evidence must fail closed with an actionable message, not a
+        // TypeError from enforceGeofence reading an undefined evidence object.
+        let clockInGeoResult: GeofenceResult | null = null;
+        if (source === 'KIOSK') {
+            if (
+                resolveGeofence(settings).kind === 'active' &&
+                !input.locationEvidence
+            ) {
+                throw new BusinessRuleError(
+                    'Lokasi GPS wajib untuk absensi. Aktifkan izin lokasi di browser kiosk.',
+                );
+            }
+            clockInGeoResult = enforceGeofence(
+                settings,
+                input.locationEvidence ?? {
+                    latitude: NaN,
+                    longitude: NaN,
+                    accuracy: NaN,
+                },
+            );
         }
 
         let resolvedWorkShiftId = input.workShiftId?.trim();
@@ -643,6 +668,10 @@ export const AttendanceService = {
             shift.endTime,
         );
 
+        const clockInGeoData = input.locationEvidence
+            ? toStoredLocation(input.locationEvidence)
+            : null;
+
         const record = await db.attendanceRecord.create({
             data: {
                 employeeId: employee.id,
@@ -653,6 +682,14 @@ export const AttendanceService = {
                 source,
                 status: 'PRESENT',
                 clockInPhotoUrl: input.clockInPhotoUrl?.trim() || null,
+                clockInLatitude: clockInGeoData?.latitude ?? null,
+                clockInLongitude: clockInGeoData?.longitude ?? null,
+                clockInAccuracy: clockInGeoData?.accuracy ?? null,
+                clockInDistance: clockInGeoResult
+                    ? new Prisma.Decimal(
+                          clockInGeoResult.distanceMeters.toFixed(2),
+                      )
+                    : null,
                 plannedHours: new Prisma.Decimal(planned),
                 standardDayHours: new Prisma.Decimal(rates.standardDayHours),
                 dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
@@ -742,6 +779,7 @@ export const AttendanceService = {
     async clockOut(
         db: PrismaClient,
         input: KioskClockOutInput,
+        settings: Record<string, string | null | undefined>,
     ): Promise<AttendanceRecordResult> {
         const employee = await findEmployee(db, input.employeeCode);
         if (!employee) throw new BusinessRuleError('Karyawan tidak ditemukan');
@@ -750,6 +788,25 @@ export const AttendanceService = {
 
         const pinValid = await verifyPin(input.pin, employee.pinHash);
         if (!pinValid) throw new BusinessRuleError('PIN salah');
+
+        // Kiosk geofence enforcement — this method has no MANUAL variant
+        // (clockOutAsAdmin is separate), so the gate always applies here.
+        if (
+            resolveGeofence(settings).kind === 'active' &&
+            !input.locationEvidence
+        ) {
+            throw new BusinessRuleError(
+                'Lokasi GPS wajib untuk absensi. Aktifkan izin lokasi di browser kiosk.',
+            );
+        }
+        const clockOutGeoResult = enforceGeofence(
+            settings,
+            input.locationEvidence ?? {
+                latitude: NaN,
+                longitude: NaN,
+                accuracy: NaN,
+            },
+        );
 
         const openRecord =
             await AttendanceService._resolveOpenRecordForClockOut(
@@ -776,6 +833,10 @@ export const AttendanceService = {
         }
 
         const now = new Date();
+        const clockOutGeoData = input.locationEvidence
+            ? toStoredLocation(input.locationEvidence)
+            : null;
+
         const updated = await db.attendanceRecord.update({
             where: { id: openRecord.id },
             data: {
@@ -783,6 +844,14 @@ export const AttendanceService = {
                 ...(input.clockOutPhotoUrl?.trim()
                     ? { clockOutPhotoUrl: input.clockOutPhotoUrl.trim() }
                     : {}),
+                clockOutLatitude: clockOutGeoData?.latitude ?? null,
+                clockOutLongitude: clockOutGeoData?.longitude ?? null,
+                clockOutAccuracy: clockOutGeoData?.accuracy ?? null,
+                clockOutDistance: clockOutGeoResult
+                    ? new Prisma.Decimal(
+                          clockOutGeoResult.distanceMeters.toFixed(2),
+                      )
+                    : null,
             },
             include: includeRelations,
         });

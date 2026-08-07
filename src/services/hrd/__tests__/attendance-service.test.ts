@@ -78,7 +78,7 @@ describe('AttendanceService', () => {
       const result = await AttendanceService.clockIn(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
         clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-      });
+      }, {});
 
       expect(result.employeeName).toBe('Budi');
       expect(result.isOvertimeShift).toBe(false);
@@ -115,7 +115,7 @@ describe('AttendanceService', () => {
       const result = await AttendanceService.clockIn(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-2',
         clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-      });
+      }, {});
 
       expect(result.isOvertimeShift).toBe(true);
     });
@@ -126,7 +126,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
-        }),
+        }, {}),
       ).rejects.toThrow('Data absensi tidak lengkap');
     });
 
@@ -137,7 +137,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
           clockInPhotoUrl: 'https://evil.com/selfie.jpg',
-        }),
+        }, {}),
       ).rejects.toThrow('Foto absensi tidak valid');
     });
 
@@ -147,7 +147,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-999', pin: '1234', workShiftId: 'shift-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-        }),
+        }, {}),
       ).rejects.toThrow(/tidak ditemukan/i);
     });
 
@@ -158,7 +158,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '9999', workShiftId: 'shift-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-        }),
+        }, {}),
       ).rejects.toThrow('PIN salah');
     });
 
@@ -174,7 +174,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-2',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-        }),
+        }, {}),
       ).rejects.toThrow('Masih belum clock-out');
     });
 
@@ -189,7 +189,7 @@ describe('AttendanceService', () => {
         AttendanceService.clockIn(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
-        }),
+        }, {}),
       ).rejects.toThrow('Sudah absen shift ini hari ini');
     });
   });
@@ -225,7 +225,7 @@ describe('AttendanceService', () => {
 
       const result = await AttendanceService.clockOut(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234',
-      });
+      }, {});
 
       expect(result.clockOutAt).not.toBeNull();
     });
@@ -260,7 +260,7 @@ describe('AttendanceService', () => {
 
       const result = await AttendanceService.clockOut(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234',
-      });
+      }, {});
 
       expect(result.dailyEarnings).toBe(37500);
       expect(result.totalEarnings).toBe(37500);
@@ -275,7 +275,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockOut(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234',
-        }),
+        }, {}),
       ).rejects.toThrow('Tidak ada sesi absensi yang masih terbuka');
     });
 
@@ -300,7 +300,7 @@ describe('AttendanceService', () => {
       await expect(
         AttendanceService.clockOut(mockDb as any, {
           employeeCode: 'EMP-001', pin: '1234',
-        }),
+        }, {}),
       ).rejects.toThrow(/koreksi HRD/i);
     });
 
@@ -344,8 +344,257 @@ describe('AttendanceService', () => {
 
       const result = await AttendanceService.clockOut(mockDb as any, {
         employeeCode: 'EMP-001', pin: '1234',
-      });
+      }, {});
       expect(result.id).toBe('rec-today');
+    });
+  });
+
+  // ─── Kiosk geofence enforcement (plan: docs/plan/2026-08-07-kiosk-geofence-enforcement.md) ───
+  describe('clockIn - kiosk geofence enforcement', () => {
+    const activeGeofenceSettings = {
+      'attendance.geofenceEnabled': 'true',
+      'attendance.latitude': '-6.2',
+      'attendance.longitude': '106.8',
+      'attendance.radiusMeters': '100',
+      'attendance.maxAccuracyMeters': '50',
+    };
+
+    /** Arms the kiosk clock-in happy path and returns a getter for the captured create() data. */
+    function armClockInCapture() {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.workShift.findUnique).mockResolvedValue(activeShift as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
+
+      const captured: { data: any } = { data: null };
+      vi.mocked(mockDb.attendanceRecord.create).mockImplementation(async (arg: any) => {
+        captured.data = arg.data;
+        return {
+          id: 'rec-geo', employeeId: 'emp-1', workDate: new Date('2026-07-15'),
+          workShiftId: 'shift-1', clockInAt: new Date(), clockOutAt: null,
+          isOvertimeShift: false, status: 'PRESENT', source: 'KIOSK',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
+          clockInLatitude: arg.data.clockInLatitude,
+          clockInLongitude: arg.data.clockInLongitude,
+          clockInAccuracy: arg.data.clockInAccuracy,
+          clockInDistance: arg.data.clockInDistance,
+          employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+        } as any;
+      });
+      return captured;
+    }
+
+    it('succeeds and stores clockInDistance when inside the configured radius', async () => {
+      const captured = armClockInCapture();
+      // Office at -6.2/106.8; employee ~50m away, well inside a 100m fence.
+      const empLat = -6.2004;
+      const empLon = 106.8002;
+
+      const result = await AttendanceService.clockIn(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        locationEvidence: { latitude: empLat, longitude: empLon, accuracy: 10 },
+      }, activeGeofenceSettings);
+
+      const expected = haversineDistance(-6.2, 106.8, empLat, empLon);
+      expect(result.employeeName).toBe('Budi');
+      expect(captured.data.clockInDistance).not.toBeNull();
+      expect(Number(captured.data.clockInDistance)).toBeCloseTo(expected, 1);
+    });
+
+    it('rejects with a message that states the distance when outside the radius', async () => {
+      armClockInCapture();
+      // ~1.1km away — well outside a 100m fence.
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.21, longitude: 106.81, accuracy: 10 },
+        }, activeGeofenceSettings),
+      ).rejects.toThrow(/m dari kantor/);
+    });
+
+    it('rejects when GPS accuracy exceeds the configured limit', async () => {
+      armClockInCapture();
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 999 },
+        }, activeGeofenceSettings),
+      ).rejects.toThrow(/Akurasi GPS/);
+    });
+
+    it('rejects with an actionable message when the fence is active but no locationEvidence is sent', async () => {
+      armClockInCapture();
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        }, activeGeofenceSettings),
+      ).rejects.toThrow(
+        'Lokasi GPS wajib untuk absensi. Aktifkan izin lokasi di browser kiosk.',
+      );
+    });
+
+    it('succeeds with clockInDistance null when geofenceEnabled is not "true"', async () => {
+      const captured = armClockInCapture();
+      const result = await AttendanceService.clockIn(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+      }, { 'attendance.geofenceEnabled': 'false' });
+
+      expect(result.employeeName).toBe('Budi');
+      expect(captured.data.clockInDistance).toBeNull();
+    });
+
+    it('fails closed instead of degrading to "no geofence" when config is enabled but incomplete', async () => {
+      armClockInCapture();
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 10 },
+        }, {
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '',
+          'attendance.longitude': '106.8',
+          'attendance.radiusMeters': '100',
+          'attendance.maxAccuracyMeters': '50',
+        }),
+      ).rejects.toThrow(/Konfigurasi geofence belum lengkap/);
+    });
+  });
+
+  describe('clockOut - kiosk geofence enforcement', () => {
+    const activeGeofenceSettings = {
+      'attendance.geofenceEnabled': 'true',
+      'attendance.latitude': '-6.2',
+      'attendance.longitude': '106.8',
+      'attendance.radiusMeters': '100',
+      'attendance.maxAccuracyMeters': '50',
+    };
+
+    /** Arms the kiosk clock-out happy path and returns the captured update() payloads in call order. */
+    function armClockOutCapture() {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      const recentClockIn = nowMinusHours(2);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-geo', employeeId: 'emp-1', workDate: todayWorkDate(),
+          clockInAt: recentClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        },
+      ] as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+
+      const updateCalls: any[] = [];
+      vi.mocked(mockDb.attendanceRecord.update).mockImplementation(async (arg: any) => {
+        updateCalls.push(arg.data);
+        return {
+          id: 'rec-geo', employeeId: 'emp-1', clockInAt: recentClockIn,
+          clockOutAt: new Date(), isOvertimeShift: false,
+          status: 'PRESENT', source: 'KIOSK',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: dec(2), regularHours: dec(2), overtimeHours: dec(0),
+          dailyEarnings: dec(25000), overtimeEarnings: dec(0), totalEarnings: dec(25000),
+          employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+          clockOutLatitude: arg.data.clockOutLatitude,
+          clockOutLongitude: arg.data.clockOutLongitude,
+          clockOutAccuracy: arg.data.clockOutAccuracy,
+          clockOutDistance: arg.data.clockOutDistance,
+        } as any;
+      });
+      return updateCalls;
+    }
+
+    it('succeeds and stores clockOutDistance when inside the configured radius', async () => {
+      const updateCalls = armClockOutCapture();
+      const empLat = -6.2004;
+      const empLon = 106.8002;
+
+      const result = await AttendanceService.clockOut(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234',
+        locationEvidence: { latitude: empLat, longitude: empLon, accuracy: 10 },
+      }, activeGeofenceSettings);
+
+      const expected = haversineDistance(-6.2, 106.8, empLat, empLon);
+      expect(result.clockOutAt).not.toBeNull();
+      // First update() call carries the geo write; the second only computed hours.
+      const geoWrite = updateCalls[0];
+      expect(geoWrite.clockOutDistance).not.toBeNull();
+      expect(Number(geoWrite.clockOutDistance)).toBeCloseTo(expected, 1);
+    });
+
+    it('rejects with a message that states the distance when outside the radius', async () => {
+      armClockOutCapture();
+      await expect(
+        AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          locationEvidence: { latitude: -6.21, longitude: 106.81, accuracy: 10 },
+        }, activeGeofenceSettings),
+      ).rejects.toThrow(/m dari kantor/);
+    });
+
+    it('rejects when GPS accuracy exceeds the configured limit', async () => {
+      armClockOutCapture();
+      await expect(
+        AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 999 },
+        }, activeGeofenceSettings),
+      ).rejects.toThrow(/Akurasi GPS/);
+    });
+
+    it('rejects with an actionable message when the fence is active but no locationEvidence is sent', async () => {
+      armClockOutCapture();
+      await expect(
+        AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+        }, activeGeofenceSettings),
+      ).rejects.toThrow(
+        'Lokasi GPS wajib untuk absensi. Aktifkan izin lokasi di browser kiosk.',
+      );
+    });
+
+    it('succeeds with clockOutDistance null when geofenceEnabled is not "true"', async () => {
+      const updateCalls = armClockOutCapture();
+      const result = await AttendanceService.clockOut(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234',
+      }, { 'attendance.geofenceEnabled': 'false' });
+
+      expect(result.clockOutAt).not.toBeNull();
+      expect(updateCalls[0].clockOutDistance).toBeNull();
+    });
+
+    it('fails closed instead of degrading to "no geofence" when config is enabled but incomplete', async () => {
+      armClockOutCapture();
+      await expect(
+        AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 10 },
+        }, {
+          'attendance.geofenceEnabled': 'true',
+          'attendance.latitude': '',
+          'attendance.longitude': '106.8',
+          'attendance.radiusMeters': '100',
+          'attendance.maxAccuracyMeters': '50',
+        }),
+      ).rejects.toThrow(/Konfigurasi geofence belum lengkap/);
     });
   });
 
@@ -498,6 +747,34 @@ describe('AttendanceService', () => {
           employeeCode: 'EMP-001', workShiftId: 'shift-1',
         }),
       ).rejects.toThrow('Karyawan tidak aktif');
+    });
+
+    it('succeeds without GPS even when kiosk geofencing would be active (HRD manual correction, Gap 3)', async () => {
+      // clockInAsAdmin has no `settings` parameter at all — it cannot be
+      // geofence-gated regardless of what HRD configured for the kiosk path.
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(mockDb.workShift.findUnique).mockResolvedValue(activeShift as any);
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
+      vi.mocked(mockDb.attendanceRecord.create).mockResolvedValue({
+        id: 'rec-admin-nogps', employeeId: 'emp-1', workDate: new Date('2026-07-15'),
+        workShiftId: 'shift-1', clockInAt: new Date(), clockOutAt: null,
+        isOvertimeShift: false, status: 'PRESENT', source: 'MANUAL',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+        employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+      } as any);
+
+      const result = await AttendanceService.clockInAsAdmin(mockDb as any, {
+        employeeCode: 'EMP-001', workShiftId: 'shift-1',
+      });
+
+      expect(result.source).toBe('MANUAL');
+      expect(verifyPin).not.toHaveBeenCalled();
     });
   });
 

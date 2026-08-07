@@ -8,6 +8,11 @@ import {
 } from '@/services/hrd/attendance-service';
 import { hashPin, isValidPin } from '@/services/hrd/pin-helpers';
 import { parseWibDateTime } from '@/services/hrd/shift-window';
+import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
+import {
+    parseKioskLocationEvidence,
+    type KioskLocationEvidenceInput,
+} from '@/services/hrd/kiosk-location-evidence';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
@@ -459,6 +464,7 @@ export const kioskClockIn = withTenant(async function kioskClockIn(
     pin: string,
     workShiftId: string | undefined,
     clockInPhotoUrl: string,
+    locationEvidence?: KioskLocationEvidenceInput,
 ) {
     try {
         const ip = await getClientIp();
@@ -478,12 +484,24 @@ export const kioskClockIn = withTenant(async function kioskClockIn(
             return { success: false, error: 'Ambil selfie terlebih dahulu' };
         }
 
-        const result = await AttendanceService.clockIn(db, {
-            employeeCode,
-            pin,
-            workShiftId: workShiftId?.trim() || undefined,
-            clockInPhotoUrl: clockInPhotoUrl.trim(),
-        });
+        const parsedLocation = parseKioskLocationEvidence(locationEvidence);
+        if (!parsedLocation.success) {
+            return { success: false, error: parsedLocation.error };
+        }
+
+        const settings = await readAttendanceSettings(db);
+
+        const result = await AttendanceService.clockIn(
+            db,
+            {
+                employeeCode,
+                pin,
+                workShiftId: workShiftId?.trim() || undefined,
+                clockInPhotoUrl: clockInPhotoUrl.trim(),
+                locationEvidence: parsedLocation.data,
+            },
+            settings,
+        );
         revalidatePath('/kiosk/attendance');
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };
@@ -496,6 +514,7 @@ export const kioskClockOut = withTenant(async function kioskClockOut(
     employeeCode: string,
     pin: string,
     clockOutPhotoUrl?: string,
+    locationEvidence?: KioskLocationEvidenceInput,
 ) {
     try {
         const ip = await getClientIp();
@@ -511,11 +530,23 @@ export const kioskClockOut = withTenant(async function kioskClockOut(
             };
         }
 
-        const result = await AttendanceService.clockOut(db, {
-            employeeCode,
-            pin,
-            clockOutPhotoUrl: clockOutPhotoUrl?.trim() || undefined,
-        });
+        const parsedLocation = parseKioskLocationEvidence(locationEvidence);
+        if (!parsedLocation.success) {
+            return { success: false, error: parsedLocation.error };
+        }
+
+        const settings = await readAttendanceSettings(db);
+
+        const result = await AttendanceService.clockOut(
+            db,
+            {
+                employeeCode,
+                pin,
+                clockOutPhotoUrl: clockOutPhotoUrl?.trim() || undefined,
+                locationEvidence: parsedLocation.data,
+            },
+            settings,
+        );
         revalidatePath('/kiosk/attendance');
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };

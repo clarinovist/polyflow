@@ -11,6 +11,7 @@ import {
     AlertCircle,
     CheckCircle2,
     Loader2,
+    MapPin,
 } from 'lucide-react';
 import {
     kioskClockIn,
@@ -21,6 +22,11 @@ import { cn } from '@/lib/utils/utils';
 import { EmployeeNameSearch } from '@/components/hrd/EmployeeNameSearch';
 import { LiveSelfieCapture } from '@/components/hrd/LiveSelfieCapture';
 import { uploadSelfieWithRetry } from './attendance-selfie-upload';
+import {
+    sampleBestPosition,
+    DEFAULT_TARGET_ACCURACY_METERS,
+    DEFAULT_SAMPLE_TIMEOUT_MS,
+} from '@/lib/utils/geolocation-sampler';
 
 interface Shift {
     id: string;
@@ -44,6 +50,12 @@ interface LogEntry {
     time: string;
 }
 
+interface LocationState {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+}
+
 interface Props {
     shifts: Shift[];
     employees: KioskEmployeeOption[];
@@ -60,9 +72,7 @@ function nowWIB(): string {
 
 export function AttendanceKioskForm({ shifts, employees }: Props) {
     const [clock, setClock] = useState<string | null>(null);
-    const [selectedShift] = useState<string>(
-        shifts[0]?.id ?? '',
-    );
+    const [selectedShift] = useState<string>(shifts[0]?.id ?? '');
     const [selectedEmployee, setSelectedEmployee] =
         useState<KioskEmployeeOption | null>(null);
     const [pin, setPin] = useState('');
@@ -72,12 +82,60 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
     const [feedback, setFeedback] = useState<Feedback | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [logId, setLogId] = useState(0);
+    const [location, setLocation] = useState<LocationState | null>(null);
+    const [locationError, setLocationError] = useState<string | null>(null);
+    const [gettingLocation, setGettingLocation] = useState(false);
 
     useEffect(() => {
         setClock(nowWIB());
         const id = setInterval(() => setClock(nowWIB()), 30_000);
         return () => clearInterval(id);
     }, []);
+
+    const requestLocation = useCallback(() => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            setLocationError('GPS tidak didukung di browser ini');
+            setLocation(null);
+            return;
+        }
+        setGettingLocation(true);
+        setLocationError(null);
+        void sampleBestPosition({
+            targetAccuracyMeters: DEFAULT_TARGET_ACCURACY_METERS,
+            timeoutMs: DEFAULT_SAMPLE_TIMEOUT_MS,
+        }).then((result) => {
+            if (result.sample) {
+                setLocation({
+                    latitude: result.sample.latitude,
+                    longitude: result.sample.longitude,
+                    accuracy: result.sample.accuracy,
+                });
+            } else {
+                setLocation(null);
+                const msg = result.permissionDenied
+                    ? 'Izin lokasi ditolak. Aktifkan GPS di pengaturan browser tablet.'
+                    : 'Gagal mendapatkan lokasi GPS. Coba lagi.';
+                setLocationError(msg);
+            }
+            setGettingLocation(false);
+        });
+    }, []);
+
+    // Ambil lokasi saat mount — kiosk hidup seharian, jadi fix GPS pagi tidak
+    // boleh dipakai untuk absen sore.
+    useEffect(() => {
+        requestLocation();
+    }, [requestLocation]);
+
+    const selectedEmployeeId = selectedEmployee?.id ?? null;
+
+    // Refresh lokasi tiap ganti karyawan — jangan pakai GPS lama saat karyawan
+    // berikutnya absen.
+    useEffect(() => {
+        if (selectedEmployeeId) {
+            requestLocation();
+        }
+    }, [selectedEmployeeId, requestLocation]);
 
     const addLog = (
         code: string,
@@ -128,6 +186,14 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             });
             return;
         }
+        if (!location) {
+            setFeedback({
+                type: 'error',
+                message:
+                    'Lokasi GPS belum tersedia. Tunggu sebentar atau coba lagi.',
+            });
+            return;
+        }
         const shiftToUse = selectedShift || shifts[0]?.id || undefined;
 
         setLoading(true);
@@ -142,7 +208,9 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             if (!photoUrl) {
                 setFeedback({
                     type: 'error',
-                    message: uploadErr || 'Gagal mengunggah foto selfie. Cek koneksi / R2.',
+                    message:
+                        uploadErr ||
+                        'Gagal mengunggah foto selfie. Cek koneksi / R2.',
                 });
                 return;
             }
@@ -152,11 +220,14 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                 pin,
                 shiftToUse,
                 photoUrl,
+                location,
             );
             if (result.success && result.data) {
                 const d = result.data;
                 const shiftName =
-                    d.shiftName || shifts.find((s) => s.id === shiftToUse)?.name || '';
+                    d.shiftName ||
+                    shifts.find((s) => s.id === shiftToUse)?.name ||
+                    '';
                 const msg = d.isOvertimeShift
                     ? `${d.employeeName} · LEMBUR · ${shiftName}`
                     : `${d.employeeName} · ${shiftName} · ${nowWIB()}`;
@@ -189,6 +260,14 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             setFeedback({ type: 'error', message: 'Masukkan PIN' });
             return;
         }
+        if (!location) {
+            setFeedback({
+                type: 'error',
+                message:
+                    'Lokasi GPS belum tersedia. Tunggu sebentar atau coba lagi.',
+            });
+            return;
+        }
 
         setLoading(true);
         setFeedback(null);
@@ -202,7 +281,10 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                 );
                 if (!up.url && up.error) {
                     // Non-critical for clock-out: log but continue without photo
-                    console.warn('Selfie upload failed on clock-out:', up.error);
+                    console.warn(
+                        'Selfie upload failed on clock-out:',
+                        up.error,
+                    );
                 }
                 photoUrl = up.url || undefined;
             }
@@ -211,6 +293,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                 selectedEmployee.code,
                 pin,
                 photoUrl,
+                location,
             );
             if (result.success && result.data) {
                 const d = result.data;
@@ -245,8 +328,10 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
         !!selectedEmployee &&
         !!pin.trim() &&
         !!selfieFile &&
+        !!location &&
         !loading;
-    const canClockOut = !!selectedEmployee && !!pin.trim() && !loading;
+    const canClockOut =
+        !!selectedEmployee && !!pin.trim() && !!location && !loading;
 
     return (
         <div className="flex flex-col gap-4 md:gap-6">
@@ -259,8 +344,6 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                     {clock ?? '--:--'} WIB
                 </div>
             </div>
-
-
 
             <div className="bg-card rounded-2xl border-2 p-4 md:p-6 space-y-4">
                 <EmployeeNameSearch
@@ -301,6 +384,46 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                     disabled={loading}
                     label="Selfie (wajib untuk MASUK)"
                 />
+
+                <div className="flex items-center gap-2 text-xs">
+                    <MapPin
+                        className={cn(
+                            'h-4 w-4 shrink-0',
+                            location
+                                ? 'text-emerald-600'
+                                : locationError
+                                  ? 'text-destructive'
+                                  : 'text-muted-foreground',
+                        )}
+                    />
+                    {gettingLocation && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Mencari lokasi GPS...
+                        </span>
+                    )}
+                    {!gettingLocation && location && (
+                        <span className="text-emerald-600">
+                            Lokasi didapat (±{Math.round(location.accuracy)}m)
+                        </span>
+                    )}
+                    {!gettingLocation && !location && locationError && (
+                        <>
+                            <span className="text-destructive">
+                                {locationError}
+                            </span>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={requestLocation}
+                            >
+                                Coba Lagi
+                            </Button>
+                        </>
+                    )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                     <Button
