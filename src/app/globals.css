@@ -192,6 +192,28 @@
         background-position: 0% 50%;
     }
 }
+/*
+ * Ruang aman untuk FAB "Butuh bantuan?" (PolyflowChatWidget).
+ * FAB itu fixed di kanan-bawah, sedangkan hampir semua form menaruh baris aksi
+ * (Save as Draft / Save & Post) di kanan-bawah halaman — tanpa padding ini
+ * tombolnya ketutup FAB saat halaman di-scroll mentok bawah.
+ * Aturan hanya aktif ketika FAB benar-benar ter-render (lihat route filter di
+ * src/components/support/polyflow-chat-widget.tsx).
+ * Dipasang sebagai spacer ::after, bukan padding-bottom, supaya tidak menimpa
+ * padding bottom-nav milik layout mobile (`pb-[calc(4rem+safe-area)]`).
+ */
+body:has([data-polyflow-chat-fab]) main::after {
+    content: '';
+    display: block;
+    height: 5.5rem;
+}
+
+@media print {
+    body:has([data-polyflow-chat-fab]) main::after {
+        display: none;
+    }
+}
+
 /* Print styles */
 @media print {
     .no-print {

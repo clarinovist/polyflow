@@ -65,7 +65,8 @@ export function PolyflowChatWidget() {
 
     return (
         <div
-            className={`fixed z-50 transition-all ${
+            data-polyflow-chat-fab=""
+            className={`fixed z-50 transition-all print:hidden ${
                 isMobileRoute
                     ? 'bottom-20 right-4 sm:bottom-5 sm:right-5'
                     : 'bottom-5 right-5'
