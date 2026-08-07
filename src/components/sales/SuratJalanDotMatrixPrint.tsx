@@ -23,6 +23,11 @@ export interface SuratJalanPrintData {
     deliveryDate: Date;
     status?: string;
     destinationAddress?: string | null;
+    carrier?: string | null;
+    vehicle?: {
+        driverName?: string | null;
+        plateNumber?: string | null;
+    } | null;
     salesOrder?: {
         orderNumber?: string;
         customer?: {
@@ -65,6 +70,10 @@ export function SuratJalanDotMatrixPrint({
     }, 0);
 
     const { paperSize } = COMPANY;
+
+    // Sopir tercetak kalau kendaraannya sudah dipilih; kalau belum, biarkan
+    // kosong supaya bisa ditulis tangan di meja kirim.
+    const driverName = order.vehicle?.driverName || order.carrier || '';
 
     const handlePrint = () => {
         window.print();
@@ -220,16 +229,22 @@ export function SuratJalanDotMatrixPrint({
                 </div>
 
                 {/* === SIGNATURE SECTION === */}
+                {/* Tiga pihak: pabrik → sopir → penerima, mengikuti alur barang */}
                 <div className="signature-section">
                     <div className="sig-left">
-                        <div className="sig-label">Yang Menerima,</div>
-                        <div className="sig-space"></div>
-                        <div className="sig-line">( )</div>
-                    </div>
-                    <div className="sig-right">
                         <div className="sig-label">Hormat kami,</div>
                         <div className="sig-space"></div>
                         <div className="sig-line">( {COMPANY.signerName} )</div>
+                    </div>
+                    <div className="sig-center">
+                        <div className="sig-label">Sopir,</div>
+                        <div className="sig-space"></div>
+                        <div className="sig-line">( {driverName} )</div>
+                    </div>
+                    <div className="sig-right">
+                        <div className="sig-label">Yang Menerima,</div>
+                        <div className="sig-space"></div>
+                        <div className="sig-line">( )</div>
                     </div>
                 </div>
             </div>
@@ -418,14 +433,18 @@ export function SuratJalanDotMatrixPrint({
         /* === SIGNATURES === */
         .signature-section {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 30px;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 16px;
           margin-top: 10px;
           font-size: 8px;
         }
 
         .sig-left {
           text-align: left;
+        }
+
+        .sig-center {
+          text-align: center;
         }
 
         .sig-right {
