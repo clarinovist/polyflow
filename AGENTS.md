@@ -212,6 +212,28 @@ Ada tenant baru? Tambahkan polanya ke sidecar **sebelum** menulis dokumen apa pu
 - Setup ini **multi-tenant**: satu migration di-apply ke beberapa database sekaligus. Jangan tulis SQL yang berasumsi cuma ada satu DB, dan jangan kaget kalau ada table yang sengaja kosong di sebagian tenant.
 - Daftar database target dan prosedur apply di produksi: `docs/ops/vps.md` (lokal).
 
+## Versi Node — WAJIB satu sumber
+
+`.nvmrc` adalah sumber kebenaran untuk dev lokal dan CI. `Dockerfile` (`FROM node:<versi>-alpine`)
+sumber kebenaran untuk produksi. **Keduanya wajib sama.**
+
+- **Jangan tulis `node-version:` di workflow.** Pakai `node-version-file: '.nvmrc'`.
+  Guard `scripts/check-node-version.sh` menolak versi hardcoded dan akan menyebut nomor barisnya.
+- Menaikkan versi Node = ubah **dua** file sekaligus (`.nvmrc` + `Dockerfile`), lalu jalankan
+  `bash scripts/check-node-version.sh`.
+- Guard jalan di job `test` **sebelum** `setup-node`, jadi drift gagal dalam ~1 detik, bukan
+  setelah `npm ci` + seluruh test.
+- Riwayat: aturan ini ditambahkan 2026-08-07 setelah ketahuan CI menjalankan seluruh gate
+  (lint, coverage, typecheck) di Node 20 sementara image produksi dibangun dari `node:26-alpine`.
+  Enam major version jaraknya, tidak ada yang teriak, dan bug spesifik-runtime lolos CI sepenuhnya.
+  Drift itu hidup berbulan-bulan karena versinya ditulis di dua tempat tanpa pengikat.
+- Menaikkan versi Node **bisa menggeser coverage** (lihat threshold ratchet di §Workflow Utama).
+  Verifikasi cara termurah tanpa memasang Node baru di mesin: jalankan gate di image yang sama
+  dengan produksi —
+  `git archive HEAD | tar -x -C /tmp/<dir>` lalu `docker run --rm -v /tmp/<dir>:/app -w /app node:<versi>-alpine sh -c '...'`.
+  Jangan mount root repo langsung: `npm ci` di dalam container akan menimpa `node_modules` lokal
+  yang dibangun untuk versi Node berbeda.
+
 ## Operasi Produksi & Deploy
 
 Topologi VPS, nama container, daftar database tenant, prosedur deploy, seeding prod, dan
