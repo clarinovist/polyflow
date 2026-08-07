@@ -28,12 +28,10 @@ function baseData(
         deliveryNumber: 'DO-2026-0001',
         deliveryDate: new Date('2026-08-07T03:00:00.000Z'),
         salesOrderNumber: 'SO-2026-0001',
-        driverName: 'Budi Santoso',
         vehiclePlate: 'B 1234 XYZ',
         items: [
             { name: 'Karung Plastik 50kg', qty: 100, unit: 'PCS', note: '' },
         ],
-        signerName: 'Nugroho',
         paperHeightCm: 14,
         paperWidthCm: DEFAULT_WIDTH_CM,
         ...overrides,
@@ -117,7 +115,7 @@ describe('generateEscpDeliveryNote', () => {
         expect(text).toContain('B 1234 XYZ');
     });
 
-    it('prints all three signature parties with the driver name filled in', () => {
+    it('prints all three signature parties in goods-flow order', () => {
         // Arrange
         const data = baseData();
 
@@ -125,23 +123,24 @@ describe('generateEscpDeliveryNote', () => {
         const text = toTextLines(generateEscpDeliveryNote(data)).join('\n');
 
         // Assert
-        expect(text).toContain('Hormat kami,');
+        expect(text).toContain('Pengirim,');
         expect(text).toContain('Sopir,');
-        expect(text).toContain('Yang Menerima,');
-        expect(text).toContain('( Budi Santoso )');
-        expect(text).toContain('( Nugroho )');
+        expect(text).toContain('Penerima,');
     });
 
-    it('leaves the driver slot blank when no vehicle is assigned', () => {
+    it('leaves every signature slot as an empty bracket to write in', () => {
         // Arrange
-        const data = baseData({ driverName: '' });
+        const data = baseData();
 
         // Act
-        const text = toTextLines(generateEscpDeliveryNote(data)).join('\n');
+        const lines = toTextLines(generateEscpDeliveryNote(data));
+        const bracketRows = lines.filter((line) => line.includes('('));
+        const nameRow = bracketRows[bracketRows.length - 1];
 
-        // Assert — an empty pair of brackets is writable by hand
-        expect(text).toContain('Sopir,');
-        expect(text).toContain('(  )');
+        // Assert — three brackets, none of them carrying a printed name
+        expect(nameRow).toBeDefined();
+        expect(nameRow?.match(/\(\s+\)/g)).toHaveLength(3);
+        expect(nameRow).not.toMatch(/\([^)\s]/);
     });
 
     it('never emits a line wider than the printable width', () => {

@@ -376,7 +376,12 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
             `-${formatRupiah(data.discountAmount)}`,
         ]);
     }
-    summaryLines.push(['DPP :', formatRupiah(data.dpp)]);
+    // DPP hanya punya arti pada transaksi PPN. Di invoice non-PPN nilainya
+    // sama dengan SUBTOTAL (atau SUBTOTAL - DISKON), jadi baris ini cuma
+    // mengesankan ada komponen pajak yang sebenarnya tidak ada.
+    if (data.isPPN) {
+        summaryLines.push(['DPP :', formatRupiah(data.dpp)]);
+    }
     if (data.taxAmount > 0) {
         summaryLines.push(['PPN 11% :', formatRupiah(data.taxAmount)]);
     }

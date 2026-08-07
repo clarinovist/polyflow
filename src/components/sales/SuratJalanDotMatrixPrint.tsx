@@ -73,10 +73,6 @@ export function SuratJalanDotMatrixPrint({
 
     const { paperSize } = COMPANY;
 
-    // Sopir tercetak kalau kendaraannya sudah dipilih; kalau belum, biarkan
-    // kosong supaya bisa ditulis tangan di meja kirim.
-    const driverName = order.vehicle?.driverName || order.carrier || '';
-
     const handlePrint = () => {
         window.print();
     };
@@ -239,22 +235,32 @@ export function SuratJalanDotMatrixPrint({
                 </div>
 
                 {/* === SIGNATURE SECTION === */}
-                {/* Tiga pihak: pabrik → sopir → penerima, mengikuti alur barang */}
+                {/* Tiga pihak: pengirim → sopir → penerima, mengikuti alur
+                    barang. Tidak ada nama yang dicetak: surat jalan
+                    ditandatangani siapa pun yang benar-benar ada di lokasi,
+                    jadi nama direktur atau sopir terdaftar justru salah begitu
+                    ada pergantian shift atau sopir pengganti. */}
                 <div className="signature-section">
                     <div className="sig-left">
-                        <div className="sig-label">Hormat kami,</div>
+                        <div className="sig-label">Pengirim,</div>
                         <div className="sig-space"></div>
-                        <div className="sig-line">( {COMPANY.signerName} )</div>
+                        <div className="sig-line">
+                            (<span className="sig-name-slot" />)
+                        </div>
                     </div>
                     <div className="sig-center">
                         <div className="sig-label">Sopir,</div>
                         <div className="sig-space"></div>
-                        <div className="sig-line">( {driverName} )</div>
+                        <div className="sig-line">
+                            (<span className="sig-name-slot" />)
+                        </div>
                     </div>
                     <div className="sig-right">
-                        <div className="sig-label">Yang Menerima,</div>
+                        <div className="sig-label">Penerima,</div>
                         <div className="sig-space"></div>
-                        <div className="sig-line">( )</div>
+                        <div className="sig-line">
+                            (<span className="sig-name-slot" />)
+                        </div>
                     </div>
                 </div>
             </div>
@@ -471,6 +477,13 @@ export function SuratJalanDotMatrixPrint({
 
         .sig-line {
           font-style: italic;
+        }
+
+        /* Kurung kosong butuh lebar sendiri — tanpa ini "()" nyaris nol
+           lebarnya dan tidak ada ruang menulis nama. */
+        .sig-name-slot {
+          display: inline-block;
+          min-width: 90px;
         }
       `}</style>
         </>

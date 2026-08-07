@@ -98,9 +98,6 @@ export function InvoiceDotMatrixPrint({
     const rawSubtotal = subtotal + discountAmount - taxAmount;
     // DPP = dasar pengenaan pajak = rawSubtotal - discountAmount = subtotal - taxAmount
     const dpp = subtotal - taxAmount;
-    const dppLain = 0;
-    const _coretax = 0;
-    const potongan = 0;
     const sisaTagihan = grandTotal - Number(invoice.paidAmount);
 
     const { paperSize } = COMPANY;
@@ -335,22 +332,22 @@ export function InvoiceDotMatrixPrint({
                                     </span>
                                 </div>
                             )}
-                            <div className="summary-row">
-                                <span>DPP :</span>
-                                <span>{formatNumberWithDots(dpp)}</span>
-                            </div>
+                            {/* DPP hanya berlaku untuk transaksi PPN — di
+                                invoice non-PPN nilainya sama dengan SUBTOTAL
+                                (atau SUBTOTAL - DISKON), jadi barisnya cuma
+                                mengesankan ada komponen pajak. */}
+                            {isPPN && (
+                                <div className="summary-row">
+                                    <span>DPP :</span>
+                                    <span>{formatNumberWithDots(dpp)}</span>
+                                </div>
+                            )}
                             {taxAmount > 0 && (
                                 <div className="summary-row">
                                     <span>PPN 11% :</span>
                                     <span>
                                         {formatNumberWithDots(taxAmount)}
                                     </span>
-                                </div>
-                            )}
-                            {dppLain > 0 && (
-                                <div className="summary-row">
-                                    <span>DPP :</span>
-                                    <span>{formatNumberWithDots(dppLain)}</span>
                                 </div>
                             )}
                             {shippingCost > 0 && (
@@ -364,10 +361,6 @@ export function InvoiceDotMatrixPrint({
                             <div className="summary-row bold">
                                 <span>TOTAL :</span>
                                 <span>{formatNumberWithDots(grandTotal)}</span>
-                            </div>
-                            <div className="summary-row">
-                                <span>POTONGAN :</span>
-                                <span>{formatNumberWithDots(potongan)}</span>
                             </div>
                             <div className="summary-row bold">
                                 <span>SISA TAGIHAN :</span>

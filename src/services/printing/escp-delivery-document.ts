@@ -55,7 +55,6 @@ export async function buildDeliveryNoteDocument(
         deliveryNumber: order.orderNumber,
         deliveryDate: new Date(order.deliveryDate),
         salesOrderNumber: order.salesOrder?.orderNumber || '',
-        driverName: order.vehicle?.driverName || order.carrier || '',
         vehiclePlate: order.vehicle?.plateNumber || '',
         items: order.items.map((item) => ({
             name:
@@ -70,7 +69,6 @@ export async function buildDeliveryNoteDocument(
                 '',
             note: item.notes || '',
         })),
-        signerName: company.signerName,
         paperHeightCm: company.paperSize.heightCm,
         paperWidthCm: company.paperSize.widthCm,
         logoBitmap,

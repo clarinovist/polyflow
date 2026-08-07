@@ -119,6 +119,7 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(text).toContain(data.bankName);
         expect(text).toContain(data.bankAccount);
         expect(text).toContain('DISKON :');
+        expect(text).toContain('DPP :');
         expect(text).toContain('PPN 11% :');
         expect(text).toContain('ONGKOS KIRIM :');
         expect(text).toContain('Hormat kami,');
@@ -143,6 +144,36 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
             .filter(Boolean)
             .join(' ');
         expect(reconstructed).toContain(data.footerNote);
+    });
+
+    it('omits the DPP row on a non-PPN invoice', () => {
+        // Arrange — no tax: DPP would just restate SUBTOTAL
+        const data = baseData({ isPPN: false, taxAmount: 0 });
+
+        // Act
+        const text = decodeText(generateEscpInvoice(data));
+
+        // Assert
+        expect(text).toContain('SUBTOTAL :');
+        expect(text).toContain('Penjualan Non PPN');
+        expect(text).not.toContain('DPP :');
+        expect(text).not.toContain('PPN 11% :');
+    });
+
+    it('keeps the DPP row on a PPN invoice', () => {
+        // Arrange
+        const data = baseData({
+            isPPN: true,
+            taxAmount: 231000,
+            dpp: 2100000,
+        });
+
+        // Act
+        const text = decodeText(generateEscpInvoice(data));
+
+        // Assert
+        expect(text).toContain('DPP :');
+        expect(text).toContain('PPN 11% :');
     });
 });
 

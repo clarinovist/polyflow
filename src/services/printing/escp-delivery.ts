@@ -40,6 +40,12 @@ const NAME_SHARE = 0.6;
 const MIN_ITEM_ROWS = 4;
 /** Vertical space left for a handwritten signature. */
 const SIGNATURE_BLANK_ROWS = 3;
+/** Narrowest writable bracket under a signature, even on cramped paper. */
+const MIN_NAME_SLOT_COLS = 8;
+/** Widest writable bracket — past this it just looks like a stray rule. */
+const MAX_NAME_SLOT_COLS = 18;
+/** Columns kept clear around a bracket so neighbouring slots don't touch. */
+const NAME_SLOT_PADDING = 4;
 
 const CLOSING_TEXT =
     'Demikian surat jalan ini dibuat dengan sebenar-benarnya, sebagai bukti pengiriman barang.';
@@ -68,14 +74,10 @@ export interface EscpDeliveryData {
     deliveryDate: Date;
     salesOrderNumber: string;
 
-    // Transport — blank prints as an empty signature slot to fill by hand
-    driverName: string;
+    // Transport — the driver signs by hand, so only the plate is printed
     vehiclePlate: string;
 
     items: EscpDeliveryItem[];
-
-    // Footer
-    signerName: string;
 
     // Paper
     paperHeightCm: number;
@@ -191,27 +193,44 @@ function formatQty(qty: number): string {
 }
 
 /**
- * Three signature columns in goods-flow order: the factory that sent it, the
+ * Three signature columns in goods-flow order: the person who sent it, the
  * driver who carried it, the customer who received it.
+ *
+ * No name is printed under any of them. A delivery note is signed on the
+ * loading dock by whoever is actually there — printing the company signer or
+ * the vehicle's registered driver names the wrong person the moment a shift
+ * changes or a substitute driver takes the run. Each column gets an empty
+ * bracket wide enough to write in by hand instead.
  */
-function buildSignatureRows(
-    data: EscpDeliveryData,
-    lineWidth: number,
-): string[] {
+function buildSignatureRows(lineWidth: number): string[] {
     const colWidth = Math.floor(lineWidth / 3);
     const lastWidth = lineWidth - colWidth * 2;
+    const slot = nameSlot(colWidth);
 
     const labels =
-        pad('Hormat kami,', colWidth) +
+        pad('Pengirim,', colWidth) +
         pad('Sopir,', colWidth, 'center') +
-        pad('Yang Menerima,', lastWidth, 'right');
+        pad('Penerima,', lastWidth, 'right');
 
     const names =
-        pad(`( ${data.signerName} )`, colWidth) +
-        pad(`( ${data.driverName} )`, colWidth, 'center') +
-        pad('( )', lastWidth, 'right');
+        pad(slot, colWidth) +
+        pad(slot, colWidth, 'center') +
+        pad(slot, lastWidth, 'right');
 
     return [labels, ...Array(SIGNATURE_BLANK_ROWS).fill(''), names];
+}
+
+/**
+ * An empty bracket sized to the signature column: wide enough to hold a
+ * handwritten name, capped so it does not stretch across a third of a wide
+ * form.
+ */
+function nameSlot(colWidth: number): string {
+    const inner = Math.min(
+        MAX_NAME_SLOT_COLS,
+        Math.max(MIN_NAME_SLOT_COLS, colWidth - NAME_SLOT_PADDING),
+    );
+    return `(${' '.repeat(inner)})`;
 }
 
 export function generateEscpDeliveryNote(data: EscpDeliveryData): number[] {
@@ -306,7 +325,7 @@ export function generateEscpDeliveryNote(data: EscpDeliveryData): number[] {
     bytes.push(...newline());
 
     // ── SIGNATURES ──
-    for (const row of buildSignatureRows(data, W)) {
+    for (const row of buildSignatureRows(W)) {
         bytes.push(...str(row));
         bytes.push(...newline());
     }
