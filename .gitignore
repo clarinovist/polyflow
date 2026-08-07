@@ -91,6 +91,11 @@ graphify-out/
 /.gitattributes
 /.githooks/post-commit
 /.githooks/post-checkout
+# Pola nama tenant untuk tenant-name guard di .githooks/pre-commit.
+# WAJIB tetap lokal: pre-commit sendiri ter-track, jadi menaruh nama tenant di
+# dalamnya akan mem-publish persis yang sedang dijaga. Sidecar hilang = guard
+# mati diam-diam, itu disengaja supaya clone orang lain tidak terblokir.
+/.githooks/sensitive-names.local
 
 # Vendored agent-skill docs installed by `graphify install --platform opencode`.
 # Third-party docs, re-created by the installer, and they pollute the graph corpus
@@ -108,6 +113,12 @@ graphify-out/
 # one entry — git cannot re-include a file whose parent directory is excluded.
 /docs/plan/*
 !/docs/plan/_TEMPLATE.md
+# Runbook operasi produksi — topologi VPS, nama container, daftar DB tenant.
+# AGENTS.md cuma menyimpan pointer ke docs/ops/vps.md, bukan isinya.
+# CATATAN: ini hanya mencegah kebocoran BARU. Nama tenant sudah tersebar di ~119
+# file ter-track lain (README.md, .env.example, docs/DEPLOYMENT.md, docs/runbooks/*)
+# dan sudah publik di riwayat git. Jangan anggap ini pengaman.
+/docs/ops/
 /docs/marketing/
 .gstack/
 

@@ -37,7 +37,14 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
       `include` milik vitest hanya mencakup `src/`, jadi test di luar itu tidak
       pernah dijalankan — direktori `tests/` di root sempat mati diam-diam
       selama 5 bulan karena hal ini.
-- **Coverage**: `npm run test:coverage` — wajib lolos sebelum push. Config di `vitest.config.ts` → `test.coverage.thresholds` (71/63/75/72). Provider `v8` tanpa `include` broad sengaja (hanya surface yang ke-exercise test). Lihat tabel uncovered lines di paling kanan output untuk file drop. Jika fail, tambah test dulu, jangan turunin threshold tanpa plan.
+- **Coverage**: `npm run test:coverage` — wajib lolos sebelum push. Config di `vitest.config.ts` → `test.coverage.thresholds`.
+    - Threshold `71/63/75/72` (Stmts/Branch/Funcs/Lines) itu **ratchet guard**, target 80%. **Jangan turunkan hanya untuk hijauin CI** — turunin = hutang coverage naik. Kalau fail, tambah test dulu, jangan sentuh config.
+    - Provider `v8` tanpa `include` broad sengaja (hanya surface yang ke-exercise test). Konsekuensinya: menambah test untuk modul yang tadinya tidak tersentuh justru bisa menurunkan rasio global — anggarkan test ekstra sebelum mulai.
+    - **Setiap service/action baru ≥100 baris** wajib ada `__tests__/*.test.ts` yang cover happy path + branch utama sebelum PR. Jika tidak, coverage global drop (gate di job `test` → `npx vitest run --coverage`).
+    - **Jika CI gagal coverage**: `npm run test:coverage` lokal, lihat file di paling bawah tabel (Lowest %), tambah test untuk uncovered lines yang di-list di kolom paling kanan. Commit coverage fix sebelum push.
+    - **Boleh exclude** hanya untuk: `*.d.ts`, `src/lib/schemas/**`, `src/generated/**`, `**/*.test.ts` (sudah di config). Jangan exclude service prod untuk boost ratio.
+    - **When stuck**: tulis plan di `docs/plan/` dulu — scope file yang bikin coverage drop, rencana test, residual gap — lalu fix test, bukan config.
+    - Riwayat: aturan mitigasi ini ditambahkan 2026-07-27 setelah CI berulang kali gagal di gate coverage.
 - **Typecheck**: `npx tsc --noEmit` — wajib 0 error. Error di file test tetap dihitung; vitest lolos bukan berarti typecheck lolos.
 - Jika lint/test/coverage gagal: balik ke step 2 (FIX), update residual gap.
 
@@ -50,11 +57,41 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
     - Alasan: build berat (Next.js standalone), bisa konflik port / lock file / OOM kalau barengan.
 - Jika build gagal: fix → ulang lint + test scope → build lagi.
 
-## Commit & Push
+### Batch Edit Safety
 
-- **Commit** diperbolehkan setelah gap 0 + lint + test scope + build lolos.
-- **Jangan pernah push** ke remote tanpa perintah eksplisit dari user. Tunggu user bilang "push" atau "ship" atau "kirim".
-- Commit message: jelas, mention plan file kalau ada (`plan: docs/plan/...`).
+- Setelah edit massal 5+ file / write ulang component, **WAJIB** `git status --short` + `git diff --stat` sebelum next step.
+- Pernah terjadi file revert hilang: `contextual-help.tsx` + `production/orders/page.tsx` + `support/page.tsx` + `chat-panel.tsx` + `virtual-cs-service.ts` dll reverted setelah write ulang — karena codegraph index lag + tool overwrite.
+- Jika file hilang dari `git status`, re-apply via `Write` atau `Edit` dan verify lagi `grep -n "citedArticles\|prefillQuestion"` ada.
+- Begitu review diff selesai, **langsung `git add` scope sendiri**. Perubahan yang belum di-stage hilang permanen kalau ke-overwrite; yang sudah di-stage masih bisa dipulihkan lewat `git fsck --unreachable`.
+
+## Model & Delegasi
+
+Berlaku untuk sub-agent Claude Code, worker OpenCode, dan agent definition apa pun yang
+nanti dibuat di `.claude/agents/`.
+
+- **Default: warisi model sesi.** Jangan set `model:` di agent definition kecuali alasannya
+  bisa ditulis. Per 2026-08-07 belum ada satu pun file di `.claude/agents/` maupun
+  `~/.claude/agents/`, jadi semua sub-agent otomatis ikut model sesi — itu perilaku yang
+  diinginkan, bukan kelalaian.
+- **Worker yang menulis atau mengubah code: minimum Sonnet.** Termasuk migration SQL dan test.
+- **Haiku hanya untuk task mekanis murni yang bounded** — rename massal, format ulang,
+  ekstraksi list, pemetaan satu-satu yang polanya sudah ada di file lain. Hasilnya tetap
+  masuk residual gap loop + verify yang sama; tidak ada jalur cepat.
+- **Jangan turunkan tier untuk menghemat.** Biaya review orchestrator sama saja siapa pun
+  yang menulis. Satu putaran gap loop tambahan sudah menghapus seluruh selisih tier.
+  Penghematan nyata ada di `/clear` lebih sering dan menghindari `Read` file besar berulang
+  — cache-read yang mendominasi biaya, bukan output.
+- **Alasan spesifik repo ini**: kegagalan mahal di sini senyap, bukan crash — coverage drop
+  kecil baru ketahuan di CI, `AuditLog` ke-create pakai outer client bukan `tx`, migration
+  lolos di satu database tenant tapi bermasalah di tenant lain. Yang bikin worker aman adalah
+  kemampuan berhenti dan bilang "ini di luar scope yang saya paham" — dan itu yang paling
+  dulu hilang saat tier diturunkan.
+- **Belum diukur.** Per 2026-08-07 belum pernah ada worker Haiku di repo ini; poin di atas
+  penilaian dari bentuk masalah, bukan data. Kalau mau diuji: ambil satu task mekanis
+  bounded, jalankan di Haiku, catat berapa putaran gap loop sampai 0, lalu bandingkan.
+- **Konflik dengan rule global**: `~/.claude/rules/common/performance.md` (di luar repo)
+  menyarankan Haiku untuk "worker agents in multi-agent systems". Untuk repo ini, aturan di
+  file ini yang menang.
 
 ## OpenCode Worker Orchestration (Primary Agent → OpenCode)
 
@@ -108,7 +145,8 @@ dan keputusan commit/push.
 
 6. Setelah worker selesai, orchestrator **wajib** memeriksa workspace nyata dengan
    `git status --short`, `git diff --stat`, dan `git diff`. Jangan percaya summary
-   worker tanpa verifikasi file aktual.
+   worker tanpa verifikasi file aktual — worker bisa exit `rc=0` tanpa mengedit
+   apa pun.
 7. Orchestrator menjalankan residual gap loop sampai 0, lalu lint, scoped test,
    coverage, typecheck, dan build sesuai workflow utama. Verifikasi worker tidak
    menggantikan verifikasi orchestrator.
@@ -129,6 +167,8 @@ dan keputusan commit/push.
   hentikan/reject perubahan tersebut dan review sebelum melanjutkan.
 - Jangan jalankan build dari worker ketika terminal lain masih aktif; aturan
   koordinasi build tetap berlaku.
+- Sesi tmux yang hidup bukan bukti worker bekerja. Pantau pertumbuhan file log;
+  worker bisa menggantung di tengah task berjam-jam tanpa mati.
 
 ### Dampak token dan biaya
 
@@ -140,69 +180,52 @@ menaikkan konsumsi total. Untuk efisiensi, delegasikan task yang bounded, kirim
 context minimum yang cukup, dan hentikan worker setelah acceptance criteria
 terpenuhi.
 
-## VPS — nugrohopramono
+## Commit & Push
 
-Container polyflow (Next.js) berjalan di VPS ini.
+- **Commit** diperbolehkan setelah gap 0 + lint + test scope + build lolos.
+- **Jangan pernah push** ke remote tanpa perintah eksplisit dari user. Tunggu user bilang "push" atau "ship" atau "kirim".
+- Commit message: jelas, mention plan file kalau ada (`plan: docs/plan/...`).
+- Kalau ada session/terminal lain yang juga punya file ter-stage, **commit dengan pathspec** (`git commit <file>...`), jangan `git commit -a` atau tanpa path — index itu dipakai bersama.
 
-- **Container name**: `polyflow-app`
-- **Working dir**: `/root/polyflow`
-- **Docker Compose**: `docker compose` (langsung dari `/root/polyflow`)
-- **CI/CD**: GitHub Actions (`.github/workflows/production.yml`)
-- **Tenant DBs**: `polyflow` (main/control), `kiyowo`, `melindo_rafia` — migrator apply ke semua (104 migrations)
+### Pre-commit Guard
 
-### Aturan Deploy
+`git config core.hooksPath .githooks` — **jalankan sekali per clone**, kalau tidak semua guard di bawah ini mati tanpa peringatan.
 
-- **JANGAN build di VPS.** Build dilakukan oleh CI (GitHub Actions) → push image ke `ghcr.io/clarinovist/polyflow:latest` → VPS tinggal `docker compose pull` + restart.
-- Perintah deploy yang aman di VPS: pull + up saja, tanpa build.
-- Kalau mau deploy manual (darurat): pull image terbaru lalu restart container.
+Tiga penjaga di `.githooks/pre-commit`, masing-masing dengan bypass sendiri (melewati satu tidak melewati yang lain):
 
-### Database Migration — WAJIB
+| #   | Penjaga                                                                     | Bypass                 |
+| --- | --------------------------------------------------------------------------- | ---------------------- |
+| 1   | Konsistensi AGENTS.md — jalan saat ada `AGENTS.md` ter-stage                | —                      |
+| 2   | Data-file — tolak CSV/XLSX/SQL berisi baris data                            | `ALLOW_DATA_FILES=1`   |
+| 3   | Tenant-name — tolak nama tenant/host di file tracked, termasuk di nama file | `ALLOW_TENANT_NAMES=1` |
+
+Guard #3 hanya memindai baris yang **ditambahkan**, jadi mengedit file lama yang sudah terlanjur memuat nama tenant tetap bisa selama tidak menambah yang baru. Polanya dibaca dari `.githooks/sensitive-names.local` — gitignored, karena `pre-commit` sendiri ter-track dan menaruh nama di dalamnya akan mem-publish persis yang dijaga. **Sidecar hilang = guard mati diam-diam**; itu disengaja supaya clone orang lain tidak terblokir file yang tidak bisa mereka lihat, tapi artinya di mesin baru kamu harus membuatnya lagi.
+
+Ada tenant baru? Tambahkan polanya ke sidecar **sebelum** menulis dokumen apa pun tentangnya.
+
+## Database Migration — WAJIB
 
 - Setiap ubah `prisma/schema.prisma` **WAJIB** bikin folder migration:
   `prisma/migrations/YYYYMMDD_name/migration.sql`
-- `npx prisma generate` saja TIDAK cukup — `entrypoint.sh` jalanin `prisma migrate deploy` di VPS, butuh file SQL.
+- `npx prisma generate` saja TIDAK cukup — deploy menjalankan `prisma migrate deploy`, dan itu butuh file SQL-nya.
 - Cara buat migration lokal (tanpa DB): tulis manual SQL, atau `npx prisma migrate dev --name xxx` jika DB lokal ada.
-- Multi-tenant: `migrate-all-tenants.ts` apply ke `polyflow` + `kiyowo` + `melindo_rafia`. Table `Help*` cuma dipake main DB, tapi tetap ke-migrate ke tenant (kosong wajar).
+- Setup ini **multi-tenant**: satu migration di-apply ke beberapa database sekaligus. Jangan tulis SQL yang berasumsi cuma ada satu DB, dan jangan kaget kalau ada table yang sengaja kosong di sebagian tenant.
+- Daftar database target dan prosedur apply di produksi: `docs/ops/vps.md` (lokal).
 
-### Seeding Prod — HelpArticle & KB
+## Operasi Produksi & Deploy
 
-- Seed script TS (`scripts/seed-help-articles.ts`) **tidak ke-bundle** image standalone (`.next/standalone`). `node_modules/.prisma` missing di `/app`.
-- Seed prod via SQL langsung (paling aman):
-    ```bash
-    docker exec polyflow-db psql -U polyflow -d polyflow -c "INSERT INTO \"HelpArticle\" (...) VALUES (gen_random_uuid()::text, ...) ON CONFLICT (slug) DO NOTHING;"
-    ```
-- Alternatif: compile TS ke CJS, copy ke container, `cd /app && node /tmp/seed-help.cjs` (harus dari `/app` biar resolve `@prisma/client`).
-- HelpArticle seed di main DB only — 15 artikel PUBLISHED target. Tenant DB seed tidak perlu.
+Topologi VPS, nama container, daftar database tenant, prosedur deploy, seeding prod, dan
+checklist verifikasi setelah deploy ada di **`docs/ops/vps.md`** — lokal, tidak di-commit
+karena repo ini publik.
 
-### Verifikasi Wajib Setelah Deploy
+Yang tetap berlaku tanpa perlu membuka file itu:
 
-Setelah `gh` push dan CI deploy green, SSH VPS dan cek:
+- **JANGAN build di VPS.** Build dikerjakan CI (GitHub Actions) → image di-push ke registry → VPS hanya pull + restart.
+- Deploy, seeding, migration produksi, dan operasi database produksi dijalankan **orchestrator**, bukan worker. Lihat `## OpenCode Worker Orchestration`.
+- CI green ≠ data benar. Selalu verifikasi status migration dan isi table setelah deploy.
+- Kalau `docs/ops/vps.md` tidak ada di mesin ini (clone baru / worktree), **berhenti dan minta detailnya ke user** — jangan menebak nama container atau database.
 
-```bash
-docker logs polyflow-app --tail 100 | grep -iE "migrat|HelpQuestionCluster|snapshot"
-docker exec polyflow-app npx prisma@5.22.0 migrate status   # harus "Database schema is up to date!"
-docker exec polyflow-db psql -U polyflow -d polyflow -c "SELECT tablename FROM pg_tables WHERE tablename ILIKE 'Help%' ORDER BY tablename;"
-docker exec polyflow-db psql -U polyflow -d polyflow -c "SELECT count(*) FROM \"HelpArticle\"; SELECT count(*) FROM \"HelpInteraction\"; SELECT count(*) FROM \"HelpQuestionCluster\"; SELECT count(*) FROM \"HelpLearningDraft\";"
-docker ps --filter name=polyflow-app --format "{{.Names}} {{.Status}} {{.Image}}"
-```
-
-- CI green ≠ table ada isi — `HelpArticle` 0 berarti seed belum.
-- Cluster 0 wajar jika semua `HelpInteraction` OUTCOME=SUCCESS (hanya FAILED/PARTIAL/BLOCKED yang di-cluster).
-- Jika `polyflow-app` crash loop setelah migration, cek `SKIP_MIGRATIONS` env dan `docker logs`.
-
-### Batch Edit Safety
-
-- Setelah edit massal 5+ file / write ulang component, **WAJIB** `git status --short` + `git diff --stat` sebelum next step.
-- Pernah terjadi file revert hilang: `contextual-help.tsx` + `production/orders/page.tsx` + `support/page.tsx` + `chat-panel.tsx` + `virtual-cs-service.ts` dll reverted setelah write ulang — karena codegraph index lag + tool overwrite.
-- Jika file hilang dari `git status`, re-apply via `Write` atau `Edit` dan verify lagi `grep -n "citedArticles\|prefillQuestion"` ada.
-
-### Coverage CI Mitigation (2026-07-27)
-
-- **Jangan turunkan threshold** di `vitest.config.ts` hanya untuk hijauin CI — itu ratchet guard baseline 71/63/75/72 (Stmts/Branch/Funcs/Lines), target 80%. Turunin = hutang coverage naik.
-- **Setiap service/action baru ≥100 baris** wajib ada `__tests__/*.test.ts` yang cover happy path + branch utama sebelum PR. Jika tidak, coverage global drop (gate di job `test` → `npx vitest run --coverage`).
-- **Jika CI gagal coverage**: `npm run test:coverage` lokal, lihat file di paling bawah tabel (Lowest %), tambah test untuk uncovered lines yang di-list di kolom kanan. Commit coverage fix sebelum push.
-- **Boleh exclude** hanya untuk: `*.d.ts`, `src/lib/schemas/**`, `src/generated/**`, `**/*.test.ts` (sudah di config). Jangan exclude service prod untuk boost ratio.
-- **When stuck**: tulis plan di `docs/plan/` dulu — scope file yang bikin coverage drop, rencana test, residual gap — lalu fix test, bukan config.
+## Arsitektur
 
 ### Status Change Audit Policy (2026-07-25)
 

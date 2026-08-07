@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Pre-commit hook
 #   1. AGENTS.md consistency check
-#   2. Data-file guard — keeps counterparty records out of this public repo
+#   2. Data-file guard  — keeps counterparty records out of this public repo
+#   3. Tenant-name guard — keeps customer/tenant identifiers out of tracked files
 #
 # Enable once per clone: git config core.hooksPath .githooks
-# Bypass the data guard for one commit: ALLOW_DATA_FILES=1 git commit ...
+# Bypass one guard for one commit:
+#   ALLOW_DATA_FILES=1 git commit ...
+#   ALLOW_TENANT_NAMES=1 git commit ...
+# Each bypass is scoped to its own guard — skipping one never skips the other.
 
 set -euo pipefail
 
@@ -27,28 +31,27 @@ fi
 # the same mistake in a new folder would sail straight through. This checks the
 # shape of the file instead of its location.
 
-if [ "${ALLOW_DATA_FILES:-0}" = "1" ]; then
-    echo "pre-commit: ALLOW_DATA_FILES=1 set — data-file guard skipped."
-    exit 0
-fi
-
 BLOCKED=""
 
-# Tabular formats: no legitimate use in this tree so far.
-while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    BLOCKED="${BLOCKED}${f}  (tabular data)"$'\n'
-done < <(printf '%s\n' "$STAGED" | grep -iE '\.(csv|tsv|xlsx|xls|dump|parquet)$' || true)
+if [ "${ALLOW_DATA_FILES:-0}" = "1" ]; then
+    echo "pre-commit: ALLOW_DATA_FILES=1 set — data-file guard skipped."
+else
+    # Tabular formats: no legitimate use in this tree so far.
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        BLOCKED="${BLOCKED}${f}  (tabular data)"$'\n'
+    done < <(printf '%s\n' "$STAGED" | grep -iE '\.(csv|tsv|xlsx|xls|dump|parquet)$' || true)
 
-# SQL is mostly legitimate here — Prisma migrations are DDL and must pass.
-# Only flag SQL that carries data rows, and only outside prisma/migrations/.
-while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    if git show ":$f" 2>/dev/null |
-        grep -qiE '^[[:space:]]*(INSERT[[:space:]]+INTO|COPY[[:space:]]+["a-z])'; then
-        BLOCKED="${BLOCKED}${f}  (SQL with INSERT/COPY rows)"$'\n'
-    fi
-done < <(printf '%s\n' "$STAGED" | grep -iE '\.sql$' | grep -v '^prisma/migrations/' || true)
+    # SQL is mostly legitimate here — Prisma migrations are DDL and must pass.
+    # Only flag SQL that carries data rows, and only outside prisma/migrations/.
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        if git show ":$f" 2>/dev/null |
+            grep -qiE '^[[:space:]]*(INSERT[[:space:]]+INTO|COPY[[:space:]]+["a-z])'; then
+            BLOCKED="${BLOCKED}${f}  (SQL with INSERT/COPY rows)"$'\n'
+        fi
+    done < <(printf '%s\n' "$STAGED" | grep -iE '\.sql$' | grep -v '^prisma/migrations/' || true)
+fi
 
 if [ -n "$BLOCKED" ]; then
     echo ""
@@ -68,4 +71,81 @@ if [ -n "$BLOCKED" ]; then
     echo "      git rm --cached <file>"
     echo ""
     exit 1
+fi
+
+# -------------------------------------------------------- 3. Tenant-name guard
+# Guard #2 checks the shape of a file. Names leak through a different door: a
+# tenant identifier written into an ordinary markdown doc. Measured over 90 days,
+# roughly one new tracked doc per week carried one.
+#
+# The names themselves CANNOT live in this file — .githooks/pre-commit is tracked,
+# so hardcoding them would republish exactly what the guard exists to hide. They
+# live in a gitignored sidecar instead; a missing sidecar disables the check so
+# fresh clones and collaborators are never blocked by a file they cannot see.
+#
+# Only ADDED lines are scanned. Editing one of the ~119 files that already carry
+# a tenant name stays possible as long as the edit does not add another one.
+
+NAMES_FILE=".githooks/sensitive-names.local"
+
+if [ "${ALLOW_TENANT_NAMES:-0}" = "1" ]; then
+    echo "pre-commit: ALLOW_TENANT_NAMES=1 set — tenant-name guard skipped."
+elif [ ! -f "$NAMES_FILE" ]; then
+    : # no sidecar on this machine — nothing to match against, stay quiet
+else
+    PATTERN=$(grep -vE '^[[:space:]]*(#|$)' "$NAMES_FILE" | paste -sd '|' - | tr '[:upper:]' '[:lower:]')
+
+    if [ -n "$PATTERN" ]; then
+        NAME_HITS=""
+
+        # Filenames themselves leak too (scripts/AutoPrint-<Customer>.bat).
+        while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if printf '%s' "$f" | tr '[:upper:]' '[:lower:]' | grep -qE "$PATTERN"; then
+                NAME_HITS="${NAME_HITS}${f}  (in the filename)"$'\n'
+            fi
+        done < <(printf '%s\n' "$STAGED")
+
+        # Added lines, with the real line number from the hunk header.
+        while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            while IFS= read -r hit; do
+                [ -n "$hit" ] || continue
+                NAME_HITS="${NAME_HITS}${f}:${hit}"$'\n'
+            done < <(git diff --cached -U0 -- "$f" 2>/dev/null |
+                awk -v pat="$PATTERN" '
+                    /^@@/ { split($3, a, ","); ln = substr(a[1], 2) - 1; next }
+                    /^\+\+\+/ { next }
+                    /^\+/ {
+                        ln++
+                        line = substr($0, 2)
+                        if (tolower(line) ~ pat) {
+                            if (length(line) > 96) line = substr(line, 1, 93) "..."
+                            print ln "  " line
+                        }
+                    }
+                ' | head -4 || true)
+        done < <(printf '%s\n' "$STAGED")
+
+        if [ -n "$NAME_HITS" ]; then
+            echo ""
+            echo "  pre-commit: tenant/customer name headed into a PUBLIC repo"
+            echo ""
+            printf '%s' "$NAME_HITS" | sed 's/^/      /'
+            echo ""
+            echo "  Which customers this system runs for is business information."
+            echo "  Once pushed it is public permanently — forks and caches keep it"
+            echo "  reachable even after a history rewrite."
+            echo ""
+            echo "  Move the detail to a local-only path instead:"
+            echo "      docs/ops/    operational runbooks, tenant topology"
+            echo "      docs/plan/   working plans"
+            echo "  Both are gitignored. Leave a pointer in the tracked doc."
+            echo ""
+            echo "  If this really has to be tracked:"
+            echo "      ALLOW_TENANT_NAMES=1 git commit ..."
+            echo ""
+            exit 1
+        fi
+    fi
 fi
