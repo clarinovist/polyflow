@@ -119,6 +119,14 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
     const [editRoles, setEditRoles] = useState<Role[]>([]);
     const [createRoles, setCreateRoles] = useState<Role[]>([]);
 
+    // Mirrors the primary-role fallback in handleUpdate: when the current
+    // primary role is unchecked, the first remaining role takes over.
+    const nextPrimaryRoleLabel =
+        editRoles.length > 0 && !editRoles.includes(editData.role as Role)
+            ? (USER_ROLES.find((r) => r.value === editRoles[0])?.label ??
+              editRoles[0])
+            : null;
+
     const [confirmPassword, setConfirmPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -438,9 +446,14 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                 <Label htmlFor="role">Role Utama</Label>
                                 <Select
                                     value={formData.role}
-                                    onValueChange={(val: Role) =>
-                                        setFormData({ ...formData, role: val })
-                                    }
+                                    onValueChange={(val: Role) => {
+                                        setFormData({ ...formData, role: val });
+                                        setCreateRoles(
+                                            createRoles.filter(
+                                                (r) => r !== val,
+                                            ),
+                                        );
+                                    }}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Pilih peran" />
@@ -458,12 +471,14 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                 </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label>Tambahan Peran (Opsional)</Label>
+                                <Label>Peran Pengguna</Label>
                                 <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                                     {USER_ROLES.map((role) => {
-                                        const checked = createRoles.includes(
-                                            role.value,
-                                        );
+                                        const isPrimary =
+                                            role.value === formData.role;
+                                        const checked =
+                                            isPrimary ||
+                                            createRoles.includes(role.value);
                                         return (
                                             <div
                                                 key={role.value}
@@ -473,6 +488,7 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                                     type="checkbox"
                                                     id={`create-role-${role.value}`}
                                                     checked={checked}
+                                                    disabled={isPrimary}
                                                     onChange={() => {
                                                         if (checked) {
                                                             setCreateRoles(
@@ -489,20 +505,31 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                                             ]);
                                                         }
                                                     }}
-                                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-100 disabled:cursor-not-allowed"
                                                 />
                                                 <Label
                                                     htmlFor={`create-role-${role.value}`}
-                                                    className="cursor-pointer"
+                                                    className={
+                                                        isPrimary
+                                                            ? 'flex items-center gap-1.5'
+                                                            : 'cursor-pointer'
+                                                    }
                                                 >
                                                     {role.label}
+                                                    {isPrimary && (
+                                                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                                            Utama
+                                                        </span>
+                                                    )}
                                                 </Label>
                                             </div>
                                         );
                                     })}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Pilih tambahan peran jika diperlukan.
+                                    Role utama otomatis aktif dan tidak bisa
+                                    dilepas di sini. Centang peran lain hanya
+                                    jika pengguna butuh akses tambahan.
                                     Perubahan peran aktif setelah login ulang.
                                 </p>
                             </div>
@@ -896,13 +923,16 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                         </div>
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label>Peran Pengguna (Roles)</Label>
+                                        <Label>Peran Pengguna</Label>
                                         <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                                             {USER_ROLES.map((role) => {
                                                 const checked =
                                                     editRoles.includes(
                                                         role.value,
                                                     );
+                                                const isPrimary =
+                                                    role.value ===
+                                                    editData.role;
                                                 return (
                                                     <div
                                                         key={role.value}
@@ -936,18 +966,36 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                                         />
                                                         <Label
                                                             htmlFor={`edit-role-${role.value}`}
-                                                            className="cursor-pointer"
+                                                            className="flex cursor-pointer items-center gap-1.5"
                                                         >
                                                             {role.label}
+                                                            {isPrimary &&
+                                                                checked && (
+                                                                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                                                        Utama
+                                                                    </span>
+                                                                )}
                                                         </Label>
                                                     </div>
                                                 );
                                             })}
                                         </div>
+                                        {nextPrimaryRoleLabel && (
+                                            <p className="text-xs text-amber-600 dark:text-amber-500">
+                                                Role utama akan berpindah ke{' '}
+                                                <strong>
+                                                    {nextPrimaryRoleLabel}
+                                                </strong>{' '}
+                                                karena peran utama sebelumnya
+                                                dilepas.
+                                            </p>
+                                        )}
                                         <p className="text-xs text-muted-foreground">
-                                            Pilih satu atau lebih peran.
-                                            Pengguna harus log out dan log in
-                                            kembali agar perubahan peran aktif.
+                                            Semua peran yang dicentang aktif
+                                            bersamaan; akses pengguna adalah
+                                            gabungannya. Pengguna harus log out
+                                            dan log in kembali agar perubahan
+                                            peran aktif.
                                         </p>
                                     </div>
                                 </div>
