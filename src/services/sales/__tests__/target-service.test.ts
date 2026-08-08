@@ -19,6 +19,9 @@ vi.mock('@/lib/core/prisma', () => ({
             findMany: vi.fn().mockResolvedValue([]),
             count: vi.fn().mockResolvedValue(0),
         },
+        user: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
     },
 }));
 
@@ -28,6 +31,7 @@ import {
     bulkSetTargets,
     copyTargetsFromPreviousMonth,
     getTargetsForPeriod,
+    getTargetContext,
     getMyTarget,
     prevPeriod,
 } from '../target-service';
@@ -202,9 +206,12 @@ describe('target-service', () => {
     });
 
     describe('getTargetsForPeriod — achievement + divide-by-zero + visit filtering', () => {
-        it('computes revenueActual & achievement', async () => {
+        it('computes revenueActual, achievement & orderActual (T2)', async () => {
+            vi.mocked(prisma.user.findMany).mockResolvedValue([
+                { id: 'u1', name: 'Budi' } as never,
+            ] as never);
             vi.mocked(prisma.salesTarget.findMany).mockResolvedValue([
-                { id: 't1', userId: 'u1', periodYear: 2026, periodMonth: 8, revenueTarget: new Decimal(1000000), visitTarget: 10, orderTarget: null, notes: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), user: { name: 'Budi' } } as never,
+                { id: 't1', userId: 'u1', periodYear: 2026, periodMonth: 8, revenueTarget: new Decimal(1000000), visitTarget: 10, orderTarget: 4, notes: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), user: { name: 'Budi' } } as never,
             ] as never);
 
             vi.mocked(prisma.salesOrder.findMany).mockResolvedValue([
@@ -227,9 +234,15 @@ describe('target-service', () => {
             expect(rows[0].revenueAchievementPercent).toBe(80);
             expect(rows[0].visitActual).toBe(3);
             expect(rows[0].visitAchievementPercent).toBe(30); // 3/10*100=30
+            // orderActual: 2 SO non-cancelled, target 4 => 50%
+            expect(rows[0].orderActual).toBe(2);
+            expect(rows[0].orderAchievementPercent).toBe(50);
         });
 
         it('divide-by-zero: revenueTarget=0 => achievement null', async () => {
+            vi.mocked(prisma.user.findMany).mockResolvedValue([
+                { id: 'u1', name: 'Budi' } as never,
+            ] as never);
             vi.mocked(prisma.salesTarget.findMany).mockResolvedValue([
                 { id: 't1', userId: 'u1', periodYear: 2026, periodMonth: 8, revenueTarget: new Decimal(0), visitTarget: 10, orderTarget: null, notes: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), user: { name: 'Budi' } } as never,
             ] as never);
@@ -244,6 +257,10 @@ describe('target-service', () => {
         });
 
         it('visitTarget null or 0 => visitAchievementPercent null (no div by zero)', async () => {
+            vi.mocked(prisma.user.findMany).mockResolvedValue([
+                { id: 'u1', name: 'X' } as never,
+                { id: 'u2', name: 'Y' } as never,
+            ] as never);
             vi.mocked(prisma.salesTarget.findMany).mockResolvedValue([
                 { id: 't1', userId: 'u1', periodYear: 2026, periodMonth: 8, revenueTarget: new Decimal(100), visitTarget: null, orderTarget: null, notes: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), user: { name: 'X' } } as never,
                 { id: 't2', userId: 'u2', periodYear: 2026, periodMonth: 8, revenueTarget: new Decimal(100), visitTarget: 0, orderTarget: null, notes: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), user: { name: 'Y' } } as never,
@@ -258,6 +275,9 @@ describe('target-service', () => {
         });
 
         it('uses reviewStatus != REJECTED filter for visits (Q3 consistent)', async () => {
+            vi.mocked(prisma.user.findMany).mockResolvedValue([
+                { id: 'u1', name: 'B' } as never,
+            ] as never);
             vi.mocked(prisma.salesTarget.findMany).mockResolvedValue([
                 { id: 't1', userId: 'u1', periodYear: 2026, periodMonth: 8, revenueTarget: new Decimal(100), visitTarget: 5, orderTarget: null, notes: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), user: { name: 'B' } } as never,
             ] as never);
@@ -271,14 +291,52 @@ describe('target-service', () => {
             expect(visitWhere.where.reviewStatus).toEqual({ not: 'REJECTED' });
         });
 
-        it('returns empty list when no targets', async () => {
-            vi.mocked(prisma.salesTarget.findMany).mockResolvedValue([] as never);
+        it('returns empty list when tim sales/marketing aktif kosong', async () => {
+            vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
             const rows = await getTargetsForPeriod(2026, 8);
             expect(rows).toEqual([]);
             expect(prisma.salesOrder.findMany).not.toHaveBeenCalled();
         });
 
+        it('T3: periode tanpa target sama sekali tetap mengembalikan baris anggota tim (target null)', async () => {
+            // Arrange: tim ada 2 orang, tapi salesTarget kosong sama sekali
+            vi.mocked(prisma.user.findMany).mockResolvedValue([
+                { id: 'u1', name: 'Ani' } as never,
+                { id: 'u2', name: 'Budi' } as never,
+            ] as never);
+            vi.mocked(prisma.salesTarget.findMany).mockResolvedValue(
+                [] as never,
+            );
+            vi.mocked(prisma.salesOrder.findMany).mockResolvedValue([
+                { id: 'so1', salesRepId: 'u1', totalAmount: new Decimal(500000), status: 'CONFIRMED' } as never,
+            ] as never);
+            vi.mocked(prisma.salesReturn.findMany).mockResolvedValue(
+                [] as never,
+            );
+            vi.mocked(prisma.salesVisit.findMany).mockResolvedValue(
+                [] as never,
+            );
+
+            // Act
+            const rows = await getTargetsForPeriod(2026, 8);
+
+            // Assert
+            expect(rows).toHaveLength(2);
+            const ani = rows.find((r) => r.userId === 'u1')!;
+            const budi = rows.find((r) => r.userId === 'u2')!;
+            expect(ani.id).toBeNull();
+            expect(ani.revenueTarget.toNumber()).toBe(0);
+            expect(ani.revenueAchievementPercent).toBeNull(); // target 0 => null, bukan divide by zero
+            expect(ani.revenueActual.toNumber()).toBe(500000); // realisasi tetap kehitung walau tanpa target
+            expect(ani.orderActual).toBe(1);
+            expect(budi.id).toBeNull();
+            expect(budi.revenueActual.toNumber()).toBe(0);
+        });
+
         it('uses calculateSalesOrderRevenueWithReturns (pure) for revenue', async () => {
+            vi.mocked(prisma.user.findMany).mockResolvedValue([
+                { id: 'u1', name: 'B' } as never,
+            ] as never);
             vi.mocked(prisma.salesTarget.findMany).mockResolvedValue([
                 { id: 't1', userId: 'u1', periodYear: 2026, periodMonth: 8, revenueTarget: new Decimal(1000), visitTarget: null, orderTarget: null, notes: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), user: { name: 'B' } } as never,
             ] as never);
@@ -293,6 +351,65 @@ describe('target-service', () => {
             const rows = await getTargetsForPeriod(2026, 8);
             // 1000 - 100 = 900
             expect(rows[0].revenueActual.toNumber()).toBe(900);
+        });
+    });
+
+    describe('getTargetContext — konteks historis 3 bulan (T4)', () => {
+        it('mengembalikan map kosong untuk userIds kosong tanpa query', async () => {
+            const result = await getTargetContext([], 2026, 8);
+            expect(result.size).toBe(0);
+            expect(prisma.salesOrder.findMany).not.toHaveBeenCalled();
+        });
+
+        it('satu query SO saja untuk seluruh rentang (bukan N per user)', async () => {
+            vi.mocked(prisma.salesOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+            await getTargetContext(['u1', 'u2', 'u3'], 2026, 8);
+            expect(prisma.salesOrder.findMany).toHaveBeenCalledTimes(1);
+        });
+
+        it('bucket prevMonth / avg3Month / sameMonthLastYear per user dengan benar', async () => {
+            // Arrange: periode 2026-08 → prev1=Jul26, prev2=Jun26, prev3=Mei26,
+            // sameMonthLastYear=Agu25
+            vi.mocked(prisma.salesOrder.findMany).mockResolvedValue([
+                { salesRepId: 'u1', totalAmount: new Decimal(100), orderDate: new Date(2026, 6, 15) }, // Jul26 -> prev
+                { salesRepId: 'u1', totalAmount: new Decimal(200), orderDate: new Date(2026, 5, 10) }, // Jun26 -> p2
+                { salesRepId: 'u1', totalAmount: new Decimal(300), orderDate: new Date(2026, 4, 5) }, // Mei26 -> p3
+                { salesRepId: 'u1', totalAmount: new Decimal(1000), orderDate: new Date(2025, 7, 20) }, // Agu25 -> lastYear
+            ] as never);
+
+            const result = await getTargetContext(['u1'], 2026, 8);
+            const ctx = result.get('u1')!;
+
+            expect(ctx.prevMonthActual.toNumber()).toBe(100);
+            expect(ctx.avg3MonthActual.toNumber()).toBe(200); // (100+200+300)/3
+            expect(ctx.sameMonthLastYearActual.toNumber()).toBe(1000);
+        });
+
+        it('user tanpa order sama sekali → semua nol, bukan error', async () => {
+            vi.mocked(prisma.salesOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+            const result = await getTargetContext(['u-empty'], 2026, 8);
+            const ctx = result.get('u-empty')!;
+            expect(ctx.prevMonthActual.toNumber()).toBe(0);
+            expect(ctx.avg3MonthActual.toNumber()).toBe(0);
+            expect(ctx.sameMonthLastYearActual.toNumber()).toBe(0);
+        });
+
+        it('Januari: rentang tetap benar melintasi pergantian tahun', async () => {
+            vi.mocked(prisma.salesOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+            await getTargetContext(['u1'], 2026, 1);
+            const call = vi.mocked(prisma.salesOrder.findMany).mock
+                .calls[0][0] as any;
+            // rentang: awal Jan-2025 (sameMonthLastYear) s/d akhir Des-2025 (prevMonth)
+            expect(call.where.orderDate.gte.getFullYear()).toBe(2025);
+            expect(call.where.orderDate.gte.getMonth()).toBe(0);
+            expect(call.where.orderDate.lte.getFullYear()).toBe(2025);
+            expect(call.where.orderDate.lte.getMonth()).toBe(11);
         });
     });
 

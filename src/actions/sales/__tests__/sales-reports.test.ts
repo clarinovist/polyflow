@@ -527,6 +527,68 @@ describe('getSalesPerformanceReport', () => {
         }
     });
 
+    it('bySalesperson revenueTarget is null (not 0) for a rep with a synthetic no-target row (T3) — regression for Decimal(0) truthiness bug', async () => {
+        // target-service.getTargetsForPeriod (T3) now returns a row for every
+        // active team member even when they have no SalesTarget row at all —
+        // marked by `id: null` and `revenueTarget: new Decimal(0)`. A naive
+        // `tr.revenueTarget ? Number(...) : null` ternary treats Decimal(0)
+        // as truthy (it's an object) and silently turns "belum diisi" into
+        // "target Rp 0". This locks in the `tr.id != null` guard instead.
+        mockFindMany.mockResolvedValue([
+            makeOrder({
+                id: 'so-1',
+                salesRepId: 'user-sales-1',
+                salesRep: { id: 'user-sales-1', name: 'Budi Sales' },
+                totalAmount: 500000,
+            }),
+        ]);
+        mockGetTargetsForPeriod.mockResolvedValue([
+            {
+                id: null,
+                userId: 'user-sales-1',
+                periodYear: 2026,
+                periodMonth: 8,
+                revenueTarget: new Decimal(0),
+                visitTarget: null,
+                orderTarget: null,
+                notes: null,
+                createdById: null,
+                createdAt: null,
+                updatedAt: null,
+                userName: 'Budi Sales',
+                revenueActual: new Decimal(500000),
+                revenueAchievementPercent: null,
+                visitActual: 0,
+                visitAchievementPercent: null,
+                orderActual: 0,
+                orderAchievementPercent: null,
+            } as never,
+        ]);
+
+        const result = await getSalesPerformanceReport({
+            startDate: new Date('2026-08-01'),
+            endDate: new Date('2026-08-31'),
+        });
+
+        if (result && 'success' in result && result.success && result.data) {
+            const data = result.data as {
+                summary: {
+                    bySalesperson: {
+                        revenue: number;
+                        revenueTarget: number | null;
+                        achievementPercent: number | null;
+                    }[];
+                };
+            };
+            expect(data.summary.bySalesperson[0].revenue).toBe(500000);
+            // Must be null (belum diisi), NOT 0 — that's the whole point of the fix.
+            expect(data.summary.bySalesperson[0].revenueTarget).toBeNull();
+            expect(
+                data.summary.bySalesperson[0].achievementPercent,
+            ).toBeNull();
+        }
+    });
+
     // ── Gap 10: productMixByRegion tests ──
 
     it('productMixByRegion groups by customer.city and sums quantity/revenue', async () => {

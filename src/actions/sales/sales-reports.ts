@@ -312,10 +312,15 @@ export const getSalesPerformanceReport = withTenant(
                         resolvedMonth,
                     );
                     for (const tr of targetRows) {
+                        // tr.id == null menandai baris sintetis dari
+                        // target-service (T3: sales tanpa SalesTarget sama
+                        // sekali, revenueTarget default Decimal(0)). Jangan
+                        // pakai truthiness Decimal(0) — object itu selalu
+                        // truthy walau nilainya nol, jadi "belum diisi" akan
+                        // salah tampil sebagai "target Rp 0".
                         targetMap.set(tr.userId, {
-                            revenueTarget: tr.revenueTarget
-                                ? Number(tr.revenueTarget)
-                                : null,
+                            revenueTarget:
+                                tr.id != null ? Number(tr.revenueTarget) : null,
                             achievementPercent:
                                 tr.revenueAchievementPercent ?? null,
                             visitTarget: tr.visitTarget ?? null,

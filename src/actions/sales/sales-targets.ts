@@ -13,8 +13,13 @@ import {
     bulkSetTargets as svcBulkSetTargets,
     copyTargetsFromPreviousMonth as svcCopyFromPrev,
     getTargetsForPeriod as svcGetTargetsForPeriod,
+    getTargetContext as svcGetTargetContext,
     type UpsertTargetInput,
 } from '@/services/sales/target-service';
+import {
+    getCompanyTarget as svcGetCompanyTarget,
+    setCompanyTarget as svcSetCompanyTarget,
+} from '@/services/sales/company-target-service';
 
 // ── Zod-ish validation inline (don't add new dep) ──
 
@@ -134,6 +139,73 @@ export const getTargetsForPeriodAction = withTenant(
                 : allTargets.filter((t) => t.userId === scope.actorUserId);
 
             return serializeData(filtered);
+        });
+    },
+);
+
+// ── Read: konteks historis (prevMonth/avg3Month/sameMonthLastYear) — T4 ──
+
+export const getTargetContextAction = withTenant(
+    async function getTargetContextAction(
+        userIds: string[],
+        periodYear: number,
+        periodMonth: number,
+    ) {
+        return safeAction(async () => {
+            const session = await requireSalesAccess();
+            const scope = getFieldSalesScope(session);
+
+            const ids = Array.isArray(userIds) ? userIds : [];
+            const scopedIds = scope.isGlobalViewer
+                ? ids
+                : ids.filter((id) => id === scope.actorUserId);
+
+            const contextMap = await svcGetTargetContext(
+                scopedIds,
+                Number(periodYear),
+                Number(periodMonth),
+            );
+
+            return serializeData(Array.from(contextMap.values()));
+        });
+    },
+);
+
+// ── Read: target perusahaan (T6) ──
+
+export const getCompanyTargetAction = withTenant(
+    async function getCompanyTargetAction(
+        periodYear: number,
+        periodMonth: number,
+    ) {
+        return safeAction(async () => {
+            await requireSalesAccess();
+            const value = await svcGetCompanyTarget(
+                Number(periodYear),
+                Number(periodMonth),
+            );
+            return serializeData({ value });
+        });
+    },
+);
+
+// ── Write: target perusahaan (T6) ──
+
+export const setCompanyTargetAction = withTenant(
+    async function setCompanyTargetAction(
+        periodYear: number,
+        periodMonth: number,
+        value: number,
+    ) {
+        return safeAction(async () => {
+            const session = await requireSalesManager();
+            const result = await svcSetCompanyTarget(
+                Number(periodYear),
+                Number(periodMonth),
+                Number(value),
+                session.user.id,
+            );
+            return serializeData({ value: result });
         });
     },
 );

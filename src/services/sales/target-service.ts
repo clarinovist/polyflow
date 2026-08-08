@@ -20,7 +20,9 @@ export type UpsertTargetInput = {
 };
 
 export type TargetWithAchievement = {
-    id: string;
+    // `id`/`createdById`/`createdAt`/`updatedAt` null artinya baris ini murni
+    // dari anggota tim (T3) — belum ada SalesTarget yang dibuat untuknya.
+    id: string | null;
     userId: string;
     periodYear: number;
     periodMonth: number;
@@ -29,13 +31,22 @@ export type TargetWithAchievement = {
     orderTarget: number | null;
     notes: string | null;
     createdById: string | null;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt: Date | null;
+    updatedAt: Date | null;
     userName: string | null;
     revenueActual: Decimal;
     revenueAchievementPercent: number | null;
     visitActual: number;
     visitAchievementPercent: number | null;
+    orderActual: number;
+    orderAchievementPercent: number | null;
+};
+
+export type TargetContextEntry = {
+    userId: string;
+    prevMonthActual: Decimal;
+    avg3MonthActual: Decimal;
+    sameMonthLastYearActual: Decimal;
 };
 
 type UpsertResult = {
@@ -108,6 +119,37 @@ function calcIntAchievementPercent(
 ): number | null {
     if (target == null || target === 0) return null;
     return Math.round((actual / target) * 10000) / 100;
+}
+
+/**
+ * Anggota tim sales/marketing aktif — sumber baris untuk getTargetsForPeriod
+ * (T3), bukan salesTarget.findMany, supaya sales tanpa target tetap muncul
+ * dengan realisasinya. Kriteria filter sengaja dicerminkan dari
+ * src/actions/sales/sales-team.ts (file itu read-only untuk stream ini —
+ * lihat AGENTS.md/plan §0.2 — jadi tidak bisa diekstrak jadi helper bersama
+ * tanpa mengeditnya).
+ */
+async function getActiveSalesTeamUserIds(): Promise<
+    { id: string; name: string | null }[]
+> {
+    return prisma.user.findMany({
+        where: {
+            isActive: true,
+            isSuperAdmin: false,
+            OR: [
+                { roles: { some: { role: 'SALES' } } },
+                { role: 'SALES' },
+                { roles: { some: { role: 'MARKETING' } } },
+                { role: 'MARKETING' },
+            ],
+        },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+    });
+}
+
+function periodKey(year: number, month: number): string {
+    return `${year}-${month}`;
 }
 
 // ── Upsert single ──────────────────────────────────────────────────
@@ -240,16 +282,20 @@ export async function getTargetsForPeriod(
 ): Promise<TargetWithAchievement[]> {
     validatePeriod(periodYear, periodMonth);
 
-    const targets = await prisma.salesTarget.findMany({
-        where: { periodYear, periodMonth },
-        include: { user: { select: { name: true } } },
-        orderBy: { userId: 'asc' },
-    });
+    // T3: sumber baris = anggota tim aktif, bukan salesTarget.findMany —
+    // supaya sales tanpa target sama sekali tetap muncul dengan realisasinya.
+    const team = await getActiveSalesTeamUserIds();
+    if (team.length === 0) return [];
 
-    if (targets.length === 0) return [];
+    const userIds = team.map((u) => u.id);
+
+    const targets = await prisma.salesTarget.findMany({
+        where: { periodYear, periodMonth, userId: { in: userIds } },
+        include: { user: { select: { name: true } } },
+    });
+    const targetMap = new Map(targets.map((t) => [t.userId, t]));
 
     const { start, end } = periodRange(periodYear, periodMonth);
-    const userIds = targets.map((t) => t.userId);
 
     // Revenue actual: query SO dalam periode bulan ini + SalesReturn di periode sama
     // Filter sama dengan revenue-basis: SALES_ORDER basis
@@ -315,38 +361,137 @@ export async function getTargetsForPeriod(
         visitCountMap.set(v.userId, (visitCountMap.get(v.userId) ?? 0) + 1);
     }
 
-    return targets.map((t) => {
+    // Order actual per user (T2) — dari query `orders` yang sama, tidak
+    // menambah query baru. Basis sama dengan revenue: SO non-CANCELLED.
+    const orderCountMap = new Map<string, number>();
+    for (const o of orders) {
+        if (!o.salesRepId) continue;
+        orderCountMap.set(
+            o.salesRepId,
+            (orderCountMap.get(o.salesRepId) ?? 0) + 1,
+        );
+    }
+
+    return team.map((member) => {
+        const t = targetMap.get(member.id);
+        const revenueTarget =
+            (t?.revenueTarget as unknown as Decimal | undefined) ??
+            new Decimal(0);
         const revenueActual =
-            revenueResult.attributed.get(t.userId) ?? new Decimal(0);
-        const visitActual = visitCountMap.get(t.userId) ?? 0;
-        const revenueAchievementPercent = calcAchievementPercent(
-            revenueActual,
-            t.revenueTarget as unknown as Decimal,
-        );
-        const visitAchievementPercent = calcIntAchievementPercent(
-            visitActual,
-            t.visitTarget,
-        );
+            revenueResult.attributed.get(member.id) ?? new Decimal(0);
+        const visitActual = visitCountMap.get(member.id) ?? 0;
+        const orderActual = orderCountMap.get(member.id) ?? 0;
 
         return {
-            id: t.id,
-            userId: t.userId,
-            periodYear: t.periodYear,
-            periodMonth: t.periodMonth,
-            revenueTarget: t.revenueTarget as unknown as Decimal,
-            visitTarget: t.visitTarget,
-            orderTarget: t.orderTarget,
-            notes: t.notes,
-            createdById: t.createdById,
-            createdAt: t.createdAt,
-            updatedAt: t.updatedAt,
-            userName: t.user?.name ?? null,
+            id: t?.id ?? null,
+            userId: member.id,
+            periodYear,
+            periodMonth,
+            revenueTarget,
+            visitTarget: t?.visitTarget ?? null,
+            orderTarget: t?.orderTarget ?? null,
+            notes: t?.notes ?? null,
+            createdById: t?.createdById ?? null,
+            createdAt: t?.createdAt ?? null,
+            updatedAt: t?.updatedAt ?? null,
+            userName: t?.user?.name ?? member.name,
             revenueActual,
-            revenueAchievementPercent,
+            revenueAchievementPercent: calcAchievementPercent(
+                revenueActual,
+                revenueTarget,
+            ),
             visitActual,
-            visitAchievementPercent,
+            visitAchievementPercent: calcIntAchievementPercent(
+                visitActual,
+                t?.visitTarget ?? null,
+            ),
+            orderActual,
+            orderAchievementPercent: calcIntAchievementPercent(
+                orderActual,
+                t?.orderTarget ?? null,
+            ),
         };
     });
+}
+
+// ── Konteks historis (T4): prevMonth / avg3Month / sameMonthLastYear ──
+// Satu query SO untuk seluruh rentang, di-bucket di memori — bukan N query
+// per user (lihat plan §4.3 Step T-3).
+
+export async function getTargetContext(
+    userIds: string[],
+    periodYear: number,
+    periodMonth: number,
+): Promise<Map<string, TargetContextEntry>> {
+    validatePeriod(periodYear, periodMonth);
+
+    const result = new Map<string, TargetContextEntry>();
+    if (!userIds || userIds.length === 0) return result;
+
+    const prev1 = prevPeriod(periodYear, periodMonth);
+    const prev2 = prevPeriod(prev1.year, prev1.month);
+    const prev3 = prevPeriod(prev2.year, prev2.month);
+    const sameMonthLastYear = { year: periodYear - 1, month: periodMonth };
+
+    const rangeStart = periodRange(
+        sameMonthLastYear.year,
+        sameMonthLastYear.month,
+    ).start;
+    const rangeEnd = periodRange(prev1.year, prev1.month).end;
+
+    const orders = await prisma.salesOrder.findMany({
+        where: {
+            salesRepId: { in: userIds },
+            orderDate: { gte: rangeStart, lte: rangeEnd },
+            status: { not: 'CANCELLED' },
+        },
+        select: { salesRepId: true, totalAmount: true, orderDate: true },
+    });
+
+    const prevKey = periodKey(prev1.year, prev1.month);
+    const p2Key = periodKey(prev2.year, prev2.month);
+    const p3Key = periodKey(prev3.year, prev3.month);
+    const lastYearKey = periodKey(
+        sameMonthLastYear.year,
+        sameMonthLastYear.month,
+    );
+
+    const sums = new Map<string, Decimal>();
+    const addSum = (key: string, amount: Decimal) => {
+        sums.set(key, (sums.get(key) ?? new Decimal(0)).add(amount));
+    };
+
+    for (const o of orders) {
+        if (!o.salesRepId) continue;
+        const k = periodKey(
+            o.orderDate.getFullYear(),
+            o.orderDate.getMonth() + 1,
+        );
+        const amount = o.totalAmount as unknown as Decimal;
+
+        if (k === prevKey) addSum(`${o.salesRepId}|prev`, amount);
+        else if (k === p2Key) addSum(`${o.salesRepId}|p2`, amount);
+        else if (k === p3Key) addSum(`${o.salesRepId}|p3`, amount);
+        else if (k === lastYearKey) addSum(`${o.salesRepId}|lastYear`, amount);
+    }
+
+    for (const userId of userIds) {
+        const prevMonthActual = sums.get(`${userId}|prev`) ?? new Decimal(0);
+        const p2 = sums.get(`${userId}|p2`) ?? new Decimal(0);
+        const p3 = sums.get(`${userId}|p3`) ?? new Decimal(0);
+        const sameMonthLastYearActual =
+            sums.get(`${userId}|lastYear`) ?? new Decimal(0);
+        const avg3MonthActual = prevMonthActual.add(p2).add(p3).div(3);
+
+        result.set(userId, {
+            userId,
+            prevMonthActual,
+            avg3MonthActual,
+            sameMonthLastYearActual,
+        });
+    }
+
+    return result;
 }
 
 // ── Single user view ───────────────────────────────────────────────
@@ -427,6 +572,7 @@ export async function getMyTarget(
     );
     const revenueActual =
         revenueResult.attributed.get(userId) ?? new Decimal(0);
+    const orderActual = orders.length;
 
     return {
         id: tgt.id,
@@ -450,6 +596,11 @@ export async function getMyTarget(
         visitAchievementPercent: calcIntAchievementPercent(
             visitCount,
             tgt.visitTarget,
+        ),
+        orderActual,
+        orderAchievementPercent: calcIntAchievementPercent(
+            orderActual,
+            tgt.orderTarget,
         ),
     };
 }
