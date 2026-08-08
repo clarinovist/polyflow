@@ -76,7 +76,11 @@ export const createSpkFromDemand = withTenant(
             }
             if (!activeRouteId && routingEnabled) {
                 const activeRoute = await prisma.productionRoute.findFirst({
-                    where: { productVariantId, status: 'ACTIVE', isDefault: true },
+                    where: {
+                        productVariantId,
+                        status: 'ACTIVE',
+                        isDefault: true,
+                    },
                     select: { id: true },
                 });
                 activeRouteId = activeRoute?.id ?? null;
@@ -91,7 +95,9 @@ export const createSpkFromDemand = withTenant(
                     priority: (priority as never) ?? 'NORMAL',
                     notes: notes || 'Dari Papan Permintaan FG (routed)',
                     createdById: session.user.id,
-                    idempotencyKey: idempotencyKey ?? `${DEMAND_IDEMPOTENCY_KEY_PREFIX}-${productVariantId}-${plannedQuantity}-${locationId}-${today}`,
+                    idempotencyKey:
+                        idempotencyKey ??
+                        `${DEMAND_IDEMPOTENCY_KEY_PREFIX}-${productVariantId}-${plannedQuantity}-${locationId}-${today}`,
                 });
 
                 revalidatePath('/production/requests');

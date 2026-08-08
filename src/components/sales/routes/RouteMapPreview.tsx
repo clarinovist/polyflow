@@ -31,7 +31,10 @@ function createNumberIcon(L: typeof import('leaflet'), num: number) {
     });
 }
 
-export function RouteMapPreview({ customers, height = 400 }: RouteMapPreviewProps) {
+export function RouteMapPreview({
+    customers,
+    height = 400,
+}: RouteMapPreviewProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<import('leaflet').Map | null>(null);
     const overlayRef = useRef<import('leaflet').LayerGroup | null>(null);
@@ -187,19 +190,26 @@ export function RouteMapPreview({ customers, height = 400 }: RouteMapPreviewProp
     const showOverlay = showEmpty || showNoGps;
 
     return (
-        <div className="rounded-lg border overflow-hidden relative" style={{ height }}>
+        <div
+            className="rounded-lg border overflow-hidden relative"
+            style={{ height }}
+        >
             {loadError ? (
                 <div className="flex items-center justify-center bg-muted/30 h-full">
                     <div className="flex flex-col items-center gap-2 text-destructive">
                         <Map className="h-8 w-8" />
                         <p className="text-xs text-center px-4">
-                            Basemap tidak tersedia; urutan rute tetap bisa diedit
+                            Basemap tidak tersedia; urutan rute tetap bisa
+                            diedit
                         </p>
                     </div>
                 </div>
             ) : (
                 <>
-                    <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
+                    <div
+                        ref={containerRef}
+                        style={{ height: '100%', width: '100%' }}
+                    />
                     {showOverlay && (
                         <div className="absolute inset-0 flex items-center justify-center bg-muted/30 pointer-events-none z-[400]">
                             <div className="flex flex-col items-center gap-2 text-muted-foreground">

@@ -82,7 +82,9 @@ export const getSalesPerformanceReport = withTenant(
             const orders = await prisma.salesOrder.findMany({
                 where,
                 include: {
-                    customer: { select: { name: true, city: true, province: true } },
+                    customer: {
+                        select: { name: true, city: true, province: true },
+                    },
                     salesRep: { select: { id: true, name: true } },
                     items: {
                         include: {
