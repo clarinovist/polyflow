@@ -1,15 +1,20 @@
 import { getWorkShifts } from '@/actions/admin/work-shifts';
-import { listKioskEmployees } from '@/actions/admin/attendance';
+import {
+    listKioskEmployees,
+    getKioskGeofenceMode,
+} from '@/actions/admin/attendance';
 import { AttendanceKioskForm } from '@/components/hrd/AttendanceKioskForm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export default async function KioskAttendancePage() {
-    const [shiftsResult, employeesResult] = await Promise.all([
-        getWorkShifts(),
-        listKioskEmployees(),
-    ]);
+    const [shiftsResult, employeesResult, geofenceModeResult] =
+        await Promise.all([
+            getWorkShifts(),
+            listKioskEmployees(),
+            getKioskGeofenceMode(),
+        ]);
 
     const shifts = (shiftsResult.success ? (shiftsResult.data ?? []) : [])
         .filter((s) => s.status === 'ACTIVE')
@@ -26,6 +31,10 @@ export default async function KioskAttendancePage() {
         ? (employeesResult.data ?? [])
         : [];
 
+    const geofenceMode = geofenceModeResult.success
+        ? (geofenceModeResult.data ?? 'off')
+        : 'off';
+
     return (
         <div className="h-full flex flex-col p-4 md:p-6 max-w-4xl mx-auto space-y-4">
             <Link href="/kiosk">
@@ -38,7 +47,11 @@ export default async function KioskAttendancePage() {
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
             </Link>
-            <AttendanceKioskForm shifts={shifts} employees={employees} />
+            <AttendanceKioskForm
+                shifts={shifts}
+                employees={employees}
+                geofenceMode={geofenceMode}
+            />
         </div>
     );
 }

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const ATTENDANCE_KEYS = [
     'attendance.selfServiceEnabled',
     'attendance.geofenceEnabled',
+    'attendance.geofenceMode',
     'attendance.latitude',
     'attendance.longitude',
     'attendance.radiusMeters',

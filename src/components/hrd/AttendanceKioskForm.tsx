@@ -27,6 +27,7 @@ import {
     DEFAULT_TARGET_ACCURACY_METERS,
     DEFAULT_SAMPLE_TIMEOUT_MS,
 } from '@/lib/utils/geolocation-sampler';
+import type { GeofenceMode } from '@/services/hrd/attendance-location';
 
 interface Shift {
     id: string;
@@ -59,6 +60,13 @@ interface LocationState {
 interface Props {
     shifts: Shift[];
     employees: KioskEmployeeOption[];
+    /**
+     * Only `enforce` makes a GPS fix mandatory here. Under `observe` the
+     * coordinates are still requested and sent, but a phone that cannot produce
+     * them must not be stopped — the server records what it gets and rejects
+     * nobody.
+     */
+    geofenceMode: GeofenceMode;
 }
 
 function nowWIB(): string {
@@ -70,7 +78,12 @@ function nowWIB(): string {
     });
 }
 
-export function AttendanceKioskForm({ shifts, employees }: Props) {
+export function AttendanceKioskForm({
+    shifts,
+    employees,
+    geofenceMode,
+}: Props) {
+    const isLocationRequired = geofenceMode === 'enforce';
     const [clock, setClock] = useState<string | null>(null);
     const [selectedShift] = useState<string>(shifts[0]?.id ?? '');
     const [selectedEmployee, setSelectedEmployee] =
@@ -186,7 +199,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             });
             return;
         }
-        if (!location) {
+        if (isLocationRequired && !location) {
             setFeedback({
                 type: 'error',
                 message:
@@ -220,7 +233,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                 pin,
                 shiftToUse,
                 photoUrl,
-                location,
+                location ?? undefined,
             );
             if (result.success && result.data) {
                 const d = result.data;
@@ -260,7 +273,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
             setFeedback({ type: 'error', message: 'Masukkan PIN' });
             return;
         }
-        if (!location) {
+        if (isLocationRequired && !location) {
             setFeedback({
                 type: 'error',
                 message:
@@ -293,7 +306,7 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
                 selectedEmployee.code,
                 pin,
                 photoUrl,
-                location,
+                location ?? undefined,
             );
             if (result.success && result.data) {
                 const d = result.data;
@@ -324,14 +337,15 @@ export function AttendanceKioskForm({ shifts, employees }: Props) {
         }
     };
 
+    const hasRequiredLocation = !isLocationRequired || !!location;
     const canClockIn =
         !!selectedEmployee &&
         !!pin.trim() &&
         !!selfieFile &&
-        !!location &&
+        hasRequiredLocation &&
         !loading;
     const canClockOut =
-        !!selectedEmployee && !!pin.trim() && !!location && !loading;
+        !!selectedEmployee && !!pin.trim() && hasRequiredLocation && !loading;
 
     return (
         <div className="flex flex-col gap-4 md:gap-6">

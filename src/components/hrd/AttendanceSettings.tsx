@@ -22,9 +22,29 @@ import {
 import { LocationMapPreview } from '@/components/shared/LocationMapPreview';
 import { googleMapsUrl } from '@/lib/utils/maps';
 
+const GEOFENCE_MODE_OPTIONS = [
+    {
+        value: 'off' as const,
+        label: 'Mati',
+        description: 'Lokasi tidak diminta dan tidak disimpan.',
+    },
+    {
+        value: 'observe' as const,
+        label: 'Observasi',
+        description:
+            'Koordinat dan jarak dicatat, tapi tidak ada yang ditolak. Pakai ini dulu beberapa hari untuk melihat sebaran posisi karyawan sebelum menentukan radius.',
+    },
+    {
+        value: 'enforce' as const,
+        label: 'Tegakkan',
+        description:
+            'Absensi di luar radius ditolak. Nyalakan hanya setelah radius terbukti benar dari data observasi — radius yang salah memblokir semua orang.',
+    },
+];
+
 const defaultSettings: AttendanceSettings = {
     selfServiceEnabled: false,
-    geofenceEnabled: false,
+    geofenceMode: 'off',
     latitude: '',
     longitude: '',
     radiusMeters: '100',
@@ -33,7 +53,8 @@ const defaultSettings: AttendanceSettings = {
 };
 
 export function AttendanceSettingsPanel() {
-    const [settings, setSettings] = useState<AttendanceSettings>(defaultSettings);
+    const [settings, setSettings] =
+        useState<AttendanceSettings>(defaultSettings);
     const [loading, setLoading] = useState(true);
     const [saving, startSaving] = useTransition();
     const [gettingLocation, setGettingLocation] = useState(false);
@@ -129,24 +150,51 @@ export function AttendanceSettingsPanel() {
                     <Switch
                         checked={settings.selfServiceEnabled}
                         onCheckedChange={(v) =>
-                            setSettings((s) => ({ ...s, selfServiceEnabled: v }))
+                            setSettings((s) => ({
+                                ...s,
+                                selfServiceEnabled: v,
+                            }))
                         }
                     />
                 </div>
 
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label>Geofence</Label>
-                        <p className="text-sm text-muted-foreground">
-                            Validasi lokasi karyawan saat absensi
-                        </p>
+                <div className="space-y-2">
+                    <Label>Geofence</Label>
+                    <p className="text-sm text-muted-foreground">
+                        Validasi lokasi karyawan saat absensi
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                        {GEOFENCE_MODE_OPTIONS.map((option) => (
+                            <Button
+                                key={option.value}
+                                type="button"
+                                size="sm"
+                                variant={
+                                    settings.geofenceMode === option.value
+                                        ? 'default'
+                                        : 'outline'
+                                }
+                                aria-pressed={
+                                    settings.geofenceMode === option.value
+                                }
+                                onClick={() =>
+                                    setSettings((s) => ({
+                                        ...s,
+                                        geofenceMode: option.value,
+                                    }))
+                                }
+                            >
+                                {option.label}
+                            </Button>
+                        ))}
                     </div>
-                    <Switch
-                        checked={settings.geofenceEnabled}
-                        onCheckedChange={(v) =>
-                            setSettings((s) => ({ ...s, geofenceEnabled: v }))
+                    <p className="text-xs text-muted-foreground">
+                        {
+                            GEOFENCE_MODE_OPTIONS.find(
+                                (o) => o.value === settings.geofenceMode,
+                            )?.description
                         }
-                    />
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -158,7 +206,10 @@ export function AttendanceSettingsPanel() {
                             placeholder="-6.123456"
                             value={settings.latitude}
                             onChange={(e) =>
-                                setSettings((s) => ({ ...s, latitude: e.target.value }))
+                                setSettings((s) => ({
+                                    ...s,
+                                    latitude: e.target.value,
+                                }))
                             }
                         />
                     </div>
@@ -170,7 +221,10 @@ export function AttendanceSettingsPanel() {
                             placeholder="106.123456"
                             value={settings.longitude}
                             onChange={(e) =>
-                                setSettings((s) => ({ ...s, longitude: e.target.value }))
+                                setSettings((s) => ({
+                                    ...s,
+                                    longitude: e.target.value,
+                                }))
                             }
                         />
                     </div>
@@ -182,12 +236,17 @@ export function AttendanceSettingsPanel() {
                             min="1"
                             value={settings.radiusMeters}
                             onChange={(e) =>
-                                setSettings((s) => ({ ...s, radiusMeters: e.target.value }))
+                                setSettings((s) => ({
+                                    ...s,
+                                    radiusMeters: e.target.value,
+                                }))
                             }
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="accuracy">Akurasi GPS Maks (meter)</Label>
+                        <Label htmlFor="accuracy">
+                            Akurasi GPS Maks (meter)
+                        </Label>
                         <Input
                             id="accuracy"
                             type="number"
@@ -202,7 +261,9 @@ export function AttendanceSettingsPanel() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="grace">Grace Period Terlambat (menit)</Label>
+                        <Label htmlFor="grace">
+                            Grace Period Terlambat (menit)
+                        </Label>
                         <Input
                             id="grace"
                             type="number"
@@ -266,7 +327,8 @@ export function AttendanceSettingsPanel() {
                             <div className="flex flex-col items-center gap-2 text-xs p-4 text-center">
                                 <MapPin className="h-6 w-6 opacity-50" />
                                 <span>
-                                    Masukkan latitude & longitude valid untuk melihat preview
+                                    Masukkan latitude & longitude valid untuk
+                                    melihat preview
                                 </span>
                             </div>
                         </div>
@@ -274,8 +336,8 @@ export function AttendanceSettingsPanel() {
                     {coordValid && (
                         <p className="text-[11px] text-muted-foreground">
                             Lingkaran biru = radius geofence{' '}
-                            {Number.isFinite(radiusNum) ? `${radiusNum}m` : ''}. Titik biru =
-                            lokasi kantor.
+                            {Number.isFinite(radiusNum) ? `${radiusNum}m` : ''}.
+                            Titik biru = lokasi kantor.
                         </p>
                     )}
                 </div>

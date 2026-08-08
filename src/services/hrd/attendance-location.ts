@@ -30,13 +30,40 @@ export type GeofenceResolution =
     | { kind: 'invalid'; reason: string }
     | { kind: 'active'; config: GeofenceConfig };
 
-export function resolveGeofence(
+/**
+ * `observe` records coordinates and distance without ever rejecting attendance.
+ * It exists because enforcement was switched on before a single real position
+ * had been recorded, leaving no empirical basis for choosing a radius — the
+ * gate rejected every clock-in before it could store anything. Observation
+ * collects that evidence while people keep working.
+ */
+export type GeofenceMode = 'off' | 'observe' | 'enforce';
+
+const GEOFENCE_MODES = ['off', 'observe', 'enforce'] as const;
+
+/**
+ * Reads the mode, falling back to the legacy `attendance.geofenceEnabled`
+ * boolean when the mode key is absent. The fallback is what makes deploying
+ * this change a no-op for tenants that have not been reconfigured: an existing
+ * `true` keeps enforcing, an existing `false` keeps letting everyone through.
+ * An unrecognised value falls back too rather than throwing — a typo in a
+ * settings row must not take attendance down.
+ */
+export function resolveGeofenceMode(
+    settings: Record<string, string | null | undefined>,
+): GeofenceMode {
+    const raw = settings['attendance.geofenceMode']?.trim().toLowerCase();
+    const known = GEOFENCE_MODES.find((mode) => mode === raw);
+    if (known) return known;
+    return settings['attendance.geofenceEnabled'] === 'true'
+        ? 'enforce'
+        : 'off';
+}
+
+/** Parses the fence fields regardless of mode. Never returns `disabled`. */
+function parseGeofenceFields(
     settings: Record<string, string | null | undefined>,
 ): GeofenceResolution {
-    if (settings['attendance.geofenceEnabled'] !== 'true') {
-        return { kind: 'disabled' };
-    }
-
     const lat = parseFloat(settings['attendance.latitude'] ?? '');
     const lon = parseFloat(settings['attendance.longitude'] ?? '');
     const radius = parseFloat(settings['attendance.radiusMeters'] ?? '');
@@ -71,6 +98,53 @@ export function resolveGeofence(
             maxAccuracyMeters: accuracy,
         },
     };
+}
+
+/**
+ * Enforcement resolution: `disabled` unless the mode is `enforce`.
+ *
+ * Callers treat a non-`disabled` result as licence to reject attendance, so
+ * `observe` must resolve to `disabled` here — otherwise turning observation on
+ * would silently start blocking people, which is the exact failure this whole
+ * change exists to undo. Observation reads the config through
+ * `measureObservedDistance` instead.
+ */
+export function resolveGeofence(
+    settings: Record<string, string | null | undefined>,
+): GeofenceResolution {
+    if (resolveGeofenceMode(settings) !== 'enforce') {
+        return { kind: 'disabled' };
+    }
+    return parseGeofenceFields(settings);
+}
+
+/**
+ * Distance from the office for observation mode, or null when it cannot be
+ * computed (no evidence, unconfigured fence, garbage coordinates).
+ *
+ * This function must never throw and never reject. Missing evidence and a
+ * half-configured fence are both normal here — a kiosk browser that has not
+ * been refreshed since deploy sends nothing, and a tenant may enable
+ * observation before entering coordinates. Both simply produce no measurement
+ * while attendance proceeds.
+ */
+export function measureObservedDistance(
+    settings: Record<string, string | null | undefined>,
+    evidence: LocationEvidence | null | undefined,
+): number | null {
+    if (!evidence) return null;
+    if (!isValidCoordinate(evidence.latitude, evidence.longitude)) return null;
+
+    const resolution = parseGeofenceFields(settings);
+    if (resolution.kind !== 'active') return null;
+
+    const distance = haversineDistance(
+        resolution.config.latitude,
+        resolution.config.longitude,
+        evidence.latitude,
+        evidence.longitude,
+    );
+    return Number.isFinite(distance) ? distance : null;
 }
 
 export function parseGeofenceConfig(
@@ -139,7 +213,10 @@ export function validateSelfServicePrerequisites(
     settings: Record<string, string | null | undefined>,
 ): { ready: boolean; reason?: string } {
     if (!isSelfServiceEnabled(settings)) {
-        return { ready: false, reason: 'Self-service absensi belum diaktifkan oleh HRD' };
+        return {
+            ready: false,
+            reason: 'Self-service absensi belum diaktifkan oleh HRD',
+        };
     }
 
     const resolution = resolveGeofence(settings);
@@ -153,9 +230,24 @@ export function validateSelfServicePrerequisites(
 export type ProximityState =
     | { kind: 'no-geofence' }
     | { kind: 'waiting-gps' }
-    | { kind: 'accuracy-poor'; accuracy: number; limit: number; message: string }
-    | { kind: 'outside'; distanceMeters: number; radiusMeters: number; message: string }
-    | { kind: 'inside'; distanceMeters: number; radiusMeters: number; message: string };
+    | {
+          kind: 'accuracy-poor';
+          accuracy: number;
+          limit: number;
+          message: string;
+      }
+    | {
+          kind: 'outside';
+          distanceMeters: number;
+          radiusMeters: number;
+          message: string;
+      }
+    | {
+          kind: 'inside';
+          distanceMeters: number;
+          radiusMeters: number;
+          message: string;
+      };
 
 export function describeGeofenceProximity(
     config: GeofenceConfig | null,

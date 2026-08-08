@@ -59,7 +59,7 @@ describe('attendance-settings action', () => {
             if (res.success) {
                 expect(res.data).toEqual({
                     selfServiceEnabled: false,
-                    geofenceEnabled: false,
+                    geofenceMode: 'off',
                     latitude: '',
                     longitude: '',
                     radiusMeters: '100',
@@ -89,7 +89,7 @@ describe('attendance-settings action', () => {
             if (res.success) {
                 expect(res.data).toEqual({
                     selfServiceEnabled: true,
-                    geofenceEnabled: true,
+                    geofenceMode: 'enforce',
                     latitude: '-6.123',
                     longitude: '106.123',
                     radiusMeters: '200',
@@ -113,7 +113,7 @@ describe('attendance-settings action', () => {
 
             const res = await saveAttendanceSettings({
                 selfServiceEnabled: true,
-                geofenceEnabled: false,
+                geofenceMode: 'off',
                 latitude: '',
                 longitude: '',
                 radiusMeters: '',
@@ -128,7 +128,7 @@ describe('attendance-settings action', () => {
         it('fails validation when geofence is enabled but latitude/longitude are empty', async () => {
             const res = await saveAttendanceSettings({
                 selfServiceEnabled: true,
-                geofenceEnabled: true,
+                geofenceMode: 'enforce',
                 latitude: '',
                 longitude: '',
                 radiusMeters: '100',
@@ -147,7 +147,7 @@ describe('attendance-settings action', () => {
 
             const res = await saveAttendanceSettings({
                 selfServiceEnabled: true,
-                geofenceEnabled: true,
+                geofenceMode: 'enforce',
                 latitude: '-6.12345',
                 longitude: '106.12345',
                 radiusMeters: '150',
@@ -162,7 +162,7 @@ describe('attendance-settings action', () => {
         it('fails validation when radius is invalid', async () => {
             const res = await saveAttendanceSettings({
                 selfServiceEnabled: false,
-                geofenceEnabled: false,
+                geofenceMode: 'off',
                 latitude: '',
                 longitude: '',
                 radiusMeters: '-10',

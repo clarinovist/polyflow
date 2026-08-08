@@ -5,15 +5,17 @@ import { prisma } from '@/lib/core/prisma';
 import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import {
-    safeAction,
-    AuthorizationError,
-} from '@/lib/errors/errors';
+import { safeAction, AuthorizationError } from '@/lib/errors/errors';
 import { isTenantAdmin } from '@/lib/auth/roles';
+import {
+    resolveGeofenceMode,
+    type GeofenceMode,
+} from '@/services/hrd/attendance-location';
 
 const ATTENDANCE_SETTING_KEYS = [
     'attendance.selfServiceEnabled',
     'attendance.geofenceEnabled',
+    'attendance.geofenceMode',
     'attendance.latitude',
     'attendance.longitude',
     'attendance.radiusMeters',
@@ -23,7 +25,7 @@ const ATTENDANCE_SETTING_KEYS = [
 
 export interface AttendanceSettings {
     selfServiceEnabled: boolean;
-    geofenceEnabled: boolean;
+    geofenceMode: GeofenceMode;
     latitude: string;
     longitude: string;
     radiusMeters: string;
@@ -34,7 +36,7 @@ export interface AttendanceSettings {
 const saveSchema = z
     .object({
         selfServiceEnabled: z.boolean(),
-        geofenceEnabled: z.boolean(),
+        geofenceMode: z.enum(['off', 'observe', 'enforce']),
         latitude: z.string(),
         longitude: z.string(),
         radiusMeters: z.string(),
@@ -42,9 +44,17 @@ const saveSchema = z
         lateGraceMinutes: z.string(),
     })
     .superRefine((data, ctx) => {
-        if (data.geofenceEnabled) {
+        // `observe` needs coordinates too — without them there is nothing to
+        // measure distance against, and the observation collects positions with
+        // no reference point, which is the data we are trying to produce.
+        if (data.geofenceMode !== 'off') {
             const lat = parseFloat(data.latitude);
-            if (!data.latitude.trim() || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+            if (
+                !data.latitude.trim() ||
+                !Number.isFinite(lat) ||
+                lat < -90 ||
+                lat > 90
+            ) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['latitude'],
@@ -53,7 +63,12 @@ const saveSchema = z
             }
 
             const lon = parseFloat(data.longitude);
-            if (!data.longitude.trim() || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+            if (
+                !data.longitude.trim() ||
+                !Number.isFinite(lon) ||
+                lon < -180 ||
+                lon > 180
+            ) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['longitude'],
@@ -140,8 +155,16 @@ export const getAttendanceSettings = withTenant(
             const byKey = new Map(rows.map((r) => [r.key, r.value]));
             const get = (k: string) => byKey.get(k) ?? '';
             return {
-                selfServiceEnabled: get('attendance.selfServiceEnabled') === 'true',
-                geofenceEnabled: get('attendance.geofenceEnabled') === 'true',
+                selfServiceEnabled:
+                    get('attendance.selfServiceEnabled') === 'true',
+                // Same resolver the service uses, so the page can never show a
+                // mode different from the one actually being applied.
+                geofenceMode: resolveGeofenceMode({
+                    'attendance.geofenceMode': get('attendance.geofenceMode'),
+                    'attendance.geofenceEnabled': get(
+                        'attendance.geofenceEnabled',
+                    ),
+                }),
                 latitude: get('attendance.latitude'),
                 longitude: get('attendance.longitude'),
                 radiusMeters: get('attendance.radiusMeters') || '100',
@@ -159,13 +182,25 @@ export const saveAttendanceSettings = withTenant(
             const parsed = saveSchema.parse(input);
 
             const entries: Record<string, string> = {
-                'attendance.selfServiceEnabled': String(parsed.selfServiceEnabled),
-                'attendance.geofenceEnabled': String(parsed.geofenceEnabled),
+                'attendance.selfServiceEnabled': String(
+                    parsed.selfServiceEnabled,
+                ),
+                'attendance.geofenceMode': parsed.geofenceMode,
+                // The legacy boolean is kept in sync so that rolling the image
+                // back to a build without mode support degrades safely: an
+                // `observe` tenant reads as geofence-off (everyone can clock
+                // in) rather than as geofence-on with an untested radius
+                // (nobody can).
+                'attendance.geofenceEnabled': String(
+                    parsed.geofenceMode === 'enforce',
+                ),
                 'attendance.latitude': parsed.latitude.trim(),
                 'attendance.longitude': parsed.longitude.trim(),
                 'attendance.radiusMeters': parsed.radiusMeters.trim() || '100',
-                'attendance.maxAccuracyMeters': parsed.maxAccuracyMeters.trim() || '50',
-                'attendance.lateGraceMinutes': parsed.lateGraceMinutes.trim() || '0',
+                'attendance.maxAccuracyMeters':
+                    parsed.maxAccuracyMeters.trim() || '50',
+                'attendance.lateGraceMinutes':
+                    parsed.lateGraceMinutes.trim() || '0',
             };
 
             await prisma.$transaction(

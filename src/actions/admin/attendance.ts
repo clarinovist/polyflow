@@ -9,6 +9,7 @@ import {
 import { hashPin, isValidPin } from '@/services/hrd/pin-helpers';
 import { parseWibDateTime } from '@/services/hrd/shift-window';
 import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
+import { resolveGeofenceMode } from '@/services/hrd/attendance-location';
 import {
     parseKioskLocationEvidence,
     type KioskLocationEvidenceInput,
@@ -455,6 +456,33 @@ export const listKioskEmployees = withTenant(
                 module: 'AttendanceActions',
             });
             return { success: false, error: 'Gagal memuat daftar karyawan' };
+        }
+    },
+);
+
+/**
+ * The kiosk needs the mode to decide whether a missing GPS fix should stop the
+ * form. Under `enforce` it must, because the server will reject anyway and
+ * failing early saves the operator a PIN and a selfie. Under `observe` it must
+ * not: a phone with location permission denied still has to be able to clock
+ * in, or observation becomes the very blocker it exists to remove.
+ *
+ * Only the mode is exposed — this route is unauthenticated, and the office
+ * coordinates are not needed to make that decision.
+ */
+export const getKioskGeofenceMode = withTenant(
+    async function getKioskGeofenceMode() {
+        try {
+            const settings = await readAttendanceSettings(db);
+            return { success: true, data: resolveGeofenceMode(settings) };
+        } catch (error) {
+            logger.error('Read kiosk geofence mode failed', {
+                error,
+                module: 'AttendanceActions',
+            });
+            // Treat an unreadable setting as the permissive mode. The kiosk
+            // gate is a convenience; the server still enforces independently.
+            return { success: true, data: 'off' as const };
         }
     },
 );

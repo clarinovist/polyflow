@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
     describeGeofenceProximity,
+    measureObservedDistance,
     parseGeofenceConfig,
     resolveGeofence,
+    resolveGeofenceMode,
     validateLocation,
     isSelfServiceEnabled,
     getLateGraceMinutes,
@@ -434,6 +436,153 @@ describe('describeGeofenceProximity', () => {
             accuracy: 999,
         });
         expect(result.kind).toBe('accuracy-poor');
+    });
+});
+
+describe('resolveGeofenceMode', () => {
+    it('reads an explicit mode', () => {
+        expect(
+            resolveGeofenceMode({ 'attendance.geofenceMode': 'observe' }),
+        ).toBe('observe');
+        expect(
+            resolveGeofenceMode({ 'attendance.geofenceMode': 'enforce' }),
+        ).toBe('enforce');
+        expect(resolveGeofenceMode({ 'attendance.geofenceMode': 'off' })).toBe(
+            'off',
+        );
+    });
+
+    it('normalises surrounding whitespace and case', () => {
+        expect(
+            resolveGeofenceMode({ 'attendance.geofenceMode': '  OBSERVE ' }),
+        ).toBe('observe');
+    });
+
+    it('falls back to the legacy boolean when the mode key is absent', () => {
+        expect(
+            resolveGeofenceMode({ 'attendance.geofenceEnabled': 'true' }),
+        ).toBe('enforce');
+        expect(
+            resolveGeofenceMode({ 'attendance.geofenceEnabled': 'false' }),
+        ).toBe('off');
+        expect(resolveGeofenceMode({})).toBe('off');
+    });
+
+    it('falls back rather than throwing on an unrecognised mode', () => {
+        expect(
+            resolveGeofenceMode({
+                'attendance.geofenceMode': 'enfroce',
+                'attendance.geofenceEnabled': 'true',
+            }),
+        ).toBe('enforce');
+    });
+
+    it('prefers the explicit mode over the legacy boolean', () => {
+        expect(
+            resolveGeofenceMode({
+                'attendance.geofenceMode': 'observe',
+                'attendance.geofenceEnabled': 'true',
+            }),
+        ).toBe('observe');
+    });
+});
+
+describe('resolveGeofence (enforcement gate)', () => {
+    const configured = {
+        'attendance.latitude': '-6.0',
+        'attendance.longitude': '106.0',
+        'attendance.radiusMeters': '100',
+        'attendance.maxAccuracyMeters': '50',
+    };
+
+    it('reports disabled in observe mode so nothing can be rejected', () => {
+        expect(
+            resolveGeofence({
+                ...configured,
+                'attendance.geofenceMode': 'observe',
+            }),
+        ).toEqual({ kind: 'disabled' });
+    });
+
+    it('stays active in enforce mode', () => {
+        expect(
+            resolveGeofence({
+                ...configured,
+                'attendance.geofenceMode': 'enforce',
+            }).kind,
+        ).toBe('active');
+    });
+});
+
+describe('measureObservedDistance', () => {
+    // Two sites ~310m apart — the geometry that caused the outage: a radius of
+    // 100m cannot cover both, and enforcement was switched on before any real
+    // position had ever been recorded to reveal that.
+    const configured = {
+        'attendance.geofenceMode': 'observe',
+        'attendance.latitude': '-6.0',
+        'attendance.longitude': '106.0',
+        'attendance.radiusMeters': '100',
+        'attendance.maxAccuracyMeters': '50',
+    };
+
+    it('measures a position far outside the radius instead of refusing it', () => {
+        const distance = measureObservedDistance(configured, {
+            latitude: -6.0,
+            longitude: 106.0028,
+            accuracy: 20,
+        });
+        expect(distance).toBeGreaterThan(280);
+        expect(distance).toBeLessThan(340);
+    });
+
+    it('measures a position inside the radius', () => {
+        const distance = measureObservedDistance(configured, {
+            latitude: -6.0,
+            longitude: 106.0,
+            accuracy: 10,
+        });
+        expect(distance).toBeCloseTo(0, 5);
+    });
+
+    it('ignores the accuracy limit — poor accuracy is data, not a rejection', () => {
+        const distance = measureObservedDistance(configured, {
+            latitude: -6.0,
+            longitude: 106.0028,
+            accuracy: 5000,
+        });
+        expect(distance).toBeGreaterThan(280);
+    });
+
+    it('returns null without evidence', () => {
+        expect(measureObservedDistance(configured, null)).toBeNull();
+        expect(measureObservedDistance(configured, undefined)).toBeNull();
+    });
+
+    it('returns null on garbage coordinates', () => {
+        expect(
+            measureObservedDistance(configured, {
+                latitude: NaN,
+                longitude: NaN,
+                accuracy: NaN,
+            }),
+        ).toBeNull();
+        expect(
+            measureObservedDistance(configured, {
+                latitude: 91,
+                longitude: 106.0,
+                accuracy: 10,
+            }),
+        ).toBeNull();
+    });
+
+    it('returns null when the office coordinates are not configured', () => {
+        expect(
+            measureObservedDistance(
+                { 'attendance.geofenceMode': 'observe' },
+                { latitude: -6.0, longitude: 106.0, accuracy: 10 },
+            ),
+        ).toBeNull();
     });
 });
 

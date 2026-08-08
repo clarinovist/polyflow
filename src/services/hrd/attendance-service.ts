@@ -15,6 +15,8 @@ import { Prisma } from '@prisma/client';
 import { isValidAttendancePhotoUrl } from '@/lib/media/attendance-photo-url';
 import {
     resolveGeofence,
+    resolveGeofenceMode,
+    measureObservedDistance,
     validateLocation,
     type LocationEvidence,
     type GeofenceResult,
@@ -519,6 +521,49 @@ function enforceGeofence(
 }
 
 /**
+ * Single decision point for every clock path: measure, and gate only when the
+ * mode says to. Returns the distance in meters to persist, or null when none
+ * could be measured.
+ *
+ * In `observe` mode this never throws — not for missing evidence, not for an
+ * incomplete fence, not for a position far outside the radius. Enforcement was
+ * previously switched on with an untested radius and blocked every employee for
+ * ~13 hours; observation is the mode that collects the evidence to pick that
+ * radius, so it is only safe to leave running if it cannot reject anyone.
+ *
+ * In `off` and `enforce` the behaviour is exactly what it was before this
+ * function existed.
+ */
+function gateOrObserveLocation(
+    settings: Record<string, string | null | undefined>,
+    evidence: LocationEvidence | undefined,
+): number | null {
+    if (resolveGeofenceMode(settings) === 'observe') {
+        return measureObservedDistance(settings, evidence);
+    }
+
+    // A fence that is active but received no evidence must fail closed with an
+    // actionable message, not a TypeError from reading an undefined object.
+    if (resolveGeofence(settings).kind === 'active' && !evidence) {
+        throw new BusinessRuleError(
+            'Lokasi GPS wajib untuk absensi. Aktifkan izin lokasi di browser kiosk.',
+        );
+    }
+
+    const result = enforceGeofence(
+        settings,
+        evidence ?? { latitude: NaN, longitude: NaN, accuracy: NaN },
+    );
+    return result ? result.distanceMeters : null;
+}
+
+/** Distance column writer — shared so the null/non-finite rule lives in one place. */
+function toDistanceDecimal(meters: number | null): Prisma.Decimal | null {
+    if (meters === null || !Number.isFinite(meters)) return null;
+    return new Prisma.Decimal(meters.toFixed(2));
+}
+
+/**
  * Location evidence is recorded for audit independently of whether the fence is
  * enforced. It arrives over the wire from a browser, so the compile-time type is
  * not a runtime guarantee — a non-finite accuracy would otherwise reach
@@ -561,29 +606,12 @@ export const AttendanceService = {
             }
         }
 
-        // Kiosk geofence enforcement — MANUAL (admin) source never carries GPS
-        // and must not be gated. A fence that is active but received no
-        // evidence must fail closed with an actionable message, not a
-        // TypeError from enforceGeofence reading an undefined evidence object.
-        let clockInGeoResult: GeofenceResult | null = null;
-        if (source === 'KIOSK') {
-            if (
-                resolveGeofence(settings).kind === 'active' &&
-                !input.locationEvidence
-            ) {
-                throw new BusinessRuleError(
-                    'Lokasi GPS wajib untuk absensi. Aktifkan izin lokasi di browser kiosk.',
-                );
-            }
-            clockInGeoResult = enforceGeofence(
-                settings,
-                input.locationEvidence ?? {
-                    latitude: NaN,
-                    longitude: NaN,
-                    accuracy: NaN,
-                },
-            );
-        }
+        // MANUAL (admin) source never carries GPS and must not be gated or
+        // measured; only the kiosk path goes through the fence.
+        const clockInDistanceMeters =
+            source === 'KIOSK'
+                ? gateOrObserveLocation(settings, input.locationEvidence)
+                : null;
 
         let resolvedWorkShiftId = input.workShiftId?.trim();
         if (!resolvedWorkShiftId) {
@@ -685,11 +713,7 @@ export const AttendanceService = {
                 clockInLatitude: clockInGeoData?.latitude ?? null,
                 clockInLongitude: clockInGeoData?.longitude ?? null,
                 clockInAccuracy: clockInGeoData?.accuracy ?? null,
-                clockInDistance: clockInGeoResult
-                    ? new Prisma.Decimal(
-                          clockInGeoResult.distanceMeters.toFixed(2),
-                      )
-                    : null,
+                clockInDistance: toDistanceDecimal(clockInDistanceMeters),
                 plannedHours: new Prisma.Decimal(planned),
                 standardDayHours: new Prisma.Decimal(rates.standardDayHours),
                 dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
@@ -789,23 +813,11 @@ export const AttendanceService = {
         const pinValid = await verifyPin(input.pin, employee.pinHash);
         if (!pinValid) throw new BusinessRuleError('PIN salah');
 
-        // Kiosk geofence enforcement — this method has no MANUAL variant
-        // (clockOutAsAdmin is separate), so the gate always applies here.
-        if (
-            resolveGeofence(settings).kind === 'active' &&
-            !input.locationEvidence
-        ) {
-            throw new BusinessRuleError(
-                'Lokasi GPS wajib untuk absensi. Aktifkan izin lokasi di browser kiosk.',
-            );
-        }
-        const clockOutGeoResult = enforceGeofence(
+        // This method has no MANUAL variant (clockOutAsAdmin is separate), so
+        // the fence always applies here.
+        const clockOutDistanceMeters = gateOrObserveLocation(
             settings,
-            input.locationEvidence ?? {
-                latitude: NaN,
-                longitude: NaN,
-                accuracy: NaN,
-            },
+            input.locationEvidence,
         );
 
         const openRecord =
@@ -847,11 +859,7 @@ export const AttendanceService = {
                 clockOutLatitude: clockOutGeoData?.latitude ?? null,
                 clockOutLongitude: clockOutGeoData?.longitude ?? null,
                 clockOutAccuracy: clockOutGeoData?.accuracy ?? null,
-                clockOutDistance: clockOutGeoResult
-                    ? new Prisma.Decimal(
-                          clockOutGeoResult.distanceMeters.toFixed(2),
-                      )
-                    : null,
+                clockOutDistance: toDistanceDecimal(clockOutDistanceMeters),
             },
             include: includeRelations,
         });
@@ -1436,8 +1444,8 @@ export const AttendanceService = {
             throw new BusinessRuleError('Foto absensi tidak valid');
         }
 
-        // Validate geofence — fail-closed
-        const clockInGeoResult = enforceGeofence(
+        // Geofence — fail-closed under `enforce`, measure-only under `observe`
+        const clockInDistanceMeters = gateOrObserveLocation(
             settings,
             input.locationEvidence,
         );
@@ -1524,11 +1532,7 @@ export const AttendanceService = {
                 clockInLatitude: geoData?.latitude ?? null,
                 clockInLongitude: geoData?.longitude ?? null,
                 clockInAccuracy: geoData?.accuracy ?? null,
-                clockInDistance: clockInGeoResult
-                    ? new Prisma.Decimal(
-                          clockInGeoResult.distanceMeters.toFixed(2),
-                      )
-                    : null,
+                clockInDistance: toDistanceDecimal(clockInDistanceMeters),
                 plannedHours: new Prisma.Decimal(planned),
                 standardDayHours: new Prisma.Decimal(rates.standardDayHours),
                 dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
@@ -1564,8 +1568,8 @@ export const AttendanceService = {
         if (employee.status !== 'ACTIVE')
             throw new BusinessRuleError('Karyawan tidak aktif');
 
-        // Validate geofence — fail-closed
-        const clockOutGeoResult = enforceGeofence(
+        // Geofence — fail-closed under `enforce`, measure-only under `observe`
+        const clockOutDistanceMeters = gateOrObserveLocation(
             settings,
             input.locationEvidence,
         );
@@ -1609,11 +1613,7 @@ export const AttendanceService = {
                 clockOutLatitude: geoData?.latitude ?? null,
                 clockOutLongitude: geoData?.longitude ?? null,
                 clockOutAccuracy: geoData?.accuracy ?? null,
-                clockOutDistance: clockOutGeoResult
-                    ? new Prisma.Decimal(
-                          clockOutGeoResult.distanceMeters.toFixed(2),
-                      )
-                    : null,
+                clockOutDistance: toDistanceDecimal(clockOutDistanceMeters),
             },
             include: includeRelations,
         });

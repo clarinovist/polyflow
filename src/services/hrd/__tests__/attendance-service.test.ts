@@ -471,6 +471,97 @@ describe('AttendanceService', () => {
         }),
       ).rejects.toThrow(/Konfigurasi geofence belum lengkap/);
     });
+
+    // ─── Observation mode (plan: docs/plan/2026-08-08-kiosk-geofence-observe-mode.md) ───
+    //
+    // Every test here asserts a NON-rejection. Enforcement was switched on with
+    // an untested radius and blocked every employee across two tenants for ~13
+    // hours; observation exists to gather the positions needed to choose that
+    // radius, and is only safe to leave running in production if no input can
+    // make it reject. A throw in any of these is the outage coming back.
+    describe('clockIn - geofence observation mode', () => {
+      const observeSettings = {
+        'attendance.geofenceMode': 'observe',
+        'attendance.latitude': '-6.2',
+        'attendance.longitude': '106.8',
+        'attendance.radiusMeters': '100',
+        'attendance.maxAccuracyMeters': '50',
+      };
+
+      it('records the distance instead of rejecting when far outside the radius', async () => {
+        const captured = armClockInCapture();
+        const empLat = -6.21;
+        const empLon = 106.81;
+
+        const result = await AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: empLat, longitude: empLon, accuracy: 10 },
+        }, observeSettings);
+
+        const expected = haversineDistance(-6.2, 106.8, empLat, empLon);
+        expect(result.employeeName).toBe('Budi');
+        expect(Number(captured.data.clockInDistance)).toBeCloseTo(expected, 1);
+        expect(Number(captured.data.clockInLatitude)).toBeCloseTo(empLat, 5);
+        expect(Number(captured.data.clockInLongitude)).toBeCloseTo(empLon, 5);
+      });
+
+      it('does not reject when accuracy is far worse than the configured limit', async () => {
+        const captured = armClockInCapture();
+        const result = await AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 9999 },
+        }, observeSettings);
+
+        expect(result.employeeName).toBe('Budi');
+        expect(captured.data.clockInDistance).not.toBeNull();
+      });
+
+      it('does not reject when the kiosk sends no locationEvidence at all', async () => {
+        const captured = armClockInCapture();
+        const result = await AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        }, observeSettings);
+
+        expect(result.employeeName).toBe('Budi');
+        expect(captured.data.clockInDistance).toBeNull();
+      });
+
+      it('does NOT fail closed on an incomplete config — observation must never block', async () => {
+        const captured = armClockInCapture();
+        const result = await AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 10 },
+        }, {
+          'attendance.geofenceMode': 'observe',
+          'attendance.latitude': '',
+          'attendance.longitude': '106.8',
+          'attendance.radiusMeters': '100',
+          'attendance.maxAccuracyMeters': '50',
+        });
+
+        expect(result.employeeName).toBe('Budi');
+        // No reference point, so no distance — but the coordinates still land
+        // in the record, which is the observation we actually need.
+        expect(captured.data.clockInDistance).toBeNull();
+        expect(captured.data.clockInLatitude).not.toBeNull();
+      });
+
+      it('ignores a stale legacy geofenceEnabled=true when the mode says observe', async () => {
+        const captured = armClockInCapture();
+        const result = await AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234', workShiftId: 'shift-1',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+          locationEvidence: { latitude: -6.21, longitude: 106.81, accuracy: 10 },
+        }, { ...observeSettings, 'attendance.geofenceEnabled': 'true' });
+
+        expect(result.employeeName).toBe('Budi');
+        expect(captured.data.clockInDistance).not.toBeNull();
+      });
+    });
   });
 
   describe('clockOut - kiosk geofence enforcement', () => {
@@ -595,6 +686,72 @@ describe('AttendanceService', () => {
           'attendance.maxAccuracyMeters': '50',
         }),
       ).rejects.toThrow(/Konfigurasi geofence belum lengkap/);
+    });
+
+    // Clock-out matters as much as clock-in here: a fence that lets people in
+    // but not out strands them with an open session that only HRD can close.
+    describe('clockOut - geofence observation mode', () => {
+      const observeSettings = {
+        'attendance.geofenceMode': 'observe',
+        'attendance.latitude': '-6.2',
+        'attendance.longitude': '106.8',
+        'attendance.radiusMeters': '100',
+        'attendance.maxAccuracyMeters': '50',
+      };
+
+      it('records the distance instead of rejecting when far outside the radius', async () => {
+        const updateCalls = armClockOutCapture();
+        const empLat = -6.21;
+        const empLon = 106.81;
+
+        const result = await AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          locationEvidence: { latitude: empLat, longitude: empLon, accuracy: 10 },
+        }, observeSettings);
+
+        const expected = haversineDistance(-6.2, 106.8, empLat, empLon);
+        expect(result.clockOutAt).not.toBeNull();
+        expect(Number(updateCalls[0].clockOutDistance)).toBeCloseTo(expected, 1);
+      });
+
+      it('does not reject when accuracy is far worse than the configured limit', async () => {
+        const updateCalls = armClockOutCapture();
+        const result = await AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 9999 },
+        }, observeSettings);
+
+        expect(result.clockOutAt).not.toBeNull();
+        expect(updateCalls[0].clockOutDistance).not.toBeNull();
+      });
+
+      it('does not reject when no locationEvidence is sent', async () => {
+        const updateCalls = armClockOutCapture();
+        const result = await AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+        }, observeSettings);
+
+        expect(result.clockOutAt).not.toBeNull();
+        expect(updateCalls[0].clockOutDistance).toBeNull();
+      });
+
+      it('does NOT fail closed on an incomplete config', async () => {
+        const updateCalls = armClockOutCapture();
+        const result = await AttendanceService.clockOut(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          locationEvidence: { latitude: -6.2001, longitude: 106.8001, accuracy: 10 },
+        }, {
+          'attendance.geofenceMode': 'observe',
+          'attendance.latitude': '',
+          'attendance.longitude': '106.8',
+          'attendance.radiusMeters': '100',
+          'attendance.maxAccuracyMeters': '50',
+        });
+
+        expect(result.clockOutAt).not.toBeNull();
+        expect(updateCalls[0].clockOutDistance).toBeNull();
+        expect(updateCalls[0].clockOutLatitude).not.toBeNull();
+      });
     });
   });
 
