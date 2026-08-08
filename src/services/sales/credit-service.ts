@@ -134,7 +134,9 @@ export async function getCustomersWithCreditSummary(): Promise<
             creditLimit: true,
             isActive: true,
         },
-        orderBy: { name: 'asc' },
+        // Aktif dulu (boolean DESC → true di atas), lalu A–Z, supaya baris
+        // nonaktif tidak berselang-seling di tengah daftar.
+        orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     });
 
     if (customers.length === 0) return [];

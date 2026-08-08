@@ -26,7 +26,8 @@ export const getMyFieldCustomers = withTenant(
 
             const customers = await prisma.customer.findMany({
                 where,
-                orderBy: { name: 'asc' },
+                // Aktif dulu, lalu A–Z — samakan dengan list customer desktop.
+                orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
             });
             return serializeData(customers);
         });

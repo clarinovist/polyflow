@@ -209,6 +209,18 @@ describe("credit-service", () => {
       expect(result).toEqual([]);
     });
 
+    it("orders active customers before inactive, then by name", async () => {
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
+
+      await getCustomersWithCreditSummary();
+
+      expect(prisma.customer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ isActive: "desc" }, { name: "asc" }],
+        }),
+      );
+    });
+
     it("returns customers with no limit as exposureStatus none", async () => {
       vi.mocked(prisma.customer.findMany).mockResolvedValue([
         { id: "c1", code: "C001", name: "Test", phone: null, city: null, paymentTermDays: null, creditLimit: null, isActive: true },
