@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseIndonesianPrice, formatIndonesianPrice } from '../price-format';
+import {
+  parseIndonesianPrice,
+  formatIndonesianPrice,
+  resolveBasePrice,
+  priceDeviationPercent,
+} from '../price-format';
 
 describe('parseIndonesianPrice', () => {
   // Indonesian format (dot = thousands, comma = decimal)
@@ -72,5 +77,57 @@ describe('formatIndonesianPrice', () => {
     expect(formatIndonesianPrice(100)).toBe('100');
     expect(formatIndonesianPrice(50)).toBe('50');
     expect(formatIndonesianPrice(1)).toBe('1');
+  });
+});
+
+describe('resolveBasePrice', () => {
+  it('prefers sellPrice when positive', () => {
+    expect(resolveBasePrice({ sellPrice: 15000, price: 10000 })).toBe(15000);
+  });
+
+  it('falls back to price when sellPrice is null', () => {
+    expect(resolveBasePrice({ sellPrice: null, price: 10000 })).toBe(10000);
+  });
+
+  it('falls back to price when sellPrice is 0', () => {
+    expect(resolveBasePrice({ sellPrice: 0, price: 10000 })).toBe(10000);
+  });
+
+  it('returns null when both sellPrice and price are null', () => {
+    expect(resolveBasePrice({ sellPrice: null, price: null })).toBeNull();
+  });
+
+  it('returns null when both sellPrice and price are 0', () => {
+    expect(resolveBasePrice({ sellPrice: 0, price: 0 })).toBeNull();
+  });
+
+  it('returns null when both are undefined (missing keys)', () => {
+    expect(resolveBasePrice({})).toBeNull();
+  });
+});
+
+describe('priceDeviationPercent', () => {
+  it('returns null when basePrice is null', () => {
+    expect(priceDeviationPercent(12000, null)).toBeNull();
+  });
+
+  it('returns null when basePrice is 0 (avoid divide-by-zero)', () => {
+    expect(priceDeviationPercent(12000, 0)).toBeNull();
+  });
+
+  it('returns null when basePrice is undefined', () => {
+    expect(priceDeviationPercent(12000, undefined)).toBeNull();
+  });
+
+  it('computes positive deviation when unitPrice above base (markup)', () => {
+    expect(priceDeviationPercent(11000, 10000)).toBe(10);
+  });
+
+  it('computes negative deviation when unitPrice below base (discount)', () => {
+    expect(priceDeviationPercent(9000, 10000)).toBe(-10);
+  });
+
+  it('computes 0 deviation when unitPrice equals base', () => {
+    expect(priceDeviationPercent(10000, 10000)).toBe(0);
   });
 });

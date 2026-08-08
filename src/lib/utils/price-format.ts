@@ -100,3 +100,30 @@ export function formatIndonesianPrice(value: number): string {
         maximumFractionDigits: 2,
     });
 }
+
+/**
+ * Resolve base ("list") price for a product variant.
+ * Priority: sellPrice > 0 → price > 0 → null.
+ * Mirrors the fallback used server-side in walk-in-dispatch-service so the
+ * priority is only encoded once.
+ */
+export function resolveBasePrice(input: {
+    sellPrice?: number | null;
+    price?: number | null;
+}): number | null {
+    if (input.sellPrice != null && input.sellPrice > 0) return input.sellPrice;
+    if (input.price != null && input.price > 0) return input.price;
+    return null;
+}
+
+/**
+ * Percent deviation of unitPrice vs basePrice.
+ * Returns null when basePrice is null/0 to avoid divide-by-zero (NaN/Infinity).
+ */
+export function priceDeviationPercent(
+    unitPrice: number,
+    basePrice: number | null | undefined,
+): number | null {
+    if (basePrice == null || basePrice === 0) return null;
+    return ((unitPrice - basePrice) / basePrice) * 100;
+}

@@ -2,8 +2,11 @@
 
 import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError, ValidationError } from '@/lib/errors/errors';
-import type { ProductType } from '@prisma/client';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductType } from '@prisma/client';
+import {
+    resolveBasePrice,
+    priceDeviationPercent,
+} from '@/lib/utils/price-format';
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
@@ -502,4 +505,224 @@ export async function bulkAdjustPrices(
  */
 export async function upsertSinglePrice(entry: BulkUpsertEntry): Promise<void> {
     await bulkUpsertPrices([entry]);
+}
+
+// ── Product-first price list (master-detail) ──────────────────────────
+
+/** Kategori produk yang tampil di price list secara default (belum diminta eksplisit). */
+const DEFAULT_PRICE_LIST_CATEGORIES: ProductType[] = [
+    ProductType.FINISHED_GOOD,
+    ProductType.PACKAGING,
+];
+
+export type ListPricesByProductParams = {
+    search?: string;
+    /** Filter product.productType. Default: FINISHED_GOOD + PACKAGING. */
+    category?: ProductType;
+    /** Batasi baris SKU ke yang punya harga untuk customer ini, DAN batasi
+     * detail `prices[]` ke customer itu saja. */
+    customerId?: string;
+    productVariantId?: string;
+    /** Default false — SKU tanpa harga khusus tetap tampil. */
+    onlyWithCustomPrice?: boolean;
+    page?: number;
+    pageSize?: number;
+};
+
+export type ProductPriceCustomerEntry = {
+    id: string;
+    customerId: string;
+    customerName: string;
+    customerCode: string | null;
+    unitPrice: number;
+    deviationPercent: number | null;
+    isActive: boolean;
+    notes: string | null;
+};
+
+export type ProductPriceRow = {
+    variantId: string;
+    skuCode: string;
+    variantName: string;
+    productName: string;
+    productType: ProductType;
+    basePrice: number | null;
+    customPriceCount: number;
+    minPrice: number | null;
+    maxPrice: number | null;
+    prices: ProductPriceCustomerEntry[];
+};
+
+export type ListPricesByProductResult = {
+    data: ProductPriceRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+};
+
+function buildProductPriceWhere(
+    params: ListPricesByProductParams,
+    customerPricesWhere: Prisma.CustomerProductPriceWhereInput,
+): Prisma.ProductVariantWhereInput {
+    const productTypeFilter = params.category ?? {
+        in: DEFAULT_PRICE_LIST_CATEGORIES,
+    };
+
+    const searchTerm = params.search?.trim();
+    const searchWhere: Prisma.ProductVariantWhereInput | undefined = searchTerm
+        ? {
+              OR: [
+                  {
+                      name: {
+                          contains: searchTerm,
+                          mode: 'insensitive' as const,
+                      },
+                  },
+                  {
+                      skuCode: {
+                          contains: searchTerm,
+                          mode: 'insensitive' as const,
+                      },
+                  },
+                  {
+                      product: {
+                          name: {
+                              contains: searchTerm,
+                              mode: 'insensitive' as const,
+                          },
+                      },
+                  },
+                  {
+                      customerPrices: {
+                          some: {
+                              // Same isActive/customerId narrowing as
+                              // include.customerPrices.where, so a hit via
+                              // this branch always has a matching row in the
+                              // detail `prices[]` that gets included below.
+                              ...customerPricesWhere,
+                              customer: {
+                                  name: {
+                                      contains: searchTerm,
+                                      mode: 'insensitive' as const,
+                                  },
+                              },
+                          },
+                      },
+                  },
+              ],
+          }
+        : undefined;
+
+    // Row selection is narrowed to SKUs that have a matching custom price
+    // whenever a customerId filter or onlyWithCustomPrice is requested.
+    const restrictToCustomPrice = Boolean(
+        params.customerId || params.onlyWithCustomPrice,
+    );
+
+    return {
+        product: { productType: productTypeFilter },
+        ...(params.productVariantId ? { id: params.productVariantId } : {}),
+        ...(restrictToCustomPrice
+            ? { customerPrices: { some: customerPricesWhere } }
+            : {}),
+        ...(searchWhere ?? {}),
+    };
+}
+
+/**
+ * List product variants as rows, with their active customer prices nested.
+ * Paginates on SKU (ProductVariant), not on price rows — a SKU with 0 or many
+ * customer overrides still counts as exactly 1 row for pagination purposes.
+ */
+export async function listPricesByProduct(
+    params: ListPricesByProductParams = {},
+): Promise<ListPricesByProductResult> {
+    const page = normalizePage(params.page);
+    const pageSize = clampPageSize(params.pageSize);
+    const skip = (page - 1) * pageSize;
+
+    // Detail restriction: always active-only, further narrowed to a single
+    // customer when customerId is given. Independent of onlyWithCustomPrice.
+    const customerPricesWhere: Prisma.CustomerProductPriceWhereInput = {
+        isActive: true,
+        ...(params.customerId ? { customerId: params.customerId } : {}),
+    };
+
+    const where = buildProductPriceWhere(params, customerPricesWhere);
+
+    const [total, variants] = await Promise.all([
+        prisma.productVariant.count({ where }),
+        prisma.productVariant.findMany({
+            where,
+            include: {
+                product: {
+                    select: { id: true, name: true, productType: true },
+                },
+                customerPrices: {
+                    where: customerPricesWhere,
+                    include: {
+                        customer: {
+                            select: { id: true, name: true, code: true },
+                        },
+                    },
+                },
+            },
+            orderBy: [{ product: { name: 'asc' } }, { name: 'asc' }],
+            skip,
+            take: pageSize,
+        }),
+    ]);
+
+    const data: ProductPriceRow[] = variants.map((variant) => {
+        const basePrice = resolveBasePrice({
+            sellPrice:
+                variant.sellPrice != null ? Number(variant.sellPrice) : null,
+            price: variant.price != null ? Number(variant.price) : null,
+        });
+
+        const prices: ProductPriceCustomerEntry[] = variant.customerPrices.map(
+            (cp) => {
+                const unitPrice = Number(cp.unitPrice);
+                return {
+                    id: cp.id,
+                    customerId: cp.customerId,
+                    customerName: cp.customer.name,
+                    customerCode: cp.customer.code,
+                    unitPrice,
+                    deviationPercent: priceDeviationPercent(
+                        unitPrice,
+                        basePrice,
+                    ),
+                    isActive: cp.isActive,
+                    notes: cp.notes,
+                };
+            },
+        );
+
+        const unitPrices = prices.map((p) => p.unitPrice);
+        const minPrice = unitPrices.length ? Math.min(...unitPrices) : null;
+        const maxPrice = unitPrices.length ? Math.max(...unitPrices) : null;
+
+        return {
+            variantId: variant.id,
+            skuCode: variant.skuCode,
+            variantName: variant.name,
+            productName: variant.product.name,
+            productType: variant.product.productType,
+            basePrice,
+            customPriceCount: prices.length,
+            minPrice,
+            maxPrice,
+            prices,
+        };
+    });
+
+    return {
+        data,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
 }

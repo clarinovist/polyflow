@@ -17,6 +17,10 @@ const mockPrisma = {
         upsert: vi.fn().mockResolvedValue({}),
         update: vi.fn().mockResolvedValue({}),
     },
+    productVariant: {
+        count: vi.fn().mockResolvedValue(0),
+        findMany: vi.fn().mockResolvedValue([]),
+    },
     $transaction: vi.fn(async (cb: unknown) => {
         if (typeof cb === 'function') {
             return (cb as (tx: typeof mockTx) => unknown)(mockTx as never);
@@ -33,6 +37,7 @@ vi.mock('@/lib/core/prisma', () => ({
 
 import {
     listPrices,
+    listPricesByProduct,
     bulkUpsertPrices,
     previewBulkAdjustPrices,
     applyBulkAdjustPrices,
@@ -105,6 +110,8 @@ describe('price-list-service', () => {
         mockPrisma.customerProductPrice.findMany.mockResolvedValue([]);
         mockPrisma.customerProductPrice.upsert.mockResolvedValue({} as never);
         mockPrisma.customerProductPrice.update.mockResolvedValue({} as never);
+        mockPrisma.productVariant.count.mockResolvedValue(0);
+        mockPrisma.productVariant.findMany.mockResolvedValue([]);
         mockTx.customerProductPrice.upsert.mockResolvedValue({} as never);
         mockTx.customerProductPrice.update.mockResolvedValue({} as never);
         // Default transaction invokes callback
@@ -182,6 +189,246 @@ describe('price-list-service', () => {
             const res = await listPrices({});
             expect(res.data[0].customer.name).toBe('Customer A');
             expect(res.data[0].productVariant.skuCode).toBe('SKU-001');
+        });
+    });
+
+    describe('listPricesByProduct — produk-dulu master-detail', () => {
+        function variantRow(
+            overrides: Partial<{
+                id: string;
+                skuCode: string;
+                name: string;
+                sellPrice: ReturnType<typeof decimal> | null;
+                price: ReturnType<typeof decimal> | null;
+                product: { id: string; name: string; productType: ProductType };
+                customerPrices: Array<{
+                    id: string;
+                    customerId: string;
+                    unitPrice: ReturnType<typeof decimal>;
+                    isActive: boolean;
+                    notes: string | null;
+                    customer: { id: string; name: string; code: string | null };
+                }>;
+            }> = {},
+        ) {
+            return {
+                id: 'pv-1',
+                skuCode: 'SKU-001',
+                name: 'Produk A',
+                sellPrice: decimal(10000),
+                price: decimal(9000),
+                product: {
+                    id: 'prod-1',
+                    name: 'Produk A',
+                    productType: ProductType.FINISHED_GOOD,
+                },
+                customerPrices: [],
+                ...overrides,
+            };
+        }
+
+        function customerPriceEntry(
+            overrides: Partial<{
+                id: string;
+                customerId: string;
+                unitPrice: ReturnType<typeof decimal>;
+                isActive: boolean;
+                notes: string | null;
+                customer: { id: string; name: string; code: string | null };
+            }> = {},
+        ) {
+            return {
+                id: 'cp-1',
+                customerId: 'cust-1',
+                unitPrice: decimal(11000),
+                isActive: true,
+                notes: null,
+                customer: { id: 'cust-1', name: 'Customer A', code: 'C001' },
+                ...overrides,
+            };
+        }
+
+        it('1. SKU tanpa CustomerProductPrice tetap muncul dengan customPriceCount: 0', async () => {
+            mockPrisma.productVariant.count.mockResolvedValue(1);
+            mockPrisma.productVariant.findMany.mockResolvedValue([
+                variantRow({ customerPrices: [] }),
+            ] as never);
+
+            const res = await listPricesByProduct({});
+            expect(res.data).toHaveLength(1);
+            expect(res.data[0].customPriceCount).toBe(0);
+            expect(res.data[0].prices).toHaveLength(0);
+        });
+
+        it('2. min/max/count benar untuk SKU dengan >1 harga customer', async () => {
+            mockPrisma.productVariant.count.mockResolvedValue(1);
+            mockPrisma.productVariant.findMany.mockResolvedValue([
+                variantRow({
+                    customerPrices: [
+                        customerPriceEntry({
+                            id: 'cp-1',
+                            unitPrice: decimal(9500),
+                        }),
+                        customerPriceEntry({
+                            id: 'cp-2',
+                            customerId: 'cust-2',
+                            unitPrice: decimal(12000),
+                            customer: {
+                                id: 'cust-2',
+                                name: 'Customer B',
+                                code: null,
+                            },
+                        }),
+                    ],
+                }),
+            ] as never);
+
+            const res = await listPricesByProduct({});
+            expect(res.data[0].customPriceCount).toBe(2);
+            expect(res.data[0].minPrice).toBe(9500);
+            expect(res.data[0].maxPrice).toBe(12000);
+        });
+
+        it('3a. basePrice jatuh ke price saat sellPrice null', async () => {
+            mockPrisma.productVariant.count.mockResolvedValue(1);
+            mockPrisma.productVariant.findMany.mockResolvedValue([
+                variantRow({ sellPrice: null, price: decimal(8000) }),
+            ] as never);
+
+            const res = await listPricesByProduct({});
+            expect(res.data[0].basePrice).toBe(8000);
+        });
+
+        it('3b. basePrice null saat sellPrice dan price dua-duanya kosong', async () => {
+            mockPrisma.productVariant.count.mockResolvedValue(1);
+            mockPrisma.productVariant.findMany.mockResolvedValue([
+                variantRow({ sellPrice: null, price: null }),
+            ] as never);
+
+            const res = await listPricesByProduct({});
+            expect(res.data[0].basePrice).toBeNull();
+        });
+
+        it('4. filter customerId memangkas baris SKU dan isi prices', async () => {
+            await listPricesByProduct({ customerId: 'cust-1' });
+
+            const findManyArgs =
+                mockPrisma.productVariant.findMany.mock.calls[0][0];
+            expect(
+                findManyArgs.where.customerPrices.some.customerId,
+            ).toBe('cust-1');
+            expect(
+                findManyArgs.include.customerPrices.where.customerId,
+            ).toBe('cust-1');
+
+            const countArgs = mockPrisma.productVariant.count.mock.calls[0][0];
+            expect(countArgs.where.customerPrices.some.customerId).toBe(
+                'cust-1',
+            );
+        });
+
+        it('5. onlyWithCustomPrice: true membuang SKU tanpa override', async () => {
+            await listPricesByProduct({ onlyWithCustomPrice: true });
+
+            const findManyArgs =
+                mockPrisma.productVariant.findMany.mock.calls[0][0];
+            expect(findManyArgs.where.customerPrices).toEqual({
+                some: { isActive: true },
+            });
+        });
+
+        it('onlyWithCustomPrice false (default) tidak membatasi baris SKU', async () => {
+            await listPricesByProduct({});
+            const findManyArgs =
+                mockPrisma.productVariant.findMany.mock.calls[0][0];
+            expect(findManyArgs.where.customerPrices).toBeUndefined();
+        });
+
+        it('6. paginasi menghitung SKU (total = jumlah varian yang cocok)', async () => {
+            mockPrisma.productVariant.count.mockResolvedValue(120);
+            mockPrisma.productVariant.findMany.mockResolvedValue([
+                variantRow(),
+            ] as never);
+
+            const res = await listPricesByProduct({ page: 2, pageSize: 50 });
+            expect(res.total).toBe(120);
+            expect(res.totalPages).toBe(3);
+            expect(res.page).toBe(2);
+            expect(mockPrisma.productVariant.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({ skip: 50, take: 50 }),
+            );
+        });
+
+        it('7. deviationPercent null saat basePrice 0 / null', async () => {
+            mockPrisma.productVariant.count.mockResolvedValue(1);
+            mockPrisma.productVariant.findMany.mockResolvedValue([
+                variantRow({
+                    sellPrice: null,
+                    price: null,
+                    customerPrices: [
+                        customerPriceEntry({ unitPrice: decimal(11000) }),
+                    ],
+                }),
+            ] as never);
+
+            const res = await listPricesByProduct({});
+            expect(res.data[0].basePrice).toBeNull();
+            expect(res.data[0].prices[0].deviationPercent).toBeNull();
+        });
+
+        it('default kategori dibatasi FINISHED_GOOD + PACKAGING kalau tidak diminta', async () => {
+            await listPricesByProduct({});
+            const where = mockPrisma.productVariant.count.mock.calls[0][0].where;
+            expect(where.product.productType).toEqual({
+                in: [ProductType.FINISHED_GOOD, ProductType.PACKAGING],
+            });
+        });
+
+        it('category eksplisit override default restriction', async () => {
+            await listPricesByProduct({ category: ProductType.RAW_MATERIAL });
+            const where = mockPrisma.productVariant.count.mock.calls[0][0].where;
+            expect(where.product.productType).toBe(ProductType.RAW_MATERIAL);
+        });
+
+        it('search membangun OR filter lintas nama/sku/produk/customer', async () => {
+            await listPricesByProduct({ search: 'Rafia' });
+            const where = mockPrisma.productVariant.count.mock.calls[0][0].where;
+            expect(where.OR).toBeDefined();
+        });
+
+        it('cabang search nama customer ikut memakai customerPricesWhere (isActive + customerId) — regression', async () => {
+            // Bug: cabang search nama customer di dalam OR tidak menggabungkan
+            // customerPricesWhere, jadi search nama customer lain bisa lolos
+            // walau ada filter customerId aktif (row selection vs detail beda cerita).
+            await listPricesByProduct({
+                customerId: 'cust-B',
+                search: 'PT Alpha',
+            });
+            const where = mockPrisma.productVariant.count.mock.calls[0][0].where;
+            const orClauses = where.OR as Array<
+                Record<string, unknown>
+            >;
+            const customerBranch = orClauses.find(
+                (clause) => 'customerPrices' in clause,
+            ) as {
+                customerPrices: {
+                    some: {
+                        customerId?: string;
+                        isActive?: boolean;
+                        customer: { name: { contains: string } };
+                    };
+                };
+            };
+            expect(customerBranch).toBeDefined();
+            // Same narrowing as include.customerPrices.where: isActive true +
+            // customerId locked to the active customer filter, not the searched name.
+            expect(customerBranch.customerPrices.some.customerId).toBe(
+                'cust-B',
+            );
+            expect(customerBranch.customerPrices.some.isActive).toBe(true);
+            expect(
+                customerBranch.customerPrices.some.customer.name.contains,
+            ).toBe('PT Alpha');
         });
     });
 

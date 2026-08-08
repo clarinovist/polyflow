@@ -9,6 +9,7 @@ vi.mock('@/lib/core/prisma', () => ({
             update: vi.fn().mockResolvedValue({}),
         },
         productVariant: {
+            count: vi.fn().mockResolvedValue(0),
             findMany: vi.fn().mockResolvedValue([]),
         },
         $transaction: vi.fn(async (cb: unknown) => {
@@ -47,6 +48,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requireSalesAccess, requireSalesManager } from '@/lib/auth/sales-access';
 import {
     listCustomerProductPricesAction,
+    listPricesByProductAction,
     bulkUpsertCustomerProductPricesAction,
     previewBulkAdjustPricesAction,
     applyBulkAdjustPricesAction,
@@ -59,6 +61,8 @@ describe('price-list actions — guards', () => {
         vi.clearAllMocks();
         vi.mocked(prisma.customerProductPrice.count).mockResolvedValue(0);
         vi.mocked(prisma.customerProductPrice.findMany).mockResolvedValue([] as never);
+        vi.mocked(prisma.productVariant.count).mockResolvedValue(0);
+        vi.mocked(prisma.productVariant.findMany).mockResolvedValue([] as never);
         vi.mocked(requireSalesAccess).mockResolvedValue({ user: { id: 'sales-1', role: 'SALES', roles: ['SALES'] } } as never);
         vi.mocked(requireSalesManager).mockResolvedValue({ user: { id: 'admin-1', role: 'ADMIN', roles: ['ADMIN'] } } as never);
     });
@@ -85,6 +89,62 @@ describe('price-list actions — guards', () => {
             vi.mocked(prisma.customerProductPrice.findMany).mockResolvedValue([] as never);
             const res = await listCustomerProductPricesAction({});
             expect(res.success).toBe(true);
+        });
+    });
+
+    describe('listPricesByProductAction — read guard requireSalesAccess (produk-dulu)', () => {
+        it('allows SALES to read', async () => {
+            const res = await listPricesByProductAction({ page: 1, pageSize: 10 });
+            expect(res.success).toBe(true);
+            expect(requireSalesAccess).toHaveBeenCalled();
+        });
+
+        it('rejects when requireSalesAccess throws (e.g., WAREHOUSE)', async () => {
+            const { BusinessRuleError } = await import('@/lib/errors/errors');
+            vi.mocked(requireSalesAccess).mockRejectedValue(
+                new BusinessRuleError('Unauthorized: Akses sales hanya untuk admin atau sales.'),
+            );
+            const res = (await listPricesByProductAction({ page: 1 })) as {
+                success: boolean;
+                error?: string;
+            };
+            expect(res.success).toBe(false);
+            expect(res.error).toMatch(/Unauthorized/);
+        });
+
+        it('returns paginated SKU rows when no data', async () => {
+            vi.mocked(prisma.productVariant.count).mockResolvedValue(0);
+            vi.mocked(prisma.productVariant.findMany).mockResolvedValue([] as never);
+            const res = (await listPricesByProductAction({})) as {
+                success: boolean;
+                data?: { data: unknown[]; total: number };
+            };
+            expect(res.success).toBe(true);
+            expect(res.data?.data).toEqual([]);
+            expect(res.data?.total).toBe(0);
+        });
+
+        it('passes through customerId / onlyWithCustomPrice / category filters', async () => {
+            vi.mocked(prisma.productVariant.count).mockResolvedValue(0);
+            vi.mocked(prisma.productVariant.findMany).mockResolvedValue([] as never);
+            const res = await listPricesByProductAction({
+                customerId: 'cust-1',
+                onlyWithCustomPrice: true,
+                category: 'FINISHED_GOOD' as never,
+            });
+            expect(res.success).toBe(true);
+            const where = vi.mocked(prisma.productVariant.count).mock
+                .calls[0][0]!.where as {
+                customerPrices?: { some?: { customerId?: string } };
+            };
+            expect(where.customerPrices?.some?.customerId).toBe('cust-1');
+        });
+
+        it('rejects invalid category via zod', async () => {
+            const res = (await listPricesByProductAction({
+                category: 'NOT_A_CATEGORY' as never,
+            })) as { success: boolean; error?: string };
+            expect(res.success).toBe(false);
         });
     });
 

@@ -10,6 +10,7 @@ import {
 } from '@/lib/auth/sales-access';
 import {
     listPrices,
+    listPricesByProduct,
     bulkUpsertPrices,
     previewBulkAdjustPrices,
     applyBulkAdjustPrices,
@@ -17,6 +18,7 @@ import {
 } from '@/services/sales/price-list-service';
 import type {
     ListPricesParams,
+    ListPricesByProductParams,
     BulkUpsertEntry,
     BulkAdjustFilter,
     BulkAdjustMode,
@@ -38,6 +40,16 @@ const listPricesSchema = z.object({
     pageSize: z.coerce.number().int().positive().max(200).optional(),
     isActive: z.boolean().nullable().optional(),
     category: z.nativeEnum(ProductType).optional(),
+});
+
+const listPricesByProductSchema = z.object({
+    search: z.string().optional(),
+    category: z.nativeEnum(ProductType).optional(),
+    customerId: z.string().optional(),
+    productVariantId: z.string().optional(),
+    onlyWithCustomPrice: z.boolean().optional(),
+    page: z.coerce.number().int().positive().optional(),
+    pageSize: z.coerce.number().int().positive().max(200).optional(),
 });
 
 const upsertEntrySchema = z.object({
@@ -91,6 +103,24 @@ export const listCustomerProductPricesAction = withTenant(
                 throw new BusinessRuleError(parsed.error.issues[0].message);
             }
             const result = await listPrices(parsed.data);
+            return serializeData(result);
+        });
+    },
+);
+
+/**
+ * Read: ADMIN | SALES | MARKETING — produk-dulu master-detail (page /sales/price-list).
+ * Paginasi menghitung SKU (ProductVariant), bukan baris harga.
+ */
+export const listPricesByProductAction = withTenant(
+    async function listPricesByProductAction(raw: ListPricesByProductParams) {
+        return safeAction(async () => {
+            await requireSalesAccess();
+            const parsed = listPricesByProductSchema.safeParse(raw);
+            if (!parsed.success) {
+                throw new BusinessRuleError(parsed.error.issues[0].message);
+            }
+            const result = await listPricesByProduct(parsed.data);
             return serializeData(result);
         });
     },

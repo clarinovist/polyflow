@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { BusinessRuleError } from '@/lib/errors/errors';
 import { logger } from '@/lib/config/logger';
+import { resolveBasePrice } from '@/lib/utils/price-format';
 import { checkCreditLimit } from './credit-service';
 import { confirmOrder } from './orders-service';
 import { createDeliveryOrderFromSalesOrder } from './delivery-fulfillment-service';
@@ -71,14 +72,14 @@ async function resolveCustomerPrice(
         where: { id: productVariantId },
         select: { sellPrice: true, price: true },
     });
-    if (variant?.sellPrice != null && Number(variant.sellPrice) > 0) {
-        return Number(variant.sellPrice);
-    }
-    if (variant?.price != null && Number(variant.price) > 0) {
-        return Number(variant.price);
-    }
 
-    return 0;
+    return (
+        resolveBasePrice({
+            sellPrice:
+                variant?.sellPrice != null ? Number(variant.sellPrice) : null,
+            price: variant?.price != null ? Number(variant.price) : null,
+        }) ?? 0
+    );
 }
 
 /**

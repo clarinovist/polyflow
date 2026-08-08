@@ -1,8 +1,8 @@
 import { getCustomers } from '@/actions/sales/customer';
-import { listCustomerProductPricesAction } from '@/actions/sales/price-list';
+import { listPricesByProductAction } from '@/actions/sales/price-list';
 import { PageHeader } from '@/components/ui/page-header';
 import { serializeData } from '@/lib/utils/utils';
-import { PriceListClient } from '@/components/sales/PriceListClient';
+import { PriceListClient } from '@/components/sales/price-list/PriceListClient';
 import { prisma } from '@/lib/core/prisma';
 import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { withTenant } from '@/lib/core/tenant';
@@ -32,10 +32,9 @@ export default async function PriceListPage() {
         await requireSalesAccess();
         const [customersRes, pricesRes, products] = await Promise.all([
             getCustomers(),
-            listCustomerProductPricesAction({
+            listPricesByProductAction({
                 page: 1,
                 pageSize: 50,
-                isActive: true,
             }),
             getProductsForFilter(),
         ]);
