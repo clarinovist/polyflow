@@ -3,8 +3,24 @@ import {
     HelpArticleStatus,
     HelpArticleSource,
 } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
 
 const mainDb = new PrismaClient();
+
+/**
+ * Baca panduan panjang dari file .md di docs/ alih-alih menyalin isinya ke
+ * sini. Dua salinan akan melenceng begitu modulnya berubah — persis yang
+ * terjadi pada panduan routing setelah perbaikan G1/G2/G3 (2026-08-08).
+ *
+ * Baris judul "# ..." dibuang: HelpArticle punya field `title` sendiri, dan
+ * ArticleBodyRenderer memang tidak menangani H1.
+ */
+function readGuide(relativePath: string): string {
+    const absolute = path.join(__dirname, '..', relativePath);
+    const raw = fs.readFileSync(absolute, 'utf-8');
+    return raw.replace(/^#\s+.*\r?\n/, '').trim();
+}
 
 interface SeedArticle {
     slug: string;
@@ -664,6 +680,38 @@ Saat melaporkan masalah kepada Admin atau Tim Support, sertakan informasi rinci 
         modules: ['global'],
         tags: ['feedback', 'eskalasi', 'bantuan', 'template'],
         errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
+    {
+        slug: 'panduan-routing-produksi',
+        title: 'Panduan Routing Produksi (untuk Admin & Operator)',
+        summary:
+            'Panduan lengkap fitur Routing Produksi: menyiapkan master proses, menyusun dan mempublish routing, membuat Production Run, sampai eksekusi harian di kiosk lantai produksi. Termasuk tabel penyelesaian masalah per kode error.',
+        bodyMd: readGuide('docs/panduan-routing-produksi.md'),
+        modules: ['production'],
+        tags: [
+            'routing',
+            'production-run',
+            'spk',
+            'wip',
+            'kiosk',
+            'multi-tahap',
+        ],
+        errorCodes: [
+            'ROUTE_NO_STEPS',
+            'ROUTE_MISSING_OUTPUT_LOCATION',
+            'ROUTE_MISSING_SOURCE_LOCATION',
+            'ROUTE_STEP_OUTPUT_DISCONNECTED',
+            'ROUTE_FINAL_OUTPUT_MISMATCH',
+            'ROUTE_NO_CAPABLE_MACHINE',
+            'ROUTE_RISKY_OUTPUT_LOCATION',
+            'ROUTE_VERSION_IMMUTABLE',
+            'ROUTE_NOT_ACTIVE',
+            'ROUTE_WIP_NOT_READY',
+            'ROUTE_QC_GATE_BLOCKED',
+            'ROUTE_MACHINE_NOT_CAPABLE',
+            'ROUTE_HAS_RUNS',
+        ],
         source: 'SEED' as HelpArticleSource,
     },
 ];

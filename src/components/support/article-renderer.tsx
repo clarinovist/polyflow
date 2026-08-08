@@ -114,22 +114,125 @@ function flushList(
     }
 }
 
+// ── GFM tables ────────────────────────────────────────────────────────
+
+/** Split "| a | b |" into ["a", "b"]. Outer pipes optional. */
+function splitTableRow(line: string): string[] {
+    return line
+        .trim()
+        .replace(/^\|/, '')
+        .replace(/\|$/, '')
+        .split('|')
+        .map((cell) => cell.trim());
+}
+
+/**
+ * A separator row is what turns the line above it into a header — without one
+ * a line containing pipes is just prose and must stay a paragraph.
+ * Accepts `---`, `:---`, `---:`, `:---:` per cell.
+ */
+function isTableSeparator(line: string): boolean {
+    const trimmed = line.trim();
+    if (!trimmed.includes('-')) return false;
+    if (!trimmed.includes('|')) return false;
+    const cells = splitTableRow(trimmed);
+    if (cells.length === 0) return false;
+    return cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function isTableRow(line: string): boolean {
+    return line.trim().startsWith('|');
+}
+
+function renderTable(
+    headerCells: string[],
+    bodyRows: string[][],
+    key: string,
+): React.ReactNode {
+    const columnCount = headerCells.length;
+    return (
+        <div key={key} className="my-4 overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm border-collapse">
+                <thead className="bg-muted/50">
+                    <tr>
+                        {headerCells.map((cell, i) => (
+                            <th
+                                key={i}
+                                className="text-left font-semibold px-3 py-2 border-b align-top whitespace-nowrap"
+                            >
+                                {inlineFormat(cell)}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {bodyRows.map((row, r) => (
+                        <tr key={r} className="border-b last:border-b-0">
+                            {/* Markdown is lenient about cell counts: pad short
+                                rows and drop overflow so a malformed row cannot
+                                break the column grid. */}
+                            {Array.from({ length: columnCount }, (_, c) => (
+                                <td
+                                    key={c}
+                                    className="px-3 py-2 align-top leading-relaxed"
+                                >
+                                    {inlineFormat(row[c] ?? '')}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 /**
  * Render markdown-like article body into structured JSX.
- * Handles: ## headings, ### collapsible sections, bold, inline code,
- * links, ordered/unordered lists, blockquotes, code blocks.
+ * Handles: ## headings, ### collapsible sections (content nested inside),
+ * GFM tables, bold, inline code, links, ordered/unordered lists,
+ * blockquotes, code blocks.
  */
 export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
     const lines = bodyMd.split('\n');
     const elements: React.ReactNode[] = [];
+
+    // When a ### section is open, blocks accumulate into its children instead
+    // of the top level, so the collapsible actually contains its content.
+    let section: {
+        title: string;
+        idx: number;
+        children: React.ReactNode[];
+    } | null = null;
+    const sink = (): React.ReactNode[] =>
+        section ? section.children : elements;
+
     let listBuffer: { ordered: boolean; items: string[] } | null = null;
     let inCodeBlock = false;
     let codeBlockLines: string[] = [];
     let codeBlockKey = 0;
 
     const flush = () => {
-        flushList(listBuffer, elements, `art-${elements.length}`);
+        const target = sink();
+        flushList(listBuffer, target, `art-${target.length}`);
         listBuffer = null;
+    };
+
+    const closeSection = () => {
+        if (!section) return;
+        const current = section;
+        section = null;
+        elements.push(
+            <details key={`h3-${current.idx}`} className="my-4 group" open>
+                <summary className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors select-none">
+                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                    {inlineFormat(current.title)}
+                </summary>
+                <div className="mt-2 pl-6 border-l-2 border-border space-y-2">
+                    {current.children}
+                </div>
+            </details>,
+        );
     };
 
     for (let idx = 0; idx < lines.length; idx++) {
@@ -139,7 +242,7 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
         // Code block toggle
         if (trimmed.startsWith('```')) {
             if (inCodeBlock) {
-                elements.push(
+                sink().push(
                     <pre
                         key={`code-${codeBlockKey++}`}
                         className="bg-muted/60 rounded-lg p-4 my-3 overflow-x-auto text-xs font-mono leading-relaxed border"
@@ -167,9 +270,29 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
             continue;
         }
 
-        // H2 heading
+        // Table: only when the next line is a separator row.
+        if (
+            isTableRow(trimmed) &&
+            idx + 1 < lines.length &&
+            isTableSeparator(lines[idx + 1])
+        ) {
+            flush();
+            const headerCells = splitTableRow(trimmed);
+            const bodyRows: string[][] = [];
+            let cursor = idx + 2;
+            while (cursor < lines.length && isTableRow(lines[cursor])) {
+                bodyRows.push(splitTableRow(lines[cursor]));
+                cursor++;
+            }
+            sink().push(renderTable(headerCells, bodyRows, `table-${idx}`));
+            idx = cursor - 1;
+            continue;
+        }
+
+        // H2 heading — also ends any open ### section
         if (trimmed.startsWith('## ')) {
             flush();
+            closeSection();
             elements.push(
                 <h2
                     key={`h2-${idx}`}
@@ -181,17 +304,21 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
             continue;
         }
 
-        // H3 - collapsible technical section
+        // H3 — opens a collapsible section that owns the blocks after it
         if (trimmed.startsWith('### ')) {
             flush();
-            elements.push(
-                <details key={`h3-${idx}`} className="my-4 group">
-                    <summary className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors select-none">
-                        <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-                        {inlineFormat(trimmed.slice(4))}
-                    </summary>
-                    <div className="mt-2 pl-6 border-l-2 border-border space-y-2" />
-                </details>,
+            closeSection();
+            section = { title: trimmed.slice(4), idx, children: [] };
+            continue;
+        }
+
+        // Horizontal rule — tanpa ini "---" pemisah bab tampil sebagai
+        // paragraf berisi teks "---". Dicek setelah tabel supaya baris
+        // pemisah tabel tidak ikut tertangkap di sini.
+        if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+            flush();
+            sink().push(
+                <hr key={`hr-${idx}`} className="my-6 border-border" />,
             );
             continue;
         }
@@ -199,7 +326,7 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
         // Blockquote
         if (trimmed.startsWith('> ')) {
             flush();
-            elements.push(
+            sink().push(
                 <blockquote
                     key={`bq-${idx}`}
                     className="border-l-4 border-primary/30 pl-4 text-sm italic text-muted-foreground my-3 py-1"
@@ -234,7 +361,7 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
 
         // Regular paragraph
         flush();
-        elements.push(
+        sink().push(
             <p key={`p-${idx}`} className="text-sm leading-relaxed my-1.5">
                 {inlineFormat(trimmed)}
             </p>,
@@ -243,7 +370,7 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
 
     // Flush remaining code block
     if (inCodeBlock && codeBlockLines.length > 0) {
-        elements.push(
+        sink().push(
             <pre
                 key={`code-${codeBlockKey++}`}
                 className="bg-muted/60 rounded-lg p-4 my-3 overflow-x-auto text-xs font-mono leading-relaxed border"
@@ -254,6 +381,7 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
     }
 
     flush();
+    closeSection();
 
     return <>{elements}</>;
 }
