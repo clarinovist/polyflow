@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
+import { createHeadingIdSequencer } from '@/lib/support/toc';
 
 function inlineFormat(text: string): React.ReactNode {
     const pattern =
@@ -196,6 +197,10 @@ function renderTable(
 export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
     const lines = bodyMd.split('\n');
     const elements: React.ReactNode[] = [];
+    // Same sequencer `extractHeadings` (src/lib/support/toc.ts) uses, so the
+    // rendered <h2> id matches the TOC anchor for the same heading text —
+    // both walk headings in document order and de-dupe the same way.
+    const nextHeadingId = createHeadingIdSequencer();
 
     // When a ### section is open, blocks accumulate into its children instead
     // of the top level, so the collapsible actually contains its content.
@@ -293,10 +298,12 @@ export function ArticleBodyRenderer({ bodyMd }: { bodyMd: string }) {
         if (trimmed.startsWith('## ')) {
             flush();
             closeSection();
+            const headingText = trimmed.slice(3).trim();
             elements.push(
                 <h2
                     key={`h2-${idx}`}
-                    className="text-lg font-bold mt-8 mb-3 pb-1.5 border-b border-border"
+                    id={nextHeadingId(headingText)}
+                    className="text-lg font-bold mt-8 mb-3 pb-1.5 border-b border-border scroll-mt-24"
                 >
                     {inlineFormat(trimmed.slice(3))}
                 </h2>,

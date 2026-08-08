@@ -268,6 +268,40 @@ describe('ArticleBodyRenderer — regresi format lama', () => {
         );
     });
 
+    it('<h2> dapat id hasil slugify supaya anchor TOC bisa scroll ke situ', () => {
+        // Arrange
+        const md = ['## Cara Konfirmasi SO', '', 'Isi bab.'].join('\n');
+
+        // Act
+        const { container } = render(<ArticleBodyRenderer bodyMd={md} />);
+
+        // Assert
+        expect(container.querySelector('h2')?.id).toBe(
+            'cara-konfirmasi-so',
+        );
+    });
+
+    it('dua heading ## dengan teks sama dapat id unik (suffix -2)', () => {
+        // Arrange
+        const md = [
+            '## Catatan',
+            '',
+            'Isi pertama.',
+            '',
+            '## Catatan',
+            '',
+            'Isi kedua.',
+        ].join('\n');
+
+        // Act
+        const { container } = render(<ArticleBodyRenderer bodyMd={md} />);
+
+        // Assert
+        const headings = container.querySelectorAll('h2');
+        expect(headings[0].id).toBe('catatan');
+        expect(headings[1].id).toBe('catatan-2');
+    });
+
     it('--- jadi garis horizontal, bukan paragraf berisi "---"', () => {
         // Arrange
         const md = ['Bab satu.', '', '---', '', 'Bab dua.'].join('\n');

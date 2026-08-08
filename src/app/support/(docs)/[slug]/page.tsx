@@ -6,7 +6,9 @@ import { ArrowLeft, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { ArticleBodyRenderer } from '@/components/support/article-renderer';
 import { ArticleVoteButton } from '@/components/support/article-vote-button';
+import { DocsToc } from '@/components/support/docs-toc';
 import { getModuleLabel } from '@/components/support/support-article-list';
+import { extractHeadings } from '@/lib/support/toc';
 
 export default async function ArticleDetailPage({
     params,
@@ -31,9 +33,11 @@ export default async function ArticleDetailPage({
             ? 'Kembali ke Troubleshooting'
             : 'Kembali ke Cara Pakai';
 
+    const headings = extractHeadings(article.bodyMd);
+
     return (
-        <div className="p-4 md:p-6 lg:p-8">
-            <div className="mx-auto max-w-3xl">
+        <div className="flex gap-8">
+            <div className="min-w-0 max-w-3xl flex-1">
                 {/* Header */}
                 <div className="mb-6">
                     <Link
@@ -120,6 +124,14 @@ export default async function ArticleDetailPage({
                     </Link>
                 </div>
             </div>
+
+            {headings.length > 1 && (
+                <div className="hidden w-56 shrink-0 xl:block">
+                    <div className="sticky top-6">
+                        <DocsToc headings={headings} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
