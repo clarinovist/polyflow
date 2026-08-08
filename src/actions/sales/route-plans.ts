@@ -11,6 +11,12 @@ import { logActivity } from '@/lib/tools/audit';
 import { revalidatePath } from 'next/cache';
 import { haversineDistance } from '@/lib/utils/geo';
 import { calculateComplianceRate } from '@/lib/sales/route-compliance';
+import {
+    getWeekBoard,
+    getWeekDates,
+} from '@/services/sales/route-planning-service';
+import { serializeData } from '@/lib/utils/utils';
+import type { PrismaClient } from '@prisma/client';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -30,6 +36,159 @@ type UpdateRoutePlanInput = {
     items: RoutePlanItemInput[];
     status?: 'DRAFT' | 'PUBLISHED';
 };
+
+type PrismaTx = Omit<
+    PrismaClient,
+    '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
+const ROUTE_PLAN_INCLUDE = {
+    items: {
+        orderBy: { sortOrder: 'asc' as const },
+        include: {
+            customer: {
+                select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                    city: true,
+                },
+            },
+        },
+    },
+    user: { select: { id: true, name: true } },
+};
+
+// ── R2 guard: reconcile plan items without destroying visited history ──
+//
+// Rute PUBLISHED yang sudah dijalankan bisa punya SalesVisit yang tertaut
+// lewat routePlanItemId. Item dengan kunjungan (visits.length > 0) pada plan
+// PUBLISHED WAJIB dipertahankan — hanya sortOrder-nya boleh berubah. Item
+// tanpa kunjungan boleh dihapus & dibuat ulang seperti sebelumnya.
+async function reconcileRoutePlanItems(
+    tx: PrismaTx,
+    planId: string,
+    planStatus: string,
+    desiredItems: RoutePlanItemInput[],
+): Promise<{ retainedCount: number }> {
+    const existingItems = await tx.salesRoutePlanItem.findMany({
+        where: { routePlanId: planId },
+        include: { visits: { select: { id: true } } },
+    });
+
+    const isPublished = planStatus === 'PUBLISHED';
+    const protectedItems = existingItems.filter(
+        (item) => isPublished && item.visits.length > 0,
+    );
+    const protectedCustomerIds = new Set(
+        protectedItems.map((item) => item.customerId),
+    );
+
+    const desiredByCustomer = new Map(
+        desiredItems.map((item) => [item.customerId, item]),
+    );
+
+    // Hapus hanya item yang TIDAK dilindungi (belum ada kunjungan).
+    const deletableIds = existingItems
+        .filter((item) => !protectedCustomerIds.has(item.customerId))
+        .map((item) => item.id);
+    if (deletableIds.length > 0) {
+        await tx.salesRoutePlanItem.deleteMany({
+            where: { id: { in: deletableIds } },
+        });
+    }
+
+    // Update sortOrder item yang dilindungi. Kalau item itu masih ada di
+    // daftar baru, pakai sortOrder barunya; kalau caller menghapusnya dari
+    // daftar (mencoba menghapus item bervisit), tetap dipertahankan dan
+    // ditaruh setelah item lain supaya urutan tidak tabrakan.
+    let nextOrphanOrder = desiredItems.length + 1;
+    for (const item of protectedItems) {
+        const desired = desiredByCustomer.get(item.customerId);
+        const sortOrder = desired ? desired.sortOrder : nextOrphanOrder++;
+        await tx.salesRoutePlanItem.update({
+            where: { id: item.id },
+            data: { sortOrder },
+        });
+    }
+
+    // Buat ulang semua item yang tidak dilindungi (customer baru + customer
+    // lama tanpa kunjungan yang tetap diinginkan caller).
+    const toCreate = desiredItems.filter(
+        (item) => !protectedCustomerIds.has(item.customerId),
+    );
+    if (toCreate.length > 0) {
+        await tx.salesRoutePlanItem.createMany({
+            data: toCreate.map((item) => ({
+                routePlanId: planId,
+                customerId: item.customerId,
+                sortOrder: item.sortOrder,
+                status: 'PENDING',
+            })),
+        });
+    }
+
+    return { retainedCount: protectedItems.length };
+}
+
+/**
+ * Upsert satu SalesRoutePlan (date+userId) dengan item barunya, selalu lewat
+ * `reconcileRoutePlanItems` di jalur update supaya guard R2 berlaku di semua
+ * pemanggil (create manual, salin minggu lalu, salin dari tanggal, import
+ * Excel) — bukan cuma createRoutePlan. Dipanggil di dalam `prisma.$transaction`.
+ */
+async function upsertRoutePlanWithGuard(
+    tx: PrismaTx,
+    params: {
+        date: Date;
+        userId: string;
+        createdBy: string;
+        items: RoutePlanItemInput[];
+    },
+) {
+    const existing = await tx.salesRoutePlan.findUnique({
+        where: { date_userId: { date: params.date, userId: params.userId } },
+    });
+
+    if (!existing) {
+        const created = await tx.salesRoutePlan.create({
+            data: {
+                date: params.date,
+                userId: params.userId,
+                createdBy: params.createdBy,
+                items: {
+                    create: params.items.map((item) => ({
+                        customerId: item.customerId,
+                        sortOrder: item.sortOrder,
+                        status: 'PENDING',
+                    })),
+                },
+            },
+            include: ROUTE_PLAN_INCLUDE,
+        });
+        return { plan: created, retainedCount: 0 };
+    }
+
+    const { retainedCount } = await reconcileRoutePlanItems(
+        tx,
+        existing.id,
+        existing.status,
+        params.items,
+    );
+
+    const updated = await tx.salesRoutePlan.update({
+        where: { id: existing.id },
+        data: { createdBy: params.createdBy },
+        include: ROUTE_PLAN_INCLUDE,
+    });
+    return { plan: updated, retainedCount };
+}
+
+function retainedSuffix(retainedCount: number): string {
+    return retainedCount > 0
+        ? ` (${retainedCount} item dipertahankan karena sudah ada kunjungan)`
+        : '';
+}
 
 // ── Get route plan for a specific date + rep ────────────────────────
 
@@ -61,6 +220,9 @@ export const getRoutePlan = withTenant(async function getRoutePlan(
                                 longitude: true,
                             },
                         },
+                        // Dipakai UI untuk badge "terkunci" (konsekuensi guard R2):
+                        // item dengan visitCount > 0 pada plan PUBLISHED tidak bisa dihapus.
+                        _count: { select: { visits: true } },
                     },
                 },
                 user: {
@@ -178,60 +340,21 @@ export const createRoutePlan = withTenant(async function createRoutePlan(
         const session = await requireSalesAccess();
         const userId = session.user.id;
 
-        const plan = await prisma.salesRoutePlan.upsert({
-            where: {
-                date_userId: {
-                    date: new Date(data.date),
-                    userId: data.userId,
-                },
-            },
-            update: {
-                items: {
-                    deleteMany: {},
-                    create: data.items.map((item) => ({
-                        customerId: item.customerId,
-                        sortOrder: item.sortOrder,
-                        status: 'PENDING',
-                    })),
-                },
-                createdBy: userId,
-            },
-            create: {
+        const { plan, retainedCount } = await prisma.$transaction((tx) =>
+            upsertRoutePlanWithGuard(tx, {
                 date: new Date(data.date),
                 userId: data.userId,
                 createdBy: userId,
-                items: {
-                    create: data.items.map((item) => ({
-                        customerId: item.customerId,
-                        sortOrder: item.sortOrder,
-                        status: 'PENDING',
-                    })),
-                },
-            },
-            include: {
-                items: {
-                    orderBy: { sortOrder: 'asc' },
-                    include: {
-                        customer: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                                city: true,
-                            },
-                        },
-                    },
-                },
-                user: { select: { id: true, name: true } },
-            },
-        });
+                items: data.items,
+            }),
+        );
 
         await logActivity({
             userId,
             action: 'ROUTE_PLAN_CREATED',
             entityType: 'SalesRoutePlan',
             entityId: plan.id,
-            details: `Rute ${data.date} untuk ${data.userId}: ${data.items.length} toko`,
+            details: `Rute ${data.date} untuk ${data.userId}: ${data.items.length} toko${retainedSuffix(retainedCount)}`,
         });
 
         revalidatePath('/sales/routes');
@@ -255,22 +378,7 @@ export const publishRoutePlan = withTenant(async function publishRoutePlan(
         const updated = await prisma.salesRoutePlan.update({
             where: { id },
             data: { status: 'PUBLISHED' },
-            include: {
-                items: {
-                    orderBy: { sortOrder: 'asc' },
-                    include: {
-                        customer: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                                city: true,
-                            },
-                        },
-                    },
-                },
-                user: { select: { id: true, name: true } },
-            },
+            include: ROUTE_PLAN_INCLUDE,
         });
 
         await logActivity({
@@ -295,48 +403,38 @@ export const updateRoutePlanItems = withTenant(
             const session = await requireSalesAccess();
             const userId = session.user.id;
 
-            const plan = await prisma.salesRoutePlan.findUnique({
-                where: { id: data.id },
-            });
-            if (!plan) throw new NotFoundError('Route plan tidak ditemukan');
+            const { updated, retainedCount } = await prisma.$transaction(
+                async (tx) => {
+                    const plan = await tx.salesRoutePlan.findUnique({
+                        where: { id: data.id },
+                    });
+                    if (!plan)
+                        throw new NotFoundError('Route plan tidak ditemukan');
 
-            const updated = await prisma.salesRoutePlan.update({
-                where: { id: data.id },
-                data: {
-                    ...(data.status ? { status: data.status } : {}),
-                    items: {
-                        deleteMany: {},
-                        create: data.items.map((item) => ({
-                            customerId: item.customerId,
-                            sortOrder: item.sortOrder,
-                            status: 'PENDING',
-                        })),
-                    },
+                    // R2 guard: item bervisit pada plan PUBLISHED dipertahankan.
+                    const { retainedCount: retained } =
+                        await reconcileRoutePlanItems(
+                            tx,
+                            plan.id,
+                            plan.status,
+                            data.items,
+                        );
+
+                    const result = await tx.salesRoutePlan.update({
+                        where: { id: data.id },
+                        data: data.status ? { status: data.status } : {},
+                        include: ROUTE_PLAN_INCLUDE,
+                    });
+                    return { updated: result, retainedCount: retained };
                 },
-                include: {
-                    items: {
-                        orderBy: { sortOrder: 'asc' },
-                        include: {
-                            customer: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    code: true,
-                                    city: true,
-                                },
-                            },
-                        },
-                    },
-                    user: { select: { id: true, name: true } },
-                },
-            });
+            );
 
             await logActivity({
                 userId,
                 action: 'ROUTE_PLAN_UPDATED',
                 entityType: 'SalesRoutePlan',
                 entityId: data.id,
-                details: `Rute diperbarui: ${data.items.length} toko`,
+                details: `Rute diperbarui: ${data.items.length} toko${retainedSuffix(retainedCount)}`,
             });
 
             revalidatePath('/sales/routes');
@@ -399,56 +497,28 @@ export const copyLastWeekRoute = withTenant(async function copyLastWeekRoute(
             throw new NotFoundError('Rute minggu lalu tidak ditemukan');
         }
 
-        const plan = await prisma.salesRoutePlan.upsert({
-            where: {
-                date_userId: { date: targetDate, userId },
-            },
-            update: {
-                items: {
-                    deleteMany: {},
-                    create: lastWeekPlan.items.map((item, idx) => ({
-                        customerId: item.customerId,
-                        sortOrder: idx + 1,
-                        status: 'PENDING',
-                    })),
-                },
-            },
-            create: {
+        const sourceItems: RoutePlanItemInput[] = lastWeekPlan.items.map(
+            (item, idx) => ({
+                customerId: item.customerId,
+                sortOrder: idx + 1,
+            }),
+        );
+
+        const { plan, retainedCount } = await prisma.$transaction((tx) =>
+            upsertRoutePlanWithGuard(tx, {
                 date: targetDate,
                 userId,
                 createdBy: actorId,
-                items: {
-                    create: lastWeekPlan.items.map((item, idx) => ({
-                        customerId: item.customerId,
-                        sortOrder: idx + 1,
-                        status: 'PENDING',
-                    })),
-                },
-            },
-            include: {
-                items: {
-                    orderBy: { sortOrder: 'asc' },
-                    include: {
-                        customer: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                                city: true,
-                            },
-                        },
-                    },
-                },
-                user: { select: { id: true, name: true } },
-            },
-        });
+                items: sourceItems,
+            }),
+        );
 
         await logActivity({
             userId: actorId,
             action: 'ROUTE_PLAN_COPIED',
             entityType: 'SalesRoutePlan',
             entityId: plan.id,
-            details: `Salin rute minggu lalu ke ${date}: ${lastWeekPlan.items.length} toko`,
+            details: `Salin rute minggu lalu ke ${date}: ${lastWeekPlan.items.length} toko${retainedSuffix(retainedCount)}`,
         });
 
         revalidatePath('/sales/routes');
@@ -493,60 +563,21 @@ export const importRouteExcel = withTenant(
                 );
             }
 
-            const plan = await prisma.salesRoutePlan.upsert({
-                where: {
-                    date_userId: {
-                        date: new Date(data.date),
-                        userId: data.userId,
-                    },
-                },
-                update: {
-                    items: {
-                        deleteMany: {},
-                        create: items.map((item) => ({
-                            customerId: item.customerId,
-                            sortOrder: item.sortOrder,
-                            status: 'PENDING',
-                        })),
-                    },
-                    createdBy: userId,
-                },
-                create: {
+            const { plan, retainedCount } = await prisma.$transaction((tx) =>
+                upsertRoutePlanWithGuard(tx, {
                     date: new Date(data.date),
                     userId: data.userId,
                     createdBy: userId,
-                    items: {
-                        create: items.map((item) => ({
-                            customerId: item.customerId,
-                            sortOrder: item.sortOrder,
-                            status: 'PENDING',
-                        })),
-                    },
-                },
-                include: {
-                    items: {
-                        orderBy: { sortOrder: 'asc' },
-                        include: {
-                            customer: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    code: true,
-                                    city: true,
-                                },
-                            },
-                        },
-                    },
-                    user: { select: { id: true, name: true } },
-                },
-            });
+                    items,
+                }),
+            );
 
             await logActivity({
                 userId,
                 action: 'ROUTE_PLAN_IMPORTED',
                 entityType: 'SalesRoutePlan',
                 entityId: plan.id,
-                details: `Import Excel: ${items.length} toko dari ${data.customerCodes.length} kode`,
+                details: `Import Excel: ${items.length} toko dari ${data.customerCodes.length} kode${retainedSuffix(retainedCount)}`,
             });
 
             revalidatePath('/sales/routes');
@@ -727,56 +758,28 @@ export const copyRouteFromDate = withTenant(async function copyRouteFromDate(
             throw new NotFoundError('Rute sumber tidak ditemukan atau kosong');
         }
 
-        const plan = await prisma.salesRoutePlan.upsert({
-            where: {
-                date_userId: { date: targetDate, userId },
-            },
-            update: {
-                items: {
-                    deleteMany: {},
-                    create: sourcePlan.items.map((item, idx) => ({
-                        customerId: item.customerId,
-                        sortOrder: idx + 1,
-                        status: 'PENDING',
-                    })),
-                },
-            },
-            create: {
+        const sourceItems: RoutePlanItemInput[] = sourcePlan.items.map(
+            (item, idx) => ({
+                customerId: item.customerId,
+                sortOrder: idx + 1,
+            }),
+        );
+
+        const { plan, retainedCount } = await prisma.$transaction((tx) =>
+            upsertRoutePlanWithGuard(tx, {
                 date: targetDate,
                 userId,
                 createdBy: actorId,
-                items: {
-                    create: sourcePlan.items.map((item, idx) => ({
-                        customerId: item.customerId,
-                        sortOrder: idx + 1,
-                        status: 'PENDING',
-                    })),
-                },
-            },
-            include: {
-                items: {
-                    orderBy: { sortOrder: 'asc' },
-                    include: {
-                        customer: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                                city: true,
-                            },
-                        },
-                    },
-                },
-                user: { select: { id: true, name: true } },
-            },
-        });
+                items: sourceItems,
+            }),
+        );
 
         await logActivity({
             userId: actorId,
             action: 'ROUTE_PLAN_COPIED',
             entityType: 'SalesRoutePlan',
             entityId: plan.id,
-            details: `Salin rute dari ${fromDate} ke ${toDate}: ${sourcePlan.items.length} toko`,
+            details: `Salin rute dari ${fromDate} ke ${toDate}: ${sourcePlan.items.length} toko${retainedSuffix(retainedCount)}`,
         });
 
         revalidatePath('/sales/routes');
@@ -867,5 +870,66 @@ export const getServerVisits = withTenant(async function getServerVisits(
             extraReason: v.extraReason,
             reviewStatus: v.reviewStatus,
         }));
+    });
+});
+
+// ── Weekly board (Papan Mingguan): cakupan, overdue, bentrok ────────
+
+export const getRouteWeekBoard = withTenant(async function getRouteWeekBoard(
+    weekStart: string,
+    userIds: string[],
+) {
+    return safeAction(async () => {
+        await requireSalesAccess();
+
+        const board = await getWeekBoard({
+            weekStart: new Date(weekStart),
+            userIds,
+        });
+
+        return serializeData(board);
+    });
+});
+
+// ── Bulk publish: semua rute DRAFT dalam satu minggu → PUBLISHED ────
+
+export const publishWeekRoutes = withTenant(async function publishWeekRoutes(
+    weekStart: string,
+    userIds: string[],
+) {
+    return safeAction(async () => {
+        const session = await requireSalesAccess();
+        const actorId = session.user.id;
+
+        if (userIds.length === 0) {
+            return { count: 0 };
+        }
+
+        const dates = getWeekDates(new Date(weekStart));
+        const rangeEnd = new Date(dates[dates.length - 1]);
+        rangeEnd.setUTCHours(23, 59, 59, 999);
+
+        const result = await prisma.salesRoutePlan.updateMany({
+            where: {
+                userId: { in: userIds },
+                date: { gte: dates[0], lte: rangeEnd },
+                status: 'DRAFT',
+            },
+            data: { status: 'PUBLISHED' },
+        });
+
+        if (result.count > 0) {
+            await logActivity({
+                userId: actorId,
+                action: 'ROUTE_PLAN_PUBLISHED',
+                entityType: 'SalesRoutePlan',
+                entityId: `week:${weekStart}`,
+                details: `Terbitkan ${result.count} rute DRAFT pada minggu ${weekStart}`,
+            });
+        }
+
+        revalidatePath('/sales/routes');
+        revalidatePath('/field/sales');
+        return { count: result.count };
     });
 });

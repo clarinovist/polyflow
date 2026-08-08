@@ -16,24 +16,33 @@ export type RouteMapCustomer = {
 type RouteMapPreviewProps = {
     customers: RouteMapCustomer[];
     height?: number;
+    /** Stop yang sedang di-highlight (mis. dipilih dari RouteStopList). */
+    selectedStopId?: string | null;
 };
 
 type LeafletModule = {
     default: typeof import('leaflet');
 };
 
-function createNumberIcon(L: typeof import('leaflet'), num: number) {
+function createNumberIcon(
+    L: typeof import('leaflet'),
+    num: number,
+    isSelected: boolean,
+) {
+    const size = isSelected ? 34 : 28;
+    const bg = isSelected ? '#dc2626' : '#2563eb';
     return L.divIcon({
         className: '',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        html: `<div style="width:28px;height:28px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)">${num}</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)">${num}</div>`,
     });
 }
 
 export function RouteMapPreview({
     customers,
     height = 400,
+    selectedStopId = null,
 }: RouteMapPreviewProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<import('leaflet').Map | null>(null);
@@ -137,7 +146,8 @@ export function RouteMapPreview({
             latLngs.push(latLng);
 
             const marker = L.marker(latLng, {
-                icon: createNumberIcon(L, c.sortOrder),
+                icon: createNumberIcon(L, c.sortOrder, c.id === selectedStopId),
+                zIndexOffset: c.id === selectedStopId ? 1000 : 0,
             });
 
             const nameDiv = document.createElement('div');
@@ -183,7 +193,7 @@ export function RouteMapPreview({
                 map.setView(latLngs[0], 13);
             }
         }
-    }, [validCustomers]);
+    }, [validCustomers, selectedStopId]);
 
     const showEmpty = customers.length === 0;
     const showNoGps = customers.length > 0 && validCustomers.length === 0;

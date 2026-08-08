@@ -3,6 +3,10 @@ import {
   calculateComplianceRate,
   getInitialReviewStatus,
   isReviewPendingReason,
+  getMondayOfWeek,
+  getRouteWeekDates,
+  describeVisitAge,
+  OVERDUE_VISIT_DAYS,
 } from '../route-compliance';
 
 describe('calculateComplianceRate', () => {
@@ -86,4 +90,84 @@ describe('getInitialReviewStatus', () => {
     ).toBe('NOT_REQUIRED'));
   it('EC no reason → NOT_REQUIRED', () =>
     expect(getInitialReviewStatus({ isExtraCall: true })).toBe('NOT_REQUIRED'));
+});
+
+describe('getMondayOfWeek', () => {
+  it('returns the same date when input is already Monday', () => {
+    const monday = new Date('2026-08-03T00:00:00.000Z');
+    expect(getMondayOfWeek(monday).toISOString().split('T')[0]).toBe(
+      '2026-08-03',
+    );
+  });
+
+  it('rolls a mid-week date back to Monday', () => {
+    const wednesday = new Date('2026-08-05T14:30:00.000Z');
+    expect(getMondayOfWeek(wednesday).toISOString().split('T')[0]).toBe(
+      '2026-08-03',
+    );
+  });
+
+  it('rolls Sunday back to the Monday that started its week (not forward)', () => {
+    const sunday = new Date('2026-08-09T00:00:00.000Z');
+    expect(getMondayOfWeek(sunday).toISOString().split('T')[0]).toBe(
+      '2026-08-03',
+    );
+  });
+
+  it('normalizes time-of-day to UTC midnight', () => {
+    const monday = getMondayOfWeek(new Date('2026-08-05T23:59:59.999Z'));
+    expect(monday.getUTCHours()).toBe(0);
+    expect(monday.getUTCMinutes()).toBe(0);
+  });
+});
+
+describe('getRouteWeekDates', () => {
+  it('returns 6 consecutive dates (Senin–Sabtu) starting from weekStart', () => {
+    const dates = getRouteWeekDates(new Date('2026-08-03T00:00:00.000Z'));
+    expect(dates).toHaveLength(6);
+    expect(dates.map((d) => d.toISOString().split('T')[0])).toEqual([
+      '2026-08-03',
+      '2026-08-04',
+      '2026-08-05',
+      '2026-08-06',
+      '2026-08-07',
+      '2026-08-08',
+    ]);
+  });
+});
+
+describe('describeVisitAge', () => {
+  it('marks never-visited (daysSince null) distinctly — not "0 hari", not empty', () => {
+    const result = describeVisitAge(null);
+    expect(result.neverVisited).toBe(true);
+    expect(result.isOverdue).toBe(true);
+    expect(result.label).toBe('Belum pernah dikunjungi');
+    expect(result.label).not.toBe('');
+    expect(result.label).not.toContain('0 hari');
+  });
+
+  it('labels a visit today distinctly from never-visited', () => {
+    const result = describeVisitAge(0);
+    expect(result.neverVisited).toBe(false);
+    expect(result.isOverdue).toBe(false);
+    expect(result.label).toBe('Hari ini');
+  });
+
+  it('is not overdue below the threshold', () => {
+    const result = describeVisitAge(15);
+    expect(result.isOverdue).toBe(false);
+    expect(result.neverVisited).toBe(false);
+    expect(result.label).toBe('15 hari lalu');
+  });
+
+  it('is not overdue exactly at the threshold (boundary, matches getWeekBoard)', () => {
+    const result = describeVisitAge(OVERDUE_VISIT_DAYS);
+    expect(result.isOverdue).toBe(false);
+  });
+
+  it('is overdue just past the threshold (boundary)', () => {
+    const result = describeVisitAge(OVERDUE_VISIT_DAYS + 1);
+    expect(result.isOverdue).toBe(true);
+    expect(result.neverVisited).toBe(false);
+  });
 });
