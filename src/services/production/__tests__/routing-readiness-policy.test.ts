@@ -86,6 +86,9 @@ describe('routing-readiness-policy', () => {
           processIsActive: true,
           processRequiresMachine: true,
           outputLocationId: 'loc-2',
+          // Explicit source so the base fixture stays warning-free — the
+          // ROUTE_MISSING_SOURCE_LOCATION case is covered separately below.
+          materialSourceLocationId: 'loc-1',
           bomItems: [{ productVariantId: 'wip1' }],
           hasCapableMachine: true,
         },
@@ -95,6 +98,23 @@ describe('routing-readiness-policy', () => {
     it('valid case no issues', () => {
       const issues = validateRouteContinuity(base);
       expect(issues).toHaveLength(0);
+    });
+
+    it('[case 7] non-first step without materialSourceLocationId -> 1 WARNING, 0 BLOCKING, still publishable', () => {
+      const missingSource: ValidateRouteInput = {
+        ...base,
+        steps: [base.steps[0], { ...base.steps[1], materialSourceLocationId: null }],
+      };
+      const issues = validateRouteContinuity(missingSource);
+      const warnings = issues.filter((i) => i.severity === 'WARNING');
+      const blocking = issues.filter((i) => i.severity === 'BLOCKING');
+      expect(warnings.filter((i) => i.code === 'ROUTE_MISSING_SOURCE_LOCATION')).toHaveLength(1);
+      expect(blocking).toHaveLength(0);
+    });
+
+    it('first step without materialSourceLocationId does NOT warn (RM intake, expected empty)', () => {
+      const issues = validateRouteContinuity(base);
+      expect(issues.some((i) => i.code === 'ROUTE_MISSING_SOURCE_LOCATION' && i.stepCode === 'MIX')).toBe(false);
     });
 
     it('no steps blocking', () => {
@@ -196,8 +216,8 @@ describe('routing-readiness-policy', () => {
         finalProductVariantId: 'fg',
         steps: [
           { stepCode: 'PACK1', sequence: 0, bomId: 'b1', bomOutputVariantId: 'wip_pack1', bomIsActive: true, processCode: 'PACKING', processIsActive: true, processRequiresMachine: false, outputLocationId: 'loc-1', bomItems: [], hasCapableMachine: true },
-          { stepCode: 'STER', sequence: 1, bomId: 'b2', bomOutputVariantId: 'wip_ster', bomIsActive: true, processCode: 'STERILIZATION', processIsActive: true, processRequiresMachine: false, outputLocationId: 'loc-2', bomItems: [{ productVariantId: 'wip_pack1' }], hasCapableMachine: true },
-          { stepCode: 'PACK2', sequence: 2, bomId: 'b3', bomOutputVariantId: 'fg', bomIsActive: true, processCode: 'PACKING', processIsActive: true, processRequiresMachine: false, outputLocationId: 'loc-3', bomItems: [{ productVariantId: 'wip_ster' }], hasCapableMachine: true },
+          { stepCode: 'STER', sequence: 1, bomId: 'b2', bomOutputVariantId: 'wip_ster', bomIsActive: true, processCode: 'STERILIZATION', processIsActive: true, processRequiresMachine: false, outputLocationId: 'loc-2', materialSourceLocationId: 'loc-1', bomItems: [{ productVariantId: 'wip_pack1' }], hasCapableMachine: true },
+          { stepCode: 'PACK2', sequence: 2, bomId: 'b3', bomOutputVariantId: 'fg', bomIsActive: true, processCode: 'PACKING', processIsActive: true, processRequiresMachine: false, outputLocationId: 'loc-3', materialSourceLocationId: 'loc-2', bomItems: [{ productVariantId: 'wip_ster' }], hasCapableMachine: true },
         ],
       };
       const issues = validateRouteContinuity(repeated);

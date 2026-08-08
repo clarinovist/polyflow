@@ -8,6 +8,7 @@ import {
     parseMachineStageMap,
 } from '@/lib/production/machine-compatibility';
 import { createStockReservation } from '@/services/inventory/reservation-service';
+import { decideRunTerminalPatch } from '@/lib/production/routing-run-terminal';
 
 /**
  * Enforce routed order readiness before startExecution / release.
@@ -16,7 +17,7 @@ import { createStockReservation } from '@/services/inventory/reservation-service
  * - Partial handoff flag checked
  */
 
-type OrderWithRoute = {
+export type OrderWithRoute = {
     id: string;
     productionRunId: string | null;
     routeStepId: string | null;
@@ -36,6 +37,40 @@ const ALLOWED_START_STATUSES = new Set([
     'IN_PROGRESS',
 ]);
 const ALLOWED_RELEASE_STATUSES = new Set(['DRAFT', 'WAITING_MATERIAL']);
+
+/**
+ * Resolve the WIP source location for a routed order's downstream step.
+ * Used consistently by both the readiness guard (ledger calc) and the
+ * reservation writer, so they never disagree on where WIP is locked.
+ *
+ * Resolution order:
+ * 1. `order.materialSourceLocationId` if set (existing behaviour, unchanged).
+ * 2. Otherwise, the `outputLocationId` of the route step at `stepSequence - 1`
+ *    in the same route — that is where the predecessor step's WIP physically
+ *    sits, and `outputLocationId` is mandatory on every step.
+ * 3. Otherwise `null` (no reservation / no location-scoped ledger — legacy
+ *    behaviour preserved).
+ */
+export async function resolveWipSourceLocationId(
+    tx: Prisma.TransactionClient,
+    order: OrderWithRoute,
+    stepSequence: number,
+): Promise<string | null> {
+    if (order.materialSourceLocationId) return order.materialSourceLocationId;
+    if (stepSequence <= 0 || !order.routeStepId) return null;
+
+    const currentStep = await tx.productionRouteStep.findUnique({
+        where: { id: order.routeStepId },
+        select: { routeId: true },
+    });
+    if (!currentStep) return null;
+
+    const prevStep = await tx.productionRouteStep.findFirst({
+        where: { routeId: currentStep.routeId, sequence: stepSequence - 1 },
+        select: { outputLocationId: true },
+    });
+    return prevStep?.outputLocationId ?? null;
+}
 
 /**
  * Assert that a routed order can transition to targetStatus.
@@ -129,11 +164,22 @@ export async function assertRoutedOrderCanStart(
     // B2: handoff ledger — compute available-unallocated WIP
     let availableUnallocated = prevActual;
 
-    if (order.materialSourceLocationId && prevOrder.bom.productVariantId) {
+    // G2 fix: resolve WIP source location the same way the reservation writer
+    // does (ensureRoutedOrderWipReservation) — a step with no explicit
+    // materialSourceLocationId still has its WIP physically sitting at the
+    // predecessor step's outputLocationId. Guarding availability at one
+    // location while reserving at another is how double-consume happens.
+    const resolvedSourceLocationId = await resolveWipSourceLocationId(
+        tx,
+        order,
+        step.sequence,
+    );
+
+    if (resolvedSourceLocationId && prevOrder.bom.productVariantId) {
         const inv = await tx.inventory.findUnique({
             where: {
                 locationId_productVariantId: {
-                    locationId: order.materialSourceLocationId,
+                    locationId: resolvedSourceLocationId,
                     productVariantId: prevOrder.bom.productVariantId,
                 },
             },
@@ -143,7 +189,7 @@ export async function assertRoutedOrderCanStart(
         const reservations = await tx.stockReservation.aggregate({
             where: {
                 productVariantId: prevOrder.bom.productVariantId,
-                locationId: order.materialSourceLocationId,
+                locationId: resolvedSourceLocationId,
                 status: 'ACTIVE',
                 NOT: { referenceId: order.id },
             },
@@ -228,18 +274,23 @@ export async function ensureRoutedOrderWipReservation(
     tx: Prisma.TransactionClient,
     order: OrderWithRoute,
 ): Promise<void> {
-    if (
-        !order.productionRunId ||
-        !order.routeStepId ||
-        !order.materialSourceLocationId
-    )
-        return;
+    if (!order.productionRunId || !order.routeStepId) return;
 
     const step = await tx.productionRouteStep.findUnique({
         where: { id: order.routeStepId },
         select: { sequence: true },
     });
     if (!step || step.sequence === 0) return;
+
+    // G2 fix: an empty materialSourceLocationId no longer skips reservation —
+    // resolve it from the predecessor step's outputLocationId instead, same
+    // as the readiness guard above, so the two never disagree.
+    const resolvedSourceLocationId = await resolveWipSourceLocationId(
+        tx,
+        order,
+        step.sequence,
+    );
+    if (!resolvedSourceLocationId) return;
 
     const predecessor = await tx.productionOrder.findFirst({
         where: {
@@ -283,7 +334,7 @@ export async function ensureRoutedOrderWipReservation(
     await createStockReservation(
         {
             productVariantId: predecessorVariantId,
-            locationId: order.materialSourceLocationId,
+            locationId: resolvedSourceLocationId,
             quantity: requiredQty,
             reservedFor: ReservationType.PRODUCTION_ORDER,
             referenceId: order.id,
@@ -396,15 +447,28 @@ export async function syncProductionRunStatusFromOrders(
 
     if (orders.length === 0) return;
 
-    const allCompleted = orders.every((o) => o.status === 'COMPLETED');
+    // G1 fix: a run whose orders are a mix of COMPLETED + CANCELLED never
+    // satisfied allCompleted nor allCancelled, so it fell through to
+    // IN_PROGRESS (anyStarted is true for the COMPLETED ones) and stayed
+    // there forever. decideRunTerminalPatch recognizes that mix as "work
+    // has stopped" (allCancelled checked before the general terminal case,
+    // so an entirely-cancelled run still lands on CANCELLED, not COMPLETED).
+    // Shared with the one-off backfill script
+    // (scripts/patch-stuck-routing-runs.ts) via
+    // src/lib/production/routing-run-terminal.ts — the live sync and the
+    // backfill can never disagree on what counts as terminal, because
+    // there is only one copy of the branching.
+    const terminalDecision = decideRunTerminalPatch(orders);
     const anyInProgress = orders.some((o) => o.status === 'IN_PROGRESS');
     // B3 fix: RELEASED/WAITING_MATERIAL should NOT trigger IN_PROGRESS on run — only actual execution does
-    const allCancelled = orders.every((o) => o.status === 'CANCELLED');
     const anyStarted = orders.some((o) => o.actualStartDate != null);
 
     let newStatus: string | null = null;
-    if (allCancelled) newStatus = 'CANCELLED';
-    else if (allCompleted) newStatus = 'COMPLETED';
+    if (terminalDecision.kind === 'CANCELLED') newStatus = 'CANCELLED';
+    // COMPLETED here covers both "mix of COMPLETED + CANCELLED" and "all
+    // COMPLETED" — no separate partial-terminal enum value, see plan §4.2
+    // Step 1 for why that's YAGNI until something needs to distinguish it.
+    else if (terminalDecision.kind === 'COMPLETED') newStatus = 'COMPLETED';
     else if (anyInProgress || anyStarted) newStatus = 'IN_PROGRESS';
     else newStatus = null;
 

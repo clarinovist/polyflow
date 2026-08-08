@@ -205,6 +205,21 @@ export function validateRouteContinuity(
                 field: 'outputLocationId',
             });
         }
+        // G2 fix: an empty source location is not an error — the runtime resolves
+        // it to the predecessor step's outputLocationId — but it is worth
+        // surfacing so planners know WIP will be tracked implicitly. WARNING
+        // (not BLOCKING) on purpose: validateRoute is re-run by createRun, and a
+        // BLOCKING issue here would retroactively break every ACTIVE (immutable)
+        // route that was published before this check existed.
+        if (s.sequence > 0 && !s.materialSourceLocationId) {
+            issues.push({
+                code: 'ROUTE_MISSING_SOURCE_LOCATION',
+                severity: 'WARNING',
+                stepCode: s.stepCode,
+                message: `Lokasi sumber step ${s.stepCode} kosong — WIP akan diambil dari lokasi output step sebelumnya.`,
+                field: 'materialSourceLocationId',
+            });
+        }
         if (s.materialSourceLocationId && s.sourceLocationActive === false) {
             issues.push({
                 code: 'ROUTE_INVALID_SOURCE_LOCATION',

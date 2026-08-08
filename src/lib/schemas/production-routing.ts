@@ -83,7 +83,10 @@ export const updateRouteStepSchema = z.object({
     allowsPartialHandoff: z.boolean().optional(),
     queueTimeMinutes: z.number().int().min(0).max(10080).optional().nullable(),
     setupTimeMinutes: z.number().int().min(0).max(10080).optional().nullable(),
-    sequence: z.number().int().min(0).optional(),
+    // G3 fix: `sequence` deliberately excluded. It was the only path that
+    // could hit @@unique([routeId, sequence]) and surface a raw Prisma P2002
+    // to the user. Reordering is exclusively via reorderSteps, which has
+    // duplicate + membership guards this schema does not.
 });
 
 export const reorderRouteStepsSchema = z.object({

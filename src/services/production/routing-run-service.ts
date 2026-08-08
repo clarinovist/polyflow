@@ -9,6 +9,10 @@ import { ProductionRoutingService } from './routing-service';
 import { createProductionOrderWithGeneratedNumber } from './order-number-service';
 import { computeReadiness } from './routing-readiness-policy';
 import { voidProductionExecutionInTransaction } from './execution-void-helper';
+import {
+    resolveWipSourceLocationId,
+    type OrderWithRoute,
+} from './routing-execution-guard';
 
 function genRunNumber(): string {
     const date = new Date()
@@ -1047,10 +1051,18 @@ export class ProductionRoutingRunService {
                 ? Number(prev.actualQuantity)
                 : 0;
 
-            // If source location exists, compute inventory available-unallocated
-            const sourceLocId =
-                (order as unknown as { materialSourceLocationId?: string })
-                    .materialSourceLocationId ?? order.sourceLocation?.id;
+            // G2 consistency fix (plan §0.1): resolve the WIP source location
+            // with the exact same resolver the execution guard uses, so the
+            // readiness number shown here never disagrees with what actually
+            // gates start/reservation. Previously this fell back to the raw
+            // sourceLocation relation (same underlying FK) and, when both were
+            // empty, silently used unscoped prevActual — never resolving from
+            // the predecessor step's outputLocationId the way the guard now does.
+            const sourceLocId = await resolveWipSourceLocationId(
+                prisma as unknown as Prisma.TransactionClient,
+                order as unknown as OrderWithRoute,
+                order.routeSequenceSnapshot ?? i,
+            );
             if (sourceLocId && prev.bom?.productVariantId) {
                 try {
                     const inv = await prisma.inventory.findUnique({

@@ -73,15 +73,15 @@ describe('createSpkFromDemand — G5 idempotency fallback key', () => {
     vi.useRealTimers();
   });
 
-  it('fallback key includes today date and is same within same day', async () => {
-    vi.setSystemTime(new Date('2026-07-15T10:00:00Z'));
+  it('no idempotencyKey supplied -> createRun receives undefined, called twice in a row', async () => {
+    // No vi.setSystemTime here: day/time is irrelevant to this contract now
+    // (see plan §5 — the daily-bucket fallback was removed), so faking the
+    // clock would only suggest a date dependency that no longer exists.
     await createSpkFromDemand({
       productVariantId: 'pv-1',
       plannedQuantity: 100,
       locationId: 'loc-1',
     });
-
-    vi.setSystemTime(new Date('2026-07-15T22:00:00Z'));
     await createSpkFromDemand({
       productVariantId: 'pv-1',
       plannedQuantity: 100,
@@ -90,10 +90,14 @@ describe('createSpkFromDemand — G5 idempotency fallback key', () => {
 
     const calls = vi.mocked(ProductionRoutingRunService.createRun).mock.calls;
     expect(calls.length).toBe(2);
-    expect(calls[0][0].idempotencyKey).toBe(calls[1][0].idempotencyKey);
+    // No key fabricated — a caller that forgets to send idempotencyKey no
+    // longer silently gets a stale run back "successfully"; `undefined`
+    // flows straight through to createRun instead.
+    expect(calls[0][0].idempotencyKey).toBeUndefined();
+    expect(calls[1][0].idempotencyKey).toBeUndefined();
   });
 
-  it('fallback key is different on different days', async () => {
+  it('no idempotencyKey supplied, calls on different days -> still undefined both times (no date-based fallback)', async () => {
     vi.setSystemTime(new Date('2026-07-15T10:00:00Z'));
     await createSpkFromDemand({
       productVariantId: 'pv-1',
@@ -110,7 +114,14 @@ describe('createSpkFromDemand — G5 idempotency fallback key', () => {
 
     const calls = vi.mocked(ProductionRoutingRunService.createRun).mock.calls;
     expect(calls.length).toBe(2);
-    expect(calls[0][0].idempotencyKey).not.toBe(calls[1][0].idempotencyKey);
+    // Regression guard: the removed fallback bucketed by calendar day
+    // (`demand-<variant>-<qty>-<location>-<YYYY-MM-DD>`), so crossing a day
+    // boundary used to change the key. Assert each call independently —
+    // NOT `calls[0][0].idempotencyKey === calls[1][0].idempotencyKey`, which
+    // would trivially pass on two accidental `undefined`s and silently hide
+    // the fallback coming back. Both must be undefined regardless of day.
+    expect(calls[0][0].idempotencyKey).toBeUndefined();
+    expect(calls[1][0].idempotencyKey).toBeUndefined();
   });
 
   it('client-supplied key is used as-is', async () => {

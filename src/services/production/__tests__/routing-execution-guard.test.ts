@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type MockFn = ReturnType<typeof vi.fn>;
 const mockTx = {
-  productionRouteStep: { findUnique: vi.fn() },
+  productionRouteStep: { findUnique: vi.fn(), findFirst: vi.fn() },
   productionOrder: { findFirst: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(async () => ({ _sum: { plannedQuantity: null } })) },
   productionRun: { findUnique: vi.fn(), update: vi.fn() },
   machineProcessCapability: { findFirst: vi.fn(), findUnique: vi.fn() },
@@ -133,22 +133,63 @@ describe('routing-execution-guard', () => {
     });
   });
 
-  it('atomically reserves required downstream WIP for a routed order', async () => {
-    mockTx.productionRouteStep.findUnique.mockResolvedValue({ sequence: 1 });
-    mockTx.productionOrder.findFirst.mockResolvedValue({ bom: { productVariantId: 'wip-1' } } as never);
-    mockTx.bom.findUnique.mockResolvedValue({ outputQuantity: 2, items: [{ productVariantId: 'wip-1', quantity: 3 }] } as never);
-    mockTx.stockReservation.findFirst.mockResolvedValue(null);
+  describe('ensureRoutedOrderWipReservation — G2 source location resolution', () => {
+    it('[case 5] step with materialSourceLocationId reserves at that location (unchanged behavior)', async () => {
+      mockTx.productionRouteStep.findUnique.mockResolvedValue({ sequence: 1 });
+      mockTx.productionOrder.findFirst.mockResolvedValue({ bom: { productVariantId: 'wip-1' } } as never);
+      mockTx.bom.findUnique.mockResolvedValue({ outputQuantity: 2, items: [{ productVariantId: 'wip-1', quantity: 3 }] } as never);
+      mockTx.stockReservation.findFirst.mockResolvedValue(null);
 
-    await ensureRoutedOrderWipReservation(mockTx as never, {
-      id: 'order-2', productionRunId: 'run-1', routeStepId: 'step-2',
-      routeSequenceSnapshot: 1, plannedQuantity: 10 as never, status: 'DRAFT',
-      materialSourceLocationId: 'loc-wip', locationId: 'loc-fg', machineId: null, bomId: 'bom-2',
+      await ensureRoutedOrderWipReservation(mockTx as never, {
+        id: 'order-2', productionRunId: 'run-1', routeStepId: 'step-2',
+        routeSequenceSnapshot: 1, plannedQuantity: 10 as never, status: 'DRAFT',
+        materialSourceLocationId: 'loc-wip', locationId: 'loc-fg', machineId: null, bomId: 'bom-2',
+      });
+
+      expect(createStockReservation).toHaveBeenCalledWith(expect.objectContaining({
+        productVariantId: 'wip-1', locationId: 'loc-wip', quantity: 15,
+        referenceId: 'order-2',
+      }), mockTx);
+      // Resolver short-circuits on explicit materialSourceLocationId — no extra route step lookups.
+      expect(mockTx.productionRouteStep.findFirst).not.toHaveBeenCalled();
     });
 
-    expect(createStockReservation).toHaveBeenCalledWith(expect.objectContaining({
-      productVariantId: 'wip-1', locationId: 'loc-wip', quantity: 15,
-      referenceId: 'order-2',
-    }), mockTx);
+    it('[case 4] step without materialSourceLocationId reserves at predecessor step outputLocationId', async () => {
+      // First call resolves order.routeStepId -> its routeId; second (findFirst)
+      // resolves the predecessor step (sequence - 1) -> its outputLocationId.
+      mockTx.productionRouteStep.findUnique.mockResolvedValue({ sequence: 1, routeId: 'route-1' });
+      mockTx.productionRouteStep.findFirst.mockResolvedValue({ outputLocationId: 'loc-prev-output' });
+      mockTx.productionOrder.findFirst.mockResolvedValue({ bom: { productVariantId: 'wip-1' } } as never);
+      mockTx.bom.findUnique.mockResolvedValue({ outputQuantity: 2, items: [{ productVariantId: 'wip-1', quantity: 3 }] } as never);
+      mockTx.stockReservation.findFirst.mockResolvedValue(null);
+
+      await ensureRoutedOrderWipReservation(mockTx as never, {
+        id: 'order-2', productionRunId: 'run-1', routeStepId: 'step-2',
+        routeSequenceSnapshot: 1, plannedQuantity: 10 as never, status: 'DRAFT',
+        materialSourceLocationId: null, locationId: 'loc-fg', machineId: null, bomId: 'bom-2',
+      });
+
+      expect(mockTx.productionRouteStep.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: { routeId: 'route-1', sequence: 0 },
+      }));
+      expect(createStockReservation).toHaveBeenCalledWith(expect.objectContaining({
+        productVariantId: 'wip-1', locationId: 'loc-prev-output', quantity: 15,
+        referenceId: 'order-2',
+      }), mockTx);
+    });
+
+    it('[case 6] first step (sequence 0) without materialSourceLocationId gets no reservation', async () => {
+      mockTx.productionRouteStep.findUnique.mockResolvedValue({ sequence: 0 });
+
+      await ensureRoutedOrderWipReservation(mockTx as never, {
+        id: 'order-1', productionRunId: 'run-1', routeStepId: 'step-1',
+        routeSequenceSnapshot: 0, plannedQuantity: 10 as never, status: 'DRAFT',
+        materialSourceLocationId: null, locationId: 'loc-fg', machineId: null, bomId: 'bom-1',
+      });
+
+      expect(createStockReservation).not.toHaveBeenCalled();
+      expect(mockTx.productionRouteStep.findFirst).not.toHaveBeenCalled();
+    });
   });
 
   describe('syncProductionRunStatusFromOrders', () => {
@@ -166,6 +207,47 @@ describe('routing-execution-guard', () => {
       mockTx.productionRun.update.mockResolvedValue({} as never);
       await syncProductionRunStatusFromOrders(mockTx as never, 'run1');
       expect(mockTx.productionRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'IN_PROGRESS' }) }));
+    });
+
+    it('[case 1 — G1] mixed COMPLETED + CANCELLED -> run COMPLETED with actualEndDate filled', async () => {
+      const completedEnd = new Date('2026-08-01T10:00:00Z');
+      mockTx.productionOrder.findMany.mockResolvedValue([
+        { status: 'COMPLETED', actualStartDate: new Date('2026-08-01T08:00:00Z'), actualEndDate: completedEnd },
+        { status: 'CANCELLED', actualStartDate: new Date('2026-08-01T08:00:00Z'), actualEndDate: null },
+      ] as never);
+      mockTx.productionRun.findUnique.mockResolvedValue({ status: 'IN_PROGRESS', actualStartDate: new Date('2026-08-01T08:00:00Z'), actualEndDate: null } as never);
+      mockTx.productionRun.update.mockResolvedValue({} as never);
+      await syncProductionRunStatusFromOrders(mockTx as never, 'run1');
+      expect(mockTx.productionRun.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'COMPLETED', actualEndDate: completedEnd }),
+      }));
+    });
+
+    it('[case 2 — regression] all CANCELLED -> run CANCELLED, not COMPLETED', async () => {
+      mockTx.productionOrder.findMany.mockResolvedValue([
+        { status: 'CANCELLED', actualStartDate: null, actualEndDate: null },
+        { status: 'CANCELLED', actualStartDate: null, actualEndDate: null },
+      ] as never);
+      mockTx.productionRun.findUnique.mockResolvedValue({ status: 'RELEASED', actualStartDate: null, actualEndDate: null } as never);
+      mockTx.productionRun.update.mockResolvedValue({} as never);
+      await syncProductionRunStatusFromOrders(mockTx as never, 'run1');
+      expect(mockTx.productionRun.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'CANCELLED' }),
+      }));
+    });
+
+    it('[case 3] one IN_PROGRESS + rest terminal -> run stays IN_PROGRESS', async () => {
+      mockTx.productionOrder.findMany.mockResolvedValue([
+        { status: 'COMPLETED', actualStartDate: new Date('2026-08-01T08:00:00Z'), actualEndDate: new Date('2026-08-01T09:00:00Z') },
+        { status: 'CANCELLED', actualStartDate: null, actualEndDate: null },
+        { status: 'IN_PROGRESS', actualStartDate: new Date('2026-08-01T09:30:00Z'), actualEndDate: null },
+      ] as never);
+      mockTx.productionRun.findUnique.mockResolvedValue({ status: 'RELEASED', actualStartDate: null, actualEndDate: null } as never);
+      mockTx.productionRun.update.mockResolvedValue({} as never);
+      await syncProductionRunStatusFromOrders(mockTx as never, 'run1');
+      expect(mockTx.productionRun.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'IN_PROGRESS' }),
+      }));
     });
   });
 });

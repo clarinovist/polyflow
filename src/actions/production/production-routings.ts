@@ -315,6 +315,12 @@ export const updateRouteStep = withTenant(async function updateRouteStep(
             rest as never,
         );
         revalidatePath('/production/routings');
+        // G3 fix: this only revalidated the list before, so the route detail
+        // page (where RouteBuilderClient actually renders the edited step) kept
+        // serving a stale RSC cache until an unrelated navigation refreshed it.
+        revalidatePath(
+            `/production/routings/${(result as { routeId: string }).routeId}`,
+        );
         return serializeData(result);
     });
 });

@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import {
     addRouteStep,
+    updateRouteStep,
     deleteRouteStep,
     reorderRouteSteps,
     validateRouteAction,
@@ -132,6 +133,11 @@ export function RouteBuilderClient({
     const [selectedBom, setSelectedBom] = useState<Option | null>(null);
     const [selectedSrcLoc, setSelectedSrcLoc] = useState<Option | null>(null);
     const [selectedOutLoc, setSelectedOutLoc] = useState<Option | null>(null);
+    // G3: id of the step currently being edited, or null when the panel is
+    // in "add new step" mode. RouteBuilderClient previously had no way to
+    // fix a typo without deleting the step and re-adding it (which also
+    // renormalizes every later sequence).
+    const [editingStepId, setEditingStepId] = useState<string | null>(null);
 
     const isDraft = route.status === 'DRAFT';
     const sortedSteps = useMemo(
@@ -143,6 +149,13 @@ export function RouteBuilderClient({
             sortedSteps[sortedSteps.length - 1]?.bom?.productVariantId ?? null,
         [sortedSteps],
     );
+    // Sequence the panel currently targets — the step being edited, or the
+    // next append position when adding. Used only to phrase the "Ambil bahan
+    // dari" copy accurately (first step has no predecessor to inherit from).
+    const targetSequence = editingStepId
+        ? (sortedSteps.find((s) => s.id === editingStepId)?.sequence ?? 0)
+        : sortedSteps.length;
+    const isFirstStepTarget = targetSequence === 0;
 
     useEffect(() => {
         fetch('/api/production/processes?q=' + encodeURIComponent(procSearch))
@@ -298,7 +311,82 @@ export function RouteBuilderClient({
             .catch(() => {});
     }, [outLocSearch]);
 
-    async function handleAddStep() {
+    function resetForm() {
+        setForm({
+            stepCode: '',
+            label: '',
+            processId: '',
+            bomId: '',
+            materialSourceLocationId: '',
+            outputLocationId: '',
+            allowsPartialHandoff: false,
+            requiresQualityGate: false,
+        });
+        setSelectedProcess(null);
+        setSelectedBom(null);
+        setSelectedSrcLoc(null);
+        setSelectedOutLoc(null);
+    }
+
+    function handleStartEdit(step: RouteType['steps'][number]) {
+        setEditingStepId(step.id);
+        setForm({
+            stepCode: step.stepCode,
+            label: step.label,
+            processId: step.processId,
+            bomId: step.bomId,
+            materialSourceLocationId: step.materialSourceLocationId ?? '',
+            outputLocationId: step.outputLocationId ?? '',
+            allowsPartialHandoff: step.allowsPartialHandoff,
+            requiresQualityGate: step.requiresQualityGate,
+        });
+        setSelectedProcess({
+            id: step.process.id,
+            name: step.process.name,
+            code: step.process.code,
+        });
+        const bomPv = (
+            step.bom as unknown as {
+                productVariant?: {
+                    skuCode?: string;
+                    name?: string;
+                    product?: { name?: string };
+                };
+            }
+        )?.productVariant;
+        setSelectedBom({
+            id: step.bom.id,
+            name: step.bom.name,
+            skuCode: bomPv?.skuCode ?? '',
+            subtitle:
+                `${bomPv?.product?.name ?? ''} ${bomPv?.name ?? ''}`.trim(),
+        });
+        setSelectedSrcLoc(
+            step.materialSourceLocation
+                ? {
+                      id: step.materialSourceLocation.id,
+                      name: step.materialSourceLocation.name,
+                      slug: step.materialSourceLocation.slug,
+                  }
+                : null,
+        );
+        setSelectedOutLoc(
+            step.outputLocation
+                ? {
+                      id: step.outputLocation.id,
+                      name: step.outputLocation.name,
+                      slug: step.outputLocation.slug,
+                  }
+                : null,
+        );
+    }
+
+    function handleCancelEdit() {
+        setEditingStepId(null);
+        resetForm();
+    }
+
+    async function handleSaveStep() {
         if (!form.stepCode || !form.label || !form.processId || !form.bomId) {
             toast.error('Lengkapi: kode tahap, label, process, dan BOM');
             return;
@@ -307,6 +395,26 @@ export function RouteBuilderClient({
             toast.error('Output location wajib — pilih lokasi output');
             return;
         }
+
+        if (editingStepId) {
+            const res = await updateRouteStep({
+                id: editingStepId,
+                stepCode: form.stepCode.toUpperCase(),
+                label: form.label,
+                processId: form.processId,
+                bomId: form.bomId,
+                materialSourceLocationId: form.materialSourceLocationId || null,
+                outputLocationId: form.outputLocationId || null,
+                allowsPartialHandoff: form.allowsPartialHandoff,
+                requiresQualityGate: form.requiresQualityGate,
+            });
+            if (res.success) {
+                toast.success('Tahap diubah');
+                window.location.reload();
+            } else toast.error(res.error || 'Gagal ubah tahap');
+            return;
+        }
+
         const res = await addRouteStep({
             routeId: route.id,
             stepCode: form.stepCode.toUpperCase(),
@@ -738,6 +846,16 @@ export function RouteBuilderClient({
                                                 </Button>
                                                 <Button
                                                     size="sm"
+                                                    variant="outline"
+                                                    className="h-7 text-xs"
+                                                    onClick={() =>
+                                                        handleStartEdit(step)
+                                                    }
+                                                >
+                                                    Edit
+                                                </Button>
+                                                <Button
+                                                    size="sm"
                                                     variant="ghost"
                                                     className="h-7 text-xs text-red-600"
                                                     onClick={() =>
@@ -792,7 +910,9 @@ export function RouteBuilderClient({
                         <Card className="sticky top-4">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-sm">
-                                    Tambah Tahap
+                                    {editingStepId
+                                        ? 'Ubah Tahap'
+                                        : 'Tambah Tahap'}
                                 </CardTitle>
                                 <CardDescription className="text-[11px]">
                                     Tahap = Proses + BoM output + Lokasi. Output
@@ -1020,7 +1140,10 @@ export function RouteBuilderClient({
                                     <div className="space-y-2">
                                         <div className="space-y-1">
                                             <div className="text-[11px] font-medium">
-                                                Ambil bahan dari (opsional)
+                                                Ambil bahan dari{' '}
+                                                {isFirstStepTarget
+                                                    ? '(opsional — tahap pertama, stok umum)'
+                                                    : '(opsional — kosong = ikut lokasi output tahap sebelumnya)'}
                                             </div>
                                             {selectedSrcLoc ? (
                                                 <div className="text-xs p-2 rounded border bg-muted/50 flex justify-between items-center">
@@ -1057,8 +1180,9 @@ export function RouteBuilderClient({
                                                     variant="outline"
                                                     className="text-[11px] font-normal"
                                                 >
-                                                    Stok umum (tidak spesifik
-                                                    lokasi)
+                                                    {isFirstStepTarget
+                                                        ? 'Stok umum (tidak spesifik lokasi)'
+                                                        : 'Kosong = otomatis ikut lokasi output tahap sebelumnya'}
                                                 </Badge>
                                             )}
                                             <Input
@@ -1214,19 +1338,31 @@ export function RouteBuilderClient({
                                         Butuh QC
                                     </label>
                                 </div>
-                                <Button
-                                    onClick={handleAddStep}
-                                    className="w-full"
-                                    disabled={
-                                        !form.stepCode ||
-                                        !form.label ||
-                                        !form.processId ||
-                                        !form.bomId ||
-                                        !form.outputLocationId
-                                    }
-                                >
-                                    Tambah Tahap
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button
+                                        onClick={handleSaveStep}
+                                        className="w-full"
+                                        disabled={
+                                            !form.stepCode ||
+                                            !form.label ||
+                                            !form.processId ||
+                                            !form.bomId ||
+                                            !form.outputLocationId
+                                        }
+                                    >
+                                        {editingStepId
+                                            ? 'Simpan Perubahan'
+                                            : 'Tambah Tahap'}
+                                    </Button>
+                                    {editingStepId && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleCancelEdit}
+                                        >
+                                            Batal
+                                        </Button>
+                                    )}
+                                </div>
                                 <p className="text-[10px] text-muted-foreground">
                                     Sistem cek: chain output-input, lokasi
                                     aktif/tidak risky, mesin capable.

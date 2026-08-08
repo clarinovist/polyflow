@@ -573,7 +573,8 @@ export class ProductionRoutingService {
             allowsPartialHandoff: boolean;
             queueTimeMinutes: number | null;
             setupTimeMinutes: number | null;
-            sequence: number;
+            // G3 fix: sequence intentionally not accepted here — see
+            // updateRouteStepSchema comment. Reordering goes through reorderSteps.
         }>,
     ) {
         const step = await prisma.productionRouteStep.findUnique({
