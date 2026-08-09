@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { authenticate } from '../auth.actions';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
+import { MAIN_LOGIN_RATE_LIMIT_MESSAGE } from '@/lib/auth/login-rate-limit';
 
 vi.mock('@/auth', () => ({
     signIn: vi.fn(),
@@ -72,15 +73,39 @@ describe('Auth Actions', () => {
             );
         });
 
+        it('returns rate limit message when credentials provider reports LoginRateLimited', async () => {
+            const formData = new FormData();
+            formData.append('email', 'limited@example.com');
+            formData.append('password', 'badpassword');
+
+            const error = Object.assign(new AuthError('CredentialsSignin'), {
+                cause: { err: { message: 'LoginRateLimited' } },
+            });
+            vi.mocked(signIn).mockRejectedValueOnce(error);
+
+            const result = await authenticate(undefined, formData);
+            expect(result).toBe(MAIN_LOGIN_RATE_LIMIT_MESSAGE);
+        });
+
         it('returns friendly inline error message for unexpected non-AuthError failures', async () => {
             const formData = new FormData();
             formData.append('email', 'user@example.com');
             formData.append('password', 'secret123');
 
-            vi.mocked(signIn).mockRejectedValueOnce(new Error('DB Connection Timeout'));
+            const error = new Error('DB Connection Timeout');
+            const consoleErrorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => undefined);
+            vi.mocked(signIn).mockRejectedValueOnce(error);
 
             const result = await authenticate(undefined, formData);
             expect(result).toBe('Login sedang bermasalah. Silakan coba lagi.');
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'Unexpected sign-in error:',
+                error,
+            );
+            consoleErrorSpy.mockRestore();
         });
+
     });
 });

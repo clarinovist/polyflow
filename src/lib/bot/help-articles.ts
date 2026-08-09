@@ -1,5 +1,10 @@
 import { getMainPrisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
+import type { NavArticleItem } from '@/lib/bot/help-article-shared';
+export {
+    isTroubleshootArticle,
+    type NavArticleItem,
+} from '@/lib/bot/help-article-shared';
 
 export interface ListPublishedArticlesParams {
     module?: string;
@@ -51,14 +56,6 @@ export async function listPublishedArticles(
     return articles;
 }
 
-export interface NavArticleItem {
-    slug: string;
-    title: string;
-    modules: string[];
-    tags: string[];
-    errorCodes: string[];
-}
-
 /**
  * Slim, unlimited(-ish) fetch of every published article for the docs
  * sidebar nav tree. Deliberately separate from `listPublishedArticles`
@@ -85,22 +82,6 @@ export async function listAllPublishedArticlesForNav(): Promise<
     });
 
     return articles;
-}
-
-/**
- * An article belongs on the "Troubleshooting" tab when it's tagged
- * `troubleshoot` or it lists at least one error code. Shared by
- * `troubleshooting/page.tsx` (server-side merge/dedup query) and
- * `docs-sidebar.tsx` (client-side filter of the full nav list) so the two
- * views can't drift on what counts as a troubleshooting article.
- */
-export function isTroubleshootArticle(article: {
-    tags: string[];
-    errorCodes: string[];
-}): boolean {
-    return (
-        article.tags.includes('troubleshoot') || article.errorCodes.length > 0
-    );
 }
 
 export async function getPublishedArticleBySlug(slug: string) {

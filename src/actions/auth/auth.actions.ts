@@ -3,6 +3,7 @@
 import { signIn, signOut } from '@/auth';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
+import { MAIN_LOGIN_RATE_LIMIT_MESSAGE } from '@/lib/auth/login-rate-limit';
 
 function isNextRedirectError(error: unknown): boolean {
     if (typeof error === 'object' && error !== null) {
@@ -53,6 +54,10 @@ export async function authenticate(
 
             if (causeMessage === 'TenantSuspended') {
                 return 'Akun tenant ini telah dinonaktifkan (suspended). Silakan hubungi administrator.';
+            }
+
+            if (causeMessage === 'LoginRateLimited') {
+                return MAIN_LOGIN_RATE_LIMIT_MESSAGE;
             }
 
             // Hide exact reason for all other cases to prevent user enumeration

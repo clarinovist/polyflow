@@ -12,7 +12,8 @@ import NextAuth from 'next-auth';
 import { authConfig } from './auth.config';
 import { NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/api/rate-limit';
-import { extractSubdomain } from '@/lib/core/tenant';
+import { extractSubdomain } from '@/lib/core/subdomain';
+import { isBlockedScannerProbe } from '@/lib/security/scanner-probes';
 
 const { auth } = NextAuth(authConfig);
 
@@ -23,6 +24,15 @@ const handler = auth((req) => {
     const hostname = host.split(':')[0];
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pathname', req.nextUrl.pathname);
+
+    if (
+        isBlockedScannerProbe({
+            pathname: req.nextUrl.pathname,
+            userAgent: req.headers.get('user-agent') || '',
+        })
+    ) {
+        return new NextResponse('Not Found', { status: 404 });
+    }
 
     // SECURITY: Always clear any client-provided x-tenant-subdomain header to prevent tenant spoofing
     requestHeaders.delete('x-tenant-subdomain');

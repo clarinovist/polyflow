@@ -5,8 +5,10 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Menu, X, BookOpen, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
-import { isTroubleshootArticle } from '@/lib/bot/help-articles';
-import type { NavArticleItem } from '@/lib/bot/help-articles';
+import {
+    isTroubleshootArticle,
+    type NavArticleItem,
+} from '@/lib/bot/help-article-shared';
 import {
     MODULE_FILTERS,
     getModuleLabel,

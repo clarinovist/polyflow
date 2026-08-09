@@ -8,6 +8,21 @@ import { Role, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { normalizeUserRoles } from '@/lib/auth/roles';
 import { SESSION_POLICY } from '@/lib/auth/session-policy';
+import {
+    getAuthErrorCauseMessage,
+    getAuthErrorType,
+    shouldSuppressExpectedAuthError,
+} from '@/lib/auth/auth-log-filter';
+import { checkMainLoginRateLimit } from '@/lib/auth/login-rate-limit';
+import { verifyImpersonationSignature } from '@/lib/auth/impersonation-signature';
+
+function getRequestIp(request: Request | undefined): string {
+    return (
+        request?.headers?.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        request?.headers?.get('x-real-ip') ||
+        '127.0.0.1'
+    );
+}
 
 async function getUser(email: string) {
     try {
@@ -25,6 +40,26 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         strategy: 'jwt',
         maxAge: SESSION_POLICY.defaultMaxAgeSeconds,
     },
+    logger: {
+        error(error) {
+            if (shouldSuppressExpectedAuthError(error)) {
+                return;
+            }
+
+            const type = getAuthErrorType(error);
+            console.error(`[auth][error] ${type}: ${error.message}`);
+
+            const causeMessage = getAuthErrorCauseMessage(error);
+            if (causeMessage) {
+                console.error(`[auth][cause]: ${causeMessage}`);
+                return;
+            }
+
+            if (error.stack) {
+                console.error(error.stack.replace(/.*/, '').substring(1));
+            }
+        },
+    },
     providers: [
         Credentials({
             async authorize(credentials, request) {
@@ -41,6 +76,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         // superadmin actor. Never exposed to the login form.
                         impersonationBy: z.string().optional(),
                         impersonationExpiresAt: z.number().optional(),
+                        impersonationSignature: z.string().optional(),
                     })
                     .safeParse(credentials);
 
@@ -52,6 +88,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         subdomain: formSubdomain,
                         impersonationBy,
                         impersonationExpiresAt,
+                        impersonationSignature,
                     } = parsedCredentials.data;
                     const isImpersonation = !!impersonationBy;
 
@@ -64,6 +101,31 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     if (!subdomain && request) {
                         const host = request.headers.get('host') || '';
                         subdomain = extractSubdomain(host);
+                    }
+
+                    if (isImpersonation) {
+                        const isValidImpersonation =
+                            !!impersonationExpiresAt &&
+                            verifyImpersonationSignature({
+                                email,
+                                subdomain: subdomain ?? '',
+                                impersonationBy,
+                                impersonationExpiresAt,
+                                signature: impersonationSignature,
+                            });
+
+                        if (!isValidImpersonation) {
+                            throw new Error('InvalidImpersonationSignature');
+                        }
+                    } else {
+                        const rateLimitResult = checkMainLoginRateLimit({
+                            ip: getRequestIp(request),
+                            email,
+                            subdomain: subdomain ?? 'main',
+                        });
+                        if (!rateLimitResult.success) {
+                            throw new Error('LoginRateLimited');
+                        }
                     }
 
                     let user;
@@ -126,11 +188,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     }
 
                     if (!user) {
-                        throw new Error('UserNotFound');
+                        return null;
                     }
 
                     if (user.isActive === false) {
-                        throw new Error('UserInactive');
+                        return null;
                     }
 
                     const passwordsMatch =

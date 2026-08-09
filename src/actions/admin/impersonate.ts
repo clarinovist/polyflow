@@ -6,6 +6,7 @@ import { AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
 import { Role } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
 import { redirect } from 'next/navigation';
+import { createImpersonationSignature } from '@/lib/auth/impersonation-signature';
 
 const IMPERSONATION_TTL_SECONDS = 30 * 60; // 30 minutes hard expiry
 
@@ -93,6 +94,12 @@ export async function impersonateTenant(tenantId: string) {
     }
 
     const expiresAt = Math.floor(Date.now() / 1000) + IMPERSONATION_TTL_SECONDS;
+    const impersonationSignature = createImpersonationSignature({
+        email: adminUser.email,
+        subdomain: tenant.subdomain,
+        impersonationBy: superAdminId,
+        impersonationExpiresAt: expiresAt,
+    });
 
     await logActivity({
         userId: superAdminId,
@@ -118,6 +125,7 @@ export async function impersonateTenant(tenantId: string) {
         subdomain: tenant.subdomain,
         impersonationBy: superAdminId,
         impersonationExpiresAt: expiresAt,
+        impersonationSignature,
         redirect: false,
     });
 

@@ -1,6 +1,17 @@
 import { getUserRoles } from '@/lib/auth/roles';
 import { resolveWorkspaceToModule } from '@/lib/modules/module-registry';
-import { getEntitlementsFromContext } from '@/lib/core/prisma';
+
+type EntitlementContextReader = {
+    getStore: () => string[] | undefined;
+};
+
+const globalForEntitlementContext = globalThis as unknown as {
+    __polyflowEntitlementContext?: EntitlementContextReader;
+};
+
+function getEntitlementsFromGlobalContext(): string[] | undefined {
+    return globalForEntitlementContext.__polyflowEntitlementContext?.getStore();
+}
 
 export type WorkspaceKey =
     | 'admin'
@@ -29,7 +40,7 @@ export function hasWorkspaceEntitlement(
     if (moduleKey === 'CORE') return true;
 
     // Read from request-scoped context (no DB query)
-    const activeModules = getEntitlementsFromContext();
+    const activeModules = getEntitlementsFromGlobalContext();
     if (!activeModules) return true; // no context (super admin / non-tenant), allow
 
     return activeModules.includes(moduleKey);
@@ -41,7 +52,7 @@ export function hasWorkspaceEntitlement(
  * Falls back to empty array when no context.
  */
 export function getTenantActiveModules(): string[] {
-    return getEntitlementsFromContext() ?? [];
+    return getEntitlementsFromGlobalContext() ?? [];
 }
 
 /**
