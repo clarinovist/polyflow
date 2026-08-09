@@ -56,6 +56,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
             orderTypes: extraFilters?.orderTypes,
             paymentState: extraFilters?.paymentState,
             statusFilter: extraFilters?.statusFilter,
+            followUpDue: extraFilters?.followUpDue,
         });
         return serializeData(orders);
     });

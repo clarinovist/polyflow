@@ -118,6 +118,7 @@ describe('sales order actions', () => {
             await getSalesOrders(true, { startDate, endDate }, 'customer', {
                 orderType: 'MAKLON_JASA',
                 paymentState: 'outstanding',
+                followUpDue: true,
             });
 
             // Assert
@@ -129,6 +130,7 @@ describe('sales order actions', () => {
                     demandType: 'customer',
                     orderType: 'MAKLON_JASA',
                     paymentState: 'outstanding',
+                    followUpDue: true,
                 }),
             );
         });
@@ -150,6 +152,7 @@ describe('sales order actions', () => {
                 orderTypes: undefined,
                 paymentState: undefined,
                 statusFilter: undefined,
+                followUpDue: undefined,
             });
         });
 

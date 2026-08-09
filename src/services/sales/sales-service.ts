@@ -33,6 +33,7 @@ export class SalesService {
         orderTypes?: Array<'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA'>;
         paymentState?: 'outstanding' | 'paid' | 'no_invoice';
         statusFilter?: SalesOrderStatus[];
+        followUpDue?: boolean;
     }) {
         return getOrders(filters);
     }
