@@ -158,7 +158,7 @@ export function MaterialPreviewPanel({
                     </Alert>
                 )}
 
-                <div className="border rounded-md overflow-hidden max-h-[75vh] overflow-y-auto">
+                <div className="border rounded-md overflow-x-auto max-h-[75vh] overflow-y-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
