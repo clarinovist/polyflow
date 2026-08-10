@@ -58,8 +58,8 @@ export async function buildDeliveryNoteDocument(
         vehiclePlate: order.vehicle?.plateNumber || '',
         items: order.items.map((item) => ({
             name:
-                item.productVariant?.product?.name ||
                 item.productVariant?.name ||
+                item.productVariant?.product?.name ||
                 '-',
             qty: Number(item.enteredQuantity ?? item.quantity ?? 0),
             unit:
