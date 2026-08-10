@@ -19,3 +19,23 @@ export type WarehouseSlug =
     (typeof WAREHOUSE_SLUGS)[keyof typeof WAREHOUSE_SLUGS];
 export type MaklonStageSlug =
     (typeof MAKLON_STAGE_SLUGS)[keyof typeof MAKLON_STAGE_SLUGS];
+
+/**
+ * Locations counted toward the low-stock alert threshold: internal Raw
+ * Material + Finished Goods warehouses. Tenant slugs vary (canonical
+ * `rm_warehouse`/`fg_warehouse` vs. other tenants' own naming), so this
+ * matches on locationPurpose scoped to INTERNAL — never
+ * customer-owned/maklon stock (see docs/plan/2026-08-10-fix-lowstock-badge-slug-mismatch.md).
+ */
+export function isLowStockAlertLocation(
+    loc?: {
+        locationType?: string | null;
+        locationPurpose?: string | null;
+    } | null,
+): boolean {
+    if (!loc || loc.locationType !== 'INTERNAL') return false;
+    return (
+        loc.locationPurpose === 'RAW_MATERIAL' ||
+        loc.locationPurpose === 'FINISHED_GOOD'
+    );
+}

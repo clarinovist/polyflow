@@ -6,7 +6,7 @@ import {
     ReservationStatus,
 } from '@prisma/client';
 import { InventoryWithRelations } from '@/types/inventory';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { isLowStockAlertLocation } from '@/lib/constants/locations';
 
 export class InventoryQueryService {
     static async getStats(filters?: {
@@ -58,6 +58,7 @@ export class InventoryQueryService {
                         id: true,
                         name: true,
                         locationType: true,
+                        locationPurpose: true,
                     },
                 },
             },
@@ -215,7 +216,13 @@ export class InventoryQueryService {
                 select: {
                     quantity: true,
                     productVariantId: true,
-                    location: { select: { id: true, slug: true } },
+                    location: {
+                        select: {
+                            id: true,
+                            locationType: true,
+                            locationPurpose: true,
+                        },
+                    },
                     productVariant: {
                         select: { minStockAlert: true },
                     },
@@ -247,15 +254,11 @@ export class InventoryQueryService {
             {} as Record<string, number>,
         );
 
-        // For low stock alert we only consider Raw Material and Finished Goods warehouses
-        const allowedLocationSlugs = new Set<string>([
-            WAREHOUSE_SLUGS.RAW_MATERIAL,
-            WAREHOUSE_SLUGS.FINISHING,
-        ]);
+        // For low stock alert we only consider internal Raw Material and
+        // Finished Goods warehouses (locationPurpose, not slug — tenant slugs vary).
         const variantQuantitiesForAlerts = inventory.reduce(
             (acc, item) => {
-                const slug = item.location?.slug;
-                if (slug && allowedLocationSlugs.has(slug)) {
+                if (isLowStockAlertLocation(item.location)) {
                     acc[item.productVariantId] =
                         (acc[item.productVariantId] || 0) +
                         item.quantity.toNumber();

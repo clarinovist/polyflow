@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma, ReservationStatus, NotificationType } from '@prisma/client';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { isLowStockAlertLocation } from '@/lib/constants/locations';
 import { InsufficientStockError } from '@/lib/errors/errors';
 
 export class InventoryCoreService {
@@ -313,25 +313,21 @@ export class InventoryCoreService {
                 name: true,
                 inventories: {
                     include: {
-                        location: { select: { slug: true } },
+                        location: {
+                            select: {
+                                locationType: true,
+                                locationPurpose: true,
+                            },
+                        },
                     },
                 },
             },
         });
 
-        // Only consider Raw Material and Finished Goods
-        const allowedLocationSlugs = new Set<string>([
-            WAREHOUSE_SLUGS.RAW_MATERIAL,
-            WAREHOUSE_SLUGS.FINISHING,
-        ]);
-
         for (const variant of lowStockVariants) {
             let totalForAlert = 0;
             for (const inv of variant.inventories) {
-                if (
-                    inv.location?.slug &&
-                    allowedLocationSlugs.has(inv.location.slug)
-                ) {
+                if (isLowStockAlertLocation(inv.location)) {
                     totalForAlert += inv.quantity.toNumber();
                 }
             }
@@ -354,7 +350,9 @@ export class InventoryCoreService {
                         entityType: 'ProductVariant',
                         entityId: variant.id,
                     }));
-                    await NotificationService.createBulkNotificationsThrottled(inputs);
+                    await NotificationService.createBulkNotificationsThrottled(
+                        inputs,
+                    );
                 }
             }
         }

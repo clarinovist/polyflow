@@ -1,4 +1,4 @@
-import { Prisma, ProductType, Unit } from '@prisma/client';
+import { Prisma, ProductType, Unit, LocationPurpose } from '@prisma/client';
 
 export type InventoryWithRelations = {
     id: string;
@@ -24,6 +24,7 @@ export type InventoryWithRelations = {
         id: string;
         name: string;
         locationType: 'INTERNAL' | 'CUSTOMER_OWNED';
+        locationPurpose: LocationPurpose;
     };
     reservedQuantity?: number;
     waitingQuantity?: number;

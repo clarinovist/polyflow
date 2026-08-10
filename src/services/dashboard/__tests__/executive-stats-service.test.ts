@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InvoiceStatus, ProductionStatus, PurchaseInvoiceStatus, SalesOrderStatus } from '@prisma/client';
+import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 
 class FakeDecimal {
     constructor(private readonly value: number) { }
@@ -146,9 +147,9 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 { quantity: new FakeDecimal(3), averageCost: null, productVariant: { standardCost: new FakeDecimal(15), price: new FakeDecimal(15) } },
             ])
             .mockResolvedValueOnce([
-                { quantity: new FakeDecimal(2), productVariantId: 'var-1', location: { slug: 'rm_warehouse' } },
-                { quantity: new FakeDecimal(1), productVariantId: 'var-1', location: { slug: 'fg_warehouse' } },
-                { quantity: new FakeDecimal(50), productVariantId: 'var-2', location: { slug: 'rm_warehouse' } },
+                { quantity: new FakeDecimal(2), productVariantId: 'var-1', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                { quantity: new FakeDecimal(1), productVariantId: 'var-1', location: { locationType: 'INTERNAL', locationPurpose: 'FINISHED_GOOD' } },
+                { quantity: new FakeDecimal(50), productVariantId: 'var-2', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
             ]);
         // lowStockVariants - var-1 has 3 < 10 threshold => low, var-2 50 >= 5 => not low
         mockPrisma.productVariant.findMany.mockResolvedValue([
@@ -173,6 +174,17 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 },
             },
         });
+        // Invoices Due This Week must use the same explicit outstanding-status allowlist as
+        // Overdue Receivables (UNPAID/PARTIAL/OVERDUE) — NOT `status: { not: PAID }`, which
+        // would also count DRAFT and CANCELLED invoices as "due this week".
+        expect(mockPrisma.invoice.count).toHaveBeenNthCalledWith(2, {
+            where: {
+                dueDate: { gte: expect.any(Date), lte: expect.any(Date) },
+                status: {
+                    in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE],
+                },
+            },
+        });
         expect(mockPrisma.purchaseInvoice.aggregate).toHaveBeenCalledWith({
             where: {
                 OR: [
@@ -184,6 +196,21 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 ],
             },
             _sum: { totalAmount: true, paidAmount: true }
+        });
+        // Overdue Receivables must exclude historical/opening-balance AR (SO-OPEN-/OB-AR-),
+        // same helper already used by sales-dashboard.ts and finance/invoices.ts.
+        expect(mockPrisma.invoice.aggregate).toHaveBeenCalledWith({
+            where: {
+                OR: [
+                    { status: 'OVERDUE' as InvoiceStatus },
+                    {
+                        status: { in: ['UNPAID', 'PARTIAL'] as InvoiceStatus[] },
+                        dueDate: { lt: expect.any(Date) },
+                    },
+                ],
+                salesOrder: buildOperationalSalesReceivableOrderWhere(),
+            },
+            _sum: { totalAmount: true, paidAmount: true },
         });
         // lowStock uses minStockAlert per variant aggregated across RAW_MATERIAL+FINISHING warehouses
         expect(mockPrisma.productVariant.findMany).toHaveBeenCalledWith({
@@ -267,16 +294,30 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         expect(stats.inventory.lowStockCount).toBe(0);
     });
 
+    it('returns undefined revenue/spending trend when there is no prior-month data (not 0%)', async () => {
+        mockPrisma.journalLine.aggregate.mockReset();
+        mockPrisma.journalLine.aggregate
+            .mockResolvedValueOnce({ _sum: { credit: new FakeDecimal(1000), debit: new FakeDecimal(100) } }) // revenue MTD
+            .mockResolvedValueOnce({ _sum: { credit: new FakeDecimal(0), debit: new FakeDecimal(0) } }) // revenue prev month = 0
+            .mockResolvedValueOnce({ _sum: { debit: new FakeDecimal(300), credit: new FakeDecimal(50) } }) // spending MTD
+            .mockResolvedValueOnce({ _sum: { debit: new FakeDecimal(0), credit: new FakeDecimal(0) } }); // spending prev month = 0
+
+        const stats = await ExecutiveStatsService.getExecutiveStats();
+
+        expect(stats.sales.trend).toBeUndefined();
+        expect(stats.purchasing.trend).toBeUndefined();
+    });
+
     it('calculates lowStockCount with minStockAlert logic scoped to raw+finishing warehouses', async () => {
         // Override inventory for alert and variants to test aggregation
         mockPrisma.inventory.findMany.mockReset();
         mockPrisma.inventory.findMany
             .mockResolvedValueOnce([]) // stockItems for value
             .mockResolvedValueOnce([
-                { quantity: new FakeDecimal(1), productVariantId: 'v1', location: { slug: 'rm_warehouse' } },
-                { quantity: new FakeDecimal(1), productVariantId: 'v1', location: { slug: 'mixing_area' } }, // should be ignored
-                { quantity: new FakeDecimal(20), productVariantId: 'v2', location: { slug: 'fg_warehouse' } },
-                { quantity: 0, productVariantId: 'v3', location: { slug: 'rm_warehouse' } },
+                { quantity: new FakeDecimal(1), productVariantId: 'v1', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                { quantity: new FakeDecimal(1), productVariantId: 'v1', location: { locationType: 'INTERNAL', locationPurpose: 'MIXING' } }, // should be ignored
+                { quantity: new FakeDecimal(20), productVariantId: 'v2', location: { locationType: 'INTERNAL', locationPurpose: 'FINISHED_GOOD' } },
+                { quantity: 0, productVariantId: 'v3', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
             ]);
         mockPrisma.productVariant.findMany.mockReset();
         mockPrisma.productVariant.findMany.mockResolvedValue([

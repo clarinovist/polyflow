@@ -25,31 +25,29 @@ import {
     Package,
 } from 'lucide-react';
 import Link from 'next/link';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { isLowStockAlertLocation } from '@/lib/constants/locations';
 
 export const metadata = {
     title: 'Analitik Gudang | PolyFlow Warehouse',
 };
 
 /** Low stock IDs using RM/FG warehouse qty vs minStockAlert (align with board). */
-function computeLowStockVariantIds(
+export function computeLowStockVariantIds(
     inventory: Array<{
         productVariantId: string;
         quantity: unknown;
         productVariant?: { minStockAlert?: unknown };
-        location?: { slug?: string | null } | null;
+        location?: {
+            locationType?: string | null;
+            locationPurpose?: string | null;
+        } | null;
     }>,
 ): Set<string> {
-    const allowedSlugs = new Set<string>([
-        WAREHOUSE_SLUGS.RAW_MATERIAL,
-        WAREHOUSE_SLUGS.FINISHING,
-    ]);
     const totals = new Map<string, number>();
     const thresholds = new Map<string, number>();
 
     for (const item of inventory) {
-        const slug = item.location?.slug;
-        if (!slug || !allowedSlugs.has(slug)) continue;
+        if (!isLowStockAlertLocation(item.location)) continue;
         const id = item.productVariantId;
         totals.set(id, (totals.get(id) || 0) + toDecimalNumber(item.quantity));
         if (item.productVariant?.minStockAlert != null && !thresholds.has(id)) {

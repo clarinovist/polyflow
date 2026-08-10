@@ -97,8 +97,10 @@ function trendFromNumber(n: number | undefined, invert = false): KpiTrend {
 }
 
 function pctLabel(n: number | undefined, suffix: string): string {
-    const v = n !== undefined ? Math.abs(n).toFixed(1) : '0';
-    return `${v}% ${suffix}`;
+    // undefined = no prior-month data to compare against — distinct from a real 0% change,
+    // otherwise "Belum ada data" silently reads as "flat" (docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.A)
+    if (n === undefined) return 'Belum ada data bulan lalu';
+    return `${Math.abs(n).toFixed(1)}% ${suffix}`;
 }
 
 /** Roles that land on ops portals by default — show compact dashboard + deep link */

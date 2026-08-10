@@ -7,7 +7,8 @@ import {
     SalesOrderStatus,
 } from '@prisma/client';
 import { endOfMonth, startOfDay, startOfMonth } from 'date-fns';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { isLowStockAlertLocation } from '@/lib/constants/locations';
+import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 
 export interface ExecutiveStats {
     sales: {
@@ -64,6 +65,9 @@ function decimalToNumber(value: unknown): number {
 export class ExecutiveStatsService {
     static async getExecutiveStats(): Promise<ExecutiveStats> {
         const now = new Date();
+        // startOfDay(now) vs finance-dashboard.ts's plain `now` cutoff (Plan 4.2.C) is a known,
+        // deferred inconsistency — low impact, intentionally not unified here (see
+        // docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.C).
         const startOfToday = startOfDay(now);
         const startOfCurrentMonth = startOfMonth(now);
         const endOfCurrentMonth = endOfMonth(now);
@@ -302,7 +306,14 @@ export class ExecutiveStatsService {
                 _count: { id: true },
             }),
             // 17. Overdue Receivables (status OVERDUE, or UNPAID/PARTIAL past dueDate —
-            // the status rarely gets flipped to OVERDUE by any running job)
+            // the status rarely gets flipped to OVERDUE by any running job).
+            // Excludes historical/opening-balance AR (SO-OPEN-/OB-AR- orders) via the same
+            // helper already used by sales-dashboard.ts and finance/invoices.ts, so migrated
+            // opening balances don't inflate "overdue" for a live dashboard KPI.
+            // (docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.B)
+            // NOTE (deferred, Gap 1 in that plan): invoices with dueDate = null are not
+            // included here — null could mean "not yet determined" rather than "overdue", and
+            // this needs live-data verification before deciding either way. Not addressed here.
             prisma.invoice.aggregate({
                 where: {
                     OR: [
@@ -314,10 +325,15 @@ export class ExecutiveStatsService {
                             dueDate: { lt: startOfToday },
                         },
                     ],
+                    salesOrder: buildOperationalSalesReceivableOrderWhere(),
                 },
                 _sum: { totalAmount: true, paidAmount: true },
             }),
-            // 18. Overdue Payables (same dynamic definition as Overdue Receivables)
+            // 18. Overdue Payables (same dynamic definition as Overdue Receivables).
+            // Unlike AR, there is currently no historical/opening-balance AP convention in
+            // this codebase (no `OB-AP-`/equivalent order-number or note prefix exists anywhere
+            // — verified by grep before writing this comment), so there is nothing analogous to
+            // exclude here. Documented so this isn't mistaken for an oversight later.
             prisma.purchaseInvoice.aggregate({
                 where: {
                     OR: [
@@ -336,13 +352,25 @@ export class ExecutiveStatsService {
                 _sum: { totalAmount: true, paidAmount: true },
             }),
             // 19. Invoices Due This Week
+            // Status is deliberately an explicit `in` allowlist (UNPAID/PARTIAL/OVERDUE), not
+            // `not: PAID` — the old `not PAID` filter also counted DRAFT (not yet a real
+            // receivable) and CANCELLED (void) invoices as "due this week", which needs no
+            // collection action at all. This mirrors the status set already used by the
+            // Overdue Receivables query above so the two cashflow KPIs stay comparable.
+            // (docs/plan/2026-08-10-fix-invoices-due-this-week-status-filter.md 4.2)
             prisma.invoice.count({
                 where: {
                     dueDate: {
                         gte: now,
                         lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
                     },
-                    status: { not: InvoiceStatus.PAID },
+                    status: {
+                        in: [
+                            InvoiceStatus.UNPAID,
+                            InvoiceStatus.PARTIAL,
+                            InvoiceStatus.OVERDUE,
+                        ],
+                    },
                 },
             }),
         ]);
@@ -354,10 +382,14 @@ export class ExecutiveStatsService {
         const prevRevenue =
             decimalToNumber(revenueAggPrevMonth._sum.credit) -
             decimalToNumber(revenueAggPrevMonth._sum.debit);
+        // No prior-month revenue posted yet → trend is undefined (unknown), not "0% change".
+        // Distinguishing "no data to compare" from "flat" avoids a misleading 0.0% on the
+        // dashboard when last month simply has no POSTED journal entries yet.
+        // (docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.A)
         const revenueTrend =
             prevRevenue > 0
                 ? ((mtdRevenue - prevRevenue) / prevRevenue) * 100
-                : 0;
+                : undefined;
 
         const mtdSpending =
             decimalToNumber(spendingAggMTD._sum.debit) -
@@ -365,10 +397,11 @@ export class ExecutiveStatsService {
         const prevSpending =
             decimalToNumber(spendingAggPrevMonth._sum.debit) -
             decimalToNumber(spendingAggPrevMonth._sum.credit);
+        // Same rationale as revenueTrend above — undefined, not 0, when there's nothing to compare.
         const spendingTrend =
             prevSpending > 0
                 ? ((mtdSpending - prevSpending) / prevSpending) * 100
-                : 0;
+                : undefined;
 
         const activeOrders = salesOrdersMTD.filter(
             (o) => o.status !== SalesOrderStatus.DELIVERED,
@@ -420,11 +453,10 @@ export class ExecutiveStatsService {
         }, 0);
 
         // Low stock: mirrors InventoryQueryService.getDashboardStats() —
-        // minStockAlert per variant, aggregated across locations scoped to RAW_MATERIAL + FINISHING
-        const allowedLocationSlugs = new Set<string>([
-            WAREHOUSE_SLUGS.RAW_MATERIAL,
-            WAREHOUSE_SLUGS.FINISHING,
-        ]);
+        // minStockAlert per variant, aggregated across locations scoped to RAW_MATERIAL +
+        // FINISHED_GOOD internal warehouses via locationType/locationPurpose, not hardcoded
+        // slugs (tenant slugs vary — see isLowStockAlertLocation() and
+        // docs/plan/2026-08-10-fix-lowstock-badge-slug-mismatch.md).
         const [lowStockVariants, inventoryForAlert] = await Promise.all([
             prisma.productVariant.findMany({
                 where: { minStockAlert: { not: null } },
@@ -434,14 +466,15 @@ export class ExecutiveStatsService {
                 select: {
                     quantity: true,
                     productVariantId: true,
-                    location: { select: { slug: true } },
+                    location: {
+                        select: { locationType: true, locationPurpose: true },
+                    },
                 },
             }),
         ]);
         const variantQuantitiesForAlerts = inventoryForAlert.reduce(
             (acc, item) => {
-                const slug = item.location?.slug;
-                if (slug && allowedLocationSlugs.has(slug)) {
+                if (isLowStockAlertLocation(item.location)) {
                     acc[item.productVariantId] =
                         (acc[item.productVariantId] || 0) +
                         Number(item.quantity);

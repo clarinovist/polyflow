@@ -68,6 +68,30 @@ describe('role-dashboard-config', () => {
     expect(warehouse[0].id).toBe('lowStock');
   });
 
+  it('shows a distinct label when there is no prior-month trend data, not "0%"', () => {
+    const statsNoTrendData: ExecutiveStats = {
+      ...baseStats,
+      sales: { ...baseStats.sales, trend: undefined },
+      purchasing: { ...baseStats.purchasing, trend: undefined },
+    };
+    const admin = buildKpis('ADMIN', statsNoTrendData);
+    const revenue = admin.find((k) => k.id === 'revenue');
+    const spending = admin.find((k) => k.id === 'spending');
+
+    expect(revenue?.trendValue).toBe('Belum ada data bulan lalu');
+    expect(revenue?.trend).toBe('neutral');
+    expect(spending?.trendValue).toBe('Belum ada data bulan lalu');
+    expect(spending?.trend).toBe('neutral');
+
+    // A real 0% change still reads as "0.0% vs bulan lalu", distinct from no-data.
+    const statsFlat: ExecutiveStats = {
+      ...baseStats,
+      sales: { ...baseStats.sales, trend: 0 },
+    };
+    const flatRevenue = buildKpis('ADMIN', statsFlat).find((k) => k.id === 'revenue');
+    expect(flatRevenue?.trendValue).toBe('0.0% vs bulan lalu');
+  });
+
   it('filters attention items with count > 0 for role', () => {
     const admin = buildAttentionItems('ADMIN', baseStats);
     expect(admin.some((i) => i.id === 'overdue-ar')).toBe(true);

@@ -794,7 +794,7 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 150 },
-              location: { slug: "rm_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
             },
           ],
         },
@@ -822,7 +822,7 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 50 },
-              location: { slug: "rm_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
             },
           ],
         },
@@ -879,7 +879,7 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 50 },
-              location: { slug: "rm_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
             },
           ],
         },
@@ -908,11 +908,11 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 30 },
-              location: { slug: "rm_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
             },
             {
               quantity: { toNumber: () => 20 },
-              location: { slug: "fg_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "FINISHED_GOOD" },
             },
           ],
         },
@@ -945,11 +945,11 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 30 },
-              location: { slug: "rm_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
             },
             {
               quantity: { toNumber: () => 200 },
-              location: { slug: "wip_storage" }, // not allowed
+              location: { locationType: "INTERNAL", locationPurpose: "WIP" }, // not allowed
             },
           ],
         },
@@ -978,7 +978,7 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 0 },
-              location: { slug: "rm_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
             },
           ],
         },
@@ -995,7 +995,7 @@ describe("InventoryCoreService", () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("should handle null location slug in inventory", async () => {
+    it("should handle null location in inventory", async () => {
       // Arrange
       const { prisma } = await import("@/lib/core/prisma");
       vi.mocked(prisma.productVariant.findMany).mockResolvedValue([
@@ -1017,10 +1017,53 @@ describe("InventoryCoreService", () => {
       // Act
       await InventoryCoreService.checkLowStockTriggers();
 
-      // Assert - null slug not in allowed set, totalForAlert=0
+      // Assert - null location not in allowed set, totalForAlert=0
       expect(
         NotificationService.createBulkNotificationsThrottled,
       ).not.toHaveBeenCalled();
+    });
+
+    it("should count stock in a tenant-specific slug location as long as locationType/locationPurpose match (regression for slug-mismatch bug)", async () => {
+      // Arrange — mirrors the real bug: a tenant's warehouse slug is
+      // "gudang-bahan-baku", not the hardcoded "rm_warehouse". Old logic
+      // (slug Set lookup) would have missed this entirely and always
+      // counted 0, silently suppressing the low-stock notification.
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.productVariant.findMany).mockResolvedValue([
+        {
+          id: "pv-1",
+          minStockAlert: { toNumber: () => 100 },
+          name: "Product A",
+          inventories: [
+            {
+              quantity: { toNumber: () => 50 },
+              location: {
+                slug: "gudang-bahan-baku",
+                locationType: "INTERNAL",
+                locationPurpose: "RAW_MATERIAL",
+              },
+            },
+          ],
+        },
+      ] as any);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([
+        { id: "user-1" },
+      ] as any);
+      const { NotificationService } =
+        await import("@/services/core/notification-service");
+
+      // Act
+      await InventoryCoreService.checkLowStockTriggers();
+
+      // Assert - 50 < 100 threshold, notification IS sent despite non-canonical slug
+      expect(
+        NotificationService.createBulkNotificationsThrottled,
+      ).toHaveBeenCalledWith([
+        expect.objectContaining({
+          entityId: "pv-1",
+          message: expect.stringContaining("Current stock: 50."),
+        }),
+      ]);
     });
 
     it("should handle multiple variants, some low and some not", async () => {
@@ -1034,7 +1077,7 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 50 },
-              location: { slug: "rm_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
             },
           ],
         },
@@ -1045,7 +1088,7 @@ describe("InventoryCoreService", () => {
           inventories: [
             {
               quantity: { toNumber: () => 200 },
-              location: { slug: "fg_warehouse" },
+              location: { locationType: "INTERNAL", locationPurpose: "FINISHED_GOOD" },
             },
           ],
         },
