@@ -20,10 +20,18 @@ export interface MaterialRequirement {
 
 interface BomWithInventoryResult {
     success: boolean;
-    data?: MaterialRequirement[];
-    meta?: {
-        suggestedSourceLocationId?: string | null;
-        suggestedSourceLocationName?: string | null;
+    /**
+     * safeAction() always nests the action's return value under `data` — the
+     * action itself already returns `{ data, meta }`, so this is
+     * `{ data: { data: MaterialRequirement[], meta: {...} } }`, not a flat
+     * array. See docs/plan/2026-08-10-fix-bom-material-preview-nested-data-shape.md.
+     */
+    data?: {
+        data: MaterialRequirement[];
+        meta?: {
+            suggestedSourceLocationId?: string | null;
+            suggestedSourceLocationName?: string | null;
+        };
     };
     error?: string;
 }
@@ -89,8 +97,9 @@ export function useBomMaterialPreview({
                 // Ignore stale response
                 if (thisId !== requestId.current) return;
 
-                if (result.success && result.data) {
-                    const newItems = result.data.map((item) => ({
+                if (result.success && result.data?.data) {
+                    const materials = result.data.data;
+                    const newItems = materials.map((item) => ({
                         productVariantId: item.productVariantId,
                         quantity: item.requiredQty,
                     }));
@@ -100,7 +109,7 @@ export function useBomMaterialPreview({
                         string,
                         Omit<MaterialRequirement, 'requiredQty'>
                     > = {};
-                    result.data.forEach((item) => {
+                    materials.forEach((item) => {
                         infoMap[item.productVariantId] = {
                             productVariantId: item.productVariantId,
                             name: item.name,
@@ -116,9 +125,9 @@ export function useBomMaterialPreview({
                     setMaterialInfo(infoMap);
 
                     const suggestedId =
-                        result.meta?.suggestedSourceLocationId || null;
+                        result.data.meta?.suggestedSourceLocationId || null;
                     const suggestedName =
-                        result.meta?.suggestedSourceLocationName || null;
+                        result.data.meta?.suggestedSourceLocationName || null;
                     if (
                         suggestedId &&
                         suggestedName &&
