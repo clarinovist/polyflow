@@ -11,7 +11,12 @@ import {
     NotFoundError,
     BusinessRuleError,
 } from '@/lib/errors/errors';
-import { requireFinanceAccess, requireFinanceMutation, requireFinanceApprover } from '@/lib/auth/finance-access';
+import {
+    requireFinanceAccess,
+    requireFinanceMutation,
+    requireFinanceApprover,
+} from '@/lib/auth/finance-access';
+import { getWibMonthBounds } from '@/lib/utils/timezone';
 
 export const getFiscalPeriods = withTenant(async function getFiscalPeriods(
     year?: number,
@@ -36,10 +41,10 @@ export const getIncomeStatementSummary = withTenant(
             });
             if (!period) throw new NotFoundError('Fiscal Period', id);
 
-            const report = await getIncomeStatement(
-                period.startDate,
-                period.endDate,
-            );
+            // period.startDate/endDate are not trusted directly — see
+            // getWibMonthBounds doc comment (docs/plan/2026-08-10-fix-fiscal-period-wib-boundary-bug.md).
+            const { start, end } = getWibMonthBounds(period.year, period.month);
+            const report = await getIncomeStatement(start, end);
             return {
                 totalRevenue: report.totalRevenue,
                 totalOpEx: report.totalOpEx,
@@ -80,8 +85,10 @@ export const generatePeriodsForYear = withTenant(
             ];
 
             for (let i = 0; i < 12; i++) {
-                const startDate = new Date(year, i, 1);
-                const endDate = new Date(year, i + 1, 0); // Last day of month
+                const { start: startDate, end: endDate } = getWibMonthBounds(
+                    year,
+                    i + 1,
+                );
 
                 periods.push({
                     name: `${months[i]} ${year}`,
@@ -102,7 +109,7 @@ export const generatePeriodsForYear = withTenant(
 
 export const closePeriod = withTenant(async function closePeriod(id: string) {
     return safeAction(async () => {
-                const { logActivity } = await import('@/lib/tools/audit');
+        const { logActivity } = await import('@/lib/tools/audit');
 
         const session = await requireFinanceApprover();
 
@@ -145,7 +152,7 @@ export const closePeriod = withTenant(async function closePeriod(id: string) {
 
 export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
     return safeAction(async () => {
-                const { logActivity } = await import('@/lib/tools/audit');
+        const { logActivity } = await import('@/lib/tools/audit');
 
         const session = await requireFinanceApprover();
 

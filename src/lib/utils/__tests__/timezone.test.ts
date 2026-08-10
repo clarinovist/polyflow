@@ -9,6 +9,7 @@ import {
   formatWIB,
   parseBusinessDate,
   getWibDayBounds,
+  getWibMonthBounds,
   toBusinessDateString,
   businessDateToEntryDate,
   normalizeToBusinessDay,
@@ -128,6 +129,47 @@ describe('timezone utilities', () => {
     it('rejects invalid date strings', () => {
       expect(() => getWibDayBounds('not-a-date')).toThrow();
       expect(() => getWibDayBounds('2026-13-01')).toThrow();
+    });
+  });
+
+  describe('getWibMonthBounds', () => {
+    it('returns correct bounds for June 2026 (30-day month)', () => {
+      const { start, end } = getWibMonthBounds(2026, 6);
+      expect(start.toISOString()).toBe('2026-05-31T17:00:00.000Z');
+      expect(end.toISOString()).toBe('2026-06-30T16:59:59.999Z');
+    });
+
+    it('end bound stays within June — does not shift into July (the bug this fixes)', () => {
+      const { end } = getWibMonthBounds(2026, 6);
+      // 2026-07-01T00:00:00Z in WIB is already 1 Jul 07:00 — an entry dated
+      // there must NOT be included in June's bounds.
+      const july1Entry = new Date('2026-07-01T00:00:00.000Z');
+      expect(july1Entry > end).toBe(true);
+    });
+
+    it('handles a 31-day month (July 2026)', () => {
+      const { start, end } = getWibMonthBounds(2026, 7);
+      expect(start.toISOString()).toBe('2026-06-30T17:00:00.000Z');
+      expect(end.toISOString()).toBe('2026-07-31T16:59:59.999Z');
+    });
+
+    it('handles February in a leap year (2028)', () => {
+      const { start, end } = getWibMonthBounds(2028, 2);
+      expect(start.toISOString()).toBe('2028-01-31T17:00:00.000Z');
+      expect(end.toISOString()).toBe('2028-02-29T16:59:59.999Z');
+    });
+
+    it('handles February in a non-leap year (2026)', () => {
+      const { end } = getWibMonthBounds(2026, 2);
+      expect(end.toISOString()).toBe('2026-02-28T16:59:59.999Z');
+    });
+
+    it('handles December → does not shift into January next year', () => {
+      const { start, end } = getWibMonthBounds(2025, 12);
+      expect(start.toISOString()).toBe('2025-11-30T17:00:00.000Z');
+      expect(end.toISOString()).toBe('2025-12-31T16:59:59.999Z');
+      const jan1NextYear = new Date('2026-01-01T00:00:00.000Z');
+      expect(jan1NextYear > end).toBe(true);
     });
   });
 

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { toBusinessDateString } from '@/lib/utils/timezone';
+import { toBusinessDateString, getWibMonthBounds } from '@/lib/utils/timezone';
 
 export async function getFiscalPeriods() {
     return await prisma.fiscalPeriod.findMany({
@@ -12,8 +12,7 @@ export async function createFiscalPeriod(year: number, month: number) {
         month: 'long',
         year: 'numeric',
     });
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const { start: startDate, end: endDate } = getWibMonthBounds(year, month);
 
     return await prisma.fiscalPeriod.create({
         data: {

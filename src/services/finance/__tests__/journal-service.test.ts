@@ -438,6 +438,8 @@ describe("JournalsService", () => {
       vi.mocked(prisma.fiscalPeriod.findUnique).mockResolvedValue({
         id: "period-1",
         name: "January 2026",
+        year: 2026,
+        month: 1,
         startDate: new Date(2026, 0, 1),
         endDate: new Date(2026, 0, 31),
       } as never);
@@ -456,6 +458,8 @@ describe("JournalsService", () => {
       vi.mocked(prisma.fiscalPeriod.findUnique).mockResolvedValue({
         id: "period-1",
         name: "January 2026",
+        year: 2026,
+        month: 1,
         startDate: new Date(2026, 0, 1),
         endDate: new Date(2026, 0, 31),
       } as never);
@@ -502,6 +506,8 @@ describe("JournalsService", () => {
       vi.mocked(prisma.fiscalPeriod.findUnique).mockResolvedValue({
         id: "period-1",
         name: "January 2026",
+        year: 2026,
+        month: 1,
         startDate: new Date(2026, 0, 1),
         endDate: new Date(2026, 0, 31),
       } as never);
@@ -544,6 +550,8 @@ describe("JournalsService", () => {
       vi.mocked(prisma.fiscalPeriod.findUnique).mockResolvedValue({
         id: "period-1",
         name: "January 2026",
+        year: 2026,
+        month: 1,
         startDate: new Date(2026, 0, 1),
         endDate: new Date(2026, 0, 31),
       } as never);

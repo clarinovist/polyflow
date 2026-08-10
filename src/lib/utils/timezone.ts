@@ -124,6 +124,32 @@ export function getWibDayBounds(dateStr: string): {
 }
 
 /**
+ * Get inclusive WIB month bounds directly from a calendar year/month —
+ * deliberately does NOT round-trip through a stored Date field, because a
+ * naive "last day 23:59:59" Date (e.g. FiscalPeriod.endDate, constructed as
+ * `new Date(year, month, 0, 23, 59, 59)` on a UTC server) is +7h off from
+ * true WIB end-of-day and shifts into the 1st of the NEXT month once
+ * converted back via toBusinessDateString. Computing straight from
+ * year/month avoids that round-trip entirely.
+ *
+ * Example: getWibMonthBounds(2026, 6)
+ *   start = 2026-05-31T17:00:00.000Z  (1 Jun 00:00 WIB)
+ *   end   = 2026-06-30T16:59:59.999Z  (30 Jun 23:59:59.999 WIB)
+ */
+export function getWibMonthBounds(
+    year: number,
+    month: number,
+): { start: Date; end: Date } {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(year, month, 0).getDate();
+    const start = getWibDayBounds(`${year}-${pad(month)}-01`).startOfDay;
+    const end = getWibDayBounds(
+        `${year}-${pad(month)}-${pad(lastDay)}`,
+    ).endOfDay;
+    return { start, end };
+}
+
+/**
  * From a Date (that may be browser-local midnight from date picker),
  * extract the YYYY-MM-DD business date string in WIB.
  *

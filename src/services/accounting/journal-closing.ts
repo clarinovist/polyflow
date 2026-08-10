@@ -4,6 +4,7 @@ import { getClosingBalances } from './reports-service';
 import { resolveAccount } from './account-resolver';
 import { createJournalEntry } from './journal-posting';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
+import { getWibMonthBounds } from '@/lib/utils/timezone';
 
 export async function createClosingJournalEntry(
     periodId: string,
@@ -32,7 +33,18 @@ export async function createClosingJournalEntry(
         await db.journalEntry.delete({ where: { id: existing.id } });
     }
 
-    const balances = await getClosingBalances(period.startDate, period.endDate);
+    // Use WIB month bounds derived from year/month directly, not
+    // period.startDate/endDate — those are stored as naive "23:59:59" values
+    // that shift +7h into the 1st of the NEXT month once converted to WIB
+    // calendar dates, which would both silently pull next-month journal
+    // entries into this month's closing balances AND make the isPeriodOpen
+    // check inside createJournalEntry below check the wrong period.
+    const { start: periodStart, end: periodEnd } = getWibMonthBounds(
+        period.year,
+        period.month,
+    );
+
+    const balances = await getClosingBalances(periodStart, periodEnd);
     if (balances.length === 0) return null;
 
     let totalNetIncome = 0;
@@ -76,7 +88,7 @@ export async function createClosingJournalEntry(
 
     return await createJournalEntry(
         {
-            entryDate: period.endDate,
+            entryDate: periodEnd,
             description: `Closing Entries for ${period.name}`,
             reference,
             referenceType: 'MANUAL_ENTRY',
@@ -131,14 +143,20 @@ export async function createYearEndClosingEntry(
             resolvedRetained.id,
         );
 
+    // Same WIB boundary issue as createClosingJournalEntry above: derive the
+    // year's bounds from year/month directly rather than naive Date(year,
+    // 11, 31, 23, 59, 59), which shifts +7h into 1 Jan of the NEXT year.
+    const yearStart = getWibMonthBounds(year, 1).start;
+    const yearEnd = getWibMonthBounds(year, 12).end;
+
     // Calculate sum of all journal lines for 33000 in this year
     const journalLines = await db.journalLine.findMany({
         where: {
             accountId: earningsAccount.id,
             journalEntry: {
                 entryDate: {
-                    gte: new Date(year, 0, 1),
-                    lte: new Date(year, 11, 31, 23, 59, 59),
+                    gte: yearStart,
+                    lte: yearEnd,
                 },
                 status: 'POSTED',
             },
@@ -180,7 +198,7 @@ export async function createYearEndClosingEntry(
 
     return await createJournalEntry(
         {
-            entryDate: new Date(year, 11, 31, 23, 59, 59),
+            entryDate: yearEnd,
             description: `Year-End Closing Entry ${year}`,
             reference,
             referenceType: 'MANUAL_ENTRY',

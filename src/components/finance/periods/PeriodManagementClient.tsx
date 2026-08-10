@@ -260,7 +260,17 @@ export function PeriodManagementClient({
                                         </TableCell>
                                         <TableCell>
                                             {format(
-                                                new Date(period.endDate),
+                                                // Not period.endDate directly — older
+                                                // periods stored it as a naive
+                                                // 23:59:59 value that displays as the
+                                                // 1st of the next month. The last
+                                                // calendar day of the month is fully
+                                                // determined by year/month alone.
+                                                new Date(
+                                                    period.year,
+                                                    period.month,
+                                                    0,
+                                                ),
                                                 'dd MMM yyyy',
                                             )}
                                         </TableCell>
