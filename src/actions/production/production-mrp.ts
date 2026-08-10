@@ -1,7 +1,7 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantIdFromContext } from '@/lib/core/prisma';
 import { logger } from '@/lib/config/logger';
 import {
     safeAction,
@@ -34,6 +34,13 @@ export const getBomWithInventory = withTenant(
                     plannedQuantity,
                 );
                 if (!result.ok) {
+                    logger.warn('getBomWithInventory failed', {
+                        bomId,
+                        sourceLocationId,
+                        tenantId: getTenantIdFromContext(),
+                        error: result.error.message,
+                        module: 'ProductionActions',
+                    });
                     throw new BusinessRuleError(result.error.message);
                 }
                 return result.value;

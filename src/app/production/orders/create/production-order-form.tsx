@@ -742,6 +742,7 @@ export function ProductionOrderForm({
             suggestedSource={materialPreview.suggestedSource}
             isCalculating={materialPreview.isCalculating}
             hasStockIssues={hasStockIssues}
+            error={materialPreview.error}
             onAcceptSuggestedSource={handleAcceptSuggestedSource}
             editable={step === 3}
             rawMaterials={rawMaterials}

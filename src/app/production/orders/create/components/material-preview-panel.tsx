@@ -36,6 +36,8 @@ interface MaterialPreviewPanelProps {
     suggestedSource: { id: string; name: string } | null;
     isCalculating: boolean;
     hasStockIssues: boolean;
+    /** Set when the last material calculation request failed (see use-bom-material-preview) */
+    error?: string | null;
     onAcceptSuggestedSource: () => void;
     /** C1: Editable mode — enables qty editing and add/remove lines */
     editable?: boolean;
@@ -56,6 +58,7 @@ export function MaterialPreviewPanel({
     suggestedSource,
     isCalculating,
     hasStockIssues,
+    error,
     onAcceptSuggestedSource,
     editable = false,
     rawMaterials = [],
@@ -124,6 +127,18 @@ export function MaterialPreviewPanel({
                             >
                                 Pakai gudang ini
                             </Button>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {error && items.length === 0 && (
+                    <Alert variant="destructive" className="py-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle className="text-sm">
+                            Gagal menghitung kebutuhan bahan
+                        </AlertTitle>
+                        <AlertDescription className="text-xs">
+                            Coba lagi atau hubungi admin.
                         </AlertDescription>
                     </Alert>
                 )}
