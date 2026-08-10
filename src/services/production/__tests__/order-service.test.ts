@@ -161,6 +161,9 @@ describe("ProductionOrderService", () => {
     ] as any);
     vi.mocked(prisma.inventory.findMany).mockResolvedValue([] as any);
     vi.mocked(prisma.inventory.findFirst).mockResolvedValue(null as any);
+    // Per-material source resolution reads product types; individual tests
+    // override this when the type decides which warehouse is picked.
+    vi.mocked(prisma.productVariant.findMany).mockResolvedValue([] as any);
     vi.mocked(prisma.location.findUnique as any).mockResolvedValue({
       id: "loc-1",
       name: "Finished Goods WH",
@@ -278,8 +281,8 @@ describe("ProductionOrderService", () => {
         ],
       } as any);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
-        { productVariantId: "pv-1", quantity: dec(1000) },
-        { productVariantId: "pv-2", quantity: dec(500) },
+        { productVariantId: "pv-1", locationId: "loc-1", quantity: dec(1000) },
+        { productVariantId: "pv-2", locationId: "loc-1", quantity: dec(500) },
       ] as any);
 
       const r = await ProductionOrderService.getBomWithInventory(
@@ -297,7 +300,7 @@ describe("ProductionOrderService", () => {
       }
     });
 
-    it("should suggest RM warehouse when source has no stock but RM does", async () => {
+    it("should suggest the other warehouse when every material resolved away", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue({
         id: "bom-1",
         outputQuantity: dec(100),
@@ -305,18 +308,18 @@ describe("ProductionOrderService", () => {
           {
             productVariantId: "pv-1",
             quantity: dec(100),
-            productVariant: { name: "A", primaryUnit: "kg" },
+            productVariant: {
+              name: "A",
+              primaryUnit: "kg",
+              product: { productType: "RAW_MATERIAL" },
+            },
           },
         ],
       } as any);
-      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
-      vi.mocked(prisma.location.findUnique).mockResolvedValue({
-        id: "rm-loc",
-        name: "RM WH",
-      } as any);
-      vi.mocked(prisma.inventory.findFirst).mockResolvedValue({
-        id: "inv-rm",
-      } as any);
+      // Stock lives in the RM warehouse, the caller pointed at FG
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+        { productVariantId: "pv-1", locationId: "rm-1", quantity: dec(500) },
+      ] as any);
 
       const r = await ProductionOrderService.getBomWithInventory(
         "bom-1",
@@ -325,8 +328,53 @@ describe("ProductionOrderService", () => {
       );
       expect(r.ok).toBe(true);
       if (r.ok) {
-        expect(r.value.meta.suggestedSourceLocationId).toBe("rm-loc");
+        expect(r.value.data[0].sourceLocationId).toBe("rm-1");
+        expect(r.value.meta.suggestedSourceLocationId).toBe("rm-1");
         expect(r.value.meta.suggestedSourceLocationName).toBe("RM WH");
+      }
+    });
+
+    it("should not suggest a single warehouse when materials span several", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue({
+        id: "bom-1",
+        outputQuantity: dec(100),
+        items: [
+          {
+            productVariantId: "pv-1",
+            quantity: dec(100),
+            productVariant: {
+              name: "Raw",
+              primaryUnit: "kg",
+              product: { productType: "RAW_MATERIAL" },
+            },
+          },
+          {
+            productVariantId: "pv-2",
+            quantity: dec(10),
+            productVariant: {
+              name: "Adonan",
+              primaryUnit: "kg",
+              product: { productType: "INTERMEDIATE" },
+            },
+          },
+        ],
+      } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+        { productVariantId: "pv-1", locationId: "rm-1", quantity: dec(500) },
+        { productVariantId: "pv-2", locationId: "wip-1", quantity: dec(500) },
+      ] as any);
+
+      const r = await ProductionOrderService.getBomWithInventory(
+        "bom-1",
+        "loc-1",
+        100,
+      );
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        // Each line names its own warehouse, so no order-wide suggestion
+        expect(r.value.data[0].sourceLocationId).toBe("rm-1");
+        expect(r.value.data[1].sourceLocationId).toBe("wip-1");
+        expect(r.value.meta.suggestedSourceLocationId).toBeNull();
       }
     });
 
@@ -425,7 +473,7 @@ describe("ProductionOrderService", () => {
         ],
       } as any);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
-        { productVariantId: "pv-1", quantity: dec(200) },
+        { productVariantId: "pv-1", locationId: "loc-1", quantity: dec(200) },
       ] as any);
 
       const r = await ProductionOrderService.getBomWithInventory(
@@ -796,7 +844,7 @@ describe("ProductionOrderService", () => {
     it("should keep DRAFT when stock sufficient", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
-        { productVariantId: "pv-1", quantity: dec(1000) },
+        { productVariantId: "pv-1", locationId: "rm-1", quantity: dec(1000) },
       ] as any);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
@@ -812,8 +860,22 @@ describe("ProductionOrderService", () => {
     it("should use materialSourceLocationId for shortage check when provided", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       // Stock at output location is EMPTY, but stock at source location is sufficient
+      vi.mocked(prisma.location.findMany).mockResolvedValue([
+        {
+          id: "source-loc",
+          name: "Source WH",
+          slug: "gudang-bahan-baku",
+          locationPurpose: "RAW_MATERIAL",
+        },
+        {
+          id: "output-loc",
+          name: "Output WH",
+          slug: "gudang-barang-jadi",
+          locationPurpose: "FINISHED_GOOD",
+        },
+      ] as any);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
-        { productVariantId: "pv-1", quantity: dec(500) },
+        { productVariantId: "pv-1", locationId: "source-loc", quantity: dec(500) },
       ] as any);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
@@ -825,10 +887,13 @@ describe("ProductionOrderService", () => {
         materialSourceLocationId: "source-loc",
         items: [{ productVariantId: "pv-1", quantity: 100 }],
       });
-      // Inventory should be queried at source-loc, not output-loc
+      // Stock is looked up per variant across warehouses, no longer pinned to
+      // one location — the caller's source still satisfies the requirement.
       expect(prisma.inventory.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ locationId: "source-loc" }),
+          where: expect.objectContaining({
+            productVariantId: { in: ["pv-1"] },
+          }),
         }),
       );
       expect(r.status).toBe(ProductionStatus.DRAFT);
@@ -836,9 +901,9 @@ describe("ProductionOrderService", () => {
 
     it("should set WAITING_MATERIAL when stock at source is insufficient", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
-      // Stock at source location is insufficient
+      // Stock is insufficient in every warehouse, not just the source
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
-        { productVariantId: "pv-1", quantity: dec(5) },
+        { productVariantId: "pv-1", locationId: "rm-1", quantity: dec(5) },
       ] as any);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
@@ -863,7 +928,7 @@ describe("ProductionOrderService", () => {
         { id: "mix-1", name: "Mix", slug: "mixing_area", locationPurpose: "MIXING" },
       ] as any);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
-        { productVariantId: "pv-1", quantity: dec(500) },
+        { productVariantId: "pv-1", locationId: "rm-1", quantity: dec(500) },
       ] as any);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
@@ -875,10 +940,13 @@ describe("ProductionOrderService", () => {
         // no materialSourceLocationId → fallback to resolver
         items: [{ productVariantId: "pv-1", quantity: 100 }],
       });
-      // Should resolve source = RM for MIXING stage
+      // MIXING resolves its stage source to RM, and the stock there covers the
+      // requirement — the lookup itself now spans warehouses.
       expect(prisma.inventory.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ locationId: "rm-1" }),
+          where: expect.objectContaining({
+            productVariantId: { in: ["pv-1"] },
+          }),
         }),
       );
       expect(r.status).toBe(ProductionStatus.DRAFT);

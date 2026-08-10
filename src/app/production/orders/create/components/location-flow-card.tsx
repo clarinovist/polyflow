@@ -22,6 +22,8 @@ import {
 interface LocationFlowCardProps {
     stage: ProductionStage;
     sourceLocationName: string;
+    /** Warehouses the materials actually resolve to, one entry per distinct one */
+    materialSourceNames?: string[];
     outputLocationId: string;
     onOutputLocationChange: (id: string) => void;
     activeLocations: LocationLike[];
@@ -36,6 +38,7 @@ interface LocationFlowCardProps {
 export function LocationFlowCard({
     stage,
     sourceLocationName,
+    materialSourceNames = [],
     outputLocationId,
     onOutputLocationChange,
     activeLocations,
@@ -73,12 +76,15 @@ export function LocationFlowCard({
                     <Label className="text-xs text-muted-foreground">
                         Asal bahan (cek stok)
                     </Label>
-                    <div className="flex h-10 items-center rounded-md border bg-background px-3 text-sm">
-                        {sourceLocationName}
+                    <div className="flex min-h-10 items-center rounded-md border bg-background px-3 py-1.5 text-sm">
+                        {materialSourceNames.length > 0
+                            ? materialSourceNames.join(' · ')
+                            : sourceLocationName}
                     </div>
                     <p className="text-[10px] text-muted-foreground">
-                        Dipakai untuk cek ketersediaan material. Bukan tujuan
-                        transfer staging.
+                        {materialSourceNames.length > 1
+                            ? 'Ditentukan per bahan — kemasan dari gudang pengemas, adonan dari WIP.'
+                            : 'Dipakai untuk cek ketersediaan material. Bukan tujuan transfer staging.'}
                     </p>
                 </div>
                 <div className="hidden sm:flex items-center justify-center pb-6 text-muted-foreground">

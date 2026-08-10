@@ -93,6 +93,9 @@ function buildRawMaterialMeta(
             stdQty: number;
             bomOutput: number;
             currentStock: number;
+            totalStock: number;
+            sourceLocationId: string;
+            sourceLocationName: string;
         }
     > = {};
     for (const rm of rawMaterials) {
@@ -103,6 +106,9 @@ function buildRawMaterialMeta(
             stdQty: 0,
             bomOutput: 0,
             currentStock: 0,
+            totalStock: 0,
+            sourceLocationId: '',
+            sourceLocationName: '',
         };
     }
     return map;
@@ -364,12 +370,30 @@ export function ProductionOrderForm({
         return { ...rmMeta, ...materialPreview.materialInfo };
     }, [rawMaterials, materialPreview.materialInfo]);
 
-    // Stock issues: only for BOM-sourced items (have inventory snapshot in preview)
+    // Distinct warehouses the materials resolve to — a SPK regularly spans more
+    // than one (packaging supplies, WIP batches, raw materials).
+    const materialSourceNames = useMemo(() => {
+        return Array.from(
+            new Set(
+                displayItems
+                    .map(
+                        (item) =>
+                            materialPreview.materialInfo[item.productVariantId]
+                                ?.sourceLocationName || '',
+                    )
+                    .filter(Boolean),
+            ),
+        );
+    }, [displayItems, materialPreview.materialInfo]);
+
+    // Stock issues: only for BOM-sourced items (have inventory snapshot in preview).
+    // Compared against stock across all warehouses so a material sitting in the
+    // packaging store no longer reads as missing.
     const hasStockIssues = useMemo(() => {
         return displayItems.some((item) => {
             const fromBom = materialPreview.materialInfo[item.productVariantId];
             if (!fromBom) return false; // ad-hoc line, no inventory snapshot
-            return item.quantity > fromBom.currentStock; // 0 stock → true shortage
+            return item.quantity > (fromBom.totalStock ?? fromBom.currentStock);
         });
     }, [displayItems, materialPreview.materialInfo]);
 
@@ -840,6 +864,9 @@ export function ProductionOrderForm({
                                     <LocationFlowCard
                                         stage={stage}
                                         sourceLocationName={sourceLocationName}
+                                        materialSourceNames={
+                                            materialSourceNames
+                                        }
                                         outputLocationId={
                                             (watchLocationId as string) || ''
                                         }

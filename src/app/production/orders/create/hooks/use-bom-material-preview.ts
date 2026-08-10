@@ -9,7 +9,13 @@ export interface MaterialRequirement {
     stdQty: number;
     bomOutput: number;
     requiredQty: number;
+    /** Stock at the warehouse this material resolves to */
     currentStock: number;
+    /** Stock across every eligible warehouse */
+    totalStock: number;
+    /** Warehouse this material is drawn from — varies per material */
+    sourceLocationId: string;
+    sourceLocationName: string;
 }
 
 interface BomWithInventoryResult {
@@ -102,6 +108,9 @@ export function useBomMaterialPreview({
                             stdQty: item.stdQty,
                             bomOutput: item.bomOutput,
                             currentStock: item.currentStock,
+                            totalStock: item.totalStock,
+                            sourceLocationId: item.sourceLocationId,
+                            sourceLocationName: item.sourceLocationName,
                         };
                     });
                     setMaterialInfo(infoMap);

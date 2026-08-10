@@ -13,7 +13,8 @@ import {
     ReservationType,
 } from '@prisma/client';
 
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { ISSUABLE_MATERIAL_TYPES } from '@/lib/constants/products';
+import { resolveMaterialSources } from './material-source-resolver';
 import {
     BusinessRuleError,
     NotFoundError,
@@ -66,7 +67,7 @@ export class ProductionOrderService {
             prisma.machine.findMany({
                 where: { status: 'ACTIVE' },
             }),
-            prisma.location.findMany(),
+            prisma.location.findMany({ orderBy: { name: 'asc' } }),
             prisma.employee.findMany({
                 orderBy: { name: 'asc' },
             }),
@@ -77,7 +78,7 @@ export class ProductionOrderService {
             prisma.productVariant.findMany({
                 where: {
                     product: {
-                        productType: { in: ['RAW_MATERIAL', 'PACKAGING'] },
+                        productType: { in: [...ISSUABLE_MATERIAL_TYPES] },
                     },
                 },
                 include: {
@@ -137,7 +138,7 @@ export class ProductionOrderService {
             include: {
                 items: {
                     include: {
-                        productVariant: true,
+                        productVariant: { include: { product: true } },
                     },
                 },
             },
@@ -145,74 +146,68 @@ export class ProductionOrderService {
 
         if (!bom) return Err(new Error('Recipe not found'));
 
-        const variantIds = bom.items.map((i) => i.productVariantId);
+        const requirements = bom.items.map((item) => ({
+            item,
+            requiredQty:
+                (Number(item.quantity) / Number(bom.outputQuantity)) *
+                plannedQuantity,
+        }));
 
-        // Fetch inventory rows in bulk
-        const sourceInventoryRows = sourceLocationId
-            ? await prisma.inventory.findMany({
-                  where: {
-                      locationId: sourceLocationId,
-                      productVariantId: { in: variantIds },
-                  },
-                  select: { productVariantId: true, quantity: true },
-              })
-            : [];
-
-        const sourceStockMap = new Map<string, number>();
-        sourceInventoryRows.forEach((r) =>
-            sourceStockMap.set(r.productVariantId, r.quantity.toNumber()),
+        // Each material resolves its own warehouse: packaging supplies and WIP
+        // batches do not live where raw materials do.
+        const resolutions = await resolveMaterialSources({
+            materials: requirements.map(({ item, requiredQty }) => ({
+                productVariantId: item.productVariantId,
+                productType: item.productVariant.product?.productType,
+                requiredQty,
+            })),
+            fallbackLocationId: sourceLocationId || null,
+        });
+        const resolutionByVariant = new Map(
+            resolutions.map((r) => [r.productVariantId, r]),
         );
 
-        let suggestedSourceLocation: { id: string; name: string } | null = null;
-        if (
+        const materialRequirements = requirements.map(
+            ({ item, requiredQty }) => {
+                const resolved = resolutionByVariant.get(item.productVariantId);
+
+                return {
+                    productVariantId: item.productVariantId,
+                    name: item.productVariant.name,
+                    unit: item.productVariant.primaryUnit,
+                    stdQty: item.quantity.toNumber(),
+                    bomOutput: bom.outputQuantity.toNumber(),
+                    requiredQty,
+                    currentStock: resolved?.stockAtSource ?? 0,
+                    totalStock: resolved?.totalStock ?? 0,
+                    sourceLocationId: resolved?.sourceLocationId ?? '',
+                    sourceLocationName: resolved?.sourceLocationName ?? '',
+                };
+            },
+        );
+
+        // Only flag a different warehouse when EVERY material resolved away from
+        // the requested one — otherwise the per-item column already says it.
+        const resolvedIds = new Set(
+            materialRequirements
+                .map((m) => m.sourceLocationId)
+                .filter((id) => id !== ''),
+        );
+        const singleAlternative =
             sourceLocationId &&
-            !sourceInventoryRows.some((r) => r.quantity.toNumber() > 0)
-        ) {
-            const rmLocation = await prisma.location.findUnique({
-                where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL },
-                select: { id: true, name: true },
-            });
-
-            if (rmLocation && rmLocation.id !== sourceLocationId) {
-                const rmHasAny = await prisma.inventory.findFirst({
-                    where: {
-                        locationId: rmLocation.id,
-                        productVariantId: { in: variantIds },
-                        quantity: { gt: 0 },
-                    },
-                    select: { id: true },
-                });
-
-                if (rmHasAny) suggestedSourceLocation = rmLocation;
-            }
-        }
-
-        const materialRequirements = bom.items.map((item) => {
-            const requiredQty =
-                (Number(item.quantity) / Number(bom.outputQuantity)) *
-                plannedQuantity;
-            const currentStock = sourceLocationId
-                ? sourceStockMap.get(item.productVariantId) || 0
-                : 0;
-
-            return {
-                productVariantId: item.productVariantId,
-                name: item.productVariant.name,
-                unit: item.productVariant.primaryUnit,
-                stdQty: item.quantity.toNumber(),
-                bomOutput: bom.outputQuantity.toNumber(),
-                requiredQty,
-                currentStock,
-            };
-        });
+            resolvedIds.size === 1 &&
+            !resolvedIds.has(sourceLocationId)
+                ? materialRequirements.find((m) => m.sourceLocationId !== '')
+                : null;
 
         return Ok({
             data: materialRequirements,
             meta: {
                 requestedSourceLocationId: sourceLocationId,
-                suggestedSourceLocationId: suggestedSourceLocation?.id || null,
+                suggestedSourceLocationId:
+                    singleAlternative?.sourceLocationId || null,
                 suggestedSourceLocationName:
-                    suggestedSourceLocation?.name || null,
+                    singleAlternative?.sourceLocationName || null,
             },
         });
     }
@@ -221,7 +216,10 @@ export class ProductionOrderService {
      * Create a new Production Order
      */
     static async createOrder(
-        data: CreateProductionOrderValues & { userId?: string; clientRequestId?: string },
+        data: CreateProductionOrderValues & {
+            userId?: string;
+            clientRequestId?: string;
+        },
         tx?: Prisma.TransactionClient,
     ) {
         const {
@@ -304,25 +302,33 @@ export class ProductionOrderService {
                     },
                 });
                 if (bomWithProduct?.productVariant?.product?.productType) {
-                    const productType = bomWithProduct.productVariant.product.productType;
+                    const productType =
+                        bomWithProduct.productVariant.product.productType;
                     const purpose = targetLoc.locationPurpose;
                     const isValidCombo =
                         // FINISHED_GOOD can land in FG or Kiyowo packing floor (PACKING, not supplies — risky check already blocks supplies)
                         (productType === 'FINISHED_GOOD' &&
-                            (purpose === 'FINISHED_GOOD' || purpose === 'PACKING')) ||
+                            (purpose === 'FINISHED_GOOD' ||
+                                purpose === 'PACKING')) ||
                         // INTERMEDIATE/WIP: MIXING is alias of WIP per resolve-location.ts
                         (productType === 'INTERMEDIATE' &&
                             (purpose === 'WIP' || purpose === 'MIXING')) ||
-                        (productType === 'WIP' && (purpose === 'WIP' || purpose === 'MIXING')) ||
+                        (productType === 'WIP' &&
+                            (purpose === 'WIP' || purpose === 'MIXING')) ||
                         // PACKAGING products (Kiyowo bag output) land in packing_area; Melindo fallback FG
                         (productType === 'PACKAGING' &&
-                            (purpose === 'PACKING' || purpose === 'FINISHED_GOOD')) ||
+                            (purpose === 'PACKING' ||
+                                purpose === 'FINISHED_GOOD')) ||
                         (productType === 'SCRAP' && purpose === 'SCRAP') ||
                         purpose === 'GENERAL_PURPOSE';
                     if (!isValidCombo) {
                         throw new BusinessRuleError(
                             `Lokasi output "${targetLoc.name}" (${purpose}) tidak cocok untuk produk tipe ${productType}. Produk ${productType} seharusnya diproduksi di lokasi dengan purpose ${productType === 'FINISHED_GOOD' ? 'FINISHED_GOOD' : 'WIP'}.`,
-                            { locationId, locationPurpose: purpose, productType },
+                            {
+                                locationId,
+                                locationPurpose: purpose,
+                                productType,
+                            },
                             'LOCATION_PRODUCT_MISMATCH',
                         );
                     }
@@ -338,22 +344,36 @@ export class ProductionOrderService {
                 });
 
                 if (machine) {
-                    const routeStepId = (data as unknown as { routeStepId?: string }).routeStepId;
+                    const routeStepId = (
+                        data as unknown as { routeStepId?: string }
+                    ).routeStepId;
                     let capabilityOk: boolean | null = null;
 
                     if (routeStepId) {
-                        const rs = await transaction.productionRouteStep.findUnique({
-                            where: { id: routeStepId },
-                            select: { processId: true },
-                        });
+                        const rs =
+                            await transaction.productionRouteStep.findUnique({
+                                where: { id: routeStepId },
+                                select: { processId: true },
+                            });
                         if (rs) {
-                            const cap = await transaction.machineProcessCapability.findUnique({
-                                where: { machineId_processId: { machineId, processId: rs.processId } },
-                            });
-                            const hasAnyCapForProcess = await transaction.machineProcessCapability.findFirst({
-                                where: { processId: rs.processId },
-                                select: { id: true },
-                            });
+                            const cap =
+                                await transaction.machineProcessCapability.findUnique(
+                                    {
+                                        where: {
+                                            machineId_processId: {
+                                                machineId,
+                                                processId: rs.processId,
+                                            },
+                                        },
+                                    },
+                                );
+                            const hasAnyCapForProcess =
+                                await transaction.machineProcessCapability.findFirst(
+                                    {
+                                        where: { processId: rs.processId },
+                                        select: { id: true },
+                                    },
+                                );
                             // If process has capabilities defined, enforce them; otherwise fallback to legacy
                             if (hasAnyCapForProcess) {
                                 capabilityOk = !!cap;
@@ -444,29 +464,33 @@ export class ProductionOrderService {
                     );
                 }
 
-                if (shortageLocationId) {
-                    const inventoryRows = await transaction.inventory.findMany({
-                        where: {
-                            locationId: shortageLocationId,
-                            productVariantId: { in: variantIds },
-                        },
-                    });
+                const variantTypes = await transaction.productVariant.findMany({
+                    where: { id: { in: variantIds } },
+                    select: {
+                        id: true,
+                        product: { select: { productType: true } },
+                    },
+                });
+                const typeByVariant = new Map(
+                    variantTypes.map((v) => [v.id, v.product?.productType]),
+                );
 
-                    const isShortage = materialsToCreate.some((m) => {
-                        const stock =
-                            inventoryRows
-                                .find(
-                                    (ir) =>
-                                        ir.productVariantId ===
-                                        m.productVariantId,
-                                )
-                                ?.quantity.toNumber() || 0;
-                        return m.quantity > stock;
-                    });
+                // Materials spread across warehouses: a packing order draws
+                // supplies from the packaging store and product from FG. Judging
+                // every line against one location reported stock on the shelf as
+                // missing, so every packing order opened as WAITING_MATERIAL.
+                const resolutions = await resolveMaterialSources({
+                    materials: materialsToCreate.map((m) => ({
+                        productVariantId: m.productVariantId,
+                        productType: typeByVariant.get(m.productVariantId),
+                        requiredQty: m.quantity,
+                    })),
+                    fallbackLocationId: shortageLocationId || null,
+                    client: transaction,
+                });
 
-                    if (isShortage) {
-                        initialStatus = ProductionStatus.WAITING_MATERIAL;
-                    }
+                if (resolutions.some((r) => r.isShortage)) {
+                    initialStatus = ProductionStatus.WAITING_MATERIAL;
                 }
             }
 
@@ -894,7 +918,10 @@ export class ProductionOrderService {
             if (!existing) throw new NotFoundError('Production Order', id);
 
             if (locationId) {
-                if (existing.status === 'COMPLETED' || existing.status === 'CANCELLED') {
+                if (
+                    existing.status === 'COMPLETED' ||
+                    existing.status === 'CANCELLED'
+                ) {
                     throw new BusinessRuleError(
                         'Lokasi output tidak bisa diubah untuk SPK yang sudah selesai atau dibatalkan.',
                         { status: existing.status, orderId: id },
@@ -904,7 +931,12 @@ export class ProductionOrderService {
 
                 const location = await tx.location.findUnique({
                     where: { id: locationId },
-                    select: { id: true, name: true, slug: true, locationPurpose: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        locationPurpose: true,
+                    },
                 });
                 if (!location) throw new NotFoundError('Location', locationId);
                 if (isInactiveLocation(location)) {
@@ -925,7 +957,11 @@ export class ProductionOrderService {
 
             // B3: every routed status transition is validated and persisted in this transaction.
             if (machineId && existing.routeStepId) {
-                await assertMachineCapableForOrder(tx, existing as never, machineId);
+                await assertMachineCapableForOrder(
+                    tx,
+                    existing as never,
+                    machineId,
+                );
             }
 
             // Readiness is only a start guard. Final transitions must be allowed to
@@ -960,15 +996,25 @@ export class ProductionOrderService {
                         where: {
                             reservedFor: ReservationType.PRODUCTION_ORDER,
                             referenceId: id,
-                            status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] },
+                            status: {
+                                in: [
+                                    ReservationStatus.ACTIVE,
+                                    ReservationStatus.WAITING,
+                                ],
+                            },
                         },
                         data: { status: ReservationStatus.CANCELLED },
                     });
                 }
-                await syncProductionRunStatusFromOrders(tx, existing.productionRunId, {
-                    triggerOrderId: id,
-                    completedAt: status === 'COMPLETED' ? new Date() : undefined,
-                });
+                await syncProductionRunStatusFromOrders(
+                    tx,
+                    existing.productionRunId,
+                    {
+                        triggerOrderId: id,
+                        completedAt:
+                            status === 'COMPLETED' ? new Date() : undefined,
+                    },
+                );
             }
 
             return updated;

@@ -27,13 +27,21 @@ import { Location, ProductVariant } from '@prisma/client';
 import { ExtendedProductionOrder } from './types';
 import { recordAdHocMaterialUsage } from '@/actions/production/production';
 import { productionComponentLabels } from '@/lib/labels';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import {
+    resolveLocationIdByRole,
+    resolveMaterialSourceLocationId,
+    type LocationLike,
+} from '@/lib/locations/resolve-location';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
+
+type MaterialVariant = ProductVariant & {
+    product?: { productType?: string | null } | null;
+};
 
 interface AdHocMaterialUsageDialogProps {
     order: ExtendedProductionOrder;
     locations: Location[];
-    rawMaterials: ProductVariant[];
+    rawMaterials: MaterialVariant[];
 }
 
 export function AdHocMaterialUsageDialog({
@@ -51,13 +59,28 @@ export function AdHocMaterialUsageDialog({
     // Stable per-submit idempotency key — generated once at mount, reset on open
     const [requestId, setRequestId] = useState(() => crypto.randomUUID());
 
-    // Default location: Raw Material Warehouse
+    const selectedVariant = rawMaterials.find(
+        (m) => m.id === selectedVariantId,
+    );
+
+    // Default warehouse follows the selected material: packaging supplies and
+    // WIP batches are stored apart from raw materials. Resolved by role rather
+    // than a hardcoded slug, since tenants name their warehouses differently.
     const defaultLocationId = useMemo(() => {
-        const rmLoc = locations.find(
-            (l) => l.slug === WAREHOUSE_SLUGS.RAW_MATERIAL,
+        const rawMaterialId = resolveLocationIdByRole(
+            locations as LocationLike[],
+            'RAW_MATERIAL',
         );
-        return rmLoc?.id || locations[0]?.id || '';
-    }, [locations]);
+        return (
+            resolveMaterialSourceLocationId(
+                locations as LocationLike[],
+                selectedVariant?.product?.productType,
+                rawMaterialId,
+            ) ||
+            locations[0]?.id ||
+            ''
+        );
+    }, [locations, selectedVariant]);
 
     // Reset form on open
     const handleOpenChange = (isOpen: boolean) => {
@@ -65,15 +88,14 @@ export function AdHocMaterialUsageDialog({
         if (isOpen) {
             setSelectedVariantId('');
             setQuantity(0);
-            setSelectedLocationId(defaultLocationId);
+            setSelectedLocationId('');
             setReason('');
             setRequestId(crypto.randomUUID());
         }
     };
 
-    const selectedVariant = rawMaterials.find(
-        (m) => m.id === selectedVariantId,
-    );
+    // Follow the resolved default until the user picks a warehouse themselves
+    const effectiveLocationId = selectedLocationId || defaultLocationId;
 
     const handleSubmit = async () => {
         if (!selectedVariantId || quantity <= 0) {
@@ -86,7 +108,7 @@ export function AdHocMaterialUsageDialog({
             const result = await recordAdHocMaterialUsage({
                 productionOrderId: order.id,
                 productVariantId: selectedVariantId,
-                locationId: selectedLocationId || defaultLocationId,
+                locationId: effectiveLocationId,
                 quantity,
                 reason: reason ? sanitizeHtml(reason) : undefined,
                 requestId,
@@ -99,7 +121,7 @@ export function AdHocMaterialUsageDialog({
                         locations.find(
                             (l) =>
                                 l.id ===
-                                (selectedLocationId || defaultLocationId),
+                                effectiveLocationId,
                         )?.name || ''
                     } · tercatat di ${order.orderNumber}`,
                 );
@@ -187,7 +209,7 @@ export function AdHocMaterialUsageDialog({
                             {productionComponentLabels.sourceLocation}
                         </Label>
                         <Select
-                            value={selectedLocationId || defaultLocationId}
+                            value={effectiveLocationId}
                             onValueChange={setSelectedLocationId}
                         >
                             <SelectTrigger>

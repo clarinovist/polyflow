@@ -69,6 +69,21 @@ export function MaterialPreviewPanel({
     const existingIds = new Set(items.map((i) => i.productVariantId));
     const availableToAdd = rawMaterials.filter((rm) => !existingIds.has(rm.id));
 
+    // Materials resolve their own warehouse, so the header names all of them
+    // rather than pretending the order draws from a single place.
+    const sourceNames = Array.from(
+        new Set(
+            items
+                .map(
+                    (i) =>
+                        materialInfo[i.productVariantId]?.sourceLocationName ||
+                        '',
+                )
+                .filter(Boolean),
+        ),
+    );
+    const sourceSummary = sourceNames.join(' · ');
+
     const handleAdd = () => {
         if (addVariantId && addQty > 0 && onAddItem) {
             onAddItem(addVariantId, addQty);
@@ -84,7 +99,7 @@ export function MaterialPreviewPanel({
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Sumber: {sourceLocationName || '—'}
+                    Sumber: {sourceSummary || sourceLocationName || '—'}
                 </div>
 
                 {suggestedSource && (
@@ -141,6 +156,9 @@ export function MaterialPreviewPanel({
                                 <TableHead className="h-8 text-xs w-[70px] text-right">
                                     Stok
                                 </TableHead>
+                                <TableHead className="h-8 text-xs w-[110px]">
+                                    Asal
+                                </TableHead>
                                 {editable && (
                                     <TableHead className="h-8 text-xs w-[40px]" />
                                 )}
@@ -150,7 +168,7 @@ export function MaterialPreviewPanel({
                             {items.length === 0 && !isCalculating && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={editable ? 4 : 3}
+                                        colSpan={editable ? 5 : 4}
                                         className="text-center text-slate-400 dark:text-slate-300 py-8 text-xs"
                                     >
                                         Pilih produk & target dulu
@@ -161,7 +179,7 @@ export function MaterialPreviewPanel({
                             {isCalculating && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={editable ? 4 : 3}
+                                        colSpan={editable ? 5 : 4}
                                         className="text-center py-8"
                                     >
                                         <Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-400 dark:text-slate-300" />
@@ -174,10 +192,13 @@ export function MaterialPreviewPanel({
                                     materialInfo[item.productVariantId];
                                 // BOM-sourced items have stock data; ad-hoc (from rawMaterials meta) have stdQty=0
                                 const isBomSourced = info && info.stdQty > 0;
+                                // Short only when no warehouse covers it — this
+                                // must match the rule that sets WAITING_MATERIAL.
                                 const isLowStock =
                                     isBomSourced &&
                                     info &&
-                                    item.quantity > info.currentStock;
+                                    item.quantity >
+                                        (info.totalStock ?? info.currentStock);
 
                                 return (
                                     <TableRow key={item.productVariantId}>
@@ -238,6 +259,12 @@ export function MaterialPreviewPanel({
                                                     </span>
                                                 )}
                                             </div>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                            <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">
+                                                {info?.sourceLocationName ||
+                                                    '—'}
+                                            </span>
                                         </TableCell>
                                         {editable && onRemoveItem && (
                                             <TableCell className="py-2 text-right">

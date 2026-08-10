@@ -146,9 +146,9 @@ export const productionComponentLabels = {
     sourcePerItem: 'Asal stok',
     toDestination: 'Ke',
     defaultLocation: 'Lokasi Default',
-    useGlobalSource: 'Ikuti lokasi sumber di atas',
-    enablePerItemSource: 'Sumber beda per material',
-    disablePerItemSource: 'Pakai satu sumber untuk semua',
+    useGlobalSource: 'Ikuti asal otomatis',
+    enablePerItemSource: 'Ubah asal stok per material',
+    disablePerItemSource: 'Kembali ke asal otomatis',
     outputLocation: 'Lokasi Output (Tujuan FG/WIP)',
     outputLocationHelp:
         'Lokasi stok hasil / staging WO. Bukan gudang bahan baku.',

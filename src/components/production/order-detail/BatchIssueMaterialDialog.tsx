@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils/utils';
 import { productionComponentLabels } from '@/lib/labels';
 import type { CappedIssueItem } from '@/services/production/material-service';
 import {
+    resolveMaterialSourceLocationId,
     resolveTransferSourceLocationId,
     type LocationLike,
 } from '@/lib/locations/resolve-location';
@@ -55,6 +56,8 @@ interface BatchItem {
     id: string; // Internal ID for keys (equals to plannedMaterial.id if isPlanned)
     productVariantId: string;
     quantity: number;
+    /** Drives which warehouse this line defaults to */
+    productType?: string | null;
     sourceLocationId?: string;
     isPlanned: boolean;
     name: string;
@@ -70,7 +73,9 @@ export function BatchIssueMaterialDialog({
 }: {
     order: ExtendedProductionOrder;
     locations: Location[];
-    rawMaterials: ProductVariant[];
+    rawMaterials: (ProductVariant & {
+        product?: { productType?: string | null } | null;
+    })[];
 }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -92,10 +97,20 @@ export function BatchIssueMaterialDialog({
     );
     const router = useRouter();
 
+    /**
+     * Warehouse a single line defaults to. Packaging supplies and WIP batches
+     * live apart from raw materials, so one source for the whole order reported
+     * stock that was on the shelf as missing.
+     */
+    const defaultSourceForItem = (item: BatchItem) =>
+        resolveMaterialSourceLocationId(
+            locations as LocationLike[],
+            item.productType,
+            selectedLocation,
+        ) || selectedLocation;
+
     const effectiveSourceForItem = (item: BatchItem) =>
-        perItemSourceEnabled
-            ? item.sourceLocationId || selectedLocation
-            : selectedLocation;
+        item.sourceLocationId || defaultSourceForItem(item);
 
     // Check if transfer mode (Backflush) based on machine type OR bom category
     const isTransferMode =
@@ -128,6 +143,7 @@ export function BatchIssueMaterialDialog({
                 isPlanned: true,
                 name: pm.productVariant.name,
                 unit: pm.productVariant.primaryUnit,
+                productType: pm.productVariant.product?.productType,
                 isDeletedPlan: false,
                 originalQuantity: quantityNum,
             };
@@ -222,7 +238,6 @@ export function BatchIssueMaterialDialog({
             id: `sub-${Date.now()}`,
             productVariantId: '',
             quantity: 0,
-            sourceLocationId: selectedLocation,
             isPlanned: false,
             name: '',
             unit: '',
@@ -270,6 +285,7 @@ export function BatchIssueMaterialDialog({
                           productVariantId: variantId,
                           name: variant.name,
                           unit: variant.primaryUnit,
+                          productType: variant.product?.productType,
                       }
                     : item,
             ),
@@ -341,8 +357,15 @@ export function BatchIssueMaterialDialog({
                     }
                 }
 
-                // TRANSFER MODE: group by source (global only unless multi-source enabled)
-                const transfersByLocation = validItems.reduce(
+                // TRANSFER MODE: group by each material's own source warehouse.
+                // A line already sitting in the staging location needs no move —
+                // re-mixing a batch draws WIP that is by definition already
+                // there, and transferring it onto itself would fail.
+                const itemsToMove = validItems.filter(
+                    (item) =>
+                        effectiveSourceForItem(item) !== order.location.id,
+                );
+                const transfersByLocation = itemsToMove.reduce(
                     (acc, item) => {
                         const loc = effectiveSourceForItem(item);
                         if (!acc[loc]) acc[loc] = [];
@@ -357,18 +380,6 @@ export function BatchIssueMaterialDialog({
                         { productVariantId: string; quantity: number }[]
                     >,
                 );
-
-                // Validate: every source used for transfer must differ from WO destination
-                if (
-                    validItems.length > 0 &&
-                    Object.keys(transfersByLocation).includes(order.location.id)
-                ) {
-                    toast.error(
-                        productionComponentLabels.sourceDestinationSame,
-                    );
-                    setLoading(false);
-                    return;
-                }
 
                 // Execute all transfers
                 const results = await Promise.all(
@@ -446,9 +457,7 @@ export function BatchIssueMaterialDialog({
                     items: validItems.map((i) => ({
                         productVariantId: i.productVariantId,
                         quantity: i.quantity,
-                        sourceLocationId: perItemSourceEnabled
-                            ? i.sourceLocationId
-                            : undefined,
+                        sourceLocationId: effectiveSourceForItem(i),
                     })),
                     removedPlannedMaterialIds,
                     addedPlannedMaterials,
@@ -815,10 +824,9 @@ export function BatchIssueMaterialDialog({
                                                             :
                                                         </span>
                                                         <Select
-                                                            value={
-                                                                item.sourceLocationId ||
-                                                                selectedLocation
-                                                            }
+                                                            value={effectiveSourceForItem(
+                                                                item,
+                                                            )}
                                                             onValueChange={(
                                                                 val,
                                                             ) =>

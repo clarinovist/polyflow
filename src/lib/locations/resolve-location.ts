@@ -367,6 +367,45 @@ export function resolvePackagingSuppliesLocationId(
     return '';
 }
 
+/**
+ * Default source warehouse for ONE material, chosen from its product type.
+ *
+ * A single SPK routinely draws from several warehouses: packaging supplies and
+ * half-finished batches are stored apart from raw materials. Resolving per
+ * material — instead of one location for the whole order — is what keeps the
+ * stock preview and the shortage check honest.
+ *
+ * `fallbackId` is the stage default, used when the role has no warehouse.
+ */
+export function resolveMaterialSourceLocationId(
+    locations: LocationLike[],
+    productType: string | null | undefined,
+    fallbackId?: string | null,
+): string {
+    const roleFor = (type: string): LocationRole | null => {
+        if (type === 'PACKAGING' || type === 'AUXILIARY') return 'PACKING';
+        if (type === 'INTERMEDIATE' || type === 'WIP') return 'WIP';
+        if (type === 'RAW_MATERIAL') return 'RAW_MATERIAL';
+        if (type === 'FINISHED_GOOD') return 'FINISHED_GOOD';
+        if (type === 'SCRAP') return 'SCRAP';
+        if (type === 'OPERATIONAL') return 'OPERATIONAL';
+        return null;
+    };
+
+    const role = productType ? roleFor(productType) : null;
+    if (!role) return fallbackId || '';
+
+    // Packaging supplies get the dedicated helper: on canonical tenants the
+    // PACKING role is a process floor, not a supplies store.
+    if (role === 'PACKING') {
+        return (
+            resolvePackagingSuppliesLocationId(locations) || fallbackId || ''
+        );
+    }
+
+    return resolveLocationIdByRole(locations, role) || fallbackId || '';
+}
+
 /** Map BOM / machine category strings to ProductionStage */
 export function stageFromBomCategory(
     category: string | null | undefined,

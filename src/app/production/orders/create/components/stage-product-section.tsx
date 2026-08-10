@@ -135,17 +135,41 @@ export function StageProductSection({
                             ))}
                         </SelectContent>
                     </Select>
-                    {products.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                            Tidak ada produk untuk stage ini.{' '}
-                            <Link
-                                href="/production/boms"
-                                className="text-primary underline"
-                            >
-                                Buat BOM dulu
-                            </Link>
-                        </p>
-                    )}
+                    {products.length === 0 &&
+                        (stage === 'rework' ? (
+                            // Rework needs a dedicated BOM category most tenants
+                            // never create. Adjusting one order's materials is
+                            // almost always what is actually wanted, and it
+                            // leaves the recipe untouched.
+                            <p className="text-xs text-muted-foreground">
+                                Belum ada resep khusus Rework. Untuk memperbaiki
+                                satu batch — misalnya menambah bahan ke adonan
+                                yang sudah jadi — pakai stage aslinya lalu ubah
+                                daftar bahan di SPK itu saja lewat{' '}
+                                <span className="font-medium text-foreground">
+                                    Keluarkan Bahan
+                                </span>
+                                . Resep tidak perlu diubah.{' '}
+                                <Link
+                                    href="/production/boms"
+                                    className="text-primary underline"
+                                >
+                                    Buat resep Rework
+                                </Link>{' '}
+                                hanya jika perbaikannya berulang dengan
+                                komposisi tetap.
+                            </p>
+                        ) : (
+                            <p className="text-xs text-muted-foreground">
+                                Tidak ada produk untuk stage ini.{' '}
+                                <Link
+                                    href="/production/boms"
+                                    className="text-primary underline"
+                                >
+                                    Buat BOM dulu
+                                </Link>
+                            </p>
+                        ))}
                 </div>
 
                 <div className="space-y-2">

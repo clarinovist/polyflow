@@ -6,6 +6,7 @@ import {
   locationMatchesRole,
   resolveLocationByRole,
   resolveLocationIdByRole,
+  resolveMaterialSourceLocationId,
   resolveOutputLocationId,
   resolvePackagingSuppliesLocationId,
   resolvePackingProcessLocation,
@@ -185,5 +186,82 @@ describe("isRiskyOutputLocation", () => {
     expect(isRiskyOutputLocation(melindo[1])).toBe(false); // WIP
     expect(isRiskyOutputLocation(kiyowo[1])).toBe(false); // mixing area
     expect(isRiskyOutputLocation(kiyowo[4])).toBe(false); // packing floor OK
+  });
+});
+
+describe("resolveMaterialSourceLocationId", () => {
+  // Local fixture: Indonesian-slug layout with a dedicated supplies warehouse
+  const idSlugs: LocationLike[] = [
+    { id: "rm-i", name: "Gudang Bahan Baku", slug: "gudang-bahan-baku", locationPurpose: "RAW_MATERIAL" },
+    { id: "wip-i", name: "Gudang WIP & Intermediate", slug: "gudang-wip-intermediate", locationPurpose: "WIP" },
+    { id: "fg-i", name: "Gudang Barang Jadi", slug: "gudang-barang-jadi", locationPurpose: "FINISHED_GOOD" },
+    { id: "pack-i", name: "Gudang Bahan Pembantu & Pengemas", slug: "gudang-packaging", locationPurpose: "PACKING" },
+  ];
+
+  it("routes packaging supplies to the pengemas warehouse, not raw material", () => {
+    // Arrange
+    const stageDefault = "fg-i";
+
+    // Act
+    const auxiliary = resolveMaterialSourceLocationId(idSlugs, "AUXILIARY", stageDefault);
+    const packaging = resolveMaterialSourceLocationId(idSlugs, "PACKAGING", stageDefault);
+
+    // Assert
+    expect(auxiliary).toBe("pack-i");
+    expect(packaging).toBe("pack-i");
+  });
+
+  it("routes half-finished batches to WIP so a mix can be re-consumed", () => {
+    // Arrange
+    const stageDefault = "rm-i";
+
+    // Act
+    const intermediate = resolveMaterialSourceLocationId(idSlugs, "INTERMEDIATE", stageDefault);
+    const wip = resolveMaterialSourceLocationId(idSlugs, "WIP", stageDefault);
+
+    // Assert
+    expect(intermediate).toBe("wip-i");
+    expect(wip).toBe("wip-i");
+  });
+
+  it("keeps raw material and finished goods on their own warehouses", () => {
+    // Act & Assert
+    expect(resolveMaterialSourceLocationId(idSlugs, "RAW_MATERIAL", "fg-i")).toBe("rm-i");
+    expect(resolveMaterialSourceLocationId(idSlugs, "FINISHED_GOOD", "rm-i")).toBe("fg-i");
+  });
+
+  it("falls back to the stage default when the product type has no home", () => {
+    // Act & Assert
+    expect(resolveMaterialSourceLocationId(idSlugs, "SERVICE", "rm-i")).toBe("rm-i");
+    expect(resolveMaterialSourceLocationId(idSlugs, null, "rm-i")).toBe("rm-i");
+    expect(resolveMaterialSourceLocationId(idSlugs, undefined, "")).toBe("");
+  });
+
+  it("uses the packing floor on canonical tenants where supplies live there", () => {
+    // Arrange — canonical slug layout: packing is a process floor, not a store
+    const canonical: LocationLike[] = [
+      { id: "rm-c", name: "Raw Material Warehouse", slug: "rm_warehouse", locationPurpose: "RAW_MATERIAL" },
+      { id: "pack-c", name: "Packing Area", slug: "packing_area", locationPurpose: "PACKING" },
+    ];
+
+    // Act
+    const result = resolveMaterialSourceLocationId(canonical, "AUXILIARY", "rm-c");
+
+    // Assert
+    expect(result).toBe("pack-c");
+  });
+
+  it("falls back rather than returning an inactive warehouse", () => {
+    // Arrange — only an inactive FG warehouse exists
+    const locations: LocationLike[] = [
+      { id: "rm-x", name: "Gudang Bahan Baku", slug: "gudang-bahan-baku", locationPurpose: "RAW_MATERIAL" },
+      { id: "dead-x", name: "[NONAKTIF] Gudang Barang Jadi", slug: "inactive-fg", locationPurpose: "FINISHED_GOOD" },
+    ];
+
+    // Act
+    const result = resolveMaterialSourceLocationId(locations, "FINISHED_GOOD", "rm-x");
+
+    // Assert
+    expect(result).toBe("rm-x");
   });
 });
