@@ -238,6 +238,9 @@ export function MaterialPreviewPanel({
                                                             ) || 0,
                                                         )
                                                     }
+                                                    onWheel={(e) =>
+                                                        e.currentTarget.blur()
+                                                    }
                                                 />
                                             ) : (
                                                 <div className="flex flex-col items-end gap-1">
@@ -341,6 +344,7 @@ export function MaterialPreviewPanel({
                                 onChange={(e) =>
                                     setAddQty(Number(e.target.value) || 0)
                                 }
+                                onWheel={(e) => e.currentTarget.blur()}
                             />
                         </div>
                         <Button

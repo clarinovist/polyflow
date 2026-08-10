@@ -327,32 +327,15 @@ export function ProductionOrderForm({
         form,
     ]);
 
-    // Reset dirty flag when effective qty changes (batch/sales mode too)
-    const effectiveQtyForSeed = useMemo(() => {
-        if (planning.planningMode === 'batch' && bomOutputQty > 0) {
-            return planning.batchCount * bomOutputQty;
-        }
-        if (
-            planning.planningMode === 'sales' &&
-            planning.unitMeta.hasAlternateUnit
-        ) {
-            return toBaseQuantity(
-                planning.enteredTargetQty,
-                planning.unitMeta.conversionFactor,
-            );
-        }
-        return (watchPlannedQty as number) || 0;
-    }, [
-        planning.planningMode,
-        planning.batchCount,
-        planning.enteredTargetQty,
-        planning.unitMeta,
-        bomOutputQty,
-        watchPlannedQty,
-    ]);
+    // Reset dirty flag only when the recipe itself changes — a different BOM
+    // legitimately needs a fresh item list. Qty/source tweaks must NOT reset it:
+    // once the user has manually edited the material list (removed/added/changed
+    // a line), that edit should survive until they pick a different recipe, not
+    // get silently discarded by adjusting the target quantity or source warehouse.
+    // See docs/plan/2026-08-10-fix-spk-material-edit-revert.md.
     useEffect(() => {
         itemsDirtyRef.current = false;
-    }, [watchBomId, effectiveQtyForSeed, effectiveSourceId]);
+    }, [watchBomId]);
 
     // Display items: form items (edited) if available, else preview
     const displayItems = useMemo(() => {
