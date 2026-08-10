@@ -18,8 +18,8 @@ export default async function SalesInvoicesPage({
         resolveSalesInvoiceListPeriod(params);
 
     const [invoicesRes, statsRes] = await Promise.all([
-        getSalesInvoices(dateRange),
-        getInvoiceStats(dateRange),
+        getSalesInvoices(dateRange, { operationalOnly: true }),
+        getInvoiceStats(dateRange, { operationalOnly: true }),
     ]);
 
     const invoices =

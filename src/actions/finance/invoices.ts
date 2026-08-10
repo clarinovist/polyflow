@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 import { logger } from '@/lib/config/logger';
 import { isActionableInvoiceOverdue } from '@/lib/finance/payment-terms';
+import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 import {
     safeAction,
     BusinessRuleError,
@@ -16,14 +17,19 @@ import {
 } from '@/lib/auth/finance-access';
 
 export const getSalesInvoices = withTenant(
-    async function getSalesInvoices(dateRange?: {
-        startDate?: Date;
-        endDate?: Date;
-    }) {
+    async function getSalesInvoices(
+        dateRange?: {
+            startDate?: Date;
+            endDate?: Date;
+        },
+        options: { operationalOnly?: boolean } = {},
+    ) {
         return safeAction(async () => {
             await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
             const where: Prisma.InvoiceWhereInput = {
-                salesOrder: { customerId: { not: null } },
+                salesOrder: options.operationalOnly
+                    ? buildOperationalSalesReceivableOrderWhere()
+                    : { customerId: { not: null } },
             };
             if (dateRange?.startDate && dateRange?.endDate) {
                 where.invoiceDate = {
@@ -101,10 +107,13 @@ export const getOutstandingPurchaseInvoices = withTenant(
     },
 );
 
-export const getInvoiceStats = withTenant(async function getInvoiceStats(dateRange?: {
-    startDate?: Date;
-    endDate?: Date;
-}) {
+export const getInvoiceStats = withTenant(async function getInvoiceStats(
+    dateRange?: {
+        startDate?: Date;
+        endDate?: Date;
+    },
+    options: { operationalOnly?: boolean } = {},
+) {
     return safeAction(async () => {
         await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
         const activeInvoiceStatuses = [
@@ -112,11 +121,13 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(dateRan
             InvoiceStatus.PARTIAL,
             InvoiceStatus.OVERDUE,
         ];
-        const customerArScope: Prisma.InvoiceWhereInput = {
-            salesOrder: { customerId: { not: null } },
+        const operationalCustomerArScope: Prisma.InvoiceWhereInput = {
+            salesOrder: options.operationalOnly
+                ? buildOperationalSalesReceivableOrderWhere()
+                : { customerId: { not: null } },
         };
         const periodWhere: Prisma.InvoiceWhereInput = {
-            ...customerArScope,
+            ...operationalCustomerArScope,
             ...(dateRange?.startDate && dateRange.endDate
                 ? {
                       invoiceDate: {
@@ -134,7 +145,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(dateRan
                 paidAmount: true,
             },
             where: {
-                ...customerArScope,
+                ...operationalCustomerArScope,
                 status: { in: activeInvoiceStatuses },
             },
         });
@@ -425,7 +436,12 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
             revalidatePath('/warehouse/inventory');
             return { message: 'Invoice deleted successfully' };
         } catch (error) {
-            if (error instanceof NotFoundError) throw error;
+            if (
+                error instanceof NotFoundError ||
+                error instanceof BusinessRuleError
+            ) {
+                throw error;
+            }
             logger.error('Failed to delete invoice', {
                 error,
                 invoiceId: id,

@@ -186,6 +186,31 @@ describe('getSalesDashboardStats (command board)', () => {
     );
   });
 
+  it('scopes overdue invoices to operational customer AR only', async () => {
+    await getSalesDashboardStats();
+
+    const overdueQuery = mockPrisma.invoice.findMany.mock.calls.find(
+      ([args]) => args?.where?.dueDate,
+    )?.[0] as {
+      where?: {
+        salesOrder?: {
+          customerId?: { not: null };
+          NOT?: unknown[];
+        };
+      };
+    };
+
+    expect(overdueQuery?.where?.salesOrder?.customerId).toEqual({ not: null });
+    expect(overdueQuery?.where?.salesOrder?.NOT).toEqual(
+      expect.arrayContaining([
+        { orderNumber: { startsWith: 'SO-OPEN-' } },
+        { orderNumber: { startsWith: 'OB-AR-' } },
+        { notes: { startsWith: 'Opening Balance Entry' } },
+        { notes: { startsWith: 'Sheet Penjualan Jun:' } },
+      ]),
+    );
+  });
+
   it('excludes fully paid stale overdue invoices from KPI and attention list', async () => {
     mockPrisma.invoice.count.mockResolvedValue(2);
     mockPrisma.invoice.aggregate.mockResolvedValue({

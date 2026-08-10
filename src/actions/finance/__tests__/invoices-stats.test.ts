@@ -2,10 +2,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockPrisma } = vi.hoisted(() => ({
     mockPrisma: {
+        $transaction: vi.fn(),
         invoice: {
             aggregate: vi.fn(),
             count: vi.fn(),
             findMany: vi.fn(),
+            findUnique: vi.fn(),
+            delete: vi.fn(),
+        },
+        journalEntry: {
+            findMany: vi.fn(),
+            deleteMany: vi.fn(),
+        },
+        journalLine: {
+            deleteMany: vi.fn(),
+        },
+        payment: {
+            deleteMany: vi.fn(),
         },
     },
 }));
@@ -38,9 +51,23 @@ vi.mock('@/lib/auth/finance-access', () => ({
     requireFinanceMutation: vi.fn().mockResolvedValue({ user: { id: 'u-1' } }),
 }));
 
+vi.mock('@/services/accounting/periods-service', () => ({
+    isPeriodOpen: vi.fn(),
+}));
+
+vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn(),
+}));
+
+vi.mock('@/lib/tools/audit', () => ({
+    logActivity: vi.fn(),
+}));
+
 vi.mock('@/lib/config/logger', () => ({
     logger: { error: vi.fn() },
 }));
+
+import { isPeriodOpen } from '@/services/accounting/periods-service';
 
 describe('getInvoiceStats', () => {
     beforeEach(() => {
@@ -71,6 +98,10 @@ describe('getInvoiceStats', () => {
             if (status === 'UNPAID') return 3;
             return 0;
         });
+        mockPrisma.$transaction.mockImplementation(
+            async (callback: (tx: typeof mockPrisma) => Promise<unknown>) =>
+                callback(mockPrisma),
+        );
     });
 
     it('counts actionable overdue invoices in the selected invoice period only', async () => {
@@ -78,7 +109,10 @@ describe('getInvoiceStats', () => {
         const startDate = new Date('2026-07-31T17:00:00.000Z');
         const endDate = new Date('2026-08-31T16:59:59.999Z');
 
-        const result = await getInvoiceStats({ startDate, endDate });
+        const result = await getInvoiceStats(
+            { startDate, endDate },
+            { operationalOnly: true },
+        );
 
         expect(result.success).toBe(true);
         if (!result.success || !result.data) return;
@@ -93,6 +127,19 @@ describe('getInvoiceStats', () => {
             expect.objectContaining({
                 where: expect.objectContaining({
                     invoiceDate: { gte: startDate, lte: endDate },
+                    salesOrder: expect.objectContaining({
+                        customerId: { not: null },
+                        NOT: expect.arrayContaining([
+                            { orderNumber: { startsWith: 'SO-OPEN-' } },
+                            { orderNumber: { startsWith: 'OB-AR-' } },
+                            { notes: { startsWith: 'Opening Balance Entry' } },
+                            {
+                                notes: {
+                                    startsWith: 'Sheet Penjualan Jun:',
+                                },
+                            },
+                        ]),
+                    }),
                 }),
             }),
         );
@@ -101,8 +148,37 @@ describe('getInvoiceStats', () => {
                 where: expect.objectContaining({
                     status: 'PAID',
                     invoiceDate: { gte: startDate, lte: endDate },
+                    salesOrder: expect.objectContaining({
+                        customerId: { not: null },
+                        NOT: expect.any(Array),
+                    }),
                 }),
             }),
         );
+    });
+
+    it('preserves closed fiscal period message when deleteInvoice is blocked', async () => {
+        vi.mocked(isPeriodOpen).mockResolvedValue(false);
+        mockPrisma.invoice.findUnique.mockResolvedValue({
+            id: 'inv-closed',
+            payments: [],
+        });
+        mockPrisma.journalEntry.findMany.mockResolvedValue([
+            {
+                entryNumber: 'AR-OB-009',
+                entryDate: new Date('2026-05-29T00:00:00Z'),
+            },
+        ]);
+
+        const { deleteInvoice } = await import('../invoices');
+
+        const result = await deleteInvoice('inv-closed', 'AR');
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error).toBe(
+                'Cannot delete invoice: journal entry AR-OB-009 is in a closed fiscal period',
+            );
+        }
     });
 });

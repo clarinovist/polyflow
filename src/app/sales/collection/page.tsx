@@ -26,7 +26,7 @@ export default async function SalesCollectionPage() {
         getInvoicesWithoutCollectionActivityAction({}),
         getSalesTeamAction().catch(() => null),
         listRemittancesAction({}).catch(() => null),
-        getSalesInvoices().catch(() => null),
+        getSalesInvoices(undefined, { operationalOnly: true }).catch(() => null),
         getPaymentBanks().catch(() => null),
     ]);
 

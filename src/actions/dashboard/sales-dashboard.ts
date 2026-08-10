@@ -8,6 +8,7 @@ import {
     getInvoiceRemainingAmount,
     isActionableInvoiceOverdue,
 } from '@/lib/finance/payment-terms';
+import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 
 import { AnalyticsService } from '@/services/analytics/analytics-service';
 import { DateRange } from '@/types/analytics';
@@ -145,7 +146,7 @@ export const getSalesDashboardStats = withTenant(
                 where: {
                     status: { in: ['OVERDUE', 'UNPAID', 'PARTIAL'] },
                     dueDate: { lt: todayStart },
-                    salesOrder: { customerId: { not: null } },
+                    salesOrder: buildOperationalSalesReceivableOrderWhere(),
                 },
                 orderBy: { dueDate: 'asc' },
                 select: {

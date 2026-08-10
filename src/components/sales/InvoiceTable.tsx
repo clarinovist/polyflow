@@ -72,6 +72,7 @@ interface InvoiceTableProps {
     basePath?: string;
     initialStatus?: string;
     overdueMode?: boolean;
+    canDelete?: boolean;
 }
 
 export function InvoiceTable({
@@ -79,6 +80,7 @@ export function InvoiceTable({
     basePath = '/sales/orders',
     initialStatus,
     overdueMode,
+    canDelete = true,
 }: InvoiceTableProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -344,62 +346,64 @@ export function InvoiceTable({
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                        disabled={isDeleting === invoice.id}
-                                        title="Delete/Void"
-                                    >
-                                        {isDeleting === invoice.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Trash2 className="h-4 w-4" />
-                                        )}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Apakah Anda benar-benar yakin?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Tindakan ini akan menghapus invoice
-                                            secara permanen{' '}
-                                            <strong>
-                                                {invoice.invoiceNumber}
-                                            </strong>{' '}
-                                            beserta jurnal akuntansinya dari
-                                            buku besar. Tindakan ini tidak dapat
-                                            dibatalkan.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Batal
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                handleDelete(
-                                                    invoice.id,
-                                                    isAR ? 'AR' : 'AP',
-                                                )
-                                            }
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            {canDelete && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            disabled={isDeleting === invoice.id}
+                                            title="Delete/Void"
                                         >
-                                            Hapus Invoice & Jurnal
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                                            {isDeleting === invoice.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Trash2 className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                                Apakah Anda benar-benar yakin?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Tindakan ini akan menghapus
+                                                invoice secara permanen{' '}
+                                                <strong>
+                                                    {invoice.invoiceNumber}
+                                                </strong>{' '}
+                                                beserta jurnal akuntansinya dari
+                                                buku besar. Tindakan ini tidak
+                                                dapat dibatalkan.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>
+                                                Batal
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() =>
+                                                    handleDelete(
+                                                        invoice.id,
+                                                        isAR ? 'AR' : 'AP',
+                                                    )
+                                                }
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                                Hapus Invoice & Jurnal
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         </div>
                     );
                 },
             },
         ],
-        [basePath, isDeleting],
+        [basePath, canDelete, isDeleting],
     );
 
     const getStatusBadgeStyle = (status: InvoiceStatus) => {
