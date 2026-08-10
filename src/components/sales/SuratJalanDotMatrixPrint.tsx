@@ -181,7 +181,7 @@ export function SuratJalanDotMatrixPrint({
                         {items.map((item, idx) => {
                             const pv = item.productVariant;
                             const productName =
-                                pv?.product?.name || pv?.name || '-';
+                                pv?.name || pv?.product?.name || '-';
                             const qty = Number(
                                 item.enteredQuantity ?? item.quantity ?? 0,
                             );

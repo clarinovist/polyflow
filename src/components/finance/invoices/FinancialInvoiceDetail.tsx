@@ -511,9 +511,9 @@ export function FinancialInvoiceDetail({
                                         >
                                             <div>
                                                 <div className="font-medium">
-                                                    {productVariant.product
-                                                        ?.name ||
-                                                        productVariant.name ||
+                                                    {productVariant.name ||
+                                                        productVariant.product
+                                                            ?.name ||
                                                         'Sales Item'}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground">
