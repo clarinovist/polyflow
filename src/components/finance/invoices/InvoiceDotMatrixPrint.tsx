@@ -342,6 +342,14 @@ export function InvoiceDotMatrixPrint({
                                     <span>{formatNumberWithDots(dpp)}</span>
                                 </div>
                             )}
+                            {isPPN && (
+                                <div className="summary-row">
+                                    <span>DPP Nilai Lain :</span>
+                                    <span>
+                                        {formatNumberWithDots((dpp * 11) / 12)}
+                                    </span>
+                                </div>
+                            )}
                             {taxAmount > 0 && (
                                 <div className="summary-row">
                                     <span>PPN 11% :</span>

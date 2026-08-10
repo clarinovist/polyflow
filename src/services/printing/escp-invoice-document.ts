@@ -57,7 +57,6 @@ export async function buildInvoiceDocument(
     const bankAccounts = isPPN
         ? company.bankAccountsPPN
         : company.bankAccountsNonPPN;
-    const bankAcc = bankAccounts[0];
     const logoBitmap = await loadLogoBitmap(company);
 
     const escpData: EscpInvoiceData = {
@@ -91,9 +90,10 @@ export async function buildInvoiceDocument(
         paidAmount: Number(invoice.paidAmount),
         remainingBalance: sisaTagihan,
         totalQty,
-        bankHolder: bankAcc?.holder || company.name,
-        bankName: bankAcc?.bank || '-',
-        bankAccount: bankAcc?.account || '-',
+        bankAccounts:
+            bankAccounts.length > 0
+                ? bankAccounts
+                : [{ holder: company.name, bank: '-', account: '-' }],
         isPPN,
         footerNote: company.footerNote,
         signerName: company.signerName,

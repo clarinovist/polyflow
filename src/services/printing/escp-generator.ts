@@ -213,10 +213,9 @@ interface EscpInvoiceData {
     remainingBalance: number;
     totalQty: number;
 
-    // Bank
-    bankHolder: string;
-    bankName: string;
-    bankAccount: string;
+    // Bank — every configured account for this transaction type prints,
+    // not just the first (a company can have more than one).
+    bankAccounts: { holder: string; bank: string; account: string }[];
     isPPN: boolean;
 
     // Footer
@@ -381,6 +380,12 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     // mengesankan ada komponen pajak yang sebenarnya tidak ada.
     if (data.isPPN) {
         summaryLines.push(['DPP :', formatRupiah(data.dpp)]);
+        // DPP Nilai Lain: rujukan pajak resmi, tidak mengubah PPN/total yang
+        // sudah dihitung di 11% — murni baris informasi tambahan di faktur.
+        summaryLines.push([
+            'DPP Nilai Lain :',
+            formatRupiah((data.dpp * 11) / 12),
+        ]);
     }
     if (data.taxAmount > 0) {
         summaryLines.push(['PPN 11% :', formatRupiah(data.taxAmount)]);
@@ -402,7 +407,9 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
         ),
         '',
         bankLabel,
-        `A/N ${data.bankHolder} - ${data.bankName} : ${data.bankAccount}`,
+        ...data.bankAccounts.map(
+            (acc) => `A/N ${acc.holder.trim()} - ${acc.bank} : ${acc.account}`,
+        ),
     ];
 
     const bottomRows = Math.max(bottomLeft.length, summaryLines.length);

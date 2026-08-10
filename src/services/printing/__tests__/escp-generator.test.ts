@@ -52,9 +52,9 @@ function baseData(overrides: Partial<EscpInvoiceData> = {}): EscpInvoiceData {
         paidAmount: 0,
         remainingBalance: 2100000,
         totalQty: 170,
-        bankHolder: 'Nugroho Pramono',
-        bankName: 'Bank BCA',
-        bankAccount: '7735006002',
+        bankAccounts: [
+            { holder: 'Nugroho Pramono', bank: 'Bank BCA', account: '7735006002' },
+        ],
         isPPN: false,
         footerNote: 'BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN',
         signerName: 'Nugroho Pramono',
@@ -115,11 +115,12 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(text).toContain(data.customerName);
         expect(text).toContain('KETERANGAN BANK :');
         expect(text).toContain('Penjualan PPN');
-        expect(text).toContain(data.bankHolder);
-        expect(text).toContain(data.bankName);
-        expect(text).toContain(data.bankAccount);
+        expect(text).toContain(data.bankAccounts[0].holder);
+        expect(text).toContain(data.bankAccounts[0].bank);
+        expect(text).toContain(data.bankAccounts[0].account);
         expect(text).toContain('DISKON :');
         expect(text).toContain('DPP :');
+        expect(text).toContain('DPP Nilai Lain :');
         expect(text).toContain('PPN 11% :');
         expect(text).toContain('ONGKOS KIRIM :');
         expect(text).toContain('Hormat kami,');
@@ -157,6 +158,7 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(text).toContain('SUBTOTAL :');
         expect(text).toContain('Penjualan Non PPN');
         expect(text).not.toContain('DPP :');
+        expect(text).not.toContain('DPP Nilai Lain :');
         expect(text).not.toContain('PPN 11% :');
     });
 
@@ -174,6 +176,63 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         // Assert
         expect(text).toContain('DPP :');
         expect(text).toContain('PPN 11% :');
+    });
+
+    it('prints DPP Nilai Lain as DPP x 11/12 on a PPN invoice', () => {
+        // Arrange
+        const data = baseData({
+            isPPN: true,
+            taxAmount: 231000,
+            dpp: 2100000,
+        });
+
+        // Act
+        const lines = textLines(generateEscpInvoice(data)).map((l) => l.text);
+        const row = lines.find((l) => l.includes('DPP Nilai Lain :'));
+
+        // Assert — 2100000 * 11 / 12 = 1925000.00
+        expect(row).toBeDefined();
+        expect(row).toContain('1.925.000,00');
+    });
+
+    it('prints one A/N line per configured bank account, in order', () => {
+        // Arrange — a company can have more than one PPN account.
+        const data = baseData({
+            isPPN: true,
+            taxAmount: 231000,
+            bankAccounts: [
+                {
+                    holder: 'PT Contoh Sejahtera',
+                    bank: 'Bank Satu',
+                    account: '1111111111',
+                },
+                {
+                    // Trailing space mirrors messy real-world data entry —
+                    // must not leak into the printed line.
+                    holder: 'PT Contoh Sejahtera ',
+                    bank: 'Bank Dua',
+                    account: '2222222222',
+                },
+            ],
+        });
+
+        // Act — the left (bank) and right (summary) columns share a
+        // physical line, so match by substring rather than exact line text.
+        const lines = textLines(generateEscpInvoice(data)).map((l) => l.text);
+
+        // Assert
+        expect(
+            lines.some((l) =>
+                l.includes('A/N PT Contoh Sejahtera - Bank Satu : 1111111111'),
+            ),
+        ).toBe(true);
+        expect(
+            lines.some((l) =>
+                l.includes(
+                    'A/N PT Contoh Sejahtera - Bank Dua : 2222222222',
+                ),
+            ),
+        ).toBe(true);
     });
 });
 
@@ -203,6 +262,21 @@ describe('generateEscpInvoice — row budget at the narrower 90-column layout', 
                 grandTotal: 987654321,
                 remainingBalance: 987654321,
                 isPPN: true,
+                // A company with two configured bank accounts (a realistic
+                // PPN case) plus the DPP Nilai Lain row this scenario now
+                // also adds — both eat into the margin measured below.
+                bankAccounts: [
+                    {
+                        holder: 'PT Contoh Sejahtera',
+                        bank: 'Bank Satu',
+                        account: '1111111111',
+                    },
+                    {
+                        holder: 'PT Contoh Sejahtera',
+                        bank: 'Bank Dua',
+                        account: '2222222222',
+                    },
+                ],
                 logoBitmap: {
                     widthDots: 100,
                     bands: [
@@ -212,11 +286,9 @@ describe('generateEscpInvoice — row budget at the narrower 90-column layout', 
                 },
             }),
         );
-        // Measured directly (not assumed): this scenario uses 30 of the
-        // 33-line budget — 3 lines of margin, despite the company address,
-        // contact block, and footer note all wrapping onto a second line at
-        // this narrower width. If a future change to any wrapped field
-        // eats that margin, this test is the tripwire.
+        // Re-measure after adding DPP Nilai Lain + a second bank account:
+        // this is the tripwire for the page budget, not the historical
+        // "30 of 33" figure quoted before those two rows existed.
         expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));
     });
 });
