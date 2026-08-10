@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 import { hasAnyRole } from '@/lib/auth/roles';
-import { isInvoiceOverdue } from '@/lib/finance/payment-terms';
+import { isActionableInvoiceOverdue } from '@/lib/finance/payment-terms';
 
 type FilterStatus =
     | 'all'
@@ -42,6 +42,15 @@ type Stats = {
 
 /** 'PENDING' = belum lunas (UNPAID + PARTIAL + OVERDUE), dipakai deep-link dari dashboard */
 const PENDING_STATUSES = ['UNPAID', 'PARTIAL', 'OVERDUE'];
+
+function isActionableOverdueRecord(inv: Record<string, unknown>): boolean {
+    return isActionableInvoiceOverdue({
+        dueDate: inv.dueDate as string | Date | null | undefined,
+        status: inv.status as string | null | undefined,
+        totalAmount: inv.totalAmount as number | string | null | undefined,
+        paidAmount: inv.paidAmount as number | string | null | undefined,
+    });
+}
 
 function parseStatusFilter(raw?: string | null): FilterStatus {
     if (!raw) return 'all';
@@ -86,17 +95,29 @@ export function SalesInvoicesShell({
             );
         }
         if (filter === 'OVERDUE') {
-            return initialInvoices.filter((inv) =>
-                isInvoiceOverdue(
-                    (inv as { dueDate?: string | Date | null }).dueDate,
-                    (inv as { status?: string }).status,
-                ),
-            );
+            return initialInvoices.filter(isActionableOverdueRecord);
         }
         return initialInvoices.filter(
             (inv) => (inv as { status?: string }).status === filter,
         );
     }, [initialInvoices, filter]);
+
+    const filterCounts = useMemo(
+        () => ({
+            all: initialInvoices.length,
+            UNPAID: initialInvoices.filter(
+                (inv) => (inv as { status?: string }).status === 'UNPAID',
+            ).length,
+            PARTIAL: initialInvoices.filter(
+                (inv) => (inv as { status?: string }).status === 'PARTIAL',
+            ).length,
+            OVERDUE: initialInvoices.filter(isActionableOverdueRecord).length,
+            PAID: initialInvoices.filter(
+                (inv) => (inv as { status?: string }).status === 'PAID',
+            ).length,
+        }),
+        [initialInvoices],
+    );
 
     const serialized = useMemo(
         () => serializeData(filteredInvoices),
@@ -112,31 +133,31 @@ export function SalesInvoicesShell({
         {
             label: 'Semua',
             value: 'all',
-            count: initialInvoices.length,
+            count: filterCounts.all,
             icon: FileText,
         },
         {
             label: 'Belum Bayar',
             value: 'UNPAID',
-            count: stats?.unpaidCount ?? 0,
+            count: filterCounts.UNPAID,
             icon: Clock,
         },
         {
             label: 'Partial',
             value: 'PARTIAL',
-            count: stats?.partialCount ?? 0,
+            count: filterCounts.PARTIAL,
             icon: Clock,
         },
         {
             label: 'Jatuh Tempo',
             value: 'OVERDUE',
-            count: stats?.overdueCount ?? 0,
+            count: filterCounts.OVERDUE,
             icon: AlertCircle,
         },
         {
             label: 'Lunas',
             value: 'PAID',
-            count: stats?.paidCount ?? 0,
+            count: filterCounts.PAID,
             icon: CheckCircle,
         },
     ];

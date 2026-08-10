@@ -4,6 +4,10 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction } from '@/lib/errors/errors';
+import {
+    getInvoiceRemainingAmount,
+    isActionableInvoiceOverdue,
+} from '@/lib/finance/payment-terms';
 
 import { AnalyticsService } from '@/services/analytics/analytics-service';
 import { DateRange } from '@/types/analytics';
@@ -25,7 +29,6 @@ export const getSalesDashboardStats = withTenant(
                 readyToShipCount,
                 openDeliveryCount,
                 tripsTodayCount,
-                overdueInvoiceCount,
                 activeOrdersCount,
                 activeCustomersCount,
             ] = await Promise.all([
@@ -38,12 +41,6 @@ export const getSalesDashboardStats = withTenant(
                     where: {
                         departureDate: { gte: todayStart, lte: todayEnd },
                         status: { notIn: ['CANCELLED'] },
-                    },
-                }),
-                prisma.invoice.count({
-                    where: {
-                        status: { in: ['OVERDUE', 'UNPAID', 'PARTIAL'] },
-                        dueDate: { lt: now },
                     },
                 }),
                 prisma.salesOrder.count({
@@ -78,18 +75,6 @@ export const getSalesDashboardStats = withTenant(
                     customer: { select: { name: true } },
                 },
             });
-
-            // Overdue amount sum
-            const overdueAgg = await prisma.invoice.aggregate({
-                where: {
-                    status: { in: ['OVERDUE', 'UNPAID', 'PARTIAL'] },
-                    dueDate: { lt: now },
-                },
-                _sum: { totalAmount: true, paidAmount: true },
-            });
-            const overdueAmount =
-                (Number(overdueAgg._sum.totalAmount) || 0) -
-                (Number(overdueAgg._sum.paidAmount) || 0);
 
             // ── 3. Attention Lists (top 5 each) ──
 
@@ -155,12 +140,12 @@ export const getSalesDashboardStats = withTenant(
                 },
             });
 
-            // 3d. Overdue invoices — top 5 by remaining amount
+            // 3d. Overdue invoices — actionable outstanding only
             const overdueInvoicesRaw = await prisma.invoice.findMany({
-                take: 5,
                 where: {
                     status: { in: ['OVERDUE', 'UNPAID', 'PARTIAL'] },
-                    dueDate: { lt: now },
+                    dueDate: { lt: todayStart },
+                    salesOrder: { customerId: { not: null } },
                 },
                 orderBy: { dueDate: 'asc' },
                 select: {
@@ -169,6 +154,7 @@ export const getSalesDashboardStats = withTenant(
                     totalAmount: true,
                     paidAmount: true,
                     dueDate: true,
+                    status: true,
                     salesOrderId: true,
                     salesOrder: {
                         select: {
@@ -178,6 +164,19 @@ export const getSalesDashboardStats = withTenant(
                     },
                 },
             });
+            const actionableOverdueInvoices = overdueInvoicesRaw.filter(
+                (invoice) => isActionableInvoiceOverdue(invoice, now),
+            );
+            const overdueInvoiceCount = actionableOverdueInvoices.length;
+            const overdueAmount = actionableOverdueInvoices.reduce(
+                (sum, invoice) =>
+                    sum +
+                    getInvoiceRemainingAmount(
+                        invoice.totalAmount,
+                        invoice.paidAmount,
+                    ),
+                0,
+            );
 
             // 3e. Credit risk — customers with credit limit near/over (top 5)
             const customersWithLimit = await prisma.customer.findMany({
@@ -280,16 +279,20 @@ export const getSalesDashboardStats = withTenant(
                         status: d.status,
                         customerName: d.salesOrder?.customer?.name ?? undefined,
                     })),
-                    overdueInvoices: overdueInvoicesRaw.map((inv) => ({
-                        id: inv.id,
-                        invoiceNumber: inv.invoiceNumber,
-                        customerName: inv.salesOrder?.customer?.name ?? '-',
-                        remaining:
-                            Number(inv.totalAmount) - Number(inv.paidAmount),
-                        dueDate: inv.dueDate?.toISOString() ?? '',
-                        salesOrderId:
-                            inv.salesOrderId ?? inv.salesOrder?.id ?? null,
-                    })),
+                    overdueInvoices: actionableOverdueInvoices
+                        .slice(0, 5)
+                        .map((inv) => ({
+                            id: inv.id,
+                            invoiceNumber: inv.invoiceNumber,
+                            customerName: inv.salesOrder?.customer?.name ?? '-',
+                            remaining: getInvoiceRemainingAmount(
+                                inv.totalAmount,
+                                inv.paidAmount,
+                            ),
+                            dueDate: inv.dueDate?.toISOString() ?? '',
+                            salesOrderId:
+                                inv.salesOrderId ?? inv.salesOrder?.id ?? null,
+                        })),
                     creditRisk: creditRiskList,
                     followUpsDue: followUpsDueRaw.map((o) => ({
                         id: o.id,

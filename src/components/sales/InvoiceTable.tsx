@@ -42,7 +42,10 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { isInvoiceOverdue } from '@/lib/finance/payment-terms';
+import {
+    isActionableInvoiceOverdue,
+    isInvoiceOverdue,
+} from '@/lib/finance/payment-terms';
 
 interface InvoiceData {
     id: string;
@@ -117,7 +120,16 @@ export function InvoiceTable({
                 }
                 // fall through to search filter
             } else if (statusFilter === 'OVERDUE') {
-                if (!isInvoiceOverdue(inv.dueDate, inv.status)) return false;
+                if (
+                    !isActionableInvoiceOverdue({
+                        dueDate: inv.dueDate,
+                        status: inv.status,
+                        totalAmount: inv.totalAmount,
+                        paidAmount: inv.paidAmount,
+                    })
+                ) {
+                    return false;
+                }
             } else if (statusFilter !== 'ALL' && inv.status !== statusFilter) {
                 return false;
             }

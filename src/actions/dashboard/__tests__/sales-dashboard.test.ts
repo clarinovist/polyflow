@@ -134,6 +134,7 @@ describe('getSalesDashboardStats (command board)', () => {
         totalAmount: 200_000,
         paidAmount: 0,
         dueDate: new Date(Date.now() - 86400000),
+        status: 'UNPAID',
         salesOrderId: 'so-1',
         salesOrder: { id: 'so-1', customer: { name: 'Toko B' } },
       },
@@ -157,8 +158,8 @@ describe('getSalesDashboardStats (command board)', () => {
     expect(res.data.counts.readyToShipOrders).toBe(2);
     expect(res.data.counts.openDeliveryOrders).toBe(4);
     expect(res.data.counts.tripsToday).toBe(1);
-    expect(res.data.counts.overdueInvoices).toBe(5);
-    expect(res.data.counts.overdueAmount).toBe(400_000);
+    expect(res.data.counts.overdueInvoices).toBe(1);
+    expect(res.data.counts.overdueAmount).toBe(200_000);
     expect(res.data.performance.totalRevenue).toBe(1_000_000);
     expect(res.data.performance.revenueDefinition).toBe('journal_4xx');
   });
@@ -182,6 +183,46 @@ describe('getSalesDashboardStats (command board)', () => {
     };
     expect(openCountCall?.where?.status?.in).toEqual(
       expect.arrayContaining(['PENDING', 'LOADING']),
+    );
+  });
+
+  it('excludes fully paid stale overdue invoices from KPI and attention list', async () => {
+    mockPrisma.invoice.count.mockResolvedValue(2);
+    mockPrisma.invoice.aggregate.mockResolvedValue({
+      _sum: { totalAmount: 3_000, paidAmount: 2_250 },
+    });
+    mockPrisma.invoice.findMany.mockResolvedValue([
+      {
+        id: 'inv-open',
+        invoiceNumber: 'INV-OPEN',
+        totalAmount: 1_000,
+        paidAmount: 250,
+        dueDate: new Date(Date.now() - 86400000),
+        status: 'UNPAID',
+        salesOrderId: 'so-open',
+        salesOrder: { id: 'so-open', customer: { name: 'Toko Open' } },
+      },
+      {
+        id: 'inv-stale-paid',
+        invoiceNumber: 'INV-STALE-PAID',
+        totalAmount: 2_000,
+        paidAmount: 2_000,
+        dueDate: new Date(Date.now() - 86400000),
+        status: 'OVERDUE',
+        salesOrderId: 'so-paid',
+        salesOrder: { id: 'so-paid', customer: { name: 'Toko Paid' } },
+      },
+    ]);
+
+    const res = await getSalesDashboardStats();
+
+    expect(res.success).toBe(true);
+    if (!res.success || !res.data) return;
+    expect(res.data.counts.overdueInvoices).toBe(1);
+    expect(res.data.counts.overdueAmount).toBe(750);
+    expect(res.data.attention.overdueInvoices).toHaveLength(1);
+    expect(res.data.attention.overdueInvoices[0]?.invoiceNumber).toBe(
+      'INV-OPEN',
     );
   });
 

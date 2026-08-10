@@ -4,6 +4,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 import { logger } from '@/lib/config/logger';
+import { isActionableInvoiceOverdue } from '@/lib/finance/payment-terms';
 import {
     safeAction,
     BusinessRuleError,
@@ -21,7 +22,9 @@ export const getSalesInvoices = withTenant(
     }) {
         return safeAction(async () => {
             await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
-            const where: Prisma.InvoiceWhereInput = {};
+            const where: Prisma.InvoiceWhereInput = {
+                salesOrder: { customerId: { not: null } },
+            };
             if (dateRange?.startDate && dateRange?.endDate) {
                 where.invoiceDate = {
                     gte: dateRange.startDate,
@@ -98,8 +101,32 @@ export const getOutstandingPurchaseInvoices = withTenant(
     },
 );
 
-export const getInvoiceStats = withTenant(async function getInvoiceStats() {
+export const getInvoiceStats = withTenant(async function getInvoiceStats(dateRange?: {
+    startDate?: Date;
+    endDate?: Date;
+}) {
     return safeAction(async () => {
+        await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
+        const activeInvoiceStatuses = [
+            InvoiceStatus.UNPAID,
+            InvoiceStatus.PARTIAL,
+            InvoiceStatus.OVERDUE,
+        ];
+        const customerArScope: Prisma.InvoiceWhereInput = {
+            salesOrder: { customerId: { not: null } },
+        };
+        const periodWhere: Prisma.InvoiceWhereInput = {
+            ...customerArScope,
+            ...(dateRange?.startDate && dateRange.endDate
+                ? {
+                      invoiceDate: {
+                          gte: dateRange.startDate,
+                          lte: dateRange.endDate,
+                      },
+                  }
+                : {}),
+        };
+
         // 1. Unpaid Amount
         const unpaid = await prisma.invoice.aggregate({
             _sum: {
@@ -107,9 +134,8 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats() {
                 paidAmount: true,
             },
             where: {
-                status: {
-                    in: ['UNPAID', 'PARTIAL', 'OVERDUE'] as InvoiceStatus[],
-                },
+                ...customerArScope,
+                status: { in: activeInvoiceStatuses },
             },
         });
 
@@ -118,40 +144,47 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats() {
             (Number(unpaid._sum.totalAmount) || 0) -
             (Number(unpaid._sum.paidAmount) || 0);
 
-        // 2. Overdue Count (status OVERDUE, or UNPAID/PARTIAL past dueDate —
-        // the status rarely gets flipped to OVERDUE by any running job)
+        // 2. Overdue Count (same actionable definition as sales dashboard)
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
-        const overdueCount = await prisma.invoice.count({
+        const overdueCandidates = await prisma.invoice.findMany({
             where: {
-                OR: [
-                    { status: 'OVERDUE' },
-                    {
-                        status: { in: ['UNPAID', 'PARTIAL'] },
-                        dueDate: { lt: startOfToday },
-                    },
-                ],
+                ...periodWhere,
+                status: { in: activeInvoiceStatuses },
+                dueDate: { lt: startOfToday },
+            },
+            select: {
+                dueDate: true,
+                status: true,
+                totalAmount: true,
+                paidAmount: true,
             },
         });
+        const overdueCount = overdueCandidates.filter((invoice) =>
+            isActionableInvoiceOverdue(invoice),
+        ).length;
 
         // 3. Partial count
         const partialCount = await prisma.invoice.count({
             where: {
-                status: 'PARTIAL',
+                ...periodWhere,
+                status: InvoiceStatus.PARTIAL,
             },
         });
 
         // 4. Paid count (current period)
         const paidCount = await prisma.invoice.count({
             where: {
-                status: 'PAID',
+                ...periodWhere,
+                status: InvoiceStatus.PAID,
             },
         });
 
         // 5. Unpaid count
         const unpaidCount = await prisma.invoice.count({
             where: {
-                status: 'UNPAID',
+                ...periodWhere,
+                status: InvoiceStatus.UNPAID,
             },
         });
 

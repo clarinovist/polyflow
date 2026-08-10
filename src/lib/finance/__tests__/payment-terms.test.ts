@@ -3,6 +3,8 @@ import { addDays, subDays } from "date-fns";
 import {
   isInvoiceOverdue,
   calculateDueDate,
+  getInvoiceRemainingAmount,
+  isActionableInvoiceOverdue,
 } from "@/lib/finance/payment-terms";
 
 describe("isInvoiceOverdue", () => {
@@ -35,6 +37,62 @@ describe("isInvoiceOverdue", () => {
     expect(isInvoiceOverdue(null, "UNPAID")).toBe(false);
     expect(isInvoiceOverdue(subDays(new Date(), 5), null)).toBe(false);
     expect(isInvoiceOverdue(undefined, undefined)).toBe(false);
+  });
+});
+
+describe("isActionableInvoiceOverdue", () => {
+  it("returns true only for due, outstanding AR statuses", () => {
+    const referenceDate = new Date("2026-08-10T12:00:00Z");
+
+    expect(
+      isActionableInvoiceOverdue(
+        {
+          dueDate: "2026-08-09T00:00:00Z",
+          status: "UNPAID",
+          totalAmount: 1000,
+          paidAmount: 250,
+        },
+        referenceDate,
+      ),
+    ).toBe(true);
+  });
+
+  it("excludes invoices that are fully paid even when status is stale overdue", () => {
+    const referenceDate = new Date("2026-08-10T12:00:00Z");
+
+    expect(
+      isActionableInvoiceOverdue(
+        {
+          dueDate: "2026-08-01T00:00:00Z",
+          status: "OVERDUE",
+          totalAmount: 1000,
+          paidAmount: 1000,
+        },
+        referenceDate,
+      ),
+    ).toBe(false);
+  });
+
+  it("requires due date to be before the reference day", () => {
+    const referenceDate = new Date("2026-08-10T12:00:00Z");
+
+    expect(
+      isActionableInvoiceOverdue(
+        {
+          dueDate: "2026-08-10T00:00:00Z",
+          status: "OVERDUE",
+          totalAmount: 1000,
+          paidAmount: 0,
+        },
+        referenceDate,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("getInvoiceRemainingAmount", () => {
+  it("never returns a negative remaining amount", () => {
+    expect(getInvoiceRemainingAmount(1000, 1200)).toBe(0);
   });
 });
 

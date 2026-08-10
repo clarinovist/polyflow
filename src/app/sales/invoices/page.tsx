@@ -1,10 +1,8 @@
 import { getSalesInvoices, getInvoiceStats } from '@/actions/finance/invoices';
 import { salesLabels } from '@/lib/labels';
-import { format } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
-import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { SalesInvoicesShell } from '@/components/sales/SalesInvoicesShell';
+import { resolveSalesInvoiceListPeriod } from '@/lib/sales/invoice-period';
 
 export default async function SalesInvoicesPage({
     searchParams,
@@ -16,24 +14,17 @@ export default async function SalesInvoicesPage({
     }>;
 }) {
     const params = await searchParams;
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
-
-    const checkStart = params?.startDate
-        ? parseISO(params.startDate)
-        : defaultStart;
-    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+    const { dateRange, periodLabel, dateFilterDefaultPreset } =
+        resolveSalesInvoiceListPeriod(params);
 
     const [invoicesRes, statsRes] = await Promise.all([
-        getSalesInvoices({ startDate: checkStart, endDate: checkEnd }),
-        getInvoiceStats(),
+        getSalesInvoices(dateRange),
+        getInvoiceStats(dateRange),
     ]);
 
     const invoices =
         invoicesRes.success && invoicesRes.data ? invoicesRes.data : [];
     const stats = statsRes.success && statsRes.data ? statsRes.data : null;
-    const periodLabel = `${format(checkStart, 'd MMM', { locale: idLocale })} – ${format(checkEnd, 'd MMM yyyy', { locale: idLocale })}`;
 
     return (
         <div className="flex flex-col space-y-6 p-6">
@@ -51,7 +42,9 @@ export default async function SalesInvoicesPage({
                         periode), bukan hanya periode ini.
                     </p>
                 </div>
-                <UrlTransactionDateFilter defaultPreset="this_month" />
+                <UrlTransactionDateFilter
+                    defaultPreset={dateFilterDefaultPreset}
+                />
             </div>
 
             <SalesInvoicesShell
