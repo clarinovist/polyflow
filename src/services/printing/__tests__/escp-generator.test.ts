@@ -121,7 +121,7 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(text).toContain('DISKON :');
         expect(text).toContain('DPP :');
         expect(text).toContain('DPP Nilai Lain :');
-        expect(text).toContain('PPN 11% :');
+        expect(text).toContain('PPN :');
         expect(text).toContain('ONGKOS KIRIM :');
         expect(text).toContain('Hormat kami,');
         expect(text).toContain(data.signerName);
@@ -159,7 +159,7 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(text).toContain('Penjualan Non PPN');
         expect(text).not.toContain('DPP :');
         expect(text).not.toContain('DPP Nilai Lain :');
-        expect(text).not.toContain('PPN 11% :');
+        expect(text).not.toContain('PPN :');
     });
 
     it('keeps the DPP row on a PPN invoice', () => {
@@ -175,7 +175,7 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
 
         // Assert
         expect(text).toContain('DPP :');
-        expect(text).toContain('PPN 11% :');
+        expect(text).toContain('PPN :');
     });
 
     it('prints DPP Nilai Lain as DPP x 11/12 on a PPN invoice', () => {

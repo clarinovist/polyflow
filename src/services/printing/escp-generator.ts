@@ -388,7 +388,7 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
         ]);
     }
     if (data.taxAmount > 0) {
-        summaryLines.push(['PPN 11% :', formatRupiah(data.taxAmount)]);
+        summaryLines.push(['PPN :', formatRupiah(data.taxAmount)]);
     }
     if (data.shippingCost > 0) {
         summaryLines.push(['ONGKOS KIRIM :', formatRupiah(data.shippingCost)]);

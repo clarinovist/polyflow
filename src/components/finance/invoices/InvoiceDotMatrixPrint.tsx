@@ -352,7 +352,7 @@ export function InvoiceDotMatrixPrint({
                             )}
                             {taxAmount > 0 && (
                                 <div className="summary-row">
-                                    <span>PPN 11% :</span>
+                                    <span>PPN :</span>
                                     <span>
                                         {formatNumberWithDots(taxAmount)}
                                     </span>
