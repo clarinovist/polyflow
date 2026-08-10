@@ -556,25 +556,40 @@ export default function CashOpnamePage() {
                                 Jumlah fisik uang kontan yang dihitung terdiri
                                 dari :
                             </p>
-                            <table className="w-full border-collapse text-sm">
+                            {/*
+                                Sized to its contents, not to the page. Every
+                                column but "Pecahan" used to carry a width, so
+                                Pecahan absorbed all the slack of a full-width
+                                table — ~60% of it — to hold a 7-character
+                                amount pinned to the right edge.
+                            */}
+                            <table className="w-full max-w-[26.5rem] table-fixed border-collapse text-sm">
+                                <colgroup>
+                                    <col className="w-24" />
+                                    <col className="w-8" />
+                                    <col className="w-24" />
+                                    <col className="w-6" />
+                                    <col className="w-28" />
+                                    <col className="w-16" />
+                                </colgroup>
                                 <thead>
                                     <tr className="border border-black dark:border-gray-600">
                                         <th className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">
                                             Pecahan
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-1 py-1 text-center text-gray-900 dark:text-gray-100">
                                             X
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-20 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center text-gray-900 dark:text-gray-100">
                                             Jumlah
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-1 py-1 text-center text-gray-900 dark:text-gray-100">
                                             :
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">
                                             Total
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-16 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-1 py-1 text-center text-gray-900 dark:text-gray-100">
                                             Ket
                                         </th>
                                     </tr>
@@ -588,7 +603,7 @@ export default function CashOpnamePage() {
                                             <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
                                                 {row.label}
                                             </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                                            <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center text-gray-800 dark:text-gray-200">
                                                 X
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center">
@@ -607,7 +622,7 @@ export default function CashOpnamePage() {
                                                     min={0}
                                                 />
                                             </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                                            <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center text-gray-800 dark:text-gray-200">
                                                 :
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
@@ -615,7 +630,7 @@ export default function CashOpnamePage() {
                                                     ? formatNumber(row.total)
                                                     : ''}
                                             </td>
-                                            <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-xs text-muted-foreground">
+                                            <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center text-xs text-muted-foreground">
                                                 {row.type || ''}
                                             </td>
                                         </tr>

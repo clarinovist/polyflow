@@ -6,6 +6,10 @@ import {
     ConflictError,
 } from '@/lib/errors/errors';
 import { resolveAccount } from '@/services/accounting/account-resolver';
+import {
+    resolveSourceDocNumbers,
+    sourceDocKey,
+} from '@/services/finance/journal-source-document';
 import { getWibDayBounds } from '@/lib/utils/timezone';
 
 export type DailyReportStatus =
@@ -100,6 +104,8 @@ export class PettyCashReportService {
                         entryDate: true,
                         description: true,
                         reference: true,
+                        referenceType: true,
+                        referenceId: true,
                         createdById: true,
                     },
                 },
@@ -151,21 +157,58 @@ export class PettyCashReportService {
 
         const creatorMap = new Map(creators.map((u) => [u.id, u]));
 
-        // Build transaction-like objects
-        return pettyCashLines.map((line) => {
-            const je = line.journalEntry;
-            const pcDebit = Number(line.debit);
-            const pcCredit = Number(line.credit);
+        // Resolve the source invoice / PO number for entries that came from a
+        // business document (sales & purchase payments, invoices).
+        const sourceDocNumbers = await resolveSourceDocNumbers(
+            pettyCashLines.map((l) => l.journalEntry),
+        );
 
-            // Determine type: debit on petty cash = money in (REPLENISHMENT), credit = money out (EXPENSE)
-            const type = pcDebit > 0 ? 'REPLENISHMENT' : 'EXPENSE';
-            const amount = pcDebit > 0 ? pcDebit : pcCredit;
+        // One voucher can hit petty cash on several lines (a split expense such
+        // as BKK-19/08/26 with four cost components). The ledger shows one row
+        // per voucher, so fold those lines together.
+        //
+        // Grouped by entry AND direction rather than netted: keeping the sides
+        // separate guarantees the rendered debit/credit columns still add up to
+        // the totals computed independently by calcDailyTotals().
+        const grouped = new Map<
+            string,
+            {
+                journalEntry: (typeof pettyCashLines)[number]['journalEntry'];
+                type: 'REPLENISHMENT' | 'EXPENSE';
+                amount: number;
+            }
+        >();
+
+        for (const line of pettyCashLines) {
+            const debit = Number(line.debit);
+            const credit = Number(line.credit);
+            const amount = debit > 0 ? debit : credit;
+            if (amount === 0) continue;
+
+            // Debit on petty cash = money in (REPLENISHMENT), credit = money out
+            const type = debit > 0 ? 'REPLENISHMENT' : 'EXPENSE';
+            const key = `${line.journalEntryId}:${type}`;
+
+            const existing = grouped.get(key);
+            if (existing) {
+                existing.amount += amount;
+                continue;
+            }
+            grouped.set(key, {
+                journalEntry: line.journalEntry,
+                type,
+                amount,
+            });
+        }
+
+        // Build transaction-like objects
+        return [...grouped.entries()].map(([key, entry]) => {
+            const je = entry.journalEntry;
 
             // Find contra-line for expense account info
-            const contraLines =
-                contraLinesByEntry.get(line.journalEntryId) || [];
+            const contraLines = contraLinesByEntry.get(je.id) || [];
             const expenseLine =
-                type === 'EXPENSE'
+                entry.type === 'EXPENSE'
                     ? contraLines.find((cl) => Number(cl.debit) > 0) // expense account is debited
                     : contraLines.find((cl) => Number(cl.credit) > 0); // bank account is credited
 
@@ -173,13 +216,19 @@ export class PettyCashReportService {
                 ? creatorMap.get(je.createdById)
                 : null;
 
+            const docKey = sourceDocKey(je);
+
             return {
-                id: line.journalEntryId,
+                id: key,
+                journalEntryId: je.id,
                 voucherNumber: je.reference || je.entryNumber || '',
+                sourceDocNumber: docKey
+                    ? (sourceDocNumbers.get(docKey) ?? null)
+                    : null,
                 date: je.entryDate.toISOString(),
                 description: je.description,
-                amount,
-                type,
+                amount: entry.amount,
+                type: entry.type,
                 status: 'POSTED',
                 expenseAccount: expenseLine?.account || null,
                 createdBy: { name: creator?.name || 'System' },
@@ -228,7 +277,14 @@ export class PettyCashReportService {
                 totalIn: Number(savedReport.totalIn),
                 totalOut: Number(savedReport.totalOut),
                 closingBalance: Number(savedReport.closingBalance),
-                transactions: savedReport.transactions,
+                // Keep the same shape as the on-the-fly branch so callers get
+                // one transaction contract. Saved reports are snapshots of
+                // PettyCashTransaction rows, which carry no journal reference,
+                // so there is no source document to resolve.
+                transactions: savedReport.transactions.map((t) => ({
+                    ...t,
+                    sourceDocNumber: null as string | null,
+                })),
                 status: savedReport.status as DailyReportStatus,
             };
         }

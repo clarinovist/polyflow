@@ -18,7 +18,10 @@ import Link from 'next/link';
 
 interface Transaction {
     id: string;
+    journalEntryId?: string;
     voucherNumber: string;
+    /** Invoice / PO number of the document that produced this entry, if any. */
+    sourceDocNumber?: string | null;
     date: string;
     description: string;
     amount: number | string;
@@ -53,6 +56,13 @@ interface LedgerRow {
 function formatNumber(n: number): string {
     return Math.round(n).toLocaleString('id-ID');
 }
+
+/**
+ * Every text cell is capped at two lines — a four-line memo pushed the ledger
+ * onto a second printed page. `line-clamp` needs `display: -webkit-box`, which
+ * would break table layout, so it goes on a wrapper div inside the <td>.
+ */
+const CLAMP_2 = 'line-clamp-2 break-words';
 
 export default function RekapKasPage() {
     const [data, setData] = useState<ReportData | null>(null);
@@ -172,14 +182,14 @@ export default function RekapKasPage() {
 
         // 2) Cash inflows (REPLENISHMENT → Debit / BKM)
         const inflows = posted.filter((t) => t.type === 'REPLENISHMENT');
-        inflows.forEach((t, i) => {
+        inflows.forEach((t) => {
             const amt = Number(t.amount);
             runningBalance += amt;
             rows.push({
                 id: t.id,
                 date: formatWibDate(t.date),
-                noInv: '',
-                voucherNumber: `BKM-${String(i + 1).padStart(2, '0')}/${format(date, 'MM/yy')}`,
+                noInv: t.sourceDocNumber ?? '',
+                voucherNumber: t.voucherNumber,
                 memo: t.description,
                 debit: amt,
                 credit: 0,
@@ -189,14 +199,14 @@ export default function RekapKasPage() {
 
         // 3) Cash outflows (EXPENSE → Credit / BKK)
         const outflows = posted.filter((t) => t.type === 'EXPENSE');
-        outflows.forEach((t, i) => {
+        outflows.forEach((t) => {
             const amt = Number(t.amount);
             runningBalance -= amt;
             rows.push({
                 id: t.id,
                 date: formatWibDate(t.date),
-                noInv: '',
-                voucherNumber: `BKK-${String(i + 1).padStart(2, '0')}/${format(date, 'MM/yy')}`,
+                noInv: t.sourceDocNumber ?? '',
+                voucherNumber: t.voucherNumber,
                 memo: t.description,
                 debit: 0,
                 credit: amt,
@@ -331,7 +341,7 @@ export default function RekapKasPage() {
                 <div ref={printWrapperRef}>
                     <div
                         ref={printContentRef}
-                        className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm"
+                        className="print-container max-w-6xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm"
                     >
                         {/* ===== HEADER ===== */}
                         <div className="text-center mb-2">
@@ -365,28 +375,43 @@ export default function RekapKasPage() {
 
                         {/* ===== LEDGER TABLE ===== */}
                         <div className="mb-6">
-                            <table className="w-full border-collapse text-sm">
+                            <table className="w-full table-fixed border-collapse text-sm">
+                                {/*
+                                    Percentage widths (not w-* px classes): the
+                                    same table is rendered on a wide screen and
+                                    on A4. Fixed px columns would eat the whole
+                                    A4 width and leave MEMO ~46px.
+                                */}
+                                <colgroup>
+                                    <col className="w-[9%]" />
+                                    <col className="w-[13%]" />
+                                    <col className="w-[12%]" />
+                                    <col className="w-[30%]" />
+                                    <col className="w-[12%]" />
+                                    <col className="w-[12%]" />
+                                    <col className="w-[12%]" />
+                                </colgroup>
                                 <thead>
                                     <tr className="border border-black dark:border-gray-600">
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-24 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">
                                             TANGGAL
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-28 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">
                                             NO INV/ NO PO
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left w-32 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">
                                             NOMOR BUKTI TRANSAKSI
                                         </th>
                                         <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-left text-gray-900 dark:text-gray-100">
                                             MEMO
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right text-gray-900 dark:text-gray-100">
                                             DEBIT
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-32 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right text-gray-900 dark:text-gray-100">
                                             KREDIT
                                         </th>
-                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right w-36 text-gray-900 dark:text-gray-100">
+                                        <th className="border border-black dark:border-gray-600 px-2 py-1.5 text-right text-gray-900 dark:text-gray-100">
                                             SALDO
                                         </th>
                                     </tr>
@@ -403,44 +428,68 @@ export default function RekapKasPage() {
                                                         'bg-gray-50 dark:bg-gray-800 font-semibold',
                                                 )}
                                             >
-                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                                                    {row.date}
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 align-top text-gray-800 dark:text-gray-200">
+                                                    <div className={CLAMP_2}>
+                                                        {row.date}
+                                                    </div>
                                                 </td>
-                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-xs text-gray-800 dark:text-gray-200">
-                                                    {row.noInv}
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 align-top text-xs text-gray-800 dark:text-gray-200">
+                                                    <div
+                                                        className={CLAMP_2}
+                                                        title={
+                                                            row.noInv ||
+                                                            undefined
+                                                        }
+                                                    >
+                                                        {row.noInv}
+                                                    </div>
                                                 </td>
-                                                <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
-                                                    {row.id !== 'opening' &&
-                                                    row.voucherNumber ? (
-                                                        <Link
-                                                            href="/finance/petty-cash"
-                                                            className="text-blue-600 dark:text-blue-400 hover:underline"
-                                                            title="Lihat detail transaksi"
-                                                        >
-                                                            {row.voucherNumber}
-                                                        </Link>
-                                                    ) : (
-                                                        row.voucherNumber
-                                                    )}
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 align-top font-mono text-xs text-gray-800 dark:text-gray-200">
+                                                    <div
+                                                        className={CLAMP_2}
+                                                        title={
+                                                            row.voucherNumber ||
+                                                            undefined
+                                                        }
+                                                    >
+                                                        {row.id !== 'opening' &&
+                                                        row.voucherNumber ? (
+                                                            <Link
+                                                                href="/finance/petty-cash"
+                                                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                                                            >
+                                                                {
+                                                                    row.voucherNumber
+                                                                }
+                                                            </Link>
+                                                        ) : (
+                                                            row.voucherNumber
+                                                        )}
+                                                    </div>
                                                 </td>
-                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                                                    {row.memo}
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 align-top text-gray-800 dark:text-gray-200">
+                                                    <div
+                                                        className={CLAMP_2}
+                                                        title={row.memo}
+                                                    >
+                                                        {row.memo}
+                                                    </div>
                                                 </td>
-                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 align-top text-right font-mono tabular-nums text-gray-800 dark:text-gray-200">
                                                     {row.debit > 0
                                                         ? formatNumber(
                                                               row.debit,
                                                           )
                                                         : ''}
                                                 </td>
-                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 align-top text-right font-mono tabular-nums text-gray-800 dark:text-gray-200">
                                                     {row.credit > 0
                                                         ? formatNumber(
                                                               row.credit,
                                                           )
                                                         : ''}
                                                 </td>
-                                                <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono font-semibold text-gray-800 dark:text-gray-200">
+                                                <td className="border border-black dark:border-gray-600 px-2 py-1 align-top text-right font-mono tabular-nums font-semibold text-gray-800 dark:text-gray-200">
                                                     {formatNumber(
                                                         row.runningBalance,
                                                     )}
