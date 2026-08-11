@@ -154,11 +154,13 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
         { nameContains: 'Dalam Proses' },
     ],
     intermediate: [
-        { code: '1-129' },
         { code: '11325' },
         { nameContains: 'Barang Setengah Jadi' },
         { nameContains: 'Semi-Finished' },
         { nameContains: 'Intermediate' },
+        // Some tenant COAs do not have a dedicated semi-finished account;
+        // use WIP as the non-affal fallback rather than 1-129 (Affal Rafia).
+        { code: '1-132' },
     ],
     'finished-goods': [
         { code: '1-128' },
@@ -174,11 +176,11 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
         { nameContains: 'Bahan Kemasan' },
     ],
     scrap: [
-        { code: '1-127' },
+        { code: '1-129' },
         { code: '11350' },
-        { nameContains: 'Scrap' },
-        { nameContains: 'Afval' },
         { nameContains: 'Affal' },
+        { nameContains: 'Afval' },
+        { nameContains: 'Scrap' },
     ],
     'raw-material': [
         { code: '1-130' },
@@ -467,6 +469,28 @@ async function isMelindoTenantDb(db: PatternDb): Promise<boolean> {
     return !!marker;
 }
 
+function isRoleCompatibleAccount(role: AccountRole, account: Account): boolean {
+    const normalizedName = account.name.toLowerCase();
+
+    if (role === 'intermediate') {
+        return (
+            account.code !== '1-129' &&
+            !normalizedName.includes('affal') &&
+            !normalizedName.includes('afval') &&
+            !normalizedName.includes('scrap')
+        );
+    }
+
+    if (role === 'scrap') {
+        return (
+            account.code !== '1-127' &&
+            !normalizedName.includes('bahan penolong')
+        );
+    }
+
+    return true;
+}
+
 export async function resolveByPatterns(
     role: AccountRole,
     db?: PatternDb,
@@ -597,13 +621,31 @@ export async function resolveAccount(
                       })
                     : null;
                 if (account && account.isActive !== false) {
-                    const result: ResolvedAccount = {
-                        id: account.id,
-                        code: account.code,
-                        name: account.name,
-                    };
-                    roleMap.set(role, { value: result, timestamp: Date.now() });
-                    return result;
+                    if (!isRoleCompatibleAccount(role, account)) {
+                        const { logger } = await import('@/lib/config/logger');
+                        logger.warn(
+                            'TenantAccountRole incompatible mapping; falling back to patterns',
+                            {
+                                module: 'account-resolver',
+                                role,
+                                tenantId,
+                                accountId: mapping.accountId,
+                                accountCode: account.code,
+                                accountName: account.name,
+                            },
+                        );
+                    } else {
+                        const result: ResolvedAccount = {
+                            id: account.id,
+                            code: account.code,
+                            name: account.name,
+                        };
+                        roleMap.set(role, {
+                            value: result,
+                            timestamp: Date.now(),
+                        });
+                        return result;
+                    }
                 }
                 // Orphan mapping — account deleted or inactive; fall through to patterns
                 if (mapping && !account) {

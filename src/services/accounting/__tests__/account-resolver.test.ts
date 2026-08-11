@@ -244,11 +244,11 @@ describe('account-resolver', () => {
         });
 
         it('prefers TenantAccountRole DB mapping over patterns when tenantId is set', async () => {
-            mockGetTenantIdFromContext.mockReturnValue('tenant-melindo');
+            mockGetTenantIdFromContext.mockReturnValue('tenant-rafia');
             const findUniqueMain = vi.fn().mockResolvedValue({
                 accountId: 'acc-db-mapped',
                 role: 'accounts-receivable',
-                tenantId: 'tenant-melindo',
+                tenantId: 'tenant-rafia',
             });
             mockGetMainPrisma.mockReturnValue({
                 tenantAccountRole: { findUnique: findUniqueMain },
@@ -268,14 +268,14 @@ describe('account-resolver', () => {
                 name: 'Piutang Dagang Rafia',
             });
             expect(findUniqueMain).toHaveBeenCalledWith({
-                where: { tenantId_role: { tenantId: 'tenant-melindo', role: 'accounts-receivable' } },
+                where: { tenantId_role: { tenantId: 'tenant-rafia', role: 'accounts-receivable' } },
             });
             // Pattern path should not be needed
             expect(prisma.account.findUnique).not.toHaveBeenCalled();
         });
 
         it('falls back to patterns when DB mapping points to missing account (orphan)', async () => {
-            mockGetTenantIdFromContext.mockReturnValue('tenant-melindo');
+            mockGetTenantIdFromContext.mockReturnValue('tenant-rafia');
             mockGetMainPrisma.mockReturnValue({
                 tenantAccountRole: {
                     findUnique: vi.fn().mockResolvedValue({
@@ -334,6 +334,80 @@ describe('account-resolver', () => {
 
             const result = await resolveAccount('suspense-clearing');
             expect(result).toEqual({ id: 'acc-melindo-sementara', code: '1-199', name: 'Rekening Sementara' });
+        });
+
+        it('does not use affal account for intermediate role', async () => {
+            mockGetTenantIdFromContext.mockReturnValue('tenant-rafia');
+            mockGetMainPrisma.mockReturnValue({
+                tenantAccountRole: {
+                    findUnique: vi.fn().mockResolvedValue({
+                        accountId: 'acc-affal',
+                        role: 'intermediate',
+                        tenantId: 'tenant-rafia',
+                    }),
+                },
+            });
+            mockTenantDb.account.findUnique.mockResolvedValue({
+                id: 'acc-affal',
+                code: '1-129',
+                name: 'Persediaan Affal Rafia',
+                isActive: true,
+            });
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '1-130') {
+                    return Promise.resolve({ id: 'marker', code, name: 'Persediaan Bahan Baku Rafia' } as never);
+                }
+                if (code === '1-132') {
+                    return Promise.resolve({ id: 'acc-wip', code, name: 'Persediaan Barang dalam Proses Rafia' } as never);
+                }
+                return Promise.resolve(null) as any;
+            });
+
+            const result = await resolveAccount('intermediate');
+
+            expect(result).toEqual({
+                id: 'acc-wip',
+                code: '1-132',
+                name: 'Persediaan Barang dalam Proses Rafia',
+            });
+        });
+
+        it('does not use bahan penolong account for scrap role', async () => {
+            mockGetTenantIdFromContext.mockReturnValue('tenant-rafia');
+            mockGetMainPrisma.mockReturnValue({
+                tenantAccountRole: {
+                    findUnique: vi.fn().mockResolvedValue({
+                        accountId: 'acc-penolong',
+                        role: 'scrap',
+                        tenantId: 'tenant-rafia',
+                    }),
+                },
+            });
+            mockTenantDb.account.findUnique.mockResolvedValue({
+                id: 'acc-penolong',
+                code: '1-127',
+                name: 'Persediaan Bahan Penolong',
+                isActive: true,
+            });
+            vi.mocked(prisma.account.findUnique).mockImplementation((args: any) => {
+                const code = args?.where?.code;
+                if (code === '1-130') {
+                    return Promise.resolve({ id: 'marker', code, name: 'Persediaan Bahan Baku Rafia' } as never);
+                }
+                if (code === '1-129') {
+                    return Promise.resolve({ id: 'acc-affal', code, name: 'Persediaan Affal Rafia' } as never);
+                }
+                return Promise.resolve(null) as any;
+            });
+
+            const result = await resolveAccount('scrap');
+
+            expect(result).toEqual({
+                id: 'acc-affal',
+                code: '1-129',
+                name: 'Persediaan Affal Rafia',
+            });
         });
     });
 });
