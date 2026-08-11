@@ -513,12 +513,13 @@ describe('generateEscpInvoice — logo bitmap', () => {
         expect(escStarCount).toBe(fakeLogo.bands.length);
     });
 
-    it('does not print the company name as text when a logo is present', () => {
-        const text = decodeText(generateEscpInvoice(baseData({ logoBitmap: fakeLogo })));
-        expect(text).not.toContain('CV MELINDO JAYA');
+    it('still prints the company name as text below the logo when a logo is present', () => {
+        const data = baseData({ logoBitmap: fakeLogo });
+        const text = decodeText(generateEscpInvoice(data));
+        expect(text).toContain(data.companyName);
     });
 
-    it('falls back to the company name text when logoBitmap is null/undefined', () => {
+    it('prints the company name text when logoBitmap is null/undefined', () => {
         const text = decodeText(
             generateEscpInvoice(baseData({ logoBitmap: null })),
         );

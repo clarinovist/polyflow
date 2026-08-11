@@ -98,8 +98,13 @@ export async function buildEscpLogoBitmap(
     logoUrl: string,
     opts: { maxWidthDots?: number; heightDots?: number } = {},
 ): Promise<EscpLogoBitmap | null> {
-    const maxWidthDots = opts.maxWidthDots ?? 160;
-    const heightDots = opts.heightDots ?? 16; // 2 bands @ 8 dots
+    // Bit-image bands print at a 1/60" vertical pitch (see LOGO_BAND_FEED_180
+    // in escp-core.ts), so the previous default of 16 dots came out ≈0.27"
+    // tall — barely legible on paper. 48/280 gives ≈0.8" tall, ≈2.3" wide at
+    // 120 DPI horizontal: a proper header logo without dominating the 7.5"
+    // printable width of the default 9.5" narrow-carriage form.
+    const maxWidthDots = opts.maxWidthDots ?? 280;
+    const heightDots = opts.heightDots ?? 48; // 6 bands @ 8 dots
 
     try {
         const buffer = await fetchLogoBytes(logoUrl);

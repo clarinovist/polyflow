@@ -253,9 +253,12 @@ export function documentPreamble(
 }
 
 /**
- * Company identity band: the logo bitmap when one was built, otherwise the
- * company name in bold at 10 CPI. Leaves the printer back at BODY_CPI and
- * 1/6" line spacing either way.
+ * Company identity band: the logo bitmap when one was built, followed by the
+ * company name in bold at 10 CPI either way. The name is never dropped — a
+ * tenant with no logo (or a failed logo fetch) still needs to identify itself
+ * on the printout, and a tenant with a logo still wants the name legible
+ * underneath it since the logo band itself prints quite small. Leaves the
+ * printer back at BODY_CPI and 1/6" line spacing.
  */
 export function companyHeader(
     logoBitmap: EscpLogoBitmap | null | undefined,
@@ -270,14 +273,13 @@ export function companyHeader(
             bytes.push(LF);
         }
         bytes.push(...setLineSpacing1_6());
-    } else {
-        bytes.push(...setCPI(10));
-        bytes.push(...setBold(true));
-        bytes.push(...str(companyName));
-        bytes.push(...setBold(false));
-        bytes.push(...newline());
-        bytes.push(...setCPI(BODY_CPI));
     }
+    bytes.push(...setCPI(10));
+    bytes.push(...setBold(true));
+    bytes.push(...str(companyName));
+    bytes.push(...setBold(false));
+    bytes.push(...newline());
+    bytes.push(...setCPI(BODY_CPI));
     return bytes;
 }
 
