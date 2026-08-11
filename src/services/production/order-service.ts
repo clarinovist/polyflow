@@ -53,6 +53,7 @@ export class ProductionOrderService {
             employees,
             workShifts,
             rawMaterials,
+            rawMaterialStock,
             customers,
             machineStageSetting,
         ] = await Promise.all([
@@ -86,6 +87,23 @@ export class ProductionOrderService {
                 },
                 orderBy: { name: 'asc' },
             }),
+            // Stock per (raw material, warehouse) — feeds the "Tambah bahan"
+            // picker so it can show availability before the user commits a qty.
+            prisma.inventory.findMany({
+                where: {
+                    productVariant: {
+                        product: {
+                            productType: { in: [...ISSUABLE_MATERIAL_TYPES] },
+                        },
+                    },
+                    quantity: { gt: 0 },
+                },
+                select: {
+                    productVariantId: true,
+                    locationId: true,
+                    quantity: true,
+                },
+            }),
             prisma.customer.findMany({
                 orderBy: { name: 'asc' },
             }),
@@ -108,6 +126,7 @@ export class ProductionOrderService {
             helpers,
             workShifts,
             rawMaterials,
+            rawMaterialStock,
             customers,
             machineStageMap: parseMachineStageMap(machineStageSetting?.value),
         };

@@ -87,6 +87,19 @@ export function isInactiveLocation(loc: LocationLike): boolean {
     );
 }
 
+/** Scrap never counts as available production stock. */
+const EXCLUDED_MATERIAL_SOURCE_PURPOSES = new Set(['SCRAP']);
+
+/**
+ * Whether a location is eligible to be a material source — used both by the
+ * automatic per-material warehouse resolver and by manual "add material"
+ * pickers, so both agree on which warehouses count.
+ */
+export function isEligibleMaterialSourceLocation(loc: LocationLike): boolean {
+    if (isInactiveLocation(loc)) return false;
+    return !EXCLUDED_MATERIAL_SOURCE_PURPOSES.has(loc.locationPurpose || '');
+}
+
 /**
  * True when PACKING role points at a *supplies* warehouse (Melindo-style),
  * not a packing process floor / packaging-product store (Kiyowo packing_area).

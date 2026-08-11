@@ -8,6 +8,7 @@ import {
     stageLabelId,
     resolveOutputLocationId,
     stageFromBomCategory,
+    isEligibleMaterialSourceLocation,
     type LocationLike,
     type ProductionStage,
 } from '@/lib/locations/resolve-location';
@@ -71,6 +72,12 @@ export interface ProductionOrderFormProps {
     }[];
     customers?: { id: string; name: string }[];
     rawMaterials?: { id: string; name: string; primaryUnit: string }[];
+    /** Stock per (raw material, warehouse) — feeds the "Tambah bahan" picker */
+    rawMaterialStock?: {
+        productVariantId: string;
+        locationId: string;
+        quantity: number;
+    }[];
     salesOrderId?: string;
     variantId?: string;
     qtyHint?: number;
@@ -80,31 +87,31 @@ export interface ProductionOrderFormProps {
 const formSchema = createProductionOrderSchema;
 type FormValues = z.infer<typeof formSchema>;
 
+interface AdHocMaterialMeta {
+    productVariantId: string;
+    name: string;
+    unit: string;
+    stdQty: number;
+    bomOutput: number;
+    currentStock: number;
+    totalStock: number;
+    sourceLocationId: string;
+    sourceLocationName: string;
+}
+
 /**
- * Build a materialInfo-like map from rawMaterials prop for ad-hoc lines.
- * These materials aren't part of the BOM calculation, but the SPK only has
- * one source warehouse — so an ad-hoc line is drawn from that same source,
- * not from nowhere.
+ * Build a materialInfo-like map from rawMaterials prop for ad-hoc lines that
+ * haven't been added yet (still just an option in the "Tambah bahan"
+ * dropdown). Once a line is actually added, `manualMaterialMeta` overrides
+ * this with the warehouse + stock the user actually picked — see
+ * `mergedMaterialInfo` below.
  */
 function buildRawMaterialMeta(
     rawMaterials: { id: string; name: string; primaryUnit: string }[],
     sourceLocationId: string,
     sourceLocationName: string,
-) {
-    const map: Record<
-        string,
-        {
-            productVariantId: string;
-            name: string;
-            unit: string;
-            stdQty: number;
-            bomOutput: number;
-            currentStock: number;
-            totalStock: number;
-            sourceLocationId: string;
-            sourceLocationName: string;
-        }
-    > = {};
+): Record<string, AdHocMaterialMeta> {
+    const map: Record<string, AdHocMaterialMeta> = {};
     for (const rm of rawMaterials) {
         map[rm.id] = {
             productVariantId: rm.id,
@@ -128,6 +135,7 @@ export function ProductionOrderForm({
     locations,
     customers = [],
     rawMaterials = [],
+    rawMaterialStock = [],
     salesOrderId,
     variantId,
     qtyHint,
@@ -146,6 +154,18 @@ export function ProductionOrderForm({
     const [sourceOverrideId, setSourceOverrideId] = useState<string | null>(
         null,
     );
+    // C2: Warehouse + stock the user actually picked per manually-added line
+    // — see mergedMaterialInfo, which layers this over buildRawMaterialMeta's
+    // placeholder defaults.
+    const [manualMaterialMeta, setManualMaterialMeta] = useState<
+        Record<
+            string,
+            Pick<
+                AdHocMaterialMeta,
+                'sourceLocationId' | 'sourceLocationName' | 'currentStock'
+            >
+        >
+    >({});
 
     // P1: Track qtyHint for prefill
     const qtyHintRef = useRef(qtyHint);
@@ -156,6 +176,28 @@ export function ProductionOrderForm({
         () => locations as LocationLike[],
         [locations],
     );
+
+    // C2: Warehouses offered by the "Tambah bahan" gudang picker — same
+    // eligibility rule the automatic BOM resolver uses, so manual add offers
+    // exactly the warehouses the system would ever draw material from.
+    const eligibleSourceLocations = useMemo(
+        () =>
+            locationLikes
+                .filter(isEligibleMaterialSourceLocation)
+                .map((l) => ({ id: l.id, name: l.name })),
+        [locationLikes],
+    );
+
+    // C2: productVariantId -> locationId -> stock, for the "Tambah bahan"
+    // dropdown's stock badge.
+    const rawMaterialStockMap = useMemo(() => {
+        const map: Record<string, Record<string, number>> = {};
+        for (const row of rawMaterialStock) {
+            const byLocation = (map[row.productVariantId] ??= {});
+            byLocation[row.locationId] = row.quantity;
+        }
+        return map;
+    }, [rawMaterialStock]);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema) as Resolver<FormValues>,
@@ -354,18 +396,44 @@ export function ProductionOrderForm({
         return materialPreview.items;
     }, [watchItems, materialPreview.items]);
 
-    // Merged materialInfo: preview info + rawMaterials metadata for ad-hoc lines
+    // Merged materialInfo: preview info (BOM) + rawMaterials defaults (still
+    // just dropdown options) + manualMaterialMeta (the warehouse + stock the
+    // user actually picked for lines they've added — takes priority over the
+    // placeholder default, but BOM preview always wins since those items
+    // aren't editable through the ad-hoc picker).
     const mergedMaterialInfo = useMemo(() => {
         const rmMeta = buildRawMaterialMeta(
             rawMaterials,
             effectiveSourceId,
             sourceLocationName,
         );
-        return { ...rmMeta, ...materialPreview.materialInfo };
+        const withManualOverrides: Record<string, AdHocMaterialMeta> = {
+            ...rmMeta,
+        };
+        for (const [productVariantId, meta] of Object.entries(
+            manualMaterialMeta,
+        )) {
+            const base = withManualOverrides[productVariantId];
+            if (!base) continue;
+            withManualOverrides[productVariantId] = {
+                ...base,
+                ...meta,
+                // Sentinel: the only consumer of stdQty is the "has real
+                // stock data" gate in material-preview-panel.tsx. A manually
+                // added line with a resolved warehouse has real stock data
+                // now, same as a BOM line.
+                stdQty: 1,
+                // User picked one specific warehouse — no cross-warehouse
+                // fallback like the BOM auto-resolver does.
+                totalStock: meta.currentStock,
+            };
+        }
+        return { ...withManualOverrides, ...materialPreview.materialInfo };
     }, [
         rawMaterials,
         effectiveSourceId,
         sourceLocationName,
+        manualMaterialMeta,
         materialPreview.materialInfo,
     ]);
 
@@ -385,16 +453,18 @@ export function ProductionOrderForm({
         );
     }, [displayItems, materialPreview.materialInfo]);
 
-    // Stock issues: only for BOM-sourced items (have inventory snapshot in preview).
-    // Compared against stock across all warehouses so a material sitting in the
-    // packaging store no longer reads as missing.
+    // Stock issues: BOM lines always have an inventory snapshot; ad-hoc lines
+    // do too once the user has picked a warehouse (stdQty sentinel = 1, see
+    // mergedMaterialInfo). Compared against stock across all warehouses for
+    // BOM lines so a material sitting in the packaging store no longer reads
+    // as missing; ad-hoc lines compare against the one warehouse the user chose.
     const hasStockIssues = useMemo(() => {
         return displayItems.some((item) => {
-            const fromBom = materialPreview.materialInfo[item.productVariantId];
-            if (!fromBom) return false; // ad-hoc line, no inventory snapshot
-            return item.quantity > (fromBom.totalStock ?? fromBom.currentStock);
+            const info = mergedMaterialInfo[item.productVariantId];
+            if (!info || info.stdQty <= 0) return false; // no stock data yet
+            return item.quantity > (info.totalStock ?? info.currentStock);
         });
-    }, [displayItems, materialPreview.materialInfo]);
+    }, [displayItems, mergedMaterialInfo]);
 
     // ── Effects ─────────────────────────────────────────────────────
 
@@ -572,7 +642,7 @@ export function ProductionOrderForm({
     );
 
     const handleAddItem = useCallback(
-        (productVariantId: string, qty: number) => {
+        (productVariantId: string, qty: number, locationId: string) => {
             const current = (form.getValues('items') || []) as {
                 productVariantId: string;
                 quantity: number;
@@ -582,8 +652,21 @@ export function ProductionOrderForm({
                 { productVariantId, quantity: qty },
             ]);
             itemsDirtyRef.current = true;
+
+            const locationName =
+                locations.find((l) => l.id === locationId)?.name || '';
+            setManualMaterialMeta((prev) => ({
+                ...prev,
+                [productVariantId]: {
+                    sourceLocationId: locationId,
+                    sourceLocationName: locationName,
+                    currentStock:
+                        rawMaterialStockMap[productVariantId]?.[locationId] ??
+                        0,
+                },
+            }));
         },
-        [form],
+        [form, locations, rawMaterialStockMap],
     );
 
     const handleRemoveItem = useCallback(
@@ -597,6 +680,13 @@ export function ProductionOrderForm({
                 current.filter((i) => i.productVariantId !== productVariantId),
             );
             itemsDirtyRef.current = true;
+
+            setManualMaterialMeta((prev) => {
+                if (!(productVariantId in prev)) return prev;
+                const next = { ...prev };
+                delete next[productVariantId];
+                return next;
+            });
         },
         [form],
     );
@@ -745,6 +835,9 @@ export function ProductionOrderForm({
             onAcceptSuggestedSource={handleAcceptSuggestedSource}
             editable={step === 3}
             rawMaterials={rawMaterials}
+            sourceLocations={eligibleSourceLocations}
+            defaultLocationId={effectiveSourceId}
+            rawMaterialStock={rawMaterialStockMap}
             onItemQtyChange={handleItemQtyChange}
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}

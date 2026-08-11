@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, AlertCircle, Plus, Trash2 } from 'lucide-react';
@@ -43,10 +43,20 @@ interface MaterialPreviewPanelProps {
     editable?: boolean;
     /** C1: Available raw materials for "add line" dropdown */
     rawMaterials?: RawMaterial[];
+    /** C2: Warehouses the "Tambah bahan" gudang picker offers */
+    sourceLocations?: { id: string; name: string }[];
+    /** C2: Warehouse pre-selected in the gudang picker (the SPK's own source) */
+    defaultLocationId?: string;
+    /** C2: productVariantId -> locationId -> stock, for the item dropdown's stock badge */
+    rawMaterialStock?: Record<string, Record<string, number>>;
     /** C1: Called when user changes a quantity */
     onItemQtyChange?: (productVariantId: string, newQty: number) => void;
-    /** C1: Called when user adds a new material line */
-    onAddItem?: (productVariantId: string, qty: number) => void;
+    /** C2: Called when user adds a new material line — locationId is the gudang they picked */
+    onAddItem?: (
+        productVariantId: string,
+        qty: number,
+        locationId: string,
+    ) => void;
     /** C1: Called when user removes a material line */
     onRemoveItem?: (productVariantId: string) => void;
 }
@@ -62,12 +72,24 @@ export function MaterialPreviewPanel({
     onAcceptSuggestedSource,
     editable = false,
     rawMaterials = [],
+    sourceLocations = [],
+    defaultLocationId = '',
+    rawMaterialStock = {},
     onItemQtyChange,
     onAddItem,
     onRemoveItem,
 }: MaterialPreviewPanelProps) {
     const [addVariantId, setAddVariantId] = useState('');
     const [addQty, setAddQty] = useState(0);
+    const [addLocationId, setAddLocationId] = useState(defaultLocationId);
+
+    // Keep the gudang picker in sync with the SPK's own source location until
+    // the user explicitly changes it themselves.
+    useEffect(() => {
+        if (!addLocationId && defaultLocationId) {
+            setAddLocationId(defaultLocationId);
+        }
+    }, [defaultLocationId, addLocationId]);
 
     const existingIds = new Set(items.map((i) => i.productVariantId));
     const availableToAdd = rawMaterials.filter((rm) => !existingIds.has(rm.id));
@@ -88,10 +110,11 @@ export function MaterialPreviewPanel({
     const sourceSummary = sourceNames.join(' · ');
 
     const handleAdd = () => {
-        if (addVariantId && addQty > 0 && onAddItem) {
-            onAddItem(addVariantId, addQty);
+        if (addVariantId && addQty > 0 && addLocationId && onAddItem) {
+            onAddItem(addVariantId, addQty, addLocationId);
             setAddVariantId('');
             setAddQty(0);
+            // addLocationId stays — the next add is usually from the same gudang.
         }
     };
 
@@ -205,12 +228,16 @@ export function MaterialPreviewPanel({
                             {items.map((item) => {
                                 const info =
                                     materialInfo[item.productVariantId];
-                                // BOM-sourced items have stock data; ad-hoc (from rawMaterials meta) have stdQty=0
-                                const isBomSourced = info && info.stdQty > 0;
+                                // BOM lines always have stock data. Ad-hoc lines
+                                // do too once the user has picked a gudang in
+                                // "Tambah bahan" (stdQty is set as a sentinel
+                                // then — see mergedMaterialInfo in the parent).
+                                // Still-unresolved ad-hoc lines have stdQty=0.
+                                const hasStockData = info && info.stdQty > 0;
                                 // Short only when no warehouse covers it — this
                                 // must match the rule that sets WAITING_MATERIAL.
                                 const isLowStock =
-                                    isBomSourced &&
+                                    hasStockData &&
                                     info &&
                                     item.quantity >
                                         (info.totalStock ?? info.currentStock);
@@ -257,7 +284,7 @@ export function MaterialPreviewPanel({
                                         </TableCell>
                                         <TableCell className="py-2 text-right">
                                             <div className="flex flex-col items-end">
-                                                {isBomSourced ? (
+                                                {hasStockData ? (
                                                     <>
                                                         <span
                                                             className={`text-xs ${isLowStock ? 'text-red-600 dark:text-red-400 font-bold' : ''}`}
@@ -308,55 +335,97 @@ export function MaterialPreviewPanel({
                     </Table>
                 </div>
 
-                {/* C1: Add material line */}
+                {/* C2: Add material line — gudang first, then item (annotated
+                    with stock at that gudang), then qty. Item picker stays
+                    disabled until a gudang is chosen, so the order can't be
+                    skipped. */}
                 {editable && availableToAdd.length > 0 && (
-                    <div className="flex items-end gap-2 pt-2 border-t">
-                        <div className="flex-1 space-y-1">
+                    <div className="space-y-2 pt-2 border-t">
+                        <div className="space-y-1">
                             <span className="text-[10px] text-muted-foreground">
-                                Tambah bahan
+                                Gudang
                             </span>
                             <Select
-                                value={addVariantId}
-                                onValueChange={setAddVariantId}
+                                value={addLocationId}
+                                onValueChange={setAddLocationId}
                             >
                                 <SelectTrigger className="h-8 text-xs">
-                                    <SelectValue placeholder="Pilih bahan" />
+                                    <SelectValue placeholder="Pilih gudang" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {availableToAdd.map((rm) => (
-                                        <SelectItem key={rm.id} value={rm.id}>
-                                            {rm.name}
+                                    {sourceLocations.map((loc) => (
+                                        <SelectItem key={loc.id} value={loc.id}>
+                                            {loc.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="w-24 space-y-1">
-                            <span className="text-[10px] text-muted-foreground">
-                                Qty
-                            </span>
-                            <Input
-                                type="number"
-                                step="0.01"
-                                min={0}
-                                className="h-8 text-xs"
-                                value={addQty || ''}
-                                onChange={(e) =>
-                                    setAddQty(Number(e.target.value) || 0)
+                        <div className="flex items-end gap-2">
+                            <div className="flex-1 space-y-1">
+                                <span className="text-[10px] text-muted-foreground">
+                                    Tambah bahan
+                                </span>
+                                <Select
+                                    value={addVariantId}
+                                    onValueChange={setAddVariantId}
+                                    disabled={!addLocationId}
+                                >
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Pilih bahan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableToAdd.map((rm) => (
+                                            <SelectItem
+                                                key={rm.id}
+                                                value={rm.id}
+                                            >
+                                                <div className="flex items-center justify-between gap-3 w-full">
+                                                    <span>{rm.name}</span>
+                                                    <span className="text-[10px] text-muted-foreground">
+                                                        Stok:{' '}
+                                                        {rawMaterialStock[
+                                                            rm.id
+                                                        ]?.[addLocationId] ?? 0}
+                                                    </span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="w-24 space-y-1">
+                                <span className="text-[10px] text-muted-foreground">
+                                    Qty
+                                </span>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min={0}
+                                    className="h-8 text-xs"
+                                    value={addQty || ''}
+                                    onChange={(e) =>
+                                        setAddQty(Number(e.target.value) || 0)
+                                    }
+                                    onWheel={(e) => e.currentTarget.blur()}
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2"
+                                aria-label="Tambah bahan ke daftar"
+                                disabled={
+                                    !addVariantId ||
+                                    addQty <= 0 ||
+                                    !addLocationId
                                 }
-                                onWheel={(e) => e.currentTarget.blur()}
-                            />
+                                onClick={handleAdd}
+                            >
+                                <Plus className="h-3 w-3" />
+                            </Button>
                         </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2"
-                            disabled={!addVariantId || addQty <= 0}
-                            onClick={handleAdd}
-                        >
-                            <Plus className="h-3 w-3" />
-                        </Button>
                     </div>
                 )}
             </CardContent>

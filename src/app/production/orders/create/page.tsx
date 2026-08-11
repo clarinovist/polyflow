@@ -30,13 +30,21 @@ export default async function CreateProductionOrderPage({
                   helpers: [],
                   machines: [],
                   rawMaterials: [],
+                  rawMaterialStock: [],
               };
     // Only destructure what we need
-    const { boms, locations, machines, customers, rawMaterials, machineStageMap } =
-        serializeData(rawData) as unknown as ProductionOrderFormProps & {
-            customers: unknown[];
-            rawMaterials: unknown[];
-        };
+    const {
+        boms,
+        locations,
+        machines,
+        customers,
+        rawMaterials,
+        rawMaterialStock,
+        machineStageMap,
+    } = serializeData(rawData) as unknown as ProductionOrderFormProps & {
+        customers: unknown[];
+        rawMaterials: unknown[];
+    };
     const salesOrderId = resolvedSearchParams.salesOrderId;
     const variantId = resolvedSearchParams.variantId;
     const qtyHint = resolvedSearchParams.qtyHint
@@ -84,6 +92,10 @@ export default async function CreateProductionOrderPage({
                 rawMaterials={
                     (rawMaterials ||
                         []) as ProductionOrderFormProps['rawMaterials']
+                }
+                rawMaterialStock={
+                    (rawMaterialStock ||
+                        []) as ProductionOrderFormProps['rawMaterialStock']
                 }
                 salesOrderId={salesOrderId}
                 variantId={variantId}

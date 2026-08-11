@@ -299,3 +299,67 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
         expect(screen.getByText('Bahan B')).toBeTruthy();
     });
 });
+
+describe('ProductionOrderForm — Tambah bahan (manual add, gudang-first)', () => {
+    it('flags a manually-added material as short once its qty exceeds stock at the chosen gudang', async () => {
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+                rawMaterials={[
+                    { id: 'rm-manual', name: 'Bahan Manual', primaryUnit: 'KG' },
+                ]}
+                rawMaterialStock={[
+                    {
+                        productVariantId: 'rm-manual',
+                        locationId: 'loc-rm',
+                        quantity: 5,
+                    },
+                ]}
+            />,
+        );
+
+        fireEvent.click(screen.getByText('Campuran Test'));
+        const initialQtyInput = document.querySelector(
+            'input[type="number"]',
+        ) as HTMLInputElement;
+        fireEvent.change(initialQtyInput, { target: { value: '300' } });
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        fireEvent.click(screen.getByText('Lanjut →'));
+        fireEvent.click(screen.getByText('Lanjut →'));
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+
+        expect(screen.queryByText('Kekurangan bahan')).toBeNull();
+
+        // Gudang first, then item — matches the picker's intended order.
+        // "Gudang Bahan Baku" also appears as plain text in the "Alur
+        // material" summary, so scope to the mocked SelectItem <button>.
+        const gudangOption = screen
+            .getAllByText('Gudang Bahan Baku')
+            .find((el) => el.closest('button'));
+        fireEvent.click(gudangOption!.closest('button')!);
+        fireEvent.click(screen.getByText('Bahan Manual'));
+
+        const numberInputs = document.querySelectorAll(
+            'input[type="number"]',
+        );
+        const addQtyInput = numberInputs[
+            numberInputs.length - 1
+        ] as HTMLInputElement;
+        fireEvent.change(addQtyInput, { target: { value: '50' } }); // stock is only 5
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Tambah bahan ke daftar' }),
+        );
+
+        // Synchronous state update — fake timers are active in this suite,
+        // so findByText's internal polling would never resolve.
+        expect(screen.getByText('Kekurangan bahan')).toBeTruthy();
+        expect(screen.getByText('Bahan Manual')).toBeTruthy();
+    });
+});

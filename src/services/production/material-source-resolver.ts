@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
 import {
-    isInactiveLocation,
+    isEligibleMaterialSourceLocation,
     resolveMaterialSourceLocationId,
     type LocationLike,
 } from '@/lib/locations/resolve-location';
@@ -24,14 +24,6 @@ export interface MaterialSourceResolution {
     totalStock: number;
     /** True only when no warehouse holds enough */
     isShortage: boolean;
-}
-
-/** Scrap never counts as available production stock. */
-const EXCLUDED_PURPOSES = new Set(['SCRAP']);
-
-function isEligible(loc: LocationLike & { locationPurpose?: string | null }) {
-    if (isInactiveLocation(loc)) return false;
-    return !EXCLUDED_PURPOSES.has(loc.locationPurpose || '');
 }
 
 /**
@@ -69,7 +61,9 @@ export async function resolveMaterialSources(params: {
         orderBy: { name: 'asc' },
     });
 
-    const eligibleIds = new Set(locations.filter(isEligible).map((l) => l.id));
+    const eligibleIds = new Set(
+        locations.filter(isEligibleMaterialSourceLocation).map((l) => l.id),
+    );
     const nameById = new Map(locations.map((l) => [l.id, l.name]));
 
     const variantIds = materials.map((m) => m.productVariantId);
