@@ -281,17 +281,25 @@ export class CostReportingService {
 
         const movements = await prisma.stockMovement.findMany({
             where: {
-                reference: { contains: `PO-${order.orderNumber}` },
                 type: MovementType.OUT,
+                OR: [
+                    { productionOrderId: order.id },
+                    { reference: { contains: `PO-${order.orderNumber}` } },
+                ],
+            },
+            select: {
+                id: true,
+                productionOrderId: true,
+                reference: true,
+                cost: true,
+                quantity: true,
             },
         });
 
-        let materialCost = 0;
-        movements.forEach((m) => {
-            const cost = Number(m.cost || 0);
-            const qty = Number(m.quantity);
-            materialCost += cost * qty;
-        });
+        const materialCostByOrder = loadMaterialCostByOrder(movements, [
+            { id: order.id, orderNumber: order.orderNumber },
+        ]);
+        const materialCost = materialCostByOrder.get(order.id) ?? 0;
 
         const conversionCost = Number(order.estimatedConversionCost || 0);
         const totalCost = materialCost + conversionCost;
