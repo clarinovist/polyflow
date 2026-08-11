@@ -308,6 +308,8 @@ model ProductionShift {
   productionOrder   ProductionOrder       @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   helpers           Employee[]            @relation("ShiftHelpers")
   executions        ProductionExecution[]
+
+  @@index([productionOrderId])
 }
 
 // ==========================================
@@ -580,6 +582,8 @@ model BomItem {
   updatedAt        DateTime       @updatedAt
   bom              Bom            @relation(fields: [bomId], references: [id], onDelete: Cascade)
   productVariant   ProductVariant @relation("Ingredient", fields: [productVariantId], references: [id])
+
+  @@index([bomId])
 }
 
 model StockMovement {
@@ -959,6 +963,8 @@ model MaterialIssue {
   location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+
+  @@index([productionOrderId])
 }
 
 model ProductionIssue {
