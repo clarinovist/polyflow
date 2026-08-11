@@ -66,7 +66,11 @@ export const productionComponentLabels = {
     // Order Detail
     orderDetail: 'Detail Pesanan',
     addOutput: 'Tambah Output',
-    recordScrap: 'Catat Scrap',
+    recordScrap: 'Catat Scrap Manual',
+    recordScrapHelper:
+        'Untuk scrap yang ditemukan di luar sesi log hasil produksi kiosk (mis. reject QC, ditemukan belakangan). Scrap yang tercatat saat log hasil produksi di kiosk sudah otomatis masuk ke daftar ini.',
+    scrapSourceKiosk: 'Dari log kiosk',
+    scrapSourceManual: 'Manual',
     recordQC: 'Catat QC',
     addIssue: 'Tambah Issue',
     batchIssue: 'Issue Batch',

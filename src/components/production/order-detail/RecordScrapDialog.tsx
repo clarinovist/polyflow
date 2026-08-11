@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -78,6 +79,9 @@ export function RecordScrapDialog({
                     <DialogTitle>
                         {productionComponentLabels.recordScrap}
                     </DialogTitle>
+                    <DialogDescription>
+                        {productionComponentLabels.recordScrapHelper}
+                    </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={onSubmit}>
                     <BrandCard variant="default" className="mt-4 shadow-brand">

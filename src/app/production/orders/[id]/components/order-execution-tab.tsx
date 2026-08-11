@@ -22,6 +22,7 @@ import {
     ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
+import { productionComponentLabels } from '@/lib/labels';
 import { ShiftManager } from '@/components/production/ShiftManager';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { RecordScrapDialog } from '@/components/production/order-detail/RecordScrapDialog';
@@ -434,6 +435,14 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                                                     {scrap.reason ||
                                                         'Tanpa alasan'}
                                                 </p>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="mt-1 text-[10px] font-normal"
+                                                >
+                                                    {scrap.productionExecutionId
+                                                        ? productionComponentLabels.scrapSourceKiosk
+                                                        : productionComponentLabels.scrapSourceManual}
+                                                </Badge>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Badge
@@ -510,7 +519,40 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                                                     { locale: idLocale },
                                                 )}
                                             </span>
+                                            {insp.productionExecutionId && (
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="text-[10px] font-normal"
+                                                >
+                                                    {
+                                                        productionComponentLabels.scrapSourceKiosk
+                                                    }
+                                                </Badge>
+                                            )}
                                         </div>
+                                        {insp.measurements.length > 0 && (
+                                            <ul className="space-y-0.5 mb-1">
+                                                {insp.measurements.map((m) => (
+                                                    <li
+                                                        key={m.id}
+                                                        className={cn(
+                                                            'text-xs flex items-center gap-1',
+                                                            !m.isWithinTolerance &&
+                                                                'text-amber-600 dark:text-amber-400 font-medium',
+                                                        )}
+                                                    >
+                                                        {m.parameterName}:{' '}
+                                                        {Number(
+                                                            m.measuredValue,
+                                                        )}{' '}
+                                                        {m.parameterUnit}
+                                                        {!m.isWithinTolerance && (
+                                                            <Info className="h-3 w-3" />
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                         <p className="text-xs text-foreground line-clamp-2">
                                             {insp.notes || 'Tanpa catatan.'}
                                         </p>

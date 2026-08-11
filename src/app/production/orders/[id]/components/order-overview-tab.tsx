@@ -12,9 +12,71 @@ import {
     getEnteredQuantityDisplay,
 } from '@/lib/utils/production-units';
 import { Progress } from '@/components/ui/progress';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import Link from 'next/link';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
+
+function ExecutionScrapCell({
+    execution,
+    scrapRecords,
+}: {
+    execution: ExtendedProductionOrder['executions'][number];
+    scrapRecords: ExtendedProductionOrder['scrapRecords'];
+}) {
+    const totalScrap =
+        Number(execution.scrapQuantity || 0) +
+        Number(execution.scrapDaunQty || 0) +
+        Number(execution.scrapProngkolQty || 0);
+
+    if (totalScrap <= 0) {
+        return <>-</>;
+    }
+
+    const relatedRecords = scrapRecords.filter(
+        (scrap) => scrap.productionExecutionId === execution.id,
+    );
+
+    if (relatedRecords.length === 0) {
+        return <>{totalScrap}</>;
+    }
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="underline decoration-dotted underline-offset-2 hover:text-destructive/80"
+                >
+                    {totalScrap}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 text-left">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Rincian scrap tercatat (tab Sumber Daya)
+                </p>
+                <ul className="space-y-1.5">
+                    {relatedRecords.map((scrap) => (
+                        <li
+                            key={scrap.id}
+                            className="flex justify-between gap-2 text-sm"
+                        >
+                            <span>{scrap.productVariant.name}</span>
+                            <span className="font-medium">
+                                {Number(scrap.quantity)}{' '}
+                                {scrap.productVariant.primaryUnit}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            </PopoverContent>
+        </Popover>
+    );
+}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
     return (
@@ -514,27 +576,17 @@ export function OrderOverviewTab({
                                                           })()}
                                                 </td>
                                                 <td className="p-3 text-right text-destructive">
-                                                    {exec.status === 'VOIDED'
-                                                        ? '-'
-                                                        : (() => {
-                                                              const totalScrap =
-                                                                  Number(
-                                                                      exec.scrapQuantity ||
-                                                                          0,
-                                                                  ) +
-                                                                  Number(
-                                                                      exec.scrapDaunQty ||
-                                                                          0,
-                                                                  ) +
-                                                                  Number(
-                                                                      exec.scrapProngkolQty ||
-                                                                          0,
-                                                                  );
-                                                              return totalScrap >
-                                                                  0
-                                                                  ? totalScrap
-                                                                  : '-';
-                                                          })()}
+                                                    {exec.status ===
+                                                    'VOIDED' ? (
+                                                        '-'
+                                                    ) : (
+                                                        <ExecutionScrapCell
+                                                            execution={exec}
+                                                            scrapRecords={
+                                                                order.scrapRecords
+                                                            }
+                                                        />
+                                                    )}
                                                 </td>
                                                 <td className="p-3">
                                                     {(
