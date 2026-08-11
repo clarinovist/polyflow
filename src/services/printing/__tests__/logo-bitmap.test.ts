@@ -4,6 +4,13 @@ import {
     packGrayscaleToBands,
 } from '@/services/printing/logo-bitmap';
 
+const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
+
+vi.mock('@/lib/storage/r2', () => ({
+    r2Client: { send: sendMock },
+    BUCKET: 'polyflow-uploads',
+}));
+
 describe('packGrayscaleToBands', () => {
     it('packs a solid black 8x8 image into a single band with all bits set', () => {
         const pixels = new Uint8Array(8 * 8).fill(0); // 0 = black
@@ -52,6 +59,7 @@ describe('buildEscpLogoBitmap', () => {
     afterEach(() => {
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
+        sendMock.mockReset();
     });
 
     it('returns null when the fetch fails (never throws)', async () => {
@@ -113,5 +121,44 @@ describe('buildEscpLogoBitmap', () => {
                 expect(byte).toBe(0xff);
             }
         }
+    });
+
+    it('reads the logo straight from R2 for /api/images/ URLs, never via fetch', async () => {
+        const sharp = (await import('sharp')).default;
+        const pngBuffer = await sharp({
+            create: {
+                width: 40,
+                height: 20,
+                channels: 3,
+                background: { r: 0, g: 0, b: 0 },
+            },
+        })
+            .png()
+            .toBuffer();
+
+        const fetchSpy = vi.fn();
+        vi.stubGlobal('fetch', fetchSpy);
+        sendMock.mockResolvedValue({
+            Body: { transformToByteArray: async () => new Uint8Array(pngBuffer) },
+        });
+
+        const result = await buildEscpLogoBitmap(
+            '/api/images/acme-tenant/company/logo-123.png',
+            { maxWidthDots: 40, heightDots: 16 },
+        );
+
+        expect(result).not.toBeNull();
+        expect(fetchSpy).not.toHaveBeenCalled();
+        expect(sendMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns null when the R2 object has no body', async () => {
+        sendMock.mockResolvedValue({ Body: undefined });
+
+        const result = await buildEscpLogoBitmap(
+            '/api/images/acme-tenant/company/missing.png',
+        );
+
+        expect(result).toBeNull();
     });
 });

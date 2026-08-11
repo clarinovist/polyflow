@@ -6,6 +6,10 @@
  * and sync — this module owns all the async/native-binary (sharp) work.
  */
 
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { r2Client, BUCKET } from '@/lib/storage/r2';
+import { ExternalServiceError } from '@/lib/errors/errors';
+
 export interface EscpLogoBitmap {
     /** Number of columns (dots wide). */
     widthDots: number;
@@ -49,6 +53,42 @@ export function packGrayscaleToBands(
     return bands;
 }
 
+const R2_PROXY_PREFIX = '/api/images/';
+
+/**
+ * `company.logoUrl` is normally `/api/images/<r2-key>` — a path meant for
+ * `<img src>` in the browser (resolves against the current origin), returned
+ * by `uploadToR2()`. Node's fetch() can't resolve a relative URL the way a
+ * browser does, so calling fetch() on it here throws "Failed to parse URL".
+ * Reading the object straight from R2 also skips an unnecessary HTTP round
+ * trip back into our own server. `COMPANY_LOGO_URL` env overrides still come
+ * through as an absolute external URL, so those keep using fetch().
+ */
+async function fetchLogoBytes(logoUrl: string): Promise<Buffer> {
+    if (logoUrl.startsWith(R2_PROXY_PREFIX)) {
+        const key = logoUrl.slice(R2_PROXY_PREFIX.length);
+        const response = await r2Client.send(
+            new GetObjectCommand({ Bucket: BUCKET, Key: key }),
+        );
+        if (!response.Body) {
+            throw new ExternalServiceError(
+                `Logo object not found in R2: ${key}`,
+                'R2',
+            );
+        }
+        return Buffer.from(await response.Body.transformToByteArray());
+    }
+
+    const res = await fetch(logoUrl);
+    if (!res.ok) {
+        throw new ExternalServiceError(
+            `Logo fetch failed with status ${res.status}`,
+            'logo-fetch',
+        );
+    }
+    return Buffer.from(await res.arrayBuffer());
+}
+
 /**
  * Fetches `logoUrl`, resizes/thresholds it into a small monochrome bitmap,
  * and packs it into ESC/P bands. Returns null on any failure — callers must
@@ -62,12 +102,10 @@ export async function buildEscpLogoBitmap(
     const heightDots = opts.heightDots ?? 16; // 2 bands @ 8 dots
 
     try {
-        const res = await fetch(logoUrl);
-        if (!res.ok) return null;
-        const arrayBuffer = await res.arrayBuffer();
+        const buffer = await fetchLogoBytes(logoUrl);
 
         const sharp = (await import('sharp')).default;
-        const { data, info } = await sharp(Buffer.from(arrayBuffer))
+        const { data, info } = await sharp(buffer)
             .resize({
                 width: maxWidthDots,
                 height: heightDots,
