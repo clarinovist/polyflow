@@ -43,6 +43,7 @@ export interface Order {
     processNameSnapshot?: string | null;
     bom: {
         outputQuantity?: unknown;
+        productVariantId: string;
         productVariant: {
             name: string;
             skuCode: string;
@@ -457,7 +458,8 @@ export default function KioskJobFocus({
                                 >
                                     <div className="min-w-0">
                                         <span className="font-bold text-emerald-600">
-                                            +{Number(
+                                            +
+                                            {Number(
                                                 log.quantityProduced || 0,
                                             ).toLocaleString('id-ID')}{' '}
                                             {log.enteredUnit ||
@@ -471,8 +473,7 @@ export default function KioskJobFocus({
                                     </div>
                                     <span className="text-xs text-muted-foreground font-mono shrink-0">
                                         {new Date(
-                                            log.createdAt ||
-                                                log.startTime,
+                                            log.createdAt || log.startTime,
                                         ).toLocaleTimeString('id-ID', {
                                             hour: '2-digit',
                                             minute: '2-digit',
@@ -534,6 +535,7 @@ export default function KioskJobFocus({
                         open={logDialogOpen}
                         onOpenChange={setLogDialogOpen}
                         executionId={activeExecution.id}
+                        productVariantId={order.bom.productVariantId}
                         productName={order.bom.productVariant.name}
                         primaryUnit={unitMeta.primaryUnit}
                         salesUnit={unitMeta.salesUnit}
@@ -544,9 +546,7 @@ export default function KioskJobFocus({
                         executionModeSnapshot={
                             order.executionModeSnapshot ?? null
                         }
-                        processNameSnapshot={
-                            order.processNameSnapshot ?? null
-                        }
+                        processNameSnapshot={order.processNameSnapshot ?? null}
                         bomOutputQuantity={order.bom.outputQuantity}
                         bomItems={order.bom.items || []}
                         onSuccess={() => router.refresh()}

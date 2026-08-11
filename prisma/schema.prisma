@@ -38,7 +38,7 @@ model User {
   purchaseOrders                 PurchaseOrder[]                  @relation("PurchaseCreator")
   purchasePayments               PurchasePayment[]                @relation("PaymentCreator")
   createdPurchaseRequests        PurchaseRequest[]
-  reviewedPurchaseRequests       PurchaseRequest[]                 @relation("PurchaseRequestReviewer")
+  reviewedPurchaseRequests       PurchaseRequest[]                @relation("PurchaseRequestReviewer")
   inspections                    QualityInspection[]
   salesOrders                    SalesOrder[]                     @relation("SalesCreator")
   salesRepOrders                 SalesOrder[]                     @relation("SalesOrderSalesRep")
@@ -445,54 +445,55 @@ model Product {
 }
 
 model ProductVariant {
-  id                   String                     @id @default(uuid())
-  productId            String
-  name                 String
-  skuCode              String                     @unique
-  price                Decimal?                   @db.Decimal(10, 2)
-  buyPrice             Decimal?                   @db.Decimal(10, 2)
-  sellPrice            Decimal?                   @db.Decimal(10, 2)
-  primaryUnit          Unit
-  salesUnit            Unit?
-  conversionFactor     Decimal                    @default(1.0) @db.Decimal(10, 4)
-  attributes           Json?
-  createdAt            DateTime                   @default(now())
-  updatedAt            DateTime                   @updatedAt
-  minStockAlert        Decimal?                   @db.Decimal(15, 4)
-  leadTimeDays         Int?
-  preferredSupplierId  String?
-  reorderPoint         Decimal?                   @db.Decimal(15, 4)
-  reorderQuantity      Decimal?                   @db.Decimal(15, 4)
-  costingMethod        CostingMethod              @default(WEIGHTED_AVERAGE)
-  standardCost         Decimal?                   @db.Decimal(15, 4)
-  revenueAccountId     String? // Phase 2.3: per-variant revenue GL override
-  returnAccountId      String? // Phase 2.3c: per-variant return GL override
-  Batch                Batch[]
-  productionBoms       Bom[]                      @relation("ProductBom")
-  ingredientInBoms     BomItem[]                  @relation("Ingredient")
-  deliveryOrderItems   DeliveryOrderItem[]
-  goodsReceiptItems    GoodsReceiptItem[]
-  inventories          Inventory[]
-  MaterialIssue        MaterialIssue[]
-  preferredSupplier    Supplier?                  @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
-  product              Product                    @relation(fields: [productId], references: [id])
-  productionMaterials  ProductionMaterial[]
-  purchaseOrderItems   PurchaseOrderItem[]
-  purchaseRequestItems PurchaseRequestItem[]
-  salesOrderItems      SalesOrderItem[]
-  quotationItems       SalesQuotationItem[]
-  ScrapRecord          ScrapRecord[]
-  movements            StockMovement[]
-  opnameItems          StockOpnameItem[]
-  StockReservation     StockReservation[]
-  supplierProducts     SupplierProduct[]
-  customerPrices       CustomerProductPrice[]
-  costHistory          CostHistory[]
-  salesReturnItems     SalesReturnItem[]
-  purchaseReturnItems  PurchaseReturnItem[]
-  maklonReturnItems    MaklonMaterialReturnItem[]
-  productionRoutes     ProductionRoute[]
-  productionRuns       ProductionRun[]
+  id                     String                     @id @default(uuid())
+  productId              String
+  name                   String
+  skuCode                String                     @unique
+  price                  Decimal?                   @db.Decimal(10, 2)
+  buyPrice               Decimal?                   @db.Decimal(10, 2)
+  sellPrice              Decimal?                   @db.Decimal(10, 2)
+  primaryUnit            Unit
+  salesUnit              Unit?
+  conversionFactor       Decimal                    @default(1.0) @db.Decimal(10, 4)
+  attributes             Json?
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  minStockAlert          Decimal?                   @db.Decimal(15, 4)
+  leadTimeDays           Int?
+  preferredSupplierId    String?
+  reorderPoint           Decimal?                   @db.Decimal(15, 4)
+  reorderQuantity        Decimal?                   @db.Decimal(15, 4)
+  costingMethod          CostingMethod              @default(WEIGHTED_AVERAGE)
+  standardCost           Decimal?                   @db.Decimal(15, 4)
+  revenueAccountId       String? // Phase 2.3: per-variant revenue GL override
+  returnAccountId        String? // Phase 2.3c: per-variant return GL override
+  Batch                  Batch[]
+  productionBoms         Bom[]                      @relation("ProductBom")
+  ingredientInBoms       BomItem[]                  @relation("Ingredient")
+  deliveryOrderItems     DeliveryOrderItem[]
+  goodsReceiptItems      GoodsReceiptItem[]
+  inventories            Inventory[]
+  MaterialIssue          MaterialIssue[]
+  preferredSupplier      Supplier?                  @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
+  product                Product                    @relation(fields: [productId], references: [id])
+  productionMaterials    ProductionMaterial[]
+  purchaseOrderItems     PurchaseOrderItem[]
+  purchaseRequestItems   PurchaseRequestItem[]
+  salesOrderItems        SalesOrderItem[]
+  quotationItems         SalesQuotationItem[]
+  ScrapRecord            ScrapRecord[]
+  movements              StockMovement[]
+  opnameItems            StockOpnameItem[]
+  StockReservation       StockReservation[]
+  supplierProducts       SupplierProduct[]
+  customerPrices         CustomerProductPrice[]
+  costHistory            CostHistory[]
+  salesReturnItems       SalesReturnItem[]
+  purchaseReturnItems    PurchaseReturnItem[]
+  maklonReturnItems      MaklonMaterialReturnItem[]
+  productionRoutes       ProductionRoute[]
+  productionRuns         ProductionRun[]
+  qualityCheckParameters QualityCheckParameter[]
 }
 
 model CustomerProductPrice {
@@ -720,30 +721,30 @@ model StockOpnameEntry {
 }
 
 model ProductionOrder {
-  id                              String                @id @default(uuid())
-  orderNumber                     String                @unique
+  id                              String                   @id @default(uuid())
+  orderNumber                     String                   @unique
   bomId                           String
-  plannedQuantity                 Decimal               @db.Decimal(15, 4)
-  plannedEnteredQuantity          Decimal?              @db.Decimal(15, 4)
+  plannedQuantity                 Decimal                  @db.Decimal(15, 4)
+  plannedEnteredQuantity          Decimal?                 @db.Decimal(15, 4)
   plannedEnteredUnit              Unit?
-  plannedConversionFactorSnapshot Decimal?              @db.Decimal(10, 4)
+  plannedConversionFactorSnapshot Decimal?                 @db.Decimal(10, 4)
   plannedStartDate                DateTime
   plannedEndDate                  DateTime?
-  actualQuantity                  Decimal?              @db.Decimal(15, 4)
+  actualQuantity                  Decimal?                 @db.Decimal(15, 4)
   actualStartDate                 DateTime?
   actualEndDate                   DateTime?
-  status                          ProductionStatus      @default(DRAFT)
-  priority                        ProductionPriority    @default(NORMAL)
+  status                          ProductionStatus         @default(DRAFT)
+  priority                        ProductionPriority       @default(NORMAL)
   machineId                       String?
   locationId                      String
   createdById                     String?
-  createdAt                       DateTime              @default(now())
-  updatedAt                       DateTime              @updatedAt
+  createdAt                       DateTime                 @default(now())
+  updatedAt                       DateTime                 @updatedAt
   notes                           String?
   salesOrderId                    String?
-  estimatedConversionCost         Decimal?              @db.Decimal(15, 2)
+  estimatedConversionCost         Decimal?                 @db.Decimal(15, 2)
   parentOrderId                   String?
-  isMaklon                        Boolean               @default(false)
+  isMaklon                        Boolean                  @default(false)
   maklonCustomerId                String?
   // ── Flexible routing extension (nullable for legacy compatibility) ──
   productionRunId                 String?
@@ -752,29 +753,29 @@ model ProductionOrder {
   processCodeSnapshot             String?
   processNameSnapshot             String?
   executionModeSnapshot           ProductionExecutionMode? @default(GENERIC)
-  clientRequestId                 String?               @unique
+  clientRequestId                 String?                  @unique
   materialSourceLocationId        String?
-  maklonCustomer                  Customer?             @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
+  maklonCustomer                  Customer?                @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   maklonCostItems                 MaklonCostItem[]
   materialIssues                  MaterialIssue[]
   executions                      ProductionExecution[]
   plannedMaterials                ProductionMaterial[]
-  bom                             Bom                   @relation(fields: [bomId], references: [id])
-  createdBy                       User?                 @relation("ProductionCreator", fields: [createdById], references: [id])
-  location                        Location              @relation(fields: [locationId], references: [id])
-  machine                         Machine?              @relation(fields: [machineId], references: [id])
-  parentOrder                     ProductionOrder?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
-  childOrders                     ProductionOrder[]     @relation("OrderHierarchy")
-  salesOrder                      SalesOrder?           @relation("SalesProduction", fields: [salesOrderId], references: [id])
+  bom                             Bom                      @relation(fields: [bomId], references: [id])
+  createdBy                       User?                    @relation("ProductionCreator", fields: [createdById], references: [id])
+  location                        Location                 @relation(fields: [locationId], references: [id])
+  machine                         Machine?                 @relation(fields: [machineId], references: [id])
+  parentOrder                     ProductionOrder?         @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
+  childOrders                     ProductionOrder[]        @relation("OrderHierarchy")
+  salesOrder                      SalesOrder?              @relation("SalesProduction", fields: [salesOrderId], references: [id])
   shifts                          ProductionShift[]
   inspections                     QualityInspection[]
   scrapRecords                    ScrapRecord[]
   issues                          ProductionIssue[]
   stockMovements                  StockMovement[]
-  helpers                         Employee[]            @relation("OrderHelpers")
-  productionRun                   ProductionRun?        @relation("ProductionRunOrders", fields: [productionRunId], references: [id])
-  routeStep                       ProductionRouteStep?  @relation("RouteStepOrders", fields: [routeStepId], references: [id])
-  sourceLocation                  Location?             @relation("ProductionOrderSourceLocation", fields: [materialSourceLocationId], references: [id])
+  helpers                         Employee[]               @relation("OrderHelpers")
+  productionRun                   ProductionRun?           @relation("ProductionRunOrders", fields: [productionRunId], references: [id])
+  routeStep                       ProductionRouteStep?     @relation("RouteStepOrders", fields: [routeStepId], references: [id])
+  sourceLocation                  Location?                @relation("ProductionOrderSourceLocation", fields: [materialSourceLocationId], references: [id])
 
   @@index([actualEndDate])
   @@index([updatedAt, status])
@@ -787,16 +788,16 @@ model ProductionOrder {
 // ==========================================
 
 model ProductionProcess {
-  id                  String   @id @default(uuid())
-  code                String   @unique
+  id                  String                  @id @default(uuid())
+  code                String                  @unique
   name                String
   description         String?
-  requiresMachine     Boolean                  @default(false)
-  requiresQualityGate Boolean                  @default(false)
-  executionMode       ProductionExecutionMode  @default(GENERIC)
-  isActive            Boolean                  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  requiresMachine     Boolean                 @default(false)
+  requiresQualityGate Boolean                 @default(false)
+  executionMode       ProductionExecutionMode @default(GENERIC)
+  isActive            Boolean                 @default(true)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   capabilities MachineProcessCapability[]
   routeSteps   ProductionRouteStep[]
@@ -997,16 +998,58 @@ model ScrapRecord {
 }
 
 model QualityInspection {
-  id                String           @id @default(uuid())
-  productionOrderId String
-  inspectorId       String?
-  result            InspectionResult
-  notes             String?
-  inspectedAt       DateTime         @default(now())
-  inspector         User?            @relation(fields: [inspectorId], references: [id])
-  productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  id                    String                         @id @default(uuid())
+  productionOrderId     String
+  productionExecutionId String?
+  inspectorId           String?
+  result                InspectionResult
+  notes                 String?
+  inspectedAt           DateTime                       @default(now())
+  inspector             User?                          @relation(fields: [inspectorId], references: [id])
+  productionOrder       ProductionOrder                @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  productionExecution   ProductionExecution?           @relation(fields: [productionExecutionId], references: [id])
+  measurements          QualityInspectionMeasurement[]
 
   @@index([inspectedAt])
+  @@index([productionExecutionId])
+}
+
+// Standar kualitas terukur per varian produk (mis. panjang, berat, ketipisan).
+// Dikonfigurasi oleh admin/supervisor di halaman detail produk sebelum kiosk
+// bisa menampilkan step QC untuk varian tersebut — lihat docs/plan/2026-08-11-qc-kiosk-parametric-checkpoint.md
+model QualityCheckParameter {
+  id               String                         @id @default(uuid())
+  productVariantId String
+  name             String
+  unit             String
+  targetValue      Decimal?                       @db.Decimal(15, 4)
+  minValue         Decimal?                       @db.Decimal(15, 4)
+  maxValue         Decimal?                       @db.Decimal(15, 4)
+  sortOrder        Int                            @default(0)
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+  productVariant   ProductVariant                 @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  measurements     QualityInspectionMeasurement[]
+
+  @@index([productVariantId])
+}
+
+// Nilai ukur aktual per parameter dalam satu QualityInspection. Snapshot
+// name/unit disimpan di sini (bukan hanya join ke parameterId) supaya histori
+// tidak berubah kalau parameter di-edit/dihapus belakangan.
+model QualityInspectionMeasurement {
+  id                  String                 @id @default(uuid())
+  qualityInspectionId String
+  parameterId         String?
+  parameterName       String
+  parameterUnit       String
+  measuredValue       Decimal                @db.Decimal(15, 4)
+  isWithinTolerance   Boolean                @default(true)
+  qualityInspection   QualityInspection      @relation(fields: [qualityInspectionId], references: [id], onDelete: Cascade)
+  parameter           QualityCheckParameter? @relation(fields: [parameterId], references: [id], onDelete: SetNull)
+
+  @@index([qualityInspectionId])
+  @@index([parameterId])
 }
 
 model ProductionMaterial {
@@ -1024,37 +1067,38 @@ model ProductionMaterial {
 }
 
 model ProductionExecution {
-  id                       String           @id @default(uuid())
+  id                       String              @id @default(uuid())
   productionOrderId        String
   machineId                String?
   operatorId               String?
   shiftId                  String?
-  quantityProduced         Decimal          @db.Decimal(15, 4)
-  scrapQuantity            Decimal          @default(0) @db.Decimal(15, 4)
-  enteredQuantity          Decimal?         @db.Decimal(15, 4)
+  quantityProduced         Decimal             @db.Decimal(15, 4)
+  scrapQuantity            Decimal             @default(0) @db.Decimal(15, 4)
+  enteredQuantity          Decimal?            @db.Decimal(15, 4)
   enteredUnit              Unit?
-  conversionFactorSnapshot Decimal?         @db.Decimal(10, 4)
-  bruto                    Decimal?         @db.Decimal(15, 4)
-  bobin                    Decimal?         @db.Decimal(15, 4)
+  conversionFactorSnapshot Decimal?            @db.Decimal(10, 4)
+  bruto                    Decimal?            @db.Decimal(15, 4)
+  bobin                    Decimal?            @db.Decimal(15, 4)
   cekGram                  String?
   startTime                DateTime
   endTime                  DateTime?
   notes                    String?
-  photoUrl                 String?          @db.Text
-  createdAt                DateTime         @default(now())
-  updatedAt                DateTime         @updatedAt
-  status                   String           @default("COMPLETED") // COMPLETED, VOIDED
-  scrapDaunQty             Decimal          @default(0) @db.Decimal(15, 4)
-  scrapProngkolQty         Decimal          @default(0) @db.Decimal(15, 4)
-  pieceRateSnapshot        Decimal?         @db.Decimal(12, 2)
-  pieceEarnings            Decimal?         @db.Decimal(12, 2)
+  photoUrl                 String?             @db.Text
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  status                   String              @default("COMPLETED") // COMPLETED, VOIDED
+  scrapDaunQty             Decimal             @default(0) @db.Decimal(15, 4)
+  scrapProngkolQty         Decimal             @default(0) @db.Decimal(15, 4)
+  pieceRateSnapshot        Decimal?            @db.Decimal(12, 2)
+  pieceEarnings            Decimal?            @db.Decimal(12, 2)
   pieceMachineType         MachineType?
-  machine                  Machine?         @relation(fields: [machineId], references: [id])
-  operator                 Employee?        @relation("ExecutionOperator", fields: [operatorId], references: [id])
-  helpers                  Employee[]       @relation("ExecutionHelpers")
-  productionOrder          ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  shift                    ProductionShift? @relation(fields: [shiftId], references: [id])
+  machine                  Machine?            @relation(fields: [machineId], references: [id])
+  operator                 Employee?           @relation("ExecutionOperator", fields: [operatorId], references: [id])
+  helpers                  Employee[]          @relation("ExecutionHelpers")
+  productionOrder          ProductionOrder     @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  shift                    ProductionShift?    @relation(fields: [shiftId], references: [id])
   scrapRecords             ScrapRecord[]
+  qualityInspections       QualityInspection[]
 
   @@index([productionOrderId])
   @@index([startTime])
@@ -1464,19 +1508,19 @@ model GoodsReceiptItem {
 }
 
 model PurchaseInvoice {
-  id                String                @id @default(uuid())
-  invoiceNumber     String                @unique
+  id                String                   @id @default(uuid())
+  invoiceNumber     String                   @unique
   purchaseOrderId   String
-  invoiceDate       DateTime              @default(now())
+  invoiceDate       DateTime                 @default(now())
   dueDate           DateTime?
-  status            PurchaseInvoiceStatus @default(UNPAID)
-  totalAmount       Decimal               @db.Decimal(15, 2)
-  paidAmount        Decimal               @default(0) @db.Decimal(15, 2)
+  status            PurchaseInvoiceStatus    @default(UNPAID)
+  totalAmount       Decimal                  @db.Decimal(15, 2)
+  paidAmount        Decimal                  @default(0) @db.Decimal(15, 2)
   notes             String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  termOfPaymentDays Int                   @default(0)
-  purchaseOrder     PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  termOfPaymentDays Int                      @default(0)
+  purchaseOrder     PurchaseOrder            @relation(fields: [purchaseOrderId], references: [id])
   payments          Payment[]
   purchasePayments  PurchasePayment[]
   remittanceItems   PurchaseRemittanceItem[]
@@ -1895,17 +1939,17 @@ model PurchaseRequest {
   notes           String?
   salesOrderId    String?
   convertedToPoId String?
-  createdById      String
-  reviewedById     String?
-  reviewedAt       DateTime?
-  rejectionReason  String?               @db.Text
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  purchaseOrder    PurchaseOrder?        @relation("PrToPo", fields: [convertedToPoId], references: [id])
-  createdBy        User                  @relation(fields: [createdById], references: [id])
-  reviewedBy       User?                 @relation("PurchaseRequestReviewer", fields: [reviewedById], references: [id])
-  salesOrder       SalesOrder?           @relation(fields: [salesOrderId], references: [id])
-  items            PurchaseRequestItem[]
+  createdById     String
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?               @db.Text
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  purchaseOrder   PurchaseOrder?        @relation("PrToPo", fields: [convertedToPoId], references: [id])
+  createdBy       User                  @relation(fields: [createdById], references: [id])
+  reviewedBy      User?                 @relation("PurchaseRequestReviewer", fields: [reviewedById], references: [id])
+  salesOrder      SalesOrder?           @relation(fields: [salesOrderId], references: [id])
+  items           PurchaseRequestItem[]
 
   @@index([reviewedById])
   @@index([createdById])

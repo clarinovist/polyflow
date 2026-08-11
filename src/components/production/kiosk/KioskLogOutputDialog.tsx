@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { logRunningOutput } from '@/actions/production/production';
+import { getQualityCheckParametersForVariant } from '@/actions/production/production-quality-standards';
 import {
     Loader2,
     Users,
@@ -46,10 +47,20 @@ interface ShiftInfo {
     operatorId: string | null;
 }
 
+interface QcParameter {
+    id: string;
+    name: string;
+    unit: string;
+    targetValue: unknown;
+    minValue: unknown;
+    maxValue: unknown;
+}
+
 interface KioskLogOutputDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     executionId: string;
+    productVariantId?: string;
     productName: string;
     primaryUnit?: string | null;
     salesUnit?: string | null;
@@ -73,7 +84,7 @@ interface KioskLogOutputDialogProps {
     onSuccess?: () => void;
 }
 
-const STEPS = [
+const BASE_STEPS = [
     {
         key: 'qty',
         title: kioskLabels.wizardStepQty,
@@ -84,6 +95,15 @@ const STEPS = [
         title: kioskLabels.wizardStepScrap,
         subtitle: kioskLabels.wizardScrapDesc,
     },
+] as const;
+
+const QC_STEP = {
+    key: 'qc',
+    title: kioskLabels.wizardStepQC,
+    subtitle: kioskLabels.wizardQCDesc,
+} as const;
+
+const TAIL_STEPS = [
     {
         key: 'photo',
         title: kioskLabels.wizardStepFoto,
@@ -98,10 +118,17 @@ const STEPS = [
 
 type ScrapConfirmMode = 'idle' | 'scrap-zero' | 'scrap-only';
 
+function isQcValueOutOfRange(param: QcParameter, value: number) {
+    const min = param.minValue !== null ? Number(param.minValue) : null;
+    const max = param.maxValue !== null ? Number(param.maxValue) : null;
+    return (min !== null && value < min) || (max !== null && value > max);
+}
+
 export function KioskLogOutputDialog({
     open,
     onOpenChange,
     executionId,
+    productVariantId,
     productName,
     primaryUnit,
     salesUnit,
@@ -134,6 +161,30 @@ export function KioskLogOutputDialog({
         }>
     >([]);
     const [selectedShiftId, setSelectedShiftId] = useState<string>('');
+    const [qcParameters, setQcParameters] = useState<QcParameter[]>([]);
+    const [qcValues, setQcValues] = useState<Record<string, string>>({});
+
+    const hasQcStep = qcParameters.length > 0;
+    const STEPS = hasQcStep
+        ? [...BASE_STEPS, QC_STEP, ...TAIL_STEPS]
+        : [...BASE_STEPS, ...TAIL_STEPS];
+
+    // Fetch QC parameters for this variant once per dialog open — kalau
+    // varian belum punya parameter terdefinisi, step QC tidak pernah muncul.
+    useEffect(() => {
+        if (!open || !productVariantId) return;
+        let cancelled = false;
+        (async () => {
+            const res =
+                await getQualityCheckParametersForVariant(productVariantId);
+            if (!cancelled && res.success) {
+                setQcParameters(res.data as unknown as QcParameter[]);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [open, productVariantId]);
 
     // Is any shift currently active by time window (startTime <= now <= endTime)?
     // Mirrors findActiveShift server-side logic — used to detect stale/expired shifts.
@@ -184,9 +235,7 @@ export function KioskLogOutputDialog({
     // so helpers stay empty unless explicitly chosen.
     const helperIds =
         mode === 'GENERIC'
-            ? orderHelpers
-                  .filter((h) => h.id !== operatorId)
-                  .map((h) => h.id)
+            ? orderHelpers.filter((h) => h.id !== operatorId).map((h) => h.id)
             : [];
 
     // ── BOM ratio preview (MATERIAL_CONVERSION only) ──
@@ -195,7 +244,8 @@ export function KioskLogOutputDialog({
     const qtyNum = parseFloat(quantity) || 0;
     const outputUnit = unitMeta.displayUnit;
     const ratioItem = (() => {
-        if (mode !== 'MATERIAL_CONVERSION' || bomItems.length === 0) return null;
+        if (mode !== 'MATERIAL_CONVERSION' || bomItems.length === 0)
+            return null;
         const outQty = Number(bomOutputQuantity);
         const candidates = bomItems.filter((it) => {
             const itemQty = Number(it.quantity);
@@ -313,6 +363,12 @@ export function KioskLogOutputDialog({
                 helperIds: helperIds.length > 0 ? helperIds : undefined,
                 photoUrl,
                 shiftId: effectiveShiftId || undefined,
+                qcMeasurements: qcParameters
+                    .map((param) => ({
+                        parameterId: param.id,
+                        value: parseFloat(qcValues[param.id] ?? ''),
+                    }))
+                    .filter((m) => !Number.isNaN(m.value)),
             });
 
             if (result.success) {
@@ -371,12 +427,12 @@ export function KioskLogOutputDialog({
         }
 
         // qty>0 + scrap>0 → normal flow
-        setStep(2);
+        setStep(step + 1);
     };
 
     const handleScrapConfirm = () => {
         setScrapConfirmMode('idle');
-        setStep(2);
+        setStep(step + 1);
     };
 
     const handleScrapConfirmEditScrap = () => {
@@ -390,6 +446,21 @@ export function KioskLogOutputDialog({
         setStep(0);
         // Focus on qty input
         setTimeout(() => document.getElementById('log-quantity')?.focus(), 100);
+    };
+
+    // QC step — wajib diisi begitu variant punya parameter terdefinisi
+    // (hasQcStep true), tapi nilai di luar toleransi tidak block (warning
+    // saja) — lihat docs/plan/2026-08-11-qc-kiosk-parametric-checkpoint.md
+    const handleNextFromQC = () => {
+        const missing = qcParameters.some((param) => {
+            const raw = qcValues[param.id];
+            return raw === undefined || raw === '' || Number.isNaN(Number(raw));
+        });
+        if (missing) {
+            toast.error('Isi semua hasil ukur QC sebelum lanjut');
+            return;
+        }
+        setStep(step + 1);
     };
 
     const handleBack = () => {
@@ -407,6 +478,7 @@ export function KioskLogOutputDialog({
         setShowSuccess(false);
         setScrapConfirmMode('idle');
         setSelectedShiftId('');
+        setQcValues({});
         setStep(0);
     };
 
@@ -515,7 +587,7 @@ export function KioskLogOutputDialog({
                 {/* Step content */}
                 <div className="min-h-[280px] py-4">
                     {/* Step 1: Qty */}
-                    {step === 0 && (
+                    {STEPS[step].key === 'qty' && (
                         <div className="space-y-4 animate-in fade-in duration-200">
                             <div className="space-y-2">
                                 <Label
@@ -547,30 +619,35 @@ export function KioskLogOutputDialog({
                                         {unitMeta.primaryUnit}
                                     </p>
                                 )}
-                                {mode === 'MATERIAL_CONVERSION' && ratioItem && (
-                                    <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-1">
-                                        <p className="text-xs font-semibold text-violet-800">
-                                            {kioskLabels.bomStandardLabel}:{' '}
-                                            {Number(
-                                                ratioItem.quantity,
-                                            ).toLocaleString('id-ID')}{' '}
-                                            {
-                                                ratioItem.productVariant
-                                                    .primaryUnit
-                                            }{' '}
-                                            / {Number(bomOutputQuantity)} {outputUnit}
-                                        </p>
-                                        {materialPreview && (
-                                            <p className="text-sm font-bold text-violet-900">
-                                                {kioskLabels.bomWipPreviewLabel}:{' '}
-                                                {materialPreview.requiredQty.toLocaleString(
-                                                    'id-ID',
-                                                )}{' '}
-                                                {materialPreview.unit}
+                                {mode === 'MATERIAL_CONVERSION' &&
+                                    ratioItem && (
+                                        <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-1">
+                                            <p className="text-xs font-semibold text-violet-800">
+                                                {kioskLabels.bomStandardLabel}:{' '}
+                                                {Number(
+                                                    ratioItem.quantity,
+                                                ).toLocaleString('id-ID')}{' '}
+                                                {
+                                                    ratioItem.productVariant
+                                                        .primaryUnit
+                                                }{' '}
+                                                / {Number(bomOutputQuantity)}{' '}
+                                                {outputUnit}
                                             </p>
-                                        )}
-                                    </div>
-                                )}
+                                            {materialPreview && (
+                                                <p className="text-sm font-bold text-violet-900">
+                                                    {
+                                                        kioskLabels.bomWipPreviewLabel
+                                                    }
+                                                    :{' '}
+                                                    {materialPreview.requiredQty.toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    {materialPreview.unit}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                 {mode === 'MATERIAL_CONVERSION' &&
                                     !ratioItem && (
                                         <p className="text-xs text-amber-600 font-medium">
@@ -582,7 +659,7 @@ export function KioskLogOutputDialog({
                     )}
 
                     {/* Step 2: Scrap */}
-                    {step === 1 && (
+                    {STEPS[step].key === 'scrap' && (
                         <div className="space-y-4 animate-in fade-in duration-200">
                             {/* Scrap confirm banners */}
                             {scrapConfirmMode === 'scrap-zero' && (
@@ -719,8 +796,58 @@ export function KioskLogOutputDialog({
                         </div>
                     )}
 
+                    {/* Step QC — hanya muncul kalau variant punya parameter terdefinisi */}
+                    {STEPS[step].key === 'qc' && (
+                        <div className="space-y-4 animate-in fade-in duration-200">
+                            {qcParameters.map((param, idx) => {
+                                const rawValue = qcValues[param.id] ?? '';
+                                const numValue = parseFloat(rawValue);
+                                const outOfRange =
+                                    rawValue !== '' &&
+                                    !Number.isNaN(numValue) &&
+                                    isQcValueOutOfRange(param, numValue);
+                                return (
+                                    <div key={param.id} className="space-y-1.5">
+                                        <Label
+                                            htmlFor={`log-qc-${param.id}`}
+                                            className="text-sm font-semibold"
+                                        >
+                                            {param.name} ({param.unit})
+                                        </Label>
+                                        <Input
+                                            id={`log-qc-${param.id}`}
+                                            type="number"
+                                            inputMode="decimal"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className={`h-14 text-xl font-bold ${
+                                                outOfRange
+                                                    ? 'bg-amber-500/10 border-amber-500/50 focus:border-amber-500 focus:ring-amber-500'
+                                                    : 'bg-emerald-500/10 border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500'
+                                            }`}
+                                            value={rawValue}
+                                            onChange={(e) =>
+                                                setQcValues((prev) => ({
+                                                    ...prev,
+                                                    [param.id]: e.target.value,
+                                                }))
+                                            }
+                                            autoFocus={idx === 0}
+                                        />
+                                        {outOfRange && (
+                                            <p className="text-xs font-medium text-amber-600 flex items-center gap-1">
+                                                <AlertTriangle className="h-3 w-3" />
+                                                {kioskLabels.wizardQCOutOfRange}
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     {/* Step 3: Photo */}
-                    {step === 2 && (
+                    {STEPS[step].key === 'photo' && (
                         <div className="space-y-4 animate-in fade-in duration-200">
                             <div className="space-y-2">
                                 <Label className="text-sm font-semibold">
@@ -754,7 +881,7 @@ export function KioskLogOutputDialog({
                     )}
 
                     {/* Step 4: Confirm */}
-                    {step === 3 && (
+                    {STEPS[step].key === 'confirm' && (
                         <div className="space-y-4 animate-in fade-in duration-200">
                             {/* Summary */}
                             <div className="bg-muted/50 rounded-xl border p-4 space-y-3">
@@ -795,6 +922,43 @@ export function KioskLogOutputDialog({
                                             : kioskLabels.wizardSummaryTidak}
                                     </span>
                                 </div>
+                                {hasQcStep && (
+                                    <div className="text-sm space-y-1 border-t pt-3">
+                                        <span className="text-xs text-muted-foreground uppercase font-bold">
+                                            {kioskLabels.wizardStepQC}
+                                        </span>
+                                        {qcParameters.map((param) => {
+                                            const raw =
+                                                qcValues[param.id] ?? '';
+                                            const num = parseFloat(raw);
+                                            const outOfRange =
+                                                raw !== '' &&
+                                                !Number.isNaN(num) &&
+                                                isQcValueOutOfRange(param, num);
+                                            return (
+                                                <div
+                                                    key={param.id}
+                                                    className="flex justify-between"
+                                                >
+                                                    <span>{param.name}</span>
+                                                    <span
+                                                        className={
+                                                            outOfRange
+                                                                ? 'font-bold text-amber-600'
+                                                                : 'font-bold text-emerald-600'
+                                                        }
+                                                    >
+                                                        {raw || '-'}{' '}
+                                                        {param.unit}
+                                                        {outOfRange && (
+                                                            <AlertTriangle className="inline ml-1 h-3 w-3" />
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                                 {notes && (
                                     <div className="text-sm">
                                         <span className="font-medium">
@@ -807,49 +971,53 @@ export function KioskLogOutputDialog({
                                     <div className="text-sm text-blue-800">
                                         <span className="font-bold">
                                             {
-                                                kioskLabels
-                                                    .wizardSummaryIndividualTitle
+                                                kioskLabels.wizardSummaryIndividualTitle
                                             }
                                             :
                                         </span>{' '}
                                         {qtyNum.toLocaleString('id-ID')}{' '}
                                         {unitMeta.displayUnit}{' '}
                                         {
-                                            kioskLabels
-                                                .wizardSummaryIndividualDesc
+                                            kioskLabels.wizardSummaryIndividualDesc
                                         }
                                     </div>
                                 )}
-                                {mode === 'MATERIAL_CONVERSION' && ratioItem && (
-                                    <div className="text-sm space-y-1">
-                                        <p>
-                                            <span className="font-semibold">
-                                                {kioskLabels.bomStandardLabel}:
-                                            </span>{' '}
-                                            {Number(
-                                                ratioItem.quantity,
-                                            ).toLocaleString('id-ID')}{' '}
-                                            {
-                                                ratioItem.productVariant
-                                                    .primaryUnit
-                                            }{' '}
-                                            / {Number(bomOutputQuantity)}{' '}
-                                            {outputUnit}
-                                        </p>
-                                        {materialPreview && (
+                                {mode === 'MATERIAL_CONVERSION' &&
+                                    ratioItem && (
+                                        <div className="text-sm space-y-1">
                                             <p>
                                                 <span className="font-semibold">
-                                                    {kioskLabels.bomWipPreviewLabel}
+                                                    {
+                                                        kioskLabels.bomStandardLabel
+                                                    }
                                                     :
                                                 </span>{' '}
-                                                {materialPreview.requiredQty.toLocaleString(
-                                                    'id-ID',
-                                                )}{' '}
-                                                {materialPreview.unit}
+                                                {Number(
+                                                    ratioItem.quantity,
+                                                ).toLocaleString('id-ID')}{' '}
+                                                {
+                                                    ratioItem.productVariant
+                                                        .primaryUnit
+                                                }{' '}
+                                                / {Number(bomOutputQuantity)}{' '}
+                                                {outputUnit}
                                             </p>
-                                        )}
-                                    </div>
-                                )}
+                                            {materialPreview && (
+                                                <p>
+                                                    <span className="font-semibold">
+                                                        {
+                                                            kioskLabels.bomWipPreviewLabel
+                                                        }
+                                                        :
+                                                    </span>{' '}
+                                                    {materialPreview.requiredQty.toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    {materialPreview.unit}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                             </div>
 
                             {/* Shift picker — shown when shifts exist */}
@@ -959,11 +1127,13 @@ export function KioskLogOutputDialog({
                         <Button
                             type="button"
                             onClick={
-                                step === 0
+                                STEPS[step].key === 'qty'
                                     ? handleNextFromQty
-                                    : step === 1
+                                    : STEPS[step].key === 'scrap'
                                       ? handleNextFromScrap
-                                      : () => setStep(step + 1)
+                                      : STEPS[step].key === 'qc'
+                                        ? handleNextFromQC
+                                        : () => setStep(step + 1)
                             }
                             className="h-12 font-bold px-8 bg-emerald-600 hover:bg-emerald-700"
                         >

@@ -7,6 +7,7 @@ import {
     MaterialIssue,
     ScrapRecord,
     QualityInspection,
+    QualityInspectionMeasurement,
     ProductVariant,
     Employee,
     ProductionExecution,
@@ -52,7 +53,10 @@ export type ExtendedProductionOrder = ProductionOrder & {
         productVariant: ProductVariant;
         createdBy: User | null;
     })[];
-    inspections: (QualityInspection & { inspector: User | null })[];
+    inspections: (QualityInspection & {
+        inspector: User | null;
+        measurements: QualityInspectionMeasurement[];
+    })[];
     executions: (ProductionExecution & {
         operator: Employee | null;
         shift: (ProductionShift & { operator: Employee | null }) | null;

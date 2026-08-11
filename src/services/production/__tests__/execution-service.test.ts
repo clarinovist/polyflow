@@ -102,6 +102,7 @@ vi.mock('../execution-output-posting', () => ({
 vi.mock('../execution-helpers', () => ({
     backflushMaterials: vi.fn(),
     recordExecutionScrap: vi.fn(),
+    recordExecutionQualityInspection: vi.fn(),
     recordFinishedGoodsOutput: vi.fn(),
     triggerProductionOutputJournal: vi.fn(),
 }));

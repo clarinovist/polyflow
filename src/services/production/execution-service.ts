@@ -17,6 +17,7 @@ import { AccountingService } from '../accounting/accounting-service';
 import {
     backflushMaterials,
     recordExecutionScrap,
+    recordExecutionQualityInspection,
     recordFinishedGoodsOutput,
     type ProductionExecutionOrder,
 } from './execution-helpers';
@@ -523,6 +524,7 @@ export class ProductionExecutionService {
             photoUrl,
             userId,
             shiftId: explicitShiftId,
+            qcMeasurements = [],
         } = data;
 
         await prisma.$transaction(async (tx) => {
@@ -660,6 +662,16 @@ export class ProductionExecutionService {
                 scrapQuantity: Number(scrapQuantity),
                 scrapProngkolQty: Number(scrapProngkolQty),
                 scrapDaunQty: Number(scrapDaunQty),
+                userId,
+            });
+
+            // 5b. Record QC measurements for this log (no-op kalau varian
+            // belum punya parameter terdefinisi — array kosong dari client)
+            await recordExecutionQualityInspection({
+                tx,
+                productionOrderId,
+                executionId: newExecution.id,
+                measurements: qcMeasurements,
                 userId,
             });
 

@@ -70,10 +70,13 @@ export const kioskLabels = {
     // Wizard catat hasil
     wizardStepQty: 'Qty Bagus',
     wizardStepScrap: 'Scrap',
+    wizardStepQC: 'Kontrol Kualitas',
     wizardStepFoto: 'Bukti Foto',
     wizardStepKonfirmasi: 'Konfirmasi',
     wizardQtyDesc: 'Masukkan jumlah hasil bagus',
     wizardScrapDesc: 'Prongkol & Daun atau lewati',
+    wizardQCDesc: 'Isi hasil ukur sesuai standar kualitas',
+    wizardQCOutOfRange: 'Di luar standar — tetap bisa dikirim',
     wizardFotoDesc: 'Ambil foto bukti produksi',
     wizardKonfirmasiDesc: 'Ringkas sebelum kirim',
     wizardNext: 'Lanjut',

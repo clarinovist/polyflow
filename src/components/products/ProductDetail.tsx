@@ -35,7 +35,9 @@ import {
     Package,
     History,
     LayoutDashboard,
+    ShieldCheck,
 } from 'lucide-react';
+import { QualityStandardsTab } from './QualityStandardsTab';
 import { Product, ProductVariant, Inventory, Prisma } from '@prisma/client';
 import {
     type CostAnomalyFlag,
@@ -175,6 +177,9 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                 </TabsTrigger>
                 <TabsTrigger value="stock">
                     <Package className="mr-2 h-4 w-4" /> Stock & Locations
+                </TabsTrigger>
+                <TabsTrigger value="quality">
+                    <ShieldCheck className="mr-2 h-4 w-4" /> Standar Kualitas
                 </TabsTrigger>
             </TabsList>
 
@@ -770,6 +775,10 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                         </Card>
                     ))}
                 </div>
+            </TabsContent>
+
+            <TabsContent value="quality" className="space-y-4">
+                <QualityStandardsTab variants={product.variants} />
             </TabsContent>
         </Tabs>
     );

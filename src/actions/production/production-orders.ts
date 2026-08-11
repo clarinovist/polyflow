@@ -179,8 +179,7 @@ export const quickCreateProductionOrder = withTenant(
                     priority?: 'URGENT' | 'NORMAL' | 'LOW';
                 };
 
-                const finalNotes =
-                    notes || 'Quick SPK — supervisor mobile';
+                const finalNotes = notes || 'Quick SPK — supervisor mobile';
 
                 let order;
                 try {
@@ -204,10 +203,11 @@ export const quickCreateProductionOrder = withTenant(
                         ) &&
                         clientRequestId
                     ) {
-                        const existing =
-                            await prisma.productionOrder.findFirst({
+                        const existing = await prisma.productionOrder.findFirst(
+                            {
                                 where: { clientRequestId },
-                            });
+                            },
+                        );
                         if (existing) return serializeData(existing);
                     }
                     throw err;
@@ -564,7 +564,9 @@ export const getProductionOrder = withTenant(async function getProductionOrder(
             inspections: {
                 include: {
                     inspector: { select: { id: true, name: true } },
+                    measurements: true,
                 },
+                orderBy: { inspectedAt: 'desc' },
             },
             executions: {
                 include: {

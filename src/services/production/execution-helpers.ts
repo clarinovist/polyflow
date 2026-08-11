@@ -10,3 +10,4 @@ export {
     triggerProductionOutputJournal,
 } from './execution-output-posting';
 export { recordExecutionScrap } from './execution-scrap-recording';
+export { recordExecutionQualityInspection } from './execution-qc-recording';

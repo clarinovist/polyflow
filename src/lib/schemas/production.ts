@@ -101,6 +101,42 @@ export const qualityInspectionSchema = z.object({
     notes: z.string().optional().transform(sanitizeHtml),
 });
 
+// Standar kualitas per varian produk — dikonfigurasi admin/supervisor sebelum
+// kiosk bisa menampilkan step QC untuk varian tersebut.
+export const qualityCheckParameterSchema = z.object({
+    productVariantId: z.string().min(1, 'Varian produk wajib diisi'),
+    name: z.string().min(1, 'Nama parameter wajib diisi').max(120),
+    unit: z.string().min(1, 'Satuan wajib diisi').max(30),
+    targetValue: z.coerce.number().optional(),
+    minValue: z.coerce.number().optional(),
+    maxValue: z.coerce.number().optional(),
+    sortOrder: z.coerce.number().int().optional().default(0),
+});
+
+export type QualityCheckParameterValues = z.infer<
+    typeof qualityCheckParameterSchema
+>;
+
+export const updateQualityCheckParameterSchema = qualityCheckParameterSchema
+    .partial()
+    .extend({
+        id: z.string().min(1),
+    });
+
+export type UpdateQualityCheckParameterValues = z.infer<
+    typeof updateQualityCheckParameterSchema
+>;
+
+// Nilai ukur QC yang diisi operator di kiosk saat log hasil produksi. Warning
+// visual saja untuk nilai di luar toleransi — kiosk tidak block submit
+// (lihat docs/plan/2026-08-11-qc-kiosk-parametric-checkpoint.md).
+export const qcMeasurementInputSchema = z.object({
+    parameterId: z.string().min(1),
+    value: z.coerce.number(),
+});
+
+export type QcMeasurementInputValues = z.infer<typeof qcMeasurementInputSchema>;
+
 export const batchMaterialIssueSchema = z.object({
     productionOrderId: z.string().min(1, 'Production Order ID is required'),
     locationId: z.string().min(1, 'Source location is required'),
@@ -185,7 +221,10 @@ export type ConsolidatedBatchMaterialIssueValues = z.infer<
 // BOM Management Schemas
 export const createBomSchema = z
     .object({
-        name: z.string().min(1, 'Recipe name is required').transform(sanitizeHtml),
+        name: z
+            .string()
+            .min(1, 'Recipe name is required')
+            .transform(sanitizeHtml),
         productVariantId: z.string().min(1, 'Output product is required'),
         outputQuantity: z.coerce
             .number()
@@ -197,11 +236,17 @@ export const createBomSchema = z
         items: z
             .array(
                 z.object({
-                    productVariantId: z.string().min(1, 'Ingredient is required'),
+                    productVariantId: z
+                        .string()
+                        .min(1, 'Ingredient is required'),
                     quantity: z.coerce
                         .number()
                         .positive('Quantity must be positive'),
-                    scrapPercentage: z.coerce.number().min(0).max(100).default(0),
+                    scrapPercentage: z.coerce
+                        .number()
+                        .min(0)
+                        .max(100)
+                        .default(0),
                 }),
             )
             .min(1, 'At least one ingredient is required'),
@@ -360,6 +405,9 @@ export const logRunningOutputSchema = z.object({
         .string()
         .optional()
         .transform((v) => v || undefined),
+    // QC measurements dari step kiosk (kosong kalau varian belum punya
+    // parameter terdefinisi — step di-skip otomatis di client).
+    qcMeasurements: z.array(qcMeasurementInputSchema).optional(),
 });
 
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;
