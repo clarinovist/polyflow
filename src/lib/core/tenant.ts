@@ -7,6 +7,7 @@ import {
 import { actorContext } from '@/lib/core/actor-context';
 import { PrismaClient } from '@prisma/client';
 import { headers } from 'next/headers';
+import { cache } from 'react';
 
 // Subdomain parsing lives in a client-safe module (no server-only imports) so
 // it can be shared with client components like login-form.tsx. Imported here
@@ -26,12 +27,14 @@ export type TenantResolutionResult =
       };
 
 /**
- * Unified helper to resolve tenant DB target from standard HTTP Headers.
- * Checks x-tenant-subdomain > host > x-forwarded-host (for Docker/nginx).
+ * Pure header parsing — no DB access. Split out from resolveTenantContext so
+ * the DB-dependent part below can be cached per-request keyed on the
+ * (primitive, stable) subdomain string rather than on the headers object,
+ * whose instance identity across calls within one request isn't guaranteed.
  */
-export async function resolveTenantContext(reqHeaders: {
+function extractSubdomainFromHeaders(reqHeaders: {
     get: (name: string) => string | null;
-}): Promise<TenantResolutionResult> {
+}): string | null {
     let subdomain = reqHeaders.get('x-tenant-subdomain');
 
     if (!subdomain) {
@@ -45,10 +48,34 @@ export async function resolveTenantContext(reqHeaders: {
         }
     }
 
+    return subdomain || null;
+}
+
+/**
+ * Unified helper to resolve tenant DB target from standard HTTP Headers.
+ * Checks x-tenant-subdomain > host > x-forwarded-host (for Docker/nginx).
+ *
+ * The DB-dependent resolution (tenant lookup + entitlements) is memoized per
+ * request via React `cache()`, keyed by subdomain. A single request/render
+ * commonly triggers several `withTenant`-wrapped calls (e.g. a layout's
+ * permission check plus a page's data fetches) that all resolve the same
+ * subdomain — without this, each one re-queried the main DB independently.
+ */
+export async function resolveTenantContext(reqHeaders: {
+    get: (name: string) => string | null;
+}): Promise<TenantResolutionResult> {
+    const subdomain = extractSubdomainFromHeaders(reqHeaders);
+
     if (!subdomain) {
         return { type: 'NONE' };
     }
 
+    return resolveTenantBySubdomain(subdomain);
+}
+
+const resolveTenantBySubdomain = cache(async function resolveTenantBySubdomain(
+    subdomain: string,
+): Promise<TenantResolutionResult> {
     let targetDbUrl: string | null = null;
     let resolvedTenantId: string | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -98,14 +125,16 @@ export async function resolveTenantContext(reqHeaders: {
 
     if (!targetDbUrl) {
         console.error(
-            `[resolveTenantContext] NOT_FOUND for subdomain="${subdomain}" — tenant query returned null. host="${reqHeaders.get('host')}" forwarded="${reqHeaders.get('x-forwarded-host')}"`,
+            `[resolveTenantContext] NOT_FOUND for subdomain="${subdomain}" — tenant query returned null.`,
         );
         return { type: 'NOT_FOUND', subdomain };
     }
 
     const tenantDb = getTenantDb(targetDbUrl);
 
-    // Fetch entitlements once per request to avoid N+1 queries across layouts.
+    // Entitlements fetched alongside the tenant lookup — this whole function
+    // is memoized per request (see resolveTenantBySubdomain above), so this
+    // only runs once even when called by multiple withTenant actions.
     let activeModules: string[] = [];
     try {
         const { getMainPrisma } = await import('@/lib/core/prisma');
@@ -132,7 +161,7 @@ export async function resolveTenantContext(reqHeaders: {
         subdomain,
         activeModules,
     };
-}
+});
 
 /**
  * Higher Order Function to wrap Next.js Server Actions.
