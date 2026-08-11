@@ -4,6 +4,7 @@ import {
     createProductionOrder,
     quickCreateProductionOrder,
     getProductionOrders,
+    getProductionOrdersList,
     getProductionOrder,
     updateProductionOrder,
     deleteProductionOrder,
@@ -35,6 +36,7 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         bom: { findUnique: vi.fn() },
         location: { findMany: vi.fn() },
+        $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     },
 }));
 
@@ -644,6 +646,156 @@ describe('production order actions', () => {
             expect(stats.totalOrders).toBe(10);
             expect(stats.activeCount).toBe(3);
             expect(stats.draftCount).toBe(2);
+        });
+    });
+
+    describe('getProductionOrdersList', () => {
+        const rawOrder = (overrides: Record<string, unknown> = {}) => ({
+            id: 'po-1',
+            orderNumber: 'SPK-001',
+            status: 'IN_PROGRESS',
+            plannedQuantity: { toNumber: () => 100 },
+            plannedEnteredQuantity: null,
+            plannedEnteredUnit: null,
+            plannedConversionFactorSnapshot: null,
+            actualQuantity: { toNumber: () => 40 },
+            plannedStartDate: new Date('2026-08-01'),
+            isMaklon: false,
+            priority: 'NORMAL',
+            machineId: 'mac-1',
+            bom: {
+                id: 'bom-1',
+                name: 'BOM A',
+                category: 'PACKING',
+                productVariant: {
+                    id: 'pv-1',
+                    name: 'Produk A',
+                    skuCode: 'SKU-A',
+                    primaryUnit: 'KG',
+                    salesUnit: 'KG',
+                    conversionFactor: { toNumber: () => 1 },
+                    product: { id: 'p-1', name: 'Produk A' },
+                },
+            },
+            machine: { id: 'mac-1', code: 'M1' },
+            salesOrder: null,
+            ...overrides,
+        });
+
+        beforeEach(() => {
+            vi.mocked(prisma.productionOrder.count).mockResolvedValue(
+                0 as never,
+            );
+        });
+
+        it('defaults to page 1 with the default page size', async () => {
+            // Arrange
+            vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+            vi.mocked(prisma.productionOrder.count).mockResolvedValue(
+                0 as never,
+            );
+
+            // Act
+            const res = await getProductionOrdersList();
+
+            // Assert
+            expect(res).toEqual({
+                orders: [],
+                total: 0,
+                page: 1,
+                pageSize: 25,
+            });
+            const call = vi.mocked(prisma.productionOrder.findMany).mock
+                .calls[0][0] as { take: number; skip: number };
+            expect(call.take).toBe(25);
+            expect(call.skip).toBe(0);
+        });
+
+        it('paginates using page and pageSize', async () => {
+            // Arrange
+            vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+            vi.mocked(prisma.productionOrder.count).mockResolvedValue(
+                120 as never,
+            );
+
+            // Act
+            const res = await getProductionOrdersList({
+                page: 3,
+                pageSize: 10,
+            });
+
+            // Assert
+            expect(res.page).toBe(3);
+            expect(res.pageSize).toBe(10);
+            expect(res.total).toBe(120);
+            const call = vi.mocked(prisma.productionOrder.findMany).mock
+                .calls[0][0] as { take: number; skip: number };
+            expect(call.take).toBe(10);
+            expect(call.skip).toBe(20);
+        });
+
+        it('falls back to page 1 for zero or negative page numbers', async () => {
+            // Arrange
+            vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+
+            // Act
+            const res = await getProductionOrdersList({ page: -5 });
+
+            // Assert
+            expect(res.page).toBe(1);
+        });
+
+        it('converts Decimal fields to numbers and drops unrendered relations', async () => {
+            // Arrange
+            vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([
+                rawOrder(),
+            ] as never);
+
+            // Act
+            const res = await getProductionOrdersList();
+
+            // Assert
+            expect(res.orders[0].plannedQuantity).toBe(100);
+            expect(res.orders[0].actualQuantity).toBe(40);
+            expect(res.orders[0]).not.toHaveProperty('plannedMaterials');
+            expect(res.orders[0]).not.toHaveProperty('materialIssues');
+            expect(res.orders[0]).not.toHaveProperty('shifts');
+
+            const call = vi.mocked(prisma.productionOrder.findMany).mock
+                .calls[0][0] as {
+                select: Record<string, unknown>;
+            };
+            expect(call.select).not.toHaveProperty('plannedMaterials');
+            expect(call.select).not.toHaveProperty('materialIssues');
+            expect(call.select).not.toHaveProperty('shifts');
+            expect(call.select).not.toHaveProperty('location');
+        });
+
+        it('reuses the same where-building logic as getProductionOrders', async () => {
+            // Arrange
+            vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+
+            // Act
+            await getProductionOrdersList({
+                status: 'IN_PROGRESS' as never,
+                machineId: 'mac-1',
+            });
+
+            // Assert
+            const call = vi.mocked(prisma.productionOrder.findMany).mock
+                .calls[0][0] as { where: Record<string, unknown> };
+            expect(call.where).toMatchObject({
+                status: 'IN_PROGRESS',
+                machineId: 'mac-1',
+            });
         });
     });
 });

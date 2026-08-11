@@ -234,112 +234,122 @@ export const quickCreateProductionOrder = withTenant(
     },
 );
 
-export const getProductionOrders = withTenant(
-    async function getProductionOrders(filters?: {
-        status?: ProductionStatus;
-        machineId?: string;
-        productTypes?: ProductType[];
-        bomCategories?: BomCategory[];
-        q?: string;
-        late?: boolean;
-    }) {
-        const where: Prisma.ProductionOrderWhereInput = {};
-        const bomWhere: Prisma.BomWhereInput = {};
+type ProductionOrdersFilter = {
+    status?: ProductionStatus;
+    machineId?: string;
+    productTypes?: ProductType[];
+    bomCategories?: BomCategory[];
+    q?: string;
+    late?: boolean;
+};
 
+function buildProductionOrdersWhere(
+    filters?: ProductionOrdersFilter,
+): Prisma.ProductionOrderWhereInput {
+    const where: Prisma.ProductionOrderWhereInput = {};
+    const bomWhere: Prisma.BomWhereInput = {};
+
+    if (filters?.status) {
+        where.status = filters.status;
+    }
+    if (filters?.machineId) {
+        where.machineId = filters.machineId;
+    }
+    if (filters?.late) {
+        // late implies status in [RELEASED, IN_PROGRESS] + plannedEndDate < now
         if (filters?.status) {
+            // Keep status if it's one of late statuses, else still apply late window
             where.status = filters.status;
+        } else {
+            where.status = {
+                in: ['RELEASED', 'IN_PROGRESS'] as ProductionStatus[],
+            };
         }
-        if (filters?.machineId) {
-            where.machineId = filters.machineId;
-        }
-        if (filters?.late) {
-            // late implies status in [RELEASED, IN_PROGRESS] + plannedEndDate < now
-            if (filters?.status) {
-                // Keep status if it's one of late statuses, else still apply late window
-                where.status = filters.status;
-            } else {
-                where.status = {
-                    in: ['RELEASED', 'IN_PROGRESS'] as ProductionStatus[],
-                };
-            }
-            where.plannedEndDate = { lt: new Date() };
-        }
-        if (filters?.productTypes && filters.productTypes.length > 0) {
-            bomWhere.productVariant = {
-                product: {
-                    productType: {
-                        in: filters.productTypes,
+        where.plannedEndDate = { lt: new Date() };
+    }
+    if (filters?.productTypes && filters.productTypes.length > 0) {
+        bomWhere.productVariant = {
+            product: {
+                productType: {
+                    in: filters.productTypes,
+                },
+            },
+        };
+    }
+
+    if (filters?.bomCategories && filters.bomCategories.length > 0) {
+        bomWhere.category = {
+            in: filters.bomCategories,
+        };
+    }
+
+    // Build AND clauses so category/BOM filters compose cleanly with search OR
+    const andParts: Prisma.ProductionOrderWhereInput[] = [];
+
+    if (Object.keys(bomWhere).length > 0) {
+        andParts.push({ bom: { is: bomWhere } });
+    }
+
+    const q = filters?.q?.trim();
+    if (q) {
+        andParts.push({
+            OR: [
+                {
+                    orderNumber: {
+                        contains: q,
+                        mode: 'insensitive' as const,
                     },
                 },
-            };
-        }
-
-        if (filters?.bomCategories && filters.bomCategories.length > 0) {
-            bomWhere.category = {
-                in: filters.bomCategories,
-            };
-        }
-
-        // Build AND clauses so category/BOM filters compose cleanly with search OR
-        const andParts: Prisma.ProductionOrderWhereInput[] = [];
-
-        if (Object.keys(bomWhere).length > 0) {
-            andParts.push({ bom: { is: bomWhere } });
-        }
-
-        const q = filters?.q?.trim();
-        if (q) {
-            andParts.push({
-                OR: [
-                    {
-                        orderNumber: {
-                            contains: q,
-                            mode: 'insensitive' as const,
-                        },
-                    },
-                    {
-                        bom: {
-                            is: {
-                                name: {
-                                    contains: q,
-                                    mode: 'insensitive' as const,
-                                },
+                {
+                    bom: {
+                        is: {
+                            name: {
+                                contains: q,
+                                mode: 'insensitive' as const,
                             },
                         },
                     },
-                    {
-                        bom: {
-                            is: {
-                                productVariant: {
-                                    is: {
-                                        name: {
-                                            contains: q,
-                                            mode: 'insensitive' as const,
-                                        },
+                },
+                {
+                    bom: {
+                        is: {
+                            productVariant: {
+                                is: {
+                                    name: {
+                                        contains: q,
+                                        mode: 'insensitive' as const,
                                     },
                                 },
                             },
                         },
                     },
-                    {
-                        machine: {
-                            is: {
-                                code: {
-                                    contains: q,
-                                    mode: 'insensitive' as const,
-                                },
+                },
+                {
+                    machine: {
+                        is: {
+                            code: {
+                                contains: q,
+                                mode: 'insensitive' as const,
                             },
                         },
                     },
-                ],
-            });
-        }
+                },
+            ],
+        });
+    }
 
-        if (andParts.length === 1) {
-            Object.assign(where, andParts[0]);
-        } else if (andParts.length > 1) {
-            where.AND = andParts;
-        }
+    if (andParts.length === 1) {
+        Object.assign(where, andParts[0]);
+    } else if (andParts.length > 1) {
+        where.AND = andParts;
+    }
+
+    return where;
+}
+
+export const getProductionOrders = withTenant(
+    async function getProductionOrders(filters?: ProductionOrdersFilter) {
+        const where = buildProductionOrdersWhere(filters);
 
         const orders = await prisma.productionOrder.findMany({
             where,
@@ -500,6 +510,100 @@ export const getProductionOrders = withTenant(
                 quantity: pm.quantity.toNumber(),
             })),
         }));
+    },
+);
+
+export const PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE = 25;
+
+export const getProductionOrdersList = withTenant(
+    async function getProductionOrdersList(
+        filters?: ProductionOrdersFilter & {
+            page?: number;
+            pageSize?: number;
+        },
+    ) {
+        const where = buildProductionOrdersWhere(filters);
+        const page =
+            filters?.page && filters.page > 0 ? Math.floor(filters.page) : 1;
+        const pageSize =
+            filters?.pageSize && filters.pageSize > 0
+                ? Math.floor(filters.pageSize)
+                : PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE;
+
+        // Select only what src/app/production/orders/page.tsx renders — the
+        // shared getProductionOrders() above also feeds MRP/schedule/kiosk
+        // pages that need bom.items, plannedMaterials, materialIssues and
+        // shifts, which this list view never displays.
+        const [orders, total] = await prisma.$transaction([
+            prisma.productionOrder.findMany({
+                where,
+                select: {
+                    id: true,
+                    orderNumber: true,
+                    status: true,
+                    plannedQuantity: true,
+                    plannedEnteredQuantity: true,
+                    plannedEnteredUnit: true,
+                    plannedConversionFactorSnapshot: true,
+                    actualQuantity: true,
+                    plannedStartDate: true,
+                    isMaklon: true,
+                    priority: true,
+                    machineId: true,
+                    bom: {
+                        select: {
+                            id: true,
+                            name: true,
+                            category: true,
+                            productVariant: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    skuCode: true,
+                                    primaryUnit: true,
+                                    salesUnit: true,
+                                    conversionFactor: true,
+                                    product: {
+                                        select: { id: true, name: true },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    machine: {
+                        select: { id: true, code: true },
+                    },
+                    salesOrder: {
+                        select: {
+                            id: true,
+                            orderNumber: true,
+                            customer: {
+                                select: { id: true, name: true },
+                            },
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: pageSize,
+                skip: (page - 1) * pageSize,
+            }),
+            prisma.productionOrder.count({ where }),
+        ]);
+
+        return {
+            orders: orders.map((order) => ({
+                ...order,
+                plannedQuantity: order.plannedQuantity.toNumber(),
+                plannedEnteredQuantity:
+                    order.plannedEnteredQuantity?.toNumber() ?? null,
+                plannedConversionFactorSnapshot:
+                    order.plannedConversionFactorSnapshot?.toNumber() ?? null,
+                actualQuantity: order.actualQuantity?.toNumber() ?? null,
+            })),
+            total,
+            page,
+            pageSize,
+        };
     },
 );
 

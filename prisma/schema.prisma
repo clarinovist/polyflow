@@ -781,6 +781,9 @@ model ProductionOrder {
   @@index([updatedAt, status])
   @@index([productionRunId])
   @@index([routeStepId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([plannedEndDate])
 }
 
 // ==========================================

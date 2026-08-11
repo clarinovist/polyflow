@@ -13,6 +13,7 @@ import {
     Plus,
     Search,
     ChevronRight,
+    ChevronLeft,
     Activity,
     Clock,
     AlertCircle,
@@ -21,9 +22,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import {
-    getProductionOrders,
+    getProductionOrdersList,
     getProductionOrderStats,
-} from '@/actions/production/production';
+    PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE as PRODUCTION_ORDERS_LIST_PAGE_SIZE,
+} from '@/actions/production/production-orders';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
@@ -63,9 +65,10 @@ export default async function ProductionOrdersPage({
         status?: string;
         q?: string;
         late?: string;
+        page?: string;
     }>;
 }) {
-    const { category, status, q, late } = await searchParams;
+    const { category, status, q, late, page: pageParam } = await searchParams;
 
     let bomCategories: BomCategory[] | undefined;
 
@@ -95,20 +98,33 @@ export default async function ProductionOrdersPage({
 
     const isLateFilter = late === '1';
     const searchQuery = typeof q === 'string' ? q.trim() : '';
+    const currentPage = (() => {
+        const parsed = Number.parseInt(pageParam ?? '1', 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    })();
 
-    const orders = await getProductionOrders({
-        bomCategories,
-        status: statusFilter,
-        q: searchQuery || undefined,
-        late: isLateFilter || undefined,
-    });
-    const stats = await getProductionOrderStats();
+    const [{ orders, total }, stats] = await Promise.all([
+        getProductionOrdersList({
+            bomCategories,
+            status: statusFilter,
+            q: searchQuery || undefined,
+            late: isLateFilter || undefined,
+            page: currentPage,
+        }),
+        getProductionOrderStats(),
+    ]);
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(total / PRODUCTION_ORDERS_LIST_PAGE_SIZE),
+    );
 
     const buildHref = (overrides: {
         category?: string | null;
         status?: string | null;
         q?: string | null;
         late?: string | null;
+        page?: string | null;
     }) => {
         const params = new URLSearchParams();
         // Category
@@ -125,6 +141,21 @@ export default async function ProductionOrdersPage({
         // Late
         const nextLate = overrides.late !== undefined ? overrides.late : late;
         if (nextLate) params.set('late', nextLate);
+        // Page — any explicit override wins; otherwise reset to page 1
+        // whenever another filter changes, since the old page number is
+        // unlikely to be valid against the new result set.
+        const isOtherFilterOverridden =
+            overrides.category !== undefined ||
+            overrides.status !== undefined ||
+            overrides.q !== undefined ||
+            overrides.late !== undefined;
+        const nextPage =
+            overrides.page !== undefined
+                ? overrides.page
+                : isOtherFilterOverridden
+                  ? null
+                  : pageParam;
+        if (nextPage && nextPage !== '1') params.set('page', nextPage);
 
         const qs = params.toString();
         return qs ? `/production/orders?${qs}` : '/production/orders';
@@ -413,7 +444,7 @@ export default async function ProductionOrdersPage({
                                 )}
                             </CardTitle>
                             <span className="text-xs text-muted-foreground">
-                                {orders.length} SPK
+                                {total} SPK
                             </span>
                         </div>
                     </CardHeader>
@@ -663,6 +694,70 @@ export default async function ProductionOrdersPage({
                                 </TableBody>
                             </Table>
                         </div>
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-4">
+                                <span className="text-xs text-muted-foreground">
+                                    Halaman {currentPage} dari {totalPages}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <Link
+                                        href={buildHref({
+                                            page: String(
+                                                Math.max(1, currentPage - 1),
+                                            ),
+                                        })}
+                                        aria-disabled={currentPage <= 1}
+                                        tabIndex={
+                                            currentPage <= 1 ? -1 : undefined
+                                        }
+                                        className={cn(
+                                            currentPage <= 1 &&
+                                                'pointer-events-none opacity-50',
+                                        )}
+                                    >
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1"
+                                        >
+                                            <ChevronLeft className="h-3.5 w-3.5" />
+                                            Sebelumnya
+                                        </Button>
+                                    </Link>
+                                    <Link
+                                        href={buildHref({
+                                            page: String(
+                                                Math.min(
+                                                    totalPages,
+                                                    currentPage + 1,
+                                                ),
+                                            ),
+                                        })}
+                                        aria-disabled={
+                                            currentPage >= totalPages
+                                        }
+                                        tabIndex={
+                                            currentPage >= totalPages
+                                                ? -1
+                                                : undefined
+                                        }
+                                        className={cn(
+                                            currentPage >= totalPages &&
+                                                'pointer-events-none opacity-50',
+                                        )}
+                                    >
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1"
+                                        >
+                                            Berikutnya
+                                            <ChevronRight className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
