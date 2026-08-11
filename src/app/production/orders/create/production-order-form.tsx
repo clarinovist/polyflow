@@ -80,9 +80,16 @@ export interface ProductionOrderFormProps {
 const formSchema = createProductionOrderSchema;
 type FormValues = z.infer<typeof formSchema>;
 
-/** Build a materialInfo-like map from rawMaterials prop for ad-hoc lines */
+/**
+ * Build a materialInfo-like map from rawMaterials prop for ad-hoc lines.
+ * These materials aren't part of the BOM calculation, but the SPK only has
+ * one source warehouse — so an ad-hoc line is drawn from that same source,
+ * not from nowhere.
+ */
 function buildRawMaterialMeta(
     rawMaterials: { id: string; name: string; primaryUnit: string }[],
+    sourceLocationId: string,
+    sourceLocationName: string,
 ) {
     const map: Record<
         string,
@@ -107,8 +114,8 @@ function buildRawMaterialMeta(
             bomOutput: 0,
             currentStock: 0,
             totalStock: 0,
-            sourceLocationId: '',
-            sourceLocationName: '',
+            sourceLocationId,
+            sourceLocationName,
         };
     }
     return map;
@@ -349,9 +356,18 @@ export function ProductionOrderForm({
 
     // Merged materialInfo: preview info + rawMaterials metadata for ad-hoc lines
     const mergedMaterialInfo = useMemo(() => {
-        const rmMeta = buildRawMaterialMeta(rawMaterials);
+        const rmMeta = buildRawMaterialMeta(
+            rawMaterials,
+            effectiveSourceId,
+            sourceLocationName,
+        );
         return { ...rmMeta, ...materialPreview.materialInfo };
-    }, [rawMaterials, materialPreview.materialInfo]);
+    }, [
+        rawMaterials,
+        effectiveSourceId,
+        sourceLocationName,
+        materialPreview.materialInfo,
+    ]);
 
     // Distinct warehouses the materials resolve to — a SPK regularly spans more
     // than one (packaging supplies, WIP batches, raw materials).
@@ -904,7 +920,7 @@ export function ProductionOrderForm({
                 {/* Step 3: Review & buat */}
                 {step === 3 && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2">
+                        <div className="lg:col-span-1">
                             <ReviewCommitSection
                                 stage={stageLabelId(stage)}
                                 productName={
@@ -957,7 +973,7 @@ export function ProductionOrderForm({
                             />
                         </div>
 
-                        <div className="lg:col-span-1">
+                        <div className="lg:col-span-2">
                             <div className="sticky top-6">{materialPanel}</div>
                         </div>
                     </div>
