@@ -37,7 +37,7 @@ export function OrderMaterialsTab({ order, formData }: OrderMaterialsTabProps) {
     return (
         <div className="space-y-6">
             {/* Sub-Orders Handling */}
-            <ChildOrderList order={order} />
+            <ChildOrderList order={order} locations={formData.locations} />
 
             {isWaitingMaterial && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3 dark:border-amber-800/50 dark:bg-amber-900/20">

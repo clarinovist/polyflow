@@ -4,19 +4,27 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GitFork, AlertTriangle } from 'lucide-react';
 import { createChildProductionOrder } from '@/actions/production/production';
+import { getRealtimeStock } from '@/actions/inventory/inventory';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { productionComponentLabels } from '@/lib/labels';
+import { Location } from '@prisma/client';
+import { resolveMaterialSourceLocationId } from '@/lib/locations/resolve-location';
 
 interface ChildOrderListProps {
     order: ExtendedProductionOrder;
+    locations?: Location[];
 }
 
-export function ChildOrderList({ order }: ChildOrderListProps) {
+export function ChildOrderList({ order, locations = [] }: ChildOrderListProps) {
     const router = useRouter();
     const [isCreating, setIsCreating] = useState<string | null>(null);
+    const [availableStock, setAvailableStock] = useState<
+        Record<string, number>
+    >({});
+    const [checkingStock, setCheckingStock] = useState(false);
 
     // 1. Identify materials that *might* need a sub-order.
     // Logic: It is a planned material AND it is NOT a raw material (meaning: it has a ProductType that implies manufacturing, or has a BOM).
@@ -67,8 +75,21 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
             issuedMap.set(mi.productVariantId, current + Number(mi.quantity));
         });
 
-    // B. Backflushed Quantities (if applicable)
-    if (isBackflushCategory && actualQty > 0 && plannedQty > 0) {
+    // B. Backflushed Quantities — only when there is NO explicit MaterialIssue
+    // yet. Once material has been issued/transferred manually, that issue
+    // already represents the consumption for this order; adding a backflush
+    // estimate on top double-counts the same physical movement and understates
+    // the real shortage (mirrors the guard in order-materials-tab.tsx /
+    // order-execution-tab.tsx).
+    const hasExplicitIssues =
+        (order.materialIssues || []).filter((mi) => mi.status !== 'VOIDED')
+            .length > 0;
+    if (
+        !hasExplicitIssues &&
+        isBackflushCategory &&
+        actualQty > 0 &&
+        plannedQty > 0
+    ) {
         (order.plannedMaterials || []).forEach((item) => {
             const backflushedQty =
                 (actualQty / plannedQty) * Number(item.quantity);
@@ -76,6 +97,60 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
             issuedMap.set(item.productVariantId, current + backflushedQty);
         });
     }
+
+    // 5. Materials that still need a sub-order (or a warehouse transfer).
+    const materialsNeedingOrder = intermediateMaterials
+        .map((mat) => {
+            const coveredQty = coverageMap.get(mat.productVariantId) || 0;
+            const issuedQty = issuedMap.get(mat.productVariantId) || 0;
+            const requiredQty = Number(mat.quantity);
+            const shortage = requiredQty - coveredQty - issuedQty;
+            return { mat, shortage };
+        })
+        .filter((entry) => entry.shortage > 0.001);
+
+    // 6. Check WIP/intermediate stock so the card doesn't push "Buat SPK" when
+    // the shortage could just be transferred in from an existing warehouse.
+    useEffect(() => {
+        if (materialsNeedingOrder.length === 0) {
+            setAvailableStock({});
+            return;
+        }
+        let cancelled = false;
+        setCheckingStock(true);
+        Promise.all(
+            materialsNeedingOrder.map(async ({ mat }) => {
+                const locationId = resolveMaterialSourceLocationId(
+                    locations,
+                    mat.productVariant.product.productType,
+                );
+                if (!locationId) return [mat.productVariantId, 0] as const;
+                try {
+                    const res = await getRealtimeStock(
+                        locationId,
+                        mat.productVariantId,
+                    );
+                    return [
+                        mat.productVariantId,
+                        res.success && typeof res.data === 'number'
+                            ? res.data
+                            : 0,
+                    ] as const;
+                } catch {
+                    return [mat.productVariantId, 0] as const;
+                }
+            }),
+        ).then((entries) => {
+            if (!cancelled) {
+                setAvailableStock(Object.fromEntries(entries));
+                setCheckingStock(false);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [order, locations]);
 
     const handleCreateSubOrder = async (
         materialId: string,
@@ -118,21 +193,19 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
             </CardHeader>
             <CardContent className="space-y-4">
                 {/* Section 1: Missing / Required Sub-Orders */}
-                {intermediateMaterials.map((mat) => {
-                    const coveredQty =
-                        coverageMap.get(mat.productVariantId) || 0;
-                    const issuedQty = issuedMap.get(mat.productVariantId) || 0;
-                    const requiredQty = Number(mat.quantity);
-                    const shortage = requiredQty - coveredQty - issuedQty;
-
-                    if (shortage <= 0.001) return null; // Fully covered
+                {materialsNeedingOrder.map(({ mat, shortage }) => {
+                    const stock = availableStock[mat.productVariantId];
+                    const isStockSufficient =
+                        stock !== undefined && stock >= shortage;
+                    const isStockPartial =
+                        stock !== undefined && stock > 0 && !isStockSufficient;
 
                     return (
                         <div
                             key={mat.id}
                             className="flex items-center justify-between p-3 bg-white dark:bg-card border border-blue-200 dark:border-blue-800/50 rounded-lg shadow-sm"
                         >
-                            <div className="flex flex-col">
+                            <div className="flex flex-col gap-1">
                                 <span className="font-bold text-sm text-foreground flex items-center gap-2">
                                     <AlertTriangle className="w-3 h-3 text-amber-500" />
                                     {mat.productVariant.name}
@@ -147,11 +220,67 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                                         {String(mat.productVariant.primaryUnit)}
                                     </span>
                                 </span>
+                                {checkingStock && stock === undefined && (
+                                    <span className="text-[10px] text-muted-foreground italic">
+                                        {
+                                            productionComponentLabels.checkingStock
+                                        }
+                                    </span>
+                                )}
+                                {stock !== undefined && (
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[10px] text-muted-foreground">
+                                            {
+                                                productionComponentLabels.availableStock
+                                            }
+                                            :{' '}
+                                            <span
+                                                className={cn(
+                                                    'font-mono font-semibold',
+                                                    isStockSufficient
+                                                        ? 'text-emerald-600 dark:text-emerald-500'
+                                                        : isStockPartial
+                                                          ? 'text-amber-600 dark:text-amber-500'
+                                                          : 'text-muted-foreground',
+                                                )}
+                                            >
+                                                {stock.toFixed(2)}{' '}
+                                                {String(
+                                                    mat.productVariant
+                                                        .primaryUnit,
+                                                )}
+                                            </span>
+                                        </span>
+                                        {isStockSufficient && (
+                                            <Badge
+                                                variant="outline"
+                                                className="text-[9px] h-4 px-1 border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
+                                            >
+                                                {
+                                                    productionComponentLabels.stockSufficientHint
+                                                }
+                                            </Badge>
+                                        )}
+                                        {isStockPartial && (
+                                            <Badge
+                                                variant="outline"
+                                                className="text-[9px] h-4 px-1 border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400"
+                                            >
+                                                {
+                                                    productionComponentLabels.stockPartialHint
+                                                }
+                                            </Badge>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                className={cn(
+                                    'border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                    isStockSufficient && 'opacity-50',
+                                )}
                                 disabled={isCreating === mat.productVariantId}
                                 onClick={() =>
                                     handleCreateSubOrder(

@@ -214,6 +214,10 @@ export const productionComponentLabels = {
     requiresProduction: 'Perlu Diproduksi',
     creating: 'Membuat...',
     activeWorkOrders: 'SPK Aktif',
+    availableStock: 'Stok Tersedia',
+    stockSufficientHint: 'Stok cukup — transfer saja, tidak perlu SPK baru',
+    stockPartialHint: 'Stok sebagian tersedia, sisanya baru perlu SPK',
+    checkingStock: 'Cek stok...',
 
     // Delete Scrap Button
     deleteScrapRecord: 'Hapus Catatan Scrap',
