@@ -24,8 +24,8 @@ import Link from 'next/link';
 import {
     getProductionOrdersList,
     getProductionOrderStats,
-    PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE as PRODUCTION_ORDERS_LIST_PAGE_SIZE,
 } from '@/actions/production/production-orders';
+import { PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE as PRODUCTION_ORDERS_LIST_PAGE_SIZE } from '@/lib/constants/production';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';

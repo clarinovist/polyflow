@@ -30,6 +30,7 @@ import {
 } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production/production-service';
+import { PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE } from '@/lib/constants/production';
 
 export const getInitData = withTenant(async function getInitData() {
     return safeAction(async () => {
@@ -512,8 +513,6 @@ export const getProductionOrders = withTenant(
         }));
     },
 );
-
-export const PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE = 25;
 
 export const getProductionOrdersList = withTenant(
     async function getProductionOrdersList(
