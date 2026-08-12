@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/core/prisma';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
-import { loadLogoBitmap, type EscpDocument } from './escp-documents';
+import type { EscpDocument } from './escp-documents';
 import {
     generateEscpDeliveryNote,
     type EscpDeliveryData,
@@ -36,7 +36,6 @@ export async function buildDeliveryNoteDocument(
     if (!order) return null;
 
     const company = await getCompanyConfigWithOverridesAsync();
-    const logoBitmap = await loadLogoBitmap(company);
     const customer = order.salesOrder?.customer;
 
     const escpData: EscpDeliveryData = {
@@ -71,7 +70,6 @@ export async function buildDeliveryNoteDocument(
         })),
         paperHeightCm: company.paperSize.heightCm,
         paperWidthCm: company.paperSize.widthCm,
-        logoBitmap,
     };
 
     return {

@@ -9,7 +9,6 @@
  * See docs/plan/2026-08-07-escp-surat-jalan-dan-cetak-gabungan.md.
  */
 
-import type { EscpLogoBitmap } from './logo-bitmap';
 import {
     BODY_CPI,
     MIN_QTY_COLS,
@@ -83,8 +82,6 @@ export interface EscpDeliveryData {
     paperHeightCm: number;
     /** Physical form width. Drives line width, margins and column widths. */
     paperWidthCm: number;
-
-    logoBitmap?: EscpLogoBitmap | null;
 }
 
 interface DeliveryColumns {
@@ -240,7 +237,7 @@ export function generateEscpDeliveryNote(data: EscpDeliveryData): number[] {
     const cols = buildDeliveryColumns(W);
 
     bytes.push(...documentPreamble(data.paperHeightCm, layout));
-    bytes.push(...companyHeader(data.logoBitmap, data.companyName));
+    bytes.push(...companyHeader(data.companyName));
 
     // ── TITLE ──
     // Centred with leading spaces only; padding to W at 10 CPI would run

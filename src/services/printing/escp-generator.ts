@@ -16,7 +16,6 @@
  */
 
 import { terbilang } from '@/lib/utils/terbilang';
-import type { EscpLogoBitmap } from './logo-bitmap';
 import {
     BODY_CPI,
     MIN_QTY_COLS,
@@ -226,10 +225,6 @@ interface EscpInvoiceData {
     paperHeightCm: number;
     /** Physical form width. Drives line width, margins and column widths. */
     paperWidthCm: number;
-
-    // Logo — pre-built ESC/P bitmap (see logo-bitmap.ts). null/undefined
-    // falls back to printing the company name as bold text.
-    logoBitmap?: EscpLogoBitmap | null;
 }
 
 // ─── Main Generator ───────────────────────────────────────────────────
@@ -246,7 +241,7 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     bytes.push(...documentPreamble(data.paperHeightCm, layout));
 
     // ── HEADER ──
-    bytes.push(...companyHeader(data.logoBitmap, data.companyName));
+    bytes.push(...companyHeader(data.companyName));
 
     // ── INVOICE TITLE ──
     // (No dashline separator above the title — it already has bold + center

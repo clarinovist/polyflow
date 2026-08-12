@@ -11,8 +11,6 @@
  * See docs/plan/2026-08-07-escp-surat-jalan-dan-cetak-gabungan.md.
  */
 
-import type { EscpLogoBitmap } from './logo-bitmap';
-
 // ─── ESC/P Control Codes ──────────────────────────────────────────────
 
 export const ESC = 0x1b; // Escape
@@ -87,31 +85,6 @@ export function setPageLengthLines(n: number): number[] {
     return [ESC, 0x43, Math.max(1, Math.min(127, Math.round(n)))]; // ESC C n
 }
 
-/**
- * Select 8-dot bit image, double density (120 DPI horizontal), mode 1.
- * `columnBytes` has one byte per column (bit 7 = top dot, bit 0 = bottom).
- * ESC * 1 nL nH d1..dk
- */
-export function bitImage(widthDots: number, columnBytes: number[]): number[] {
-    const lo = widthDots % 256;
-    const hi = Math.floor(widthDots / 256);
-    return [ESC, 0x2a, 1, lo, hi, ...columnBytes];
-}
-
-/**
- * Set persistent line spacing to n/180 inch. ESC 3 n
- *
- * Used around the logo bit-image bands instead of a one-shot `ESC J` feed:
- * `ESC J` only nudges the paper without moving the head's notion of "current
- * line", so nothing terminates the last band's line and the next text line
- * starts partly inside the logo. `ESC 3` changes the actual line spacing, so
- * a plain `LF` after each band advances by exactly that much and behaves
- * like a normal line — restore it with `setLineSpacing1_6()` afterwards.
- */
-export function setLineSpacingN180(n: number): number[] {
-    return [ESC, 0x33, Math.max(0, Math.min(255, Math.round(n)))]; // ESC 3 n
-}
-
 /** Bold on/off */
 export function setBold(on: boolean): number[] {
     return [ESC, on ? 0x45 : 0x46]; // ESC E / ESC F
@@ -168,14 +141,6 @@ const DEFAULT_PAPER_WIDTH_CM = 24.13;
  * on their minimum at this width.
  */
 export const REFERENCE_LINE_WIDTH = 90;
-/**
- * Persistent line spacing (in 1/180ths) used around the logo bit-image
- * bands. 8-dot bit-image data prints at 1/60" pitch on 24-pin/ESC/P2
- * printers, i.e. 24/180" per band; also safe on 9-pin printers (1/72"
- * pitch), which would only be slightly over-fed rather than under-fed and
- * overprinting the next band. See `setLineSpacingN180`.
- */
-export const LOGO_BAND_FEED_180 = 24;
 
 /**
  * Column floors shared by every document that prints a qty/unit table.
@@ -253,27 +218,11 @@ export function documentPreamble(
 }
 
 /**
- * Company identity band: the logo bitmap when one was built, followed by the
- * company name in bold at 10 CPI either way. The name is never dropped — a
- * tenant with no logo (or a failed logo fetch) still needs to identify itself
- * on the printout, and a tenant with a logo still wants the name legible
- * underneath it since the logo band itself prints quite small. Leaves the
- * printer back at BODY_CPI and 1/6" line spacing.
+ * Company identity band: the company name in bold at 10 CPI. Leaves the
+ * printer back at BODY_CPI.
  */
-export function companyHeader(
-    logoBitmap: EscpLogoBitmap | null | undefined,
-    companyName: string,
-): number[] {
+export function companyHeader(companyName: string): number[] {
     const bytes: number[] = [];
-    if (logoBitmap) {
-        bytes.push(...setLineSpacingN180(LOGO_BAND_FEED_180));
-        for (const band of logoBitmap.bands) {
-            bytes.push(CR);
-            bytes.push(...bitImage(logoBitmap.widthDots, band));
-            bytes.push(LF);
-        }
-        bytes.push(...setLineSpacing1_6());
-    }
     bytes.push(...setCPI(10));
     bytes.push(...setBold(true));
     bytes.push(...str(companyName));

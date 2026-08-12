@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/core/prisma';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
-import { loadLogoBitmap, type EscpDocument } from './escp-documents';
+import type { EscpDocument } from './escp-documents';
 import { generateEscpInvoice, type EscpInvoiceData } from './escp-generator';
 
 /** Sales invoice. Returns null when the id does not exist. */
@@ -57,8 +57,6 @@ export async function buildInvoiceDocument(
     const bankAccounts = isPPN
         ? company.bankAccountsPPN
         : company.bankAccountsNonPPN;
-    const logoBitmap = await loadLogoBitmap(company);
-
     const escpData: EscpInvoiceData = {
         companyName: company.name,
         companyAddress: company.address.replace(/\n/g, ', '),
@@ -99,7 +97,6 @@ export async function buildInvoiceDocument(
         signerName: company.signerName,
         paperHeightCm: company.paperSize.heightCm,
         paperWidthCm: company.paperSize.widthCm,
-        logoBitmap,
     };
 
     return {

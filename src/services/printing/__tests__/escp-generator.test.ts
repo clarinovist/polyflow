@@ -242,11 +242,9 @@ describe('generateEscpInvoice — row budget at the narrower 90-column layout', 
         // shrinks every wrapText() budget too — most notably infoLeftWidth
         // (58 → 49) and bottomLeftWidth (59 → 50). A company address or
         // contact line that used to fit on one line can now wrap onto two,
-        // and the worst-case invoice (diskon+PPN+ongkir+logo) already runs
-        // the page length at exactly 33/33 with zero slack (see
-        // docs/plan/2026-08-05-escp-invoice-logo-bitmap.md §3.1) — one
-        // extra wrapped line here means the invoice spills onto a second
-        // physical page.
+        // and the worst-case invoice (diskon+PPN+ongkir) already runs the
+        // page length at exactly 33/33 with zero slack — one extra wrapped
+        // line here means the invoice spills onto a second physical page.
         const bytes = generateEscpInvoice(
             baseData({
                 companyAddress:
@@ -277,13 +275,6 @@ describe('generateEscpInvoice — row budget at the narrower 90-column layout', 
                         account: '2222222222',
                     },
                 ],
-                logoBitmap: {
-                    widthDots: 100,
-                    bands: [
-                        new Array(100).fill(0xff),
-                        new Array(100).fill(0xff),
-                    ],
-                },
             }),
         );
         // Re-measure after adding DPP Nilai Lain + a second bank account:
@@ -499,81 +490,3 @@ describe('generateEscpInvoice — printed width', () => {
     });
 });
 
-describe('generateEscpInvoice — logo bitmap', () => {
-    const fakeLogo = {
-        widthDots: 100,
-        bands: [new Array(100).fill(0xff), new Array(100).fill(0xff)],
-    };
-
-    it('emits an ESC * bit-image command per band when logoBitmap is set', () => {
-        const bytes = generateEscpInvoice(baseData({ logoBitmap: fakeLogo }));
-        const escStarCount = bytes.filter(
-            (b, i) => b === ESC && bytes[i + 1] === 0x2a,
-        ).length;
-        expect(escStarCount).toBe(fakeLogo.bands.length);
-    });
-
-    it('still prints the company name as text below the logo when a logo is present', () => {
-        const data = baseData({ logoBitmap: fakeLogo });
-        const text = decodeText(generateEscpInvoice(data));
-        expect(text).toContain(data.companyName);
-    });
-
-    it('prints the company name text when logoBitmap is null/undefined', () => {
-        const text = decodeText(
-            generateEscpInvoice(baseData({ logoBitmap: null })),
-        );
-        expect(text).toContain('CV MELINDO JAYA');
-    });
-
-    it('still fits the worst-case invoice (diskon+PPN+ongkir) within page length with a logo', () => {
-        const bytes = generateEscpInvoice(
-            baseData({
-                discountAmount: 50000,
-                taxAmount: 231000,
-                shippingCost: 25000,
-                isPPN: true,
-                logoBitmap: fakeLogo,
-            }),
-        );
-        expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));
-    });
-
-    it('feeds the persistent line spacing around the logo bands instead of one-shot ESC J', () => {
-        const bytes = generateEscpInvoice(baseData({ logoBitmap: fakeLogo }));
-
-        // ESC J (one-shot fine feed) must not appear anywhere — it was the
-        // root cause of the logo bands overprinting each other.
-        const hasEscJ = bytes.some((b, i) => b === ESC && bytes[i + 1] === 0x4a);
-        expect(hasEscJ).toBe(false);
-
-        const bandStarts = bytes.reduce<number[]>((acc, b, i) => {
-            if (b === ESC && bytes[i + 1] === 0x2a) acc.push(i);
-            return acc;
-        }, []);
-        expect(bandStarts).toHaveLength(fakeLogo.bands.length);
-
-        // ESC 3 24 (persistent 24/180" line spacing) comes before the first
-        // band's ESC * command.
-        const spacingIdx = bytes.findIndex(
-            (b, i) => b === ESC && bytes[i + 1] === 0x33,
-        );
-        expect(spacingIdx).toBeGreaterThan(-1);
-        expect(bytes[spacingIdx + 2]).toBe(24);
-        expect(spacingIdx).toBeLessThan(bandStarts[0]);
-
-        // ESC 2 (restore 1/6" spacing) comes after the last band.
-        const lastBandStart = bandStarts[bandStarts.length - 1];
-        const restoreIdx = bytes.findIndex(
-            (b, i) => i > lastBandStart && b === ESC && bytes[i + 1] === 0x32,
-        );
-        expect(restoreIdx).toBeGreaterThan(lastBandStart);
-
-        // Exactly one LF per band inside the logo block (CR + band + LF,
-        // repeated), between the spacing command and its restore.
-        const lfInLogoBlock = bytes
-            .slice(spacingIdx, restoreIdx)
-            .filter((b) => b === 0x0a).length;
-        expect(lfInLogoBlock).toBe(fakeLogo.bands.length);
-    });
-});
