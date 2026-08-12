@@ -62,7 +62,9 @@ export interface UsageAnalyticsOverviewData {
     availableModules: string[];
 }
 
-function parseYmd(dateStr: string): { year: number; month: number; day: number } | null {
+function parseYmd(
+    dateStr: string,
+): { year: number; month: number; day: number } | null {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
     if (!match) return null;
     const year = parseInt(match[1], 10);
@@ -94,47 +96,142 @@ function calculateJakartaBounds(filter: UsageAnalyticsFilter): {
     let label = '7 Hari Terakhir';
 
     if (range === 'today') {
-        startJakarta = new Date(Date.UTC(jakartaNow.getUTCFullYear(), jakartaNow.getUTCMonth(), jakartaNow.getUTCDate(), 0, 0, 0, 0));
-        endJakarta = new Date(Date.UTC(jakartaNow.getUTCFullYear(), jakartaNow.getUTCMonth(), jakartaNow.getUTCDate(), 23, 59, 59, 999));
+        startJakarta = new Date(
+            Date.UTC(
+                jakartaNow.getUTCFullYear(),
+                jakartaNow.getUTCMonth(),
+                jakartaNow.getUTCDate(),
+                0,
+                0,
+                0,
+                0,
+            ),
+        );
+        endJakarta = new Date(
+            Date.UTC(
+                jakartaNow.getUTCFullYear(),
+                jakartaNow.getUTCMonth(),
+                jakartaNow.getUTCDate(),
+                23,
+                59,
+                59,
+                999,
+            ),
+        );
         label = 'Hari Ini';
     } else if (range === 'yesterday') {
         const yesterday = new Date(jakartaNow.getTime() - 24 * 60 * 60 * 1000);
-        startJakarta = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 0, 0, 0, 0));
-        endJakarta = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 23, 59, 59, 999));
+        startJakarta = new Date(
+            Date.UTC(
+                yesterday.getUTCFullYear(),
+                yesterday.getUTCMonth(),
+                yesterday.getUTCDate(),
+                0,
+                0,
+                0,
+                0,
+            ),
+        );
+        endJakarta = new Date(
+            Date.UTC(
+                yesterday.getUTCFullYear(),
+                yesterday.getUTCMonth(),
+                yesterday.getUTCDate(),
+                23,
+                59,
+                59,
+                999,
+            ),
+        );
         label = 'Kemarin';
     } else if (range === '30d') {
-        endJakarta = new Date(Date.UTC(jakartaNow.getUTCFullYear(), jakartaNow.getUTCMonth(), jakartaNow.getUTCDate(), 23, 59, 59, 999));
-        startJakarta = new Date(endJakarta.getTime() - 30 * 24 * 60 * 60 * 1000 + 1);
+        endJakarta = new Date(
+            Date.UTC(
+                jakartaNow.getUTCFullYear(),
+                jakartaNow.getUTCMonth(),
+                jakartaNow.getUTCDate(),
+                23,
+                59,
+                59,
+                999,
+            ),
+        );
+        startJakarta = new Date(
+            endJakarta.getTime() - 30 * 24 * 60 * 60 * 1000 + 1,
+        );
         label = '30 Hari Terakhir';
     } else if (range === 'custom') {
         if (!filter.startDate || !filter.endDate) {
-            throw new BusinessRuleError('Tanggal mulai dan selesai (format YYYY-MM-DD) wajib diisi untuk rentang kustom.');
+            throw new BusinessRuleError(
+                'Tanggal mulai dan selesai (format YYYY-MM-DD) wajib diisi untuk rentang kustom.',
+            );
         }
 
         const startParsed = parseYmd(filter.startDate);
         const endParsed = parseYmd(filter.endDate);
 
         if (!startParsed || !endParsed) {
-            throw new BusinessRuleError('Format tanggal kustom harus YYYY-MM-DD yang valid.');
+            throw new BusinessRuleError(
+                'Format tanggal kustom harus YYYY-MM-DD yang valid.',
+            );
         }
 
-        startJakarta = new Date(Date.UTC(startParsed.year, startParsed.month, startParsed.day, 0, 0, 0, 0));
-        endJakarta = new Date(Date.UTC(endParsed.year, endParsed.month, endParsed.day, 23, 59, 59, 999));
+        startJakarta = new Date(
+            Date.UTC(
+                startParsed.year,
+                startParsed.month,
+                startParsed.day,
+                0,
+                0,
+                0,
+                0,
+            ),
+        );
+        endJakarta = new Date(
+            Date.UTC(
+                endParsed.year,
+                endParsed.month,
+                endParsed.day,
+                23,
+                59,
+                59,
+                999,
+            ),
+        );
 
         if (startJakarta > endJakarta) {
-            throw new BusinessRuleError('Tanggal mulai tidak boleh lebih besar dari tanggal selesai.');
+            throw new BusinessRuleError(
+                'Tanggal mulai tidak boleh lebih besar dari tanggal selesai.',
+            );
         }
 
         // Cap custom range at 90 days matching raw event retention policy (Fix 5)
-        if (endJakarta.getTime() - startJakarta.getTime() > 90 * 24 * 60 * 60 * 1000) {
-            throw new BusinessRuleError('Rentang tanggal kustom maksimal 90 hari sesuai batas retensi event mentah.');
+        if (
+            endJakarta.getTime() - startJakarta.getTime() >
+            90 * 24 * 60 * 60 * 1000
+        ) {
+            throw new BusinessRuleError(
+                'Rentang tanggal kustom maksimal 90 hari sesuai batas retensi event mentah.',
+            );
         }
 
         label = `${filter.startDate} s/d ${filter.endDate}`;
     } else {
         // 7d default
-        endJakarta = new Date(Date.UTC(jakartaNow.getUTCFullYear(), jakartaNow.getUTCMonth(), jakartaNow.getUTCDate(), 23, 59, 59, 999));
-        startJakarta = new Date(endJakarta.getTime() - 7 * 24 * 60 * 60 * 1000 + 1);
+        endJakarta = new Date(
+            Date.UTC(
+                jakartaNow.getUTCFullYear(),
+                jakartaNow.getUTCMonth(),
+                jakartaNow.getUTCDate(),
+                23,
+                59,
+                59,
+                999,
+            ),
+        );
+        startJakarta = new Date(
+            endJakarta.getTime() - 7 * 24 * 60 * 60 * 1000 + 1,
+        );
         label = '7 Hari Terakhir';
     }
 
@@ -158,10 +255,17 @@ export class UsageAnalyticsService {
     static async getAnalytics(
         filter: UsageAnalyticsFilter = {},
     ): Promise<UsageAnalyticsOverviewData> {
-        const { start, end, prevStart, prevEnd, label } = calculateJakartaBounds(filter);
+        const { start, end, prevStart, prevEnd, label } =
+            calculateJakartaBounds(filter);
 
-        const tenantFilter = filter.tenantId && filter.tenantId !== 'all' ? filter.tenantId : undefined;
-        const moduleFilter = filter.moduleKey && filter.moduleKey !== 'all' ? filter.moduleKey : undefined;
+        const tenantFilter =
+            filter.tenantId && filter.tenantId !== 'all'
+                ? filter.tenantId
+                : undefined;
+        const moduleFilter =
+            filter.moduleKey && filter.moduleKey !== 'all'
+                ? filter.moduleKey
+                : undefined;
 
         // Base Prisma Where clause (strictly filtering eventType = 'FEATURE_VIEW')
         const baseWhereCurr: Record<string, unknown> = {
@@ -271,22 +375,34 @@ export class UsageAnalyticsService {
             activeUsers: {
                 value: currActiveUsers,
                 prevValue: prevActiveUsers,
-                changePercent: calcPercentChange(currActiveUsers, prevActiveUsers),
+                changePercent: calcPercentChange(
+                    currActiveUsers,
+                    prevActiveUsers,
+                ),
             },
             activeTenants: {
                 value: currActiveTenants,
                 prevValue: prevActiveTenants,
-                changePercent: calcPercentChange(currActiveTenants, prevActiveTenants),
+                changePercent: calcPercentChange(
+                    currActiveTenants,
+                    prevActiveTenants,
+                ),
             },
             totalViews: {
                 value: currTotalViews,
                 prevValue: prevTotalViews,
-                changePercent: calcPercentChange(currTotalViews, prevTotalViews),
+                changePercent: calcPercentChange(
+                    currTotalViews,
+                    prevTotalViews,
+                ),
             },
             featuresUsed: {
                 value: currFeaturesUsed,
                 prevValue: prevFeaturesUsed,
-                changePercent: calcPercentChange(currFeaturesUsed, prevFeaturesUsed),
+                changePercent: calcPercentChange(
+                    currFeaturesUsed,
+                    prevFeaturesUsed,
+                ),
             },
         };
 
@@ -300,13 +416,15 @@ export class UsageAnalyticsService {
         );
 
         // 5. Database Top 25 Features Aggregation (PostgreSQL GroupBy)
-        const topFeaturesRaw = await prisma.$queryRaw<{
-            featureKey: string;
-            moduleKey: string;
-            currViews: bigint;
-            uniqueUsers: bigint;
-            uniqueTenants: bigint;
-        }[]>`
+        const topFeaturesRaw = await prisma.$queryRaw<
+            {
+                featureKey: string;
+                moduleKey: string;
+                currViews: bigint;
+                uniqueUsers: bigint;
+                uniqueTenants: bigint;
+            }[]
+        >`
             SELECT 
                 "featureKey",
                 "moduleKey",
@@ -325,14 +443,17 @@ export class UsageAnalyticsService {
 
         // Fetch previous period views for these top 25 features to calculate trends
         const topFeatureKeys = topFeaturesRaw.map((f) => f.featureKey);
-        const prevTopFeaturesViews = topFeatureKeys.length > 0 ? await prisma.usageEvent.groupBy({
-            by: ['featureKey'],
-            _count: { _all: true },
-            where: {
-                ...baseWherePrev,
-                featureKey: { in: topFeatureKeys },
-            },
-        }) : [];
+        const prevTopFeaturesViews =
+            topFeatureKeys.length > 0
+                ? await prisma.usageEvent.groupBy({
+                      by: ['featureKey'],
+                      _count: { _all: true },
+                      where: {
+                          ...baseWherePrev,
+                          featureKey: { in: topFeatureKeys },
+                      },
+                  })
+                : [];
 
         const prevFeatureViewsMap = new Map(
             prevTopFeaturesViews.map((p) => [p.featureKey, p._count._all]),
@@ -355,13 +476,15 @@ export class UsageAnalyticsService {
         });
 
         // 6. Database Tenant Summaries Aggregation (PostgreSQL GroupBy)
-        const tenantSummariesRaw = await prisma.$queryRaw<{
-            tenantId: string;
-            currViews: bigint;
-            activeUsers: bigint;
-            featuresUsed: bigint;
-            lastActivity: Date;
-        }[]>`
+        const tenantSummariesRaw = await prisma.$queryRaw<
+            {
+                tenantId: string;
+                currViews: bigint;
+                activeUsers: bigint;
+                featuresUsed: bigint;
+                lastActivity: Date;
+            }[]
+        >`
             SELECT 
                 "tenantId",
                 COUNT(*) as "currViews",
@@ -379,45 +502,52 @@ export class UsageAnalyticsService {
         `;
 
         const activeTenantIds = tenantSummariesRaw.map((t) => t.tenantId);
-        const prevTenantViews = activeTenantIds.length > 0 ? await prisma.usageEvent.groupBy({
-            by: ['tenantId'],
-            _count: { _all: true },
-            where: {
-                ...tenantWherePrev,
-                tenantId: { in: activeTenantIds },
-            },
-        }) : [];
+        const prevTenantViews =
+            activeTenantIds.length > 0
+                ? await prisma.usageEvent.groupBy({
+                      by: ['tenantId'],
+                      _count: { _all: true },
+                      where: {
+                          ...tenantWherePrev,
+                          tenantId: { in: activeTenantIds },
+                      },
+                  })
+                : [];
 
         const prevTenantViewsMap = new Map(
             prevTenantViews.map((p) => [p.tenantId, p._count._all]),
         );
 
-        const tenantSummaries: TenantUsageSummary[] = tenantSummariesRaw.map((t) => {
-            const tenantInfo = tenantMap.get(t.tenantId);
-            const currV = Number(t.currViews);
-            const prevV = prevTenantViewsMap.get(t.tenantId) || 0;
-            return {
-                tenantId: t.tenantId,
-                tenantName: tenantInfo?.name || t.tenantId,
-                subdomain: tenantInfo?.subdomain || t.tenantId,
-                totalViews: currV,
-                prevViews: prevV,
-                changePercent: calcPercentChange(currV, prevV),
-                activeUsers: Number(t.activeUsers),
-                featuresUsed: Number(t.featuresUsed),
-                lastActivity: t.lastActivity,
-            };
-        });
+        const tenantSummaries: TenantUsageSummary[] = tenantSummariesRaw.map(
+            (t) => {
+                const tenantInfo = tenantMap.get(t.tenantId);
+                const currV = Number(t.currViews);
+                const prevV = prevTenantViewsMap.get(t.tenantId) || 0;
+                return {
+                    tenantId: t.tenantId,
+                    tenantName: tenantInfo?.name || t.tenantId,
+                    subdomain: tenantInfo?.subdomain || t.tenantId,
+                    totalViews: currV,
+                    prevViews: prevV,
+                    changePercent: calcPercentChange(currV, prevV),
+                    activeUsers: Number(t.activeUsers),
+                    featuresUsed: Number(t.featuresUsed),
+                    lastActivity: t.lastActivity,
+                };
+            },
+        );
 
         // 7. Daily Trends Grouping (PostgreSQL GroupBy + WIB Zero-Filling) (Finding 6 & 17)
-        const dailyTrendsRaw = await prisma.$queryRaw<{
-            dateStr: string;
-            totalViews: bigint;
-            activeUsers: bigint;
-            activeTenants: bigint;
-        }[]>`
+        const dailyTrendsRaw = await prisma.$queryRaw<
+            {
+                dateStr: string;
+                totalViews: bigint;
+                activeUsers: bigint;
+                activeTenants: bigint;
+            }[]
+        >`
             SELECT 
-                TO_CHAR("occurredAt" AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') as "dateStr",
+                TO_CHAR(("occurredAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') as "dateStr",
                 COUNT(*) as "totalViews",
                 COUNT(DISTINCT CONCAT("tenantId", ':', "userId")) as "activeUsers",
                 COUNT(DISTINCT "tenantId") as "activeTenants"

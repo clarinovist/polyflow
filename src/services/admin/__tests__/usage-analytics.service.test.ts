@@ -86,6 +86,19 @@ describe('UsageAnalyticsService Hardened', () => {
         expect(data.tenantSummaries.length).toBe(1);
         expect(data.tenantSummaries[0].tenantName).toBe('Kiyowo Craft');
         expect(data.dailyTrends.length).toBeGreaterThan(0);
+
+        // Regression guard: "occurredAt" is a naive TIMESTAMP column that Prisma
+        // always fills with UTC wall-clock values. A single `AT TIME ZONE
+        // 'Asia/Jakarta'` on it treats the UTC value as if it were already WIB
+        // and shifts it the wrong way, so dateStr keys stop matching the
+        // (correctly computed) zero-filled dates on the JS side and the chart
+        // renders as flat/empty. The fix must convert in two explicit steps:
+        // treat as UTC first, then convert to Asia/Jakarta.
+        const dailyTrendsQueryCall = vi.mocked(prisma.$queryRaw).mock.calls[4];
+        const dailyTrendsSql = (dailyTrendsQueryCall[0] as unknown as string[]).join('?');
+        expect(dailyTrendsSql).toMatch(
+            /"occurredAt"\s+AT TIME ZONE\s+'UTC'\)\s+AT TIME ZONE\s+'Asia\/Jakarta'/,
+        );
     });
 
     it('supports today, yesterday, 30d, and custom ranges', async () => {
