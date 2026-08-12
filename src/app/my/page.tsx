@@ -1,5 +1,5 @@
 import {
-    getEmployeeSession,
+    requireEmployeeSession,
     getCurrentEmployeeFull,
 } from '@/lib/auth/employee-session';
 import { redirect } from 'next/navigation';
@@ -31,7 +31,7 @@ type AttRow = NonNullable<AttRes['data']>[number];
 type FinanceData = NonNullable<LoanRes['data']>;
 
 export default async function MyHomePage() {
-    const session = await getEmployeeSession().catch(() => null);
+    const session = await requireEmployeeSession().catch(() => null);
     if (!session) redirect('/my/login');
 
     const empFull = await getCurrentEmployeeFull().catch(() => null);

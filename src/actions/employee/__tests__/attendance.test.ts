@@ -8,7 +8,7 @@ vi.mock('@/lib/core/prisma', () => ({
     prisma: {},
 }));
 vi.mock('@/lib/auth/employee-session', () => ({
-    getEmployeeSession: vi.fn(),
+    requireEmployeeSession: vi.fn(),
 }));
 vi.mock('@/services/hrd/attendance-settings-reader', () => ({
     readAttendanceSettings: vi.fn(),
@@ -30,7 +30,7 @@ vi.mock('next/headers', () => ({
     headers: vi.fn(() => Promise.resolve(new Map([['x-forwarded-for', '127.0.0.1']]))),
 }));
 
-import { getEmployeeSession } from '@/lib/auth/employee-session';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
 import { AttendanceService } from '@/services/hrd/attendance-service';
 import { rateLimit } from '@/lib/api/rate-limit';
@@ -47,7 +47,7 @@ describe('selfServiceClockIn', () => {
     });
 
     it('returns error when session is missing', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue(null);
+        vi.mocked(requireEmployeeSession).mockResolvedValue(null);
 
         const result = await selfServiceClockIn('photo-url', {
             latitude: -6.12,
@@ -60,7 +60,7 @@ describe('selfServiceClockIn', () => {
     });
 
     it('returns error when rate limited', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -78,7 +78,7 @@ describe('selfServiceClockIn', () => {
     });
 
     it('returns error when self-service is disabled', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -99,7 +99,7 @@ describe('selfServiceClockIn', () => {
     });
 
     it('returns success when clock-in succeeds', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -126,7 +126,7 @@ describe('selfServiceClockIn', () => {
     });
 
     it('maps business errors to user-friendly messages', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -157,7 +157,7 @@ describe('selfServiceClockOut', () => {
     });
 
     it('returns error when session is missing', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue(null);
+        vi.mocked(requireEmployeeSession).mockResolvedValue(null);
 
         const result = await selfServiceClockOut({
             latitude: -6.12,
@@ -170,7 +170,7 @@ describe('selfServiceClockOut', () => {
     });
 
     it('returns success when clock-out succeeds', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -201,7 +201,7 @@ describe('getMyTodayAttendance', () => {
     });
 
     it('returns error when session is missing', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue(null);
+        vi.mocked(requireEmployeeSession).mockResolvedValue(null);
 
         const result = await getMyTodayAttendance();
 
@@ -210,7 +210,7 @@ describe('getMyTodayAttendance', () => {
     });
 
     it('returns today status', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -234,7 +234,7 @@ describe('getMyGeofenceInfo', () => {
     });
 
     it('returns error when session is missing', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue(null);
+        vi.mocked(requireEmployeeSession).mockResolvedValue(null);
 
         const result = await getMyGeofenceInfo();
 
@@ -243,7 +243,7 @@ describe('getMyGeofenceInfo', () => {
     });
 
     it('returns null geofence and configInvalid=false when geofence disabled', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -262,7 +262,7 @@ describe('getMyGeofenceInfo', () => {
     });
 
     it('returns configInvalid=true when geofenceEnabled but latitude empty', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -284,7 +284,7 @@ describe('getMyGeofenceInfo', () => {
     });
 
     it('returns valid geofence config when all values present', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',
@@ -310,7 +310,7 @@ describe('getMyGeofenceInfo', () => {
     });
 
     it('returns only selfServiceEnabled, geofence, configInvalid fields on success', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1',
             code: 'EMP-001',
             name: 'Budi',

@@ -19,38 +19,7 @@ vi.mock('next/server', () => {
 });
 
 vi.mock('@/lib/auth/employee-session', () => ({
-    getEmployeeSession: vi.fn(),
-}));
-
-vi.mock('@/lib/core/prisma', () => ({
-    prisma: { employee: { findUnique: vi.fn() } },
-    getMainPrisma: vi.fn(() => ({
-        employee: {
-            findFirst: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
-            findUnique: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
-        },
-    })),
-}));
-
-vi.mock('@/lib/core/tenant', () => ({
-    resolveTenantContext: vi.fn().mockResolvedValue({
-        type: 'RESOLVED',
-        tenantDb: {
-            employee: {
-                findFirst: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
-                findUnique: vi.fn().mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' }),
-            },
-        },
-        tenantId: 'tenant-kiyowo',
-        subdomain: 'kiyowo',
-        activeModules: [],
-    }),
-}));
-
-vi.mock('next/headers', () => ({
-    headers: vi.fn().mockResolvedValue({
-        get: vi.fn().mockReturnValue('kiyowo.example.com'),
-    }),
+    requireEmployeeSession: vi.fn(),
 }));
 
 vi.mock('@/lib/storage/r2', () => ({
@@ -59,8 +28,7 @@ vi.mock('@/lib/storage/r2', () => ({
     uploadToR2: vi.fn().mockResolvedValue('/api/images/kiyowo/attendance/emp-1/clock_in-123.jpg'),
 }));
 
-import { getEmployeeSession } from '@/lib/auth/employee-session';
-import { prisma } from '@/lib/core/prisma';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { uploadToR2, buildAttendancePhotoKey } from '@/lib/storage/r2';
 import { POST } from '../route';
 
@@ -81,31 +49,18 @@ describe('/my/api/attendance-photo', () => {
     });
 
     it('401 when no session', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue(null);
+        vi.mocked(requireEmployeeSession).mockResolvedValue(null);
         const fd = new FormData();
         fd.append('file', makeFile());
         const res = await POST(fakeReq(fd));
         expect(res.status).toBe(401);
     });
 
-    it('401 when employee inactive', async () => {
-        const { resolveTenantContext } = await import('@/lib/core/tenant');
-        vi.mocked(resolveTenantContext as any).mockResolvedValueOnce({
-            type: 'RESOLVED',
-            tenantDb: {
-                employee: {
-                    findUnique: vi.fn().mockResolvedValue(null),
-                    findFirst: vi.fn().mockResolvedValue(null),
-                },
-            },
-            tenantId: 'tenant-kiyowo',
-            subdomain: 'kiyowo',
-            activeModules: [],
-        });
-        vi.mocked(getEmployeeSession).mockResolvedValue({
-            employeeId: 'emp-1', code: 'EMP-014', name: 'Rizal',
-        } as any);
-        vi.mocked(prisma.employee.findUnique).mockResolvedValue(null as any);
+    it('401 when employee inactive or PIN cleared (requireEmployeeSession returns null)', async () => {
+        // requireEmployeeSession re-checks status ACTIVE + pinHash against the
+        // DB itself (tested in src/lib/auth/__tests__/employee-session.test.ts)
+        // — from this route's perspective it just sees a null session.
+        vi.mocked(requireEmployeeSession).mockResolvedValue(null);
         const fd = new FormData();
         fd.append('file', makeFile());
         const res = await POST(fakeReq(fd));
@@ -113,20 +68,18 @@ describe('/my/api/attendance-photo', () => {
     });
 
     it('400 when file missing', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1', code: 'EMP-014', name: 'Rizal',
         } as any);
-        vi.mocked(prisma.employee.findUnique).mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' } as any);
         const fd = new FormData();
         const res = await POST(fakeReq(fd));
         expect(res.status).toBe(400);
     });
 
     it('400 when invalid mime type', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1', code: 'EMP-014', name: 'Rizal',
         } as any);
-        vi.mocked(prisma.employee.findUnique).mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' } as any);
         const fd = new FormData();
         fd.append('file', makeFile('evil.gif', 'image/gif'));
         const res = await POST(fakeReq(fd));
@@ -134,10 +87,9 @@ describe('/my/api/attendance-photo', () => {
     });
 
     it('success with session and returns publicUrl', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1', code: 'EMP-014', name: 'Rizal',
         } as any);
-        vi.mocked(prisma.employee.findUnique).mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' } as any);
         const fd = new FormData();
         fd.append('file', makeFile());
         fd.append('kind', 'clock_in');
@@ -150,10 +102,9 @@ describe('/my/api/attendance-photo', () => {
     });
 
     it('does not accept employeeId from client form (session-bound)', async () => {
-        vi.mocked(getEmployeeSession).mockResolvedValue({
+        vi.mocked(requireEmployeeSession).mockResolvedValue({
             employeeId: 'emp-1', code: 'EMP-014', name: 'Rizal',
         } as any);
-        vi.mocked(prisma.employee.findUnique).mockResolvedValue({ id: 'emp-1', status: 'ACTIVE' } as any);
         const fd = new FormData();
         fd.append('file', makeFile());
         fd.append('employeeId', 'emp-hacker');

@@ -5,7 +5,7 @@ import { prisma as db } from '@/lib/core/prisma';
 import { PayrollService } from '@/services/hrd/payroll-service';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import { AttendanceService } from '@/services/hrd/attendance-service';
-import { getEmployeeSession } from '@/lib/auth/employee-session';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { PayrollMonthlyService } from '@/services/hrd/payroll-monthly-service';
 
 /**
@@ -17,7 +17,7 @@ export const getMyWeeklyPayroll = withTenant(async function getMyWeeklyPayroll(
     dateInWeek?: string,
 ) {
     try {
-        const session = await getEmployeeSession();
+        const session = await requireEmployeeSession();
         if (!session) return { success: false, error: 'Unauthorized' };
         const base = dateInWeek ? new Date(dateInWeek) : new Date();
         const ws = startOfWeek(base);
@@ -40,7 +40,7 @@ export const getMyWeeklyPayroll = withTenant(async function getMyWeeklyPayroll(
 export const getMyAttendanceMonth = withTenant(
     async function getMyAttendanceMonth(year: number, month: number) {
         try {
-            const session = await getEmployeeSession();
+            const session = await requireEmployeeSession();
             if (!session) return { success: false, error: 'Unauthorized' };
             const from = new Date(Date.UTC(year, month - 1, 1));
             const to = new Date(Date.UTC(year, month, 0));
@@ -65,7 +65,7 @@ export const getMyProductions = withTenant(async function getMyProductions(
     to?: string,
 ) {
     try {
-        const session = await getEmployeeSession();
+        const session = await requireEmployeeSession();
         if (!session) return { success: false, error: 'Unauthorized' };
         const fromDate = from
             ? new Date(from)
@@ -121,7 +121,7 @@ export const getMyProductions = withTenant(async function getMyProductions(
 
 export const getMyPayslips = withTenant(async function getMyPayslips() {
     try {
-        const session = await getEmployeeSession();
+        const session = await requireEmployeeSession();
         if (!session) return { success: false, error: 'Unauthorized' };
         const data = await PayrollMonthlyService.listByEmployee(
             db,
@@ -138,7 +138,7 @@ export const getMyPayslips = withTenant(async function getMyPayslips() {
 
 export const getMyLoansAndBpjs = withTenant(async function getMyLoansAndBpjs() {
     try {
-        const session = await getEmployeeSession();
+        const session = await requireEmployeeSession();
         if (!session) return { success: false, error: 'Unauthorized' };
         const [loans, employee] = await Promise.all([
             db.employeeLoan.findMany({

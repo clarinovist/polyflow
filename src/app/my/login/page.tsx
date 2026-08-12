@@ -1,9 +1,9 @@
 import { LoginForm } from '@/components/employee/LoginForm';
-import { getEmployeeSession } from '@/lib/auth/employee-session';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { redirect } from 'next/navigation';
 
 export default async function MyLoginPage() {
-    const session = await getEmployeeSession().catch(() => null);
+    const session = await requireEmployeeSession().catch(() => null);
     if (session) redirect('/my');
 
     return (

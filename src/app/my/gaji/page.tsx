@@ -1,4 +1,4 @@
-import { getEmployeeSession } from '@/lib/auth/employee-session';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { redirect } from 'next/navigation';
 import {
     getMyWeeklyPayroll,
@@ -34,7 +34,7 @@ export default async function MyGajiPage({
 }: {
     searchParams: Promise<{ week?: string }>;
 }) {
-    const session = await getEmployeeSession().catch(() => null);
+    const session = await requireEmployeeSession().catch(() => null);
     if (!session) redirect('/my/login');
 
     const sp = await searchParams;

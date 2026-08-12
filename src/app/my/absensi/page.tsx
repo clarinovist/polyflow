@@ -1,4 +1,4 @@
-import { getEmployeeSession } from '@/lib/auth/employee-session';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { redirect } from 'next/navigation';
 import { getMyAttendanceMonth } from '@/actions/employee/self';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ export default async function MyAbsensiPage({
 }: {
     searchParams: Promise<{ year?: string; month?: string }>;
 }) {
-    const session = await getEmployeeSession().catch(() => null);
+    const session = await requireEmployeeSession().catch(() => null);
     if (!session) redirect('/my/login');
 
     const sp = await searchParams;

@@ -4,9 +4,7 @@ import {
     buildAttendancePhotoKey,
     uploadToR2,
 } from '@/lib/storage/r2';
-import { getEmployeeSession } from '@/lib/auth/employee-session';
-import { resolveTenantContext } from '@/lib/core/tenant';
-import { getMainPrisma } from '@/lib/core/prisma';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
 
 const ALLOWED_TYPES = [
     'image/jpeg',
@@ -30,32 +28,17 @@ export async function POST(req: NextRequest) {
     try {
         // Session-bound — cookie path /my, so /api/... cannot read it.
         // This route lives under /my so emp_session cookie is sent.
-        const session = await getEmployeeSession().catch(() => null);
+        // requireEmployeeSession re-checks status ACTIVE + pinHash against
+        // the DB on every call — no separate manual check needed here.
+        const session = await requireEmployeeSession().catch(() => null);
         if (!session) {
             console.warn('[attendance-photo:my] rejected', {
                 reason: 'unauthorized',
             });
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Resolve tenant DB correctly (self-service portal under /my)
-        const tenantResult = await resolveTenantContext(req.headers);
-        let tenantDb = null as ReturnType<typeof getMainPrisma> | null;
-        if (tenantResult.type === 'RESOLVED') {
-            tenantDb = tenantResult.tenantDb as unknown as ReturnType<typeof getMainPrisma>;
-        }
-        const db = tenantDb ?? getMainPrisma();
-
-        const emp = await db.employee.findUnique({
-            where: { id: session.employeeId },
-            select: { id: true, status: true },
-        });
-        if (!emp || emp.status !== 'ACTIVE') {
-            console.warn('[attendance-photo:my] rejected', {
-                reason: 'unauthorized',
-                employeeId: session.employeeId,
-            });
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 },
+            );
         }
 
         const formData = await req.formData();
@@ -73,7 +56,10 @@ export async function POST(req: NextRequest) {
                 reason: 'file_missing',
                 employeeId: session.employeeId,
             });
-            return NextResponse.json({ error: 'file is required' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'file is required' },
+                { status: 400 },
+            );
         }
 
         const mime = file.type || '';
@@ -86,7 +72,9 @@ export async function POST(req: NextRequest) {
                     mime,
                 });
                 return NextResponse.json(
-                    { error: 'Only JPEG, PNG, WebP, and HEIC images are allowed' },
+                    {
+                        error: 'Only JPEG, PNG, WebP, and HEIC images are allowed',
+                    },
                     { status: 400 },
                 );
             }

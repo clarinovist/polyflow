@@ -2,10 +2,8 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma as db } from '@/lib/core/prisma';
-import { getEmployeeSession } from '@/lib/auth/employee-session';
-import {
-    AttendanceService,
-} from '@/services/hrd/attendance-service';
+import { requireEmployeeSession } from '@/lib/auth/employee-session';
+import { AttendanceService } from '@/services/hrd/attendance-service';
 import {
     isSelfServiceEnabled,
     parseGeofenceConfig,
@@ -57,71 +55,73 @@ function mapError(error: unknown): string {
     return 'Gagal memproses absensi. Silakan coba lagi.';
 }
 
-export const selfServiceClockIn = withTenant(
-    async function selfServiceClockIn(
-        clockInPhotoUrl: string,
-        locationEvidence: { latitude: number; longitude: number; accuracy: number },
-    ) {
-        try {
-            const session = await getEmployeeSession();
-            if (!session) return { success: false, error: 'Unauthorized' };
+export const selfServiceClockIn = withTenant(async function selfServiceClockIn(
+    clockInPhotoUrl: string,
+    locationEvidence: { latitude: number; longitude: number; accuracy: number },
+) {
+    try {
+        const session = await requireEmployeeSession();
+        if (!session) return { success: false, error: 'Unauthorized' };
 
-            const ip = await getClientIp();
-            const { success: rateOk } = rateLimit(
-                `self-attendance:${ip}:${session.employeeId}`,
-                SELF_SERVICE_RATE_LIMIT,
-                SELF_SERVICE_RATE_WINDOW_MS,
-            );
-            if (!rateOk) {
-                return {
-                    success: false,
-                    error: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.',
-                };
-            }
-
-            const settings = await readAttendanceSettings(db);
-
-            if (!isSelfServiceEnabled(settings)) {
-                return {
-                    success: false,
-                    error: 'Self-service absensi belum diaktifkan oleh HRD',
-                };
-            }
-
-            const geoConfig = parseGeofenceConfig(settings);
-            if (geoConfig && !locationEvidence) {
-                return {
-                    success: false,
-                    error: 'Lokasi wajib untuk absensi',
-                };
-            }
-
-            const result = await AttendanceService.clockInSelfService(
-                db,
-                {
-                    employeeId: session.employeeId,
-                    clockInPhotoUrl,
-                    locationEvidence,
-                },
-                settings,
-            );
-
-            revalidatePath('/my/absensi');
-            revalidatePath('/hrd/attendance');
-            return { success: true, data: result };
-        } catch (error) {
-            return { success: false, error: mapError(error) };
+        const ip = await getClientIp();
+        const { success: rateOk } = rateLimit(
+            `self-attendance:${ip}:${session.employeeId}`,
+            SELF_SERVICE_RATE_LIMIT,
+            SELF_SERVICE_RATE_WINDOW_MS,
+        );
+        if (!rateOk) {
+            return {
+                success: false,
+                error: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.',
+            };
         }
-    },
-);
+
+        const settings = await readAttendanceSettings(db);
+
+        if (!isSelfServiceEnabled(settings)) {
+            return {
+                success: false,
+                error: 'Self-service absensi belum diaktifkan oleh HRD',
+            };
+        }
+
+        const geoConfig = parseGeofenceConfig(settings);
+        if (geoConfig && !locationEvidence) {
+            return {
+                success: false,
+                error: 'Lokasi wajib untuk absensi',
+            };
+        }
+
+        const result = await AttendanceService.clockInSelfService(
+            db,
+            {
+                employeeId: session.employeeId,
+                clockInPhotoUrl,
+                locationEvidence,
+            },
+            settings,
+        );
+
+        revalidatePath('/my/absensi');
+        revalidatePath('/hrd/attendance');
+        return { success: true, data: result };
+    } catch (error) {
+        return { success: false, error: mapError(error) };
+    }
+});
 
 export const selfServiceClockOut = withTenant(
     async function selfServiceClockOut(
-        locationEvidence: { latitude: number; longitude: number; accuracy: number },
+        locationEvidence: {
+            latitude: number;
+            longitude: number;
+            accuracy: number;
+        },
         clockOutPhotoUrl?: string,
     ) {
         try {
-            const session = await getEmployeeSession();
+            const session = await requireEmployeeSession();
             if (!session) return { success: false, error: 'Unauthorized' };
 
             const ip = await getClientIp();
@@ -167,7 +167,7 @@ export const selfServiceClockOut = withTenant(
 
 export const getMyGeofenceInfo = withTenant(async function getMyGeofenceInfo() {
     try {
-        const session = await getEmployeeSession();
+        const session = await requireEmployeeSession();
         if (!session) return { success: false, error: 'Unauthorized' };
 
         const settings = await readAttendanceSettings(db);
@@ -177,7 +177,8 @@ export const getMyGeofenceInfo = withTenant(async function getMyGeofenceInfo() {
             success: true,
             data: {
                 selfServiceEnabled: isSelfServiceEnabled(settings),
-                geofence: resolution.kind === 'active' ? resolution.config : null,
+                geofence:
+                    resolution.kind === 'active' ? resolution.config : null,
                 configInvalid: resolution.kind === 'invalid',
             },
         };
@@ -189,7 +190,7 @@ export const getMyGeofenceInfo = withTenant(async function getMyGeofenceInfo() {
 export const getMyTodayAttendance = withTenant(
     async function getMyTodayAttendance() {
         try {
-            const session = await getEmployeeSession();
+            const session = await requireEmployeeSession();
             if (!session) return { success: false, error: 'Unauthorized' };
 
             const status = await AttendanceService.getMyTodayStatus(
@@ -201,7 +202,8 @@ export const getMyTodayAttendance = withTenant(
         } catch (error) {
             return {
                 success: false,
-                error: (error as Error).message ?? 'Gagal memuat status absensi',
+                error:
+                    (error as Error).message ?? 'Gagal memuat status absensi',
             };
         }
     },

@@ -1418,6 +1418,8 @@ export const AttendanceService = {
         input: SelfServiceClockInInput,
         settings: Record<string, string | null | undefined>,
     ): Promise<AttendanceRecordResult> {
+        // Active status already re-verified by requireEmployeeSession() in
+        // the caller (actions/employee/attendance.ts) on every request.
         const employee = await db.employee.findUnique({
             where: { id: input.employeeId },
             select: {
@@ -1433,8 +1435,6 @@ export const AttendanceService = {
             },
         });
         if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
-        if (employee.status !== 'ACTIVE')
-            throw new BusinessRuleError('Karyawan tidak aktif');
 
         // Validate photo
         if (!input.clockInPhotoUrl?.trim()) {
@@ -1560,13 +1560,13 @@ export const AttendanceService = {
         input: SelfServiceClockOutInput,
         settings: Record<string, string | null | undefined>,
     ): Promise<AttendanceRecordResult> {
+        // Active status already re-verified by requireEmployeeSession() in
+        // the caller (actions/employee/attendance.ts) on every request.
         const employee = await db.employee.findUnique({
             where: { id: input.employeeId },
-            select: { id: true, name: true, code: true, status: true },
+            select: { id: true, name: true, code: true },
         });
         if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
-        if (employee.status !== 'ACTIVE')
-            throw new BusinessRuleError('Karyawan tidak aktif');
 
         // Geofence — fail-closed under `enforce`, measure-only under `observe`
         const clockOutDistanceMeters = gateOrObserveLocation(
