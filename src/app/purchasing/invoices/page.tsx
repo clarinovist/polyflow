@@ -74,7 +74,7 @@ export default async function PurchasingInvoicesPage({
         (paymentBanksRes as ActionRes)?.success &&
         (paymentBanksRes as ActionRes).data
             ? (paymentBanksRes as ActionRes).data
-            : {};
+            : [];
 
     return (
         <div className="flex flex-col gap-6 p-6">

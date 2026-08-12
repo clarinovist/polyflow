@@ -26,7 +26,9 @@ export default async function SalesCollectionPage() {
         getInvoicesWithoutCollectionActivityAction({}),
         getSalesTeamAction().catch(() => null),
         listRemittancesAction({}).catch(() => null),
-        getSalesInvoices(undefined, { operationalOnly: true }).catch(() => null),
+        getSalesInvoices(undefined, { operationalOnly: true }).catch(
+            () => null,
+        ),
         getPaymentBanks().catch(() => null),
     ]);
 
@@ -75,7 +77,7 @@ export default async function SalesCollectionPage() {
     const paymentBanks =
         paymentBanksRaw?.success && paymentBanksRaw.data
             ? paymentBanksRaw.data
-            : {};
+            : [];
 
     return (
         <div className="space-y-6">
