@@ -54,4 +54,6 @@ export const performanceLabels = {
     online: 'Online',
     offline: 'Offline',
     noTenants: 'Belum ada tenant terdaftar.',
+    p95StatusWarn: 'Lambat',
+    p95StatusCritical: 'Kritis',
 } as const;

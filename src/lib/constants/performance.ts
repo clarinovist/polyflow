@@ -1,0 +1,2 @@
+export const PERFORMANCE_P95_WARN_MS = 800;
+export const PERFORMANCE_P95_CRITICAL_MS = 2000;
