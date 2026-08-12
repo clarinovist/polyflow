@@ -31,7 +31,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
     const [isPending, startTransition] = useTransition();
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const [range, setRange] = useState<'today' | 'yesterday' | '7d' | '30d'>('7d');
+    const [range, setRange] = useState<'today' | 'yesterday' | '7d' | '30d'>(
+        '7d',
+    );
     const [tenantId, setTenantId] = useState<string>('all');
     const [moduleKey, setModuleKey] = useState<string>('all');
 
@@ -78,7 +80,15 @@ export function UsageAnalyticsClient({ initialData }: Props) {
     const handleExportCsv = () => {
         // Escaping double quotes safely for CSV format (Finding 16)
         const rows = [
-            ['Feature Key', 'Label', 'Module', 'Total Views', 'Unique Users', 'Unique Tenants', 'Change %'],
+            [
+                'Feature Key',
+                'Label',
+                'Module',
+                'Total Views',
+                'Unique Users',
+                'Unique Tenants',
+                'Change %',
+            ],
             ...data.topFeatures.map((f) => [
                 `"${f.featureKey.replace(/"/g, '""')}"`,
                 `"${f.label.replace(/"/g, '""')}"`,
@@ -89,11 +99,16 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                 `${f.changePercent}%`,
             ]),
         ];
-        const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
+        const csvContent =
+            'data:text/csv;charset=utf-8,' +
+            rows.map((e) => e.join(',')).join('\n');
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement('a');
         link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `usage-analytics-top25-${range}-${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute(
+            'download',
+            `usage-analytics-top25-${range}-${new Date().toISOString().split('T')[0]}.csv`,
+        );
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -132,7 +147,8 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         </h1>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Agregat adopsi fitur, tren pengguna aktif, dan penetrasi tenant Polyflow.
+                        Agregat adopsi fitur, tren pengguna aktif, dan penetrasi
+                        tenant Polyflow.
                     </p>
                 </div>
 
@@ -146,11 +162,18 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         Export CSV (Top 25)
                     </button>
                     <button
-                        onClick={() => handleApplyFilters(range, tenantId, moduleKey)}
+                        onClick={() =>
+                            handleApplyFilters(range, tenantId, moduleKey)
+                        }
                         disabled={isPending}
                         className="inline-flex items-center gap-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50"
                     >
-                        <RefreshCw className={cn('h-4 w-4', isPending && 'animate-spin')} />
+                        <RefreshCw
+                            className={cn(
+                                'h-4 w-4',
+                                isPending && 'animate-spin',
+                            )}
+                        />
                         {isPending ? 'Memuat...' : 'Refresh'}
                     </button>
                 </div>
@@ -177,27 +200,35 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                             Rentang Waktu
                         </label>
                         <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border">
-                            {(['today', 'yesterday', '7d', '30d'] as const).map((r) => (
-                                <button
-                                    key={r}
-                                    disabled={isPending}
-                                    onClick={() => handleApplyFilters(r, tenantId, moduleKey)}
-                                    className={cn(
-                                        'flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors capitalize disabled:opacity-60',
-                                        range === r
-                                            ? 'bg-background text-foreground shadow-sm font-semibold'
-                                            : 'text-muted-foreground hover:text-foreground',
-                                    )}
-                                >
-                                    {r === 'today'
-                                        ? 'Hari Ini'
-                                        : r === 'yesterday'
-                                          ? 'Kemarin'
-                                          : r === '7d'
-                                            ? '7 Hari'
-                                            : '30 Hari'}
-                                </button>
-                            ))}
+                            {(['today', 'yesterday', '7d', '30d'] as const).map(
+                                (r) => (
+                                    <button
+                                        key={r}
+                                        disabled={isPending}
+                                        onClick={() =>
+                                            handleApplyFilters(
+                                                r,
+                                                tenantId,
+                                                moduleKey,
+                                            )
+                                        }
+                                        className={cn(
+                                            'flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors capitalize disabled:opacity-60',
+                                            range === r
+                                                ? 'bg-background text-foreground shadow-sm font-semibold'
+                                                : 'text-muted-foreground hover:text-foreground',
+                                        )}
+                                    >
+                                        {r === 'today'
+                                            ? 'Hari Ini'
+                                            : r === 'yesterday'
+                                              ? 'Kemarin'
+                                              : r === '7d'
+                                                ? '7 Hari'
+                                                : '30 Hari'}
+                                    </button>
+                                ),
+                            )}
                         </div>
                     </div>
 
@@ -209,10 +240,18 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         <select
                             value={tenantId}
                             disabled={isPending}
-                            onChange={(e) => handleApplyFilters(range, e.target.value, moduleKey)}
+                            onChange={(e) =>
+                                handleApplyFilters(
+                                    range,
+                                    e.target.value,
+                                    moduleKey,
+                                )
+                            }
                             className="w-full text-xs font-medium bg-background border border-border rounded-lg p-2 focus:ring-1 focus:ring-red-500 focus:outline-none disabled:opacity-60"
                         >
-                            <option value="all">Semua Tenant ({data.availableTenants.length})</option>
+                            <option value="all">
+                                Semua Tenant ({data.availableTenants.length})
+                            </option>
                             {data.availableTenants.map((t) => (
                                 <option key={t.id} value={t.id}>
                                     {t.name} ({t.subdomain})
@@ -229,7 +268,13 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         <select
                             value={moduleKey}
                             disabled={isPending}
-                            onChange={(e) => handleApplyFilters(range, tenantId, e.target.value)}
+                            onChange={(e) =>
+                                handleApplyFilters(
+                                    range,
+                                    tenantId,
+                                    e.target.value,
+                                )
+                            }
                             className="w-full text-xs font-medium bg-background border border-border rounded-lg p-2 focus:ring-1 focus:ring-red-500 focus:outline-none capitalize disabled:opacity-60"
                         >
                             <option value="all">Semua Modul</option>
@@ -275,7 +320,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         <span className="text-3xl font-bold tracking-tight text-foreground">
                             {data.metrics.activeUsers.value.toLocaleString()}
                         </span>
-                        {renderTrendBadge(data.metrics.activeUsers.changePercent)}
+                        {renderTrendBadge(
+                            data.metrics.activeUsers.changePercent,
+                        )}
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                         Pengguna unik yang mengakses fitur dalam periode
@@ -296,7 +343,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         <span className="text-3xl font-bold tracking-tight text-foreground">
                             {data.metrics.activeTenants.value.toLocaleString()}
                         </span>
-                        {renderTrendBadge(data.metrics.activeTenants.changePercent)}
+                        {renderTrendBadge(
+                            data.metrics.activeTenants.changePercent,
+                        )}
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                         Tenant dengan minimal 1 kali akses fitur
@@ -317,7 +366,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         <span className="text-3xl font-bold tracking-tight text-foreground">
                             {data.metrics.totalViews.value.toLocaleString()}
                         </span>
-                        {renderTrendBadge(data.metrics.totalViews.changePercent)}
+                        {renderTrendBadge(
+                            data.metrics.totalViews.changePercent,
+                        )}
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                         Total navigasi FEATURE_VIEW berhasil
@@ -338,7 +389,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                         <span className="text-3xl font-bold tracking-tight text-foreground">
                             {data.metrics.featuresUsed.value.toLocaleString()}
                         </span>
-                        {renderTrendBadge(data.metrics.featuresUsed.changePercent)}
+                        {renderTrendBadge(
+                            data.metrics.featuresUsed.changePercent,
+                        )}
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                         Jumlah entri registry fitur unik yang dipakai
@@ -363,14 +416,28 @@ export function UsageAnalyticsClient({ initialData }: Props) {
 
                     <div className="h-44 flex items-end gap-2 pt-6 pb-2 border-b border-border">
                         {data.dailyTrends.map((pt) => {
-                            const maxViews = Math.max(...data.dailyTrends.map((d) => d.totalViews), 1);
-                            const heightPercent = Math.max(Math.round((pt.totalViews / maxViews) * 100), 8);
+                            const maxViews = Math.max(
+                                ...data.dailyTrends.map((d) => d.totalViews),
+                                1,
+                            );
+                            const heightPercent = Math.max(
+                                Math.round((pt.totalViews / maxViews) * 100),
+                                8,
+                            );
                             return (
-                                <div key={pt.date} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                <div
+                                    key={pt.date}
+                                    className="flex-1 h-full flex flex-col items-center justify-end gap-1 group relative"
+                                >
                                     {/* Tooltip */}
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-12 z-20 bg-zinc-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap pointer-events-none">
-                                        <div className="font-bold">{pt.date}</div>
-                                        <div>{pt.totalViews} views • {pt.activeUsers} user</div>
+                                        <div className="font-bold">
+                                            {pt.date}
+                                        </div>
+                                        <div>
+                                            {pt.totalViews} views •{' '}
+                                            {pt.activeUsers} user
+                                        </div>
                                     </div>
 
                                     <div
@@ -397,7 +464,8 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                                 Fitur Paling Banyak Digunakan
                             </h3>
                             <p className="text-xs text-muted-foreground">
-                                Peringkat berdasarkan total views dan penggunanya
+                                Peringkat berdasarkan total views dan
+                                penggunanya
                             </p>
                         </div>
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium text-muted-foreground">
@@ -414,17 +482,30 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                             <table className="w-full text-left text-xs">
                                 <thead>
                                     <tr className="border-b border-border text-muted-foreground font-semibold">
-                                        <th className="pb-2">Fitur / Halaman</th>
+                                        <th className="pb-2">
+                                            Fitur / Halaman
+                                        </th>
                                         <th className="pb-2">Modul</th>
-                                        <th className="pb-2 text-right">Views</th>
-                                        <th className="pb-2 text-right">User</th>
-                                        <th className="pb-2 text-right">Tenant</th>
-                                        <th className="pb-2 text-right">Tren</th>
+                                        <th className="pb-2 text-right">
+                                            Views
+                                        </th>
+                                        <th className="pb-2 text-right">
+                                            User
+                                        </th>
+                                        <th className="pb-2 text-right">
+                                            Tenant
+                                        </th>
+                                        <th className="pb-2 text-right">
+                                            Tren
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/60">
                                     {data.topFeatures.map((f, i) => (
-                                        <tr key={f.featureKey} className="hover:bg-muted/40 transition-colors">
+                                        <tr
+                                            key={f.featureKey}
+                                            className="hover:bg-muted/40 transition-colors"
+                                        >
                                             <td className="py-2.5 font-medium pr-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-bold text-muted-foreground w-4">
@@ -455,7 +536,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                                                 {f.uniqueTenants}
                                             </td>
                                             <td className="py-2.5 text-right">
-                                                {renderTrendBadge(f.changePercent)}
+                                                {renderTrendBadge(
+                                                    f.changePercent,
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -473,7 +556,8 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                                 Ringkasan Adopsi Per Tenant
                             </h3>
                             <p className="text-xs text-muted-foreground">
-                                Aktivitas dan variasi fitur yang digunakan tiap tenant
+                                Aktivitas dan variasi fitur yang digunakan tiap
+                                tenant
                             </p>
                         </div>
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium text-muted-foreground">
@@ -491,15 +575,26 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                                 <thead>
                                     <tr className="border-b border-border text-muted-foreground font-semibold">
                                         <th className="pb-2">Nama Tenant</th>
-                                        <th className="pb-2 text-right">User</th>
-                                        <th className="pb-2 text-right">Fitur</th>
-                                        <th className="pb-2 text-right">Total Views</th>
-                                        <th className="pb-2 text-right">Terakhir Aktif (WIB)</th>
+                                        <th className="pb-2 text-right">
+                                            User
+                                        </th>
+                                        <th className="pb-2 text-right">
+                                            Fitur
+                                        </th>
+                                        <th className="pb-2 text-right">
+                                            Total Views
+                                        </th>
+                                        <th className="pb-2 text-right">
+                                            Terakhir Aktif (WIB)
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/60">
                                     {data.tenantSummaries.map((t) => (
-                                        <tr key={t.tenantId} className="hover:bg-muted/40 transition-colors">
+                                        <tr
+                                            key={t.tenantId}
+                                            className="hover:bg-muted/40 transition-colors"
+                                        >
                                             <td className="py-2.5 font-medium">
                                                 <div className="font-semibold text-foreground">
                                                     {t.tenantName}
@@ -519,11 +614,17 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                                             </td>
                                             <td className="py-2.5 text-right text-[10px] text-muted-foreground">
                                                 {t.lastActivity
-                                                    ? new Date(t.lastActivity).toLocaleTimeString('id-ID', {
-                                                          timeZone: 'Asia/Jakarta',
-                                                          hour: '2-digit',
-                                                          minute: '2-digit',
-                                                      })
+                                                    ? new Date(
+                                                          t.lastActivity,
+                                                      ).toLocaleTimeString(
+                                                          'id-ID',
+                                                          {
+                                                              timeZone:
+                                                                  'Asia/Jakarta',
+                                                              hour: '2-digit',
+                                                              minute: '2-digit',
+                                                          },
+                                                      )
                                                     : '-'}
                                             </td>
                                         </tr>
