@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { render } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { act, fireEvent, render } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UsageAnalyticsClient } from '../usage-analytics-client';
 import { UsageAnalyticsOverviewData } from '@/services/admin/usage-analytics.service';
+import { fetchUsageAnalytics } from '@/actions/admin/usage-analytics';
 
 vi.mock('@/actions/admin/usage-analytics', () => ({
     fetchUsageAnalytics: vi.fn(),
@@ -19,14 +20,50 @@ function buildMockData(): UsageAnalyticsOverviewData {
             totalViews: metric,
             featuresUsed: metric,
         },
-        topFeatures: [],
-        tenantSummaries: [],
+        topFeatures: [
+            {
+                featureKey: 'sales.orders.list',
+                label: 'Daftar Order',
+                moduleKey: 'sales',
+                totalViews: 50,
+                prevViews: 30,
+                changePercent: 67,
+                uniqueUsers: 5,
+                uniqueTenants: 2,
+            },
+        ],
+        tenantSummaries: [
+            {
+                tenantId: 'tenant-1',
+                tenantName: 'Tenant Alpha',
+                subdomain: 'alpha',
+                totalViews: 100,
+                prevViews: 80,
+                changePercent: 25,
+                activeUsers: 4,
+                featuresUsed: 8,
+                lastActivity: new Date('2026-08-08T10:00:00Z'),
+            },
+            {
+                tenantId: 'tenant-2',
+                tenantName: 'Tenant Beta',
+                subdomain: 'beta',
+                totalViews: 0,
+                prevViews: 0,
+                changePercent: 0,
+                activeUsers: 0,
+                featuresUsed: 0,
+                lastActivity: null,
+            },
+        ],
         dailyTrends: [
             { date: '2026-08-08', totalViews: 117, activeUsers: 4, activeTenants: 2 },
             { date: '2026-08-09', totalViews: 30, activeUsers: 2, activeTenants: 1 },
         ],
-        availableTenants: [],
-        availableModules: [],
+        availableTenants: [
+            { id: 'tenant-1', name: 'Tenant Alpha', subdomain: 'alpha' },
+        ],
+        availableModules: ['sales'],
     };
 }
 
@@ -47,5 +84,83 @@ describe('UsageAnalyticsClient daily trend chart', () => {
         bars.forEach((bar) => {
             expect(bar.parentElement?.className).toMatch(/\bh-full\b/);
         });
+    });
+
+    it('shows tenant/feature rows and a lastActivity fallback', () => {
+        const { getByText } = render(
+            <UsageAnalyticsClient initialData={buildMockData()} />,
+        );
+
+        expect(getByText('Tenant Alpha')).toBeTruthy();
+        expect(getByText('Tenant Beta')).toBeTruthy();
+        expect(getByText('Daftar Order')).toBeTruthy();
+    });
+});
+
+describe('UsageAnalyticsClient filter interactions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('re-fetches analytics when range, tenant, module filters or refresh are used', async () => {
+        vi.mocked(fetchUsageAnalytics).mockResolvedValue(buildMockData());
+
+        const { container, getByText, getByTitle } = render(
+            <UsageAnalyticsClient initialData={buildMockData()} />,
+        );
+        const [tenantSelect, moduleSelect] =
+            container.querySelectorAll('select');
+
+        await act(async () => {
+            fireEvent.click(getByText('30 Hari'));
+        });
+        expect(fetchUsageAnalytics).toHaveBeenCalledWith(
+            expect.objectContaining({ range: '30d' }),
+        );
+
+        await act(async () => {
+            fireEvent.change(tenantSelect, {
+                target: { value: 'tenant-1' },
+            });
+        });
+        expect(fetchUsageAnalytics).toHaveBeenCalledWith(
+            expect.objectContaining({ tenantId: 'tenant-1' }),
+        );
+
+        await act(async () => {
+            fireEvent.change(moduleSelect, {
+                target: { value: 'sales' },
+            });
+        });
+        expect(fetchUsageAnalytics).toHaveBeenCalledWith(
+            expect.objectContaining({ moduleKey: 'sales' }),
+        );
+
+        await act(async () => {
+            fireEvent.click(getByText('Refresh'));
+        });
+        expect(fetchUsageAnalytics).toHaveBeenCalledTimes(4);
+
+        await act(async () => {
+            fireEvent.click(
+                getByTitle('Ekspor daftar fitur teratas ke CSV'),
+            );
+        });
+    });
+
+    it('surfaces an error message when the refresh request fails', async () => {
+        vi.mocked(fetchUsageAnalytics).mockRejectedValue(
+            new Error('Gagal memuat data.'),
+        );
+
+        const { getByText } = render(
+            <UsageAnalyticsClient initialData={buildMockData()} />,
+        );
+
+        await act(async () => {
+            fireEvent.click(getByText('Refresh'));
+        });
+
+        expect(getByText('Gagal memuat data.')).toBeTruthy();
     });
 });
