@@ -188,6 +188,28 @@ export const updateDeliveryItemQuantitiesSchema = z.object({
         .min(1),
 });
 
+/**
+ * Edit per-item Keterangan (rincian packing bebas, mis. "97 rol, 6 zak")
+ * while status is PENDING or LOADING. Terpisah dari
+ * updateDeliveryItemQuantitiesSchema supaya edit teks ini tidak ikut
+ * memicu reset verifikasi muat yang menempel di action qty.
+ */
+export const updateDeliveryItemNotesSchema = z.object({
+    deliveryOrderId: z.string().min(1),
+    items: z
+        .array(
+            z.object({
+                id: z.string().min(1),
+                notes: z
+                    .string()
+                    .max(200, 'Keterangan maksimal 200 karakter')
+                    .optional()
+                    .transform(sanitizeHtml),
+            }),
+        )
+        .min(1),
+});
+
 /** Physical count vs planned DO qty — warehouse load verification */
 export const saveDeliveryLoadVerificationSchema = z.object({
     deliveryOrderId: z.string().min(1),

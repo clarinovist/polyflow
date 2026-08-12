@@ -204,6 +204,8 @@ export const salesLabels = {
     sjQtyUpdated: 'Qty Surat Jalan berhasil diperbarui.',
     sjQtyHelp:
         'Maksimal = sisa SO yang belum terkirim. Setelah Tandai Dikirim, qty tidak bisa diubah.',
+    sjItemNotesLabel: 'Keterangan',
+    sjItemNotesPlaceholder: 'mis. 97 rol, 6 zak',
     activeSuratJalan: 'Surat Jalan aktif',
     openSjPendingList:
         'SJ draft/pending selalu ditampilkan di list (tidak hilang meski di luar filter bulan).',

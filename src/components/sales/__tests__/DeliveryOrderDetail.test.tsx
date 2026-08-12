@@ -16,12 +16,15 @@ vi.stubGlobal(
 Element.prototype.scrollIntoView = vi.fn();
 
 const mockUpdateDeliveryItemQuantities = vi.fn();
+const mockUpdateDeliveryItemNotes = vi.fn();
 const mockFetchDeliveryStockReadiness = vi.fn();
 const mockUpdateDeliveryStatus = vi.fn();
 
 vi.mock('@/actions/inventory/deliveries', () => ({
     updateDeliveryItemQuantities: (...args: unknown[]) =>
         mockUpdateDeliveryItemQuantities(...args),
+    updateDeliveryItemNotes: (...args: unknown[]) =>
+        mockUpdateDeliveryItemNotes(...args),
     fetchDeliveryStockReadiness: (...args: unknown[]) =>
         mockFetchDeliveryStockReadiness(...args),
     updateDeliveryStatus: (...args: unknown[]) =>
@@ -201,5 +204,84 @@ describe('DeliveryOrderDetail — qty mismatch dialog', () => {
             screen.getByText(/Hubungi sales untuk mengubah qty/),
         ).toBeDefined();
         expect(screen.getByText('Lihat Sales Order')).toBeDefined();
+    });
+});
+
+describe('DeliveryOrderDetail — item Keterangan', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockFetchDeliveryStockReadiness.mockResolvedValue({
+            success: true,
+            data: [],
+        });
+        mockUpdateDeliveryItemQuantities.mockResolvedValue({ success: true });
+        mockUpdateDeliveryItemNotes.mockResolvedValue({ success: true });
+    });
+
+    it('shows existing Keterangan text in view mode, dash when empty', () => {
+        render(
+            <DeliveryOrderDetail
+                order={makeOrder({
+                    items: [
+                        {
+                            id: 'item-1',
+                            quantity: 100,
+                            notes: '97 rol, 6 zak',
+                            productVariant: {
+                                name: 'Product A',
+                                skuCode: 'SKU-A',
+                                primaryUnit: 'pcs',
+                                product: { name: 'Parent A' },
+                            },
+                        },
+                    ],
+                })}
+            />,
+        );
+
+        expect(screen.getByText('97 rol, 6 zak')).toBeDefined();
+    });
+
+    it('lets the user type Keterangan in edit mode and saves it on Simpan qty', async () => {
+        render(<DeliveryOrderDetail order={makeOrder()} />);
+
+        fireEvent.click(screen.getByText(salesLabels.editSjQty));
+
+        const notesInput = screen.getByPlaceholderText(
+            salesLabels.sjItemNotesPlaceholder,
+        );
+        fireEvent.change(notesInput, {
+            target: { value: '97 rol, 6 zak' },
+        });
+
+        fireEvent.click(screen.getByText(salesLabels.saveSjQty));
+
+        await waitFor(() => {
+            expect(mockUpdateDeliveryItemNotes).toHaveBeenCalledWith({
+                deliveryOrderId: 'do-1',
+                items: [{ id: 'item-1', notes: '97 rol, 6 zak' }],
+            });
+        });
+    });
+
+    it('shows a toast and stays in edit mode when saving Keterangan fails', async () => {
+        const { toast } = await import('sonner');
+        mockUpdateDeliveryItemNotes.mockResolvedValue({
+            success: false,
+            error: 'Gagal menyimpan Keterangan',
+        });
+
+        render(<DeliveryOrderDetail order={makeOrder()} />);
+
+        fireEvent.click(screen.getByText(salesLabels.editSjQty));
+        fireEvent.click(screen.getByText(salesLabels.saveSjQty));
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith(
+                'Gagal menyimpan Keterangan',
+            );
+        });
+
+        expect(screen.getByText(salesLabels.saveSjQty)).toBeDefined();
     });
 });

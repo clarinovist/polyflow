@@ -13,6 +13,7 @@ import {
     createManualDeliveryOrderSchema,
     updateDeliveryPricingSchema,
     updateDeliveryItemQuantitiesSchema,
+    updateDeliveryItemNotesSchema,
     saveDeliveryLoadVerificationSchema,
 } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
@@ -760,6 +761,82 @@ export const updateDeliveryItemQuantities = withTenant(
             revalidatePath('/sales/deliveries');
             revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
             revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
+            revalidatePath('/warehouse/outgoing');
+            revalidatePath(`/warehouse/outgoing/${validated.deliveryOrderId}`);
+
+            return { success: true };
+        });
+    },
+);
+
+/**
+ * Edit per-item Keterangan (rincian packing bebas, dicetak di Surat Jalan).
+ * Terpisah dari updateDeliveryItemQuantities: hanya menyentuh `notes`, tidak
+ * mereset verifikasi muat gudang (verifiedQuantity/verifiedAt/loadVerifiedAt).
+ */
+export const updateDeliveryItemNotes = withTenant(
+    async function updateDeliveryItemNotes(data: {
+        deliveryOrderId: string;
+        items: Array<{ id: string; notes?: string }>;
+    }) {
+        return safeAction(async () => {
+            const session = await requireWarehouseResourcePermission(
+                '/warehouse/outgoing',
+            );
+            const validated = updateDeliveryItemNotesSchema.parse(data);
+
+            const doRecord = await prisma.deliveryOrder.findUnique({
+                where: { id: validated.deliveryOrderId },
+                include: { items: true },
+            });
+
+            if (!doRecord) {
+                throw new NotFoundError(
+                    'Delivery Order',
+                    validated.deliveryOrderId,
+                );
+            }
+
+            if (
+                doRecord.status !== DeliveryStatus.PENDING &&
+                doRecord.status !== DeliveryStatus.LOADING
+            ) {
+                throw new BusinessRuleError(
+                    'Keterangan hanya bisa diubah saat Surat Jalan masih PENDING atau LOADING.',
+                    { status: doRecord.status },
+                    'INVALID_DELIVERY_STATUS',
+                );
+            }
+
+            const doItemIds = new Set(doRecord.items.map((i) => i.id));
+            for (const patch of validated.items) {
+                if (!doItemIds.has(patch.id)) {
+                    throw new BusinessRuleError(
+                        `Item SJ tidak ditemukan: ${patch.id}`,
+                        { itemId: patch.id },
+                    );
+                }
+            }
+
+            await prisma.$transaction(
+                validated.items.map((patch) =>
+                    prisma.deliveryOrderItem.update({
+                        where: { id: patch.id },
+                        data: { notes: patch.notes || null },
+                    }),
+                ),
+            );
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'UPDATE_DELIVERY_ITEM_NOTES',
+                entityType: 'DeliveryOrder',
+                entityId: validated.deliveryOrderId,
+                details: `DO ${doRecord.orderNumber}: item Keterangan updated`,
+            });
+
+            revalidatePath('/sales/deliveries');
+            revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
             revalidatePath('/warehouse/outgoing');
             revalidatePath(`/warehouse/outgoing/${validated.deliveryOrderId}`);
 

@@ -53,6 +53,7 @@ import {
     updateDeliveryStatus,
     fetchDeliveryStockReadiness,
     updateDeliveryItemQuantities,
+    updateDeliveryItemNotes,
 } from '@/actions/inventory/deliveries';
 import {
     StockReadinessBanner,
@@ -91,6 +92,7 @@ interface DeliveryOrderItemData {
     enteredUnit?: string | null;
     conversionFactorSnapshot?: number | string | null;
     verifiedQuantity?: number | string | null;
+    notes?: string | null;
     productVariantId?: string;
     productVariant?: {
         name?: string;
@@ -172,6 +174,7 @@ export function DeliveryOrderDetail({
     >(null);
     const [editingQty, setEditingQty] = useState(false);
     const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
+    const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
     const [savingQty, setSavingQty] = useState(false);
     const [qtyMismatchNotice, setQtyMismatchNotice] = useState<{
         requested: number;
@@ -206,11 +209,14 @@ export function DeliveryOrderDetail({
     }, [order.id, order.status]);
 
     const startEditQty = () => {
-        const draft: Record<string, string> = {};
+        const qtyInit: Record<string, string> = {};
+        const notesInit: Record<string, string> = {};
         for (const item of items) {
-            draft[item.id] = String(Number(item.quantity ?? 0));
+            qtyInit[item.id] = String(Number(item.quantity ?? 0));
+            notesInit[item.id] = item.notes ?? '';
         }
-        setQtyDraft(draft);
+        setQtyDraft(qtyInit);
+        setNotesDraft(notesInit);
         setEditingQty(true);
     };
 
@@ -250,6 +256,19 @@ export function DeliveryOrderDetail({
                 }
                 return;
             }
+
+            const notesResult = await updateDeliveryItemNotes({
+                deliveryOrderId: order.id,
+                items: Object.entries(notesDraft).map(([id, notes]) => ({
+                    id,
+                    notes,
+                })),
+            });
+            if (!notesResult.success) {
+                toast.error(notesResult.error || 'Gagal menyimpan Keterangan');
+                return;
+            }
+
             toast.success(salesLabels.sjQtyUpdated);
             setEditingQty(false);
             router.refresh();
@@ -806,6 +825,9 @@ export function DeliveryOrderDetail({
                                             <th className="h-10 px-4 text-right font-medium">
                                                 {formLabels.qty}
                                             </th>
+                                            <th className="h-10 px-4 text-left font-medium">
+                                                {salesLabels.sjItemNotesLabel}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -876,6 +898,38 @@ export function DeliveryOrderDetail({
                                                                 ...item.productVariant,
                                                             } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot,
                                                         )
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-left">
+                                                    {editingQty ? (
+                                                        <Input
+                                                            type="text"
+                                                            maxLength={200}
+                                                            className="h-8 w-full min-w-[10rem]"
+                                                            placeholder={
+                                                                salesLabels.sjItemNotesPlaceholder
+                                                            }
+                                                            value={
+                                                                notesDraft[
+                                                                    item.id
+                                                                ] ?? ''
+                                                            }
+                                                            onChange={(e) =>
+                                                                setNotesDraft(
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        [item.id]:
+                                                                            e
+                                                                                .target
+                                                                                .value,
+                                                                    }),
+                                                                )
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        <span className="text-muted-foreground">
+                                                            {item.notes || '-'}
+                                                        </span>
                                                     )}
                                                 </td>
                                             </tr>
