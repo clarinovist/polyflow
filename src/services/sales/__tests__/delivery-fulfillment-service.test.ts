@@ -558,7 +558,11 @@ describe("getDeliveryStockReadiness", () => {
           id: "doi-1",
           productVariantId: "pv-1",
           quantity: { toNumber: () => 100 },
-          productVariant: { id: "pv-1", product: { name: "Karung 50kg" } },
+          productVariant: {
+            id: "pv-1",
+            name: "Karung 50kg Putih",
+            product: { name: "Karung 50kg" },
+          },
         },
       ],
     } as never);
@@ -572,6 +576,7 @@ describe("getDeliveryStockReadiness", () => {
     const result = await getDeliveryStockReadiness("do-1");
 
     expect(result).toHaveLength(1);
+    expect(result[0].productName).toBe("Karung 50kg Putih");
     expect(result[0].neededQty).toBe(100);
     expect(result[0].availableQty).toBe(150);
     expect(result[0].shortfall).toBe(0);
@@ -588,7 +593,11 @@ describe("getDeliveryStockReadiness", () => {
           id: "doi-1",
           productVariantId: "pv-1",
           quantity: { toNumber: () => 100 },
-          productVariant: { id: "pv-1", product: { name: "Karung 50kg" } },
+          productVariant: {
+            id: "pv-1",
+            name: "Karung 50kg Putih",
+            product: { name: "Karung 50kg" },
+          },
         },
       ],
     } as never);
@@ -616,7 +625,11 @@ describe("getDeliveryStockReadiness", () => {
           id: "doi-1",
           productVariantId: "pv-1",
           quantity: { toNumber: () => 100 },
-          productVariant: { id: "pv-1", product: { name: "Karung 50kg" } },
+          productVariant: {
+            id: "pv-1",
+            name: "Karung 50kg Putih",
+            product: { name: "Karung 50kg" },
+          },
         },
       ],
     } as never);
@@ -641,5 +654,45 @@ describe("getDeliveryStockReadiness", () => {
 
     const result = await getDeliveryStockReadiness("nonexistent");
     expect(result).toEqual([]);
+  });
+
+  it("distinguishes multiple variants of the same base product by full variant name", async () => {
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue({
+      id: "do-1",
+      salesOrderId: "so-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "doi-1",
+          productVariantId: "pv-1",
+          quantity: { toNumber: () => 10 },
+          productVariant: {
+            id: "pv-1",
+            name: "Rafia Warna KW 1 (10)",
+            product: { name: "Rafia" },
+          },
+        },
+        {
+          id: "doi-2",
+          productVariantId: "pv-2",
+          quantity: { toNumber: () => 33 },
+          productVariant: {
+            id: "pv-2",
+            name: "Rafia Hitam KW 1 (10)",
+            product: { name: "Rafia" },
+          },
+        },
+      ],
+    } as never);
+
+    vi.mocked(prisma.inventory.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([]);
+
+    const result = await getDeliveryStockReadiness("do-1");
+
+    expect(result).toHaveLength(2);
+    expect(result[0].productName).toBe("Rafia Warna KW 1 (10)");
+    expect(result[1].productName).toBe("Rafia Hitam KW 1 (10)");
+    expect(result[0].productName).not.toBe(result[1].productName);
   });
 });

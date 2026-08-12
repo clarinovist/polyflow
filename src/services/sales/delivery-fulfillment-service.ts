@@ -627,7 +627,7 @@ export async function getDeliveryStockReadiness(
 
         lines.push({
             productVariantId: item.productVariantId,
-            productName: item.productVariant.product.name,
+            productName: item.productVariant.name,
             neededQty,
             availableQty,
             reservedForThisSo: 0, // reserved for THIS SO will be consumed during commit
