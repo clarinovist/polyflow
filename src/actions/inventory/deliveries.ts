@@ -22,6 +22,8 @@ import { computeDeliveryTotals } from '@/lib/sales/delivery-pricing';
 import { getActiveTariff } from '@/actions/sales/vehicle-tariffs';
 import { revalidatePath } from 'next/cache';
 import { requireWarehouseResourcePermission } from '@/lib/tools/auth-checks';
+import { logger } from '@/lib/config/logger';
+import { DELIVERY_ORDERS_LIST_ROUTE } from '@/lib/constants/performance';
 
 export const getDeliveryOrders = withTenant(
     async function getDeliveryOrders(dateRange?: {
@@ -51,6 +53,7 @@ export const getDeliveryOrders = withTenant(
                 ];
             }
 
+            const queryStartedAt = performance.now();
             const deliveryOrders = await prisma.deliveryOrder.findMany({
                 where,
                 orderBy: [
@@ -81,6 +84,21 @@ export const getDeliveryOrders = withTenant(
                     },
                 },
             });
+
+            const durationMs = Math.round(performance.now() - queryStartedAt);
+            // Fire-and-forget — recording the sample must not add latency to
+            // this response. Failure here is non-fatal (see
+            // docs/plan/2026-08-12-extend-performance-metrics-list-routes.md).
+            prisma.performanceMetric
+                .create({
+                    data: { route: DELIVERY_ORDERS_LIST_ROUTE, durationMs },
+                })
+                .catch((error) =>
+                    logger.error('Failed to record performance metric', {
+                        module: 'inventory',
+                        error,
+                    }),
+                );
 
             // Surface open DOs first for operators
             const open = deliveryOrders.filter(

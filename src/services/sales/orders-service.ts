@@ -18,14 +18,12 @@ import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 import { processOrderItems } from './order-item-processor';
-import {
-    BusinessRuleError,
-    NotFoundError,
-} from '@/lib/errors/errors';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import {
     DISCOUNT_CEILING_SETTING_KEY,
     checkDiscountCeiling,
 } from '@/lib/sales/discount-policy';
+import { SALES_ORDERS_LIST_ROUTE } from '@/lib/constants/performance';
 
 // ── Discount ceiling helpers (Fase C) ─────────────────────────────────
 
@@ -263,11 +261,26 @@ export async function getOrders(filters?: {
         };
     }
 
-    return await prisma.salesOrder.findMany({
+    const queryStartedAt = performance.now();
+    const orders = await prisma.salesOrder.findMany({
         where,
         include,
         orderBy: { orderDate: 'desc' },
     });
+
+    const durationMs = Math.round(performance.now() - queryStartedAt);
+    // Fire-and-forget — recording the sample must not add latency to this
+    // response. Failure here is non-fatal (see docs/plan/2026-08-12-extend-performance-metrics-list-routes.md).
+    prisma.performanceMetric
+        .create({ data: { route: SALES_ORDERS_LIST_ROUTE, durationMs } })
+        .catch((error) =>
+            logger.error('Failed to record performance metric', {
+                module: 'sales',
+                error,
+            }),
+        );
+
+    return orders;
 }
 
 export async function getOrderById(id: string) {
@@ -1150,5 +1163,3 @@ export async function deleteOrder(id: string) {
 
     await prisma.salesOrder.delete({ where: { id } });
 }
-
-

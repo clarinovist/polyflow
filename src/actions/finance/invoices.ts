@@ -15,52 +15,65 @@ import {
     requireFinanceMutation,
     requireFinanceReadCrossPortal,
 } from '@/lib/auth/finance-access';
+import { SALES_INVOICES_LIST_ROUTE } from '@/lib/constants/performance';
 
-export const getSalesInvoices = withTenant(
-    async function getSalesInvoices(
-        dateRange?: {
-            startDate?: Date;
-            endDate?: Date;
-        },
-        options: { operationalOnly?: boolean } = {},
-    ) {
-        return safeAction(async () => {
-            await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
-            const where: Prisma.InvoiceWhereInput = {
-                salesOrder: options.operationalOnly
-                    ? buildOperationalSalesReceivableOrderWhere()
-                    : { customerId: { not: null } },
+export const getSalesInvoices = withTenant(async function getSalesInvoices(
+    dateRange?: {
+        startDate?: Date;
+        endDate?: Date;
+    },
+    options: { operationalOnly?: boolean } = {},
+) {
+    return safeAction(async () => {
+        await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
+        const where: Prisma.InvoiceWhereInput = {
+            salesOrder: options.operationalOnly
+                ? buildOperationalSalesReceivableOrderWhere()
+                : { customerId: { not: null } },
+        };
+        if (dateRange?.startDate && dateRange?.endDate) {
+            where.invoiceDate = {
+                gte: dateRange.startDate,
+                lte: dateRange.endDate,
             };
-            if (dateRange?.startDate && dateRange?.endDate) {
-                where.invoiceDate = {
-                    gte: dateRange.startDate,
-                    lte: dateRange.endDate,
-                };
-            }
+        }
 
-            const invoices = await prisma.invoice.findMany({
-                where,
-                orderBy: {
-                    createdAt: 'desc',
-                },
-                include: {
-                    salesOrder: {
-                        select: {
-                            orderNumber: true,
-                            customer: {
-                                select: {
-                                    name: true,
-                                },
+        const queryStartedAt = performance.now();
+        const invoices = await prisma.invoice.findMany({
+            where,
+            orderBy: {
+                createdAt: 'desc',
+            },
+            include: {
+                salesOrder: {
+                    select: {
+                        orderNumber: true,
+                        customer: {
+                            select: {
+                                name: true,
                             },
                         },
                     },
                 },
-            });
-
-            return invoices;
+            },
         });
-    },
-);
+
+        const durationMs = Math.round(performance.now() - queryStartedAt);
+        // Fire-and-forget — recording the sample must not add latency to
+        // this response. Failure here is non-fatal (see
+        // docs/plan/2026-08-12-extend-performance-metrics-list-routes.md).
+        prisma.performanceMetric
+            .create({ data: { route: SALES_INVOICES_LIST_ROUTE, durationMs } })
+            .catch((error) =>
+                logger.error('Failed to record performance metric', {
+                    module: 'finance',
+                    error,
+                }),
+            );
+
+        return invoices;
+    });
+});
 
 export const getPurchaseInvoices = withTenant(
     async function getPurchaseInvoices() {

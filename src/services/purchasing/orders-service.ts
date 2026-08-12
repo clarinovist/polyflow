@@ -7,6 +7,8 @@ import {
 } from '@/lib/schemas/purchasing';
 import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { logger } from '@/lib/config/logger';
+import { PURCHASE_ORDERS_LIST_ROUTE } from '@/lib/constants/performance';
 
 export async function createOrder(
     data: CreatePurchaseOrderValues,
@@ -357,7 +359,8 @@ export async function getPurchaseOrders(filters?: {
             : filters.status;
     }
 
-    return await prisma.purchaseOrder.findMany({
+    const queryStartedAt = performance.now();
+    const orders = await prisma.purchaseOrder.findMany({
         where,
         include: {
             supplier: true,
@@ -365,6 +368,20 @@ export async function getPurchaseOrders(filters?: {
         },
         orderBy: { createdAt: 'desc' },
     });
+
+    const durationMs = Math.round(performance.now() - queryStartedAt);
+    // Fire-and-forget — recording the sample must not add latency to this
+    // response. Failure here is non-fatal (see docs/plan/2026-08-12-extend-performance-metrics-list-routes.md).
+    prisma.performanceMetric
+        .create({ data: { route: PURCHASE_ORDERS_LIST_ROUTE, durationMs } })
+        .catch((error) =>
+            logger.error('Failed to record performance metric', {
+                module: 'purchasing',
+                error,
+            }),
+        );
+
+    return orders;
 }
 
 export async function getPurchaseOrderById(id: string) {

@@ -34,6 +34,9 @@ vi.mock('@/lib/core/prisma', () => ({
         deliveryOrderItem: {
             update: vi.fn(),
         },
+        performanceMetric: {
+            create: vi.fn().mockResolvedValue({}),
+        },
         $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     },
 }));
@@ -203,6 +206,36 @@ describe('getDeliveryOrders', () => {
         const callArgs = vi.mocked(prisma.deliveryOrder.findMany).mock
             .calls[0][0] as { where: { OR?: unknown[] } };
         expect(callArgs.where.OR).toHaveLength(2);
+    });
+
+    it('records a performance metric sample without blocking the response', async () => {
+        // Arrange
+        vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+
+        // Act
+        await getDeliveryOrders();
+
+        // Assert
+        expect(prisma.performanceMetric.create).toHaveBeenCalledTimes(1);
+        const call = vi.mocked(prisma.performanceMetric.create).mock
+            .calls[0][0] as { data: { route: string; durationMs: number } };
+        expect(call.data.route).toBe('delivery-orders-list');
+        expect(call.data.durationMs).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(call.data.durationMs)).toBe(true);
+    });
+
+    it('does not fail the request when recording the metric sample rejects', async () => {
+        // Arrange
+        vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.performanceMetric.create).mockRejectedValueOnce(
+            new Error('db unreachable'),
+        );
+
+        // Act
+        const result = await getDeliveryOrders();
+
+        // Assert
+        expect(result.success).toBe(true);
     });
 });
 

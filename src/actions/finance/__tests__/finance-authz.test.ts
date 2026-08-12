@@ -39,6 +39,7 @@ vi.mock('@/lib/core/prisma', () => ({
         periodLock: { findUnique: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn() },
         productionOrder: { findMany: vi.fn().mockResolvedValue([]) },
         goodsReceipt: { findMany: vi.fn().mockResolvedValue([]) },
+        performanceMetric: { create: vi.fn().mockResolvedValue({}) },
         $transaction: vi.fn().mockImplementation(async (fn: any) => fn({
             user: { findUnique: vi.fn() },
             account: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn(), count: vi.fn().mockResolvedValue(0), create: vi.fn(), createMany: vi.fn().mockResolvedValue({ count: 0 }), update: vi.fn(), delete: vi.fn() },
@@ -595,6 +596,38 @@ describe('Pass 2: invoices.ts', () => {
         setupAuth('PRODUCTION');
         const { getSalesInvoices } = await import('../invoices');
         await expectDenied(() => getSalesInvoices());
+    });
+
+    it('getSalesInvoices: records a performance metric sample without blocking the response', async () => {
+        // Arrange
+        setupAuth('SALES');
+        const { getSalesInvoices } = await import('../invoices');
+
+        // Act
+        await getSalesInvoices();
+
+        // Assert
+        expect(prisma.performanceMetric.create).toHaveBeenCalledTimes(1);
+        const call = vi.mocked(prisma.performanceMetric.create).mock
+            .calls[0][0] as { data: { route: string; durationMs: number } };
+        expect(call.data.route).toBe('sales-invoices-list');
+        expect(call.data.durationMs).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(call.data.durationMs)).toBe(true);
+    });
+
+    it('getSalesInvoices: does not fail the request when recording the metric sample rejects', async () => {
+        // Arrange
+        setupAuth('SALES');
+        vi.mocked(prisma.performanceMetric.create).mockRejectedValueOnce(
+            new Error('db unreachable'),
+        );
+        const { getSalesInvoices } = await import('../invoices');
+
+        // Act
+        const result = await getSalesInvoices();
+
+        // Assert
+        expect(result.success).toBe(true);
     });
 
     it('getPurchaseInvoices: PROCUREMENT allowed (cross-portal)', async () => {
