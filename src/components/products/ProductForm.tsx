@@ -79,6 +79,7 @@ export function ProductForm({
                     conversionFactor: 1,
                     minStockAlert: null,
                     consumptionRule: null,
+                    packagingContainerSize: null,
                 },
             ],
         }) as unknown as never,
@@ -119,6 +120,14 @@ export function ProductForm({
                 form.setValue(`variants.${index}.consumptionRule`, null);
             });
         }
+        if (
+            productType !== ProductType.PACKAGING &&
+            productType !== ProductType.AUXILIARY
+        ) {
+            variants.forEach((_, index) => {
+                form.setValue(`variants.${index}.packagingContainerSize`, null);
+            });
+        }
     }, [productType, form]);
 
     useEffect(() => {
@@ -149,6 +158,7 @@ export function ProductForm({
             conversionFactor: 1,
             minStockAlert: null,
             consumptionRule: null,
+            packagingContainerSize: null,
         });
     };
 

@@ -45,6 +45,7 @@ import {
     resolveTransferSourceLocationId,
     type LocationLike,
 } from '@/lib/locations/resolve-location';
+import { resolvePackagingTransferQuantity } from '@/lib/production/packaging-container';
 
 function formatCappedDetails(items: CappedIssueItem[]): string {
     return items
@@ -64,6 +65,13 @@ interface BatchItem {
     unit: string;
     isDeletedPlan?: boolean; // If true, we will send this to backend for deletion
     originalQuantity: number; // For restoring on undo-delete
+    /**
+     * Size of one physical container (zak/karung/roll) in the same unit as
+     * `quantity` — set only for packaging supplies the warehouse hands out
+     * whole, never weighed to the exact BOM figure. Null/undefined = no
+     * rounding, transfer exactly the planned quantity (old behavior).
+     */
+    packagingContainerSize?: number | null;
 }
 
 export function BatchIssueMaterialDialog({
@@ -147,6 +155,12 @@ export function BatchIssueMaterialDialog({
             const quantityNum =
                 remaining > 0 ? Number(remaining.toFixed(2)) : 0;
 
+            const containerSize = (
+                pm.productVariant as unknown as {
+                    packagingContainerSize?: number | string | null;
+                }
+            ).packagingContainerSize;
+
             return {
                 id: pm.id,
                 productVariantId: pm.productVariantId,
@@ -157,6 +171,10 @@ export function BatchIssueMaterialDialog({
                 productType: pm.productVariant.product?.productType,
                 isDeletedPlan: false,
                 originalQuantity: quantityNum,
+                packagingContainerSize:
+                    containerSize !== null && containerSize !== undefined
+                        ? Number(containerSize)
+                        : null,
             };
         });
         return plannedItems;
@@ -177,7 +195,7 @@ export function BatchIssueMaterialDialog({
         'Ad-hoc production adjustment',
     );
 
-    // Fetch Stock Levels
+    // Fetch Stock Levels (source warehouse + floor buffer for packaging items)
     const checkStocks = async () => {
         setCheckingStock(true);
         const newStocks: Record<string, number> = {};
@@ -196,6 +214,29 @@ export function BatchIssueMaterialDialog({
                     if (res.success && typeof res.data === 'number') {
                         const stockKey = `${locToUse}_${item.productVariantId}`;
                         newStocks[stockKey] = res.data;
+                    }
+
+                    // Packaging supplies handed out whole: also check what's
+                    // already sitting at the order's own location, so we
+                    // only transfer the shortfall instead of over-pulling a
+                    // fresh container every SPK.
+                    if (
+                        isTransferMode &&
+                        item.packagingContainerSize &&
+                        item.packagingContainerSize > 0 &&
+                        locToUse !== order.location.id
+                    ) {
+                        const floorRes = await getRealtimeStock(
+                            order.location.id,
+                            item.productVariantId,
+                        );
+                        if (
+                            floorRes.success &&
+                            typeof floorRes.data === 'number'
+                        ) {
+                            const floorKey = `${order.location.id}_${item.productVariantId}`;
+                            newStocks[floorKey] = floorRes.data;
+                        }
                     }
                 } catch (_e) {
                     console.error(_e);
@@ -297,6 +338,11 @@ export function BatchIssueMaterialDialog({
                           name: variant.name,
                           unit: variant.primaryUnit,
                           productType: variant.product?.productType,
+                          packagingContainerSize:
+                              variant.packagingContainerSize !== null &&
+                              variant.packagingContainerSize !== undefined
+                                  ? Number(variant.packagingContainerSize)
+                                  : null,
                       }
                     : item,
             ),
@@ -376,13 +422,37 @@ export function BatchIssueMaterialDialog({
                     (item) =>
                         effectiveSourceForItem(item) !== order.location.id,
                 );
+                // Packaging supplies are handed out by whole container, not
+                // weighed to the plan figure: transfer only the shortfall
+                // beyond what's already sitting at the destination, rounded
+                // up to a whole container. Everything else still transfers
+                // exactly the planned quantity (old behavior). The STAGED
+                // MaterialIssue below always uses the planned quantity
+                // regardless — the material-service capping keeps costing
+                // correct no matter how much was physically moved.
+                const transferQtyForItem = (item: BatchItem) => {
+                    if (
+                        item.packagingContainerSize &&
+                        item.packagingContainerSize > 0
+                    ) {
+                        const floorKey = `${order.location.id}_${item.productVariantId}`;
+                        return resolvePackagingTransferQuantity({
+                            plannedQty: item.quantity,
+                            floorStock: stockLevels[floorKey] ?? 0,
+                            containerSize: item.packagingContainerSize,
+                        });
+                    }
+                    return item.quantity;
+                };
                 const transfersByLocation = itemsToMove.reduce(
                     (acc, item) => {
+                        const transferQty = transferQtyForItem(item);
+                        if (transferQty <= 0) return acc; // floor stock already covers the plan
                         const loc = effectiveSourceForItem(item);
                         if (!acc[loc]) acc[loc] = [];
                         acc[loc].push({
                             productVariantId: item.productVariantId,
-                            quantity: item.quantity,
+                            quantity: transferQty,
                         });
                         return acc;
                     },
@@ -976,6 +1046,66 @@ export function BatchIssueMaterialDialog({
                                                             isSelfConsumptionWip(
                                                                 item,
                                                             );
+                                                        const packagingBuffer =
+                                                            isTransferMode &&
+                                                            !!item.packagingContainerSize &&
+                                                            item.packagingContainerSize >
+                                                                0;
+
+                                                        if (packagingBuffer) {
+                                                            const floorKey = `${order.location.id}_${item.productVariantId}`;
+                                                            const floorStock =
+                                                                stockLevels[
+                                                                    floorKey
+                                                                ] ?? 0;
+                                                            const transferQty =
+                                                                resolvePackagingTransferQuantity(
+                                                                    {
+                                                                        plannedQty:
+                                                                            item.quantity,
+                                                                        floorStock,
+                                                                        containerSize:
+                                                                            item.packagingContainerSize,
+                                                                    },
+                                                                );
+                                                            return (
+                                                                <div className="mt-1 flex flex-col items-end gap-0.5 text-right">
+                                                                    <span className="text-[10px] text-muted-foreground">
+                                                                        {
+                                                                            productionComponentLabels.packagingFloorStock
+                                                                        }
+                                                                        :{' '}
+                                                                        {floorStock.toFixed(
+                                                                            2,
+                                                                        )}{' '}
+                                                                        {
+                                                                            item.unit
+                                                                        }
+                                                                    </span>
+                                                                    {transferQty >
+                                                                    0 ? (
+                                                                        <span className="text-[10px] font-medium text-amber-600 dark:text-amber-500">
+                                                                            {
+                                                                                productionComponentLabels.packagingTransferRounded
+                                                                            }
+                                                                            :{' '}
+                                                                            {transferQty.toFixed(
+                                                                                2,
+                                                                            )}{' '}
+                                                                            {
+                                                                                item.unit
+                                                                            }
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500">
+                                                                            {
+                                                                                productionComponentLabels.packagingFloorStockCoversPlan
+                                                                            }
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        }
 
                                                         if (selfConsumption) {
                                                             return (

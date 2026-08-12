@@ -173,6 +173,10 @@ export const productionComponentLabels = {
         'perlu produksi tambahan sebelum SPK ini bisa dipenuhi',
     wipSelfConsumptionSubmitError:
         'Ada bahan WIP yang stoknya belum cukup di lokasi ini. Ini bukan soal "pilih gudang sumber" — perlu produksi tambahan (SPK Mixing) dulu sebelum SPK ini bisa dipenuhi.',
+    packagingFloorStock: 'Sisa di lokasi produksi',
+    packagingTransferRounded: 'Transfer dibulatkan ke kontainer utuh',
+    packagingFloorStockCoversPlan:
+        'Sisa di lokasi produksi sudah cukup — tidak perlu transfer baru',
 
     // Ad-Hoc Material Usage Dialog (Path A — ideally from Warehouse)
     recordAdHocUsage: 'Catat Pemakaian Bahan',

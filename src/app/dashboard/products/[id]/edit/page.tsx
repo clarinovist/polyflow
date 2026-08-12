@@ -113,6 +113,9 @@ export default async function EditProductPage({
                 ? Number(variant.minStockAlert)
                 : null,
             consumptionRule: resolveConsumptionRule(variant.attributes),
+            packagingContainerSize: variant.packagingContainerSize
+                ? Number(variant.packagingContainerSize)
+                : null,
         })),
     } as unknown as UpdateProductValues;
 

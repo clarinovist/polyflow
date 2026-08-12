@@ -319,7 +319,10 @@ export function VariantFields({
                                             }
                                         }}
                                         onBlur={() => {
-                                            if (!field.value || field.value < 0.0001) {
+                                            if (
+                                                !field.value ||
+                                                field.value < 0.0001
+                                            ) {
                                                 field.onChange(1);
                                             }
                                         }}
@@ -423,6 +426,46 @@ export function VariantFields({
                         </FormItem>
                     )}
                 />
+
+                {(productType === ProductType.PACKAGING ||
+                    productType === ProductType.AUXILIARY) && (
+                    <FormField
+                        control={control}
+                        name={`variants.${index}.packagingContainerSize`}
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>
+                                    Ukuran 1 Kontainer (Optional)
+                                </FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder={`mis. 25 ${primaryUnit || ''}`}
+                                        value={field.value || ''}
+                                        onChange={(e) =>
+                                            field.onChange(
+                                                e.target.value
+                                                    ? parseFloat(e.target.value)
+                                                    : null,
+                                            )
+                                        }
+                                    />
+                                </FormControl>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    Ukuran 1 zak/karung/roll fisik dalam{' '}
+                                    {primaryUnit || 'unit dasar'}. Kosongkan
+                                    kalau bahan ini selalu ditimbang presisi —
+                                    diisi kalau gudang selalu keluarkan
+                                    kontainer utuh (transfer produksi akan
+                                    dibulatkan ke kelipatan ini).
+                                </p>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
             </div>
 
             {/* Conversion Preview */}

@@ -457,6 +457,10 @@ model ProductVariant {
   primaryUnit            Unit
   salesUnit              Unit?
   conversionFactor       Decimal                    @default(1.0) @db.Decimal(10, 4)
+  /// Ukuran 1 kontainer fisik (zak/karung/roll) dalam primaryUnit — dipakai
+  /// untuk membulatkan transfer bahan kemasan ke kelipatan kontainer utuh.
+  /// Nullable/opt-in: kosong = tidak ada pembulatan (perilaku lama).
+  packagingContainerSize Decimal?                   @db.Decimal(15, 4)
   attributes             Json?
   createdAt              DateTime                   @default(now())
   updatedAt              DateTime                   @updatedAt

@@ -95,6 +95,9 @@ export const createProduct = withTenant(async function createProduct(
                         minStockAlert: variant.minStockAlert
                             ? new Prisma.Decimal(variant.minStockAlert)
                             : null,
+                        packagingContainerSize: variant.packagingContainerSize
+                            ? new Prisma.Decimal(variant.packagingContainerSize)
+                            : null,
                         // Store custom usefulLife in first variant attributes for FIXED_ASSET (since Product has no Json field)
                         ...(productType === 'FIXED_ASSET' &&
                         idx === 0 &&
@@ -274,6 +277,9 @@ export const updateProduct = withTenant(async function updateProduct(
                             : null,
                         minStockAlert: variant.minStockAlert
                             ? new Prisma.Decimal(variant.minStockAlert)
+                            : null,
+                        packagingContainerSize: variant.packagingContainerSize
+                            ? new Prisma.Decimal(variant.packagingContainerSize)
                             : null,
                         ...(productType === 'FIXED_ASSET' &&
                         isFirst &&

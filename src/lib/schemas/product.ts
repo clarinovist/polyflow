@@ -39,6 +39,14 @@ export const productVariantSchema = z.object({
         .optional()
         .nullable(),
     consumptionRule: consumptionRuleSchema.optional().nullable(),
+    /** Size of 1 physical container (zak/karung/roll) in primaryUnit — used to
+     * round packaging-supply transfers to whole containers instead of the
+     * exact BOM-planned figure. Opt-in: null = no rounding. */
+    packagingContainerSize: z.coerce
+        .number()
+        .positive('Packaging container size must be positive')
+        .optional()
+        .nullable(),
 });
 
 export const createProductSchema = z

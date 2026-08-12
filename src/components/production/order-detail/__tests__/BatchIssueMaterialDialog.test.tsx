@@ -479,3 +479,153 @@ describe('BatchIssueMaterialDialog — WIP self-consumption', () => {
         expect(adjustStock).not.toHaveBeenCalled();
     });
 });
+
+// Rewinding case: packaging supplies (karung/zak) are handed out whole, never
+// weighed to the exact BOM figure — see docs/plan/2026-08-12-rewinding-packaging-floor-buffer.md
+const PACKAGING_SUPPLY_LOCATION = {
+    id: 'loc-packaging',
+    name: 'Gudang Bahan Pembantu & Pengemas',
+    slug: 'gudang-packaging',
+    locationPurpose: 'PACKING',
+};
+
+const FG_LOCATION = {
+    id: 'loc-fg',
+    name: 'Gudang Barang Jadi & Hasil Produksi',
+    slug: 'gudang-barang-jadi',
+    locationPurpose: 'FINISHED_GOOD',
+};
+
+const PACKAGING_LOCATIONS = [PACKAGING_SUPPLY_LOCATION, FG_LOCATION] as any;
+
+function buildPackagingOrder(
+    overrides: Partial<ExtendedProductionOrder> = {},
+): ExtendedProductionOrder {
+    return {
+        id: 'po-2',
+        orderNumber: 'WO-260812-002',
+        bom: { category: 'PACKING', name: 'Rewinding Karung 25kg' },
+        machine: null,
+        location: FG_LOCATION,
+        plannedMaterials: [
+            {
+                id: 'pm-pack',
+                productVariantId: 'var-pack-1',
+                quantity: 18,
+                productVariant: {
+                    id: 'var-pack-1',
+                    name: 'Karung Rewinding 25kg',
+                    primaryUnit: 'KG',
+                    product: { productType: 'AUXILIARY' },
+                    packagingContainerSize: 25,
+                },
+            },
+        ],
+        materialIssues: [],
+        childOrders: [],
+        ...overrides,
+    } as unknown as ExtendedProductionOrder;
+}
+
+describe('BatchIssueMaterialDialog — packaging floor buffer', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('transfers a rounded-up whole container while staging only the planned BOM quantity', async () => {
+        (getRealtimeStock as any).mockImplementation(
+            (locationId: string, variantId: string) => {
+                if (locationId === 'loc-fg' && variantId === 'var-pack-1') {
+                    return Promise.resolve({ success: true, data: 0 });
+                }
+                return Promise.resolve({ success: true, data: 500 });
+            },
+        );
+        (transferStockBulk as any).mockResolvedValue({ success: true });
+        (batchIssueMaterials as any).mockResolvedValue({
+            success: true,
+            data: { cappedItems: [] },
+        });
+
+        render(
+            <BatchIssueMaterialDialog
+                order={buildPackagingOrder()}
+                locations={PACKAGING_LOCATIONS}
+                rawMaterials={[]}
+            />,
+        );
+        await openDialog();
+
+        expect(
+            await screen.findByText(/Transfer dibulatkan ke kontainer utuh/i),
+        ).toBeTruthy();
+
+        fireEvent.click(
+            await screen.findByRole('button', { name: /Pindahkan Stok/i }),
+        );
+
+        await waitFor(() => expect(transferStockBulk).toHaveBeenCalled());
+        const transferItems = (transferStockBulk as any).mock.calls.flatMap(
+            ([payload]: any[]) => payload.items,
+        );
+        expect(transferItems).toEqual([
+            expect.objectContaining({
+                productVariantId: 'var-pack-1',
+                quantity: 25,
+            }),
+        ]);
+
+        await waitFor(() => expect(batchIssueMaterials).toHaveBeenCalled());
+        const stagedItems = (batchIssueMaterials as any).mock.calls[0][0]
+            .items;
+        expect(stagedItems).toEqual([
+            expect.objectContaining({
+                productVariantId: 'var-pack-1',
+                quantity: 18,
+            }),
+        ]);
+    });
+
+    it('skips the transfer when floor stock already covers the plan, but still stages the planned quantity', async () => {
+        (getRealtimeStock as any).mockImplementation(
+            (locationId: string, variantId: string) => {
+                if (locationId === 'loc-fg' && variantId === 'var-pack-1') {
+                    return Promise.resolve({ success: true, data: 20 });
+                }
+                return Promise.resolve({ success: true, data: 500 });
+            },
+        );
+        (batchIssueMaterials as any).mockResolvedValue({
+            success: true,
+            data: { cappedItems: [] },
+        });
+
+        render(
+            <BatchIssueMaterialDialog
+                order={buildPackagingOrder()}
+                locations={PACKAGING_LOCATIONS}
+                rawMaterials={[]}
+            />,
+        );
+        await openDialog();
+
+        expect(
+            await screen.findByText(/sudah cukup — tidak perlu transfer baru/i),
+        ).toBeTruthy();
+
+        fireEvent.click(
+            await screen.findByRole('button', { name: /Pindahkan Stok/i }),
+        );
+
+        await waitFor(() => expect(batchIssueMaterials).toHaveBeenCalled());
+        expect(transferStockBulk).not.toHaveBeenCalled();
+        const stagedItems = (batchIssueMaterials as any).mock.calls[0][0]
+            .items;
+        expect(stagedItems).toEqual([
+            expect.objectContaining({
+                productVariantId: 'var-pack-1',
+                quantity: 18,
+            }),
+        ]);
+    });
+});
