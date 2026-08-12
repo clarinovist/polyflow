@@ -9,6 +9,7 @@ import { History, Factory, Camera, Package } from 'lucide-react';
 import { cn, formatRupiah } from '@/lib/utils/utils';
 import {
     formatProductionQuantity,
+    formatQuantity,
     getEnteredQuantityDisplay,
 } from '@/lib/utils/production-units';
 import { Progress } from '@/components/ui/progress';
@@ -78,6 +79,21 @@ function ExecutionScrapCell({
     );
 }
 
+function getTotalScrapQuantity(
+    executions: ExtendedProductionOrder['executions'],
+) {
+    return executions
+        .filter((exec) => exec.status !== 'VOIDED')
+        .reduce(
+            (sum, exec) =>
+                sum +
+                Number(exec.scrapQuantity || 0) +
+                Number(exec.scrapDaunQty || 0) +
+                Number(exec.scrapProngkolQty || 0),
+            0,
+        );
+}
+
 function DetailRow({ label, value }: { label: string; value: string }) {
     return (
         <div className="flex justify-between border-b pb-2 last:border-0 last:pb-0 gap-3">
@@ -107,6 +123,7 @@ export function OrderOverviewTab({
     const actualQty = Number(order.actualQuantity || 0);
     const progress = Math.min((actualQty / plannedQty) * 100, 100);
     const outputUnitConfig = order.bom.productVariant;
+    const totalScrapQty = getTotalScrapQuantity(order.executions || []);
     const demandSourceLabel = order.salesOrder
         ? order.salesOrder.customer?.name || 'Permintaan Customer'
         : order.isMaklon
@@ -146,6 +163,14 @@ export function OrderOverviewTab({
                         </span>
                     </div>
                     <Progress value={progress} className="h-2" />
+                    <div className="mt-3 flex items-center justify-between border-t pt-3">
+                        <span className="text-xs text-muted-foreground">
+                            Scrap
+                        </span>
+                        <span className="text-sm font-semibold text-destructive">
+                            {formatQuantity(totalScrapQty)} KG
+                        </span>
+                    </div>
                 </CardContent>
             </Card>
 

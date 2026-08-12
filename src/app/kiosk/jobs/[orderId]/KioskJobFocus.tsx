@@ -73,6 +73,9 @@ export interface Order {
         createdAt?: string;
         status?: string;
         quantityProduced?: number | null;
+        scrapQuantity?: number | null;
+        scrapDaunQty?: number | null;
+        scrapProngkolQty?: number | null;
         enteredUnit?: string | null;
         operatorId?: string | null;
         shiftId?: string | null;
@@ -255,6 +258,17 @@ export default function KioskJobFocus({
         ? toDisplayQuantity(targetBase, unitMeta.conversionFactor)
         : targetBase;
 
+    const totalScrapQty = (order.executions || [])
+        .filter((e) => e.status !== 'VOIDED')
+        .reduce(
+            (sum, e) =>
+                sum +
+                Number(e.scrapQuantity || 0) +
+                Number(e.scrapDaunQty || 0) +
+                Number(e.scrapProngkolQty || 0),
+            0,
+        );
+
     // Show loading while hydrating or redirecting to hub (no operator)
     if (!isInitialized || !operatorId) {
         return (
@@ -362,6 +376,17 @@ export default function KioskJobFocus({
                     target={progressTarget}
                     unit={unitMeta.displayUnit}
                 />
+                <div className="mt-3 flex items-center justify-between border-t pt-3">
+                    <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                        {kioskLabels.focusScrap}
+                    </span>
+                    <span className="text-sm font-black text-destructive">
+                        {totalScrapQty.toLocaleString('id-ID', {
+                            maximumFractionDigits: 2,
+                        })}{' '}
+                        KG
+                    </span>
+                </div>
             </div>
 
             {/* CTA buttons */}

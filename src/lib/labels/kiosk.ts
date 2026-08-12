@@ -57,6 +57,7 @@ export const kioskLabels = {
     shiftMyTotal: 'Hasil Saya',
     shiftOrderTotal: 'Total SPK',
     shiftRecentLogs: '3 Log Terakhir',
+    focusScrap: 'Scrap',
     logOutputModeTitle: 'Catat Hasil',
     qtyIndividualLabel: 'Hasil Saya',
     bomStandardLabel: 'Standar BOM',
