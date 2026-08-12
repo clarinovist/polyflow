@@ -30,7 +30,10 @@ import {
 } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production/production-service';
-import { PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE } from '@/lib/constants/production';
+import {
+    PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE,
+    PRODUCTION_ORDERS_LIST_ROUTE,
+} from '@/lib/constants/production';
 
 export const getInitData = withTenant(async function getInitData() {
     return safeAction(async () => {
@@ -533,6 +536,7 @@ export const getProductionOrdersList = withTenant(
         // shared getProductionOrders() above also feeds MRP/schedule/kiosk
         // pages that need bom.items, plannedMaterials, materialIssues and
         // shifts, which this list view never displays.
+        const queryStartedAt = performance.now();
         const [orders, total] = await prisma.$transaction([
             prisma.productionOrder.findMany({
                 where,
@@ -588,6 +592,28 @@ export const getProductionOrdersList = withTenant(
             }),
             prisma.productionOrder.count({ where }),
         ]);
+
+        const durationMs = Math.round(performance.now() - queryStartedAt);
+        logger.info('production-orders-list query', {
+            module: 'production',
+            durationMs,
+            page,
+            pageSize,
+            total,
+        });
+        // Fire-and-forget — recording the sample must not add latency to
+        // this response. Failure here is non-fatal (see plan
+        // docs/plan/2026-08-12-spk-list-performance-metrics.md).
+        prisma.performanceMetric
+            .create({
+                data: { route: PRODUCTION_ORDERS_LIST_ROUTE, durationMs },
+            })
+            .catch((error) =>
+                logger.error('Failed to record performance metric', {
+                    module: 'production',
+                    error,
+                }),
+            );
 
         return {
             orders: orders.map((order) => ({

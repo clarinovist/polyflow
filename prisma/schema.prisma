@@ -1145,6 +1145,15 @@ model RolePermission {
   @@unique([role, resource])
 }
 
+model PerformanceMetric {
+  id         String   @id @default(cuid())
+  route      String
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([route, createdAt])
+}
+
 model AuditLog {
   id         String   @id @default(uuid())
   userId     String

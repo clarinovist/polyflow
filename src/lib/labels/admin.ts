@@ -36,3 +36,22 @@ export const systemHealthLabels = {
     systemUptime: 'Waktu Aktif Sistem',
     nodeRss: 'Node RSS',
 } as const;
+
+/** Admin – Performance labels */
+export const performanceLabels = {
+    title: 'Performa',
+    description:
+        'Waktu eksekusi query per rute, dicatat langsung dari tiap tenant.',
+    windowDescription: 'Ringkasan 24 jam terakhir, per tenant.',
+    routeProductionOrdersList: 'Daftar SPK (/production/orders)',
+    tenant: 'Tenant',
+    status: 'Status',
+    requestCount: 'Jumlah Request',
+    avgMs: 'Rata-rata',
+    p95Ms: 'P95',
+    maxMs: 'Maksimum',
+    lastMeasuredAt: 'Terakhir Terukur',
+    online: 'Online',
+    offline: 'Offline',
+    noTenants: 'Belum ada tenant terdaftar.',
+} as const;

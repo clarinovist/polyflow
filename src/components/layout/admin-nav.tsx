@@ -12,6 +12,7 @@ import {
     Activity,
     HelpCircle,
     BarChart3,
+    Gauge,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -34,9 +35,14 @@ interface AdminNavProps {
 
 const adminLinks = [
     { title: 'Tenants', href: '/admin/super-admin', icon: Building2 },
-    { title: 'Usage Analytics', href: '/admin/usage-analytics', icon: BarChart3 },
+    {
+        title: 'Usage Analytics',
+        href: '/admin/usage-analytics',
+        icon: BarChart3,
+    },
     { title: 'Audit Logs', href: '/admin/audit-logs', icon: ScrollText },
     { title: 'System Health', href: '/admin/system-health', icon: Activity },
+    { title: 'Performance', href: '/admin/performance', icon: Gauge },
     { title: 'Help / Virtual CS', href: '/admin/help', icon: HelpCircle },
 ];
 
