@@ -13,6 +13,12 @@ import {
     archiveEmployeeDocument,
     restoreEmployeeDocument,
 } from '@/actions/hrd/employee-document';
+import {
+    listShiftAssignments,
+    createShiftAssignment,
+    endShiftAssignment,
+} from '@/actions/hrd/shift-assignment';
+import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -25,7 +31,13 @@ import {
 } from '@/lib/labels/hrd-employees';
 import { toDecimalNumber } from '@/lib/utils/utils';
 
-type Tab = 'disciplinary' | 'leave' | 'loans' | 'salary' | 'documents';
+type Tab =
+    | 'disciplinary'
+    | 'leave'
+    | 'loans'
+    | 'salary'
+    | 'shift'
+    | 'documents';
 
 export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
     const [tab, setTab] = useState<Tab>('disciplinary');
@@ -89,6 +101,23 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
         notes: '',
     });
     const [docFile, setDocFile] = useState<File | null>(null);
+    const [shiftAssignments, setShiftAssignments] = useState<
+        Array<{
+            id: string;
+            workShiftId: string;
+            shiftName: string;
+            effectiveFrom: string | Date;
+            effectiveTo: string | Date | null;
+        }>
+    >([]);
+    const [activeWorkShifts, setActiveWorkShifts] = useState<
+        Array<{ id: string; name: string }>
+    >([]);
+    const [assigningShift, setAssigningShift] = useState(false);
+    const [shiftForm, setShiftForm] = useState({
+        workShiftId: '',
+        effectiveFrom: new Date().toISOString().slice(0, 10),
+    });
 
     const loadDocs = useCallback(
         async (archived = false) => {
@@ -98,15 +127,26 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
         [employeeId],
     );
 
+    const loadShiftAssignments = useCallback(async () => {
+        const res = await listShiftAssignments(employeeId);
+        setShiftAssignments(res.success ? (res.data ?? []) : []);
+    }, [employeeId]);
+
     useEffect(() => {
         const load = async () => {
             setLoading(true);
-            const [dRes, lRes, kRes, sRes] = await Promise.all([
+            const [dRes, lRes, kRes, sRes, wsRes] = await Promise.all([
                 listDisciplinaryActions(employeeId),
                 listLeaveRequests({ employeeId }),
                 listLoans({ employeeId }),
                 listSalaryHistory(employeeId),
+                getWorkShifts(),
             ]);
+            setActiveWorkShifts(
+                (wsRes.success ? (wsRes.data ?? []) : []).filter(
+                    (s: { status: string }) => s.status === 'ACTIVE',
+                ),
+            );
             setDisciplinary(dRes.success ? (dRes.data ?? []) : []);
             setLeaves(lRes.success ? (lRes.data ?? []) : []);
             setLoans(kRes.success ? (kRes.data ?? []) : []);
@@ -133,10 +173,11 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                 ),
             );
             await loadDocs(false);
+            await loadShiftAssignments();
             setLoading(false);
         };
         load();
-    }, [employeeId, loadDocs]);
+    }, [employeeId, loadDocs, loadShiftAssignments]);
 
     const toN = (v: unknown) => toDecimalNumber(v);
     const fmt = (d: string | Date) =>
@@ -198,11 +239,50 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
         }
     };
 
+    const handleAssignShift = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!shiftForm.workShiftId) {
+            toast.error('Pilih shift terlebih dahulu');
+            return;
+        }
+        setAssigningShift(true);
+        try {
+            const res = await createShiftAssignment({
+                employeeId,
+                workShiftId: shiftForm.workShiftId,
+                effectiveFrom: new Date(shiftForm.effectiveFrom),
+            });
+            if (res.success) {
+                toast.success('Shift ditetapkan');
+                setShiftForm({
+                    workShiftId: '',
+                    effectiveFrom: new Date().toISOString().slice(0, 10),
+                });
+                await loadShiftAssignments();
+            } else {
+                toast.error(res.error || 'Gagal menetapkan shift');
+            }
+        } finally {
+            setAssigningShift(false);
+        }
+    };
+
+    const handleEndShift = async (assignmentId: string) => {
+        const res = await endShiftAssignment(assignmentId, new Date());
+        if (res.success) {
+            toast.success('Shift diakhiri');
+            await loadShiftAssignments();
+        } else {
+            toast.error(res.error || 'Gagal mengakhiri shift');
+        }
+    };
+
     const tabs: Array<{ id: Tab; label: string }> = [
         { id: 'disciplinary', label: 'Riwayat Disiplin' },
         { id: 'leave', label: 'Riwayat Cuti' },
         { id: 'loans', label: 'Kasbon' },
         { id: 'salary', label: 'Riwayat Gaji' },
+        { id: 'shift', label: 'Shift' },
         { id: 'documents', label: 'Dokumen' },
     ];
 
@@ -375,6 +455,113 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                             )}
                         </div>
                     ))}
+                </div>
+            )}
+
+            {!loading && tab === 'shift' && (
+                <div className="space-y-4 text-sm">
+                    <form
+                        onSubmit={handleAssignShift}
+                        className="rounded-md border border-border/60 bg-muted/10 p-3 space-y-2"
+                    >
+                        <p className="text-xs font-semibold uppercase tracking-tight text-muted-foreground">
+                            Tetapkan shift
+                        </p>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label className="text-[10px]">Shift</Label>
+                                <select
+                                    className="w-full h-9 rounded-md border bg-background px-2 text-xs"
+                                    value={shiftForm.workShiftId}
+                                    onChange={(e) =>
+                                        setShiftForm({
+                                            ...shiftForm,
+                                            workShiftId: e.target.value,
+                                        })
+                                    }
+                                >
+                                    <option value="">— Pilih shift —</option>
+                                    {activeWorkShifts.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {activeWorkShifts.length === 0 && (
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Belum ada shift aktif. Tambahkan dulu di
+                                        halaman Shift Produksi.
+                                    </p>
+                                )}
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[10px]">
+                                    Mulai berlaku
+                                </Label>
+                                <Input
+                                    type="date"
+                                    className="h-9 text-xs"
+                                    value={shiftForm.effectiveFrom}
+                                    onChange={(e) =>
+                                        setShiftForm({
+                                            ...shiftForm,
+                                            effectiveFrom: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                        </div>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={assigningShift || !shiftForm.workShiftId}
+                        >
+                            {assigningShift ? 'Menyimpan…' : 'Tetapkan shift'}
+                        </Button>
+                    </form>
+
+                    <div className="space-y-2">
+                        {shiftAssignments.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                Belum ada shift yang ditetapkan.
+                            </p>
+                        )}
+                        {shiftAssignments.map((a) => {
+                            const isActive = !a.effectiveTo;
+                            return (
+                                <div
+                                    key={a.id}
+                                    className="border-b border-border/50 py-2 flex items-center justify-between gap-2"
+                                >
+                                    <div>
+                                        <div className="font-medium">
+                                            {a.shiftName}
+                                            {isActive && (
+                                                <span className="ml-1.5 text-[10px] font-semibold text-emerald-600">
+                                                    (aktif)
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {fmt(a.effectiveFrom)}
+                                            {a.effectiveTo
+                                                ? ` – ${fmt(a.effectiveTo)}`
+                                                : ' – sekarang'}
+                                        </div>
+                                    </div>
+                                    {isActive && (
+                                        <button
+                                            type="button"
+                                            className="text-xs text-muted-foreground hover:text-foreground shrink-0"
+                                            onClick={() => handleEndShift(a.id)}
+                                        >
+                                            Akhiri
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 
