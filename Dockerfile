@@ -36,6 +36,7 @@ RUN npx tsc prisma/fix-coa.ts --ignoreConfig --types node --module CommonJS --ta
 # Compile new multi-tenant CLI scripts
 RUN npx tsc scripts/provision-tenant.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 RUN npx tsc scripts/migrate-all-tenants.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc scripts/cleanup-performance-metrics.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
 RUN npm run build
 
