@@ -5,6 +5,10 @@ vi.mock('@/lib/core/prisma', () => ({
   getTenantDb: vi.fn(),
 }));
 
+vi.mock('@/lib/modules/tenant-entitlements', () => ({
+  hasTenantModuleDirect: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock('@/lib/telegram/kill-switch', () => ({
   getPilotSubdomain: vi.fn().mockReturnValue('melindo'),
   isKillSwitchActive: vi.fn().mockReturnValue(false),
@@ -46,6 +50,7 @@ vi.mock('../format', () => ({
 
 import { runDigest } from '../digest-service';
 import { getMainPrisma, getTenantDb } from '@/lib/core/prisma';
+import { hasTenantModuleDirect } from '@/lib/modules/tenant-entitlements';
 import { isKillSwitchActive } from '@/lib/telegram/kill-switch';
 import { sendTelegramMessage } from '@/lib/telegram/send-message';
 import { resolveAllowedResources } from '@/lib/telegram/permissions';
@@ -85,6 +90,7 @@ describe('runDigest', () => {
     vi.mocked(isFeatureEnabled).mockReturnValue(true);
     vi.mocked(isKillSwitchActive).mockReturnValue(false);
     vi.mocked(isDuplicate).mockResolvedValue(false);
+    vi.mocked(hasTenantModuleDirect).mockResolvedValue(true);
     vi.mocked(detectCriticalStock).mockResolvedValue([]);
     vi.mocked(detectStuckSalesOrders).mockResolvedValue([]);
     vi.mocked(detectOverdueAr).mockResolvedValue([]);
@@ -253,6 +259,34 @@ describe('runDigest', () => {
     const result = await runDigest();
     expect(result.sent).toBe(1);
     expect(result.findings).toHaveLength(1);
+  });
+
+  it('skips non-entitled module detectors entirely', async () => {
+    vi.mocked(hasTenantModuleDirect).mockImplementation(
+      async (_tenantId, moduleKey) => moduleKey !== 'INVENTORY',
+    );
+    vi.mocked(detectOverdueAr).mockResolvedValue([
+      { detector: 'overdue_ar', severity: 'critical', requiredResources: ['/finance/invoices'], headline: 'Invoice overdue' },
+    ]);
+    vi.mocked(formatDigestMarkdown).mockReturnValue('*Test*');
+    vi.mocked(sendTelegramMessage).mockResolvedValue({ ok: true, messageId: 789 });
+    vi.mocked(mockResolveAllowedResources).mockResolvedValue('ALL');
+
+    const mockDb = makeMockTenantDb();
+    mockDb._findManyIdentity.mockResolvedValue([
+      { userId: 'user-1', telegramUserId: 'tg-1', telegramChatId: 'chat-1' },
+    ]);
+    mockDb._findManyPref.mockResolvedValue([
+      { userId: 'user-1', enabled: true, dailyDigest: true, timezone: 'Asia/Jakarta', quietHoursStart: null, quietHoursEnd: null },
+    ]);
+    mockGetTenantDb.mockReturnValue(mockDb as never);
+
+    const result = await runDigest();
+
+    expect(detectCriticalStock).not.toHaveBeenCalled();
+    expect(detectOverdueAr).toHaveBeenCalled();
+    expect(result.findings).toHaveLength(1);
+    expect(result.sent).toBe(1);
   });
 
   it('returns empty findings when all detectors return empty', async () => {

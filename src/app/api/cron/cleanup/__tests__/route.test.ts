@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '../route';
+import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
+import { InventoryCoreService } from '@/services/inventory/core-service';
+import { checkOverduePurchasingInvoices } from '@/services/purchasing/invoices-service';
+import { InvoiceService } from '@/services/finance/invoice-service';
+import { dispatchReminders } from '@/lib/hrd/employment-reminder';
+import { autoExpireQuotations } from '@/services/sales/quotation-service';
+import { autoCloseExpiredDeliverySchedules } from '@/services/sales/delivery-schedule-auto-close';
 
 vi.mock('next/server', () => {
     class MockNextResponse {
@@ -44,6 +51,10 @@ vi.mock('@/lib/core/tenant-loop', () => ({
         mockRunForEachActiveTenant(...args),
 }));
 
+vi.mock('@/lib/modules/tenant-entitlements', () => ({
+    hasTenantModule: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock('@/services/inventory/core-service', () => ({
     InventoryCoreService: {
         checkLowStockTriggers: vi.fn().mockResolvedValue(undefined),
@@ -80,6 +91,13 @@ describe('Cleanup Cron Route', () => {
         process.env = { ...ORIGINAL_ENV };
         process.env.CRON_SECRET = 'test-secret';
         mockRunForEachActiveTenant.mockReset();
+        vi.mocked(hasTenantModule).mockReset().mockResolvedValue(true);
+        vi.mocked(InventoryCoreService.checkLowStockTriggers).mockClear();
+        vi.mocked(checkOverduePurchasingInvoices).mockClear();
+        vi.mocked(InvoiceService.checkOverdueSalesInvoices).mockClear();
+        vi.mocked(dispatchReminders).mockClear();
+        vi.mocked(autoExpireQuotations).mockClear();
+        vi.mocked(autoCloseExpiredDeliverySchedules).mockClear();
     });
 
     it('should return 401 if authorization header is missing', async () => {
@@ -138,6 +156,41 @@ describe('Cleanup Cron Route', () => {
         expect(data.perTenant[0].tenant).toBe('kiyowo');
         expect(data.perTenant[0].result.auditLogs).toBe(5);
         expect(data.executedAt).toBeDefined();
+    });
+
+    it('skips non-entitled subsystems and calls entitled ones', async () => {
+        mockRunForEachActiveTenant.mockImplementation(
+            async (fn: (tenant: { id: string; subdomain: string }) => unknown) =>
+                [
+                    {
+                        tenant: 'acme',
+                        result: await fn({
+                            id: 'tenant-1',
+                            subdomain: 'acme',
+                        }),
+                    },
+                ],
+        );
+        vi.mocked(hasTenantModule).mockImplementation(
+            async (moduleKey: string) => moduleKey !== 'HRD',
+        );
+
+        const req = new Request('http://localhost/api/cron/cleanup', {
+            method: 'GET',
+            headers: { authorization: 'Bearer test-secret' },
+        });
+        const response = await GET(req);
+        expect(response.status).toBe(200);
+
+        expect(InventoryCoreService.checkLowStockTriggers).toHaveBeenCalled();
+        expect(checkOverduePurchasingInvoices).toHaveBeenCalled();
+        expect(InvoiceService.checkOverdueSalesInvoices).toHaveBeenCalled();
+        expect(autoExpireQuotations).toHaveBeenCalled();
+        expect(autoCloseExpiredDeliverySchedules).toHaveBeenCalled();
+        expect(dispatchReminders).not.toHaveBeenCalled();
+
+        const data = await response.json();
+        expect(data.entitlementSkips).toBe(1);
     });
 
     it('should return partial success when one tenant errors', async () => {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMainPrisma, prisma } from '@/lib/core/prisma';
 import { verifyCronAuth } from '@/lib/core/cron-auth';
 import { runForEachActiveTenant } from '@/lib/core/tenant-loop';
+import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
 
 export async function GET(req: Request) {
     try {
@@ -22,6 +23,10 @@ export async function GET(req: Request) {
             where: { occurredAt: { lt: ninetyDaysAgo } },
         });
 
+        // Module skip events accumulated across the (sequential) tenant loop
+        // below — used only for the summary log after the loop completes.
+        const moduleSkips: Array<{ tenant: string; module: string }> = [];
+
         // Tenant-scoped work: AuditLog, Notification, and business triggers
         const perTenantResults = await runForEachActiveTenant(
             async (tenant) => {
@@ -35,6 +40,22 @@ export async function GET(req: Request) {
                     cancelledStops: number;
                 } | null = null;
                 let subsystemError: string | undefined;
+
+                // Resolve once per tenant, not once per subsystem call —
+                // hasTenantModule() has no caching of its own.
+                const [
+                    inventoryEntitled,
+                    purchasingEntitled,
+                    financeEntitled,
+                    hrdEntitled,
+                    salesEntitled,
+                ] = await Promise.all([
+                    hasTenantModule('INVENTORY'),
+                    hasTenantModule('PURCHASING'),
+                    hasTenantModule('FINANCE'),
+                    hasTenantModule('HRD'),
+                    hasTenantModule('SALES'),
+                ]);
 
                 try {
                     const auditLogCleanup = await prisma.auditLog.deleteMany({
@@ -62,24 +83,49 @@ export async function GET(req: Request) {
                 }
 
                 try {
-                    const { InventoryCoreService } = await import(
-                        '@/services/inventory/core-service'
-                    );
-                    const { checkOverduePurchasingInvoices } = await import(
-                        '@/services/purchasing/invoices-service'
-                    );
-                    const { InvoiceService } = await import(
-                        '@/services/finance/invoice-service'
-                    );
+                    if (inventoryEntitled) {
+                        const { InventoryCoreService } =
+                            await import('@/services/inventory/core-service');
+                        await InventoryCoreService.checkLowStockTriggers();
+                    } else {
+                        moduleSkips.push({
+                            tenant: tenant.subdomain,
+                            module: 'INVENTORY',
+                        });
+                    }
 
-                    await InventoryCoreService.checkLowStockTriggers();
-                    await checkOverduePurchasingInvoices();
-                    await InvoiceService.checkOverdueSalesInvoices();
+                    if (purchasingEntitled) {
+                        const { checkOverduePurchasingInvoices } =
+                            await import('@/services/purchasing/invoices-service');
+                        await checkOverduePurchasingInvoices();
+                    } else {
+                        moduleSkips.push({
+                            tenant: tenant.subdomain,
+                            module: 'PURCHASING',
+                        });
+                    }
 
-                    const { dispatchReminders } = await import(
-                        '@/lib/hrd/employment-reminder'
-                    );
-                    await dispatchReminders(prisma);
+                    if (financeEntitled) {
+                        const { InvoiceService } =
+                            await import('@/services/finance/invoice-service');
+                        await InvoiceService.checkOverdueSalesInvoices();
+                    } else {
+                        moduleSkips.push({
+                            tenant: tenant.subdomain,
+                            module: 'FINANCE',
+                        });
+                    }
+
+                    if (hrdEntitled) {
+                        const { dispatchReminders } =
+                            await import('@/lib/hrd/employment-reminder');
+                        await dispatchReminders(prisma);
+                    } else {
+                        moduleSkips.push({
+                            tenant: tenant.subdomain,
+                            module: 'HRD',
+                        });
+                    }
                 } catch (subErr) {
                     subsystemError =
                         subErr instanceof Error
@@ -92,14 +138,20 @@ export async function GET(req: Request) {
                 }
 
                 try {
-                    const { autoExpireQuotations } = await import(
-                        '@/services/sales/quotation-service'
-                    );
-                    expiredQuotations = await autoExpireQuotations();
-                    if (expiredQuotations > 0) {
-                        console.log(
-                            `[Cron] Auto-expired ${expiredQuotations} quotation(s) for ${tenant.subdomain}.`,
-                        );
+                    if (salesEntitled) {
+                        const { autoExpireQuotations } =
+                            await import('@/services/sales/quotation-service');
+                        expiredQuotations = await autoExpireQuotations();
+                        if (expiredQuotations > 0) {
+                            console.log(
+                                `[Cron] Auto-expired ${expiredQuotations} quotation(s) for ${tenant.subdomain}.`,
+                            );
+                        }
+                    } else {
+                        moduleSkips.push({
+                            tenant: tenant.subdomain,
+                            module: 'SALES',
+                        });
                     }
                 } catch (expireErr) {
                     console.error(
@@ -109,14 +161,19 @@ export async function GET(req: Request) {
                 }
 
                 try {
-                    const { autoCloseExpiredDeliverySchedules } =
-                        await import(
-                            '@/services/sales/delivery-schedule-auto-close'
-                        );
-                    autoClosedSchedules =
-                        await autoCloseExpiredDeliverySchedules({
-                            bufferDays: 2,
+                    if (salesEntitled) {
+                        const { autoCloseExpiredDeliverySchedules } =
+                            await import('@/services/sales/delivery-schedule-auto-close');
+                        autoClosedSchedules =
+                            await autoCloseExpiredDeliverySchedules({
+                                bufferDays: 2,
+                            });
+                    } else {
+                        moduleSkips.push({
+                            tenant: tenant.subdomain,
+                            module: 'SALES',
                         });
+                    }
                 } catch (closeErr) {
                     console.error(
                         `[Cron] Failed to auto-close delivery schedules for ${tenant.subdomain}:`,
@@ -134,10 +191,19 @@ export async function GET(req: Request) {
             },
         );
 
+        if (moduleSkips.length > 0) {
+            const skipsByModule: Record<string, number> = {};
+            for (const s of moduleSkips) {
+                skipsByModule[s.module] = (skipsByModule[s.module] ?? 0) + 1;
+            }
+            console.log('[Cron] Entitlement skip summary:', skipsByModule);
+        }
+
         return NextResponse.json({
             success: true,
             usageEventCleanup: { count: usageEventCleanup.count },
             perTenant: perTenantResults,
+            entitlementSkips: moduleSkips.length,
             executedAt: new Date().toISOString(),
         });
     } catch (error) {
