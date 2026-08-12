@@ -36,7 +36,7 @@ export type PipelineStageKey =
     | 'QUOTATION_EXPIRED'
     | 'CONVERTED';
 
-export type PipelineOrderCard = {
+type PipelineOrderCard = {
     id: string;
     orderNumber: string;
     status: SalesOrderStatus;
@@ -49,7 +49,7 @@ export type PipelineOrderCard = {
     lostReason: string | null;
 };
 
-export type PipelineStageData = {
+type PipelineStageData = {
     key: PipelineStageKey;
     label: string;
     count: number;
@@ -58,7 +58,7 @@ export type PipelineStageData = {
     orders: PipelineOrderCard[];
 };
 
-export type LostReasonBucket = {
+type LostReasonBucket = {
     reason: SalesLostReason | null;
     label: string;
     count: number;

@@ -33,7 +33,7 @@ import {
     type ProductionAlertThresholds,
 } from '@/lib/production/alert-thresholds';
 
-export type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
+type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
 export type TabKey = ProcessKey | 'ALL';
 
 type ProcessPulse = {

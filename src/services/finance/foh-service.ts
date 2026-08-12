@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { ProductionStatus } from '@prisma/client';
 
-export interface FOHAllocationRow {
+interface FOHAllocationRow {
     orderId: string;
     orderNumber: string;
     actualQuantity: number;

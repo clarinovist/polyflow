@@ -20,7 +20,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 
-export interface ProductOption {
+interface ProductOption {
     id: string;
     name: string;
     skuCode: string;

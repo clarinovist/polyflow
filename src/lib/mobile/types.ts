@@ -3,7 +3,7 @@
  * Used by portal registry, UI shell, and domain-specific pages.
  */
 
-export type MobileSeverity = 'INFO' | 'SUCCESS' | 'WARNING' | 'CRITICAL';
+type MobileSeverity = 'INFO' | 'SUCCESS' | 'WARNING' | 'CRITICAL';
 
 export type MobileTaskPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 
@@ -20,20 +20,4 @@ export interface MobileInsight {
     };
     href?: string;
     actionLabel?: string;
-}
-
-export interface MobileTask {
-    id: string;
-    type: string;
-    title: string;
-    subtitle?: string;
-    priority: MobileTaskPriority;
-    dueAt?: string;
-    href: string;
-}
-
-export interface MobilePortalSummary {
-    generatedAt: string;
-    highlights: MobileInsight[];
-    tasks: MobileTask[];
 }

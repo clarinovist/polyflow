@@ -7,9 +7,9 @@
 import type { PrismaClient } from '@prisma/client';
 import { endOfWeek, startOfWeek } from '@/services/hrd/week-range';
 
-export type BpjsSource = 'WEEKLY_LAST' | 'MONTHLY_SLIP' | 'NONE';
+type BpjsSource = 'WEEKLY_LAST' | 'MONTHLY_SLIP' | 'NONE';
 
-export interface BpjsRecapRow {
+interface BpjsRecapRow {
     employeeId: string;
     employeeCode: string;
     employeeName: string;

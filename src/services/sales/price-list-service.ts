@@ -23,7 +23,7 @@ export type ListPricesParams = {
     category?: ProductType;
 };
 
-export type ListedPrice = {
+type ListedPrice = {
     id: string;
     customerId: string;
     productVariantId: string;
@@ -76,7 +76,7 @@ export type BulkAdjustInput = {
     dryRun: boolean;
 };
 
-export type BulkAdjustPreviewRow = {
+type BulkAdjustPreviewRow = {
     id: string;
     customerId: string;
     productVariantId: string;
@@ -529,7 +529,7 @@ export type ListPricesByProductParams = {
     pageSize?: number;
 };
 
-export type ProductPriceCustomerEntry = {
+type ProductPriceCustomerEntry = {
     id: string;
     customerId: string;
     customerName: string;
@@ -540,7 +540,7 @@ export type ProductPriceCustomerEntry = {
     notes: string | null;
 };
 
-export type ProductPriceRow = {
+type ProductPriceRow = {
     variantId: string;
     skuCode: string;
     variantName: string;

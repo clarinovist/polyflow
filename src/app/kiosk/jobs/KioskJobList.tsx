@@ -44,13 +44,13 @@ export interface Order {
     }>;
 }
 
-export interface Employee {
+interface Employee {
     id: string;
     name: string;
     machineIds?: string[];
 }
 
-export interface Machine {
+interface Machine {
     id: string;
     name: string;
     operatorIds?: string[];

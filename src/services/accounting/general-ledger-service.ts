@@ -2,7 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma, AccountType } from '@prisma/client';
 import { wibRangeBounds } from '@/lib/utils/timezone';
 
-export interface GeneralLedgerEntry {
+interface GeneralLedgerEntry {
     date: Date;
     entryNumber: string;
     description: string;
@@ -13,7 +13,7 @@ export interface GeneralLedgerEntry {
     balance: number;
 }
 
-export interface GeneralLedgerAccount {
+interface GeneralLedgerAccount {
     id: string;
     code: string;
     name: string;

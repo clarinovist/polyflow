@@ -49,7 +49,7 @@ const NAME_SLOT_PADDING = 4;
 const CLOSING_TEXT =
     'Demikian surat jalan ini dibuat dengan sebenar-benarnya, sebagai bukti pengiriman barang.';
 
-export interface EscpDeliveryItem {
+interface EscpDeliveryItem {
     name: string;
     qty: number;
     unit: string;

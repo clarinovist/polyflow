@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { differenceInDays } from 'date-fns';
 
-export interface AgingBucket {
+interface AgingBucket {
     range: '0-30' | '31-60' | '61-90' | '90+';
     count: number;
     quantity: number;

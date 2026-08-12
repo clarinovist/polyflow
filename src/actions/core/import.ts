@@ -8,7 +8,7 @@ import { getNextSKU } from '../product';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 
-export interface ImportVariant {
+interface ImportVariant {
     name: string;
     skuCode: string;
     primaryUnit: Unit;

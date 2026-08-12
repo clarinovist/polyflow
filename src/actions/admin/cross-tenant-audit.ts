@@ -4,7 +4,7 @@ import { prisma, getMainPrisma, getTenantDb } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 import { AuthorizationError } from '@/lib/errors/errors';
 
-export interface CrossTenantAuditLog {
+interface CrossTenantAuditLog {
     id: string;
     userId: string;
     action: string;

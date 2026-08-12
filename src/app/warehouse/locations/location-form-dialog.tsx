@@ -41,7 +41,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Warehouse, Plus, Loader2 } from 'lucide-react';
 
-export interface LocationData {
+interface LocationData {
     id?: string;
     name: string;
     slug?: string | null;

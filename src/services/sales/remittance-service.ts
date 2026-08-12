@@ -28,7 +28,7 @@ export interface CreateRemittanceInput {
     notes?: string;
 }
 
-export interface VerifyItemResult {
+interface VerifyItemResult {
     itemId: string;
     invoiceId: string;
     success: boolean;

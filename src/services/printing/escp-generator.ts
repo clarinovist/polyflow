@@ -463,4 +463,4 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     return bytes;
 }
 
-export type { EscpInvoiceData, EscpInvoiceItem };
+export type { EscpInvoiceData };

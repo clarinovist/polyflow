@@ -13,9 +13,6 @@ import {
     type ResolvedAccount,
 } from './account-resolver';
 
-// Re-export for backward compatibility
-export type GLAccountKey = string;
-
 export type AccountMappingContext =
     | 'inventory'
     | 'trade-payable'

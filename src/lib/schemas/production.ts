@@ -135,8 +135,6 @@ export const qcMeasurementInputSchema = z.object({
     value: z.coerce.number(),
 });
 
-export type QcMeasurementInputValues = z.infer<typeof qcMeasurementInputSchema>;
-
 export const batchMaterialIssueSchema = z.object({
     productionOrderId: z.string().min(1, 'Production Order ID is required'),
     locationId: z.string().min(1, 'Source location is required'),
@@ -290,8 +288,6 @@ export const archiveBomSchema = z.object({
     bomId: z.string().min(1, 'Recipe ID is required'),
     newDefaultBomId: z.string().optional(),
 });
-
-export type ArchiveBomValues = z.infer<typeof archiveBomSchema>;
 
 export const productionOutputSchema = z.object({
     productionOrderId: z.string().min(1, 'Production Order ID is required'),

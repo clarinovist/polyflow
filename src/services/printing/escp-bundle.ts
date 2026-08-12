@@ -12,7 +12,7 @@ export const MAX_BUNDLE_DOCS = 10;
 
 const DOC_PATTERN = /^(delivery|invoice):([\w-]+)$/;
 
-export type BundleDocType = 'delivery' | 'invoice';
+type BundleDocType = 'delivery' | 'invoice';
 
 export interface BundleDocRef {
     type: BundleDocType;

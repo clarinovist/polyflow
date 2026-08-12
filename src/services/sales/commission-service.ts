@@ -8,12 +8,12 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type CommissionTierApplied = {
+type CommissionTierApplied = {
     minAchievementPercent: Decimal;
     ratePercent: Decimal;
 };
 
-export type CommissionEntry = {
+type CommissionEntry = {
     userId: string;
     userName: string | null;
     paidRevenue: Decimal;

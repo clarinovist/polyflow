@@ -1,7 +1,7 @@
 import { ProductType, Unit } from '@prisma/client';
 import { ProductImportRow } from './csv-parser';
 
-export interface ValidationError {
+interface ValidationError {
     field: string;
     message: string;
 }

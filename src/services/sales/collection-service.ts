@@ -35,7 +35,7 @@ export interface SalesArAgingFilter {
     asOf?: Date;
 }
 
-export interface SalesArAgingInvoiceDetail {
+interface SalesArAgingInvoiceDetail {
     invoiceId: string;
     invoiceNumber: string;
     invoiceDate: Date;

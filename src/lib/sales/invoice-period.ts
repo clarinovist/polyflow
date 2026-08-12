@@ -7,12 +7,12 @@ export type SalesInvoiceSearchParams = {
     status?: string;
 };
 
-export type SalesInvoiceDateRange = {
+type SalesInvoiceDateRange = {
     startDate: Date;
     endDate: Date;
 };
 
-export type SalesInvoiceDateFilterPreset = 'this_month' | 'all';
+type SalesInvoiceDateFilterPreset = 'this_month' | 'all';
 
 export type SalesInvoiceListPeriod = {
     dateRange?: SalesInvoiceDateRange;

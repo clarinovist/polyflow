@@ -6,7 +6,7 @@ import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { getTargetsForPeriod } from '@/services/sales/target-service';
 
-export type SalesPerformanceRow = {
+type SalesPerformanceRow = {
     period: string;
     orderId: string;
     orderNumber: string;
@@ -22,21 +22,21 @@ export type SalesPerformanceRow = {
     salesPerson: string;
 };
 
-export type SalesPerformanceReportTargetEntry = {
+type SalesPerformanceReportTargetEntry = {
     revenueTarget: number | null;
     achievementPercent: number | null;
     visitTarget: number | null;
     visitAchievementPercent: number | null;
 };
 
-export type ProductMixByRegion = {
+type ProductMixByRegion = {
     region: string;
     productName: string;
     quantity: number;
     revenue: number;
 };
 
-export type SalesPerformanceSummary = {
+type SalesPerformanceSummary = {
     totalRevenue: number;
     totalOrders: number;
     totalCustomers: number;

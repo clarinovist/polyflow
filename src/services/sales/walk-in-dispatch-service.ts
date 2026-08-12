@@ -18,7 +18,7 @@ const CONFIRMABLE_STATUSES: SalesOrderStatus[] = [
     SalesOrderStatus.READY_TO_SHIP,
 ];
 
-export interface WalkInDispatchItem {
+interface WalkInDispatchItem {
     productVariantId: string;
     quantity: number;
     isFreeItem?: boolean;

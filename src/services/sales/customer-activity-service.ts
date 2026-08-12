@@ -8,7 +8,7 @@ import {
 
 // ── Types ───────────────────────────────────────────────────────
 
-export type DormantCustomer = {
+type DormantCustomer = {
     customerId: string;
     customerName: string;
     lastOrderDate: Date | null;
@@ -17,20 +17,20 @@ export type DormantCustomer = {
     orderCount: number;
 };
 
-export type NewCustomer = {
+type NewCustomer = {
     customerId: string;
     customerName: string;
     createdAt: Date;
 };
 
-export type LostCustomer = {
+type LostCustomer = {
     customerId: string;
     customerName: string;
     lastOrderDate: Date | null;
     previousOrderCount: number;
 };
 
-export type CustomerActivitySummary = {
+type CustomerActivitySummary = {
     dormantCount: number;
     newCount: number;
     lostCount: number;

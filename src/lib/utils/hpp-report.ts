@@ -19,7 +19,7 @@ export interface HppProductRow {
     variancePercent: number;
 }
 
-export interface HppOrderRow {
+interface HppOrderRow {
     orderId: string;
     orderNumber: string;
     bomId: string;
@@ -33,7 +33,7 @@ export interface HppOrderRow {
     unitCost: number;
 }
 
-export interface HppSummary {
+interface HppSummary {
     totalCogm: number;
     totalQuantity: number;
     materialShare: number;

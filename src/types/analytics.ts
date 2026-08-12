@@ -80,12 +80,6 @@ export interface SalesRevenueItem {
     aov: number; // Average Order Value
 }
 
-export interface SalesRevenueTrend {
-    revenueGrowth: number; // Percentage vs previous period
-    orderCountGrowth: number;
-    chartData: SalesRevenueItem[];
-}
-
 export interface TopCustomerItem {
     customerId: string;
     customerName: string;
@@ -113,14 +107,6 @@ export interface ARAgingItem {
     range: 'Current' | '1-30 Days' | '31-60 Days' | '61-90 Days' | '> 90 Days';
     amount: number;
     invoiceCount: number;
-}
-
-export interface CustomerCreditItem {
-    customerName: string;
-    creditLimit: number;
-    usedCredit: number; // Total unpaid invoices
-    utilizationRate: number; // % used
-    status: 'Safe' | 'Warning' | 'Critical'; // Based on utilization > 80%?
 }
 
 // ============================================

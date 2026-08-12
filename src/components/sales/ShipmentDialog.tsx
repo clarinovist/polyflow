@@ -33,7 +33,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Truck, AlertTriangle, Package } from 'lucide-react';
 import { salesLabels } from '@/lib/labels';
 
-export type OpenDeliveryOrderInfo = {
+type OpenDeliveryOrderInfo = {
     id: string;
     orderNumber: string;
     status: string;

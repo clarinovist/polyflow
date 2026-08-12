@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 
-export type ABCClass = 'A' | 'B' | 'C';
+type ABCClass = 'A' | 'B' | 'C';
 
 export interface ABCAnalysisResult {
     productVariantId: string;

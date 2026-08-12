@@ -101,8 +101,6 @@ export const REVIEW_PENDING_REASONS = [
     'TOKO_BARU',
     'PERMINTAAN_DADAKAN',
 ] as const;
-export type ReviewPendingReason = (typeof REVIEW_PENDING_REASONS)[number];
-
 export function isReviewPendingReason(
     reason: string | null | undefined,
 ): boolean {

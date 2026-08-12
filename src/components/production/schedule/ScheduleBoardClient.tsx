@@ -12,7 +12,7 @@ import { AssignOrderDialog } from './AssignOrderDialog';
 import type { OrderChip, Machine } from './MachineAllocationMatrix';
 
 /* ---------- Types ---------- */
-export type ScheduleOrder = OrderChip & {
+type ScheduleOrder = OrderChip & {
     plannedStartDate: string | Date;
 };
 

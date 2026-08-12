@@ -36,8 +36,6 @@ export const createBatchSchema = z.object({
 
 export type CreateReservationValues = z.infer<typeof createReservationSchema>;
 export type CancelReservationValues = z.infer<typeof cancelReservationSchema>;
-export type CreateBatchValues = z.infer<typeof createBatchSchema>;
-
 export const transferStockSchema = z
     .object({
         sourceLocationId: z.string().min(1, 'Source location is required'),
@@ -82,7 +80,6 @@ export type AdjustStockWithBatchValues = z.infer<
 >;
 
 export type TransferStockValues = z.infer<typeof transferStockSchema>;
-export type AdjustStockValues = z.infer<typeof adjustStockSchema>;
 
 export const bulkTransferStockSchema = z
     .object({

@@ -15,11 +15,6 @@ export const MAKLON_STAGE_SLUGS = {
     PACKING: 'maklon_packing',
 } as const;
 
-export type WarehouseSlug =
-    (typeof WAREHOUSE_SLUGS)[keyof typeof WAREHOUSE_SLUGS];
-export type MaklonStageSlug =
-    (typeof MAKLON_STAGE_SLUGS)[keyof typeof MAKLON_STAGE_SLUGS];
-
 /**
  * Locations counted toward the low-stock alert threshold: internal Raw
  * Material + Finished Goods warehouses. Tenant slugs vary (canonical

@@ -5,7 +5,7 @@ import {
     ProductionStatus,
 } from '@prisma/client';
 
-export interface FgSourceSoItem {
+interface FgSourceSoItem {
     /** SalesOrderItem.id — unique key (a SO can have multiple lines for the same variant) */
     soItemId: string;
     soId: string;

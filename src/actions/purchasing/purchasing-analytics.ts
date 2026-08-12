@@ -318,14 +318,6 @@ export const getAPAgingReport = withTenant(
     },
 );
 
-export type OverdueAPLine = {
-    id: string;
-    invoiceNumber: string;
-    supplierName: string;
-    remaining: number;
-    dueDate: string;
-};
-
 /** Top overdue purchase invoices for actionable analytics list. */
 export const getOverdueAPLines = withTenant(async function getOverdueAPLines(
     limit = 10,

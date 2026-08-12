@@ -13,9 +13,9 @@ import {
 } from '@/lib/utils/timezone';
 import { hasAnyRole } from '@/lib/auth/roles';
 
-export type TargetUnitMode = 'MIXED' | 'SINGLE' | 'NONE';
+type TargetUnitMode = 'MIXED' | 'SINGLE' | 'NONE';
 
-export interface MobileSupervisorOverview {
+interface MobileSupervisorOverview {
     generatedAt: string;
     highlights: {
         activeOrdersCount: number;
@@ -47,7 +47,7 @@ export interface MobileSupervisorOverview {
 }
 
 /** Actionable SPK list for mobile supervisor — extends recentOrders with machine/target. */
-export interface MobileSupervisorSpkItem {
+interface MobileSupervisorSpkItem {
     id: string;
     spkNumber: string;
     productName: string;
@@ -64,7 +64,7 @@ export interface MobileSupervisorSpkItem {
     plannedStartDate: string;
 }
 
-export interface MobileSupervisorSpkList {
+interface MobileSupervisorSpkList {
     generatedAt: string;
     items: MobileSupervisorSpkItem[];
 }
@@ -77,7 +77,7 @@ export interface MobileTeamAttendanceFilters {
     role?: string; // OPERATOR / HELPER / PACKER / etc or ALL
 }
 
-export interface MobileTeamAttendanceRecord {
+interface MobileTeamAttendanceRecord {
     id: string | null;
     employeeId: string;
     employeeName: string;
@@ -154,32 +154,40 @@ export const getProductionSupervisorOverview = withTenant(
             const [orders, executions, downtimes, qcPending, targetOrders] =
                 await Promise.all([
                     prisma.productionOrder
-                        ? prisma.productionOrder.findMany({
-                              where: {
-                                  status: {
-                                      in: ['IN_PROGRESS', 'RELEASED', 'DRAFT'],
+                        ? prisma.productionOrder
+                              .findMany({
+                                  where: {
+                                      status: {
+                                          in: [
+                                              'IN_PROGRESS',
+                                              'RELEASED',
+                                              'DRAFT',
+                                          ],
+                                      },
                                   },
-                              },
-                              take: 10,
-                              orderBy: { updatedAt: 'desc' },
-                              include: {
-                                  bom: { select: { name: true } },
-                              },
-                          }).catch(() => [])
+                                  take: 10,
+                                  orderBy: { updatedAt: 'desc' },
+                                  include: {
+                                      bom: { select: { name: true } },
+                                  },
+                              })
+                              .catch(() => [])
                         : Promise.resolve([]),
                     prisma.productionExecution
-                        ? prisma.productionExecution.aggregate({
-                              where: { createdAt: { gte: startOfDay } },
-                              _sum: {
-                                  quantityProduced: true,
-                                  scrapQuantity: true,
-                              },
-                          }).catch(() => ({
-                              _sum: {
-                                  quantityProduced: null,
-                                  scrapQuantity: null,
-                              },
-                          }))
+                        ? prisma.productionExecution
+                              .aggregate({
+                                  where: { createdAt: { gte: startOfDay } },
+                                  _sum: {
+                                      quantityProduced: true,
+                                      scrapQuantity: true,
+                                  },
+                              })
+                              .catch(() => ({
+                                  _sum: {
+                                      quantityProduced: null,
+                                      scrapQuantity: null,
+                                  },
+                              }))
                         : Promise.resolve({
                               _sum: {
                                   quantityProduced: null,
@@ -187,17 +195,23 @@ export const getProductionSupervisorOverview = withTenant(
                               },
                           }),
                     prisma.machineDowntime
-                        ? prisma.machineDowntime.findMany({
-                              where: { createdAt: { gte: startOfDay } },
-                              take: 5,
-                              orderBy: { createdAt: 'desc' },
-                              include: { machine: { select: { name: true } } },
-                          }).catch(() => [])
+                        ? prisma.machineDowntime
+                              .findMany({
+                                  where: { createdAt: { gte: startOfDay } },
+                                  take: 5,
+                                  orderBy: { createdAt: 'desc' },
+                                  include: {
+                                      machine: { select: { name: true } },
+                                  },
+                              })
+                              .catch(() => [])
                         : Promise.resolve([]),
                     prisma.qualityInspection
-                        ? prisma.qualityInspection.count({
-                              where: { result: 'QUARANTINE' },
-                          }).catch(() => 0)
+                        ? prisma.qualityInspection
+                              .count({
+                                  where: { result: 'QUARANTINE' },
+                              })
+                              .catch(() => 0)
                         : Promise.resolve(0),
                     // Daily target aggregate — separate from the recent-order
                     // list so take:10 never truncates the planned-day total.
@@ -228,7 +242,9 @@ export const getProductionSupervisorOverview = withTenant(
                         : Promise.resolve([]),
                 ]);
 
-            const activeOrdersCount = orders.filter((o) => o.status === 'IN_PROGRESS').length;
+            const activeOrdersCount = orders.filter(
+                (o) => o.status === 'IN_PROGRESS',
+            ).length;
             const outputToday = Number(executions._sum?.quantityProduced ?? 0);
             const scrapToday = Number(executions._sum?.scrapQuantity ?? 0);
 
@@ -254,7 +270,10 @@ export const getProductionSupervisorOverview = withTenant(
                 }
             }
 
-            const getDowntimeMinutes = (d: { startTime: Date; endTime: Date | null }) => {
+            const getDowntimeMinutes = (d: {
+                startTime: Date;
+                endTime: Date | null;
+            }) => {
                 if (!d.endTime) return 15;
                 return Math.max(
                     1,
@@ -334,7 +353,12 @@ export const getMobileSupervisorSpkList = withTenant(
                 (where as { status: unknown }).status = statusFilter;
             } else {
                 (where as { status: unknown }).status = {
-                    in: ['RELEASED', 'IN_PROGRESS', 'DRAFT', 'WAITING_MATERIAL'],
+                    in: [
+                        'RELEASED',
+                        'IN_PROGRESS',
+                        'DRAFT',
+                        'WAITING_MATERIAL',
+                    ],
                 };
             }
             if (filters?.machineId) {
@@ -348,12 +372,23 @@ export const getMobileSupervisorSpkList = withTenant(
                 andClauses.push({
                     OR: [
                         { orderNumber: { contains: q, mode: 'insensitive' } },
-                        { bom: { is: { name: { contains: q, mode: 'insensitive' } } } },
+                        {
+                            bom: {
+                                is: {
+                                    name: { contains: q, mode: 'insensitive' },
+                                },
+                            },
+                        },
                         {
                             bom: {
                                 is: {
                                     productVariant: {
-                                        is: { name: { contains: q, mode: 'insensitive' } },
+                                        is: {
+                                            name: {
+                                                contains: q,
+                                                mode: 'insensitive',
+                                            },
+                                        },
                                     },
                                 },
                             },
@@ -363,15 +398,16 @@ export const getMobileSupervisorSpkList = withTenant(
             }
 
             const finalWhere =
-                andClauses.length > 0
-                    ? { ...where, AND: andClauses }
-                    : where;
+                andClauses.length > 0 ? { ...where, AND: andClauses } : where;
 
             const orders = await (prisma.productionOrder
                 ? prisma.productionOrder.findMany({
                       where: finalWhere as never,
                       take: 50,
-                      orderBy: [{ priority: 'desc' }, { plannedStartDate: 'desc' }],
+                      orderBy: [
+                          { priority: 'desc' },
+                          { plannedStartDate: 'desc' },
+                      ],
                       include: {
                           bom: {
                               select: {
@@ -381,38 +417,48 @@ export const getMobileSupervisorSpkList = withTenant(
                                   },
                               },
                           },
-                          machine: { select: { id: true, name: true, code: true } },
+                          machine: {
+                              select: { id: true, name: true, code: true },
+                          },
                           location: { select: { name: true } },
                       },
                   })
                 : Promise.resolve([] as never[]));
 
-            const items: MobileSupervisorSpkItem[] = (orders as Array<any>).map((o) => {
-                const planned = Number(o.plannedQuantity ?? 0);
-                const actual = Number(o.actualQuantity ?? 0);
-                const progress =
-                    planned > 0
-                        ? Math.min(100, Math.round((actual / planned) * 100))
-                        : 0;
-                return {
-                    id: o.id,
-                    spkNumber: o.orderNumber || o.id.substring(0, 8),
-                    productName: o.bom?.productVariant?.name ?? o.bom?.name ?? 'Formulasi BOM',
-                    productCode: o.bom?.productVariant?.skuCode ?? '',
-                    status: o.status,
-                    priority: o.priority ?? 'NORMAL',
-                    progressPercent: progress,
-                    plannedQty: planned,
-                    actualQty: actual,
-                    machineId: o.machine?.id ?? o.machineId ?? null,
-                    machineName: o.machine?.name ?? null,
-                    machineCode: o.machine?.code ?? null,
-                    locationName: o.location?.name ?? null,
-                    plannedStartDate: o.plannedStartDate
-                        ? new Date(o.plannedStartDate).toISOString()
-                        : new Date(o.createdAt).toISOString(),
-                };
-            });
+            const items: MobileSupervisorSpkItem[] = (orders as Array<any>).map(
+                (o) => {
+                    const planned = Number(o.plannedQuantity ?? 0);
+                    const actual = Number(o.actualQuantity ?? 0);
+                    const progress =
+                        planned > 0
+                            ? Math.min(
+                                  100,
+                                  Math.round((actual / planned) * 100),
+                              )
+                            : 0;
+                    return {
+                        id: o.id,
+                        spkNumber: o.orderNumber || o.id.substring(0, 8),
+                        productName:
+                            o.bom?.productVariant?.name ??
+                            o.bom?.name ??
+                            'Formulasi BOM',
+                        productCode: o.bom?.productVariant?.skuCode ?? '',
+                        status: o.status,
+                        priority: o.priority ?? 'NORMAL',
+                        progressPercent: progress,
+                        plannedQty: planned,
+                        actualQty: actual,
+                        machineId: o.machine?.id ?? o.machineId ?? null,
+                        machineName: o.machine?.name ?? null,
+                        machineCode: o.machine?.code ?? null,
+                        locationName: o.location?.name ?? null,
+                        plannedStartDate: o.plannedStartDate
+                            ? new Date(o.plannedStartDate).toISOString()
+                            : new Date(o.createdAt).toISOString(),
+                    };
+                },
+            );
 
             const result: MobileSupervisorSpkList = {
                 generatedAt: new Date().toISOString(),
@@ -457,7 +503,13 @@ export const getMobileQuickSpkFormData = withTenant(
                     ? prisma.machine
                           .findMany({
                               where: { status: 'ACTIVE' },
-                              select: { id: true, name: true, code: true, type: true, status: true },
+                              select: {
+                                  id: true,
+                                  name: true,
+                                  code: true,
+                                  type: true,
+                                  status: true,
+                              },
                               orderBy: { code: 'asc' },
                           })
                           .catch(() => [] as any[])
@@ -471,7 +523,10 @@ export const getMobileQuickSpkFormData = withTenant(
                     category: b.category,
                     productVariantId: b.productVariantId,
                     productVariantName: b.productVariant?.name ?? b.name,
-                    productName: b.productVariant?.product?.name ?? b.productVariant?.name ?? b.name,
+                    productName:
+                        b.productVariant?.product?.name ??
+                        b.productVariant?.name ??
+                        b.name,
                     skuCode: b.productVariant?.skuCode ?? '',
                     isDefault: !!b.isDefault,
                 })),
@@ -497,7 +552,8 @@ export const getMobileTeamAttendance = withTenant(
             const session = await requireAuth();
             assertSupervisorAccess(session.user as never);
 
-            const rawDate = filters?.date?.trim() || toBusinessDateString(new Date());
+            const rawDate =
+                filters?.date?.trim() || toBusinessDateString(new Date());
             const businessDate = parseBusinessDate(rawDate);
             // workDate storage is UTC midnight of business date
             const workDate = new Date(`${businessDate}T00:00:00.000Z`);
@@ -532,36 +588,50 @@ export const getMobileTeamAttendance = withTenant(
 
             const [employees, attendanceRecords, shifts] = await Promise.all([
                 prisma.employee
-                    ? prisma.employee.findMany({
-                          where: employeeWhere,
-                          select: {
-                              id: true,
-                              name: true,
-                              code: true,
-                              role: true,
-                          },
-                          orderBy: { name: 'asc' },
-                          take: 200,
-                      }).catch(() => [] as any[])
+                    ? prisma.employee
+                          .findMany({
+                              where: employeeWhere,
+                              select: {
+                                  id: true,
+                                  name: true,
+                                  code: true,
+                                  role: true,
+                              },
+                              orderBy: { name: 'asc' },
+                              take: 200,
+                          })
+                          .catch(() => [] as any[])
                     : Promise.resolve([] as any[]),
                 prisma.attendanceRecord
                     ? prisma.attendanceRecord
                           .findMany({
-                               where: {
-                                   workDate,
-                                   employee: employeeWhere,
+                              where: {
+                                  workDate,
+                                  employee: employeeWhere,
                                   ...(filters?.workShiftId
                                       ? { workShiftId: filters.workShiftId }
                                       : {}),
-                                  ...(filters?.status && filters.status !== 'ALL'
+                                  ...(filters?.status &&
+                                  filters.status !== 'ALL'
                                       ? { status: filters.status as any }
                                       : {}),
                               },
                               include: {
                                   employee: {
-                                      select: { id: true, name: true, code: true, role: true },
+                                      select: {
+                                          id: true,
+                                          name: true,
+                                          code: true,
+                                          role: true,
+                                      },
                                   },
-                                  workShift: { select: { id: true, name: true, startTime: true } },
+                                  workShift: {
+                                      select: {
+                                          id: true,
+                                          name: true,
+                                          startTime: true,
+                                      },
+                                  },
                               },
                               orderBy: { clockInAt: 'asc' },
                           })
@@ -587,10 +657,16 @@ export const getMobileTeamAttendance = withTenant(
                     recordByEmployee.set(rec.employeeId, rec);
                 } else {
                     // Prefer PRESENT > others, then latest clockIn
-                    if (existing.status !== 'PRESENT' && rec.status === 'PRESENT') {
+                    if (
+                        existing.status !== 'PRESENT' &&
+                        rec.status === 'PRESENT'
+                    ) {
                         recordByEmployee.set(rec.employeeId, rec);
                     } else if (rec.clockInAt && existing.clockInAt) {
-                        if (new Date(rec.clockInAt) > new Date(existing.clockInAt)) {
+                        if (
+                            new Date(rec.clockInAt) >
+                            new Date(existing.clockInAt)
+                        ) {
                             recordByEmployee.set(rec.employeeId, rec);
                         }
                     }
@@ -598,7 +674,8 @@ export const getMobileTeamAttendance = withTenant(
             }
 
             // Build unified records — include employees without attendance when status filter not restrictive
-            const includeNoRecord = !filters?.status || filters.status === 'ALL';
+            const includeNoRecord =
+                !filters?.status || filters.status === 'ALL';
             const searchLower = filters?.q?.trim()?.toLowerCase() ?? '';
 
             const allEmployees =
@@ -607,7 +684,10 @@ export const getMobileTeamAttendance = withTenant(
                     : (attendanceRecords as Array<any>).map((r) => r.employee);
 
             // Dedup employees list + attendance employees
-            const employeeMap = new Map<string, { id: string; name: string; code: string; role: string }>();
+            const employeeMap = new Map<
+                string,
+                { id: string; name: string; code: string; role: string }
+            >();
             for (const e of allEmployees) {
                 if (e?.id && !employeeMap.has(e.id)) {
                     employeeMap.set(e.id, {
@@ -627,82 +707,97 @@ export const getMobileTeamAttendance = withTenant(
                 );
             }
 
-            const records: MobileTeamAttendanceRecord[] = unifiedEmployees.map((emp) => {
-                const rec = recordByEmployee.get(emp.id);
-                if (!rec) {
+            const records: MobileTeamAttendanceRecord[] = unifiedEmployees.map(
+                (emp) => {
+                    const rec = recordByEmployee.get(emp.id);
+                    if (!rec) {
+                        return {
+                            id: null,
+                            employeeId: emp.id,
+                            employeeName: emp.name,
+                            employeeCode: emp.code,
+                            employeeRole: emp.role,
+                            workDate: workDate.toISOString(),
+                            workShiftId: null,
+                            shiftName: null,
+                            clockInAt: null,
+                            clockOutAt: null,
+                            status: 'NO_RECORD',
+                            actualHours: null,
+                            isLate: null,
+                            source: null,
+                        };
+                    }
+
+                    // isLate heuristic: clockIn after shift start + 15 min tolerance
+                    let isLate: boolean | null = null;
+                    if (rec.clockInAt && rec.workShift?.startTime) {
+                        try {
+                            const [sh, sm] = String(rec.workShift.startTime)
+                                .split(':')
+                                .map(Number);
+                            const shiftStartMinutes = sh * 60 + sm;
+                            const clockDate = new Date(rec.clockInAt);
+                            const wibClock = new Date(
+                                clockDate.getTime() + 7 * 3600 * 1000,
+                            );
+                            const clockMinutes =
+                                wibClock.getUTCHours() * 60 +
+                                wibClock.getUTCMinutes();
+                            isLate = clockMinutes > shiftStartMinutes + 15;
+                        } catch {
+                            isLate = null;
+                        }
+                    }
+
+                    const actualHours =
+                        rec.actualHours != null
+                            ? Number(rec.actualHours)
+                            : rec.clockInAt && rec.clockOutAt
+                              ? Math.round(
+                                    ((new Date(rec.clockOutAt).getTime() -
+                                        new Date(rec.clockInAt).getTime()) /
+                                        3600000) *
+                                        100,
+                                ) / 100
+                              : null;
+
                     return {
-                        id: null,
+                        id: rec.id ?? null,
                         employeeId: emp.id,
                         employeeName: emp.name,
                         employeeCode: emp.code,
                         employeeRole: emp.role,
-                        workDate: workDate.toISOString(),
-                        workShiftId: null,
-                        shiftName: null,
-                        clockInAt: null,
-                        clockOutAt: null,
-                        status: 'NO_RECORD',
-                        actualHours: null,
-                        isLate: null,
-                        source: null,
+                        workDate: rec.workDate
+                            ? new Date(rec.workDate).toISOString()
+                            : workDate.toISOString(),
+                        workShiftId:
+                            rec.workShiftId ?? rec.workShift?.id ?? null,
+                        shiftName: rec.workShift?.name ?? null,
+                        clockInAt: rec.clockInAt
+                            ? new Date(rec.clockInAt).toISOString()
+                            : null,
+                        clockOutAt: rec.clockOutAt
+                            ? new Date(rec.clockOutAt).toISOString()
+                            : null,
+                        status: (rec.status as any) ?? 'NO_RECORD',
+                        actualHours,
+                        isLate,
+                        source: rec.source ?? null,
                     };
-                }
-
-                // isLate heuristic: clockIn after shift start + 15 min tolerance
-                let isLate: boolean | null = null;
-                if (rec.clockInAt && rec.workShift?.startTime) {
-                    try {
-                        const [sh, sm] = String(rec.workShift.startTime)
-                            .split(':')
-                            .map(Number);
-                        const shiftStartMinutes = sh * 60 + sm;
-                        const clockDate = new Date(rec.clockInAt);
-                        const wibClock = new Date(clockDate.getTime() + 7 * 3600 * 1000);
-                        const clockMinutes = wibClock.getUTCHours() * 60 + wibClock.getUTCMinutes();
-                        isLate = clockMinutes > shiftStartMinutes + 15;
-                    } catch {
-                        isLate = null;
-                    }
-                }
-
-                const actualHours =
-                    rec.actualHours != null
-                        ? Number(rec.actualHours)
-                        : rec.clockInAt && rec.clockOutAt
-                          ? Math.round(
-                                ((new Date(rec.clockOutAt).getTime() -
-                                    new Date(rec.clockInAt).getTime()) /
-                                    3600000) *
-                                    100,
-                            ) / 100
-                          : null;
-
-                return {
-                    id: rec.id ?? null,
-                    employeeId: emp.id,
-                    employeeName: emp.name,
-                    employeeCode: emp.code,
-                    employeeRole: emp.role,
-                    workDate: rec.workDate
-                        ? new Date(rec.workDate).toISOString()
-                        : workDate.toISOString(),
-                    workShiftId: rec.workShiftId ?? rec.workShift?.id ?? null,
-                    shiftName: rec.workShift?.name ?? null,
-                    clockInAt: rec.clockInAt ? new Date(rec.clockInAt).toISOString() : null,
-                    clockOutAt: rec.clockOutAt ? new Date(rec.clockOutAt).toISOString() : null,
-                    status: (rec.status as any) ?? 'NO_RECORD',
-                    actualHours,
-                    isLate,
-                    source: rec.source ?? null,
-                };
-            });
+                },
+            );
 
             // Apply status filter post-merge for NO_RECORD handling
             let filteredRecords = records;
             if (filters?.status && filters.status !== 'ALL') {
-                filteredRecords = records.filter((r) => r.status === filters.status);
+                filteredRecords = records.filter(
+                    (r) => r.status === filters.status,
+                );
             } else if (!includeNoRecord) {
-                filteredRecords = records.filter((r) => r.status !== 'NO_RECORD');
+                filteredRecords = records.filter(
+                    (r) => r.status !== 'NO_RECORD',
+                );
             }
 
             // Sort: PRESENT first, then ABSENT, then others
@@ -719,10 +814,18 @@ export const getMobileTeamAttendance = withTenant(
                 return a.employeeName.localeCompare(b.employeeName);
             });
 
-            const presentCount = filteredRecords.filter((r) => r.status === 'PRESENT').length;
-            const absentCount = filteredRecords.filter((r) => r.status === 'ABSENT').length;
-            const onLeaveCount = filteredRecords.filter((r) => r.status === 'ON_LEAVE').length;
-            const noRecordCount = filteredRecords.filter((r) => r.status === 'NO_RECORD').length;
+            const presentCount = filteredRecords.filter(
+                (r) => r.status === 'PRESENT',
+            ).length;
+            const absentCount = filteredRecords.filter(
+                (r) => r.status === 'ABSENT',
+            ).length;
+            const onLeaveCount = filteredRecords.filter(
+                (r) => r.status === 'ON_LEAVE',
+            ).length;
+            const noRecordCount = filteredRecords.filter(
+                (r) => r.status === 'NO_RECORD',
+            ).length;
 
             const result: MobileTeamAttendanceResult = {
                 generatedAt: new Date().toISOString(),
@@ -733,7 +836,10 @@ export const getMobileTeamAttendance = withTenant(
                 absentCount,
                 onLeaveCount,
                 noRecordCount,
-                shifts: (shifts as Array<any>).map((s) => ({ id: s.id, name: s.name })),
+                shifts: (shifts as Array<any>).map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                })),
                 records: filteredRecords,
             };
 

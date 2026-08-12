@@ -46,7 +46,7 @@ export type EditableField = {
 };
 
 /** Konteks historis sudah dinormalisasi ke number murni (dari Decimal/string). */
-export type EffectiveContext = {
+type EffectiveContext = {
     prevMonthActual: number;
     avg3MonthActual: number;
     sameMonthLastYearActual: number;

@@ -19,7 +19,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 
-export interface AccountOption {
+interface AccountOption {
     id: string;
     name: string;
     code: string;

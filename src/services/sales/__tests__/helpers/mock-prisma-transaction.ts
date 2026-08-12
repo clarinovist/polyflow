@@ -6,7 +6,7 @@ import { vi } from "vitest";
  * Tests stub only the handful of models the service under test touches, never
  * the full Prisma client.
  */
-export type MockTxClient = Record<string, unknown>;
+type MockTxClient = Record<string, unknown>;
 
 type TransactionImpl = (
   run: (tx: MockTxClient) => Promise<unknown>

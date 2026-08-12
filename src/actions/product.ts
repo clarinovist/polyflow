@@ -10,7 +10,6 @@ export {
     getProductTypes,
     getVariants,
     getNextSKU,
-    type ProductWithVariantsAndStock,
 } from './product/product-queries';
 
 export {

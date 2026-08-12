@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 
-export type MaklonCostBreakdown = {
+type MaklonCostBreakdown = {
     LABOR: number;
     MACHINE: number;
     ELECTRICITY: number;
@@ -10,7 +10,7 @@ export type MaklonCostBreakdown = {
     OTHER: number;
 };
 
-export type MaklonOrderReport = {
+type MaklonOrderReport = {
     productionOrderId: string;
     productionOrderNumber: string;
     productionStatus: string;
@@ -31,7 +31,7 @@ export type MaklonOrderReport = {
     actualEndDate: Date | string | null;
 };
 
-export type MaklonCustomerReport = {
+type MaklonCustomerReport = {
     customerId: string;
     customerName: string;
     orderCount: number;

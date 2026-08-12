@@ -9,7 +9,7 @@ const VISITED_ITEM_STATUSES = new Set(['COMPLETED', 'VISITING']);
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export type WeekBoardDayPlan = {
+type WeekBoardDayPlan = {
     userId: string;
     planId: string | null;
     status: string | null;
@@ -17,17 +17,17 @@ export type WeekBoardDayPlan = {
     visitedCount: number;
 };
 
-export type WeekBoardDay = {
+type WeekBoardDay = {
     date: Date;
     plans: WeekBoardDayPlan[];
 };
 
-export type WeekBoardCoverage = {
+type WeekBoardCoverage = {
     activeCustomers: number;
     scheduledThisWeek: number;
 };
 
-export type WeekBoardOverdueEntry = {
+type WeekBoardOverdueEntry = {
     customerId: string;
     name: string;
     lastVisitAt: Date | null;
@@ -37,9 +37,9 @@ export type WeekBoardOverdueEntry = {
 /** Sama isinya dengan WeekBoardOverdueEntry, tapi UNTUK SEMUA customer aktif
  * (bukan cuma yang overdue) — dipakai UI untuk badge "umur kunjungan
  * terakhir" per stop di RouteStopList (R6), bukan hanya di bar overdue. */
-export type WeekBoardVisitAge = WeekBoardOverdueEntry;
+type WeekBoardVisitAge = WeekBoardOverdueEntry;
 
-export type WeekBoardConflict = {
+type WeekBoardConflict = {
     customerId: string;
     name: string;
     date: Date;

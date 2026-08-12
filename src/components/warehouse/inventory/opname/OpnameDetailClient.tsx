@@ -47,7 +47,7 @@ import {
     type AttachmentItem,
 } from '@/components/warehouse/WarehouseAttachmentPanel';
 
-export interface OpnameItem {
+interface OpnameItem {
     id: string;
     systemQuantity: number;
     countedQuantity: number | null;
@@ -336,7 +336,8 @@ export function OpnameDetailClient({
                 <CardHeader>
                     <CardTitle className="text-base">Bukti Opname</CardTitle>
                     <CardDescription>
-                        Foto kondisi area/rak, item variance, atau berita acara — opsional
+                        Foto kondisi area/rak, item variance, atau berita acara
+                        — opsional
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -345,7 +346,9 @@ export function OpnameDetailClient({
                         entityLabel={session.opnameNumber || 'Opname'}
                         entityType="stockOpnameId"
                         checkpoint="OPNAME"
-                        attachments={safeAttachments.filter((a) => a.checkpoint === 'OPNAME')}
+                        attachments={safeAttachments.filter(
+                            (a) => a.checkpoint === 'OPNAME',
+                        )}
                         disabled={!isOpen}
                         onAttachmentChange={() => router.refresh()}
                     />

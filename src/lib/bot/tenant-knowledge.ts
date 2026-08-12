@@ -42,7 +42,7 @@ async function auditTenantKnowledge(input: {
 // Types
 // ---------------------------------------------------------------------------
 
-export type TenantKnowledgeSearchResult = {
+type TenantKnowledgeSearchResult = {
     slug: string;
     title: string;
     summary: string;

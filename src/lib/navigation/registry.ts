@@ -11,7 +11,7 @@
  * - Multi-copy CRUD NOT OK
  */
 
-export type WorkspaceKey =
+type WorkspaceKey =
     | 'master'
     | 'sales'
     | 'production'
@@ -21,7 +21,7 @@ export type WorkspaceKey =
     | 'hrd'
     | 'maklon';
 
-export type NavSection =
+type NavSection =
     | 'ringkasan'
     | 'transaksi'
     | 'pengiriman'

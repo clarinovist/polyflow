@@ -11,7 +11,7 @@ import { getMainPrisma } from '@/lib/core/prisma';
 import { seedTenantAccountRoles } from './coa-seed-service';
 import type { AccountRole } from './account-resolver';
 
-export type IntegrityStatus = 'OK' | 'MISSING' | 'ORPHAN' | 'INACTIVE';
+type IntegrityStatus = 'OK' | 'MISSING' | 'ORPHAN' | 'INACTIVE';
 
 export interface RequiredRoleAuditItem {
     role: AccountRole;

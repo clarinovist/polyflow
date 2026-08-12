@@ -180,14 +180,12 @@ export const createPurchaseRequestSchema = z.object({
         .min(1, 'At least one item is required'),
 });
 
-export type PurchaseOrderItemValues = z.infer<typeof purchaseOrderItemSchema>;
 export type CreatePurchaseOrderValues = z.infer<
     typeof createPurchaseOrderSchema
 >;
 export type UpdatePurchaseOrderValues = z.infer<
     typeof updatePurchaseOrderSchema
 >;
-export type GoodsReceiptItemValues = z.infer<typeof goodsReceiptItemSchema>;
 export type CreateGoodsReceiptValues = z.infer<typeof createGoodsReceiptSchema>;
 export type CreatePurchaseInvoiceValues = z.infer<
     typeof createPurchaseInvoiceSchema
@@ -196,9 +194,6 @@ export type CreateWalkInReceiptValues = z.infer<
     typeof createWalkInReceiptSchema
 >;
 
-export type PurchaseRequestItemValues = z.infer<
-    typeof purchaseRequestItemSchema
->;
 export type CreatePurchaseRequestValues = z.infer<
     typeof createPurchaseRequestSchema
 >;

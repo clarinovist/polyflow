@@ -1,4 +1,4 @@
-export interface FeatureDefinition {
+interface FeatureDefinition {
     featureKey: string;
     moduleKey: string;
     label: string;

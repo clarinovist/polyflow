@@ -12,7 +12,7 @@ export interface BankAccount {
     account: string;
 }
 
-export interface PaperSize {
+interface PaperSize {
     /** Width in cm (e.g. 24.13 for 9.5 inches) */
     widthCm: number;
     /** Height in cm (e.g. 13.97 for 5.5 inches) */

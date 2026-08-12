@@ -7,7 +7,7 @@ const DEFAULT_IP_LIMIT = 30;
 const DEFAULT_IDENTITY_LIMIT = 5;
 const DEFAULT_WINDOW_MS = 5 * 60 * 1000;
 
-export type MainLoginRateLimitReason = 'ip' | 'identity';
+type MainLoginRateLimitReason = 'ip' | 'identity';
 
 export interface MainLoginRateLimitInput {
     ip: string;

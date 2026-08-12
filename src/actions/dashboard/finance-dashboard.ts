@@ -107,7 +107,7 @@ export const getFinanceDashboardStats = withTenant(
 
 // ---- New shift/command board DTO ----
 
-export type FinanceShiftBoard = {
+type FinanceShiftBoard = {
     queues: {
         arOverdueCount: number;
         arOverdueAmount: number;

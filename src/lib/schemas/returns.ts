@@ -36,7 +36,6 @@ export const updateSalesReturnSchema = createSalesReturnSchema
         id: z.string().uuid('Invalid Return ID'),
     });
 
-export type SalesReturnItemValues = z.infer<typeof salesReturnItemSchema>;
 export type CreateSalesReturnValues = z.infer<typeof createSalesReturnSchema>;
 export type UpdateSalesReturnValues = z.infer<typeof updateSalesReturnSchema>;
 
@@ -72,7 +71,6 @@ export const updatePurchaseReturnSchema = createPurchaseReturnSchema.extend({
     id: z.string().min(1),
 });
 
-export type PurchaseReturnItemValues = z.infer<typeof purchaseReturnItemSchema>;
 export type CreatePurchaseReturnValues = z.infer<
     typeof createPurchaseReturnSchema
 >;

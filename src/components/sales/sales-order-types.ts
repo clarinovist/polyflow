@@ -10,7 +10,7 @@ import {
     StockMovement,
 } from '@prisma/client';
 
-export type SerializedCustomer = Omit<
+type SerializedCustomer = Omit<
     Customer,
     'creditLimit' | 'discountPercent' | 'maxDiscountPercent'
 > & {
@@ -79,7 +79,7 @@ export interface SalesOrderFormProps {
 
 // ---- Detail page types ----
 
-export type SerializedSalesOrderItem = Omit<
+type SerializedSalesOrderItem = Omit<
     SalesOrderItem,
     | 'quantity'
     | 'unitPrice'
@@ -119,7 +119,7 @@ export type SerializedSalesOrderItem = Omit<
     };
 };
 
-export type SerializedStockMovement = Omit<
+type SerializedStockMovement = Omit<
     StockMovement,
     'quantity' | 'cost' | 'createdAt'
 > & {
@@ -128,7 +128,7 @@ export type SerializedStockMovement = Omit<
     createdAt: Date | string;
 };
 
-export type SerializedProductionOrder = Omit<
+type SerializedProductionOrder = Omit<
     ProductionOrder,
     | 'plannedQuantity'
     | 'actualQuantity'

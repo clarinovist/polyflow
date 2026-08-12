@@ -19,7 +19,7 @@ export type AssistantUserContext = {
 // Tool Evidence — structured output from every tool
 // ---------------------------------------------------------------------------
 
-export type ToolEvidenceSource =
+type ToolEvidenceSource =
     | 'tenant-data'
     | 'global-kb'
     | 'tenant-kb'
@@ -83,16 +83,6 @@ export type AuthorizationResult = {
 // Chat request / response (extended)
 // ---------------------------------------------------------------------------
 
-export type AssistantRequest = {
-    question: string;
-    conversationId?: string;
-    pageContext?: {
-        pathname?: string;
-        entityType?: string;
-        entityId?: string;
-    };
-};
-
 export type CitedArticleForResponse = {
     slug: string;
     title: string;
@@ -122,15 +112,3 @@ export type AssistantResponse = {
         blockedReason?: string;
     };
 };
-
-// ---------------------------------------------------------------------------
-// Legacy aliases (for backward compat during migration)
-// ---------------------------------------------------------------------------
-
-export type VirtualCsRequest = {
-    question: string;
-    channel: 'telegram' | 'web' | 'telegram_mini_app';
-    requesterName?: string;
-};
-
-export type VirtualCsResponse = AssistantResponse;

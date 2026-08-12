@@ -18,7 +18,7 @@ const MAX_RETRIES = 5;
 const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 60_000;
 
-export interface SyncResult {
+interface SyncResult {
     processed: number;
     succeeded: number;
     failed: number;
@@ -112,9 +112,7 @@ export async function processSyncQueue(
                     status: 'FAILED',
                     attempts,
                     lastError:
-                        error instanceof Error
-                            ? error.message
-                            : String(error),
+                        error instanceof Error ? error.message : String(error),
                 });
                 result.permanentFailures++;
             } else {
@@ -128,9 +126,7 @@ export async function processSyncQueue(
                     attempts,
                     nextAttemptAt,
                     lastError:
-                        error instanceof Error
-                            ? error.message
-                            : String(error),
+                        error instanceof Error ? error.message : String(error),
                 });
                 result.failed++;
             }
@@ -143,9 +139,7 @@ export async function processSyncQueue(
 /**
  * Manually retry a failed command (reset status to QUEUED).
  */
-export async function retryFailedCommand(
-    commandId: string,
-): Promise<void> {
+export async function retryFailedCommand(commandId: string): Promise<void> {
     await updateCommand(commandId, {
         status: 'QUEUED',
         attempts: 0,
@@ -157,8 +151,6 @@ export async function retryFailedCommand(
 /**
  * Discard a failed command (delete from queue).
  */
-export async function discardFailedCommand(
-    commandId: string,
-): Promise<void> {
+export async function discardFailedCommand(commandId: string): Promise<void> {
     await deleteCommand(commandId);
 }

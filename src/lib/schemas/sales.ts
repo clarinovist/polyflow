@@ -226,13 +226,9 @@ export const saveDeliveryLoadVerificationSchema = z.object({
         .min(1),
 });
 
-export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
 export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
 export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;
 export type UpdateSalesOrderValues = z.infer<typeof updateSalesOrderSchema>;
-export type CreateManualDeliveryOrderValues = z.infer<
-    typeof createManualDeliveryOrderSchema
->;
 
 // ==========================================
 // VEHICLE / ARMADA SCHEMAS
@@ -289,9 +285,6 @@ export type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
 export type CreateVehicleTariffValues = z.infer<
     typeof createVehicleTariffSchema
 >;
-export type UpdateDeliveryPricingValues = z.infer<
-    typeof updateDeliveryPricingSchema
->;
 
 // ==========================================
 // DELIVERY SCHEDULE / TRIP / STOP SCHEMAS
@@ -330,9 +323,3 @@ export const assignSalesOrderToTripSchema = z.object({
 export const linkDeliveryOrderSchema = z.object({
     deliveryOrderId: z.string().min(1, 'Surat Jalan harus dipilih'),
 });
-
-export type CreateScheduleTripValues = z.infer<typeof createScheduleTripSchema>;
-export type UpdateScheduleTripValues = z.infer<typeof updateScheduleTripSchema>;
-export type AssignSalesOrderToTripValues = z.infer<
-    typeof assignSalesOrderToTripSchema
->;

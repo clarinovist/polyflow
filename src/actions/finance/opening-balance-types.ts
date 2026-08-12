@@ -20,7 +20,7 @@ export interface CreateOpeningBalanceInput {
     notes?: string;
 }
 
-export interface GeneralOpeningBalanceLine {
+interface GeneralOpeningBalanceLine {
     accountId: string;
     debit: number;
     credit: number;

@@ -23,7 +23,7 @@ export type MobilePortalId =
     | 'hrd-supervisor'
     | 'maklon';
 
-export type MobilePortalMode = 'EXECUTION' | 'SUPERVISION' | 'SELF_SERVICE';
+type MobilePortalMode = 'EXECUTION' | 'SUPERVISION' | 'SELF_SERVICE';
 
 export type MobilePortalStatus = 'ACTIVE' | 'BETA' | 'PLANNED';
 

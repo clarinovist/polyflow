@@ -83,7 +83,7 @@ function maxDiscountPercentInItems(
 }
 
 // ── Confirm Order types ──────────────────────────────────────────────
-export type ConfirmOrderWarning = {
+type ConfirmOrderWarning = {
     code: 'MISSING_DEFAULT_BOM' | 'WO_CREATE_FAILED' | 'FG_DEMAND_QUEUED';
     productVariantIds: string[];
     productNames: string[];

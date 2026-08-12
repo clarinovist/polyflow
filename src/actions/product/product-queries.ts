@@ -19,33 +19,6 @@ import {
     type VariantCostDiagnostics,
 } from '@/lib/utils/current-cost';
 
-export type ProductWithVariantsAndStock = {
-    id: string;
-    name: string;
-    productType: ProductType;
-    createdAt: Date;
-    updatedAt: Date;
-    variants: {
-        id: string;
-        name: string;
-        skuCode: string;
-        primaryUnit: Unit;
-        salesUnit: Unit | null;
-        conversionFactor: Prisma.Decimal;
-        price: Prisma.Decimal | null;
-        standardCost: Prisma.Decimal | null;
-        buyPrice: Prisma.Decimal | null;
-        minStockAlert: Prisma.Decimal | null;
-        currentCost?: number;
-        currentStockValue?: number;
-        _count: {
-            inventories: number;
-        };
-        stock?: number;
-    }[];
-    totalStock?: number;
-};
-
 type InventoryWithLocation = Inventory & {
     location: { name: string };
 };

@@ -37,7 +37,7 @@ export type DashboardRole =
     | 'PROCUREMENT'
     | string;
 
-export type KpiTrend = 'up' | 'down' | 'neutral';
+type KpiTrend = 'up' | 'down' | 'neutral';
 
 export interface DashboardKpi {
     id: string;

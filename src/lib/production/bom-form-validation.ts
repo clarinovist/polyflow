@@ -1,4 +1,4 @@
-export interface BomItemMassInput {
+interface BomItemMassInput {
     productVariantId?: string;
     quantity: number;
     unit?: string | null;
@@ -88,7 +88,8 @@ export function evaluateBomMassBalance({
     }
 
     if (totalInputKg > outputKg * 1.2) {
-        const shrinkagePercent = ((totalInputKg - outputKg) / totalInputKg) * 100;
+        const shrinkagePercent =
+            ((totalInputKg - outputKg) / totalInputKg) * 100;
         return {
             status: 'high-shrinkage',
             totalInputKg,

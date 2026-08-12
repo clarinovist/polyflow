@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 
-export interface AgingInvoiceDetail {
+interface AgingInvoiceDetail {
     invoiceId: string;
     invoiceNumber: string;
     invoiceDate: Date;

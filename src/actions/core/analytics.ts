@@ -142,6 +142,3 @@ export const exportProductionAnalytics = withTenant(
         });
     },
 );
-
-export type { SalesMetrics } from '@/services/analytics/analytics-service';
-export type { ProductionAnalyticsData } from '@/services/analytics/analytics-service';

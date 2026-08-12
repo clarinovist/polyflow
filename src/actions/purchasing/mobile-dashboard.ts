@@ -6,7 +6,7 @@ import { safeAction } from '@/lib/errors/errors';
 import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { serializeData } from '@/lib/utils/utils';
 
-export interface MobilePurchasingOverview {
+interface MobilePurchasingOverview {
     generatedAt: string;
     highlights: {
         pendingPrCount: number;
@@ -32,36 +32,44 @@ export const getPurchasingMobileOverview = withTenant(
             const [draftPos, pendingPos, recentPos, overdueInvoices] =
                 await Promise.all([
                     prisma.purchaseOrder
-                        ? prisma.purchaseOrder.count({
-                              where: { status: 'DRAFT' },
-                          }).catch(() => 0)
+                        ? prisma.purchaseOrder
+                              .count({
+                                  where: { status: 'DRAFT' },
+                              })
+                              .catch(() => 0)
                         : Promise.resolve(0),
                     prisma.purchaseOrder
-                        ? prisma.purchaseOrder.count({
-                              where: {
-                                  status: {
-                                      in: ['SENT', 'PARTIAL_RECEIVED'],
+                        ? prisma.purchaseOrder
+                              .count({
+                                  where: {
+                                      status: {
+                                          in: ['SENT', 'PARTIAL_RECEIVED'],
+                                      },
                                   },
-                              },
-                          }).catch(() => 0)
+                              })
+                              .catch(() => 0)
                         : Promise.resolve(0),
                     prisma.purchaseOrder
-                        ? prisma.purchaseOrder.findMany({
-                              take: 10,
-                              orderBy: { updatedAt: 'desc' },
-                              include: {
-                                  supplier: { select: { name: true } },
-                              },
-                          }).catch(() => [])
+                        ? prisma.purchaseOrder
+                              .findMany({
+                                  take: 10,
+                                  orderBy: { updatedAt: 'desc' },
+                                  include: {
+                                      supplier: { select: { name: true } },
+                                  },
+                              })
+                              .catch(() => [])
                         : Promise.resolve([]),
                     prisma.purchaseInvoice
-                        ? prisma.purchaseInvoice.findMany({
-                              where: {
-                                  status: { in: ['UNPAID', 'PARTIAL'] },
-                                  dueDate: { lt: new Date() },
-                              },
-                              select: { totalAmount: true },
-                          }).catch(() => [])
+                        ? prisma.purchaseInvoice
+                              .findMany({
+                                  where: {
+                                      status: { in: ['UNPAID', 'PARTIAL'] },
+                                      dueDate: { lt: new Date() },
+                                  },
+                                  select: { totalAmount: true },
+                              })
+                              .catch(() => [])
                         : Promise.resolve([]),
                 ]);
 

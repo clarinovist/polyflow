@@ -11,13 +11,13 @@ export interface UsageAnalyticsFilter {
     moduleKey?: string;
 }
 
-export interface MetricWithTrend {
+interface MetricWithTrend {
     value: number;
     prevValue: number;
     changePercent: number;
 }
 
-export interface FeatureUsageSummary {
+interface FeatureUsageSummary {
     featureKey: string;
     label: string;
     moduleKey: string;
@@ -28,7 +28,7 @@ export interface FeatureUsageSummary {
     uniqueTenants: number;
 }
 
-export interface TenantUsageSummary {
+interface TenantUsageSummary {
     tenantId: string;
     tenantName: string;
     subdomain: string;
@@ -40,7 +40,7 @@ export interface TenantUsageSummary {
     lastActivity: Date | null;
 }
 
-export interface DailyTrendPoint {
+interface DailyTrendPoint {
     date: string;
     totalViews: number;
     activeUsers: number;

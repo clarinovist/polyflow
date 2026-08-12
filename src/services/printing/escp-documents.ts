@@ -10,14 +10,8 @@
  * See docs/plan/2026-08-07-escp-surat-jalan-dan-cetak-gabungan.md.
  */
 
-import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
-
 /** What a route needs back: the bytes, plus a name for the download file. */
 export interface EscpDocument {
     bytes: number[];
     documentNumber: string;
 }
-
-export type CompanyConfig = Awaited<
-    ReturnType<typeof getCompanyConfigWithOverridesAsync>
->;

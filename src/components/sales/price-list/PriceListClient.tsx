@@ -28,7 +28,7 @@ export type ProductOpt = {
     product: { name: string; productType: string };
 };
 
-export type CustomerPriceEntry = {
+type CustomerPriceEntry = {
     id: string;
     customerId: string;
     customerName: string;

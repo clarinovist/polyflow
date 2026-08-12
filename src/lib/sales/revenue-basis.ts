@@ -19,44 +19,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 export type RevenueBasis = 'SALES_ORDER' | 'ISSUED_INVOICE' | 'PAID_INVOICE';
 
-/** Satu baris SO terhitung untuk revenue. Caller sudah filter periode + status. */
-export type SalesOrderRevenueRow = {
-    id: string;
-    salesRepId: string | null;
-    totalAmount: Decimal | number | null;
-    orderDate: Date;
-};
-
-export type IssuedInvoiceRevenueRow = {
-    id: string;
-    salesRepId: string | null; // resolved via SalesOrder.salesRepId
-    totalAmount: Decimal | number | null;
-    invoiceDate: Date;
-    invoiceStatus: string;
-};
-
-export type PaidInvoiceRevenueRow = {
-    id: string;
-    salesRepId: string | null;
-    totalAmount: Decimal | number | null;
-    paidAmount: Decimal | number | null;
-    invoiceDate: Date;
-    invoiceStatus: string;
-};
-
-/**
- * Satu return yang mengurangi omzet. Harus DI PERIODE RETUR TERJADI.
- * Status DIPROSES = CONFIRMED/RECEIVED/COMPLETED (bukan DRAFT/CANCELLED).
- */
-export type SalesReturnRevenueRow = {
-    id: string;
-    salesRepId: string | null;
-    totalAmount: Decimal | number | null;
-    returnDate: Date;
-    status: string;
-};
-
-export type AttributedMap = Map<string, Decimal>;
+type AttributedMap = Map<string, Decimal>;
 export type RevenueResult = {
     attributed: AttributedMap;
     unattributed: Decimal;

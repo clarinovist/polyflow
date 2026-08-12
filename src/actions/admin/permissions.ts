@@ -13,8 +13,6 @@ import {
 } from '@/lib/errors/errors';
 import { getUserRoles, hasRole, isTenantAdmin } from '@/lib/auth/roles';
 
-export type ResourceKey = string;
-
 async function checkAdmin() {
     const session = await auth();
     if (!session?.user || !isTenantAdmin(session.user)) {
@@ -48,12 +46,10 @@ export const getRolePermissions = withTenant(async function getRolePermissions(
 
             // ── Entitlement boundary: filter out permissions for modules
             // the tenant does not own. ──
-            const { resolvePermissionToModule } = await import(
-                '@/lib/modules/module-registry'
-            );
-            const { hasTenantModule } = await import(
-                '@/lib/modules/tenant-entitlements'
-            );
+            const { resolvePermissionToModule } =
+                await import('@/lib/modules/module-registry');
+            const { hasTenantModule } =
+                await import('@/lib/modules/tenant-entitlements');
 
             const filtered: typeof permissions = [];
             for (const p of permissions) {
@@ -97,12 +93,10 @@ export const updatePermission = withTenant(async function updatePermission(
             // ── Entitlement boundary: block permission changes for modules
             // the tenant does not own. CORE is always allowed. ──
             if (!resource.startsWith('feature:')) {
-                const { resolvePermissionToModule } = await import(
-                    '@/lib/modules/module-registry'
-                );
-                const { hasTenantModule } = await import(
-                    '@/lib/modules/tenant-entitlements'
-                );
+                const { resolvePermissionToModule } =
+                    await import('@/lib/modules/module-registry');
+                const { hasTenantModule } =
+                    await import('@/lib/modules/tenant-entitlements');
                 const moduleKey = resolvePermissionToModule(resource);
                 if (moduleKey && moduleKey !== 'CORE') {
                     const entitled = await hasTenantModule(moduleKey);
@@ -201,12 +195,10 @@ export const updatePermissionsBulk = withTenant(
 
                 // ── Entitlement boundary: filter out resources for modules
                 // the tenant does not own. ──
-                const { resolvePermissionToModule } = await import(
-                    '@/lib/modules/module-registry'
-                );
-                const { hasTenantModule } = await import(
-                    '@/lib/modules/tenant-entitlements'
-                );
+                const { resolvePermissionToModule } =
+                    await import('@/lib/modules/module-registry');
+                const { hasTenantModule } =
+                    await import('@/lib/modules/tenant-entitlements');
 
                 const allowedResources: string[] = [];
                 for (const resource of resources) {

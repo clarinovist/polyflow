@@ -20,7 +20,7 @@ import { getModule } from '@/lib/modules/module-registry';
 // Types
 // ---------------------------------------------------------------------------
 
-export interface TenantEntitlement {
+interface TenantEntitlement {
     moduleKey: ModuleKey;
     status: string;
     enabledAt: Date;
@@ -28,7 +28,7 @@ export interface TenantEntitlement {
     config: unknown;
 }
 
-export interface TenantEntitlementContext {
+interface TenantEntitlementContext {
     tenantId: string;
     entitlements: TenantEntitlement[];
     /** Pre-computed set for O(1) lookups. */
@@ -66,9 +66,7 @@ async function fetchEntitlements(
 }
 
 /** Build the active modules set from entitlements + always-active CORE. */
-function buildActiveModules(
-    entitlements: TenantEntitlement[],
-): Set<ModuleKey> {
+function buildActiveModules(entitlements: TenantEntitlement[]): Set<ModuleKey> {
     const active = new Set<ModuleKey>(['CORE']);
     for (const e of entitlements) {
         active.add(e.moduleKey);
@@ -110,9 +108,7 @@ export async function hasTenantModule(moduleKey: ModuleKey): Promise<boolean> {
  * Assert that the current tenant has an active module entitlement.
  * Throws a BusinessRuleError if the module is not entitled.
  */
-export async function requireTenantModule(
-    moduleKey: ModuleKey,
-): Promise<void> {
+export async function requireTenantModule(moduleKey: ModuleKey): Promise<void> {
     if (moduleKey === 'CORE') return;
 
     const ctx = await getTenantEntitlementContext();

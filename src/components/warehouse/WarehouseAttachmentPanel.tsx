@@ -19,8 +19,13 @@ import {
     deleteWarehouseAttachment,
 } from '@/actions/warehouse/operational-attachments';
 
-export type AttachmentCheckpoint = 'LOAD' | 'UNLOAD' | 'DAMAGE' | 'RECEIPT' | 'OPNAME';
-export type DocumentType = 'PHOTO' | 'SURAT_JALAN' | 'NOTA_INVOICE' | 'BERITA_ACARA' | 'OTHER';
+type AttachmentCheckpoint = 'LOAD' | 'UNLOAD' | 'DAMAGE' | 'RECEIPT' | 'OPNAME';
+export type DocumentType =
+    | 'PHOTO'
+    | 'SURAT_JALAN'
+    | 'NOTA_INVOICE'
+    | 'BERITA_ACARA'
+    | 'OTHER';
 
 export interface AttachmentItem {
     id: string;
@@ -38,7 +43,11 @@ export interface AttachmentItem {
 interface WarehouseAttachmentPanelProps {
     entityId: string;
     entityLabel: string;
-    entityType: 'deliveryOrderId' | 'goodsReceiptId' | 'purchaseOrderId' | 'stockOpnameId';
+    entityType:
+        | 'deliveryOrderId'
+        | 'goodsReceiptId'
+        | 'purchaseOrderId'
+        | 'stockOpnameId';
     checkpoint: AttachmentCheckpoint;
     attachments: AttachmentItem[];
     disabled?: boolean;
@@ -96,25 +105,47 @@ export function WarehouseAttachmentPanel({
                 formData.append('checkpoint', checkpoint);
                 formData.append('documentType', docType);
 
-                const response = await fetch('/api/upload/warehouse-attachment', {
-                    method: 'POST',
-                    body: formData,
-                });
+                const response = await fetch(
+                    '/api/upload/warehouse-attachment',
+                    {
+                        method: 'POST',
+                        body: formData,
+                    },
+                );
 
-                if (response.redirected || !response.headers.get('content-type')?.includes('application/json')) {
-                    toast.error('Upload ditolak (akses mobile). Hubungi admin — endpoint upload belum diizinkan untuk perangkat ini.');
+                if (
+                    response.redirected ||
+                    !response.headers
+                        .get('content-type')
+                        ?.includes('application/json')
+                ) {
+                    toast.error(
+                        'Upload ditolak (akses mobile). Hubungi admin — endpoint upload belum diizinkan untuk perangkat ini.',
+                    );
                     return;
                 }
 
-                let result: { key?: string; url?: string; originalName?: string; mimeType?: string; sizeBytes?: number; error?: string };
+                let result: {
+                    key?: string;
+                    url?: string;
+                    originalName?: string;
+                    mimeType?: string;
+                    sizeBytes?: number;
+                    error?: string;
+                };
                 try {
                     result = await response.json();
                 } catch {
-                    toast.error(`Upload gagal (HTTP ${response.status}). Cek koneksi / R2.`);
+                    toast.error(
+                        `Upload gagal (HTTP ${response.status}). Cek koneksi / R2.`,
+                    );
                     return;
                 }
                 if (!response.ok || !result.key) {
-                    toast.error(result.error || `Upload gagal (HTTP ${response.status})`);
+                    toast.error(
+                        result.error ||
+                            `Upload gagal (HTTP ${response.status})`,
+                    );
                     return;
                 }
 
@@ -144,7 +175,11 @@ export function WarehouseAttachmentPanel({
                 }
             } catch (err) {
                 const msg = err instanceof Error ? err.message : '';
-                toast.error(msg ? `Gagal mengunggah file: ${msg}` : 'Gagal mengunggah file. Cek koneksi.');
+                toast.error(
+                    msg
+                        ? `Gagal mengunggah file: ${msg}`
+                        : 'Gagal mengunggah file. Cek koneksi.',
+                );
             } finally {
                 setUploading(false);
             }
@@ -268,7 +303,9 @@ export function WarehouseAttachmentPanel({
                                     <button
                                         type="button"
                                         onClick={() => handleDelete(att.id)}
-                                        disabled={deletingId === att.id || disabled}
+                                        disabled={
+                                            deletingId === att.id || disabled
+                                        }
                                         className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
                                     >
                                         {deletingId === att.id ? (
@@ -298,7 +335,9 @@ export function WarehouseAttachmentPanel({
                                     size="sm"
                                     className="flex-1 h-9 text-xs"
                                     disabled={uploading}
-                                    onClick={() => photoInputRef.current?.click()}
+                                    onClick={() =>
+                                        photoInputRef.current?.click()
+                                    }
                                 >
                                     {uploading ? (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />

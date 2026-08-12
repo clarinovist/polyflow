@@ -38,8 +38,6 @@ export type VirtualCsRequest = {
     requesterName?: string;
 };
 
-export type { CitedArticleForResponse };
-
 export type VirtualCsResponse = AssistantResponse;
 
 type SessionUser = {
@@ -120,8 +118,8 @@ export async function generateVirtualCsReply(
             input.channel === 'telegram_mini_app'
                 ? 'telegram_mini_app'
                 : input.channel === 'telegram'
-                    ? 'telegram'
-                    : 'web';
+                  ? 'telegram'
+                  : 'web';
         const conversation = await getOrCreateConversation({
             tenantId: context.tenantId,
             userId: context.sessionUser.id,

@@ -1,8 +1,4 @@
-export type {
-    CreateOpeningBalanceInput,
-    GeneralOpeningBalanceLine,
-    UnifiedMakeOpeningBalanceInput,
-} from './opening-balance-types';
+export type { CreateOpeningBalanceInput } from './opening-balance-types';
 export {
     createOpeningBalance,
     getAccountsForOpeningBalance,

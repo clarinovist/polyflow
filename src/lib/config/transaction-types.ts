@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import type { AccountRole } from '@/services/accounting/account-resolver';
 
-export type TransactionCategory =
+type TransactionCategory =
     | 'EXPENSE'
     | 'SALES'
     | 'PAYROLL'

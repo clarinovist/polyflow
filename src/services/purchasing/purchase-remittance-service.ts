@@ -28,7 +28,7 @@ export interface CreatePurchaseRemittanceInput {
     notes?: string;
 }
 
-export interface VerifyPurchaseRemittanceItemResult {
+interface VerifyPurchaseRemittanceItemResult {
     itemId: string;
     purchaseInvoiceId: string;
     success: boolean;

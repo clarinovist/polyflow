@@ -306,7 +306,7 @@ export type ProductionHistoryFilter = {
     limit?: number; // default 200, max 500
 };
 
-export type ProductionHistoryExecution = {
+type ProductionHistoryExecution = {
     id: string;
     quantityProduced: number;
     scrapQuantity: number;

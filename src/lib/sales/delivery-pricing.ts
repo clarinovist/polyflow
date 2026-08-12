@@ -10,7 +10,7 @@
  * - UI components (client-side preview mirror)
  */
 
-export type RateTypeInput = 'PER_KG' | 'FLAT_RATE';
+type RateTypeInput = 'PER_KG' | 'FLAT_RATE';
 
 export interface DeliveryTotalsInput {
     rateType: RateTypeInput;
@@ -57,10 +57,7 @@ export function routesMatch(a?: string | null, b?: string | null): boolean {
  * Compare two customer IDs for exact match.
  * null matches null (both = "Semua Customer").
  */
-export function customersMatch(
-    a?: string | null,
-    b?: string | null,
-): boolean {
+export function customersMatch(a?: string | null, b?: string | null): boolean {
     return normalizeKey(a) === normalizeKey(b);
 }
 
@@ -103,27 +100,19 @@ export function resolveBestTariff<T extends TariffCandidate>(
         normalizeRouteKey(t.routeName) === null;
 
     // Tier 1: customer match + route match
-    const tier1 = candidates.find(
-        (t) => customerMatch(t) && routeMatch(t),
-    );
+    const tier1 = candidates.find((t) => customerMatch(t) && routeMatch(t));
     if (tier1) return tier1;
 
     // Tier 2: customer match + route null (all routes)
-    const tier2 = candidates.find(
-        (t) => customerMatch(t) && routeNull(t),
-    );
+    const tier2 = candidates.find((t) => customerMatch(t) && routeNull(t));
     if (tier2) return tier2;
 
     // Tier 3: customer null + route match
-    const tier3 = candidates.find(
-        (t) => customerNull(t) && routeMatch(t),
-    );
+    const tier3 = candidates.find((t) => customerNull(t) && routeMatch(t));
     if (tier3) return tier3;
 
     // Tier 4: customer null + route null (default)
-    const tier4 = candidates.find(
-        (t) => customerNull(t) && routeNull(t),
-    );
+    const tier4 = candidates.find((t) => customerNull(t) && routeNull(t));
     if (tier4) return tier4;
 
     return undefined;

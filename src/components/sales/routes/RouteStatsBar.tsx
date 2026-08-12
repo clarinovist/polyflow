@@ -23,7 +23,7 @@ type RouteStatsCustomer = {
     longitude: number | null;
 };
 
-export type RouteComplianceData = {
+type RouteComplianceData = {
     assigned: number;
     visited: number;
     extraCalls: number;

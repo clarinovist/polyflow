@@ -6,14 +6,14 @@ import { UNATTRIBUTED_SALES_KEY } from '@/lib/sales/revenue-basis';
 
 // ── Types ───────────────────────────────────────────────────────
 
-export type HppCoverage = 'FULL' | 'PARTIAL' | 'NONE';
+type HppCoverage = 'FULL' | 'PARTIAL' | 'NONE';
 
 export type VariantHppEntry = {
     hppPerUnit: Decimal;
     totalQuantity: Decimal;
 };
 
-export type MarginItemRow = {
+type MarginItemRow = {
     productVariantId: string;
     skuCode: string | null;
     productName: string;
@@ -25,7 +25,7 @@ export type MarginItemRow = {
     hppMissing: boolean;
 };
 
-export type MarginOrderRow = {
+type MarginOrderRow = {
     id: string;
     orderNumber: string;
     orderDate: Date;
@@ -44,7 +44,7 @@ export type MarginOrderRow = {
     hasIncompleteHpp: boolean;
 };
 
-export type MarginCustomerRow = {
+type MarginCustomerRow = {
     customerId: string;
     customerName: string;
     revenue: Decimal;
@@ -57,7 +57,7 @@ export type MarginCustomerRow = {
     ordersWithIncompleteHpp: number;
 };
 
-export type MarginProductRow = {
+type MarginProductRow = {
     productVariantId: string;
     skuCode: string | null;
     productName: string;
@@ -71,7 +71,7 @@ export type MarginProductRow = {
     orderCount: number;
 };
 
-export type MarginSalesRow = {
+type MarginSalesRow = {
     salesRepId: string;
     salesRepName: string;
     revenue: Decimal;

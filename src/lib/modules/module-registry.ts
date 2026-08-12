@@ -27,9 +27,7 @@ export type ModuleKey =
     | 'FINANCE'
     | 'MAKLON';
 
-export type CapabilityKey = 'MANUFACTURING_WORKFORCE';
-
-export type ModuleStatus = 'TRIAL' | 'ACTIVE' | 'SUSPEDDED' | 'EXPIRED';
+type CapabilityKey = 'MANUFACTURING_WORKFORCE';
 
 export interface ModuleDefinition {
     key: ModuleKey;
@@ -186,10 +184,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
             '/api/production/daily-report',
             '/api/upload/production-photo',
         ],
-        actionPrefixes: [
-            'production/',
-            'core/transaction-wizard',
-        ],
+        actionPrefixes: ['production/', 'core/transaction-wizard'],
         serviceDirs: ['production', 'printing'],
         uploadPrefixes: ['/api/upload/production-photo'],
     },
@@ -202,9 +197,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
         landingPath: '/warehouse',
         requiredModules: [],
         capabilities: [],
-        apiRoutes: [
-            '/api/external/v1/inventory',
-        ],
+        apiRoutes: ['/api/external/v1/inventory'],
         actionPrefixes: ['inventory/'],
         serviceDirs: ['inventory'],
         uploadPrefixes: [],
@@ -218,9 +211,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
         landingPath: '/finance',
         requiredModules: [],
         capabilities: [],
-        apiRoutes: [
-            '/api/print/invoice',
-        ],
+        apiRoutes: ['/api/print/invoice'],
         actionPrefixes: ['finance/'],
         serviceDirs: ['finance', 'accounting'],
         uploadPrefixes: [],
@@ -387,9 +378,10 @@ export function expandPackageModules(packageKey: string): ModuleKey[] {
 }
 
 /** Validate a set of module keys. Returns invalid keys. */
-export function validateModuleKeys(
-    keys: string[],
-): { valid: ModuleKey[]; invalid: string[] } {
+export function validateModuleKeys(keys: string[]): {
+    valid: ModuleKey[];
+    invalid: string[];
+} {
     const valid: ModuleKey[] = [];
     const invalid: string[] = [];
     for (const k of keys) {
@@ -419,9 +411,7 @@ for (const mod of MODULE_DEFINITIONS) {
 }
 
 /** Resolve a workspace key (e.g. "hrd", "sales") to its ModuleKey. */
-export function resolveWorkspaceToModule(
-    workspace: string,
-): ModuleKey | null {
+export function resolveWorkspaceToModule(workspace: string): ModuleKey | null {
     const root = workspace.startsWith('/') ? workspace : `/${workspace}`;
     return _workspaceToModule.get(root) ?? null;
 }

@@ -3,9 +3,9 @@ import { NotFoundError } from '@/lib/errors/errors';
 import { wibDateStringFrom } from '@/services/hrd/shift-window';
 import { isLastWeekOfMonth, weekQueryRange } from '@/services/hrd/week-range';
 
-export type PayrollExceptionReason = 'NO_ATTENDANCE' | 'RATE_MISSING';
+type PayrollExceptionReason = 'NO_ATTENDANCE' | 'RATE_MISSING';
 
-export interface PayrollRecord {
+interface PayrollRecord {
     date: Date;
     shiftName: string;
     status: string;
@@ -16,7 +16,7 @@ export interface PayrollRecord {
     totalEarnings: number;
 }
 
-export interface PiecePayrollLine {
+interface PiecePayrollLine {
     executionId: string;
     date: Date;
     machineType: string | null;
