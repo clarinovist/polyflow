@@ -167,6 +167,12 @@ export const productionComponentLabels = {
     removeRequirement: 'Hapus Kebutuhan',
     warningTargetWarehouse:
         'Peringatan: Target kemungkinan Gudang. Pastikan Pesanan ini diatur ke Lokasi Produksi.',
+    wipSelfConsumptionHint: 'Stok WIP di lokasi ini — tidak perlu transfer',
+    wipSelfConsumptionShortagePrefix: 'Kurang',
+    wipSelfConsumptionShortageSuffix:
+        'perlu produksi tambahan sebelum SPK ini bisa dipenuhi',
+    wipSelfConsumptionSubmitError:
+        'Ada bahan WIP yang stoknya belum cukup di lokasi ini. Ini bukan soal "pilih gudang sumber" — perlu produksi tambahan (SPK Mixing) dulu sebelum SPK ini bisa dipenuhi.',
 
     // Ad-Hoc Material Usage Dialog (Path A — ideally from Warehouse)
     recordAdHocUsage: 'Catat Pemakaian Bahan',

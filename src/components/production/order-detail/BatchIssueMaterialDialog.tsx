@@ -112,6 +112,17 @@ export function BatchIssueMaterialDialog({
     const effectiveSourceForItem = (item: BatchItem) =>
         item.sourceLocationId || defaultSourceForItem(item);
 
+    /**
+     * WIP/Intermediate material whose resolved source is the order's own
+     * staging location — e.g. a MIX order that also draws on already-mixed
+     * WIP as one of its own ingredients (regrind top-up). Same condition as
+     * the `itemsToMove` exclusion below: there is no other warehouse to pull
+     * this from, so "transfer" is meaningless for this row.
+     */
+    const isSelfConsumptionWip = (item: BatchItem) =>
+        ['WIP', 'INTERMEDIATE'].includes(item.productType || '') &&
+        effectiveSourceForItem(item) === order.location.id;
+
     // Check if transfer mode (Backflush) based on machine type OR bom category
     const isTransferMode =
         order.machine?.type === 'MIXER' ||
@@ -943,7 +954,8 @@ export function BatchIssueMaterialDialog({
                                                         {item.unit || '-'}
                                                     </span>
                                                 </div>
-                                                {!isTransferMode &&
+                                                {!item.isDeletedPlan &&
+                                                    item.productVariantId &&
                                                     (() => {
                                                         const locToUse =
                                                             effectiveSourceForItem(
@@ -954,6 +966,58 @@ export function BatchIssueMaterialDialog({
                                                             stockLevels[
                                                                 stockKey
                                                             ];
+                                                        const isShort =
+                                                            currentStock !==
+                                                                undefined &&
+                                                            currentStock <
+                                                                item.quantity;
+                                                        const selfConsumption =
+                                                            isTransferMode &&
+                                                            isSelfConsumptionWip(
+                                                                item,
+                                                            );
+
+                                                        if (selfConsumption) {
+                                                            return (
+                                                                <div className="mt-1 flex items-center justify-end gap-1.5 text-right">
+                                                                    <span className="text-[10px] text-muted-foreground">
+                                                                        {
+                                                                            productionComponentLabels.stock
+                                                                        }
+                                                                        :{' '}
+                                                                        {currentStock ??
+                                                                            '...'}
+                                                                    </span>
+                                                                    {isShort ? (
+                                                                        <span className="text-[10px] font-medium text-amber-600 dark:text-amber-500">
+                                                                            {
+                                                                                productionComponentLabels.wipSelfConsumptionShortagePrefix
+                                                                            }{' '}
+                                                                            {(
+                                                                                item.quantity -
+                                                                                (currentStock ||
+                                                                                    0)
+                                                                            ).toFixed(
+                                                                                2,
+                                                                            )}{' '}
+                                                                            {
+                                                                                item.unit
+                                                                            }{' '}
+                                                                            —{' '}
+                                                                            {
+                                                                                productionComponentLabels.wipSelfConsumptionShortageSuffix
+                                                                            }
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500">
+                                                                            {
+                                                                                productionComponentLabels.wipSelfConsumptionHint
+                                                                            }
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        }
 
                                                         return (
                                                             <div className="mt-1 flex items-center justify-end gap-2">
@@ -965,10 +1029,8 @@ export function BatchIssueMaterialDialog({
                                                                     {currentStock ??
                                                                         '...'}
                                                                 </span>
-                                                                {currentStock !==
-                                                                    undefined &&
-                                                                    currentStock <
-                                                                        item.quantity && (
+                                                                {!isTransferMode &&
+                                                                    isShort && (
                                                                         <Button
                                                                             variant="destructive"
                                                                             size="sm"
@@ -1104,7 +1166,8 @@ export function BatchIssueMaterialDialog({
                                             i.quantity > 0 &&
                                             i.productVariantId !== '' &&
                                             effectiveSourceForItem(i) ===
-                                                order.location.id,
+                                                order.location.id &&
+                                            !isSelfConsumptionWip(i),
                                     ))
                             }
                             className="bg-primary hover:bg-primary/90"
