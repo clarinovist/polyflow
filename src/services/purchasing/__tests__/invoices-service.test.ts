@@ -319,6 +319,25 @@ describe('getPurchaseInvoices', () => {
             orderBy: { createdAt: 'desc' },
         });
     });
+
+    it('selects purchaseOrder.id so the invoice list can link to /purchasing/orders/:id', async () => {
+        // Arrange
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
+
+        // Act
+        await getPurchaseInvoices();
+
+        // Assert
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                include: {
+                    purchaseOrder: {
+                        select: expect.objectContaining({ id: true }),
+                    },
+                },
+            }),
+        );
+    });
 });
 
 describe('getOutstandingPurchaseInvoices', () => {

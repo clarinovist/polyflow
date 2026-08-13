@@ -316,6 +316,7 @@ export async function getPurchaseInvoices(dateRange?: {
         include: {
             purchaseOrder: {
                 select: {
+                    id: true,
                     orderNumber: true,
                     supplier: { select: { name: true } },
                 },

@@ -51,7 +51,7 @@ type InvoiceWithRelations = {
     termOfPaymentDays?: number | null;
     purchaseOrderId: string;
     purchaseOrder: {
-        id?: string;
+        id: string;
         orderNumber: string;
         supplier: {
             name: string;
